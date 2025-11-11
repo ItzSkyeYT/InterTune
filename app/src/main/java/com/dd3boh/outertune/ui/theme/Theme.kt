@@ -29,6 +29,7 @@ import com.google.material.color.hct.Hct
 import com.google.material.color.scheme.SchemeTonalSpot
 import com.google.material.color.score.Score
 
+// TODO: support for custom accent
 val DefaultThemeColor = Color(0xFFED5564)
 
 @Composable
@@ -38,16 +39,10 @@ fun OuterTuneTheme(
     themeColor: Color = DefaultThemeColor,
     content: @Composable () -> Unit,
 ) {
-    val context = LocalContext.current
     val colorScheme = remember(darkTheme, pureBlack, themeColor) {
-        if (themeColor == DefaultThemeColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (darkTheme) dynamicDarkColorScheme(context).pureBlack(pureBlack)
-            else dynamicLightColorScheme(context)
-        } else {
-            SchemeTonalSpot(Hct.fromInt(themeColor.toArgb()), darkTheme, 0.0)
-                .toColorScheme()
-                .pureBlack(darkTheme && pureBlack)
-        }
+        SchemeTonalSpot(Hct.fromInt(themeColor.toArgb()), darkTheme, 0.0)
+            .toColorScheme()
+            .pureBlack(darkTheme && pureBlack)
     }
 
     MaterialTheme(
