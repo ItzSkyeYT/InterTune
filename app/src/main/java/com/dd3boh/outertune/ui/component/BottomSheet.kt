@@ -190,7 +190,7 @@ class BottomSheetState(
     }
 
     val isCollapsed by derivedStateOf {
-        value == collapsedBound
+        value <= collapsedBound
     }
 
     val isExpanded by derivedStateOf {
