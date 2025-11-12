@@ -84,6 +84,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -226,7 +227,6 @@ fun BottomSheetPlayer(
                 }
 
 
-                val overlayColor = if (useDarkTheme) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.55f)
                 AnimatedContent(
                     targetState = mediaMetadata,
                     transitionSpec = {
@@ -241,13 +241,8 @@ fun BottomSheetPlayer(
                             contentScale = ContentScale.FillBounds,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .blur(if (useDarkTheme) 150.dp else 100.dp)
-                        )
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(overlayColor)
+                                .blur(100.dp)
+                                .alpha(0.5f)
                         )
                     }
                 }
@@ -263,12 +258,7 @@ fun BottomSheetPlayer(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(Brush.verticalGradient(colors), alpha = 0.8f)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(overlayColor)
+                                .background(Brush.verticalGradient(colors), alpha = 0.4f)
                         )
                     }
                 }
