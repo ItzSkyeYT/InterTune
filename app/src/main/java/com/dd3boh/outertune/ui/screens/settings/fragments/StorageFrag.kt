@@ -16,9 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.Backup
@@ -496,11 +494,7 @@ fun ColumnScope.DownloadsFrag() {
         DefaultDialog(
             onDismiss = { showDlInfoDialog = false },
             content = {
-                Column(
-                    modifier = Modifier
-                        .weight(1f, false)
-                        .verticalScroll(rememberScrollState())
-                ) {
+                Column() {
                     Text(
                         text = stringResource(R.string.dl_storage_tooltip),
                         style = MaterialTheme.typography.bodyLarge,
