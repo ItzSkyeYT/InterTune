@@ -1,7 +1,6 @@
 package com.dd3boh.outertune.extensions
 
 import android.content.Context
-import android.content.res.Configuration
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.PowerManager

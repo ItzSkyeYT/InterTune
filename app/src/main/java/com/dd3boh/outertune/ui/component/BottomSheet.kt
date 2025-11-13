@@ -50,9 +50,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
-import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.min
 import com.dd3boh.outertune.constants.BottomSheetAnimationSpec
 import com.dd3boh.outertune.constants.BottomSheetSoftAnimationSpec
 import com.dd3boh.outertune.constants.MinMiniPlayerHeight

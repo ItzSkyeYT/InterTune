@@ -17,7 +17,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -36,7 +35,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -118,9 +116,6 @@ import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.CONTENT_TYPE_SONG
-import com.dd3boh.outertune.constants.DEFAULT_PLAYER_BACKGROUND
-import com.dd3boh.outertune.constants.DarkMode
-import com.dd3boh.outertune.constants.DarkModeKey
 import com.dd3boh.outertune.constants.InsetsSafeE
 import com.dd3boh.outertune.constants.InsetsSafeS
 import com.dd3boh.outertune.constants.InsetsSafeSE
@@ -130,8 +125,6 @@ import com.dd3boh.outertune.constants.ListItemHeight
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.LockQueueKey
 import com.dd3boh.outertune.constants.MiniPlayerHeight
-import com.dd3boh.outertune.constants.PlayerBackgroundStyle
-import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.constants.PlayerHorizontalPadding
 import com.dd3boh.outertune.constants.SeekIncrement
 import com.dd3boh.outertune.constants.SeekIncrementKey
