@@ -134,7 +134,7 @@ fun ExperimentalSettings(
         )
         SwitchPreference(
             title = { Text(stringResource(R.string.tablet_ui_title)) },
-            description = stringResource(R.string.tablet_ui_title),
+            description = stringResource(R.string.tablet_ui_title_description),
             icon = { Icon(Icons.Rounded.Devices, null) },
             checked = tabletUi,
             onCheckedChange = onTabletUiChange

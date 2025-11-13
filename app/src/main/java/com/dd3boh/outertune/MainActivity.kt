@@ -32,6 +32,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -39,12 +40,16 @@ import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -121,6 +126,7 @@ import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.SlimNavBarKey
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.extensions.tabMode
 import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.playback.MediaControllerViewModel
 import com.dd3boh.outertune.playback.MusicService
@@ -137,6 +143,7 @@ import com.dd3boh.outertune.ui.screens.HistoryScreen
 import com.dd3boh.outertune.ui.screens.HomeScreen
 import com.dd3boh.outertune.ui.screens.LoginScreen
 import com.dd3boh.outertune.ui.screens.MoodAndGenresScreen
+import com.dd3boh.outertune.ui.screens.PlayerScreen
 import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.SetupWizard
 import com.dd3boh.outertune.ui.screens.StatsScreen
@@ -259,10 +266,10 @@ class MainActivity : ComponentActivity() {
             }
 
             val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
-//            val tabMode = this@MainActivity.tabMode()
+            val tabMode = this@MainActivity.tabMode()
             val useNavRail by remember {
                 derivedStateOf {
-                    windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.EXPANDED
+                    windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.EXPANDED && !tabMode
                 }
             }
 
@@ -349,6 +356,7 @@ class MainActivity : ComponentActivity() {
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.surface)
                 ) {
+                    val maxW = maxWidth
                     Log.v(MAIN_TAG, "RC-2.2")
 
                     fun getNavPadding(): Dp {
@@ -908,30 +916,71 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // phone
-                            navHost()
+                            if (!tabMode) {
+                                navHost()
 
-                            SearchBarContainer(navController, scrollBehavior)
+                                SearchBarContainer(navController, scrollBehavior)
 
-                            if (oobeStatus >= OOBE_VERSION) {
-                                BottomSheetPlayer(
-                                    state = playerBottomSheetState,
-                                    navController = navController
-                                )
+                                if (oobeStatus >= OOBE_VERSION) {
+                                    BottomSheetPlayer(
+                                        state = playerBottomSheetState,
+                                        navController = navController
+                                    )
 
-                                if (!useNavRail) {
-                                    navbar()
-                                } else {
-                                    navRail(if (LocalLayoutDirection.current == LayoutDirection.Rtl) Alignment.BottomEnd else Alignment.BottomStart)
+                                    if (!useNavRail) {
+                                        navbar()
+                                    } else {
+                                        navRail(if (LocalLayoutDirection.current == LayoutDirection.Rtl) Alignment.BottomEnd else Alignment.BottomStart)
+                                    }
                                 }
-                            }
-                            bottomSheetMenu()
+                                bottomSheetMenu()
 
-                            SnackbarHost(
-                                hostState = snackbarHostState,
-                                modifier = Modifier
-                                    .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
-                                    .align(Alignment.BottomCenter)
-                            )
+                                SnackbarHost(
+                                    hostState = snackbarHostState,
+                                    modifier = Modifier
+                                        .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
+                                        .align(Alignment.BottomCenter)
+                                )
+                            } else {
+                                // tabmode only enables >= 600dp (unless it's forced on). For those who wish to try down
+                                // to the widescreen limit, 320dp player is the minimum acceptable size for the player
+                                val playerW = (maxW.value * 0.4).coerceIn(320.0, 500.0)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .width(playerW.dp)
+                                    ) {
+                                        if (oobeStatus >= OOBE_VERSION) {
+                                            PlayerScreen(navController)
+                                        }
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                    ) {
+                                        navHost()
+
+                                        SearchBarContainer(navController, scrollBehavior)
+
+                                        if (oobeStatus >= OOBE_VERSION) {
+                                            navbar()
+                                        }
+                                        bottomSheetMenu()
+
+                                        SnackbarHost(
+                                            hostState = snackbarHostState,
+                                            modifier = Modifier
+                                                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
+                                                .align(Alignment.BottomCenter)
+                                        )
+                                    }
+                                }
+
+                            }
 
                             // Setup wizard
                             LaunchedEffect(Unit) {

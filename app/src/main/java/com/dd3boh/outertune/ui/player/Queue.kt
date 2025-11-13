@@ -138,6 +138,7 @@ import com.dd3boh.outertune.constants.SeekIncrementKey
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.move
 import com.dd3boh.outertune.extensions.supportsWideScreen
+import com.dd3boh.outertune.extensions.tabMode
 import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.models.MediaMetadata
@@ -278,9 +279,10 @@ fun BoxScope.QueueContent(
     )
 
     // ui
+    val tabMode = context.tabMode()
     val wideScreen = context.supportsWideScreen()
     val landscape =
-        LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE && wideScreen
+        LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE && wideScreen && !tabMode
 
     val queueWindows by playerConnection.queueWindows.collectAsState()
 

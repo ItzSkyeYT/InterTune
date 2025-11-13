@@ -112,6 +112,7 @@ import com.dd3boh.outertune.constants.LibraryFilterKey
 import com.dd3boh.outertune.constants.LocalLibraryEnableKey
 import com.dd3boh.outertune.constants.LyricTrimKey
 import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
+import com.dd3boh.outertune.constants.NavigationBarHeight
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.ScanPathsKey
@@ -829,6 +830,7 @@ fun SetupWizard(
                         }
                     }
                 }
+                Spacer(Modifier.height(NavigationBarHeight))
             }
 
             if (oobeStatus == 0 || oobeStatus == OOBE_VERSION - 1) {

@@ -296,13 +296,12 @@ fun BottomSheetPlayer(
 fun PortraitPlayer(
     playerSheetState: BottomSheetState,
     navController: NavController,
+    enableQueueSheet: Boolean = true,
 ) {
     val TAG = "BottomSheetPlayer"
     Log.v(TAG, "PLR-3.1b")
 
-    val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
-
 
     val dismissedBound = WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
 
@@ -422,7 +421,7 @@ fun PortraitPlayer(
             }
         }
 
-        controlsContent(playerSheetState, queueSheetState, navController, context.supportsWideScreen())
+        controlsContent(playerSheetState, queueSheetState, navController)
 
 
         Spacer(Modifier.height(24.dp))
@@ -430,15 +429,17 @@ fun PortraitPlayer(
 
     }
 
-    QueueSheet(
-        state = queueSheetState,
-        playerBottomSheetState = playerSheetState,
-        onTerminate = {
-            playerSheetState.dismiss()
-            playerConnection.service.queueBoard.detachedHead = false
-        },
-        navController = navController
-    )
+    if (enableQueueSheet) {
+        QueueSheet(
+            state = queueSheetState,
+            playerBottomSheetState = playerSheetState,
+            onTerminate = {
+                playerSheetState.dismiss()
+                playerConnection.service.queueBoard.detachedHead = false
+            },
+            navController = navController
+        )
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -446,8 +447,8 @@ fun PortraitPlayer(
 fun LandscapePlayer(
     playerSheetState: BottomSheetState,
     navController: NavController,
-
-    ) {
+    enableQueueSheet: Boolean = true,
+) {
     val TAG = "BottomSheetPlayer"
 
     val context = LocalContext.current
@@ -594,15 +595,17 @@ fun LandscapePlayer(
         }
     }
 
-    QueueSheet(
-        state = queueSheetState,
-        playerBottomSheetState = playerSheetState,
-        onTerminate = {
-            playerSheetState.dismiss()
-            playerConnection.service.queueBoard.detachedHead = false
-        },
-        navController = navController
-    )
+    if (enableQueueSheet) {
+        QueueSheet(
+            state = queueSheetState,
+            playerBottomSheetState = playerSheetState,
+            onTerminate = {
+                playerSheetState.dismiss()
+                playerConnection.service.queueBoard.detachedHead = false
+            },
+            navController = navController
+        )
+    }
 }
 
 
@@ -676,7 +679,7 @@ fun controlsContent(
     playerSheetState: BottomSheetState,
     queueSheetState: BottomSheetState,
     navController: NavController,
-    compactWidth: Boolean,
+    showQueueHint: Boolean = false,
 ) {
     val TAG = "ControlsContent()"
     Log.v(TAG, "PLR-CC-1")
@@ -753,313 +756,320 @@ fun controlsContent(
         mutableStateOf<Long?>(null)
     }
 
-
-    // action buttons for landscape (above title)
-    if (compactWidth) {
-        Row(
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = PlayerHorizontalPadding, end = PlayerHorizontalPadding, bottom = 16.dp)
+    BoxWithConstraints() {
+        val maxW = maxWidth
+        val compactWidth = maxW < 400.dp
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ActionButtons(playerSheetState, navController)
-        }
-    }
-
-    Row(
-        horizontalArrangement = Arrangement.Start,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = PlayerHorizontalPadding)
-    ) {
-        Row {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = mediaMetadata?.title ?: "",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = onBackgroundColor,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+            // action buttons for landscape (above title)
+            if (compactWidth) {
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .basicMarquee(
-                            iterations = 1,
-                            initialDelayMillis = 3000
-                        )
-                        .clickable(enabled = mediaMetadata?.album != null) {
-                            navController.navigate("album/${mediaMetadata?.album!!.id}")
-                            playerSheetState.collapseSoft()
-                        }
-                )
+                        .fillMaxWidth()
+                        .padding(start = PlayerHorizontalPadding, end = PlayerHorizontalPadding, bottom = 16.dp)
+                ) {
+                    ActionButtons(playerSheetState, navController)
+                }
+            }
 
+            Row(
+                horizontalArrangement = Arrangement.Start,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = PlayerHorizontalPadding)
+            ) {
                 Row {
-                    mediaMetadata?.artists?.fastForEachIndexed { index, artist ->
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = artist.name,
-                            style = MaterialTheme.typography.titleMedium,
+                            text = mediaMetadata?.title ?: "",
+                            style = MaterialTheme.typography.titleLarge,
                             color = onBackgroundColor,
+                            fontWeight = FontWeight.Bold,
                             maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier
                                 .basicMarquee(
                                     iterations = 1,
-                                    initialDelayMillis = 5000
+                                    initialDelayMillis = 3000
                                 )
-                                .clickable(enabled = artist.id != null) {
-                                    navController.navigate("artist/${artist.id}")
+                                .clickable(enabled = mediaMetadata?.album != null) {
+                                    navController.navigate("album/${mediaMetadata?.album!!.id}")
                                     playerSheetState.collapseSoft()
                                 }
                         )
 
-                        if (index != mediaMetadata?.artists?.lastIndex) {
-                            Text(
-                                text = ", ",
+                        Row {
+                            mediaMetadata?.artists?.fastForEachIndexed { index, artist ->
+                                Text(
+                                    text = artist.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = onBackgroundColor,
+                                    maxLines = 1,
+                                    modifier = Modifier
+                                        .basicMarquee(
+                                            iterations = 1,
+                                            initialDelayMillis = 5000
+                                        )
+                                        .clickable(enabled = artist.id != null) {
+                                            navController.navigate("artist/${artist.id}")
+                                            playerSheetState.collapseSoft()
+                                        }
+                                )
+
+                                if (index != mediaMetadata?.artists?.lastIndex) {
+                                    Text(
+                                        text = ", ",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = onBackgroundColor
+                                    )
+                                }
+                            } ?: Text(
+                                text = "",
                                 style = MaterialTheme.typography.titleMedium,
-                                color = onBackgroundColor
+                                color = onBackgroundColor,
+                                maxLines = 1,
                             )
                         }
-                    } ?: Text(
-                        text = "",
-                        style = MaterialTheme.typography.titleMedium,
+                    }
+
+                    // action buttons for portrait (inline with title)
+                    if (!compactWidth) {
+                        ActionButtons(playerSheetState, navController)
+                    }
+                }
+            }
+
+            Slider(
+                value = (sliderPosition ?: position).toFloat(),
+                valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                onValueChange = {
+                    sliderPosition = it.toLong()
+                    // slider too granular for this haptic to feel right
+//                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                },
+                onValueChangeFinished = {
+                    sliderPosition?.let {
+                        playerConnection.player.seekTo(it)
+                        position = it
+                    }
+                    sliderPosition = null
+                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                },
+                thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                track = { sliderState ->
+                    PlayerSliderTrack(
+                        sliderState = sliderState,
+                        colors = SliderDefaults.colors()
+                    )
+                },
+                modifier = Modifier.padding(horizontal = PlayerHorizontalPadding)
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = PlayerHorizontalPadding + 4.dp)
+            ) {
+                Text(
+                    text = makeTimeString(sliderPosition ?: position),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = onBackgroundColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                Text(
+                    text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = onBackgroundColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = PlayerHorizontalPadding)
+            ) {
+                val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
+
+                Box(modifier = Modifier.weight(1f)) {
+                    ResizableIconButton(
+                        icon = if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .padding(4.dp)
+                            .align(Alignment.Center),
                         color = onBackgroundColor,
-                        maxLines = 1,
+                        enabled = playerConnection.player.currentMediaItem != null,
+                        onClick = {
+                            playerConnection.triggerShuffle()
+                            haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                        }
+                    )
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    ResizableIconButton(
+                        icon = Icons.Rounded.SkipPrevious,
+                        enabled = canSkipPrevious,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .align(Alignment.Center),
+                        color = onBackgroundColor,
+                        onClick = {
+                            if (playerConnection.player.currentMediaItem == null) {
+                                playerConnection.service.queueBoard.setCurrQueue()
+                            }
+                            playerConnection.player.seekToPrevious()
+                            haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                        }
+                    )
+                }
+
+                if (seekIncrement != SeekIncrement.OFF) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        ResizableIconButton(
+                            icon = Icons.Rounded.FastRewind,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .align(Alignment.Center),
+                            color = onBackgroundColor,
+                            enabled = playerConnection.player.currentMediaItem != null,
+                            onClick = {
+                                playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
+                            }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(if (maxW >= 320.dp) if (showLyrics) 56.dp else 72.dp else 42.dp)
+                        .animateContentSize()
+                        .clip(RoundedCornerShape(playPauseRoundness))
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable {
+                            if (playerConnection.player.currentMediaItem == null) {
+                                playerConnection.service.queueBoard.setCurrQueue()
+                                playerConnection.player.togglePlayPause()
+                            } else if (playbackState == STATE_ENDED) {
+                                playerConnection.player.seekTo(0, 0)
+                                playerConnection.player.playWhenReady = true
+                            } else {
+                                playerConnection.player.togglePlayPause()
+                            }
+                            // play/pause is slightly harder haptic
+                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                        }
+                ) {
+                    Image(
+                        imageVector = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(36.dp)
+                    )
+                }
+
+                Spacer(Modifier.width(8.dp))
+
+                if (seekIncrement != SeekIncrement.OFF) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        ResizableIconButton(
+                            icon = Icons.Rounded.FastForward,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .align(Alignment.Center),
+                            color = onBackgroundColor,
+                            enabled = playerConnection.player.currentMediaItem != null,
+                            onClick = {
+                                //ExoPlayer seek increment can only be set in builder
+                                //playerConnection.player.seekForward()
+                                playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
+                            }
+                        )
+                    }
+                }
+
+
+
+                Box(modifier = Modifier.weight(1f)) {
+                    ResizableIconButton(
+                        icon = Icons.Rounded.SkipNext,
+                        enabled = canSkipNext,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .align(Alignment.Center),
+                        color = onBackgroundColor,
+                        onClick = {
+                            playerConnection.player.seekToNext()
+                            haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                        }
+                    )
+                }
+
+                Box(modifier = Modifier.weight(1f)) {
+                    ResizableIconButton(
+                        icon = when (repeatMode) {
+                            REPEAT_MODE_OFF -> R.drawable.repeat_off
+                            REPEAT_MODE_ALL -> R.drawable.repeat_on
+                            REPEAT_MODE_ONE -> R.drawable.repeat_one
+                            else -> throw IllegalStateException()
+                        },
+                        modifier = Modifier
+                            .size(32.dp)
+                            .padding(4.dp)
+                            .align(Alignment.Center),
+                        color = onBackgroundColor,
+                        enabled = playerConnection.player.currentMediaItem != null,
+                        onClick = {
+                            playerConnection.player.toggleRepeatMode()
+                            haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                        }
                     )
                 }
             }
 
-            // action buttons for portrait (inline with title)
-            if (!compactWidth) {
-                ActionButtons(playerSheetState, navController)
-            }
-        }
-    }
-
-    Slider(
-        value = (sliderPosition ?: position).toFloat(),
-        valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-        onValueChange = {
-            sliderPosition = it.toLong()
-            // slider too granular for this haptic to feel right
-//                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-        },
-        onValueChangeFinished = {
-            sliderPosition?.let {
-                playerConnection.player.seekTo(it)
-                position = it
-            }
-            sliderPosition = null
-            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-        },
-        thumb = { Spacer(modifier = Modifier.size(0.dp)) },
-        track = { sliderState ->
-            PlayerSliderTrack(
-                sliderState = sliderState,
-                colors = SliderDefaults.colors()
-            )
-        },
-        modifier = Modifier.padding(horizontal = PlayerHorizontalPadding)
-    )
-
-    Row(
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = PlayerHorizontalPadding + 4.dp)
-    ) {
-        Text(
-            text = makeTimeString(sliderPosition ?: position),
-            style = MaterialTheme.typography.labelMedium,
-            color = onBackgroundColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-
-        Text(
-            text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
-            style = MaterialTheme.typography.labelMedium,
-            color = onBackgroundColor,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-
-    Spacer(Modifier.height(12.dp))
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = PlayerHorizontalPadding)
-    ) {
-        val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
-
-        Box(modifier = Modifier.weight(1f)) {
-            ResizableIconButton(
-                icon = if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
-                modifier = Modifier
-                    .size(32.dp)
-                    .padding(4.dp)
-                    .align(Alignment.Center),
-                color = onBackgroundColor,
-                enabled = playerConnection.player.currentMediaItem != null,
-                onClick = {
-                    playerConnection.triggerShuffle()
-                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                }
-            )
-        }
-
-        Box(modifier = Modifier.weight(1f)) {
-            ResizableIconButton(
-                icon = Icons.Rounded.SkipPrevious,
-                enabled = canSkipPrevious,
-                modifier = Modifier
-                    .size(32.dp)
-                    .align(Alignment.Center),
-                color = onBackgroundColor,
-                onClick = {
-                    if (playerConnection.player.currentMediaItem == null) {
-                        playerConnection.service.queueBoard.setCurrQueue()
-                    }
-                    playerConnection.player.seekToPrevious()
-                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                }
-            )
-        }
-
-        if (seekIncrement != SeekIncrement.OFF) {
-            Box(modifier = Modifier.weight(1f)) {
-                ResizableIconButton(
-                    icon = Icons.Rounded.FastRewind,
+            // queue hint for landscape
+            if (showQueueHint) {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .size(32.dp)
-                        .align(Alignment.Center),
-                    color = onBackgroundColor,
-                    enabled = playerConnection.player.currentMediaItem != null,
-                    onClick = {
-                        playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
-                    }
-                )
-            }
-        }
-
-        Spacer(Modifier.width(8.dp))
-
-        Box(
-            modifier = Modifier
-                .size(if (showLyrics) 56.dp else 72.dp)
-                .animateContentSize()
-                .clip(RoundedCornerShape(playPauseRoundness))
-                .background(MaterialTheme.colorScheme.primary)
-                .clickable {
-                    if (playerConnection.player.currentMediaItem == null) {
-                        playerConnection.service.queueBoard.setCurrQueue()
-                        playerConnection.player.togglePlayPause()
-                    } else if (playbackState == STATE_ENDED) {
-                        playerConnection.player.seekTo(0, 0)
-                        playerConnection.player.playWhenReady = true
-                    } else {
-                        playerConnection.player.togglePlayPause()
-                    }
-                    // play/pause is slightly harder haptic
-                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                }
-        ) {
-            Image(
-                imageVector = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(36.dp)
-            )
-        }
-
-        Spacer(Modifier.width(8.dp))
-
-        if (seekIncrement != SeekIncrement.OFF) {
-            Box(modifier = Modifier.weight(1f)) {
-                ResizableIconButton(
-                    icon = Icons.Rounded.FastForward,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .align(Alignment.Center),
-                    color = onBackgroundColor,
-                    enabled = playerConnection.player.currentMediaItem != null,
-                    onClick = {
-                        //ExoPlayer seek increment can only be set in builder
-                        //playerConnection.player.seekForward()
-                        playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
-                    }
-                )
-            }
-        }
-
-
-
-        Box(modifier = Modifier.weight(1f)) {
-            ResizableIconButton(
-                icon = Icons.Rounded.SkipNext,
-                enabled = canSkipNext,
-                modifier = Modifier
-                    .size(32.dp)
-                    .align(Alignment.Center),
-                color = onBackgroundColor,
-                onClick = {
-                    playerConnection.player.seekToNext()
-                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                }
-            )
-        }
-
-        Box(modifier = Modifier.weight(1f)) {
-            ResizableIconButton(
-                icon = when (repeatMode) {
-                    REPEAT_MODE_OFF -> R.drawable.repeat_off
-                    REPEAT_MODE_ALL -> R.drawable.repeat_on
-                    REPEAT_MODE_ONE -> R.drawable.repeat_one
-                    else -> throw IllegalStateException()
-                },
-                modifier = Modifier
-                    .size(32.dp)
-                    .padding(4.dp)
-                    .align(Alignment.Center),
-                color = onBackgroundColor,
-                enabled = playerConnection.player.currentMediaItem != null,
-                onClick = {
-                    playerConnection.player.toggleRepeatMode()
-                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                }
-            )
-        }
-    }
-
-    // queue hint for landscape
-    if (compactWidth) {
-        Spacer(Modifier.height(12.dp))
-        Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .height(QueuePeekHeight)
-                .fillMaxWidth()
-                .clickable(
-                    onClick = {
+                        .height(QueuePeekHeight)
+                        .fillMaxWidth()
+                        .clickable(
+                            onClick = {
+                                queueSheetState.expandSoft()
+                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            }
+                        )
+                ) {
+                    IconButton(onClick = {
                         queueSheetState.expandSoft()
                         haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                    }) {
+                        Icon(
+                            imageVector = Icons.Rounded.ExpandLess,
+                            tint = MaterialTheme.colorScheme.onSurface,
+                            contentDescription = null,
+                        )
                     }
-                )
-        ) {
-            IconButton(onClick = {
-                queueSheetState.expandSoft()
-                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-            }) {
-                Icon(
-                    imageVector = Icons.Rounded.ExpandLess,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    contentDescription = null,
-                )
+                }
             }
         }
     }

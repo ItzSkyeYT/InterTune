@@ -32,12 +32,14 @@ fun Context.supportsWideScreen() : Boolean {
     return config.screenWidthDp >= 600
 }
 
+/**
+ * If screen is large enough to support tablet UI mode.
+ * Current screen must be at least 600dp.
+ */
 fun Context.tabMode(): Boolean {
     val config = resources.configuration
     val isTablet = config.smallestScreenWidthDp >= 600
-    val isLandscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val forceTabMode = dataStore.get(TabletUiKey, isTablet)
-    return (isTablet || forceTabMode) && isLandscape
+    return (isTablet || dataStore.get(TabletUiKey, false)) && config.screenWidthDp >= 600
 }
 
 fun Context.isPowerSaver(): Boolean {
