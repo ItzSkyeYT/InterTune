@@ -279,7 +279,9 @@ class MainActivity : ComponentActivity() {
             var filter by rememberEnumPreference(LibraryFilterKey, Screens.LibraryFilter.ALL)
             val (slimNav) = rememberPreference(SlimNavBarKey, defaultValue = false)
             val (enabledTabs) = rememberPreference(EnabledTabsKey, defaultValue = DEFAULT_ENABLED_TABS)
-            val navigationItems = Screens.getScreens(enabledTabs)
+            val navigationItems = remember {
+                Screens.getScreens(enabledTabs)
+            }
             val (defaultOpenTab, onDefaultOpenTabChange) = rememberPreference(
                 DefaultOpenTabKey,
                 defaultValue = Screens.Home.route
@@ -527,6 +529,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                     composable(Screens.Library.route) {
                                         LibraryScreen(navController, scrollBehavior)
+                                    }
+                                    composable(Screens.Player.route) {
+                                        PlayerScreen(navController, bottomPadding = getNavPadding())
                                     }
                                     composable("history") {
                                         HistoryScreen(navController)
@@ -922,10 +927,12 @@ class MainActivity : ComponentActivity() {
                                 SearchBarContainer(navController, scrollBehavior)
 
                                 if (oobeStatus >= OOBE_VERSION) {
-                                    BottomSheetPlayer(
-                                        state = playerBottomSheetState,
-                                        navController = navController
-                                    )
+                                    if (!navigationItems.contains(Screens.Player)) {
+                                        BottomSheetPlayer(
+                                            state = playerBottomSheetState,
+                                            navController = navController
+                                        )
+                                    }
 
                                     if (!useNavRail) {
                                         navbar()
@@ -953,7 +960,7 @@ class MainActivity : ComponentActivity() {
                                         modifier = Modifier
                                             .width(playerW.dp)
                                     ) {
-                                        if (oobeStatus >= OOBE_VERSION) {
+                                        if (oobeStatus >= OOBE_VERSION && !navigationItems.contains(Screens.Player)) {
                                             PlayerScreen(navController)
                                         }
                                     }

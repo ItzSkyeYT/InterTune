@@ -77,7 +77,6 @@ import kotlin.math.roundToInt
 fun MiniPlayer(
     modifier: Modifier = Modifier,
 ) {
-    println("minimplayer recomp 1 ")
     val playerConnection = LocalPlayerConnection.current ?: return
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val playbackState by playerConnection.playbackState.collectAsState()
@@ -112,7 +111,6 @@ fun MiniPlayer(
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal))
 //            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp))
     ) {
-        println("minimplayer recomp 2 ")
         LinearProgressIndicator(
             progress = { (position.toFloat() / duration).coerceIn(0f, 1f) },
             drawStopIndicator = { },
