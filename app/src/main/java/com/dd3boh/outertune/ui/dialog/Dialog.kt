@@ -279,6 +279,7 @@ fun TextFieldDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActionPromptDialog(
+    modifier: Modifier = Modifier,
     title: String? = null,
     titleBar: @Composable (RowScope.() -> Unit)? = null,
     onDismiss: () -> Unit,
@@ -298,9 +299,12 @@ fun ActionPromptDialog(
                 )
                 .fillMaxWidth(0.8f)
                 .padding(16.dp)
-                .verticalScroll(rememberScrollState())
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            Column(
+                modifier = modifier
+                    .padding(12.dp)
+                    .weight(1f, false)
+            ) {
                 // title
                 if (titleBar != null) {
                     Row {

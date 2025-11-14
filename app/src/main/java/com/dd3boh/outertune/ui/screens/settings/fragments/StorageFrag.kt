@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.Backup
@@ -372,7 +374,9 @@ fun ColumnScope.DownloadsFrag() {
                 // download path cannot a scan path, or a subdir of a scan path
                 tempFilePath.toString().length <= it.toString().length && tempFilePath.toString()
                     .contains(it.toString())
-            }
+            },
+            modifier = Modifier
+                .verticalScroll(rememberScrollState()),
         ) {
 
             val dirPickerLauncher = rememberLauncherForActivityResult(
@@ -556,7 +560,9 @@ fun ColumnScope.DownloadsFrag() {
             isInputValid = uriListFromString(scanPaths).toList().none { scanPath ->
                 // scan path cannot be contain any dl extras path
                 tempScanPaths.toList().any { it.toString().contains(scanPath.toString()) }
-            }
+            },
+            modifier = Modifier
+                .verticalScroll(rememberScrollState()),
         ) {
             val dirPickerLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.OpenDocumentTree()

@@ -700,7 +700,9 @@ fun SetupWizard(
                                     // download path cannot a scan path, or a subdir of a scan path
                                     tempFilePath.toString().length <= it.toString().length && tempFilePath.toString()
                                         .contains(it.toString())
-                                }
+                                },
+                                modifier = Modifier
+                                    .verticalScroll(rememberScrollState()),
                             ) {
 
                                 val dirPickerLauncher = rememberLauncherForActivityResult(

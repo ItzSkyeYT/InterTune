@@ -133,6 +133,7 @@ import com.dd3boh.outertune.extensions.supportsWideScreen
 import com.dd3boh.outertune.extensions.tabMode
 import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.extensions.toggleRepeatMode
+import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.ui.component.BottomSheet
 import com.dd3boh.outertune.ui.component.BottomSheetState
 import com.dd3boh.outertune.ui.component.PlayerSliderTrack
@@ -195,83 +196,12 @@ fun BottomSheetPlayer(
         state = state,
         modifier = modifier,
         background = {
-            Log.v(TAG, "PLR-2.1")
-            Box(
-                modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
-                    .fillMaxSize()
-            ) {
-                val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
-                var gradientColors by remember {
-                    mutableStateOf<List<Color>>(emptyList())
-                }
-
-
-                // gradient colours
-                LaunchedEffect(mediaMetadata, playerBackground) {
-                    if (playerBackground != PlayerBackgroundStyle.GRADIENT || context.isPowerSaver()) return@LaunchedEffect
-
-                    withContext(coilCoroutine) {
-                        val result = context.imageLoader.execute(
-                            ImageRequest.Builder(context)
-                                .data(mediaMetadata?.getThumbnailModel(100, 100))
-                                .allowHardware(false)
-                                .build()
-                        )
-
-                        val bitmap = result.image?.toBitmap()?.extractGradientColors()
-                        bitmap?.let {
-                            gradientColors = it
-                        }
-                    }
-                }
-
-
-                AnimatedContent(
-                    targetState = mediaMetadata,
-                    transitionSpec = {
-                        fadeIn(tween(1000)).togetherWith(fadeOut(tween(1000)))
-                    }
-                ) { metadata ->
-                    if (playerBackground == PlayerBackgroundStyle.BLUR) {
-                        Log.v(TAG, "PLR-2.2a")
-                        AsyncImage(
-                            model = metadata?.getThumbnailModel(100, 100),
-                            contentDescription = null,
-                            contentScale = ContentScale.FillBounds,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .blur(100.dp)
-                                .alpha(0.5f)
-                        )
-                    }
-                }
-
-                AnimatedContent(
-                    targetState = gradientColors,
-                    transitionSpec = {
-                        fadeIn(tween(1000)).togetherWith(fadeOut(tween(1000)))
-                    }
-                ) { colors ->
-                    if (playerBackground == PlayerBackgroundStyle.GRADIENT && colors.size >= 2) {
-                        Log.v(TAG, "PLR-2.2b")
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Brush.verticalGradient(colors), alpha = 0.4f)
-                        )
-                    }
-                }
-
-                if (playerBackground != PlayerBackgroundStyle.FOLLOW_THEME && showLyrics) {
-                    Log.v(TAG, "PLR-2.2c")
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(if (useDarkTheme) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.5f))
-                    )
-                }
-            }
+            PlayerBackground(
+                playerConnection = playerConnection,
+                playerBackground = playerBackground,
+                showLyrics = showLyrics,
+                useDarkTheme = useDarkTheme,
+            )
         },
         collapsedBackgroundColor = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
         onDismiss = {
@@ -308,7 +238,7 @@ fun PortraitPlayer(
     val queueSheetState = rememberBottomSheetState(
         dismissedBound = dismissedBound,
         expandedBound = playerSheetState.expandedBound,
-        collapsedBound = dismissedBound + (QueuePeekHeight * 2),
+        collapsedBound = dismissedBound + (QueuePeekHeight * 1.2f),
         initialAnchor = collapsedAnchor,
     )
 
@@ -421,7 +351,7 @@ fun PortraitPlayer(
             }
         }
 
-        controlsContent(playerSheetState, queueSheetState, navController)
+        ControlsContent(playerSheetState, queueSheetState, navController)
 
 
         Spacer(Modifier.height(24.dp))
@@ -589,7 +519,7 @@ fun LandscapePlayer(
         ) {
             Spacer(Modifier.weight(1f))
 
-            controlsContent(playerSheetState, queueSheetState, navController, context.supportsWideScreen())
+            ControlsContent(playerSheetState, queueSheetState, navController, context.supportsWideScreen())
 
             Spacer(Modifier.weight(1f))
         }
@@ -675,7 +605,7 @@ fun ActionButtons(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun controlsContent(
+fun ControlsContent(
     playerSheetState: BottomSheetState,
     queueSheetState: BottomSheetState,
     navController: NavController,
@@ -1071,6 +1001,97 @@ fun controlsContent(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun PlayerBackground(
+    playerConnection: PlayerConnection,
+    playerBackground: PlayerBackgroundStyle,
+    showLyrics: Boolean,
+    useDarkTheme: Boolean,
+) {
+    val TAG = "PlayerBackground"
+    Log.v(TAG, "PLR_BG-1")
+
+    val context = LocalContext.current
+
+    Box(
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
+            .fillMaxSize()
+    ) {
+
+        val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+        var gradientColors by remember {
+            mutableStateOf<List<Color>>(emptyList())
+        }
+
+
+        // gradient colours
+        LaunchedEffect(mediaMetadata, playerBackground) {
+            if (playerBackground != PlayerBackgroundStyle.GRADIENT || context.isPowerSaver()) return@LaunchedEffect
+
+            withContext(coilCoroutine) {
+                val result = context.imageLoader.execute(
+                    ImageRequest.Builder(context)
+                        .data(mediaMetadata?.getThumbnailModel(100, 100))
+                        .allowHardware(false)
+                        .build()
+                )
+
+                val bitmap = result.image?.toBitmap()?.extractGradientColors()
+                bitmap?.let {
+                    gradientColors = it
+                }
+            }
+        }
+
+
+        AnimatedContent(
+            targetState = mediaMetadata,
+            transitionSpec = {
+                fadeIn(tween(1000)).togetherWith(fadeOut(tween(1000)))
+            }
+        ) { metadata ->
+            if (playerBackground == PlayerBackgroundStyle.BLUR) {
+                Log.v(TAG, "PLR-2.2a")
+                AsyncImage(
+                    model = metadata?.getThumbnailModel(100, 100),
+                    contentDescription = null,
+                    contentScale = ContentScale.FillBounds,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(100.dp)
+                        .alpha(0.5f)
+                )
+            }
+        }
+
+        AnimatedContent(
+            targetState = gradientColors,
+            transitionSpec = {
+                fadeIn(tween(1000)).togetherWith(fadeOut(tween(1000)))
+            }
+        ) { colors ->
+            if (playerBackground == PlayerBackgroundStyle.GRADIENT && colors.size >= 2) {
+                Log.v(TAG, "PLR-2.2b")
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Brush.verticalGradient(colors), alpha = 0.4f)
+                )
+            }
+        }
+
+        if (playerBackground != PlayerBackgroundStyle.FOLLOW_THEME && showLyrics) {
+            Log.v(TAG, "PLR-2.2c")
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(if (useDarkTheme) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.5f))
+            )
         }
     }
 }

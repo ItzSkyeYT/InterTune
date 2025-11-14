@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -62,6 +63,7 @@ import com.dd3boh.outertune.constants.SearchSource
 import com.dd3boh.outertune.constants.SearchSourceKey
 import com.dd3boh.outertune.constants.UpdateAvailableKey
 import com.dd3boh.outertune.db.entities.SearchHistory
+import com.dd3boh.outertune.extensions.tabMode
 import com.dd3boh.outertune.ui.component.SearchBar
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.screens.Screens
@@ -157,6 +159,12 @@ fun SearchBarContainer(
         enter = fadeIn(),
         exit = fadeOut()
     ) {
+        val searchBarInset = if (!context.tabMode()) {
+            WindowInsets.safeDrawing.union(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Start))
+        }
+        else {
+            WindowInsets()
+        }
         SearchBar(
             query = query,
             onQueryChange = onQueryChange,
@@ -192,7 +200,12 @@ fun SearchBarContainer(
                     },
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        imageVector =
+                            if (searchActive || navBackStackEntry?.destination?.route?.startsWith("search") == true) {
+                                Icons.AutoMirrored.Rounded.ArrowBack
+                            } else {
+                                Icons.Rounded.Search
+                            },
                         contentDescription = null
                     )
                 }
@@ -248,7 +261,7 @@ fun SearchBarContainer(
                     }
                 }
             },
-            windowInsets = WindowInsets.safeDrawing.union(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Start)),
+            windowInsets = searchBarInset,
             focusRequester = searchBarFocusRequester,
         ) {
             Log.v("SearchBarContainer", "SB-2")

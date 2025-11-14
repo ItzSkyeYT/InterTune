@@ -27,7 +27,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -526,7 +528,9 @@ fun ColumnScope.LocalScannerFrag() {
                 // scan path cannot be the download directory or subdir of download directory
                 !it.toString().contains(uriListFromString(downloadPath).firstOrNull().toString())
                         && uriListFromString(dlPathExtra).none { f -> it.toString().contains(f.toString()) }
-            } || tempScanPaths.isEmpty()
+            } || tempScanPaths.isEmpty(),
+            modifier = Modifier
+                .verticalScroll(rememberScrollState()),
         ) {
             val dirPickerLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.OpenDocumentTree()

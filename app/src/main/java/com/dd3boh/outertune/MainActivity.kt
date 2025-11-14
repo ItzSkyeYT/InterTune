@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
@@ -377,16 +378,22 @@ class MainActivity : ComponentActivity() {
                             var bottom = bottomInset + if (!useNavRail) NavigationBarHeight else 0.dp
 
                             if (!playerBottomSheetState.isDismissed) bottom += MiniPlayerHeight
-                            windowsInsets
-                                .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
-                                .add(cutoutInsets.only(WindowInsetsSides.Horizontal))
-                                .add(
-                                    WindowInsets(
-                                        left = if (!useNavRail) 0.dp else NavigationBarHeight,
-                                        top = AppBarHeight,
-                                        bottom = bottom
+                            if (!tabMode) {
+                                windowsInsets
+                                    .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
+                                    .add(cutoutInsets.only(WindowInsetsSides.Horizontal))
+                                    .add(
+                                        WindowInsets(
+                                            left = if (!useNavRail) 0.dp else NavigationBarHeight,
+                                            top = AppBarHeight,
+                                            bottom = bottom
+                                        )
                                     )
-                                )
+                            } else {
+                                windowsInsets
+                                    .only(WindowInsetsSides.Top)
+                                    .add(WindowInsets(top = AppBarHeight, bottom = bottom))
+                            }
                         }
 
                     val scrollBehavior = appBarScrollBehavior(
@@ -463,9 +470,9 @@ class MainActivity : ComponentActivity() {
                                         }
 
                                         if (targetRouteIndex == -1 || targetRouteIndex > currentRouteIndex)
-                                            slideOutHorizontally { -it / 8 } + fadeOut(tween(200))
+                                            slideOutHorizontally { -it / 8 } + fadeOut(tween(100))
                                         else
-                                            slideOutHorizontally { it / 8 } + fadeOut(tween(200))
+                                            slideOutHorizontally { it / 8 } + fadeOut(tween(100))
                                     },
                                     popEnterTransition = {
                                         val currentRouteIndex = navigationItems.indexOfFirst {
@@ -489,9 +496,9 @@ class MainActivity : ComponentActivity() {
                                         }
 
                                         if (currentRouteIndex != -1 && currentRouteIndex < targetRouteIndex)
-                                            slideOutHorizontally { -it / 8 } + fadeOut(tween(200))
+                                            slideOutHorizontally { -it / 8 } + fadeOut(tween(100))
                                         else
-                                            slideOutHorizontally { it / 8 } + fadeOut(tween(200))
+                                            slideOutHorizontally { it / 8 } + fadeOut(tween(100))
                                     },
                                     modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
                                 )
@@ -952,6 +959,7 @@ class MainActivity : ComponentActivity() {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxSize()
+                                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                                 ) {
                                     Box(
                                         modifier = Modifier
