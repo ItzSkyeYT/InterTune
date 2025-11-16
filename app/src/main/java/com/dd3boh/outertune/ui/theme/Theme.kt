@@ -10,9 +10,13 @@ package com.dd3boh.outertune.ui.theme
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.Build
+import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,6 +54,7 @@ fun OuterTuneTheme(
     context: Context,
     playerConnection: PlayerConnection?,
     enableDynamicTheme: Boolean,
+    highContrastCompat: Boolean,
     isSystemInDarkTheme: Boolean,
     darkTheme: Boolean = isSystemInDarkTheme(),
     pureBlack: Boolean = false,
@@ -67,38 +72,57 @@ fun OuterTuneTheme(
             themeColor = DefaultThemeColor
             return@LaunchedEffect
         }
-                playerConnection.service.currentMediaMetadata.collectLatest { song ->
-                    coroutineScope.launch(coilCoroutine) {
-                        var ret = DefaultThemeColor
-                        if (song != null) {
-                            val uri = (if (song.isLocal) song.localPath else song.thumbnailUrl)?.toUri()
-                            if (uri != null) {
-                                val model = if (uri.toString().startsWith("/storage/")) {
-                                    LocalArtworkPath(uri.toString(), 100, 100)
-                                } else {
-                                    uri
-                                }
-
-                                val result = context.imageLoader.execute(
-                                    ImageRequest.Builder(context)
-                                        .data(model)
-                                        .allowHardware(false)
-                                        .build()
-                                )
-
-                                ret = result.image?.toBitmap()?.extractThemeColor() ?: DefaultThemeColor
-                            }
+        playerConnection.service.currentMediaMetadata.collectLatest { song ->
+            coroutineScope.launch(coilCoroutine) {
+                var ret = DefaultThemeColor
+                if (song != null) {
+                    val uri = (if (song.isLocal) song.localPath else song.thumbnailUrl)?.toUri()
+                    if (uri != null) {
+                        val model = if (uri.toString().startsWith("/storage/")) {
+                            LocalArtworkPath(uri.toString(), 100, 100)
+                        } else {
+                            uri
                         }
-                        themeColor = ret
+
+                        val result = context.imageLoader.execute(
+                            ImageRequest.Builder(context)
+                                .data(model)
+                                .allowHardware(false)
+                                .build()
+                        )
+
+                        ret = result.image?.toBitmap()?.extractThemeColor() ?: DefaultThemeColor
                     }
                 }
+                themeColor = ret
+            }
+        }
     }
 
-
     val colorScheme = remember(darkTheme, pureBlack, themeColor) {
-        SchemeTonalSpot(Hct.fromInt(themeColor.toArgb()), darkTheme, 0.0)
-            .toColorScheme()
-            .pureBlack(darkTheme && pureBlack)
+        if (themeColor == DefaultThemeColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val systemTheme = if (darkTheme) {
+                dynamicDarkColorScheme(context).pureBlack(pureBlack)
+            } else {
+                dynamicLightColorScheme(context)
+            }
+
+            // when high contrast mode Android collapses all accent colours into (more or less) one shade. We use
+            // secondaryContainer and onSecondaryContainer weirdly in several places in terms of theming so just replace
+            // those with shades that make sense
+            if (highContrastCompat) {
+                systemTheme.copy(
+                    secondaryContainer = systemTheme.surfaceContainerHigh,
+                    onSecondaryContainer = systemTheme.secondary,
+                )
+            } else {
+                systemTheme
+            }
+        } else {
+            SchemeTonalSpot(Hct.fromInt(themeColor.toArgb()), darkTheme, 0.0)
+                .toColorScheme()
+                .pureBlack(darkTheme && pureBlack)
+        }
     }
 
     MaterialTheme(
