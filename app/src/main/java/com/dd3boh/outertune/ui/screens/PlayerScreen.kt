@@ -75,6 +75,7 @@ fun PlayerScreen(
 
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
+    val queueBoard by playerConnection.queueBoard.collectAsState()
 
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
@@ -112,9 +113,9 @@ fun PlayerScreen(
 
         val tabMode = context.tabMode()
         if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE && !tabMode && context.supportsWideScreen()) {
-            LandscapePlayer(state, navController)
+            LandscapePlayer(state, navController, queueBoard)
         } else {
-            PortraitPlayer(state, navController)
+            PortraitPlayer(state, navController, queueBoard)
         }
     }
 }

@@ -134,6 +134,7 @@ import com.dd3boh.outertune.extensions.tabMode
 import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.playback.PlayerConnection
+import com.dd3boh.outertune.playback.QueueBoard
 import com.dd3boh.outertune.ui.component.BottomSheet
 import com.dd3boh.outertune.ui.component.BottomSheetState
 import com.dd3boh.outertune.ui.component.PlayerSliderTrack
@@ -167,6 +168,7 @@ fun BottomSheetPlayer(
 
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current ?: return
+    val queueBoard by playerConnection.service.queueBoard.collectAsState()
 
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
@@ -183,9 +185,9 @@ fun BottomSheetPlayer(
 
     val qbInit by playerConnection.service.qbInit.collectAsState()
 
-    LaunchedEffect(qbInit, playerConnection.service.queueBoard.masterQueues.toList()) {
+    LaunchedEffect(qbInit, queueBoard.masterQueues.toList()) {
         Log.d(TAG, "Queues changed. qbInit = $qbInit")
-        if (qbInit && !playerConnection.service.queueBoard.masterQueues.isEmpty() && state.isDismissed) {
+        if (qbInit && !queueBoard.masterQueues.isEmpty() && state.isDismissed) {
             Log.d(TAG, "Triggering sheet collapseSoft")
             state.collapseSoft()
         }
@@ -214,9 +216,9 @@ fun BottomSheetPlayer(
         Log.v(TAG, "PLR-3.0")
 
         if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE && !context.tabMode() && context.supportsWideScreen()) {
-            LandscapePlayer(state, navController)
+            LandscapePlayer(state, navController, queueBoard)
         } else {
-            PortraitPlayer(state, navController)
+            PortraitPlayer(state, navController, queueBoard)
         }
     }
 }
@@ -226,6 +228,7 @@ fun BottomSheetPlayer(
 fun PortraitPlayer(
     playerSheetState: BottomSheetState,
     navController: NavController,
+    queueBoard: QueueBoard,
     enableQueueSheet: Boolean = true,
 ) {
     val TAG = "BottomSheetPlayer"
@@ -351,7 +354,7 @@ fun PortraitPlayer(
             }
         }
 
-        ControlsContent(playerSheetState, queueSheetState, navController)
+        ControlsContent(playerSheetState, queueSheetState, navController, queueBoard)
 
 
         Spacer(Modifier.height(24.dp))
@@ -365,7 +368,7 @@ fun PortraitPlayer(
             playerBottomSheetState = playerSheetState,
             onTerminate = {
                 playerSheetState.dismiss()
-                playerConnection.service.queueBoard.detachedHead = false
+                queueBoard.detachedHead = false
             },
             navController = navController
         )
@@ -377,6 +380,7 @@ fun PortraitPlayer(
 fun LandscapePlayer(
     playerSheetState: BottomSheetState,
     navController: NavController,
+    queueBoard: QueueBoard,
     enableQueueSheet: Boolean = true,
 ) {
     val TAG = "BottomSheetPlayer"
@@ -519,7 +523,7 @@ fun LandscapePlayer(
         ) {
             Spacer(Modifier.weight(1f))
 
-            ControlsContent(playerSheetState, queueSheetState, navController, context.supportsWideScreen())
+            ControlsContent(playerSheetState, queueSheetState, navController, queueBoard, context.supportsWideScreen())
 
             Spacer(Modifier.weight(1f))
         }
@@ -531,7 +535,7 @@ fun LandscapePlayer(
             playerBottomSheetState = playerSheetState,
             onTerminate = {
                 playerSheetState.dismiss()
-                playerConnection.service.queueBoard.detachedHead = false
+                queueBoard.detachedHead = false
             },
             navController = navController
         )
@@ -609,6 +613,7 @@ fun ControlsContent(
     playerSheetState: BottomSheetState,
     queueSheetState: BottomSheetState,
     navController: NavController,
+    queueBoard: QueueBoard,
     showQueueHint: Boolean = false,
 ) {
     val TAG = "ControlsContent()"
@@ -858,7 +863,7 @@ fun ControlsContent(
                         color = onBackgroundColor,
                         onClick = {
                             if (playerConnection.player.currentMediaItem == null) {
-                                playerConnection.service.queueBoard.setCurrQueue()
+                                queueBoard.setCurrQueue()
                             }
                             playerConnection.player.seekToPrevious()
                             haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
@@ -892,7 +897,7 @@ fun ControlsContent(
                         .background(MaterialTheme.colorScheme.primary)
                         .clickable {
                             if (playerConnection.player.currentMediaItem == null) {
-                                playerConnection.service.queueBoard.setCurrQueue()
+                                queueBoard.setCurrQueue()
                                 playerConnection.player.togglePlayPause()
                             } else if (playbackState == STATE_ENDED) {
                                 playerConnection.player.seekTo(0, 0)

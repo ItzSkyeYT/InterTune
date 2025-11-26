@@ -368,7 +368,7 @@ class MediaLibrarySessionCallback @Inject constructor(
         }
 
         val queueTitle = context.getString(R.string.android_auto)
-        service.queueBoard.addQueue(
+        service.queueBoard.value.addQueue(
             queueTitle,
             queue.first.map { it.metadata },
             shuffled = false,

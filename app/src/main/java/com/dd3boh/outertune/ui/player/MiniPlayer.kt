@@ -78,6 +78,8 @@ fun MiniPlayer(
     modifier: Modifier = Modifier,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
+    val queueBoard by playerConnection.queueBoard.collectAsState()
+
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val playbackState by playerConnection.playbackState.collectAsState()
     val error by playerConnection.error.collectAsState()
@@ -139,7 +141,7 @@ fun MiniPlayer(
             IconButton(
                 onClick = {
                     if (playerConnection.player.currentMediaItem == null) {
-                        playerConnection.service.queueBoard.setCurrQueue()
+                        queueBoard.setCurrQueue()
                         playerConnection.player.togglePlayPause()
                     } else if (playbackState == Player.STATE_ENDED) {
                         playerConnection.player.seekTo(0, 0)
@@ -160,7 +162,7 @@ fun MiniPlayer(
                 enabled = canSkipNext,
                 onClick = {
                     if (playerConnection.player.currentMediaItem == null) {
-                        playerConnection.service.queueBoard.setCurrQueue()
+                        queueBoard.setCurrQueue()
                         playerConnection.player.playWhenReady = true
                     }
                     playerConnection.player.seekToNext()

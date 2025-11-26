@@ -251,7 +251,7 @@ fun BoxScope.QueueContent(
     val haptic = LocalHapticFeedback.current
     val menuState = LocalMenuState.current
     val playerConnection = LocalPlayerConnection.current ?: return
-    val qb = playerConnection.service.queueBoard
+    val qb by playerConnection.queueBoard.collectAsState()
 
     // preferences
     var lockQueue by rememberPreference(LockQueueKey, defaultValue = false)
