@@ -16,7 +16,6 @@ import com.dd3boh.outertune.constants.ExcludedScanPathsKey
 import com.dd3boh.outertune.constants.LastLocalScanKey
 import com.dd3boh.outertune.constants.LastVersionKey
 import com.dd3boh.outertune.constants.LocalLibraryEnableKey
-import com.dd3boh.outertune.constants.LookupYtmArtistsKey
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.SCANNER_OWNER_LM
@@ -153,7 +152,6 @@ suspend fun scanInit(
     val excludedScanPaths = context.dataStore.get(ExcludedScanPathsKey, defaultValue = "")
     val strictExtensions = context.dataStore.get(ScannerStrictExtKey, defaultValue = false)
     val strictFilePaths = context.dataStore.get(ScannerStrictFilePathsKey, defaultValue = false)
-    val lookupYtmArtists = context.dataStore.get(LookupYtmArtistsKey, defaultValue = false)
     val autoScan = context.dataStore.get(AutomaticScannerKey, defaultValue = true)
     val lastLocalScan = context.dataStore.get(LastLocalScanKey, 0L)
 
@@ -215,23 +213,6 @@ suspend fun scanInit(
                 )
                 val uris = scanner.scanLocal(scanPaths, excludedScanPaths)
                 scanner.quickSync(database, uris, scannerSensitivity, strictExtensions, strictFilePaths)
-
-                // start artist linking job
-                if (lookupYtmArtists && scannerState.value <= 0) {
-                    CoroutineScope(lmScannerCoroutine).launch {
-                        try {
-                            scanner.localToRemoteArtist(database)
-                        } catch (e: ScannerAbortException) {
-                            coroutineScope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "${context.getString(R.string.scanner_scan_fail)}: ${e.message}",
-                                    withDismissAction = true,
-                                    duration = SnackbarDuration.Long
-                                )
-                            }
-                        }
-                    }
-                }
             } catch (e: Exception) {
                 coroutineScope.launch {
                     snackbarHostState.showSnackbar(

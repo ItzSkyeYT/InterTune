@@ -894,93 +894,6 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
         Log.i(TAG, "------------ SYNC: Finished MediaStore FULL Library Sync ------------")
     }
 
-
-    /**
-     * Converts all local artists to remote artists if possible
-     */
-    suspend fun localToRemoteArtist(database: MusicDatabase) {
-        if (scannerState.value > 0) {
-            Log.i(TAG, "------------ SYNC: Scanner in use. Aborting youtubeArtistLookup job ------------")
-            return
-        }
-
-        Log.i(TAG, "------------ SYNC: Starting youtubeArtistLookup job ------------")
-        val prevScannerState = scannerState.value
-        scannerState.value = 5
-
-        val allLocal = database.allLocalArtists()
-        scannerProgressTotal.value = allLocal.size
-        scannerProgressCurrent.value = 0
-        scannerProgressProbe.value = 0
-        val mod = if (allLocal.size < 20) {
-            2
-        } else {
-            8
-        }
-
-        allLocal.forEach { element ->
-            val artistVal = element.name.trim()
-
-            // check if this artist exists in DB already
-            val databaseArtistMatch = database.artistsByNameFuzzy(artistVal).filter { artist ->
-                // only look for remote artists here
-                return@filter artist.name == artistVal && !artist.isLocal
-            }
-
-            if (SCANNER_DEBUG)
-                Log.v(TAG, "ARTIST FOUND IN DB??? Results size: ${databaseArtistMatch.size}")
-
-            // cancel here since this is where the real heavy action is
-            if (scannerRequestCancel) {
-                Log.i(TAG, "WARNING: Requested to cancel youtubeArtistLookup job. Aborting.")
-                throw ScannerAbortException("Scanner canceled during youtubeArtistLookup job")
-            }
-
-            // resolve artist from YTM if not found in DB
-            if (databaseArtistMatch.isEmpty()) {
-                try {
-                    youtubeArtistLookup(artistVal)?.let {
-                        // add new artist, switch all old references, then delete old one
-                        database.insert(it)
-                        try {
-                            swapArtists(element, it, database)
-                        } catch (e: Exception) {
-                            reportException(e)
-                        }
-                    }
-                } catch (e: Exception) {
-                    // don't touch anything if ytm fails --> keep old artist
-                }
-            } else {
-                // swap with database artist
-                try {
-                    swapArtists(element, databaseArtistMatch.first(), database)
-                } catch (e: Exception) {
-                    reportException(e)
-                }
-            }
-
-            scannerProgressProbe.value++
-            if (scannerProgressProbe.value % mod == 0) {
-                scannerProgressCurrent.value = scannerProgressProbe.value
-            }
-            if (SCANNER_DEBUG && scannerProgressProbe.value % mod == 0) {
-                Log.v(
-                    TAG,
-                    "------------ SYNC: youtubeArtistLookup job: $ scannerProgressCurrent.value/${scannerProgressTotal.value} artists processed ------------"
-                )
-            }
-        }
-
-        if (scannerRequestCancel) {
-            Log.i(TAG, "WARNING: Requested to cancel during localToRemoteArtist. Aborting.")
-            throw ScannerAbortException("Scanner canceled during localToRemoteArtist")
-        }
-
-        scannerState.value = prevScannerState
-        Log.i(TAG, "------------ SYNC: youtubeArtistLookup job ended------------")
-    }
-
     private suspend fun disableSongsByPath(newSongs: List<String>, database: MusicDatabase) {
         Log.i(TAG, "Start finalize (disableSongsByPath) job. Number of valid songs: ${newSongs.size}")
         // get list of all local songs in db
@@ -1356,7 +1269,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                 return false
             }
             val matchingArtists = a.filter { artist ->
-                b.any { it.name.equals(artist.name, false) }
+                b.any { it.name.equals(artist.name, false) && it.isLocal == artist.isLocal } // TODO: remove islocal check when ytm support is removed
             }
 
             return matchingArtists.size == a.size

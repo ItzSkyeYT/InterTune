@@ -72,7 +72,6 @@ import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.ExcludedScanPathsKey
 import com.dd3boh.outertune.constants.LastLocalScanKey
-import com.dd3boh.outertune.constants.LookupYtmArtistsKey
 import com.dd3boh.outertune.constants.SCANNER_OWNER_LM
 import com.dd3boh.outertune.constants.ScanPathsKey
 import com.dd3boh.outertune.constants.ScannerImpl
@@ -151,7 +150,6 @@ fun ColumnScope.LocalScannerFrag() {
     val dlPathExtra by rememberPreference(DownloadExtraPathKey, "")
 
     var fullRescan by remember { mutableStateOf(false) }
-    val (lookupYtmArtists, onLookupYtmArtistsChange) = rememberPreference(LookupYtmArtistsKey, defaultValue = false)
 
     val (lastLocalScan, onLastLocalScanChange) = rememberPreference(LastLocalScanKey, 0L)
 
@@ -229,30 +227,6 @@ fun ColumnScope.LocalScannerFrag() {
                             }
 
                             delay(1000)
-                            // start artist linking job
-                            if (lookupYtmArtists && scannerState <= 0) {
-                                coroutineScope.launch(lmScannerCoroutine) {
-                                    try {
-                                        snackbarHostState.showSnackbar(
-                                            message = context.getString(R.string.scanner_ytm_link_start),
-                                            withDismissAction = true,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                        scanner.localToRemoteArtist(database)
-                                        snackbarHostState.showSnackbar(
-                                            message = context.getString(R.string.scanner_ytm_link_success),
-                                            withDismissAction = true,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    } catch (e: ScannerAbortException) {
-                                        snackbarHostState.showSnackbar(
-                                            message = "${context.getString(R.string.scanner_ytm_link_success)}: ${e.message}",
-                                            withDismissAction = true,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
-                                }
-                            }
                         } catch (e: ScannerAbortException) {
                             scannerFailure = true
 
@@ -289,30 +263,6 @@ fun ColumnScope.LocalScannerFrag() {
                             }
 
                             delay(1000)
-                            // start artist linking job
-                            if (lookupYtmArtists && scannerState <= 0) {
-                                coroutineScope.launch(lmScannerCoroutine) {
-                                    try {
-                                        snackbarHostState.showSnackbar(
-                                            message = context.getString(R.string.scanner_ytm_link_start),
-                                            withDismissAction = true,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                        scanner.localToRemoteArtist(database)
-                                        snackbarHostState.showSnackbar(
-                                            message = context.getString(R.string.scanner_ytm_link_success),
-                                            withDismissAction = true,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    } catch (e: ScannerAbortException) {
-                                        snackbarHostState.showSnackbar(
-                                            message = "${context.getString(R.string.scanner_ytm_link_fail)}: ${e.message}",
-                                            withDismissAction = true,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
-                                }
-                            }
                         } catch (e: ScannerAbortException) {
                             scannerFailure = true
 
@@ -414,19 +364,6 @@ fun ColumnScope.LocalScannerFrag() {
             )
             Text(
                 stringResource(R.string.scanner_variant_rescan), color = MaterialTheme.colorScheme.secondary,
-                fontSize = 14.sp
-            )
-        }
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(
-                checked = lookupYtmArtists,
-                onCheckedChange = onLookupYtmArtistsChange,
-            )
-            Text(
-                stringResource(R.string.scanner_online_artist_linking), color = MaterialTheme.colorScheme.secondary,
                 fontSize = 14.sp
             )
         }

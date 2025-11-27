@@ -227,25 +227,6 @@ fun ExperimentalSettings(
                 }
             )
 
-            PreferenceEntry(
-                title = { Text("DEBUG: Force local to remote artist migration NOW") },
-                icon = { Icon(Icons.Rounded.Backup, null) },
-                onClick = {
-                    Toast.makeText(context, context.getString(R.string.scanner_ytm_link_start), Toast.LENGTH_SHORT)
-                        .show()
-                    coroutineScope.launch(lmScannerCoroutine) {
-                        val scanner = LocalMediaScanner.getScanner(context, ScannerImpl.TAGLIB, SCANNER_OWNER_LM)
-                        Log.i(SETTINGS_TAG, "Force Migrating local artists to YTM (MANUAL TRIGGERED)")
-                        scanner.localToRemoteArtist(database)
-                        Toast.makeText(
-                            context,
-                            context.getString(R.string.scanner_ytm_link_success),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-            )
-
 
             PreferenceEntry(
                 title = { Text("Enter configurator") },
