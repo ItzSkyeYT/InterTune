@@ -308,12 +308,12 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                 database.transaction {
                     // get any existing matches
                     song.song.artists.forEachIndexed { index, it ->
-                        val dbQuery = this.artistsByNameFuzzy(it.name).sortedBy { item -> item.name.length }
+                        val dbQuery = localArtistsByNameFuzzy(it.name).sortedBy { item -> item.name.length }
                         val dbArtist = closestMatch(it.name, dbQuery)
                         artistsToDo.add(Pair(dbArtist, it))
                     }
                     song.song.genre?.forEachIndexed { index, it ->
-                        val dbGenre = genreByNameFuzzy(it.title).firstOrNull()
+                        val dbGenre = localGenreByNameFuzzy(it.title).firstOrNull()
                         genreToDo.add(Pair(dbGenre, it))
                     }
 
@@ -1269,7 +1269,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                 return false
             }
             val matchingArtists = a.filter { artist ->
-                b.any { it.name.equals(artist.name, false) && it.isLocal == artist.isLocal } // TODO: remove islocal check when ytm support is removed
+                b.any { it.name.equals(artist.name, false) }
             }
 
             return matchingArtists.size == a.size
