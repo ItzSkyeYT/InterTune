@@ -2,15 +2,12 @@ package com.dd3boh.outertune.ui.screens.search
 
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -19,12 +16,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
@@ -48,7 +41,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
-import androidx.core.net.toUri
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dd3boh.outertune.LocalDatabase
@@ -56,23 +48,12 @@ import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
-import com.dd3boh.outertune.constants.ENABLE_UPDATE_CHECKER
 import com.dd3boh.outertune.constants.EnabledTabsKey
-import com.dd3boh.outertune.constants.PauseSearchHistoryKey
-import com.dd3boh.outertune.constants.SearchSource
-import com.dd3boh.outertune.constants.SearchSourceKey
-import com.dd3boh.outertune.constants.UpdateAvailableKey
-import com.dd3boh.outertune.db.entities.SearchHistory
 import com.dd3boh.outertune.extensions.tabMode
 import com.dd3boh.outertune.ui.component.SearchBar
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.screens.Screens
-import com.dd3boh.outertune.utils.dataStore
-import com.dd3boh.outertune.utils.get
-import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
-import com.dd3boh.outertune.utils.urlEncode
-import com.dd3boh.outertune.youtubeNavigator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,8 +69,6 @@ fun SearchBarContainer(
     val playerConnection = LocalPlayerConnection.current
 
     val enabledTabs by rememberPreference(EnabledTabsKey, defaultValue = DEFAULT_ENABLED_TABS)
-    var searchSource by rememberEnumPreference(SearchSourceKey, SearchSource.ONLINE)
-    val updateAvailable by rememberPreference(UpdateAvailableKey, defaultValue = false)
 
     val navigationItems = remember { Screens.getScreens(enabledTabs) }
     val searchBarFocusRequester = remember { FocusRequester() }
@@ -116,29 +95,7 @@ fun SearchBarContainer(
 
     val onSearch: (String) -> Unit = {
         if (it.isNotEmpty()) {
-            if (searchSource == SearchSource.LOCAL) {
-                focusManager.clearFocus(true)
-            } else {
-                onSearchActiveChange(false)
-                if (youtubeNavigator(
-                        context,
-                        navController,
-                        coroutineScope,
-                        playerConnection,
-                        snackbarHostState,
-                        it.toUri()
-                    )
-                ) {
-                    // don't do anything
-                } else {
-                    navController.navigate("search/${it.urlEncode()}")
-                    if (context.dataStore[PauseSearchHistoryKey] != true) {
-                        database.query {
-                            insert(SearchHistory(query = it))
-                        }
-                    }
-                }
-            }
+            focusManager.clearFocus(true)
         }
     }
 
@@ -161,8 +118,7 @@ fun SearchBarContainer(
     ) {
         val searchBarInset = if (!context.tabMode()) {
             WindowInsets.safeDrawing.union(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Start))
-        }
-        else {
+        } else {
             WindowInsets()
         }
         SearchBar(
@@ -173,15 +129,7 @@ fun SearchBarContainer(
             onActiveChange = onSearchActiveChange,
             scrollBehavior = scrollBehavior,
             placeholder = {
-                Text(
-                    text = stringResource(
-                        if (!searchActive) R.string.search
-                        else when (searchSource) {
-                            SearchSource.LOCAL -> R.string.search_library
-                            SearchSource.ONLINE -> R.string.search_yt_music
-                        }
-                    )
-                )
+                Text(text = stringResource(if (!searchActive) R.string.search else R.string.search_library))
             },
             leadingIcon = {
                 IconButton(
@@ -222,20 +170,6 @@ fun SearchBarContainer(
                             )
                         }
                     }
-                    IconButton(
-                        onClick = {
-                            searchSource =
-                                if (searchSource == SearchSource.ONLINE) SearchSource.LOCAL else SearchSource.ONLINE
-                        }
-                    ) {
-                        Icon(
-                            imageVector = when (searchSource) {
-                                SearchSource.LOCAL -> Icons.Rounded.LibraryMusic
-                                SearchSource.ONLINE -> Icons.Rounded.Language
-                            },
-                            contentDescription = null
-                        )
-                    }
                 } else {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -246,18 +180,10 @@ fun SearchBarContainer(
                                 navController.navigate("settings")
                             }
                     ) {
-                        BadgedBox(
-                            badge = {
-                                if (ENABLE_UPDATE_CHECKER && updateAvailable) {
-                                    Badge()
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Settings,
-                                contentDescription = null
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Rounded.Settings,
+                            contentDescription = null
+                        )
                     }
                 }
             },
@@ -265,48 +191,11 @@ fun SearchBarContainer(
             focusRequester = searchBarFocusRequester,
         ) {
             Log.v("SearchBarContainer", "SB-2")
-            Crossfade(
-                targetState = searchSource,
-                label = "",
-                modifier = Modifier
-                    .fillMaxSize()
-                    .navigationBarsPadding()
-            ) { searchSource ->
-                when (searchSource) {
-                    SearchSource.LOCAL -> LocalSearchScreen(
-                        query = query.text,
-                        navController = navController,
-                        onDismiss = { onSearchActiveChange(false) },
-                    )
-
-                    SearchSource.ONLINE -> OnlineSearchScreen(
-                        query = query.text,
-                        onQueryChange = onQueryChange,
-                        navController = navController,
-                        onSearch = {
-                            if (youtubeNavigator(
-                                    context,
-                                    navController,
-                                    coroutineScope,
-                                    playerConnection,
-                                    snackbarHostState,
-                                    it.toUri()
-                                )
-                            ) {
-                                return@OnlineSearchScreen
-                            } else {
-                                navController.navigate("search/${it.urlEncode()}")
-                                if (context.dataStore[PauseSearchHistoryKey] != true) {
-                                    database.query {
-                                        insert(SearchHistory(query = it))
-                                    }
-                                }
-                            }
-                        },
-                        onDismiss = { onSearchActiveChange(false) },
-                    )
-                }
-            }
+            LocalSearchScreen(
+                query = query.text,
+                navController = navController,
+                onDismiss = { onSearchActiveChange(false) },
+            )
         }
     }
 }

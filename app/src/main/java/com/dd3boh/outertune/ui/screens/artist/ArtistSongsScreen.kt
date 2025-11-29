@@ -67,7 +67,7 @@ import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.ArtistSongsViewModel
-import com.zionhuang.innertube.YouTube
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -203,8 +203,6 @@ fun ArtistSongsScreen(
                     thumbnailSize = thumbnailSize,
                     onPlay = {
                         viewModel.viewModelScope.launch(Dispatchers.IO) {
-                            val playlistId = YouTube.artist(artist?.id!!).getOrNull()
-                                ?.artist?.shuffleEndpoint?.playlistId
 
                             withContext(Dispatchers.Main) {
                                 playerConnection.playQueue(
@@ -212,7 +210,6 @@ fun ArtistSongsScreen(
                                         title = artist?.artist?.name,
                                         items = songs.map { it.toMediaMetadata() },
                                         startIndex = index,
-                                        playlistId = playlistId
                                     )
                                 )
                             }

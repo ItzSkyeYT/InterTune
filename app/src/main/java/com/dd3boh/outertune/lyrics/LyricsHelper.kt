@@ -6,12 +6,9 @@ import com.dd3boh.outertune.constants.LyricSourcePrefKey
 import com.dd3boh.outertune.constants.LyricTrimKey
 import com.dd3boh.outertune.constants.MultilineLrcKey
 import com.dd3boh.outertune.db.MusicDatabase
-import com.dd3boh.outertune.db.entities.LyricsEntity
-import com.dd3boh.outertune.db.entities.LyricsEntity.Companion.LYRICS_NOT_FOUND
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
-import com.dd3boh.outertune.utils.reportException
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import org.akanework.gramophone.logic.utils.LrcUtils
@@ -23,8 +20,6 @@ class LyricsHelper @Inject constructor(
     @ApplicationContext private val context: Context,
     val database: MusicDatabase
 ) {
-    private val lyricsProviders =
-        listOf(YouTubeSubtitleLyricsProvider, LrcLibLyricsProvider, KuGouLyricsProvider, YouTubeLyricsProvider)
     private val cache = LruCache<String, List<LyricsResult>>(MAX_CACHE_SIZE)
 
     /**
@@ -51,83 +46,21 @@ class LyricsHelper @Inject constructor(
             return parseLrc(cached.lyrics, trim, multiline)
         }
         val dbLyrics = database.lyrics(mediaMetadata.id).let { it.first()?.lyrics }
+        // prefer database lyrics
         if (dbLyrics != null && !prefLocal) {
             return parseLrc(dbLyrics, trim, multiline)
         }
 
+        // otherwise local lyrics are preferred over database
         val localLyrics: SemanticLyrics? =
             getLocalLyrics(mediaMetadata, LrcUtils.LrcParserOptions(trim, multiline, "Unable to parse lyrics"))
-        val remoteLyrics: String?
-
-        // fallback to secondary provider when primary is unavailable
-        if (prefLocal) {
-            if (localLyrics != null) {
-                return localLyrics
-            }
-            if (dbLyrics != null) {
-                return parseLrc(dbLyrics, trim, multiline)
-            }
-
-            // "lazy eval" the remote lyrics cuz it is laughably slow
-            remoteLyrics = getRemoteLyrics(mediaMetadata)
-            if (remoteLyrics != null) {
-                database.query {
-                    upsert(
-                        LyricsEntity(
-                            id = mediaMetadata.id,
-                            lyrics = remoteLyrics
-                        )
-                    )
-                }
-                return parseLrc(remoteLyrics, trim, multiline)
-            }
-        } else {
-            remoteLyrics = getRemoteLyrics(mediaMetadata)
-            if (remoteLyrics != null) {
-                database.query {
-                    upsert(
-                        LyricsEntity(
-                            id = mediaMetadata.id,
-                            lyrics = remoteLyrics
-                        )
-                    )
-                }
-                return parseLrc(remoteLyrics, trim, multiline)
-            } else if (localLyrics != null) {
-                return localLyrics
-            }
-
+        if (localLyrics != null) {
+            return localLyrics
+        }
+        if (dbLyrics != null) {
+            return parseLrc(dbLyrics, trim, multiline)
         }
 
-        database.query {
-            upsert(
-                LyricsEntity(
-                    id = mediaMetadata.id,
-                    lyrics = LYRICS_NOT_FOUND
-                )
-            )
-        }
-        return null
-    }
-
-    /**
-     * Lookup lyrics from remote providers
-     */
-    private suspend fun getRemoteLyrics(mediaMetadata: MediaMetadata): String? {
-        lyricsProviders.forEach { provider ->
-            if (provider.isEnabled(context)) {
-                provider.getLyrics(
-                    mediaMetadata.id,
-                    mediaMetadata.title,
-                    mediaMetadata.artists.joinToString { it.name },
-                    mediaMetadata.duration
-                ).onSuccess { lyrics ->
-                    return lyrics
-                }.onFailure {
-                    reportException(it)
-                }
-            }
-        }
         return null
     }
 
@@ -146,33 +79,6 @@ class LyricsHelper @Inject constructor(
         }
 
         return null
-    }
-
-    suspend fun getAllLyrics(
-        mediaId: String,
-        songTitle: String,
-        songArtists: String,
-        duration: Int,
-        callback: (LyricsResult) -> Unit,
-    ) {
-        val cacheKey = "$songArtists-$songTitle".replace(" ", "")
-        cache.get(cacheKey)?.let { results ->
-            results.forEach {
-                callback(it)
-            }
-            return
-        }
-        val allResult = mutableListOf<LyricsResult>()
-        lyricsProviders.forEach { provider ->
-            if (provider.isEnabled(context)) {
-                provider.getAllLyrics(mediaId, songTitle, songArtists, duration) { lyrics ->
-                    val result = LyricsResult(provider.name, lyrics)
-                    allResult += result
-                    callback(result)
-                }
-            }
-        }
-        cache.put(cacheKey, allResult)
     }
 
     companion object {

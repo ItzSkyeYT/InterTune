@@ -14,7 +14,6 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.LibraryAddCheck
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -30,8 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -40,7 +37,6 @@ import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalDownloadUtil
-import com.dd3boh.outertune.LocalNetworkConnected
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.db.entities.Album
@@ -54,9 +50,6 @@ import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.utils.getDownloadState
-import com.zionhuang.innertube.YouTube
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 
 @Composable
@@ -70,7 +63,6 @@ fun AlbumMenu(
     val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val queueBoard by playerConnection.queueBoard.collectAsState()
-    val isNetworkConnected = LocalNetworkConnected.current
     val scope = rememberCoroutineScope()
     val libraryAlbum by database.album(originalAlbum.id).collectAsState(initial = originalAlbum)
     val album = libraryAlbum ?: originalAlbum
@@ -232,26 +224,7 @@ fun AlbumMenu(
                 showSelectArtistDialog = true
             }
         }
-        GridMenuItem(
-            icon = {
-                Icon(
-                    imageVector = Icons.Rounded.Sync,
-                    contentDescription = null,
-                    modifier = Modifier.graphicsLayer(rotationZ = rotationAnimation)
-                )
-            },
-            title = R.string.refetch,
-            enabled = isNetworkConnected
-        ) {
-            refetchIconDegree -= 360
-            scope.launch(Dispatchers.IO) {
-                YouTube.album(album.id).onSuccess {
-                    database.transaction {
-                        update(album.album, it)
-                    }
-                }
-            }
-        }
+        // TODO: share album as m3u playlist
         GridMenuItem(
             icon = Icons.Rounded.Share,
             title = R.string.share
@@ -295,11 +268,6 @@ fun AlbumMenu(
             navController = navController,
             songIds = songs.map { it.id },
             onPreAdd = { playlist ->
-                playlist.playlist.browseId?.let { playlistId ->
-                    album.album.playlistId?.let { addPlaylistId ->
-                        YouTube.addPlaylistToPlaylist(playlistId, addPlaylistId)
-                    }
-                }
                 songs.map { it.id }
             },
             onDismiss = {

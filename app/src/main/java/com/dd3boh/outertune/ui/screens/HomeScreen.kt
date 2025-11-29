@@ -1,12 +1,11 @@
 package com.dd3boh.outertune.ui.screens
 
+
 import android.annotation.SuppressLint
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -27,7 +26,6 @@ import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,7 +33,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -48,7 +45,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -68,7 +64,6 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.GridThumbnailHeight
 import com.dd3boh.outertune.constants.ListItemHeight
 import com.dd3boh.outertune.constants.ListThumbnailSize
-import com.dd3boh.outertune.constants.LocalLibraryEnableKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.Artist
@@ -78,9 +73,6 @@ import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
-import com.dd3boh.outertune.playback.queues.YouTubeAlbumRadio
-import com.dd3boh.outertune.playback.queues.YouTubeQueue
-import com.dd3boh.outertune.ui.component.ChipsRow
 import com.dd3boh.outertune.ui.component.HideOnScrollFAB
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.NavigationTile
@@ -90,32 +82,16 @@ import com.dd3boh.outertune.ui.component.items.AlbumGridItem
 import com.dd3boh.outertune.ui.component.items.ArtistGridItem
 import com.dd3boh.outertune.ui.component.items.SongGridItem
 import com.dd3boh.outertune.ui.component.items.SongListItem
-import com.dd3boh.outertune.ui.component.items.YouTubeGridItem
 import com.dd3boh.outertune.ui.component.shimmer.GridItemPlaceHolder
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerHost
 import com.dd3boh.outertune.ui.component.shimmer.TextPlaceholder
 import com.dd3boh.outertune.ui.menu.AlbumMenu
 import com.dd3boh.outertune.ui.menu.ArtistMenu
 import com.dd3boh.outertune.ui.menu.SongMenu
-import com.dd3boh.outertune.ui.menu.YouTubeAlbumMenu
-import com.dd3boh.outertune.ui.menu.YouTubeArtistMenu
-import com.dd3boh.outertune.ui.menu.YouTubePlaylistMenu
-import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
 import com.dd3boh.outertune.ui.utils.SnapLayoutInfoProvider
-import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.HomeViewModel
-import com.zionhuang.innertube.models.AlbumItem
-import com.zionhuang.innertube.models.ArtistItem
-import com.zionhuang.innertube.models.PlaylistItem
-import com.zionhuang.innertube.models.SongItem
-import com.zionhuang.innertube.models.WatchEndpoint
-import com.zionhuang.innertube.models.YTItem
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlin.math.min
 import kotlin.math.roundToInt
-import kotlin.random.Random
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -137,14 +113,8 @@ fun HomeScreen(
     val forgottenFavorites by viewModel.forgottenFavorites.collectAsState()
     val keepListening by viewModel.keepListening.collectAsState()
     val similarRecommendations by viewModel.similarRecommendations.collectAsState()
-    val accountPlaylists by viewModel.accountPlaylists.collectAsState()
-    val homePage by viewModel.homePage.collectAsState()
-    val explorePage by viewModel.explorePage.collectAsState()
-
-    val selectedChip by viewModel.selectedChip.collectAsState()
 
     val allLocalItems by viewModel.allLocalItems.collectAsState()
-    val allYtItems by viewModel.allYtItems.collectAsState()
 
     val isLoading by viewModel.isLoading.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
@@ -153,27 +123,8 @@ fun HomeScreen(
     val quickPicksLazyGridState = rememberLazyGridState()
     val forgottenFavoritesLazyGridState = rememberLazyGridState()
 
-    val localLibEnable by rememberPreference(LocalLibraryEnableKey, defaultValue = true)
-
     val scope = rememberCoroutineScope()
     val lazylistState = rememberLazyListState()
-
-    LaunchedEffect(Unit) {
-        snapshotFlow { lazylistState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
-            .collect { lastVisibleIndex ->
-                val len = lazylistState.layoutInfo.totalItemsCount
-                if (lastVisibleIndex != null && lastVisibleIndex >= len - 3) {
-                    viewModel.loadMoreYouTubeItems(homePage?.continuation)
-                }
-            }
-    }
-
-    if (selectedChip != null) {
-        BackHandler {
-            // if a chip is selected, go back to the normal homepage first
-            viewModel.toggleChip(selectedChip)
-        }
-    }
 
 
     val localGridItem: @Composable (LocalItem, String) -> Unit = { it, source ->
@@ -196,7 +147,8 @@ fun HomeScreen(
                                         )
                                     )
                                 } else {
-                                    playerConnection.playQueue(YouTubeQueue.radio(song), isRadio = true)
+                                    // TODO: local library radio playback
+
                                 }
                             }
                         },
@@ -268,64 +220,6 @@ fun HomeScreen(
         }
     }
 
-    val ytGridItem: @Composable (YTItem) -> Unit = { item ->
-        YouTubeGridItem(
-            item = item,
-            isActive = item.id in listOf(mediaMetadata?.album?.id, mediaMetadata?.id),
-            isPlaying = isPlaying,
-            coroutineScope = scope,
-            thumbnailRatio = 1f,
-            modifier = Modifier
-                .combinedClickable(
-                    onClick = {
-                        when (item) {
-                            is SongItem -> playerConnection.playQueue(
-                                YouTubeQueue(
-                                    item.endpoint ?: WatchEndpoint(
-                                        videoId = item.id
-                                    ), item.toMediaMetadata()
-                                ),
-                                isRadio = true,
-                            )
-
-                            is AlbumItem -> navController.navigate("album/${item.id}")
-                            is ArtistItem -> navController.navigate("artist/${item.id}")
-                            is PlaylistItem -> navController.navigate("online_playlist/${item.id}")
-                        }
-                    },
-                    onLongClick = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        menuState.show {
-                            when (item) {
-                                is SongItem -> YouTubeSongMenu(
-                                    song = item,
-                                    navController = navController,
-                                    onDismiss = menuState::dismiss
-                                )
-
-                                is AlbumItem -> YouTubeAlbumMenu(
-                                    albumItem = item,
-                                    navController = navController,
-                                    onDismiss = menuState::dismiss
-                                )
-
-                                is ArtistItem -> YouTubeArtistMenu(
-                                    artist = item,
-                                    onDismiss = menuState::dismiss
-                                )
-
-                                is PlaylistItem -> YouTubePlaylistMenu(
-                                    navController = navController,
-                                    playlist = item,
-                                    coroutineScope = scope,
-                                    onDismiss = menuState::dismiss
-                                )
-                            }
-                        }
-                    }
-                )
-        )
-    }
 
     LaunchedEffect(quickPicks) {
         quickPicksLazyGridState.scrollToItem(0)
@@ -393,36 +287,15 @@ fun HomeScreen(
                         modifier = Modifier.weight(1f)
                     )
 
-                    if (localLibEnable) {
-                        NavigationTile(
-                            title = stringResource(R.string.scanner_local_title),
-                            icon = Icons.Rounded.SdCard,
-                            onClick = {
-                                navController.navigate("settings/local")
-                            },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
                     NavigationTile(
-                        title = stringResource(R.string.account),
-                        icon = Icons.Rounded.Person,
+                        title = stringResource(R.string.scanner_local_title),
+                        icon = Icons.Rounded.SdCard,
                         onClick = {
-                            navController.navigate("account")
+                            navController.navigate("settings/local")
                         },
                         modifier = Modifier.weight(1f)
                     )
                 }
-            }
-
-            item {
-                ChipsRow(
-                    chips = homePage?.chips?.mapNotNull { it to it.title } ?: emptyList(),
-                    currentValue = selectedChip,
-                    onValueUpdate = {
-                        viewModel.toggleChip(it)
-                    }
-                )
             }
 
 
@@ -465,10 +338,8 @@ fun HomeScreen(
 
                                 thumbnailSize = listThumbnailSize,
                                 onPlay = {
-                                    playerConnection.playQueue(
-                                        YouTubeQueue.radio(originalSong.toMediaMetadata()),
-                                        isRadio = true
-                                    )
+                                    // TODO: local library quick picks playback
+
                                 },
                                 modifier = Modifier.width(horizontalLazyGridItemWidth)
                             )
@@ -561,34 +432,6 @@ fun HomeScreen(
                 }
             }
 
-            accountPlaylists?.takeIf { it.isNotEmpty() }?.let { accountPlaylists ->
-                item {
-                    NavigationTitle(
-                        title = stringResource(R.string.your_youtube_playlists),
-                        onClick = {
-                            navController.navigate("account")
-                        },
-                        modifier = Modifier.animateItem()
-                    )
-                }
-
-                item {
-                    LazyRow(
-                        contentPadding = WindowInsets.systemBars
-                            .only(WindowInsetsSides.Horizontal)
-                            .asPaddingValues(),
-                        modifier = Modifier.animateItem()
-                    ) {
-                        items(
-                            items = accountPlaylists,
-                            key = { it.id },
-                        ) { item ->
-                            ytGridItem(item)
-                        }
-                    }
-                }
-            }
-
             similarRecommendations?.forEach {
                 item {
                     NavigationTitle(
@@ -620,118 +463,6 @@ fun HomeScreen(
                         modifier = Modifier.animateItem()
                     )
                 }
-
-                item {
-                    LazyRow(
-                        contentPadding = WindowInsets.systemBars
-                            .only(WindowInsetsSides.Horizontal)
-                            .asPaddingValues(),
-                        modifier = Modifier.animateItem()
-                    ) {
-                        items(it.items) { item ->
-                            ytGridItem(item)
-                        }
-                    }
-                }
-            }
-
-            homePage?.sections?.forEach {
-                item {
-                    NavigationTitle(
-                        title = it.title,
-                        label = it.label,
-                        thumbnail = it.thumbnail?.let { thumbnailUrl ->
-                            {
-                                val shape =
-                                    if (it.endpoint?.isArtistEndpoint == true) CircleShape else RoundedCornerShape(
-                                        ThumbnailCornerRadius
-                                    )
-                                AsyncImage(
-                                    model = thumbnailUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(ListThumbnailSize)
-                                        .clip(shape)
-                                )
-                            }
-                        },
-                        onClick = it.endpoint?.browseId?.let { browseId ->
-                            {
-                                if (browseId == "FEmusic_moods_and_genres")
-                                    navController.navigate("mood_and_genres")
-                                else
-                                    navController.navigate("browse/$browseId")
-                            }
-                        },
-                        modifier = Modifier.animateItem()
-                    )
-                }
-
-                item {
-                    LazyRow(
-                        contentPadding = WindowInsets.systemBars
-                            .only(WindowInsetsSides.Horizontal)
-                            .asPaddingValues(),
-                        modifier = Modifier.animateItem()
-                    ) {
-                        items(it.items) { item ->
-                            ytGridItem(item)
-                        }
-                    }
-                }
-            }
-
-            if (homePage?.continuation != null && homePage?.sections?.isNotEmpty() == true) {
-                item {
-                    ShimmerHost(
-                        modifier = Modifier.animateItem()
-                    ) {
-                        TextPlaceholder(
-                            height = 36.dp,
-                            modifier = Modifier
-                                .padding(12.dp)
-                                .width(250.dp),
-                        )
-                        LazyRow {
-                            items(4) {
-                                GridItemPlaceHolder()
-                            }
-                        }
-                    }
-                }
-            }
-
-            explorePage?.moodAndGenres?.let { moodAndGenres ->
-                item {
-                    NavigationTitle(
-                        title = stringResource(R.string.mood_and_genres),
-                        onClick = {
-                            navController.navigate("mood_and_genres")
-                        },
-                        modifier = Modifier.animateItem()
-                    )
-                }
-                item {
-                    LazyHorizontalGrid(
-                        rows = GridCells.Fixed(4),
-                        contentPadding = PaddingValues(6.dp),
-                        modifier = Modifier
-                            .height((MoodAndGenresButtonHeight + 12.dp) * 4 + 12.dp)
-                            .animateItem()
-                    ) {
-                        items(moodAndGenres) {
-                            MoodAndGenresButton(
-                                title = it.title,
-                                onClick = {
-                                    navController.navigate("youtube_browse/${it.endpoint.browseId}?params=${it.endpoint.params}")
-                                },
-                                modifier = Modifier
-                                    .padding(6.dp)
-                                    .width(180.dp)
-                            )
-                        }
-                    }
-                }
             }
 
             if (isLoading) {
@@ -759,58 +490,11 @@ fun HomeScreen(
         )
 
         HideOnScrollFAB(
-            visible = allLocalItems.isNotEmpty() || allYtItems.isNotEmpty(),
+            visible = allLocalItems.isNotEmpty(),
             lazyListState = lazylistState,
             icon = Icons.Rounded.Casino,
             onClick = {
-                val local = when {
-                    allLocalItems.isNotEmpty() && allYtItems.isNotEmpty() -> Random.nextFloat() < 0.5
-                    allLocalItems.isNotEmpty() -> true
-                    else -> false
-                }
-                if (local) {
-                    when (val luckyItem = allLocalItems.random()) {
-                        is Song -> playerConnection.playQueue(
-                            YouTubeQueue.radio(luckyItem.toMediaMetadata()),
-                            isRadio = true
-                        )
-
-                        is Album -> {
-                            scope.launch(Dispatchers.IO) {
-                                val songs = database.albumSongs(luckyItem.id).first()
-                                playerConnection.playQueue(
-                                    ListQueue(
-                                        title = luckyItem.title,
-                                        items = songs.map(Song::toMediaMetadata)
-                                    )
-                                )
-                            }
-                        }
-                        // not possible, already filtered out
-                        is Artist -> {}
-                        is Playlist -> {}
-                    }
-                } else {
-                    when (val luckyItem = allYtItems.random()) {
-                        is SongItem -> playerConnection.playQueue(
-                            YouTubeQueue.radio(luckyItem.toMediaMetadata()),
-                            isRadio = true
-                        )
-
-                        is AlbumItem -> playerConnection.playQueue(
-                            YouTubeAlbumRadio(luckyItem.playlistId),
-                            isRadio = true
-                        )
-
-                        is ArtistItem -> luckyItem.radioEndpoint?.let {
-                            playerConnection.playQueue(YouTubeQueue(it), isRadio = true)
-                        }
-
-                        is PlaylistItem -> luckyItem.playEndpoint?.let {
-                            playerConnection.playQueue(YouTubeQueue(it), isRadio = true)
-                        }
-                    }
-                }
+                // TODO: local library radio
             }
         )
 

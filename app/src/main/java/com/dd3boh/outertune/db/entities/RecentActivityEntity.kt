@@ -5,11 +5,13 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.time.LocalDateTime
 
+@Deprecated("Removed for local-only version")
 @Immutable
 enum class RecentActivityType {
     PLAYLIST, ALBUM, ARTIST
 }
 
+@Deprecated("Removed for local-only version")
 @Entity(tableName = "recent_activity")
 @Immutable
 data class RecentActivityEntity(

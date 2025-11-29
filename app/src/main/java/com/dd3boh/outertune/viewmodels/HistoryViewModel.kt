@@ -1,20 +1,14 @@
 package com.dd3boh.outertune.viewmodels
 
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.constants.HistorySource
 import com.dd3boh.outertune.db.MusicDatabase
-import com.dd3boh.outertune.utils.reportException
-import com.zionhuang.innertube.YouTube
-import com.zionhuang.innertube.pages.HistoryPage
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -29,7 +23,6 @@ class HistoryViewModel @Inject constructor(
     private val today = LocalDate.now()
     private val thisMonday = today.with(DayOfWeek.MONDAY)
     private val lastMonday = thisMonday.minusDays(7)
-    val historyPage = mutableStateOf<HistoryPage?>(null)
 
     val events = database.events()
         .map { events ->
@@ -54,20 +47,6 @@ class HistoryViewModel @Inject constructor(
             })
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyMap())
-
-    init {
-        fetchRemoteHistory()
-    }
-    
-    fun fetchRemoteHistory() {
-        viewModelScope.launch(Dispatchers.IO) {
-            YouTube.musicHistory().onSuccess {
-                historyPage.value = it
-            }.onFailure {
-                reportException(it)
-            }
-        }
-    }
 }
 
 sealed class DateAgo {

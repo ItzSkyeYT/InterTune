@@ -13,7 +13,6 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -56,7 +55,6 @@ import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material.icons.rounded.Sync
@@ -107,10 +105,7 @@ import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.constants.EnabledFiltersKey
 import com.dd3boh.outertune.constants.EnabledTabsKey
-import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.LibraryFilterKey
-import com.dd3boh.outertune.constants.LocalLibraryEnableKey
-import com.dd3boh.outertune.constants.LyricTrimKey
 import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
 import com.dd3boh.outertune.constants.NavigationBarHeight
 import com.dd3boh.outertune.constants.OOBE_VERSION
@@ -125,7 +120,6 @@ import com.dd3boh.outertune.ui.component.button.IconLabelButton
 import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.screens.Screens.LibraryFilter
-import com.dd3boh.outertune.ui.screens.settings.fragments.AccountFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalScannerFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalizationFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.ThemeAppFrag
@@ -135,7 +129,6 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.scanners.stringFromUriList
 import com.dd3boh.outertune.utils.scanners.uriListFromString
-import com.zionhuang.innertube.utils.parseCookieString
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -155,32 +148,13 @@ fun SetupWizard(
     // content prefs
     var filter by rememberEnumPreference(LibraryFilterKey, LibraryFilter.ALL)
 
-
-    val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
-    val isLoggedIn = remember(innerTubeCookie) {
-        "SAPISID" in parseCookieString(innerTubeCookie)
-    }
-    val (ytmSync, onYtmSyncChange) = rememberPreference(LyricTrimKey, defaultValue = true)
-
     // local media prefs
-    val (localLibEnable, onLocalLibEnableChange) = rememberPreference(LocalLibraryEnableKey, defaultValue = true)
     val (autoScan, onAutoScanChange) = rememberPreference(AutomaticScannerKey, defaultValue = true)
     val (enabledTabs, onEnabledTabsChange) = rememberPreference(EnabledTabsKey, defaultValue = DEFAULT_ENABLED_TABS)
-    val (enabledFilters, onEnabledFiltersChange) = rememberPreference(EnabledFiltersKey, defaultValue = DEFAULT_ENABLED_FILTERS)
-
-    LaunchedEffect(localLibEnable) {
-        var containsFolders = enabledTabs.contains('F')
-        if (localLibEnable && !containsFolders) {
-            onEnabledTabsChange(enabledTabs + "F")
-        } else if (!localLibEnable && containsFolders) {
-            onEnabledTabsChange(enabledTabs.filterNot { it == 'F' })
-        }
-
-        containsFolders = enabledFilters.contains('F')
-        if (!localLibEnable && containsFolders) {
-            onEnabledFiltersChange(enabledFilters.filterNot { it == 'F' })
-        }
-    }
+    val (enabledFilters, onEnabledFiltersChange) = rememberPreference(
+        EnabledFiltersKey,
+        defaultValue = DEFAULT_ENABLED_FILTERS
+    )
 
     BackHandler {
         if (oobeStatus > 0) {
@@ -458,35 +432,6 @@ fun SetupWizard(
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                         )
-
-                        Text(
-                            text = stringResource(R.string.oobe_ytm_logon_subtitle),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
-                        )
-
-
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            AccountFrag(navController)
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            SwitchPreference(
-                                title = { Text(stringResource(R.string.ytm_sync)) },
-                                icon = { Icon(Icons.Rounded.Lyrics, null) },
-                                checked = ytmSync,
-                                onCheckedChange = onYtmSyncChange,
-                                isEnabled = isLoggedIn
-                            )
-                        }
                     }
 
                     // local media
@@ -516,46 +461,33 @@ fun SetupWizard(
                             modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
                         )
 
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            SwitchPreference(
-                                title = { Text(stringResource(R.string.local_library_enable_title)) },
-                                description = stringResource(R.string.local_library_enable_description),
-                                icon = { Icon(Icons.Rounded.SdCard, null) },
-                                checked = localLibEnable,
-                                onCheckedChange = onLocalLibEnableChange
-                            )
-                        }
 
-                        AnimatedVisibility(localLibEnable) {
-                            Column {
-                                Spacer(modifier = Modifier.height(16.dp))
-                                ElevatedCard(
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    SwitchPreference(
-                                        title = { Text(stringResource(R.string.auto_scanner_title)) },
-                                        description = stringResource(R.string.auto_scanner_description),
-                                        icon = { Icon(Icons.Rounded.Autorenew, null) },
-                                        checked = autoScan,
-                                        onCheckedChange = onAutoScanChange
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(16.dp))
-                                ElevatedCard(
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    PreferenceGroupTitle(
-                                        title = stringResource(R.string.grp_manual_scanner)
-                                    )
-
-
-                                    LocalScannerFrag()
-                                }
+                        Column {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            ElevatedCard(
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                SwitchPreference(
+                                    title = { Text(stringResource(R.string.auto_scanner_title)) },
+                                    description = stringResource(R.string.auto_scanner_description),
+                                    icon = { Icon(Icons.Rounded.Autorenew, null) },
+                                    checked = autoScan,
+                                    onCheckedChange = onAutoScanChange
+                                )
                             }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            ElevatedCard(
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                PreferenceGroupTitle(
+                                    title = stringResource(R.string.grp_manual_scanner)
+                                )
 
+
+                                LocalScannerFrag()
+                            }
                         }
+
                     }
 
                     // downloads

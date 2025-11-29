@@ -1,14 +1,10 @@
 package com.dd3boh.outertune.playback.downloadManager
 
 import android.net.Uri
-import com.dd3boh.outertune.utils.reportException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.IOException
 import java.io.InputStream
 
@@ -21,7 +17,6 @@ sealed class DownloadEvent {
 
 class DownloadManagerOt(
     private val local: DownloadDirectoryManagerOt,
-    private val httpClient: OkHttpClient = OkHttpClient(),
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
     private val _events = MutableSharedFlow<DownloadEvent>(extraBufferCapacity = 100)
@@ -38,58 +33,6 @@ class DownloadManagerOt(
         if (abort) {
             _events.tryEmit(DownloadEvent.Failure(mediaId, Exception("Could not resolve download: $displayName")))
             return
-        }
-
-        scope.launch {
-            val request = Request.Builder().url(url).build()
-            try {
-                httpClient.newCall(request).execute().use { resp ->
-                    if (!resp.isSuccessful) {
-                        throw IllegalStateException("HTTP ${resp.code}")
-                    }
-                    val body = resp.body
-                    val total = body.contentLength()
-                    var downloaded = 0L
-
-                    // wrap the source to track progress
-                    val source = body.byteStream()
-                    val countingStream = object : InputStream() {
-                        override fun read(): Int {
-                            val byte = source.read()
-                            if (byte >= 0) {
-                                downloaded++
-                                _events.tryEmit(DownloadEvent.Progress(mediaId, downloaded, total))
-                            }
-                            return byte
-                        }
-
-                        override fun read(b: ByteArray, off: Int, len: Int): Int {
-                            val count = source.read(b, off, len)
-                            if (count > 0) {
-                                downloaded += count
-                                _events.tryEmit(DownloadEvent.Progress(mediaId, downloaded, total))
-                            }
-                            return count
-                        }
-
-                        override fun close() {
-                            source.close()
-                        }
-                    }
-
-
-                    // save to disk
-                    val saved = local.saveFile(mediaId, countingStream, displayName = displayName)
-                    if (saved != null) {
-                        _events.tryEmit(DownloadEvent.Success(mediaId, saved))
-                    } else {
-                        throw IOException("Failed to save file")
-                    }
-                }
-            } catch (e: Throwable) {
-                reportException(e)
-                _events.tryEmit(DownloadEvent.Failure(mediaId, e))
-            }
         }
     }
 

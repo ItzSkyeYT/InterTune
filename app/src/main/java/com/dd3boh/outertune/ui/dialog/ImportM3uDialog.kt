@@ -66,7 +66,6 @@ import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.reportException
-import com.dd3boh.outertune.utils.scanners.LocalMediaScanner
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.compareM3uSong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -290,7 +289,6 @@ fun ImportM3uDialog(
     if (showChoosePlaylistDialog) {
         AddToPlaylistDialog(
             navController = navController,
-            allowSyncing = false,
             initialTextFieldValue = importedTitle,
             songIds = importedSongs.map { it.id },
             onPreAdd = {
@@ -363,22 +361,6 @@ suspend fun loadM3u(
                             dbResult.filterNotNull().toMutableList()
                         }
                         // do not search for local songs
-                        if (searchOnline && matches.isEmpty() && source?.contains(',') == false) {
-                            val onlineResult =
-                                LocalMediaScanner.youtubeSongLookup("$title ${artists.joinToString(" ")}", source)
-                            onlineResult.forEach { result ->
-                                val result = Song(
-                                    song = result.toSongEntity(),
-                                    artists = result.artists.map {
-                                        ArtistEntity(
-                                            id = it.id ?: ArtistEntity.generateArtistId(),
-                                            name = it.name
-                                        )
-                                    }
-                                )
-                                matches.add(result)
-                            }
-                        }
                         val oldSize = songs.size
                         var foundOne = false // TODO: Eventually the user can pick from matches... eventually...
 

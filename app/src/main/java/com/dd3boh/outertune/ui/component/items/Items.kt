@@ -9,9 +9,9 @@
 
 package com.dd3boh.outertune.ui.component.items
 
+
 import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandIn
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -51,7 +51,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -64,7 +63,6 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -77,38 +75,20 @@ import androidx.media3.exoplayer.offline.Download.STATE_DOWNLOADING
 import androidx.media3.exoplayer.offline.Download.STATE_QUEUED
 import coil3.compose.AsyncImage
 import coil3.imageLoader
-import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalDownloadUtil
-import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.GridThumbnailHeight
 import com.dd3boh.outertune.constants.ListItemHeight
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.PlaylistEntity
-import com.dd3boh.outertune.db.entities.RecentActivityEntity
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
-import com.dd3boh.outertune.models.toMediaMetadata
-import com.dd3boh.outertune.playback.queues.ListQueue
-import com.dd3boh.outertune.ui.component.PlayingIndicator
 import com.dd3boh.outertune.ui.component.PlayingIndicatorBox
 import com.dd3boh.outertune.utils.LocalArtworkPath
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
-import com.dd3boh.outertune.utils.reportException
-import com.zionhuang.innertube.YouTube
-import com.zionhuang.innertube.models.AlbumItem
-import com.zionhuang.innertube.models.ArtistItem
-import com.zionhuang.innertube.models.PlaylistItem
-import com.zionhuang.innertube.models.SongItem
-import com.zionhuang.innertube.models.YTItem
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 
 const val ActiveBoxAlpha = 0.6f
@@ -389,269 +369,6 @@ fun QueueListItem(
     },
     modifier = modifier
 )
-
-@Composable
-fun YouTubeListItem(
-    item: YTItem,
-    modifier: Modifier = Modifier,
-    albumIndex: Int? = null,
-    isSelected: Boolean = false,
-    badges: @Composable RowScope.() -> Unit = {
-        val database = LocalDatabase.current
-        val song by database.song(item.id).collectAsState(initial = null)
-        val album by database.album(item.id).collectAsState(initial = null)
-
-        if (item is SongItem && song?.song?.liked == true ||
-            item is AlbumItem && album?.album?.bookmarkedAt != null
-        ) {
-            Icon.Favorite()
-        }
-        if (item.explicit) {
-            Icon.Explicit()
-        }
-        if (item is SongItem && song?.song?.inLibrary != null) {
-            Icon.Library()
-        }
-        if (item is SongItem) {
-            val downloads by LocalDownloadUtil.current.downloads.collectAsState()
-            Icon.Download(downloads[item.id])
-        }
-    },
-    isActive: Boolean = false,
-    isPlaying: Boolean = false,
-    trailingContent: @Composable RowScope.() -> Unit = {},
-) {
-    ListItem(
-        title = item.title,
-        subtitle = when (item) {
-            is SongItem -> joinByBullet(
-                item.artists.joinToString { it.name },
-                makeTimeString(item.duration?.times(1000L))
-            )
-
-            is AlbumItem -> joinByBullet(
-                item.artists?.joinToString { it.name },
-                item.year?.toString()
-            )
-
-            is ArtistItem -> null
-            is PlaylistItem -> joinByBullet(item.author?.name, item.songCountText)
-        },
-        badges = badges,
-        thumbnailContent = {
-            ItemThumbnail(
-                thumbnailUrl = item.thumbnail,
-                albumIndex = albumIndex,
-                isActive = isActive,
-                isPlaying = isPlaying,
-                shape = if (item is ArtistItem) CircleShape else RoundedCornerShape(
-                    ThumbnailCornerRadius
-                ),
-                modifier = Modifier.size(ListThumbnailSize)
-            )
-        },
-        trailingContent = trailingContent,
-        modifier = modifier,
-        isSelected = isSelected,
-        isActive = isActive,
-    )
-}
-
-@Composable
-fun YouTubeGridItem(
-    item: YTItem,
-    modifier: Modifier = Modifier,
-    coroutineScope: CoroutineScope? = null,
-    badges: @Composable RowScope.() -> Unit = {
-        val database = LocalDatabase.current
-        val song by database.song(item.id).collectAsState(initial = null)
-        val album by database.album(item.id).collectAsState(initial = null)
-
-        if (item is SongItem && song?.song?.liked == true ||
-            item is AlbumItem && album?.album?.bookmarkedAt != null
-        ) {
-            Icon.Favorite()
-        }
-        if (item.explicit) {
-            Icon.Explicit()
-        }
-        if (item is SongItem && song?.song?.inLibrary != null) {
-            Icon.Library()
-        }
-        if (item is SongItem) {
-            val downloads by LocalDownloadUtil.current.downloads.collectAsState()
-            Icon.Download(downloads[item.id])
-        }
-    },
-    thumbnailRatio: Float = if (item is SongItem) 16f / 9 else 1f,
-    isActive: Boolean = false,
-    isPlaying: Boolean = false,
-    fillMaxWidth: Boolean = false,
-) = GridItem(
-    title = {
-        Text(
-            text = item.title,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = if (item is ArtistItem) TextAlign.Center else TextAlign.Start,
-            modifier = Modifier.fillMaxWidth()
-        )
-    },
-    subtitle = {
-        val subtitle = when (item) {
-            is SongItem -> joinByBullet(
-                item.artists.joinToString { it.name },
-                makeTimeString(item.duration?.times(1000L))
-            )
-
-            is AlbumItem -> joinByBullet(item.artists?.joinToString { it.name }, item.year?.toString())
-            is ArtistItem -> null
-            is PlaylistItem -> joinByBullet(item.author?.name, item.songCountText)
-        }
-
-        if (subtitle != null) {
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    },
-    badges = badges,
-    thumbnailContent = {
-        val database = LocalDatabase.current
-        val playerConnection = LocalPlayerConnection.current ?: return@GridItem
-
-        ItemThumbnail(
-            thumbnailUrl = item.thumbnail,
-            isActive = isActive,
-            isPlaying = isPlaying,
-            shape = if (item is ArtistItem) CircleShape else RoundedCornerShape(ThumbnailCornerRadius),
-        )
-
-        AlbumPlayButton(
-            visible = item is AlbumItem && !isActive,
-            onClick = {
-                coroutineScope?.launch(Dispatchers.IO) {
-                    var songs = database
-                        .albumWithSongs(item.id)
-                        .first()?.songs?.map { it.toMediaMetadata() }
-                    if (songs == null) {
-                        YouTube.album(item.id).onSuccess { albumPage ->
-                            database.transaction {
-                                insert(albumPage)
-                            }
-                            songs = albumPage.songs.map { it.toMediaMetadata() }
-                        }.onFailure {
-                            reportException(it)
-                        }
-                    }
-                    songs?.let {
-                        withContext(Dispatchers.Main) {
-                            playerConnection.playQueue(
-                                ListQueue(
-                                    title = item.title,
-                                    items = it
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-        )
-    },
-    thumbnailRatio = thumbnailRatio,
-    fillMaxWidth = fillMaxWidth,
-    modifier = modifier
-)
-
-@Composable
-fun YouTubeCardItem(
-    item: RecentActivityEntity,
-    modifier: Modifier = Modifier,
-    isActive: Boolean,
-    isPlaying: Boolean,
-    onClick: () -> Unit,
-) {
-    val configuration = LocalConfiguration.current
-    val screenWidthDp = configuration.screenWidthDp
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .height(60.dp)
-            .width((screenWidthDp.dp - 12.dp) / 2)
-            .padding(6.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp))
-            .clickable(onClick = onClick)
-    ) {
-        Box(
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(ListThumbnailSize)
-            ) {
-                val thumbnailShape = RoundedCornerShape(ThumbnailCornerRadius)
-                val thumbnailRatio = 1f
-
-                AsyncImage(
-                    model = item.thumbnail,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .aspectRatio(thumbnailRatio)
-                        .clip(thumbnailShape)
-                )
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 8.dp)
-        ) {
-            Text(
-                text = item.title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Start,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        AnimatedVisibility(
-            visible = isActive,
-            enter = fadeIn(tween(500)),
-            exit = fadeOut(tween(500))
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .padding(8.dp)
-                    .background(
-                        color = Color.Transparent,
-                        shape = RoundedCornerShape(ThumbnailCornerRadius)
-                    )
-                    .size(20.dp)
-            ) {
-                PlayingIndicator(
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.height(18.dp),
-                    barWidth = 3.dp,
-                    isPlaying = isPlaying
-                )
-            }
-        }
-    }
-}
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable

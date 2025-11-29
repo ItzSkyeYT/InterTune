@@ -27,8 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
@@ -38,15 +36,12 @@ import com.dd3boh.outertune.constants.PlaylistFilter
 import com.dd3boh.outertune.constants.PlaylistSortDescendingKey
 import com.dd3boh.outertune.constants.PlaylistSortType
 import com.dd3boh.outertune.constants.PlaylistSortTypeKey
-import com.dd3boh.outertune.constants.SyncMode
-import com.dd3boh.outertune.constants.YtmSyncModeKey
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.ui.component.SortHeader
 import com.dd3boh.outertune.ui.component.items.ListItem
 import com.dd3boh.outertune.ui.component.items.PlaylistListItem
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
-import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -54,7 +49,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun AddToPlaylistDialog(
     navController: NavController,
-    allowSyncing: Boolean = true,
     initialTextFieldValue: String? = null,
     songIds: List<String>?, // song ids to insert.
     onPreAdd: (suspend (Playlist) -> List<String>)? = null,
@@ -65,7 +59,6 @@ fun AddToPlaylistDialog(
 
     val (sortType, onSortTypeChange) = rememberEnumPreference(PlaylistSortTypeKey, PlaylistSortType.CREATE_DATE)
     val (sortDescending, onSortDescendingChange) = rememberPreference(PlaylistSortDescendingKey, true)
-    val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
 
     var playlists by remember {
         mutableStateOf(emptyList<Playlist>())
@@ -91,14 +84,8 @@ fun AddToPlaylistDialog(
     }
 
     LaunchedEffect(Unit) {
-        if (syncMode == SyncMode.RO) {
-            database.playlists(PlaylistFilter.LIBRARY, sortType, sortDescending, 1).collect {
-                playlists = it
-            }
-        } else {
-            database.playlists(PlaylistFilter.LIBRARY, sortType, sortDescending, 2).collect {
-                playlists = it
-            }
+        database.playlists(PlaylistFilter.LIBRARY, sortType, sortDescending, 1).collect {
+            playlists = it
         }
     }
 
@@ -193,44 +180,18 @@ fun AddToPlaylistDialog(
                         } else {
                             onDismiss()
                             database.addSongToPlaylist(playlist, songIds!!)
-
-                            if (!playlist.playlist.isLocal) {
-                                playlist.playlist.browseId?.let { plist ->
-                                    songIds?.forEach {
-                                        YouTube.addToPlaylist(plist, it)
-                                    }
-                                }
-                            }
                         }
                     }
                 }
             )
         }
 
-        if (syncMode == SyncMode.RO) {
-            item {
-                TextButton(
-                    onClick = {
-                        navController.navigate("settings/account_sync")
-                        onDismiss()
-                    }
-                ) {
-                    Text(
-                        text = stringResource(R.string.playlist_missing_note),
-                        color = MaterialTheme.colorScheme.error,
-                        fontSize = TextUnit(12F, TextUnitType.Sp),
-                        modifier = Modifier.padding(horizontal = 20.dp)
-                    )
-                }
-            }
-        }
     }
 
     if (showCreatePlaylistDialog) {
         CreatePlaylistDialog(
             onDismiss = { showCreatePlaylistDialog = false },
             initialTextFieldValue = initialTextFieldValue,
-            allowSyncing = allowSyncing
         )
     }
 

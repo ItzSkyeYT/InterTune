@@ -18,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.AudioFile
 import androidx.compose.material.icons.rounded.NoCell
 import androidx.compose.material3.ElevatedCard
@@ -37,7 +36,6 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioDecoderKey
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.KeepAliveKey
-import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
@@ -65,7 +63,6 @@ fun PlayerSettings(
         defaultValue = DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF
     )
     val (keepAlive, onKeepAliveChange) = rememberPreference(key = KeepAliveKey, defaultValue = false)
-    val (persistentQueue, onPersistentQueueChange) = rememberPreference(key = PersistentQueueKey, defaultValue = true)
     val (stopMusicOnTaskClear, onStopMusicOnTaskClearChange) = rememberPreference(
         key = StopMusicOnTaskClearKey,
         defaultValue = true
@@ -115,18 +112,6 @@ fun PlayerSettings(
         }
 
         SettingsClickToReveal(stringResource(R.string.advanced)) {
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                SwitchPreference(
-                    title = { Text(stringResource(R.string.persistent_queue)) },
-                    description = stringResource(R.string.persistent_queue_desc_ot),
-                    icon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
-                    checked = persistentQueue,
-                    onCheckedChange = onPersistentQueueChange
-                )
-            }
-            Spacer(modifier = Modifier.height(16.dp))
 
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth()

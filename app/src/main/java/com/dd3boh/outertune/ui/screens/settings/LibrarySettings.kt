@@ -7,8 +7,6 @@
  */
 package com.dd3boh.outertune.ui.screens.settings
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,14 +34,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.FlatSubfoldersKey
-import com.dd3boh.outertune.constants.ProxyEnabledKey
-import com.dd3boh.outertune.constants.ProxyTypeKey
-import com.dd3boh.outertune.constants.ProxyUrlKey
 import com.dd3boh.outertune.constants.ShowLikedAndDownloadedPlaylist
 import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
-import com.dd3boh.outertune.ui.component.EditTextPreference
-import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SettingsClickToReveal
@@ -53,9 +46,7 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.ListenHistoryFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalizationFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SearchHistoryFrag
 import com.dd3boh.outertune.ui.utils.backToMain
-import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
-import java.net.Proxy
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,10 +59,6 @@ fun LibrarySettings(
         defaultValue = true
     )
     val (flatSubfolders, onFlatSubfoldersChange) = rememberPreference(FlatSubfoldersKey, defaultValue = true)
-
-    val (proxyEnabled, onProxyEnabledChange) = rememberPreference(key = ProxyEnabledKey, defaultValue = false)
-    val (proxyType, onProxyTypeChange) = rememberEnumPreference(key = ProxyTypeKey, defaultValue = Proxy.Type.HTTP)
-    val (proxyUrl, onProxyUrlChange) = rememberPreference(key = ProxyUrlKey, defaultValue = "host:port")
 
 
     ColumnWithContentPadding(
@@ -158,32 +145,6 @@ fun LibrarySettings(
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            ElevatedCard(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                SwitchPreference(
-                    title = { Text(stringResource(R.string.enable_proxy)) },
-                    checked = proxyEnabled,
-                    onCheckedChange = onProxyEnabledChange
-                )
-
-                AnimatedVisibility(proxyEnabled) {
-                    Column {
-                        ListPreference(
-                            title = { Text(stringResource(R.string.proxy_type)) },
-                            selectedValue = proxyType,
-                            values = listOf(Proxy.Type.HTTP, Proxy.Type.SOCKS),
-                            valueText = { it.name },
-                            onValueSelected = onProxyTypeChange
-                        )
-                        EditTextPreference(
-                            title = { Text(stringResource(R.string.proxy_url)) },
-                            value = proxyUrl,
-                            onValueChange = onProxyUrlChange
-                        )
-                    }
-                }
-            }
         }
         Spacer(Modifier.height(96.dp))
     }

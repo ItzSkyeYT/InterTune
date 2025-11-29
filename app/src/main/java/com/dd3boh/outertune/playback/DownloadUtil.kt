@@ -1,29 +1,23 @@
 package com.dd3boh.outertune.playback
 
 import android.content.Context
-import android.net.ConnectivityManager
 import android.util.Log
 import android.widget.Toast
 import android.widget.Toast.LENGTH_SHORT
-import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import androidx.media3.database.DatabaseProvider
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheSpan
 import androidx.media3.datasource.cache.SimpleCache
-import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadNotificationHelper
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.DownloadService
-import com.dd3boh.outertune.constants.AudioQuality
-import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.db.MusicDatabase
-import com.dd3boh.outertune.db.entities.FormatEntity
 import com.dd3boh.outertune.db.entities.PlaylistSong
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.SongEntity
@@ -34,17 +28,13 @@ import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_DOWNLOADING
 import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_INVALID
 import com.dd3boh.outertune.playback.downloadManager.DownloadDirectoryManagerOt
 import com.dd3boh.outertune.playback.downloadManager.DownloadManagerOt
-import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.dlCoroutine
-import com.dd3boh.outertune.utils.enumPreference
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.scanners.InvalidAudioFileException
 import com.dd3boh.outertune.utils.scanners.fileFromUri
 import com.dd3boh.outertune.utils.scanners.uriListFromString
-import com.zionhuang.innertube.YouTube
-import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -56,7 +46,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
@@ -78,62 +67,11 @@ class DownloadUtil @Inject constructor(
 ) {
     val TAG = DownloadUtil::class.simpleName.toString()
 
-    private val connectivityManager = context.getSystemService<ConnectivityManager>()!!
-    private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.AUTO)
-    private val songUrlCache = HashMap<String, Pair<String, Long>>()
     private val dataSourceFactory = ResolvingDataSource.Factory(
         CacheDataSource.Factory()
             .setCache(playerCache)
-            .setUpstreamDataSourceFactory(
-                OkHttpDataSource.Factory(
-                    OkHttpClient.Builder()
-                        .proxy(YouTube.proxy)
-                        .build()
-                )
-            )
     ) { dataSpec ->
-        val mediaId = dataSpec.key ?: error("No media id")
-        val length = if (dataSpec.length >= 0) dataSpec.length else 1
-        if (playerCache.isCached(mediaId, dataSpec.position, length)) {
-            return@Factory dataSpec
-        }
-
-        songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
-            return@Factory dataSpec.withUri(it.first.toUri())
-        }
-
-        val playbackData = runBlocking(Dispatchers.IO) {
-            YTPlayerUtils.playerResponseForPlayback(
-                mediaId,
-                audioQuality = audioQuality,
-                connectivityManager = connectivityManager,
-            )
-        }.getOrThrow()
-        val format = playbackData.format
-
-        database.query {
-            upsert(
-                FormatEntity(
-                    id = mediaId,
-                    itag = format.itag,
-                    mimeType = format.mimeType.split(";")[0],
-                    codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
-                    bitrate = format.bitrate,
-                    sampleRate = format.audioSampleRate,
-                    contentLength = format.contentLength!!,
-                    loudnessDb = playbackData.audioConfig?.loudnessDb,
-                    playbackTrackingUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
-                )
-            )
-        }
-
-        val streamUrl = playbackData.streamUrl.let {
-            // Specify range to avoid YouTube's throttling
-            "${it}&range=0-${format.contentLength ?: 10000000}"
-        }
-
-        songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
-        dataSpec.withUri(streamUrl.toUri())
+        dataSpec
     }
     val downloadNotificationHelper = DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
     val downloadManager: DownloadManager =
@@ -198,8 +136,6 @@ class DownloadUtil @Inject constructor(
 
     fun delete(song: PlaylistSong) = deleteSong(song.song.id)
 
-    fun delete(song: SongItem) = deleteSong(song.id)
-
     fun delete(song: Song) = deleteSong(song.song.id)
 
     fun delete(song: SongEntity) = deleteSong(song.id)
@@ -259,13 +195,6 @@ class DownloadUtil @Inject constructor(
             val dataSourceFactory = ResolvingDataSource.Factory(
                 CacheDataSource.Factory()
                     .setCache(playerCache)
-                    .setUpstreamDataSourceFactory(
-                        OkHttpDataSource.Factory(
-                            OkHttpClient.Builder()
-                                .proxy(YouTube.proxy)
-                                .build()
-                        )
-                    )
             ) { dataSpec ->
                 return@Factory dataSpec
             }

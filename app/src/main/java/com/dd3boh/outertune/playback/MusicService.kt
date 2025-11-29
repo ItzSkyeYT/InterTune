@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.playback
 
+
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
@@ -43,7 +44,6 @@ import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
 import androidx.media3.datasource.cache.SimpleCache
-import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
@@ -68,9 +68,6 @@ import com.dd3boh.outertune.constants.AudioDecoderKey
 import com.dd3boh.outertune.constants.AudioGaplessOffloadKey
 import com.dd3boh.outertune.constants.AudioNormalizationKey
 import com.dd3boh.outertune.constants.AudioOffloadKey
-import com.dd3boh.outertune.constants.AudioQuality
-import com.dd3boh.outertune.constants.AudioQualityKey
-import com.dd3boh.outertune.constants.AutoLoadMoreKey
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.KeepAliveKey
 import com.dd3boh.outertune.constants.MAX_PLAYER_CONSECUTIVE_ERR
@@ -80,7 +77,6 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleRepeatM
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleShuffle
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRadio
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
-import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.constants.PlayerVolumeKey
 import com.dd3boh.outertune.constants.RepeatModeKey
@@ -90,38 +86,26 @@ import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.minPlaybackDurKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Event
-import com.dd3boh.outertune.db.entities.FormatEntity
-import com.dd3boh.outertune.db.entities.RelatedSongMap
 import com.dd3boh.outertune.di.AppModule.PlayerCache
 import com.dd3boh.outertune.di.DownloadCache
 import com.dd3boh.outertune.extensions.SilentHandler
 import com.dd3boh.outertune.extensions.collect
 import com.dd3boh.outertune.extensions.collectLatest
 import com.dd3boh.outertune.extensions.currentMetadata
-import com.dd3boh.outertune.extensions.findNextMediaItemById
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.setOffloadEnabled
 import com.dd3boh.outertune.lyrics.LyricsHelper
-import com.dd3boh.outertune.models.HybridCacheDataSinkFactory
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
-import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.utils.CoilBitmapLoader
-import com.dd3boh.outertune.utils.NetworkConnectivityObserver
-import com.dd3boh.outertune.utils.SyncUtils
-import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.dataStore
-import com.dd3boh.outertune.utils.enumPreference
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.playerCoroutine
 import com.dd3boh.outertune.utils.reportException
 import com.google.common.util.concurrent.MoreExecutors
-import com.zionhuang.innertube.YouTube
-import com.zionhuang.innertube.models.SongItem
-import com.zionhuang.innertube.models.WatchEndpoint
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
 import kotlinx.coroutines.CoroutineScope
@@ -141,11 +125,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
 import java.io.File
-import java.net.ConnectException
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
 import java.time.LocalDateTime
 import javax.inject.Inject
 import kotlin.math.min
@@ -192,10 +172,7 @@ class MusicService : MediaLibraryService(),
     private lateinit var mediaSession: MediaLibrarySession
 
     // Player components
-    @Inject
-    lateinit var syncUtils: SyncUtils
 
-    lateinit var connectivityObserver: NetworkConnectivityObserver
     val waitingForNetworkConnection = MutableStateFlow(false)
     private val isNetworkConnected = MutableStateFlow(true)
 
@@ -341,65 +318,11 @@ class MusicService : MediaLibraryService(),
                 }
             }
 
-
-            // network connectivity
-            try {
-                connectivityObserver.unregister()
-            } catch (e: UninitializedPropertyAccessException) {
-                // lol
-            }
-            connectivityObserver = NetworkConnectivityObserver(this@MusicService)
-
-            offloadScope.launch {
-                connectivityObserver.networkStatus.collect { isConnected ->
-                    isNetworkConnected.value = isConnected
-
-                    if (isConnected && waitingForNetworkConnection.value) {
-                        waitingForNetworkConnection.value = false
-                        withContext(Dispatchers.Main) {
-                            player.prepare()
-                            player.play()
-                        }
-                    }
-                }
-            }
         }
     }
 
 
 // Library functions
-
-    private suspend fun recoverSong(mediaId: String, playbackData: YTPlayerUtils.PlaybackData? = null) {
-        val song = database.song(mediaId).first()
-        val mediaMetadata = withContext(Dispatchers.Main) {
-            player.findNextMediaItemById(mediaId)?.metadata
-        } ?: return
-        val duration = song?.song?.duration?.takeIf { it != -1 }
-            ?: mediaMetadata.duration.takeIf { it != -1 }
-            ?: (playbackData?.videoDetails ?: YTPlayerUtils.playerResponseForMetadata(mediaId)
-                .getOrNull()?.videoDetails)?.lengthSeconds?.toInt()
-            ?: -1
-        database.query {
-            if (song == null) insert(mediaMetadata.copy(duration = duration))
-            else if (song.song.duration == -1) update(song.song.copy(duration = duration))
-        }
-        if (!database.hasRelatedSongs(mediaId)) {
-            val relatedEndpoint = YouTube.next(WatchEndpoint(videoId = mediaId)).getOrNull()?.relatedEndpoint ?: return
-            val relatedPage = YouTube.related(relatedEndpoint).getOrNull() ?: return
-            database.query {
-                relatedPage.songs
-                    .map(SongItem::toMediaMetadata)
-                    .onEach(::insert)
-                    .map {
-                        RelatedSongMap(
-                            songId = mediaId,
-                            relatedSongId = it.id
-                        )
-                    }
-                    .forEach(::insert)
-            }
-        }
-    }
 
     fun toggleLibrary() {
         database.query {
@@ -414,17 +337,14 @@ class MusicService : MediaLibraryService(),
             currentSong.value?.let {
                 val song = it.song.toggleLike()
                 update(song)
-
-                if (!song.isLocal) {
-                    syncUtils.likeSong(song)
-                }
             }
         }
     }
 
+    // TODO: local library radio playback
     fun toggleStartRadio() {
         val mediaMetadata = player.currentMetadata ?: return
-        playQueue(YouTubeQueue.radio(mediaMetadata), isRadio = true)
+//        playQueue(YouTubeQueue.radio(mediaMetadata), isRadio = true)
     }
 
 
@@ -631,22 +551,9 @@ class MusicService : MediaLibraryService(),
                 CacheDataSource.Factory()
                     .setCache(playerCache)
                     .setUpstreamDataSourceFactory(
-                        DefaultDataSource.Factory(
-                            this,
-                            OkHttpDataSource.Factory(
-                                OkHttpClient.Builder()
-                                    .proxy(YouTube.proxy)
-                                    .build()
-                            )
-                        )
+                        DefaultDataSource.Factory(this)
                     )
-                    .setCacheWriteDataSinkFactory(
-                        HybridCacheDataSinkFactory(playerCache) { dataSpec ->
-                            val isLocal = queueBoard.value.getCurrentQueue()?.findSong(dataSpec.key ?: "")?.isLocal == true
-                            Log.d(TAG, "SONG CACHE: ${!isLocal}")
-                            !isLocal
-                        }
-                    )
+                    .setCacheWriteDataSinkFactory(null)
                     .setFlags(FLAG_IGNORE_CACHE_ON_ERROR)
             )
             .setCacheWriteDataSinkFactory(null)
@@ -691,76 +598,14 @@ class MusicService : MediaLibraryService(),
             val isCache = playerCache.isCached(mediaId, dataSpec.position, CHUNK_LENGTH)
             if (isDownload || isCache) {
                 Log.d(TAG, "PLAYING: remote song (cache = ${isCache}, download = ${isDownload})")
-                offloadScope.launch { recoverSong(mediaId) }
                 return@Factory dataSpec
             }
 
-            songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
-                Log.d(TAG, "PLAYING: remote song (temp cache)")
-                offloadScope.launch { recoverSong(mediaId) }
-                return@Factory dataSpec.withUri(it.first.toUri())
-            }
-
-            Log.d(TAG, "PLAYING: remote song (online fetch)")
-
-            val playbackData = runBlocking(Dispatchers.IO) {
-                val audioQuality by enumPreference(this@MusicService, AudioQualityKey, AudioQuality.AUTO)
-                YTPlayerUtils.playerResponseForPlayback(
-                    mediaId,
-                    audioQuality = audioQuality,
-                    connectivityManager = connectivityManager,
-                )
-            }.getOrElse { throwable ->
-                when (throwable) {
-                    is PlaybackException -> throw throwable
-
-                    is ConnectException, is UnknownHostException -> {
-                        throw PlaybackException(
-                            getString(R.string.error_no_internet),
-                            throwable,
-                            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
-                        )
-                    }
-
-                    is SocketTimeoutException -> {
-                        throw PlaybackException(
-                            getString(R.string.error_timeout),
-                            throwable,
-                            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
-                        )
-                    }
-
-                    else -> throw PlaybackException(
-                        getString(R.string.error_unknown),
-                        throwable,
-                        PlaybackException.ERROR_CODE_REMOTE_ERROR
-                    )
-                }
-            }
-            val format = playbackData.format
-
-            database.query {
-                upsert(
-                    FormatEntity(
-                        id = mediaId,
-                        itag = format.itag,
-                        mimeType = format.mimeType.split(";")[0],
-                        codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
-                        bitrate = format.bitrate,
-                        sampleRate = format.audioSampleRate,
-                        contentLength = format.contentLength!!,
-                        loudnessDb = playbackData.audioConfig?.loudnessDb,
-                        playbackTrackingUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
-                    )
-                )
-            }
-            offloadScope.launch { recoverSong(mediaId, playbackData) }
-
-            val streamUrl = playbackData.streamUrl
-
-            songUrlCache[mediaId] =
-                streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
-            dataSpec.withUri(streamUrl.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
+            throw PlaybackException(
+                "No datasource for song",
+                Throwable(),
+                PlaybackException.ERROR_CODE_IO_UNSPECIFIED
+            )
         }
     }
 
@@ -942,28 +787,29 @@ class MusicService : MediaLibraryService(),
             player.play()
         }
 
+        // TODO: auto load more can be used for local radio
         // Auto load more songs
-        val q = queueBoard.value.getCurrentQueue()
-        val songCount = q?.getSize() ?: -1
-        val playlistId = q?.playlistId
-        if (dataStore.get(AutoLoadMoreKey, true) &&
-            reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT &&
-            player.mediaItemCount - player.currentMediaItemIndex <= 5 &&
-            playlistId != null // aka "hasNext"
-        ) {
-            Log.d(TAG, "onMediaItemTransition: Triggering queue auto load more")
-            scope.launch(SilentHandler) {
-                val endpoint = playlistId // playlistId.substringBefore("\n")
-                val continuation = null // playlistId.substringAfter("\n")
-                val yq = YouTubeQueue(WatchEndpoint(endpoint, continuation))
-                val mediaItems = yq.nextPage()
-                q.playlistId = mediaItems.takeLast(4).shuffled().first().id // yq.getContinuationEndpoint()
-                Log.d(TAG, "onMediaItemTransition: Got ${mediaItems.size} songs from radio")
-                if (player.playbackState != STATE_IDLE && songCount > 1) { // initial radio loading is handled by playQueue()
-                    queueBoard.value.enqueueEnd(mediaItems.drop(1))
-                }
-            }
-        }
+//        val q = queueBoard.value.getCurrentQueue()
+//        val songCount = q?.getSize() ?: -1
+//        val playlistId = q?.playlistId
+//        if (dataStore.get(AutoLoadMoreKey, true) &&
+//            reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT &&
+//            player.mediaItemCount - player.currentMediaItemIndex <= 5 &&
+//            playlistId != null // aka "hasNext"
+//        ) {
+//            Log.d(TAG, "onMediaItemTransition: Triggering queue auto load more")
+//            scope.launch(SilentHandler) {
+//                val endpoint = playlistId // playlistId.substringBefore("\n")
+//                val continuation = null // playlistId.substringAfter("\n")
+//                val yq = YouTubeQueue(WatchEndpoint(endpoint, continuation))
+//                val mediaItems = yq.nextPage()
+//                q.playlistId = mediaItems.takeLast(4).shuffled().first().id // yq.getContinuationEndpoint()
+//                Log.d(TAG, "onMediaItemTransition: Got ${mediaItems.size} songs from radio")
+//                if (player.playbackState != STATE_IDLE && songCount > 1) { // initial radio loading is handled by playQueue()
+//                    queueBoard.value.enqueueEnd(mediaItems.drop(1))
+//                }
+//            }
+//        }
 
         queueBoard.value.setCurrQueuePosIndex(player.currentMediaItemIndex)
 
@@ -1033,24 +879,11 @@ class MusicService : MediaLibraryService(),
                                 playTime = playbackStats.totalPlayTimeMs
                             )
                         )
-                    } catch (_: SQLException) {
+                    } catch (e: SQLException) {
+                        reportException(e)
                     }
                 }
 
-                // TODO: support playlist id
-                val ytHist = mediaItem.metadata?.isLocal != true && !dataStore.get(PauseRemoteListenHistoryKey, false)
-                Log.d(TAG, "Trying to register remote history: $ytHist")
-                if (ytHist) {
-                    val playbackUrl = YTPlayerUtils.playerResponseForMetadata(mediaItem.mediaId, null)
-                        .getOrNull()?.playbackTracking?.videostatsPlaybackUrl?.baseUrl
-                    Log.d(TAG, "Got playback url: $playbackUrl")
-                    playbackUrl?.let {
-                        YouTube.registerPlayback(null, playbackUrl)
-                            .onFailure {
-                                reportException(it)
-                            }
-                    }
-                }
             }
         }
     }

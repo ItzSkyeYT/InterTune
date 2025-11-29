@@ -88,7 +88,6 @@ import com.dd3boh.outertune.constants.FolderSortType
 import com.dd3boh.outertune.constants.FolderSortTypeKey
 import com.dd3boh.outertune.constants.LastLocalScanKey
 import com.dd3boh.outertune.constants.ListThumbnailSize
-import com.dd3boh.outertune.constants.LocalLibraryEnableKey
 import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.db.entities.Song
@@ -146,7 +145,6 @@ fun FolderScreen(
 
     val (flatSubfolders, onFlatSubfoldersChange) = rememberPreference(FlatSubfoldersKey, defaultValue = true)
     val lastLocalScan by rememberPreference(LastLocalScanKey, 0L)
-    val localLibEnable by rememberPreference(LocalLibraryEnableKey, defaultValue = true)
 
     val (sortType, onSortTypeChange) = rememberEnumPreference(FolderSongSortTypeKey, FolderSongSortType.NAME)
     val (sortDescending, onSortDescendingChange) = rememberPreference(FolderSongSortDescendingKey, true)
@@ -288,7 +286,7 @@ fun FolderScreen(
                             var showStoragePerm by remember {
                                 mutableStateOf(context.checkSelfPermission(MEDIA_PERMISSION_LEVEL) != PackageManager.PERMISSION_GRANTED)
                             }
-                            if (localLibEnable && showStoragePerm) {
+                            if (showStoragePerm) {
                                 TextButton(
                                     onClick = {
                                         // allow user to hide error when clicked. This also makes the code a lot nicer too.

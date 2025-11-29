@@ -34,7 +34,6 @@ import androidx.compose.material.icons.rounded.OfflinePin
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -84,18 +83,15 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastSumBy
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.viewModelScope
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalMenuState
-import com.dd3boh.outertune.LocalNetworkConnected
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSnackbarHostState
-import com.dd3boh.outertune.LocalSyncUtils
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AlbumCornerRadius
 import com.dd3boh.outertune.constants.AlbumThumbnailSize
@@ -107,8 +103,6 @@ import com.dd3boh.outertune.constants.PlaylistSongSortDescendingKey
 import com.dd3boh.outertune.constants.PlaylistSongSortType
 import com.dd3boh.outertune.constants.PlaylistSongSortTypeKey
 import com.dd3boh.outertune.constants.SwipeToQueueKey
-import com.dd3boh.outertune.constants.SyncMode
-import com.dd3boh.outertune.constants.YtmSyncModeKey
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistSong
 import com.dd3boh.outertune.extensions.move
@@ -134,14 +128,10 @@ import com.dd3boh.outertune.ui.utils.getNSongsString
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
-import com.dd3boh.outertune.utils.syncCoroutine
 import com.dd3boh.outertune.viewmodels.LocalPlaylistViewModel
-import com.zionhuang.innertube.YouTube
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import kotlin.math.roundToInt
@@ -171,7 +161,6 @@ fun LocalPlaylistScreen(
     val (sortDescending, onSortDescendingChange) = rememberPreference(PlaylistSongSortDescendingKey, true)
     var locked by rememberPreference(PlaylistEditLockKey, defaultValue = false)
     val swipeEnabled by rememberPreference(SwipeToQueueKey, true)
-    val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
 
     var inSelectMode by rememberSaveable { mutableStateOf(false) }
     val selection = rememberSaveable(
@@ -229,7 +218,7 @@ fun LocalPlaylistScreen(
     }
 
     val editable: Boolean =
-        playlistWithSongs.first?.playlist?.isLocal == true || (playlistWithSongs.first?.playlist?.isEditable == true && syncMode == SyncMode.RW)
+        playlistWithSongs.first?.playlist?.isLocal == true || (playlistWithSongs.first?.playlist?.isEditable == true)
 
     LaunchedEffect(playlistWithSongs.second, isSearching) {
         if (!isSearching) {
@@ -254,10 +243,6 @@ fun LocalPlaylistScreen(
                 onDone = { name ->
                     database.query {
                         update(playlistEntity.copy(name = name))
-                    }
-
-                    viewModel.viewModelScope.launch(syncCoroutine) {
-                        playlistEntity.browseId?.let { YouTube.renamePlaylist(it, name) }
                     }
                 }
             )
@@ -340,10 +325,6 @@ fun LocalPlaylistScreen(
                             playlistWithSongs.first?.let { delete(it.playlist) }
                         }
 
-                        viewModel.viewModelScope.launch(Dispatchers.IO) {
-                            playlistWithSongs.first?.playlist?.browseId?.let { YouTube.deletePlaylist(it) }
-                        }
-
                         navController.popBackStack()
                     }
                 ) {
@@ -380,46 +361,7 @@ fun LocalPlaylistScreen(
                 database.transaction {
                     move(viewModel.playlistId, from, to)
                 }
-                if (playlistWithSongs.first?.playlist?.isLocal == false) {
-                    viewModel.viewModelScope.launch(Dispatchers.IO) {
-                        val from = from
-                        val to = to
-                        val playlistSongMap = database.songMapsToPlaylist(viewModel.playlistId, 0)
 
-                        var fromIndex = from //- headerItems
-                        val toIndex = to //- headerItems
-
-                        var successorIndex = if (fromIndex > toIndex) toIndex else toIndex + 1
-
-                        /*
-                        * Because of how YouTube Music handles playlist changes, you necessarily need to
-                        * have the SetVideoId of the successor when trying to move a song inside of a
-                        * playlist.
-                        * For this reason, if we are trying to move a song to the last element of a playlist,
-                        * we need to first move it as penultimate and then move the last element before it.
-                        */
-                        if (successorIndex >= playlistSongMap.size) {
-                            playlistSongMap[fromIndex].setVideoId?.let { setVideoId ->
-                                playlistSongMap[toIndex].setVideoId?.let { successorSetVideoId ->
-                                    playlistWithSongs.first?.playlist?.browseId?.let { browseId ->
-                                        YouTube.moveSongPlaylist(browseId, setVideoId, successorSetVideoId)
-                                    }
-                                }
-                            }
-
-                            successorIndex = fromIndex
-                            fromIndex = toIndex
-                        }
-
-                        playlistSongMap[fromIndex].setVideoId?.let { setVideoId ->
-                            playlistSongMap[successorIndex].setVideoId?.let { successorSetVideoId ->
-                                playlistWithSongs.first?.playlist?.browseId?.let { browseId ->
-                                    YouTube.moveSongPlaylist(browseId, setVideoId, successorSetVideoId)
-                                }
-                            }
-                        }
-                    }
-                }
                 dragInfo = null
             }
         }
@@ -676,9 +618,7 @@ fun LocalPlaylistHeader(
     val playerConnection = LocalPlayerConnection.current ?: return
     val context = LocalContext.current
     val database = LocalDatabase.current
-    val isNetworkConnected = LocalNetworkConnected.current
     val scope = rememberCoroutineScope()
-    val syncUtils = LocalSyncUtils.current
 
     val playlistLength = remember(songs) {
         songs.fastSumBy { it.song.song.duration }
@@ -758,26 +698,6 @@ fun LocalPlaylistHeader(
                             imageVector = Icons.Rounded.Edit,
                             contentDescription = null
                         )
-                    }
-
-                    if (playlist.playlist.browseId != null) {
-                        IconButton(
-                            onClick = {
-                                scope.launch {
-                                    syncUtils.syncPlaylist(playlist.playlist.browseId, playlist.id)
-                                    snackbarHostState.showSnackbar(
-                                        message = context.getString(R.string.playlist_synced),
-                                        withDismissAction = true
-                                    )
-                                }
-                            },
-                            enabled = isNetworkConnected
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Sync,
-                                contentDescription = null
-                            )
-                        }
                     }
 
                     if (songs.any { !it.song.song.isLocal }) {

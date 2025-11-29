@@ -36,7 +36,6 @@ import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
-import com.dd3boh.outertune.LocalSyncUtils
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.MediaMetadata
@@ -64,7 +63,6 @@ fun SelectionMediaMetadataMenu(
     val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val queueBoard by playerConnection.queueBoard.collectAsState()
-    val syncUtils = LocalSyncUtils.current
 
     val allInLibrary by remember(selection) { // exclude local songs
         mutableStateOf(selection.isNotEmpty() && selection.all { !it.isLocal && it.inLibrary != null })
@@ -202,17 +200,11 @@ fun SelectionMediaMetadataMenu(
                     selection.forEach { song ->
                         val s = song.toSongEntity().toggleLike()
                         update(s)
-                        if (!s.isLocal) {
-                            syncUtils.likeSong(s)
-                        }
                     }
                 } else {
                     selection.filter { !it.liked }.forEach { song ->
                         val s = song.toSongEntity().toggleLike()
                         update(s)
-                        if (!s.isLocal) {
-                            syncUtils.likeSong(s)
-                        }
                     }
                 }
             }

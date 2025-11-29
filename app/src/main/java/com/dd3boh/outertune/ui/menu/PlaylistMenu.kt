@@ -1,6 +1,6 @@
 package com.dd3boh.outertune.ui.menu
 
-import android.content.Intent
+
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,8 +17,6 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Output
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PlaylistRemove
-import androidx.compose.material.icons.rounded.Radio
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -48,7 +46,6 @@ import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalDownloadUtil
-import com.dd3boh.outertune.LocalNetworkConnected
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.db.entities.Playlist
@@ -58,7 +55,6 @@ import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.ExoDownloadService
 import com.dd3boh.outertune.playback.queues.ListQueue
-import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.PlaylistListItem
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
@@ -68,9 +64,6 @@ import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.reportException
-import com.dd3boh.outertune.utils.syncCoroutine
-import com.zionhuang.innertube.YouTube
-import com.zionhuang.innertube.models.WatchEndpoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -87,7 +80,6 @@ fun PlaylistMenu(
     val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val queueBoard by playerConnection.queueBoard.collectAsState()
-    val isNetworkConnected = LocalNetworkConnected.current
     val dbPlaylist by database.playlist(playlist.id).collectAsState(initial = playlist)
     var songs by remember {
         mutableStateOf(emptyList<Song>())
@@ -214,27 +206,6 @@ fun PlaylistMenu(
             )
         }
 
-        if (isNetworkConnected) {
-            playlist.playlist.browseId?.let { browseId ->
-                playlist.playlist.radioEndpointParams?.let { radioEndpointParams ->
-                    GridMenuItem(
-                        icon = Icons.Rounded.Radio,
-                        title = R.string.start_radio
-                    ) {
-                        playerConnection.playQueue(
-                            YouTubeQueue(
-                                WatchEndpoint(
-                                    playlistId = "RDAMPL$browseId",
-                                    params = radioEndpointParams,
-                                )
-                            ), isRadio = true
-                        )
-                        onDismiss()
-                    }
-                }
-            }
-        }
-
         GridMenuItem(
             icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
             title = R.string.play_next
@@ -287,20 +258,19 @@ fun PlaylistMenu(
             showDeletePlaylistDialog = true
         }
 
-        playlist.playlist.shareLink?.let { shareLink ->
-            GridMenuItem(
-                icon = Icons.Rounded.Share,
-                title = R.string.share
-            ) {
-                val intent = Intent().apply {
-                    action = Intent.ACTION_SEND
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, shareLink)
-                }
-                context.startActivity(Intent.createChooser(intent, null))
-                onDismiss()
-            }
-        }
+        // TODO: m3u playlist share
+//        GridMenuItem(
+//                icon = Icons.Rounded.Share,
+//                title = R.string.share
+//        ) {
+//            val intent = Intent().apply {
+//                action = Intent.ACTION_SEND
+//                type = "text/plain"
+//                putExtra(Intent.EXTRA_TEXT, shareLink)
+//            }
+//            context.startActivity(Intent.createChooser(intent, null))
+//            onDismiss()
+//        }
         GridMenuItem(
             icon = Icons.Rounded.Output,
             title = R.string.m3u_export
@@ -322,10 +292,6 @@ fun PlaylistMenu(
                 onDismiss()
                 database.query {
                     update(playlist.playlist.copy(name = name))
-                }
-
-                coroutineScope.launch(syncCoroutine) {
-                    playlist.playlist.browseId?.let { YouTube.renamePlaylist(it, name) }
                 }
             }
         )
@@ -401,12 +367,6 @@ fun PlaylistMenu(
                         database.query {
                             delete(playlist.playlist)
                         }
-
-                        if (!playlist.playlist.isLocal) {
-                            coroutineScope.launch(syncCoroutine) {
-                                playlist.playlist.browseId?.let { YouTube.deletePlaylist(it) }
-                            }
-                        }
                     }
                 ) {
                     Text(text = stringResource(android.R.string.ok))
@@ -438,12 +398,6 @@ fun PlaylistMenu(
             navController = navController,
             songIds = songs.map { it.id },
             onPreAdd = { playlist ->
-                // add songs to playlist and push to ytm
-                songs.let { playlist.playlist.browseId?.let { YouTube.addPlaylistToPlaylist(it, playlist.id) } }
-
-                playlist.playlist.browseId?.let { playlistId ->
-                    YouTube.addPlaylistToPlaylist(playlistId, playlist.id)
-                }
                 songs.map { it.id }
             },
             onDismiss = { showChoosePlaylistDialog = false }

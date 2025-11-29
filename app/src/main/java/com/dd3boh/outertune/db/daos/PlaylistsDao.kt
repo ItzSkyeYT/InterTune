@@ -17,7 +17,7 @@ import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.db.entities.PlaylistSong
 import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.extensions.reversed
-import com.zionhuang.innertube.models.PlaylistItem
+
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -97,14 +97,15 @@ interface PlaylistsDao {
     @RawQuery(observedEntities = [PlaylistEntity::class])
     fun _getPlaylists(query: SupportSQLiteQuery): Flow<List<Playlist>>
 
-    // TODO: do i even want an enum for this
+    // TODO: remove variant when remote isLocal entirely
     /**
      * Variant
      *
-     * 0 -> Use this one (WHERE p.bookmarkedAt IS NOT NULL OR p.isLocal = 1)
+     * 0 -> All playlists (WHERE p.bookmarkedAt IS NOT NULL OR p.isLocal = 1)
      * 1 -> local playlists (WHERE p.isLocal AND p.bookmarkedAt IS NOT NULL)
      * 2 -> editable playlists (WHERE p.isEditable AND p.bookmarkedAt IS NOT NULL)
      */
+
     fun playlists(filter: PlaylistFilter, sortType: PlaylistSortType, descending: Boolean, variant: Int = 0): Flow<List<Playlist>> {
         val orderBy = when (sortType) {
             PlaylistSortType.CREATE_DATE -> "p.rowId ASC"
@@ -157,20 +158,6 @@ interface PlaylistsDao {
 
     @Update
     fun update(map: PlaylistSongMap)
-
-    @Update
-    fun update(playlistEntity: PlaylistEntity, playlistItem: PlaylistItem) {
-        update(playlistEntity.copy(
-            name = playlistItem.title,
-            browseId = playlistItem.id,
-            isEditable = playlistItem.isEditable,
-            thumbnailUrl = playlistItem.thumbnail,
-            remoteSongCount = playlistItem.songCountText?.let { Regex("""\d+""").find(it)?.value?.toIntOrNull() },
-            playEndpointParams = playlistItem.playEndpoint?.params,
-            shuffleEndpointParams = playlistItem.shuffleEndpoint?.params,
-            radioEndpointParams = playlistItem.radioEndpoint?.params
-        ))
-    }
 
     @Transaction
     fun addSongToPlaylist(playlist: Playlist, songIds: List<String>) {

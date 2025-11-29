@@ -30,9 +30,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator
-import androidx.compose.material3.pulltorefresh.pullToRefresh
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,7 +39,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -68,7 +64,6 @@ import com.dd3boh.outertune.constants.LibrarySortType
 import com.dd3boh.outertune.constants.LibrarySortTypeKey
 import com.dd3boh.outertune.constants.LibraryViewType
 import com.dd3boh.outertune.constants.LibraryViewTypeKey
-import com.dd3boh.outertune.constants.LocalLibraryEnableKey
 import com.dd3boh.outertune.constants.ShowLikedAndDownloadedPlaylist
 import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.Artist
@@ -115,20 +110,12 @@ fun LibraryScreen(
     var viewType by rememberEnumPreference(LibraryViewTypeKey, LibraryViewType.GRID)
     val enabledFilters by rememberPreference(EnabledFiltersKey, defaultValue = DEFAULT_ENABLED_FILTERS)
     var filter by rememberEnumPreference(LibraryFilterKey, LibraryFilter.ALL)
-    val localLibEnable by rememberPreference(LocalLibraryEnableKey, defaultValue = true)
 
     val (sortType, onSortTypeChange) = rememberEnumPreference(LibrarySortTypeKey, LibrarySortType.CREATE_DATE)
     val (sortDescending, onSortDescendingChange) = rememberPreference(LibrarySortDescendingKey, true)
     val (showLikedAndDownloadedPlaylist) = rememberPreference(ShowLikedAndDownloadedPlaylist, true)
 
     val allItems by viewModel.allItems.collectAsState()
-
-    val isSyncingRemotePlaylists by viewModel.isSyncingRemotePlaylists.collectAsState()
-    val isSyncingRemoteAlbums by viewModel.isSyncingRemoteAlbums.collectAsState()
-    val isSyncingRemoteArtists by viewModel.isSyncingRemoteArtists.collectAsState()
-    val isSyncingRemoteSongs by viewModel.isSyncingRemoteSongs.collectAsState()
-    val isSyncingRemoteLikedSongs by viewModel.isSyncingRemoteLikedSongs.collectAsState()
-    val pullRefreshState = rememberPullToRefreshState()
 
     val likedPlaylist = PlaylistEntity(id = "liked", name = stringResource(id = R.string.liked_songs))
     val downloadedPlaylist = PlaylistEntity(id = "downloaded", name = stringResource(id = R.string.downloaded_songs))
@@ -192,8 +179,7 @@ fun LibraryScreen(
         }
 
         Column {
-            if (localLibEnable && showStoragePerm
-            ) {
+            if (showStoragePerm) {
                 TextButton(
                     onClick = {
                         showStoragePerm =
@@ -223,12 +209,6 @@ fun LibraryScreen(
                     },
                     modifier = Modifier.weight(1f),
                     selected = { it == filterSelected },
-                    isLoading = { filter ->
-                        (filter == LibraryFilter.PLAYLISTS && isSyncingRemotePlaylists)
-                                || (filter == LibraryFilter.ALBUMS && isSyncingRemoteAlbums)
-                                || (filter == LibraryFilter.ARTISTS && isSyncingRemoteArtists)
-                                || (filter == LibraryFilter.SONGS && (isSyncingRemoteSongs || isSyncingRemoteLikedSongs))
-                    }
                 )
 
                 if (filter != LibraryFilter.SONGS && filter != LibraryFilter.FOLDERS) {
@@ -288,14 +268,6 @@ fun LibraryScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pullToRefresh(
-                state = pullRefreshState,
-                isRefreshing = isSyncingRemotePlaylists || isSyncingRemoteAlbums || isSyncingRemoteArtists
-                        || isSyncingRemoteSongs || isSyncingRemoteLikedSongs,
-                onRefresh = {
-                    viewModel.syncAll(true)
-                }
-            ),
     ) {
         when (filter) {
             LibraryFilter.ALBUMS ->
@@ -563,13 +535,5 @@ fun LibraryScreen(
             }
         }
 
-        Indicator(
-            isRefreshing = isSyncingRemotePlaylists || isSyncingRemoteAlbums || isSyncingRemoteArtists
-                    || isSyncingRemoteSongs || isSyncingRemoteLikedSongs,
-            state = pullRefreshState,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(LocalPlayerAwareWindowInsets.current.asPaddingValues()),
-        )
     }
 }

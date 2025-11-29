@@ -20,7 +20,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.PauseSearchHistoryKey
@@ -28,7 +27,7 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.utils.rememberPreference
-import com.zionhuang.innertube.utils.parseCookieString
+
 
 @Composable
 fun ColumnScope.ListenHistoryFrag() {
@@ -43,10 +42,6 @@ fun ColumnScope.ListenHistoryFrag() {
         defaultValue = false
     )
 
-    val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
-    val isLoggedIn = remember(innerTubeCookie) {
-        "SAPISID" in parseCookieString(innerTubeCookie)
-    }
 
     var showClearListenHistoryDialog by remember {
         mutableStateOf(false)
@@ -57,13 +52,6 @@ fun ColumnScope.ListenHistoryFrag() {
         icon = { Icon(Icons.Rounded.History, null) },
         checked = pauseListenHistory,
         onCheckedChange = onPauseListenHistoryChange
-    )
-    SwitchPreference(
-        title = { Text(stringResource(R.string.pause_remote_listen_history)) },
-        icon = { Icon(Icons.Rounded.History, null) },
-        checked = pauseRemoteListenHistory,
-        onCheckedChange = onPauseRemoteListenHistoryChange,
-        isEnabled = !pauseListenHistory && isLoggedIn
     )
     PreferenceEntry(
         title = { Text(stringResource(R.string.clear_listen_history)) },

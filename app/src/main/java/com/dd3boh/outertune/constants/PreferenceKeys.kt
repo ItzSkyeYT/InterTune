@@ -28,25 +28,26 @@ val SlimNavBarKey = booleanPreferencesKey("slimNavBar")
  * Content
  */
 const val SYSTEM_DEFAULT = "SYSTEM_DEFAULT"
-val YtmSyncKey = booleanPreferencesKey("ytmSync")
-val YtmSyncContentKey = stringPreferencesKey("ytmSyncContent")
+//val YtmSyncKey = booleanPreferencesKey("ytmSync")
+//val YtmSyncContentKey = stringPreferencesKey("ytmSyncContent")
+@Deprecated("Removed for local-only version")
 val YtmSyncModeKey = stringPreferencesKey("ytmSyncMode")
-val YtmSyncConflictKey = stringPreferencesKey("ytmSyncConflict")
+//val YtmSyncConflictKey = stringPreferencesKey("ytmSyncConflict")
 //val LikedAutoDownloadKey = stringPreferencesKey("likedAutoDownloadKey")
 val ContentLanguageKey = stringPreferencesKey("contentLanguage")
 val ContentCountryKey = stringPreferencesKey("contentCountry")
-val ProxyEnabledKey = booleanPreferencesKey("proxyEnabled")
-val ProxyUrlKey = stringPreferencesKey("proxyUrl")
-val ProxyTypeKey = stringPreferencesKey("proxyType")
+//val ProxyEnabledKey = booleanPreferencesKey("proxyEnabled")
+//val ProxyUrlKey = stringPreferencesKey("proxyUrl")
+//val ProxyTypeKey = stringPreferencesKey("proxyType")
 
 // sync time tracks
-val LastFullSyncKey = longPreferencesKey("lastFullSync")
-val LastLikeSongSyncKey = longPreferencesKey("lastLikeSongSync")
-val LastLibSongSyncKey = longPreferencesKey("lastLibSongSync")
-val LastAlbumSyncKey = longPreferencesKey("lastAlbumSync")
-val LastArtistSyncKey = longPreferencesKey("lastArtistSync")
-val LastPlaylistSyncKey = longPreferencesKey("lastPlaylistSync")
-val LastRecentActivitySyncKey = longPreferencesKey("lastRecentActivitySync")
+//val LastFullSyncKey = longPreferencesKey("lastFullSync")
+//val LastLikeSongSyncKey = longPreferencesKey("lastLikeSongSync")
+//val LastLibSongSyncKey = longPreferencesKey("lastLibSongSync")
+//val LastAlbumSyncKey = longPreferencesKey("lastAlbumSync")
+//val LastArtistSyncKey = longPreferencesKey("lastArtistSync")
+//val LastPlaylistSyncKey = longPreferencesKey("lastPlaylistSync")
+//val LastRecentActivitySyncKey = longPreferencesKey("lastRecentActivitySync")
 
 
 /**
@@ -103,15 +104,15 @@ val MaxSongCacheSizeKey = intPreferencesKey("maxSongCacheSize")
 val PauseListenHistoryKey = booleanPreferencesKey("pauseListenHistory")
 val PauseRemoteListenHistoryKey = booleanPreferencesKey("pauseRemoteListenHistory")
 val PauseSearchHistoryKey = booleanPreferencesKey("pauseSearchHistory")
-val EnableKugouKey = booleanPreferencesKey("enableKugou")
-val EnableLrcLibKey = booleanPreferencesKey("enableLrcLib")
-val UseLoginForBrowse = booleanPreferencesKey("useLoginForBrowse")
+//val EnableKugouKey = booleanPreferencesKey("enableKugou")
+//val EnableLrcLibKey = booleanPreferencesKey("enableLrcLib")
+//val UseLoginForBrowse = booleanPreferencesKey("useLoginForBrowse")
 
 
 /**
  * Local library
  */
-val LocalLibraryEnableKey = booleanPreferencesKey("localLibraryEnable")
+//val LocalLibraryEnableKey = booleanPreferencesKey("localLibraryEnable")
 
 
 /**
@@ -169,22 +170,22 @@ val LibraryViewTypeKey = stringPreferencesKey("libraryViewType")
 
 val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
 
-val SearchSourceKey = stringPreferencesKey("searchSource")
+//val SearchSourceKey = stringPreferencesKey("searchSource")
 
-val VisitorDataKey = stringPreferencesKey("visitorData")
-val DataSyncIdKey = stringPreferencesKey("dataSyncId")
-val InnerTubeCookieKey = stringPreferencesKey("innerTubeCookie")
-val AccountNameKey = stringPreferencesKey("accountName")
-val AccountEmailKey = stringPreferencesKey("accountEmail")
-val AccountChannelHandleKey = stringPreferencesKey("accountChannelHandle")
+//val VisitorDataKey = stringPreferencesKey("visitorData")
+//val DataSyncIdKey = stringPreferencesKey("dataSyncId")
+//val InnerTubeCookieKey = stringPreferencesKey("innerTubeCookie")
+//val AccountNameKey = stringPreferencesKey("accountName")
+//val AccountEmailKey = stringPreferencesKey("accountEmail")
+//val AccountChannelHandleKey = stringPreferencesKey("accountChannelHandle")
 
 
 /**
  * Misc
  */
-val LastUpdateCheckKey = longPreferencesKey("lastUpdateCheck")
-val LastVersionKey = stringPreferencesKey("lastVersion")
-val UpdateAvailableKey = booleanPreferencesKey("updateAvailable")
+//val LastUpdateCheckKey = longPreferencesKey("lastUpdateCheck")
+//val LastVersionKey = stringPreferencesKey("lastVersion")
+//val UpdateAvailableKey = booleanPreferencesKey("updateAvailable")
 
 val LanguageCodeToName = mapOf(
     "af" to "Afrikaans",

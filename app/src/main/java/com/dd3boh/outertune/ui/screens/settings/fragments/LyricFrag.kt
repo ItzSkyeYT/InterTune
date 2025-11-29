@@ -31,8 +31,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.constants.EnableKugouKey
-import com.dd3boh.outertune.constants.EnableLrcLibKey
 import com.dd3boh.outertune.constants.LyricClickable
 import com.dd3boh.outertune.constants.LyricFontSizeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
@@ -135,22 +133,8 @@ fun ColumnScope.LyricParserFrag() {
 
 @Composable
 fun ColumnScope.LyricSourceFrag() {
-    val (enableKugou, onEnableKugouChange) = rememberPreference(key = EnableKugouKey, defaultValue = true)
-    val (enableLrcLib, onEnableLrcLibChange) = rememberPreference(key = EnableLrcLibKey, defaultValue = true)
     val (preferLocalLyric, onPreferLocalLyric) = rememberPreference(LyricSourcePrefKey, defaultValue = true)
 
-    SwitchPreference(
-        title = { Text(stringResource(R.string.enable_lrclib)) },
-        icon = { Icon(Icons.Rounded.Lyrics, null) },
-        checked = enableLrcLib,
-        onCheckedChange = onEnableLrcLibChange
-    )
-    SwitchPreference(
-        title = { Text(stringResource(R.string.enable_kugou)) },
-        icon = { Icon(Icons.Rounded.Lyrics, null) },
-        checked = enableKugou,
-        onCheckedChange = onEnableKugouChange
-    )
     // prioritize local lyric files over all cloud providers
     SwitchPreference(
         title = { Text(stringResource(R.string.lyrics_prefer_local)) },

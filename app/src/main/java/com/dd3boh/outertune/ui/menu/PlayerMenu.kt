@@ -89,7 +89,6 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.ExoDownloadService
-import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.BigSeekBar
 import com.dd3boh.outertune.ui.component.BottomSheetState
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -98,7 +97,7 @@ import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.ui.dialog.DetailsDialog
 import com.dd3boh.outertune.utils.rememberPreference
-import com.zionhuang.innertube.YouTube
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -417,12 +416,13 @@ fun PlayerMenu(
             bottom = 8.dp + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
         )
     ) {
+        // TODO: local library radio playback
         if (!mediaMetadata.isLocal)
             GridMenuItem(
                 icon = Icons.Rounded.Radio,
                 title = R.string.start_radio
             ) {
-                playerConnection.playQueue(YouTubeQueue.radio(mediaMetadata), isRadio = true)
+//                playerConnection.playQueue(YouTubeQueue.radio(mediaMetadata), isRadio = true)
                 onDismiss()
             }
         GridMenuItem(
@@ -587,8 +587,6 @@ fun PlayerMenu(
                 database.transaction {
                     insert(mediaMetadata)
                 }
-
-                playlist.playlist.browseId?.let { YouTube.addToPlaylist(it, mediaMetadata.id) }
 
                 listOf(mediaMetadata.id)
             },

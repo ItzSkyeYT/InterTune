@@ -58,7 +58,6 @@ import com.dd3boh.outertune.constants.BottomSheetSoftAnimationSpec
 import com.dd3boh.outertune.constants.MinMiniPlayerHeight
 import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.NavigationBarAnimationSpec
-import com.dd3boh.outertune.extensions.tabMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.pow
