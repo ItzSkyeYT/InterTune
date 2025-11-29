@@ -219,7 +219,6 @@ dependencies {
 
     // ui
     implementation(libs.coil)
-    implementation(libs.coil.network.okhttp)
     implementation(libs.lazycolumnscrollbar)
     implementation(libs.shimmer)
 
@@ -233,9 +232,9 @@ dependencies {
     implementation(libs.viewmodel.compose)
 
     implementation(libs.media3)
-    implementation(libs.media3.okhttp)
+//    implementation(libs.media3.okhttp)
     implementation(libs.media3.session)
-    implementation(libs.media3.workmanager)
+//    implementation(libs.media3.workmanager)
 
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
@@ -252,18 +251,11 @@ dependencies {
     implementation(libs.ktor.serialization.json)
 
     // modules
-    implementation(project(":innertube"))
-    implementation(project(":kugou"))
-    implementation(project(":lrclib"))
     implementation(project(":material-color-utilities"))
     implementation(project(":taglib"))
 
     // misc
     implementation(libs.aboutlibraries.compose.m3)
-
-    // sdk24 support
-    // Support for N is officially unsupported even it the app should still work. Leave this outside of the version catalog.
-    implementation("androidx.webkit:webkit:1.14.0")
 }
 
 afterEvaluate {

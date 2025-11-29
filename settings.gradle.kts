@@ -11,9 +11,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "OuterTune"
 include(":app")
-include(":innertube")
-include(":kugou")
-include(":lrclib")
 include(":material-color-utilities")
 include(":ffMetadataEx")
 include(":taglib")
