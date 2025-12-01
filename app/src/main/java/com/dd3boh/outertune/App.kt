@@ -39,7 +39,7 @@ class App : Application(), SingletonImageLoader.Factory {
             System.setProperty("kotlinx.coroutines.debug", "on")
         }
 
-        instance = this;
+        instance = this
     }
 
     override fun newImageLoader(context: PlatformContext): ImageLoader {

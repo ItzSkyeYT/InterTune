@@ -1,8 +1,6 @@
 package com.dd3boh.outertune.playback.downloadManager
 
 import android.net.Uri
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import java.io.IOException
@@ -17,7 +15,6 @@ sealed class DownloadEvent {
 
 class DownloadManagerOt(
     private val local: DownloadDirectoryManagerOt,
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
     private val _events = MutableSharedFlow<DownloadEvent>(extraBufferCapacity = 100)
     val events = _events.asSharedFlow()

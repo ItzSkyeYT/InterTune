@@ -283,7 +283,7 @@ class DownloadUtil @Inject constructor(
         }
 
         // new files
-        val availableDownloads = dbDownloads.minus(missingFiles)
+        val availableDownloads = dbDownloads.minus(missingFiles.toSet())
         availableDownloads.forEach { s ->
             result[s.song.id] = s.song.dateDownload!! // sql should cover our butts
         }

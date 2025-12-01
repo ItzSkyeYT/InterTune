@@ -448,7 +448,7 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
             reIndexShuffle.sortBy { it.shuffleIndex }
             reIndexShuffle.forEachIndexed { index, s -> s.shuffleIndex = index.toLong() }
 
-            unShuffled.removeAll(songs)
+            unShuffled.removeAll(songs.toSet())
             result.addAll(tempResult)
         }
 

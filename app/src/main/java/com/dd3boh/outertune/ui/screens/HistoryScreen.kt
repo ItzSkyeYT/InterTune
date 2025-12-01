@@ -108,7 +108,6 @@ fun HistoryScreen(
 
     val snackbarHostState = LocalSnackbarHostState.current
 
-    val historySource by viewModel.historySource.collectAsState()
     var isSearching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue())

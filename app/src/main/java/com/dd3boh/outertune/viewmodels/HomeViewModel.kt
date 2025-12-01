@@ -10,7 +10,6 @@ import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.LocalItem
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.models.SimilarRecommendation
-import com.dd3boh.outertune.utils.syncCoroutine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -80,7 +79,7 @@ class HomeViewModel @Inject constructor(
 
     fun refresh() {
         if (isRefreshing.value) return
-        viewModelScope.launch(syncCoroutine) {
+        viewModelScope.launch() {
             isRefreshing.value = true
             load()
             isRefreshing.value = false

@@ -69,8 +69,6 @@ import com.dd3boh.outertune.ui.dialog.DetailsDialog
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
-import com.dd3boh.outertune.utils.syncCoroutine
-import kotlinx.coroutines.CoroutineScope
 import kotlin.math.roundToInt
 
 @Composable
@@ -92,8 +90,6 @@ fun SongMenu(
 
     val song = originalSong
     val download by LocalDownloadUtil.current.getDownload(originalSong.id).collectAsState(initial = null)
-    val coroutineScope =
-        CoroutineScope(syncCoroutine) // rememberCoroutineScope has exception "rememberCoroutineScope left the composition"
 
     val currentFormatState = database.format(originalSong.id).collectAsState(initial = null)
     val currentFormat = currentFormatState.value

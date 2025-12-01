@@ -9,7 +9,6 @@ import com.dd3boh.outertune.models.MediaMetadata
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -21,7 +20,6 @@ class LyricsMenuViewModel @Inject constructor(
     private val lyricsHelper: LyricsHelper,
     val database: MusicDatabase,
 ) : ViewModel() {
-    private var job: Job? = null
     val results = MutableStateFlow(emptyList<LyricsResult>())
     val isLoading = MutableStateFlow(false)
 

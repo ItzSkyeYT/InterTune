@@ -66,11 +66,6 @@ fun PlayerGeneralFrag() {
 }
 
 @Composable
-fun PlayerServiceFrag() {
-
-}
-
-@Composable
 fun AudioQualityFrag() {
     val (audioQuality, onAudioQualityChange) = rememberEnumPreference(
         key = AudioQualityKey,

@@ -2,10 +2,8 @@ package com.dd3boh.outertune.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.dd3boh.outertune.constants.HistorySource
 import com.dd3boh.outertune.db.MusicDatabase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -18,7 +16,6 @@ import javax.inject.Inject
 class HistoryViewModel @Inject constructor(
     val database: MusicDatabase,
 ) : ViewModel() {
-    var historySource = MutableStateFlow(HistorySource.LOCAL)
 
     private val today = LocalDate.now()
     private val thisMonday = today.with(DayOfWeek.MONDAY)
