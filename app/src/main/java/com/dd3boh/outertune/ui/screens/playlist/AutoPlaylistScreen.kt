@@ -215,10 +215,6 @@ fun AutoPlaylistScreen(
             PlaylistType.DOWNLOAD -> stringResource(id = R.string.downloaded_songs)
             else -> ""
         },
-        browseId = when (playlistType) {
-            PlaylistType.LIKE -> "LM"
-            else -> null
-        },
     )
 
     val thumbnail by viewModel.thumbnail.collectAsState()
@@ -452,7 +448,6 @@ fun AutoPlaylistScreen(
                                         ListQueue(
                                             title = playlist.name,
                                             items = songs.map { it.toMediaMetadata() },
-                                            playlistId = playlist.browseId
                                         )
                                     )
                                 },
@@ -475,7 +470,6 @@ fun AutoPlaylistScreen(
                                             title = playlist.name,
                                             items = songs.map { it.toMediaMetadata() },
                                             startShuffled = true,
-                                            playlistId = playlist.browseId
                                         )
                                     )
                                 },
@@ -555,7 +549,6 @@ fun AutoPlaylistScreen(
                                 title = playlist.name,
                                 items = (if (isSearching) filteredSongs else mutableSongs).map { it.toMediaMetadata() },
                                 startIndex = index,
-                                playlistId = playlist.browseId
                             )
                         )
                     },

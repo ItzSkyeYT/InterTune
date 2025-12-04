@@ -17,7 +17,6 @@ data class QueueEntity(
     var lastSongPos: Long = C.TIME_UNSET,
     @ColumnInfo(name = "index", defaultValue = 0.toString())
     val index: Int, // order of queue
-    val playlistId: String? = null,
 ) {
     companion object {
         fun generateQueueId() = RandomStringUtils.insecure().next(8, false, true).toLong()

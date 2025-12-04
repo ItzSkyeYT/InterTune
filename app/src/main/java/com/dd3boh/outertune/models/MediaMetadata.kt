@@ -34,19 +34,16 @@ data class MediaMetadata(
     data class Artist(
         val id: String?,
         val name: String,
-        val isLocal: Boolean = false,
     ) : Serializable
 
     data class Album(
         val id: String,
         val title: String,
-        val isLocal: Boolean = false,
     ) : Serializable
 
     data class Genre(
         val id: String?,
         val title: String,
-        val isLocal: Boolean = false,
     ) : Serializable
 
     fun toSongEntity() = SongEntity(
@@ -62,8 +59,8 @@ data class MediaMetadata(
         date = date,
         dateModified = dateModified,
         liked = liked,
+        inLibrary = inLibrary,
         isLocal = isLocal,
-        inLibrary = if (isLocal) LocalDateTime.now() else null,
         localPath = localPath
     )
 
@@ -98,11 +95,7 @@ data class MediaMetadata(
     fun getDateModifiedLong(): Long? = dateModified?.toEpochSecond(ZoneOffset.UTC)
 
     fun getThumbnailModel(sizeX: Int = -1, sizeY: Int = -1): Any? {
-        return if (isLocal) {
-            LocalArtworkPath(thumbnailUrl ?: localPath, sizeX, sizeY)
-        } else {
-            thumbnailUrl
-        }
+        return LocalArtworkPath(thumbnailUrl ?: localPath, sizeX, sizeY)
     }
 }
 
@@ -113,7 +106,6 @@ fun Song.toMediaMetadata() = MediaMetadata(
         MediaMetadata.Artist(
             id = it.id,
             name = it.name,
-            isLocal = it.isLocal
         )
     },
     duration = song.duration,
@@ -124,7 +116,6 @@ fun Song.toMediaMetadata() = MediaMetadata(
         MediaMetadata.Album(
             id = it.id,
             title = it.title,
-            isLocal = it.isLocal
         )
     } ?: song.albumId?.let { albumId ->
         MediaMetadata.Album(
@@ -137,7 +128,6 @@ fun Song.toMediaMetadata() = MediaMetadata(
         MediaMetadata.Genre(
             id = it.id,
             title = it.title,
-            isLocal = it.isLocal
         )
     },
     year = song.year,

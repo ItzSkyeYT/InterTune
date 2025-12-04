@@ -12,15 +12,8 @@ import java.time.LocalDateTime
 data class PlaylistEntity(
     @PrimaryKey val id: String = generatePlaylistId(),
     val name: String,
-    val browseId: String? = null,
-    @ColumnInfo(name = "isEditable", defaultValue = true.toString())
-    val isEditable: Boolean = true,
     val bookmarkedAt: LocalDateTime? = null,
     val thumbnailUrl: String? = null,
-    val remoteSongCount: Int? = null,
-    val playEndpointParams: String? = null,
-    val shuffleEndpointParams: String? = null,
-    val radioEndpointParams: String? = null,
     @ColumnInfo(name = "isLocal", defaultValue = false.toString())
     val isLocal: Boolean = false,
 ) {

@@ -539,7 +539,7 @@ fun ExperimentalSettings(
                     onClick = {
                         Toast.makeText(context, "Nuking local artists from database...", Toast.LENGTH_SHORT).show()
                         coroutineScope.launch(Dispatchers.IO) {
-                            Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeLocalArtists()}")
+                            Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeArtists()}")
                         }
                     }
                 )

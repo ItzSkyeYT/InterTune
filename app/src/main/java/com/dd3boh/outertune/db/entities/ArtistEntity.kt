@@ -1,7 +1,6 @@
 package com.dd3boh.outertune.db.entities
 
 import androidx.compose.runtime.Immutable
-import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import org.apache.commons.lang3.RandomStringUtils
@@ -13,14 +12,9 @@ data class ArtistEntity(
     @PrimaryKey val id: String,
     val name: String,
     val thumbnailUrl: String? = null,
-    val channelId: String? = null,
     val lastUpdateTime: LocalDateTime = LocalDateTime.now(),
     val bookmarkedAt: LocalDateTime? = null,
-    @ColumnInfo(name = "isLocal", defaultValue = false.toString())
-    val isLocal: Boolean = false
 ) {
-    val isYouTubeArtist: Boolean
-        get() = id.startsWith("UC") || id.startsWith("FEmusic_library_privately_owned_artist")
 
     fun toggleLike() = copy(
         bookmarkedAt = if (bookmarkedAt != null) null else LocalDateTime.now(),

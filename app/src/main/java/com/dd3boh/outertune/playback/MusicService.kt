@@ -35,7 +35,6 @@ import androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_SEEK
 import androidx.media3.common.Player.REPEAT_MODE_ALL
 import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.REPEAT_MODE_ONE
-import androidx.media3.common.Player.STATE_IDLE
 import androidx.media3.common.Timeline
 import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.datasource.DataSource
@@ -158,7 +157,6 @@ class MusicService : MediaLibraryService(),
 
     val qbInit = MutableStateFlow(false)
     var queueBoard = MutableStateFlow(QueueBoard(this, maxQueues = 1))
-    var queuePlaylistId: String? = null
 
     @Inject
     @PlayerCache
@@ -376,7 +374,6 @@ class MusicService : MediaLibraryService(),
         }
 
         var queueTitle = title
-        queuePlaylistId = queue.playlistId
         var q: MultiQueueObject? = null
         val preloadItem = queue.preloadItem
         // do not use scope.launch ... it breaks randomly... why is this bug back???
@@ -828,12 +825,6 @@ class MusicService : MediaLibraryService(),
         }
 
         updateNotification() // also updates when queue changes
-    }
-
-    override fun onPlaybackStateChanged(@Player.State playbackState: Int) {
-        if (playbackState == STATE_IDLE) {
-            queuePlaylistId = null
-        }
     }
 
     override fun onEvents(player: Player, events: Player.Events) {

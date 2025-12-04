@@ -20,7 +20,6 @@ import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -35,7 +34,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
@@ -55,7 +53,6 @@ import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.ExoDownloadService
 import com.dd3boh.outertune.playback.queues.ListQueue
-import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.PlaylistListItem
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
@@ -118,7 +115,7 @@ fun PlaylistMenu(
         mutableIntStateOf(Download.STATE_STOPPED)
     }
 
-    val editable: Boolean = playlist.playlist.isEditable
+    val editable: Boolean = playlist.playlist.isLocal
 
     var showEditDialog by remember {
         mutableStateOf(false)
@@ -147,23 +144,6 @@ fun PlaylistMenu(
 
     PlaylistListItem(
         playlist = playlist,
-        trailingContent = {
-            if (!playlist.playlist.isEditable) {
-                IconButton(
-                    onClick = {
-                        database.query {
-                            dbPlaylist?.playlist?.toggleLike()?.let { update(it) }
-                        }
-                    }
-                ) {
-                    Icon(
-                        painter = painterResource(if (dbPlaylist?.playlist?.bookmarkedAt != null) R.drawable.favorite else R.drawable.favorite_border),
-                        tint = if (dbPlaylist?.playlist?.bookmarkedAt != null) MaterialTheme.colorScheme.error else LocalContentColor.current,
-                        contentDescription = null
-                    )
-                }
-            }
-        },
         showBadges = true
     )
 
@@ -186,7 +166,6 @@ fun PlaylistMenu(
                 ListQueue(
                     title = playlist.playlist.name,
                     items = songs.map { it.toMediaMetadata() },
-                    playlistId = playlist.playlist.browseId
                 )
             )
         }
@@ -201,7 +180,6 @@ fun PlaylistMenu(
                     title = playlist.playlist.name,
                     items = songs.map { it.toMediaMetadata() },
                     startShuffled = true,
-                    playlistId = playlist.playlist.browseId
                 )
             )
         }

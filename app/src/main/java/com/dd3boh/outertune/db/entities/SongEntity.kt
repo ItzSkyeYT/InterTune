@@ -27,7 +27,7 @@ data class SongEntity(
     val thumbnailUrl: String? = null,
     val inLibrary: LocalDateTime? = null, // doubles as "date added"
     @ColumnInfo(name = "isLocal", defaultValue = false.toString())
-    val isLocal: Boolean = false,
+    val isLocal: Boolean = false, //  keep this, required for downladed songs
     @ColumnInfo(index = true)
     val localPath: String?,
     val dateDownload: LocalDateTime? = null, // doubles as "isDownloaded" for new downloader system
@@ -88,11 +88,7 @@ data class SongEntity(
     fun getDateModifiedLong(): Long? = dateModified?.toEpochSecond(ZoneOffset.UTC)
 
     fun getThumbnailModel(sizeX: Int = -1, sizeY: Int = -1): Any? {
-        return if (isLocal) {
-            LocalArtworkPath(thumbnailUrl ?: localPath, sizeX, sizeY)
-        } else {
-            thumbnailUrl
-        }
+        return LocalArtworkPath(thumbnailUrl ?: localPath, sizeX, sizeY)
     }
 
     companion object {

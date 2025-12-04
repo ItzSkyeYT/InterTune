@@ -75,7 +75,6 @@ class PlayerConnection(
 
     val queueWindows = MutableStateFlow<List<Timeline.Window>>(emptyList())
 
-    var queuePlaylistId = MutableStateFlow<String?>(null)
     val currentWindowIndex = MutableStateFlow(-1)
 
     val shuffleModeEnabled = MutableStateFlow(false)
@@ -91,7 +90,6 @@ class PlayerConnection(
 
         playbackState.value = player.playbackState
         playWhenReady.value = player.playWhenReady
-        queuePlaylistId.value = service.queuePlaylistId
         queueWindows.value = player.getQueueWindows()
         currentWindowIndex.value = player.getCurrentQueueIndex()
         currentMediaItemIndex.value = player.currentMediaItemIndex
@@ -169,7 +167,6 @@ class PlayerConnection(
 
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
         queueWindows.value = player.getQueueWindows()
-        queuePlaylistId.value = service.queuePlaylistId
         currentMediaItemIndex.value = player.currentMediaItemIndex
         currentWindowIndex.value = player.getCurrentQueueIndex()
         updateCanSkipPreviousAndNext()

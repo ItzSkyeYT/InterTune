@@ -23,12 +23,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.OfflinePin
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -39,13 +36,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -69,12 +63,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEachIndexed
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.media3.exoplayer.offline.Download
-import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalDatabase
-import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
@@ -87,7 +78,6 @@ import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.models.toMediaMetadata
-import com.dd3boh.outertune.playback.ExoDownloadService
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.AsyncImageLocal
 import com.dd3boh.outertune.ui.component.AutoResizeText
@@ -105,7 +95,6 @@ import com.dd3boh.outertune.ui.menu.AlbumMenu
 import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.ui.utils.getNSongsString
 import com.dd3boh.outertune.utils.LocalArtworkPath
-import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.AlbumViewModel
@@ -152,20 +141,6 @@ fun AlbumScreen(
     }
 
     val snackbarHostState = LocalSnackbarHostState.current
-
-    val downloadUtil = LocalDownloadUtil.current
-    var downloadState by remember {
-        mutableIntStateOf(Download.STATE_STOPPED)
-    }
-
-    LaunchedEffect(albumWithSongs) {
-        if (albumWithSongs?.album?.isLocal != false) return@LaunchedEffect
-        val songs = albumWithSongs?.songs?.filterNot { it.song.isLocal }?.map { it.id }
-        if (songs.isNullOrEmpty()) return@LaunchedEffect
-        downloadUtil.downloads.collect { downloads ->
-            downloadState = getDownloadState(songs.map { downloads[it] })
-        }
-    }
 
     LazyColumn(
         state = state,
@@ -275,65 +250,6 @@ fun AlbumScreen(
                                     )
                                 }
 
-                                if (albumWithSongsLocal.album.isLocal == false) {
-                                    when (downloadState) {
-                                        Download.STATE_COMPLETED -> {
-                                            IconButton(
-                                                onClick = {
-                                                    albumWithSongsLocal.songs.forEach { song ->
-                                                        DownloadService.sendRemoveDownload(
-                                                            context,
-                                                            ExoDownloadService::class.java,
-                                                            song.id,
-                                                            false
-                                                        )
-                                                    }
-                                                }
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.OfflinePin,
-                                                    contentDescription = null
-                                                )
-                                            }
-                                        }
-
-                                        Download.STATE_DOWNLOADING -> {
-                                            IconButton(
-                                                onClick = {
-                                                    albumWithSongsLocal.songs.forEach { song ->
-                                                        DownloadService.sendRemoveDownload(
-                                                            context,
-                                                            ExoDownloadService::class.java,
-                                                            song.id,
-                                                            false
-                                                        )
-                                                    }
-                                                }
-                                            ) {
-                                                CircularProgressIndicator(
-                                                    strokeWidth = 2.dp,
-                                                    modifier = Modifier.size(24.dp)
-                                                )
-                                            }
-                                        }
-
-                                        else -> {
-                                            IconButton(
-                                                onClick = {
-                                                    val songs =
-                                                        albumWithSongsLocal.songs.map { it.toMediaMetadata() }
-                                                    downloadUtil.download(songs)
-                                                }
-                                            ) {
-                                                Icon(
-                                                    Icons.Rounded.Download,
-                                                    contentDescription = null
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
                                 IconButton(
                                     onClick = {
                                         menuState.show {
@@ -368,7 +284,6 @@ fun AlbumScreen(
                                         title = albumWithSongsLocal.album.title,
                                         items = albumWithSongs?.songs?.mapNotNull { it.toMediaMetadata() }?.toList()
                                             ?: emptyList(),
-                                        playlistId = albumWithSongsLocal.album.playlistId
                                     )
                                 )
                             },
@@ -393,7 +308,6 @@ fun AlbumScreen(
                                         title = albumWithSongsLocal.album.title,
                                         items = albumWithSongs?.songs?.mapNotNull { it.toMediaMetadata() }?.toList()
                                             ?: emptyList(),
-                                        playlistId = albumWithSongsLocal.album.playlistId,
                                         startShuffled = true,
                                     )
                                 )
@@ -446,7 +360,6 @@ fun AlbumScreen(
                                 title = albumWithSongsLocal.album.title,
                                 items = albumWithSongsLocal.songs.map { it.toMediaMetadata() },
                                 startIndex = index,
-                                playlistId = albumWithSongsLocal.album.playlistId
                             )
                         )
                     },

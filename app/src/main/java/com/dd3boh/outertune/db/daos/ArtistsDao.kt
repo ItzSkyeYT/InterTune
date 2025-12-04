@@ -48,9 +48,6 @@ interface ArtistsDao {
     @Query("SELECT * FROM artist WHERE name = :name")
     fun artistByName(name: String): ArtistEntity?
 
-    @Query("SELECT * FROM artist WHERE isLocal = 1 AND name LIKE '%' || :name || '%'")
-    fun localArtistsByNameFuzzy(name: String): List<ArtistEntity>
-
     @Query("""
         SELECT 
             artist.*,
@@ -93,13 +90,10 @@ interface ArtistsDao {
     fun searchArtistSongs(query: String, previewSize: Int = Int.MAX_VALUE): Flow<List<Song>>
 
     @Query("SELECT * FROM artist WHERE name LIKE '%' || :query || '%' LIMIT :previewSize")
-    fun artistsByNameFuzzy(query: String, previewSize: Int = Int.MAX_VALUE): Flow<List<ArtistEntity>>
+    fun artistsByNameFuzzy(query: String, previewSize: Int = Int.MAX_VALUE): List<ArtistEntity>
 
-    @Query("SELECT * FROM artist WHERE isLocal != 1")
-    fun allRemoteArtists(): Flow<List<ArtistEntity>>
-
-    @Query("SELECT * FROM artist WHERE isLocal = 1")
-    fun allLocalArtists(): List<ArtistEntity>
+    @Query("SELECT * FROM artist")
+    fun allArtists(): List<ArtistEntity>
 
     @Query("""
         SELECT 
@@ -166,9 +160,7 @@ interface ArtistsDao {
         """)
 
         return _getArtists(query).map { artists ->
-            artists
-                .filter { it.artist.isYouTubeArtist || it.artist.isLocal } // TODO: add ui to filter by local or remote or something idk
-                .reversed(descending)
+            artists.reversed(descending)
         }
     }
 
@@ -185,11 +177,10 @@ interface ArtistsDao {
         FROM artist
             LEFT JOIN song_artist_map sam ON artist.id = sam.artistId
             LEFT JOIN song ON sam.songId = song.id
-        WHERE artist.isLocal = 1
         GROUP BY artist.id
         ORDER BY artist.name ASC
     """)
-    fun localArtistsByName(): List<Artist>
+    fun artistsByName(): List<Artist>
     // endregion
 
     // region Artist Songs Sort
@@ -242,7 +233,7 @@ interface ArtistsDao {
     fun safeDeleteArtist(artistId: String)
 
     @Transaction
-    @Query("DELETE FROM artist WHERE isLocal = 1")
-    fun nukeLocalArtists()
+    @Query("DELETE FROM artist")
+    fun nukeArtists()
     // endregion
 }

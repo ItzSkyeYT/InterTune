@@ -15,14 +15,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.EditOff
-import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.OfflinePin
-import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -122,31 +119,17 @@ fun PlaylistListItem(
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) = ListItem(
     title = playlist.playlist.name,
-    subtitle =
-        if (playlist.songCount == 0 && playlist.playlist.remoteSongCount != null)
-            getNSongsString(playlist.playlist.remoteSongCount)
-        else
-            getNSongsString(playlist.songCount, playlist.downloadCount),
+    subtitle = getNSongsString(playlist.songCount, playlist.downloadCount),
     badges = {
         PlaylistIcon(playlist.playlist) // always show
         if (!showBadges) return@ListItem
         Icon(
-            imageVector = if (playlist.playlist.isEditable) Icons.Rounded.Edit else Icons.Rounded.EditOff,
+            imageVector = if (playlist.playlist.isLocal) Icons.Rounded.Edit else Icons.Rounded.EditOff,
             contentDescription = null,
             modifier = Modifier
                 .size(18.dp)
                 .padding(end = 2.dp)
         )
-
-        if (playlist.playlist.isLocal) {
-            Icon(
-                imageVector = Icons.Rounded.SdCard,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(18.dp)
-                    .padding(end = 2.dp)
-            )
-        }
 
         if (playlist.downloadCount > 0) {
             Icon(
@@ -175,11 +158,7 @@ fun PlaylistGridItem(
     fillMaxWidth: Boolean = false,
 ) = GridItem(
     title = playlist.playlist.name,
-    subtitle =
-        if (playlist.songCount == 0 && playlist.playlist.remoteSongCount != null)
-            getNSongsString(playlist.playlist.remoteSongCount)
-        else
-            getNSongsString(playlist.songCount, playlist.downloadCount),
+    subtitle = getNSongsString(playlist.songCount, playlist.downloadCount),
     badges = {
         PlaylistIcon(playlist.playlist)
         if (playlist.downloadCount > 0) {
@@ -234,28 +213,8 @@ fun PlaylistThumbnail(
                     .clip(shape)
             )
         } else {
-            /**
-             * 8: Local playlist
-             * 4: Synced/editable playlist
-             * 2: Saved remote playlist
-             * 1: Supports endpoints
-             *
-             */
-            var features = 0
-            if (playlist.isLocal) features += 8
-            if (playlist.isEditable) features += 4
-            if (playlist.bookmarkedAt != null) features += 2
-            if ((playlist.playEndpointParams ?: playlist.radioEndpointParams
-                ?: playlist.shuffleEndpointParams) != null
-            ) features += 1
             Icon(
-                imageVector = when {
-                    // TODO: Icons that actually goddamn match with each other wth is this google???
-                    features >= 8 -> Icons.AutoMirrored.Rounded.QueueMusic
-                    features >= 4 -> Icons.AutoMirrored.Rounded.PlaylistAdd
-                    features >= 2 -> Icons.AutoMirrored.Rounded.PlaylistPlay
-                    else -> Icons.Rounded.Error
-                },
+                imageVector = if (playlist.isLocal) Icons.AutoMirrored.Rounded.QueueMusic else Icons.AutoMirrored.Rounded.PlaylistPlay,
                 contentDescription = null,
                 tint = iconTint,
                 modifier = Modifier

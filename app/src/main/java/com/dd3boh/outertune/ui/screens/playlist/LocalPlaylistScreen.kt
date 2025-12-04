@@ -217,8 +217,7 @@ fun LocalPlaylistScreen(
         }
     }
 
-    val editable: Boolean =
-        playlistWithSongs.first?.playlist?.isLocal == true || (playlistWithSongs.first?.playlist?.isEditable == true)
+    val editable: Boolean = playlistWithSongs.first?.playlist?.isLocal == true
 
     LaunchedEffect(playlistWithSongs.second, isSearching) {
         if (!isSearching) {
@@ -492,7 +491,6 @@ fun LocalPlaylistScreen(
                                     title =  playlistWithSongs.first!!.playlist.name,
                                     items = mutableSongs.map { it.song.toMediaMetadata() },
                                     startIndex = index,
-                                    playlistId =  playlistWithSongs.first?.playlist?.browseId
                                 )
                             )
                         },

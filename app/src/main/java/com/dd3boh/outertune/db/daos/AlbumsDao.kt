@@ -44,6 +44,9 @@ interface AlbumsDao : ArtistsDao {
     @Query("SELECT * FROM album WHERE id = :id")
     fun albumById(id: String): AlbumEntity?
 
+    @Query("SELECT count(*) FROM song_album_map WHERE albumId = :id")
+    fun getAlbumSongCount(id: String): Int
+
     @Transaction
     @Query("""
         SELECT album.*, count(song.dateDownload) downloadCount
@@ -59,18 +62,17 @@ interface AlbumsDao : ArtistsDao {
     @Query("""
         SELECT *
         FROM album
-        WHERE album.isLocal = 1 AND album.title LIKE '%' || :query || '%'
+        WHERE album.title LIKE '%' || :query || '%'
         LIMIT :previewSize
     """)
-    fun localAlbumsByNameFuzzy(query: String, previewSize: Int = Int.MAX_VALUE): List<AlbumEntity>
+    fun albumsByNameFuzzy(query: String, previewSize: Int = Int.MAX_VALUE): List<AlbumEntity>
 
     @Transaction
     @Query("""
         SELECT * FROM album
-        WHERE album.isLocal = 1
         ORDER BY album.title ASC
     LIMIT :previewSize""")
-    fun allLocalAlbumsByName(previewSize: Int = Int.MAX_VALUE): List<AlbumEntity>
+    fun allAlbumsByName(previewSize: Int = Int.MAX_VALUE): List<AlbumEntity>
 
     @Transaction
     @Query("UPDATE song_album_map SET albumId = :newId WHERE albumId = :oldId")
@@ -264,7 +266,7 @@ interface AlbumsDao : ArtistsDao {
     fun delete(album: AlbumEntity)
 
     @Transaction
-    @Query("DELETE FROM album WHERE isLocal = 1")
-    fun nukeLocalAlbums()
+    @Query("DELETE FROM album")
+    fun nukeAlbums()
     // endregion
 }

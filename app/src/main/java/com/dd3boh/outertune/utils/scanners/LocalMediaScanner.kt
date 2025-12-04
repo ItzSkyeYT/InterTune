@@ -305,17 +305,17 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                 database.transaction {
                     // get any existing matches
                     song.song.artists.forEachIndexed { index, it ->
-                        val dbQuery = localArtistsByNameFuzzy(it.name).sortedBy { item -> item.name.length }
+                        val dbQuery = artistsByNameFuzzy(it.name).sortedBy { item -> item.name.length }
                         val dbArtist = closestMatch(it.name, dbQuery)
                         artistsToDo.add(Pair(dbArtist, it))
                     }
                     song.song.genre?.forEachIndexed { index, it ->
-                        val dbGenre = localGenreByNameFuzzy(it.title).firstOrNull()
+                        val dbGenre = genreByNameFuzzy(it.title).firstOrNull()
                         genreToDo.add(Pair(dbGenre, it))
                     }
 
                     song.song.album?.let {
-                        val dbQuery = localAlbumsByNameFuzzy(it.title).sortedBy { item -> item.title.length }
+                        val dbQuery = albumsByNameFuzzy(it.title).sortedBy { item -> item.title.length }
                         albumToDo = Pair(closestAlbumMatch(it.title, dbQuery), it)
                     }
 
@@ -360,17 +360,18 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                     albumToDo?.let { album ->
                         if (album.first == null) {
                             // album does not exist in db, add it then link it
-                            insert(album.second)
-                            insert(SongAlbumMap(songToUpdate.id, album.second.id, 0))
+                            insert(album.second.copy(songCount = 1))
+                            insert(SongAlbumMap(songToUpdate.id, album.second.id, songToUpdate.trackNumber ?: -1))
                         } else {
                             // album does  exist in db, link to it
+                            val albumSongCount = getAlbumSongCount(album.first!!.id)
                             update(
                                 album.first!!.copy(
                                     thumbnailUrl = album.second.thumbnailUrl,
-                                    songCount = album.first!!.songCount + 1
+                                    songCount = albumSongCount + 1 // todo: song count is fucked
                                 )
                             )
-                            insert(SongAlbumMap(songToUpdate.id, album.first!!.id, album.first!!.songCount))
+                            insert(SongAlbumMap(songToUpdate.id, album.first!!.id, songToUpdate.trackNumber ?: -1))
                         }
                     }
                 }
@@ -804,20 +805,19 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
 
 
                 artist.split(ARTIST_SEPARATORS).forEach { artistVal ->
-                    artistList.add(ArtistEntity(ArtistEntity.generateArtistId(), artistVal, isLocal = true))
+                    artistList.add(ArtistEntity(ArtistEntity.generateArtistId(), artistVal))
                 }
 
                 genre?.split(ARTIST_SEPARATORS)?.forEach { genreVal ->
-                    genresList.add(GenreEntity(GenreEntity.generateGenreId(), genreVal, isLocal = true))
+                    genresList.add(GenreEntity(GenreEntity.generateGenreId(), genreVal))
                 }
                 val albumID = AlbumEntity.generateAlbumId()
                 val albumEntity = if (album != null) AlbumEntity(
                     id = albumID,
                     title = album,
                     thumbnailUrl = path,
-                    songCount = 1,
+                    songCount = 0,
                     duration = duration,
-                    isLocal = true
                 ) else null
 
                 mediaStoreSongs.add(
@@ -969,7 +969,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
         }
 
         // remove duplicated local artists
-        val dbArtists: MutableList<Artist> = database.localArtistsByName().toMutableList()
+        val dbArtists: MutableList<Artist> = database.artistsByName().toMutableList()
         while (dbArtists.isNotEmpty()) {
             // gather same artists (precondition: artists are ordered by name
             val tmp = ArrayList<Artist>()
@@ -992,7 +992,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
         }
 
         // remove duplicated local albums
-        val dbAlbums: MutableList<AlbumEntity> = database.allLocalAlbumsByName().toMutableList()
+        val dbAlbums: MutableList<AlbumEntity> = database.allAlbumsByName().toMutableList()
         while (dbAlbums.isNotEmpty()) {
             // gather same artists (precondition: artists are ordered by name
             val tmp = ArrayList<AlbumEntity>()
@@ -1015,7 +1015,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
         }
 
         // remove duplicated genres
-        val dbGenres: MutableList<GenreEntity> = database.allLocalGenresByName().toMutableList()
+        val dbGenres: MutableList<GenreEntity> = database.allgenresByName().toMutableList()
         while (dbGenres.isNotEmpty()) {
             // gather same artists (precondition: artists are ordered by name
             val tmp = ArrayList<GenreEntity>()

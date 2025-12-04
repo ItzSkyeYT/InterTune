@@ -13,11 +13,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
@@ -36,7 +32,6 @@ fun CreatePlaylistDialog(
     val context = LocalContext.current
     val database = LocalDatabase.current
     val coroutineScope = rememberCoroutineScope()
-    var syncedPlaylist by remember { mutableStateOf(false) }
 
     TextFieldDialog(
         icon = { Icon(imageVector = Icons.Rounded.Add, contentDescription = null) },
@@ -50,8 +45,7 @@ fun CreatePlaylistDialog(
                         PlaylistEntity(
                             name = playlistName,
                             bookmarkedAt = LocalDateTime.now(),
-                            isEditable = true,
-                            isLocal = !syncedPlaylist // && check that all songs are non-local
+                            isLocal = true, // if we every support remote datasources
                         )
                     )
                 }

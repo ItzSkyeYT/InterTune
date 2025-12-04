@@ -165,7 +165,6 @@ fun ArtistSongsScreen(
                                                 title = artist?.artist?.name,
                                                 items = songs.map { it.toMediaMetadata() },
                                                 startShuffled = true,
-                                                playlistId = null,
                                             )
                                         )
                                     }

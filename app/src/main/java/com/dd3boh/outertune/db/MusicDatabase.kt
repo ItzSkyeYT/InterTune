@@ -30,8 +30,6 @@ import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.db.entities.PlaylistSongMapPreview
 import com.dd3boh.outertune.db.entities.QueueEntity
 import com.dd3boh.outertune.db.entities.QueueSongMap
-import com.dd3boh.outertune.db.entities.RecentActivityEntity
-import com.dd3boh.outertune.db.entities.RelatedSongMap
 import com.dd3boh.outertune.db.entities.SearchHistory
 import com.dd3boh.outertune.db.entities.SongAlbumMap
 import com.dd3boh.outertune.db.entities.SongArtistMap
@@ -68,7 +66,7 @@ class MusicDatabase(
     fun close() = delegate.close()
 
     companion object {
-        const val MUSIC_DATABASE_VERSION = 20
+        const val MUSIC_DATABASE_VERSION = 21
     }
 }
 
@@ -91,8 +89,6 @@ class MusicDatabase(
         LyricsEntity::class,
         PlayCountEntity::class,
         Event::class,
-        RelatedSongMap::class,
-        RecentActivityEntity::class
     ],
     views = [
         SortedSongArtistMap::class,
@@ -116,7 +112,12 @@ class MusicDatabase(
         AutoMigration(from = 13, to = 14), // Initial queue as database
         AutoMigration(from = 17, to = 18, spec = Migration17To18::class), // Fix Room nonsense
         AutoMigration(from = 18, to = 19), // Recent activity
-        AutoMigration(from = 19, to = 20, spec = Migration19To20::class), // Db optimization, remove totalplaytime, local media fields
+        AutoMigration(
+            from = 19,
+            to = 20,
+            spec = Migration19To20::class
+        ), // Db optimization, remove totalplaytime, local media fields
+        AutoMigration(from = 20, to = 21, spec = Migration20To21::class), // OuterTune -> OuterTune lite
     ]
 )
 @TypeConverters(Converters::class)
@@ -355,7 +356,8 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
  */
 val MIGRATION_16_17 = object : Migration(16, 17) {
     override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("""
+        db.execSQL(
+            """
             CREATE TABLE IF NOT EXISTS `format_new` (
                 `id` TEXT NOT NULL,
                 `itag` INTEGER NOT NULL,
@@ -368,13 +370,16 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
                 `playbackTrackingUrl` TEXT,
                 PRIMARY KEY(`id`)
             )
-        """)
+        """
+        )
 
-        db.execSQL("""
+        db.execSQL(
+            """
             INSERT INTO `format_new` (`id`, `itag`, `mimeType`, `codecs`, `bitrate`, `sampleRate`, `contentLength`, `loudnessDb`, `playbackTrackingUrl`)
             SELECT `id`, `itag`, `mimeType`, `codecs`, `bitrate`, `sampleRate`, `contentLength`, `loudnessDb`, `playbackUrl`
             FROM `format`
-        """)
+        """
+        )
 
         db.execSQL("DROP TABLE `format`")
 
@@ -454,7 +459,8 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
 
         // rewrite db
         db.execSQL("DROP TABLE queue_song_map")
-        db.execSQL("""
+        db.execSQL(
+            """
             CREATE TABLE `queue_song_map` (
                 `queueId` INTEGER NOT NULL,
                 `index` INTEGER NOT NULL,
@@ -464,7 +470,8 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
                 FOREIGN KEY(`queueId`) REFERENCES `queue`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE,
                 FOREIGN KEY(`songId`) REFERENCES `song`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
             )
-        """)
+        """
+        )
         db.execSQL("CREATE INDEX `index_queue_song_map_queueId` ON `queue_song_map` (`queueId` ASC)")
         db.execSQL("CREATE INDEX `index_queue_song_map_songId` ON `queue_song_map` (`songId` ASC)")
         var i = 0L
@@ -684,3 +691,111 @@ class Migration17To18 : AutoMigrationSpec
     DeleteColumn(tableName = "song", columnName = "totalPlayTime"),
 )
 class Migration19To20 : AutoMigrationSpec
+
+// TODO: figure out how to nuke remote content before hand???
+@DeleteColumn.Entries(
+    DeleteColumn(
+        tableName = "album",
+        columnName = "playlistId"
+    ),
+    DeleteColumn(
+        tableName = "album",
+        columnName = "isLocal"
+    ),
+    DeleteColumn(
+        tableName = "artist",
+        columnName = "channelId"
+    ),
+    DeleteColumn(
+        tableName = "artist",
+        columnName = "isLocal"
+    ),
+    DeleteColumn(
+        tableName = "format",
+        columnName = "playbackTrackingUrl"
+    ),
+
+    DeleteColumn(
+        tableName = "genre",
+        columnName = "browseId"
+    ),
+    DeleteColumn(
+        tableName = "genre",
+        columnName = "playEndpointParams"
+    ),
+    DeleteColumn(
+        tableName = "genre",
+        columnName = "shuffleEndpointParams"
+    ),
+    DeleteColumn(
+        tableName = "genre",
+        columnName = "radioEndpointParams"
+    ),
+    DeleteColumn(
+        tableName = "genre",
+        columnName = "isLocal"
+    ),
+
+
+    DeleteColumn(
+        tableName = "playlist",
+        columnName = "browseId"
+    ),
+    DeleteColumn(
+        tableName = "playlist",
+        columnName = "isEditable"
+    ),
+    DeleteColumn(
+        tableName = "playlist",
+        columnName = "remoteSongCount"
+    ),
+    DeleteColumn(
+        tableName = "playlist",
+        columnName = "playEndpointParams"
+    ),
+    DeleteColumn(
+        tableName = "playlist",
+        columnName = "shuffleEndpointParams"
+    ),
+    DeleteColumn(
+        tableName = "playlist",
+        columnName = "radioEndpointParams"
+    ),
+
+
+    DeleteColumn(
+        tableName = "playlist_song_map",
+        columnName = "setVideoId"
+    ),
+    DeleteColumn(
+        tableName = "queue",
+        columnName = "playlistId"
+    ),
+    DeleteColumn(
+        tableName = "artist",
+        columnName = "channelId"
+    ),
+
+    DeleteColumn(
+        tableName = "artist",
+        columnName = "channelId"
+    ),
+    DeleteColumn(
+        tableName = "artist",
+        columnName = "channelId"
+    ),
+    DeleteColumn(
+        tableName = "artist",
+        columnName = "channelId"
+    ),
+    DeleteColumn(
+        tableName = "artist",
+        columnName = "channelId"
+    ),
+)
+@DeleteTable.Entries(
+    DeleteTable(tableName = "recent_activity"),
+    DeleteTable(tableName = "related_song_map"),
+)
+
+class Migration20To21 : AutoMigrationSpec

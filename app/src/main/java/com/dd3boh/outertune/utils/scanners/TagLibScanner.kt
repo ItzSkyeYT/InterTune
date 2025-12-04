@@ -94,7 +94,7 @@ class TagLibScanner : MetadataScanner {
                         "ARTISTS", "ARTIST", "artist" -> {
                             val splitArtists = it.split(ARTIST_SEPARATORS)
                             splitArtists.forEach { artistVal ->
-                                artistList.add(ArtistEntity(ArtistEntity.generateArtistId(), artistVal, isLocal = true))
+                                artistList.add(ArtistEntity(ArtistEntity.generateArtistId(), artistVal))
                             }
                         }
 
@@ -103,7 +103,7 @@ class TagLibScanner : MetadataScanner {
                         "GENRE", "genre" -> {
                             val splitGenres = it.split(ARTIST_SEPARATORS)
                             splitGenres.forEach { genreVal ->
-                                genresList.add(GenreEntity(GenreEntity.generateGenreId(), genreVal, isLocal = true))
+                                genresList.add(GenreEntity(GenreEntity.generateGenreId(), genreVal))
 
                             }
                         }
@@ -188,7 +188,6 @@ class TagLibScanner : MetadataScanner {
                 thumbnailUrl = file.absolutePath,
                 songCount = 1,
                 duration = duration.toInt(),
-                isLocal = true
             ) else null
 
 
