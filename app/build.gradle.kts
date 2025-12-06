@@ -232,9 +232,7 @@ dependencies {
     implementation(libs.viewmodel.compose)
 
     implementation(libs.media3)
-//    implementation(libs.media3.okhttp)
     implementation(libs.media3.session)
-//    implementation(libs.media3.workmanager)
 
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
@@ -247,15 +245,13 @@ dependencies {
 
     coreLibraryDesugaring(libs.desugaring)
 
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.serialization.json)
+    // misc
+    implementation(libs.aboutlibraries.compose.m3)
 
     // modules
     implementation(project(":material-color-utilities"))
     implementation(project(":taglib"))
 
-    // misc
-    implementation(libs.aboutlibraries.compose.m3)
 }
 
 afterEvaluate {
