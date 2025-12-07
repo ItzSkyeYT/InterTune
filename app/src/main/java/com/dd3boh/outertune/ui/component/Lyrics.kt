@@ -39,6 +39,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -66,6 +67,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -79,6 +81,8 @@ import androidx.compose.ui.util.fastAny
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.KeepScreenOn
+import com.dd3boh.outertune.constants.KeepScreenOnKey
 import com.dd3boh.outertune.constants.LyricClickable
 import com.dd3boh.outertune.constants.LyricFontSizeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
@@ -115,11 +119,17 @@ fun Lyrics(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val currentView = LocalView.current
     val haptic = LocalHapticFeedback.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val menuState = LocalMenuState.current
     val density = LocalDensity.current
-    var (showLyrics, onShowLyricsChange) = rememberPreference(ShowLyricsKey, false)
+
+    val keepScreenOn by rememberEnumPreference(
+        key = KeepScreenOnKey,
+        defaultValue = KeepScreenOn.LYRICS
+    )
+    val (showLyrics, onShowLyricsChange) = rememberPreference(ShowLyricsKey, false)
     val landscapeOffset = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     val lyricsTextPosition by rememberEnumPreference(LyricsTextPositionKey, LyricsPosition.CENTER)
@@ -130,7 +140,15 @@ fun Lyrics(
     val lyricsUpdateSpeed by rememberEnumPreference(LyricUpdateSpeed, Speed.MEDIUM)
     var lyricRefreshRate = lyricsUpdateSpeed.toLrcRefreshMillis()
 
+    val isPlaying by playerConnection.isPlaying.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+
+    DisposableEffect(isPlaying, showLyrics) {
+        currentView.keepScreenOn = showLyrics && isPlaying && keepScreenOn == KeepScreenOn.LYRICS
+        onDispose {
+            currentView.keepScreenOn = false
+        }
+    }
 
     // NOTE: lyricsModel is the current display lyrics that is updated by playerLyrics AND/OR manually
     val playerLyrics by playerConnection.currentLyrics.collectAsState(initial = null)

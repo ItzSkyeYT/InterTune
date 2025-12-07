@@ -39,11 +39,14 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.constants.KeepScreenOn
+import com.dd3boh.outertune.constants.KeepScreenOnKey
 import com.dd3boh.outertune.constants.PlayerHorizontalPadding
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.Lyrics
+import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -54,8 +57,6 @@ fun Thumbnail(
     showLyricsOnClick: Boolean = false,
     customMediaMetadata: MediaMetadata? = null
 ) {
-    val context = LocalContext.current
-    val currentView = LocalView.current
     val haptic = LocalHapticFeedback.current
     val playerConnection = LocalPlayerConnection.current ?: return
 
@@ -64,13 +65,6 @@ fun Thumbnail(
     val playerMediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val error by playerConnection.error.collectAsState()
     val mediaMetadata = customMediaMetadata ?: playerMediaMetadata
-
-    DisposableEffect(showLyrics) {
-        currentView.keepScreenOn = showLyrics
-        onDispose {
-            currentView.keepScreenOn = false
-        }
-    }
 
     Box(modifier = modifier) {
         AnimatedVisibility(

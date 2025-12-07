@@ -73,6 +73,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -97,6 +98,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -119,6 +121,8 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.DEFAULT_PLAYER_BACKGROUND
 import com.dd3boh.outertune.constants.DarkMode
 import com.dd3boh.outertune.constants.DarkModeKey
+import com.dd3boh.outertune.constants.KeepScreenOn
+import com.dd3boh.outertune.constants.KeepScreenOnKey
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.constants.PlayerHorizontalPadding
@@ -167,6 +171,7 @@ fun BottomSheetPlayer(
     Log.v(TAG, "PLR-1")
 
     val context = LocalContext.current
+    val currentView = LocalView.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val queueBoard by playerConnection.service.queueBoard.collectAsState()
 
@@ -181,6 +186,10 @@ fun BottomSheetPlayer(
         if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
     }
 
+    val keepScreenOn by rememberEnumPreference(
+        key = KeepScreenOnKey,
+        defaultValue = KeepScreenOn.LYRICS
+    )
     val showLyrics by rememberPreference(ShowLyricsKey, defaultValue = false)
 
     val qbInit by playerConnection.service.qbInit.collectAsState()
@@ -214,6 +223,15 @@ fun BottomSheetPlayer(
         }
     ) {
         Log.v(TAG, "PLR-3.0")
+
+        val isPlaying by playerConnection.isPlaying.collectAsState()
+
+        DisposableEffect(isPlaying, keepScreenOn) {
+            currentView.keepScreenOn = isPlaying && keepScreenOn == KeepScreenOn.PLAYER
+            onDispose {
+                currentView.keepScreenOn = false
+            }
+        }
 
         if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE && !context.tabMode() && context.supportsWideScreen()) {
             LandscapePlayer(state, navController, queueBoard)

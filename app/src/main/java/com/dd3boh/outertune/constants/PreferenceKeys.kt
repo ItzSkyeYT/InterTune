@@ -14,15 +14,22 @@ val HighContrastKey = booleanPreferencesKey("highContrast")
 val PlayerBackgroundStyleKey = stringPreferencesKey("playerBackgroundStyle")
 val DarkModeKey = stringPreferencesKey("darkMode")
 val PureBlackKey = booleanPreferencesKey("pureBlack")
-val ShowLikedAndDownloadedPlaylist = booleanPreferencesKey("showLikedAndDownloadedPlaylist")
-val SwipeToQueueKey = booleanPreferencesKey("swipeToQueue")
-val FlatSubfoldersKey = booleanPreferencesKey("flatSubfolders")
+
 val TabletUiKey = booleanPreferencesKey("tabletUi")
 
+
+/**
+ * Interface
+ */
 val EnabledTabsKey = stringPreferencesKey("enabledTabs")
 val EnabledFiltersKey = stringPreferencesKey("enabledFilters")
 val DefaultOpenTabKey = stringPreferencesKey("defaultOpenTab")
+val FlatSubfoldersKey = booleanPreferencesKey("flatSubfolders")
+val KeepScreenOnKey = stringPreferencesKey("keepScreenOn")
+val ShowLikedAndDownloadedPlaylist = booleanPreferencesKey("showLikedAndDownloadedPlaylist")
 val SlimNavBarKey = booleanPreferencesKey("slimNavBar")
+val SwipeToQueueKey = booleanPreferencesKey("swipeToQueue")
+
 
 /**
  * Content

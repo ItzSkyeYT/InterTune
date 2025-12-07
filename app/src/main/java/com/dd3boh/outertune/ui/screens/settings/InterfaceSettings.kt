@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Tab
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -24,20 +25,30 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
+import com.dd3boh.outertune.constants.EnabledTabsKey
+import com.dd3boh.outertune.constants.KeepScreenOn
+import com.dd3boh.outertune.constants.KeepScreenOnKey
 import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
+import com.dd3boh.outertune.ui.component.EnumListPreference
+import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.button.IconButton
+import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.settings.fragments.SwipeGesturesFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.TabArrangementFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.TabExtrasFrag
 import com.dd3boh.outertune.ui.utils.backToMain
+import com.dd3boh.outertune.utils.rememberEnumPreference
+import com.dd3boh.outertune.utils.rememberPreference
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +89,30 @@ fun InterfaceSettings(
             modifier = Modifier.fillMaxWidth()
         ) {
             SwipeGesturesFrag()
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            val (keepScreenOn, onKeepScreenOnChanged) = rememberEnumPreference(
+                key = KeepScreenOnKey,
+                defaultValue = KeepScreenOn.LYRICS
+            )
+
+            EnumListPreference(
+                title = { Text(stringResource(R.string.keep_screen_on)) },
+                icon = { Icon(Icons.Rounded.Tab, null) },
+                selectedValue = keepScreenOn,
+                onValueSelected = onKeepScreenOnChanged,
+                valueText = {
+                    when (it) {
+                        KeepScreenOn.NEVER -> stringResource(R.string.keep_screen_on_never)
+                        KeepScreenOn.LYRICS -> stringResource(R.string.keep_screen_on_lyrics)
+                        KeepScreenOn.PLAYER -> stringResource(R.string.keep_screen_on_player)
+                    }
+                }
+            )
         }
         Spacer(modifier = Modifier.height(48.dp))
 
