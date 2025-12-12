@@ -26,11 +26,11 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.dd3boh.outertune"
+        applicationId = "com.dd3boh.outsidetune"
         minSdk = 24
         targetSdk = 36
-        versionCode = 70
-        versionName = "0.10.1-b1"
+        versionCode = 71
+        versionName = "0.11.0-a1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
