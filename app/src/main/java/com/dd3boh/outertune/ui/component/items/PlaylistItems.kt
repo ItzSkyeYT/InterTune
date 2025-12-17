@@ -115,21 +115,24 @@ fun AutoPlaylistGridItem(
 fun PlaylistListItem(
     playlist: Playlist,
     modifier: Modifier = Modifier,
+    subtitle: String? = getNSongsString(playlist.songCount, playlist.downloadCount),
     showBadges: Boolean = false,
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) = ListItem(
     title = playlist.playlist.name,
-    subtitle = getNSongsString(playlist.songCount, playlist.downloadCount),
+    subtitle = subtitle,
     badges = {
         PlaylistIcon(playlist.playlist) // always show
         if (!showBadges) return@ListItem
-        Icon(
-            imageVector = if (playlist.playlist.isLocal) Icons.Rounded.Edit else Icons.Rounded.EditOff,
-            contentDescription = null,
-            modifier = Modifier
-                .size(18.dp)
-                .padding(end = 2.dp)
-        )
+        if (!playlist.playlist.isLocal) {
+            Icon(
+                imageVector = Icons.Rounded.EditOff,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(18.dp)
+                    .padding(end = 2.dp)
+            )
+        }
 
         if (playlist.downloadCount > 0) {
             Icon(

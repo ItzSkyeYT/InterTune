@@ -12,6 +12,8 @@ import java.time.LocalDateTime
 data class PlaylistEntity(
     @PrimaryKey val id: String = generatePlaylistId(),
     val name: String,
+    @ColumnInfo(name = "path", defaultValue = "/")
+    val path: String = "/",
     val bookmarkedAt: LocalDateTime? = null,
     val thumbnailUrl: String? = null,
     @ColumnInfo(name = "isLocal", defaultValue = false.toString())

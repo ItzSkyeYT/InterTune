@@ -58,7 +58,9 @@ import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
+import com.dd3boh.outertune.ui.utils.getNSongsString
 import com.dd3boh.outertune.utils.getDownloadState
+import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.reportException
 import kotlinx.coroutines.CoroutineScope
@@ -77,7 +79,6 @@ fun PlaylistMenu(
     val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val queueBoard by playerConnection.queueBoard.collectAsState()
-    val dbPlaylist by database.playlist(playlist.id).collectAsState(initial = playlist)
     var songs by remember {
         mutableStateOf(emptyList<Song>())
     }
@@ -144,6 +145,9 @@ fun PlaylistMenu(
 
     PlaylistListItem(
         playlist = playlist,
+        subtitle = joinByBullet(
+            getNSongsString(playlist.songCount, playlist.downloadCount),
+            playlist.playlist.path.trimEnd { it == '/' }),
         showBadges = true
     )
 
@@ -263,13 +267,20 @@ fun PlaylistMenu(
             title = { Text(text = stringResource(R.string.edit_playlist)) },
             onDismiss = { showEditDialog = false },
             initialTextFieldValue = TextFieldValue(
-                playlist.playlist.name,
+                playlist.playlist.path + playlist.playlist.name,
                 TextRange(playlist.playlist.name.length)
             ),
-            onDone = { name ->
+            onDone = { playlistName ->
                 onDismiss()
+                val playlistName = playlistName.trimStart { it == '/' }
+                val name = playlistName.substringAfterLast("/")
+                val path = if (playlistName.contains("/")) {
+                    "/" + playlistName.substringBeforeLast("/").trim { it == '/' } + "/"
+                } else {
+                    "/"
+                }
                 database.query {
-                    update(playlist.playlist.copy(name = name))
+                    update(playlist.playlist.copy(name = name, path = path))
                 }
             }
         )

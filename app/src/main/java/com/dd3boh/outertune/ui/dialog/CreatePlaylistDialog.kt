@@ -40,10 +40,18 @@ fun CreatePlaylistDialog(
         onDismiss = onDismiss,
         onDone = { playlistName ->
             coroutineScope.launch(Dispatchers.IO) {
+                val playlistName = playlistName.trimStart { it == '/' }
+                val name = playlistName.substringAfterLast("/")
+                val path = if (playlistName.contains("/")) {
+                    "/" + playlistName .substringBeforeLast("/").trim { it == '/' }
+                } else {
+                    "/"
+                }
                 database.query {
                     insert(
                         PlaylistEntity(
-                            name = playlistName,
+                            name = name,
+                            path = path,
                             bookmarkedAt = LocalDateTime.now(),
                             isLocal = true, // if we every support remote datasources
                         )

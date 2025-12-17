@@ -166,6 +166,9 @@ interface SongsDao {
         return _localSongsInDirShallow(fixFilePath(filter))
     }
 
+    /**
+     * Songs in :filter UNION songs with distinct parent in subdir of :filter
+     */
     @Transaction
     @Query("""
         SELECT * FROM song

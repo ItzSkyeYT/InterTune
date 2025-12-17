@@ -64,6 +64,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -192,8 +193,11 @@ class LibraryAlbumsViewModel @Inject constructor(
 @HiltViewModel
 class LibraryPlaylistsViewModel @Inject constructor(
     @ApplicationContext context: Context,
-    database: MusicDatabase,
+    val database: MusicDatabase,
 ) : ViewModel() {
+    val TAG = "LibraryPlaylistsViewModel"
+
+    var lastPath = MutableStateFlow("/")
     val allPlaylists = context.dataStore.data
         .map {
             Triple(
@@ -207,6 +211,73 @@ class LibraryPlaylistsViewModel @Inject constructor(
             database.playlists(filter, sortType, descending)
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
+
+    //                            Folders: Pair<path , display name>
+    // StateFlow<Pair<List<Playlist>, List<Pair<String, String>>>?>
+    val playlists = combine(allPlaylists, lastPath) { list, path ->
+        update(list, path)
+    }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null
+        )
+    val canNavigateUp = MutableStateFlow(false)
+
+    fun navigateUp() {
+        lastPath.value = lastPath.value.substringBeforeLast("/", "/")
+        canNavigateUp.value = lastPath.value != "/"
+    }
+
+    fun update(pathFilter: String): Pair<List<Playlist>, List<Pair<String, String>>> =
+        update(allPlaylists.value, pathFilter)
+
+    fun update(newPlaylists: List<Playlist>?, pathFilter: String): Pair<List<Playlist>, List<Pair<String, String>>> {
+        var pathFilter = pathFilter.trimEnd { it == '/' }
+        if (!pathFilter.startsWith('/')) {
+            Log.w(TAG, "Invalid playlist, falling back to \"/\"")
+            pathFilter = "/"
+        }
+        Log.v(TAG, "Loading playlist with filter: $pathFilter, found ${newPlaylists?.size} total playlists")
+
+        if (newPlaylists == null) return Pair(emptyList(), emptyList())
+
+        // sorted valid paths by minimum size subdir depth
+        val folderCandidates = newPlaylists.map { playlist ->
+            Pair(
+                playlist.playlist.path,
+                playlist.playlist.path.substringAfter(pathFilter, "").count { it == '/' })
+        }
+            .filter { !it.first.substringAfter(pathFilter, "").isBlank() }
+            .sortedBy {
+                it.second
+            }
+        Log.v(TAG, "Playlists folders after filter: ${folderCandidates.joinToString()}")
+
+        // get all folders in min subdir depth
+        val minDepth = folderCandidates.firstOrNull()?.second
+        val ret = ArrayList<Pair<String, String>>()
+        if (minDepth != null) {
+            var i = 0
+            while (i < folderCandidates.size) {
+                if (folderCandidates[i].second == minDepth) {
+                    var displayName = folderCandidates[i].first.substringAfter(pathFilter)
+                    // display name comes in /name or /name/blah
+                    if (displayName.count { it == '/' } == 1 && displayName[0] == '/') {
+                        displayName = displayName.substring(1, displayName.length)
+                    }
+                    ret.add(Pair(folderCandidates[i].first, displayName))
+                } else {
+                    break
+                }
+                i++
+            }
+            Log.v(TAG, "Playlists folders final: $ret")
+        }
+        lastPath.value = pathFilter // save path to handle list modification updates
+        canNavigateUp.value = pathFilter != "/"
+        return Pair(newPlaylists.filter { it.playlist.path == pathFilter }, ret)
+    }
 }
 
 @HiltViewModel

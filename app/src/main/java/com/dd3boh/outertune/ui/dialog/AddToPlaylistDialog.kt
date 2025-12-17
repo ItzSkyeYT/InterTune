@@ -84,7 +84,7 @@ fun AddToPlaylistDialog(
     }
 
     LaunchedEffect(Unit) {
-        database.playlists(PlaylistFilter.LIBRARY, sortType, sortDescending, 1).collect {
+        database.playlists(PlaylistFilter.LIBRARY, sortType, sortDescending, variant = 1).collect {
             playlists = it
         }
     }

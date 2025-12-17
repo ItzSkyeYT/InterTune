@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -23,6 +24,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Input
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -30,12 +32,16 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FilterAlt
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +51,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -68,6 +75,7 @@ import com.dd3boh.outertune.constants.PlaylistSortType
 import com.dd3boh.outertune.constants.PlaylistSortTypeKey
 import com.dd3boh.outertune.constants.PlaylistViewTypeKey
 import com.dd3boh.outertune.constants.ShowLikedAndDownloadedPlaylist
+import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.ui.component.ChipsRow
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
@@ -79,6 +87,8 @@ import com.dd3boh.outertune.ui.component.ScrollToTopManager
 import com.dd3boh.outertune.ui.component.SortHeader
 import com.dd3boh.outertune.ui.component.items.AutoPlaylistGridItem
 import com.dd3boh.outertune.ui.component.items.AutoPlaylistListItem
+import com.dd3boh.outertune.ui.component.items.GridItem
+import com.dd3boh.outertune.ui.component.items.ListItem
 import com.dd3boh.outertune.ui.dialog.CreatePlaylistDialog
 import com.dd3boh.outertune.ui.dialog.ImportM3uDialog
 import com.dd3boh.outertune.ui.menu.ActionDropdown
@@ -87,6 +97,7 @@ import com.dd3boh.outertune.ui.utils.MEDIA_PERMISSION_LEVEL
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.LibraryPlaylistsViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,7 +122,9 @@ fun LibraryPlaylistsScreen(
     val (sortDescending, onSortDescendingChange) = rememberPreference(PlaylistSortDescendingKey, true)
     val (showLikedAndDownloadedPlaylist) = rememberPreference(ShowLikedAndDownloadedPlaylist, true)
 
-    val playlists by viewModel.allPlaylists.collectAsState()
+    val playlists by viewModel.playlists.collectAsState()
+    val canNavigateUp by viewModel.canNavigateUp.collectAsState()
+
 
     val likedPlaylist = PlaylistEntity(id = "liked", name = stringResource(id = R.string.liked_songs))
     val downloadedPlaylist = PlaylistEntity(id = "downloaded", name = stringResource(id = R.string.downloaded_songs))
@@ -196,7 +209,7 @@ fun LibraryPlaylistsScreen(
             ) {
                 playlists?.let { playlists ->
                     Text(
-                        text = pluralStringResource(R.plurals.n_playlist, playlists.size, playlists.size),
+                        text = pluralStringResource(R.plurals.n_playlist, playlists.first.size, playlists.first.size),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.secondary
                     )
@@ -242,13 +255,16 @@ fun LibraryPlaylistsScreen(
         modifier = Modifier
             .fillMaxSize()
     ) {
+        Log.v("LibraryPlaylistsScreen", "LP_RC-2")
         ScrollToTopManager(navController, lazyListState)
+
         when (viewType) {
             LibraryViewType.LIST -> {
                 LazyColumn(
                     state = lazyListState,
                     contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()
                 ) {
+                    Log.v("LibraryPlaylistsScreen", "LP_RC-3.1-L")
                     item(
                         key = "filter",
                         contentType = CONTENT_TYPE_HEADER
@@ -263,7 +279,7 @@ fun LibraryPlaylistsScreen(
                         headerContent()
                     }
 
-                    if (showLikedAndDownloadedPlaylist) {
+                    if (!canNavigateUp && showLikedAndDownloadedPlaylist) {
                         item(
                             key = likedPlaylist.id,
                             contentType = { CONTENT_TYPE_PLAYLIST }
@@ -297,18 +313,68 @@ fun LibraryPlaylistsScreen(
                         }
                     }
 
-                    playlists?.let { playlists ->
-                        if (playlists.isEmpty() && !showLikedAndDownloadedPlaylist) {
-                            item {
-                                EmptyPlaceholder(
-                                    icon = Icons.AutoMirrored.Rounded.QueueMusic,
-                                    text = stringResource(R.string.library_playlist_empty),
-                                    modifier = Modifier.animateItem()
-                                )
-                            }
+                    if (!canNavigateUp && playlists?.first?.isEmpty() != false && !showLikedAndDownloadedPlaylist) {
+                        item {
+                            EmptyPlaceholder(
+                                icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                                text = stringResource(R.string.library_playlist_empty),
+                                modifier = Modifier.animateItem()
+                            )
                         }
+                    }
+
+                    if (canNavigateUp) {
+                        item(
+                            key = "back",
+                        ) {
+                            ListItem(
+                                title = stringResource(R.string.folder_nav_prev),
+                                subtitle = stringResource(R.string.folder_nav_prev_subtitle),
+                                thumbnailContent = {
+                                    Icon(
+                                        Icons.Rounded.Folder,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .clickable {
+                                        viewModel.navigateUp()
+                                    },
+                            )
+                        }
+                    }
+
+                    playlists?.let { playlists ->
+                        // folder
                         items(
-                            items = playlists,
+                            items = playlists.second,
+                            key = { it },
+                        ) { folder ->
+                            ListItem(
+                                title = folder.second,
+                                subtitle = folder.first,
+                                thumbnailContent = {
+                                    Icon(
+                                        Icons.Rounded.Folder,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .clickable {
+                                        coroutineScope.launch {
+                                            viewModel.update(folder.first)
+                                        }
+                                    },
+                            )
+                        }
+
+                        // items
+                        items(
+                            items = playlists.first,
                             key = { it.id },
                             contentType = { CONTENT_TYPE_PLAYLIST }
                         ) { playlist ->
@@ -333,6 +399,7 @@ fun LibraryPlaylistsScreen(
                     columns = GridCells.Adaptive(minSize = GridThumbnailHeight + 24.dp),
                     contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()
                 ) {
+                    Log.v("LibraryPlaylistsScreen", "LP_RC-3.1-G")
                     item(
                         key = "filter",
                         span = { GridItemSpan(maxLineSpan) },
@@ -349,7 +416,7 @@ fun LibraryPlaylistsScreen(
                         headerContent()
                     }
 
-                    if (showLikedAndDownloadedPlaylist) {
+                    if (!canNavigateUp && showLikedAndDownloadedPlaylist) {
                         item(
                             key = likedPlaylist.id,
                             contentType = { CONTENT_TYPE_PLAYLIST }
@@ -385,18 +452,83 @@ fun LibraryPlaylistsScreen(
                         }
                     }
 
-                    playlists?.let { playlists ->
-                        if (playlists.isEmpty() && !showLikedAndDownloadedPlaylist) {
-                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                EmptyPlaceholder(
-                                    icon = R.drawable.queue_music,
-                                    text = stringResource(R.string.library_playlist_empty),
-                                    modifier = Modifier.animateItem()
-                                )
-                            }
+                    if (!canNavigateUp && playlists?.first?.isEmpty() != false && !showLikedAndDownloadedPlaylist) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            EmptyPlaceholder(
+                                icon = R.drawable.queue_music,
+                                text = stringResource(R.string.library_playlist_empty),
+                                modifier = Modifier.animateItem()
+                            )
                         }
+                    }
+
+                    if (canNavigateUp) {
+                        item(
+                            key = "back",
+                        ) {
+                            GridItem(
+                                title = stringResource(R.string.folder_nav_prev),
+                                subtitle = stringResource(R.string.folder_nav_prev_subtitle),
+                                thumbnailContent = {
+                                    val width = maxWidth
+                                    Icon(
+                                        Icons.Rounded.Folder,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(width)
+                                            .padding(width / 6)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .clickable {
+                                        coroutineScope.launch {
+                                            viewModel.navigateUp()
+                                        }
+                                    },
+                            )
+                        }
+                    }
+
+                    playlists?.let { playlists ->
+                        // folder
                         items(
-                            items = playlists,
+                            items = playlists.second,
+                            key = { it },
+                        ) { playlist ->
+                            GridItem(
+                                title = playlist.second,
+                                subtitle = playlist.first,
+                                thumbnailContent = {
+                                    val width = maxWidth
+                                    Box(
+                                        modifier = Modifier
+                                            .size(width)
+                                            .clip(RoundedCornerShape(ThumbnailCornerRadius))
+                                            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp))
+                                    ) {
+                                        Icon(
+                                            Icons.Rounded.Folder,
+                                            contentDescription = null,
+                                            tint = LocalContentColor.current.copy(alpha = 0.8f),
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .padding(8.dp)
+                                        )
+                                    }
+                                },
+                                fillMaxWidth = true,
+                                modifier = Modifier
+                                    .clickable {
+                                        coroutineScope.launch {
+                                            viewModel.update(playlist.first)
+                                        }
+                                    },
+                            )
+                        }
+
+                        // items
+                        items(
+                            items = playlists.first,
                             key = { it.id },
                             contentType = { CONTENT_TYPE_PLAYLIST }
                         ) { playlist ->
