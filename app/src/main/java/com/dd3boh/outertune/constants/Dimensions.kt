@@ -35,6 +35,11 @@ val ListThumbnailSize = 48.dp
 val GridThumbnailHeight = 96.dp
 val AlbumThumbnailSize = 144.dp
 
+
+val SmallCornerRadius = 8.dp
+val MediumCornerRadius = 12.dp
+val LargeCornerRadius = 24.dp
+
 val ThumbnailCornerRadius = 6.dp
 val AlbumCornerRadius = 16.dp
 val MenuCornerRadius = 16.dp
@@ -48,41 +53,6 @@ val TopBarInsets: WindowInsets
     get() = TopAppBarDefaults.windowInsets
         .only(WindowInsetsSides.Top + WindowInsetsSides.Bottom + WindowInsetsSides.End)
         .add(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Start))
-
-val InsetsSafeS: WindowInsets
-    @Composable
-    get() =
-        WindowInsets.safeDrawing.only(WindowInsetsSides.Start)
-
-val InsetsSafeE: WindowInsets
-    @Composable
-    get() =
-        WindowInsets.safeDrawing.only(WindowInsetsSides.End)
-
-val InsetsSafeSE: WindowInsets
-    @Composable
-    get() =
-        WindowInsets.safeDrawing.only(WindowInsetsSides.Start + WindowInsetsSides.End)
-
-val InsetsSafeSTE: WindowInsets
-    @Composable
-    get() =
-        WindowInsets.safeDrawing.only(WindowInsetsSides.Start + WindowInsetsSides.Top + WindowInsetsSides.End)
-
-val InsetsSafeSTB: WindowInsets
-    @Composable
-    get() =
-        WindowInsets.safeDrawing.only(WindowInsetsSides.Start + WindowInsetsSides.Top + WindowInsetsSides.Bottom)
-
-val InsetsSafeT: WindowInsets
-    @Composable
-    get() =
-        WindowInsets.safeDrawing.only(WindowInsetsSides.Top)
-
-val InsetsSafeTEB: WindowInsets
-    @Composable
-    get() =
-        WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End + WindowInsetsSides.Bottom)
 
 val NavigationBarAnimationSpec = spring<Dp>(stiffness = Spring.StiffnessMediumLow)
 val BottomSheetAnimationSpec = spring<Dp>(stiffness = Spring.StiffnessMediumLow)
