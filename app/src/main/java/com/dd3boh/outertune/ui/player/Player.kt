@@ -29,10 +29,13 @@ import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -55,12 +58,14 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -715,6 +720,28 @@ fun ControlsContent(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            val queueHint: @Composable RowScope.() -> Unit = {
+                Box(
+                    modifier = Modifier
+                        .offset(y = 5.dp)
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                ) {
+                    ResizableIconButton(
+                        icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(24.dp),
+                        onClick = {
+                            queueSheetState.expandSoft()
+                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        }
+                    )
+                }
+            }
+
             // action buttons for landscape (above title)
             if (compactWidth) {
                 Row(
@@ -725,6 +752,10 @@ fun ControlsContent(
                         .padding(start = PlayerHorizontalPadding, end = PlayerHorizontalPadding, bottom = 16.dp)
                 ) {
                     ActionButtons(playerSheetState, navController)
+                    if (showQueueHint) {
+                        Spacer(modifier = Modifier.width(7.dp))
+                        queueHint()
+                    }
                 }
             }
 
@@ -791,6 +822,10 @@ fun ControlsContent(
                     // action buttons for portrait (inline with title)
                     if (!compactWidth) {
                         ActionButtons(playerSheetState, navController)
+                        if (showQueueHint) {
+                            Spacer(modifier = Modifier.width(7.dp))
+                            queueHint()
+                        }
                     }
                 }
             }
@@ -996,34 +1031,6 @@ fun ControlsContent(
                 }
             }
 
-            // queue hint for landscape
-            if (showQueueHint) {
-                Spacer(Modifier.height(12.dp))
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .height(QueuePeekHeight)
-                        .fillMaxWidth()
-                        .clickable(
-                            onClick = {
-                                queueSheetState.expandSoft()
-                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                            }
-                        )
-                ) {
-                    IconButton(onClick = {
-                        queueSheetState.expandSoft()
-                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                    }) {
-                        Icon(
-                            imageVector = Icons.Rounded.ExpandLess,
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            contentDescription = null,
-                        )
-                    }
-                }
-            }
         }
     }
 }
