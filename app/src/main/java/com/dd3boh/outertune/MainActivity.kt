@@ -43,9 +43,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -293,9 +293,8 @@ class MainActivity : ComponentActivity() {
             ) {
                 Log.v(MAIN_TAG, "RC-2.1")
                 val density = LocalDensity.current
-                val windowsInsets = WindowInsets.systemBars
+                val windowsInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout)
                 val bottomInset = with(density) { windowsInsets.getBottom(density).toDp() }
-                val cutoutInsets = WindowInsets.displayCutout
 
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -341,6 +340,7 @@ class MainActivity : ComponentActivity() {
                         expandedBound = maxHeight,
                     )
 
+                    // Main insets for navhost content.
                     val playerAwareWindowInsets =
                         remember(
                             bottomInset,
@@ -353,7 +353,6 @@ class MainActivity : ComponentActivity() {
                             if (!tabMode) {
                                 windowsInsets
                                     .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
-                                    .add(cutoutInsets.only(WindowInsetsSides.Horizontal))
                                     .add(
                                         WindowInsets(
                                             left = if (!useNavRail) 0.dp else NavigationBarHeight,
@@ -363,7 +362,7 @@ class MainActivity : ComponentActivity() {
                                     )
                             } else {
                                 windowsInsets
-                                    .only(WindowInsetsSides.Top)
+                                    .only(WindowInsetsSides.Vertical + WindowInsetsSides.End)
                                     .add(WindowInsets(top = AppBarHeight, bottom = bottom))
                             }
                         }
@@ -850,14 +849,16 @@ class MainActivity : ComponentActivity() {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                                 ) {
                                     Box(
                                         modifier = Modifier
                                             .width(playerW.dp)
                                     ) {
                                         if (oobeStatus >= OOBE_VERSION && !navigationItems.contains(Screens.Player)) {
-                                            PlayerScreen(navController)
+                                            PlayerScreen(
+                                                navController = navController,
+                                                windowInsets = windowsInsets.only(WindowInsetsSides.Start + WindowInsetsSides.Vertical),
+                                            )
                                         }
                                     }
 
@@ -867,7 +868,11 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         navHost()
 
-                                        SearchBarContainer(navController, scrollBehavior)
+                                        SearchBarContainer(
+                                            navController = navController,
+                                            scrollBehavior = scrollBehavior,
+                                            windowInsets = windowsInsets.only(WindowInsetsSides.Top)
+                                        )
 
                                         if (oobeStatus >= OOBE_VERSION) {
                                             navbar()

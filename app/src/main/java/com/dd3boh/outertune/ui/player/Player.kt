@@ -41,15 +41,19 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeContent
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.systemGestures
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -253,6 +257,7 @@ fun PortraitPlayer(
     navController: NavController,
     queueBoard: QueueBoard,
     enableQueueSheet: Boolean = true,
+    windowInsets: WindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout),
 ) {
     val TAG = "BottomSheetPlayer"
     Log.v(TAG, "PLR-3.1b")
@@ -393,7 +398,8 @@ fun PortraitPlayer(
                 playerSheetState.dismiss()
                 queueBoard.detachedHead = false
             },
-            navController = navController
+            navController = navController,
+            windowInsets = windowInsets,
         )
     }
 }
@@ -405,6 +411,7 @@ fun LandscapePlayer(
     navController: NavController,
     queueBoard: QueueBoard,
     enableQueueSheet: Boolean = true,
+    windowInsets: WindowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout)
 ) {
     val TAG = "BottomSheetPlayer"
 

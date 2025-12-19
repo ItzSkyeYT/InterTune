@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -112,7 +111,6 @@ import androidx.media3.common.Player.REPEAT_MODE_ONE
 import androidx.media3.common.Player.STATE_ENDED
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
-import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.CONTENT_TYPE_SONG
@@ -120,7 +118,6 @@ import com.dd3boh.outertune.constants.ListItemHeight
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.LockQueueKey
 import com.dd3boh.outertune.constants.MediumCornerRadius
-import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.PlayerHorizontalPadding
 import com.dd3boh.outertune.constants.SeekIncrement
 import com.dd3boh.outertune.constants.SeekIncrementKey
@@ -162,6 +159,7 @@ fun QueueSheet(
     onTerminate: () -> Unit,
     playerBottomSheetState: BottomSheetState,
     navController: NavController,
+    windowInsets: WindowInsets = WindowInsets.safeDrawing,
     modifier: Modifier = Modifier,
 ) {
     Log.v("QueueSheet", "Q-1")
@@ -205,7 +203,8 @@ fun QueueSheet(
             queueState = state,
             onTerminate = onTerminate,
             playerState = playerBottomSheetState,
-            navController = navController
+            navController = navController,
+            windowInsets = windowInsets,
         )
     }
 }
@@ -220,10 +219,6 @@ fun QueueScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .windowInsetsPadding(
-                LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom)
-                    .add(WindowInsets(bottom = MiniPlayerHeight))
-            )
     ) {
         QueueContent(
             onTerminate = onTerminate,

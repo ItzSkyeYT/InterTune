@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.WindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -60,19 +61,17 @@ import com.dd3boh.outertune.utils.rememberPreference
 fun SearchBarContainer(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
+    windowInsets: WindowInsets = WindowInsets.safeDrawing.union(
+        LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal)
+    ),
 ) {
     Log.v("SearchBarContainer", "SB-1")
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val database = LocalDatabase.current
     val focusManager = LocalFocusManager.current
-    val playerConnection = LocalPlayerConnection.current
 
     val enabledTabs by rememberPreference(EnabledTabsKey, defaultValue = DEFAULT_ENABLED_TABS)
 
     val navigationItems = remember { Screens.getScreens(enabledTabs) }
     val searchBarFocusRequester = remember { FocusRequester() }
-    val snackbarHostState = remember { SnackbarHostState() }
 
     val (query, onQueryChange) = rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue())
@@ -116,11 +115,6 @@ fun SearchBarContainer(
         enter = fadeIn(),
         exit = fadeOut()
     ) {
-        val searchBarInset = if (!context.tabMode()) {
-            WindowInsets.safeDrawing.union(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Start))
-        } else {
-            WindowInsets()
-        }
         SearchBar(
             query = query,
             onQueryChange = onQueryChange,
@@ -187,7 +181,7 @@ fun SearchBarContainer(
                     }
                 }
             },
-            windowInsets = searchBarInset,
+            windowInsets = windowInsets,
             focusRequester = searchBarFocusRequester,
         ) {
             Log.v("SearchBarContainer", "SB-2")
