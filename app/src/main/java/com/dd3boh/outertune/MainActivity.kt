@@ -349,7 +349,7 @@ class MainActivity : ComponentActivity() {
                             // TODO: Navbar is shown in all screens except for oobe (which doesn't use these insets). Idk what do to tbh
                             var bottom = bottomInset + if (!useNavRail) NavigationBarHeight else 0.dp
 
-                            if (!playerBottomSheetState.isDismissed) bottom += MiniPlayerHeight
+                            if (!playerBottomSheetState.isDismissed) bottom += MiniPlayerHeight + MinMiniPlayerHeight
                             if (!tabMode) {
                                 windowsInsets
                                     .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
