@@ -53,14 +53,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import coil3.annotation.ExperimentalCoilApi
-import coil3.imageLoader
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
 import com.dd3boh.outertune.constants.DownloadPathKey
-import com.dd3boh.outertune.constants.MaxImageCacheSizeKey
 import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
 import com.dd3boh.outertune.constants.ScanPathsKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
@@ -813,120 +810,6 @@ fun ColumnScope.SongCacheFrag() {
                             playerCache.keys.forEach { key ->
                                 playerCache.removeResource(key)
                             }
-                        }
-                    }
-                ) {
-                    Text(text = stringResource(android.R.string.ok))
-                }
-            }
-        )
-    }
-}
-
-@OptIn(ExperimentalCoilApi::class)
-@Composable
-fun ColumnScope.ImageCacheFrag() {
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val imageDiskCache = context.imageLoader.diskCache ?: return
-
-    val (maxImageCacheSize, onMaxImageCacheSizeChange) = rememberPreference(
-        key = MaxImageCacheSizeKey,
-        defaultValue = 512
-    )
-
-    var imageCacheSize by remember {
-        mutableLongStateOf(imageDiskCache.size)
-    }
-
-    LaunchedEffect(imageDiskCache) {
-        while (isActive) {
-            delay(500)
-            imageCacheSize = imageDiskCache.size
-        }
-    }
-
-    // clear caches when turning off
-    LaunchedEffect(maxImageCacheSize) {
-        if (maxImageCacheSize == 0) {
-            coroutineScope.launch(Dispatchers.IO) {
-                imageDiskCache.clear()
-            }
-        }
-    }
-
-    var showClearConfirmDialog by remember {
-        mutableStateOf(false)
-    }
-
-    if (maxImageCacheSize > 0) {
-        Spacer(modifier = Modifier.height(16.dp))
-        LinearProgressIndicator(
-            progress = { (imageCacheSize.toFloat() / imageDiskCache.maxSize).coerceIn(0f, 1f) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp)
-        )
-
-        Text(
-            text = stringResource(
-                R.string.size_used,
-                "${formatFileSize(imageCacheSize)} / ${formatFileSize(imageDiskCache.maxSize)}"
-            ),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-        )
-    }
-
-    ListPreference(
-        title = { Text(stringResource(R.string.max_cache_size)) },
-        selectedValue = maxImageCacheSize,
-        values = listOf(0, 128, 256, 512, 1024, 2048, 4096, 8192),
-        valueText = {
-            when (it) {
-                0 -> stringResource(androidx.compose.ui.R.string.state_off)
-                else -> formatFileSize(it * 1024 * 1024L)
-            }
-        },
-        onValueSelected = onMaxImageCacheSizeChange
-    )
-    InfoLabel(stringResource(R.string.restart_to_apply_changes))
-
-    PreferenceEntry(
-        title = { Text(stringResource(R.string.clear_image_cache)) },
-        onClick = {
-            showClearConfirmDialog = true
-        },
-    )
-
-
-    /**
-     * ---------------------------
-     * Dialogs
-     * ---------------------------
-     */
-    if (showClearConfirmDialog) {
-        DefaultDialog(
-            onDismiss = { showClearConfirmDialog = false },
-            content = {
-                Text(
-                    text = stringResource(R.string.clear_image_cache_confirm),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(horizontal = 18.dp)
-                )
-            },
-            buttons = {
-                TextButton(
-                    onClick = { showClearConfirmDialog = false }
-                ) {
-                    Text(text = stringResource(android.R.string.cancel))
-                }
-
-                TextButton(
-                    onClick = {
-                        showClearConfirmDialog = false
-                        coroutineScope.launch(Dispatchers.IO) {
-                            imageDiskCache.clear()
                         }
                     }
                 ) {

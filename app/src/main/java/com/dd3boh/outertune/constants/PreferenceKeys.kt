@@ -100,7 +100,7 @@ val LyricUpdateSpeed = stringPreferencesKey("lyricUpdateSpeed")
  */
 val DownloadExtraPathKey = stringPreferencesKey("dlExtraPath") // previously "downloadExtraPath"
 val DownloadPathKey = stringPreferencesKey("dlPath") // previously "downloadPath"
-val MaxImageCacheSizeKey = intPreferencesKey("maxImageCacheSize")
+//val MaxImageCacheSizeKey = intPreferencesKey("maxImageCacheSize")
 val MaxSongCacheSizeKey = intPreferencesKey("maxSongCacheSize")
 
 
