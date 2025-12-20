@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.akanework.gramophone.logic.utils.SemanticLyrics
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -59,10 +60,7 @@ class PlayerConnection(
         playWhenReady && playbackState != STATE_ENDED
     }.stateIn(scope, SharingStarted.Lazily, player.playWhenReady && player.playbackState != STATE_ENDED)
     val waitingForNetworkConnection: StateFlow<Boolean> = service.waitingForNetworkConnection.asStateFlow()
-    val mediaMetadata = MutableStateFlow(player.currentMetadata)
-    val currentSong = mediaMetadata.flatMapLatest {
-        database.song(it?.id)
-    }
+    val mediaMetadata = MutableStateFlow(player.currentMetadata?: runBlocking {   database.getResumptionQueue()?.getCurrentSong()})
     val currentLyrics: Flow<SemanticLyrics> = mediaMetadata.flatMapLatest { mediaMetadata ->
         if (mediaMetadata != null) {
             return@flatMapLatest flowOf(service.lyricsHelper.getLyrics(mediaMetadata) ?: uninitializedLyric)

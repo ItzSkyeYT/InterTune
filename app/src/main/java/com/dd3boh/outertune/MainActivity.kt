@@ -820,7 +820,7 @@ class MainActivity : ComponentActivity() {
 
                                 SearchBarContainer(navController, scrollBehavior)
 
-                                if (oobeStatus >= OOBE_VERSION) {
+                                if (oobeStatus == OOBE_VERSION) {
                                     if (!navigationItems.contains(Screens.Player)) {
                                         BottomSheetPlayer(
                                             state = playerBottomSheetState,
@@ -854,7 +854,7 @@ class MainActivity : ComponentActivity() {
                                         modifier = Modifier
                                             .width(playerW.dp)
                                     ) {
-                                        if (oobeStatus >= OOBE_VERSION && !navigationItems.contains(Screens.Player)) {
+                                        if (oobeStatus == OOBE_VERSION && !navigationItems.contains(Screens.Player)) {
                                             PlayerScreen(
                                                 navController = navController,
                                                 windowInsets = windowsInsets.only(WindowInsetsSides.Start + WindowInsetsSides.Vertical),
@@ -874,7 +874,7 @@ class MainActivity : ComponentActivity() {
                                             windowInsets = windowsInsets.only(WindowInsetsSides.Top)
                                         )
 
-                                        if (oobeStatus >= OOBE_VERSION) {
+                                        if (oobeStatus == OOBE_VERSION) {
                                             navbar()
                                         }
                                         bottomSheetMenu()
@@ -892,7 +892,7 @@ class MainActivity : ComponentActivity() {
 
                             // Setup wizard
                             LaunchedEffect(Unit) {
-                                if (oobeStatus < OOBE_VERSION) {
+                                if (oobeStatus != OOBE_VERSION) {
                                     navController.navigate("setup_wizard")
                                 }
                             }

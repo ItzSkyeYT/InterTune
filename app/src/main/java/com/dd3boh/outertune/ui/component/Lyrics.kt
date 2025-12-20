@@ -479,10 +479,11 @@ fun Lyrics(
                                     if (dbLyric == null && mediaMetadata.localPath != null) {
                                         LrcUtils.loadLyricsFile(File(mediaMetadata.localPath))?.let {
                                             dbLyric = LyricsEntity(mediaMetadata.id, it)
+                                            return@LyricsMenu Pair(dbLyric, false)
                                         }
                                     }
 
-                                    dbLyric
+                                    Pair(dbLyric, true)
                                 },
                                 mediaMetadataProvider = { mediaMetadata },
                                 onRefreshRequest = { lyricsModel = it },

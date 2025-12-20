@@ -310,7 +310,7 @@ while also allowing users to translate our app as well. New, specific strings to
 
 <!-- Setup wizard -->
     <string name="oobe_welcome_message">Welcome to OuterTune</string>
-    <string name="oobe_welcome_tip">For the best experience, we recommend completing a quick setup to personalize key settings like theme, YouTube account, local media, and downloads.</string>
+    <string name="oobe_welcome_tip">For the best experience, we recommend completing a quick setup to personalize key settings</string>
 
     <!-- Landing -->
     <string name="oobe_ytm_integration">YouTube Music Integration</string>
@@ -342,7 +342,7 @@ while also allowing users to translate our app as well. New, specific strings to
 
     <!-- Setup complete -->
     <string name="oobe_complete_title">You\'re All Set!</string>
-    <string name="oobe_complete">OuterTune is set up and ready to use. Explore your music, discover new tracks, and enjoy the experience!</string>
+    <string name="oobe_complete">OuterTune is set up and ready to use. Enjoy!</string>
 
 <!-- M3U -->
     <string name="import_failed_songs">Could not import</string>

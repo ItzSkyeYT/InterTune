@@ -43,7 +43,6 @@ import com.dd3boh.outertune.ui.component.SettingsClickToReveal
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.screens.settings.fragments.ListenHistoryFrag
-import com.dd3boh.outertune.ui.screens.settings.fragments.LocalizationFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SearchHistoryFrag
 import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.utils.rememberPreference
@@ -89,16 +88,6 @@ fun LibrarySettings(
                 icon = { Icon(Icons.Rounded.Storage, null) },
                 onClick = { navController.navigate("settings/storage") }
             )
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        PreferenceGroupTitle(
-            title = stringResource(R.string.grp_localization)
-        )
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            LocalizationFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))
 

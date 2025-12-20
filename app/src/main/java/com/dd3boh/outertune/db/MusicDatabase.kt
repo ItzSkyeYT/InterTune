@@ -798,4 +798,8 @@ class Migration19To20 : AutoMigrationSpec
     DeleteTable(tableName = "related_song_map"),
 )
 
-class Migration20To21 : AutoMigrationSpec
+class Migration20To21 : AutoMigrationSpec {
+    override fun onPostMigrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DELETE FROM artist WHERE id LIKE 'UC%' OR id LIKE 'FEmusic_library_privately_owned_artist%'")
+    }
+}

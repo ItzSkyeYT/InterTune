@@ -19,8 +19,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.DragHandle
-import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Reorder
 import androidx.compose.material.icons.rounded.Swipe
 import androidx.compose.material.icons.rounded.Tab
@@ -41,17 +39,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.constants.ContentCountryKey
-import com.dd3boh.outertune.constants.ContentLanguageKey
-import com.dd3boh.outertune.constants.CountryCodeToName
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_FILTERS
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
 import com.dd3boh.outertune.constants.DefaultOpenTabKey
 import com.dd3boh.outertune.constants.EnabledFiltersKey
 import com.dd3boh.outertune.constants.EnabledTabsKey
-import com.dd3boh.outertune.constants.LanguageCodeToName
 import com.dd3boh.outertune.constants.ListItemHeight
-import com.dd3boh.outertune.constants.SYSTEM_DEFAULT
 import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.constants.SwipeToSkipKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
@@ -407,39 +400,5 @@ fun ColumnScope.SwipeGesturesFrag() {
         icon = { Icon(Icons.Rounded.Swipe, null) },
         checked = swipeToSkip,
         onCheckedChange = onSwipeToSkipChange
-    )
-}
-
-@Composable
-fun ColumnScope.LocalizationFrag() {
-    val (contentLanguage, onContentLanguageChange) = rememberPreference(
-        key = ContentLanguageKey,
-        defaultValue = "system"
-    )
-    val (contentCountry, onContentCountryChange) = rememberPreference(key = ContentCountryKey, defaultValue = "system")
-
-    ListPreference(
-        title = { Text(stringResource(R.string.content_language)) },
-        icon = { Icon(Icons.Rounded.Language, null) },
-        selectedValue = contentLanguage,
-        values = listOf(SYSTEM_DEFAULT) + LanguageCodeToName.keys.toList(),
-        valueText = {
-            LanguageCodeToName.getOrElse(it) {
-                stringResource(R.string.system_default)
-            }
-        },
-        onValueSelected = onContentLanguageChange
-    )
-    ListPreference(
-        title = { Text(stringResource(R.string.content_country)) },
-        icon = { Icon(Icons.Rounded.LocationOn, null) },
-        selectedValue = contentCountry,
-        values = listOf(SYSTEM_DEFAULT) + CountryCodeToName.keys.toList(),
-        valueText = {
-            CountryCodeToName.getOrElse(it) {
-                stringResource(R.string.system_default)
-            }
-        },
-        onValueSelected = onContentCountryChange
     )
 }

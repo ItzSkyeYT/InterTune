@@ -982,7 +982,6 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
             if (tmp.size > 1) {
                 try {
                     // merge all duplicate artists into the oldest one
-                    tmp.removeAt(0)
                     tmp.sortBy { it.artist.bookmarkedAt }
                     tmp.forEach { swapArtists(it.artist, oldestArtist.artist, database) }
                 } catch (e: Exception) {
@@ -1005,7 +1004,6 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
             if (tmp.size > 1) {
                 try {
                     // merge all duplicate artists into the oldest one
-                    tmp.removeAt(0)
                     tmp.sortBy { it.bookmarkedAt }
                     tmp.forEach { swapAlbums(it, oldestAlbum, database) }
                 } catch (e: Exception) {
@@ -1028,7 +1026,6 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
             if (tmp.size > 1) {
                 try {
                     // merge all duplicate artists into the oldest one
-                    tmp.removeAt(0)
                     tmp.sortBy { it.bookmarkedAt }
                     tmp.forEach { swapGenres(it, oldestGenre, database) }
                 } catch (e: Exception) {
@@ -1358,6 +1355,10 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
          */
         fun swapArtists(old: ArtistEntity, new: ArtistEntity, database: MusicDatabase) {
             database.transaction {
+                if (old.id == new.id) {
+                    reportException(Exception("Attempting to swap artist... with itself???: ${new.id}"))
+                    return@transaction
+                }
                 if (artistById(old.id) == null) {
                     reportException(Exception("Attempting to swap with non-existent old artist in database with id: ${old.id}"))
                     return@transaction
@@ -1368,6 +1369,8 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                 }
 
                 // update participation(s)
+                println("--------")
+                println(old.id + "    --   " +new.id)
                 updateSongArtistMap(old.id, new.id)
                 updateAlbumArtistMap(old.id, new.id)
 

@@ -42,11 +42,7 @@ const val AUTO_SCAN_SOFT_COOLDOWN = 7200000L // 2 hours
 const val LYRIC_FETCH_TIMEOUT = 60000L
 const val SNACKBAR_VERY_SHORT = 2000L
 
-/**
- * 5: pre 0.10.0-rc1
- * 6: 0.10.0-rc1 +
- */
-const val OOBE_VERSION = 6
+const val OOBE_VERSION = 4
 
 const val SCANNER_OWNER_DL = 32
 const val SCANNER_OWNER_LM = 1

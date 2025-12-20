@@ -22,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -48,17 +47,18 @@ import org.akanework.gramophone.logic.utils.parseLrc
 
 @Composable
 fun LyricsMenu(
-    lyricsProvider: () -> LyricsEntity?,
+    lyricsProvider: () -> Pair<LyricsEntity?, Boolean>,
     mediaMetadataProvider: () -> MediaMetadata,
     onDismiss: () -> Unit,
     viewModel: LyricsMenuViewModel = hiltViewModel(),
     onRefreshRequest: (SemanticLyrics?) -> Unit,
 ) {
-    val context = LocalContext.current
     val database = LocalDatabase.current
 
     val multilineLrc by rememberPreference(MultilineLrcKey, defaultValue = true)
     val lyricTrim by rememberPreference(LyricTrimKey, defaultValue = false)
+
+    val (lyrics, isDatabase) = lyricsProvider()
 
     var showEditDialog by rememberSaveable {
         mutableStateOf(false)
@@ -69,7 +69,7 @@ fun LyricsMenu(
             onDismiss = { showEditDialog = false },
             icon = { Icon(imageVector = Icons.Rounded.Edit, contentDescription = null) },
             title = { Text(text = mediaMetadataProvider().title) },
-            initialTextFieldValue = TextFieldValue(lyricsProvider()?.lyrics.orEmpty()),
+            initialTextFieldValue = TextFieldValue(lyrics?.lyrics.orEmpty()),
             singleLine = false,
             onDone = {
                 database.query {
@@ -113,10 +113,14 @@ fun LyricsMenu(
                         showDeleteLyric = false
                         onDismiss()
 
-                        lyricsProvider()?.let {
+                        lyricsProvider().first?.let {
                             database.query {
                                 delete(it)
                             }
+                        }
+                        // refetch lyrics after database deletion. do not merge into one block.
+                        lyricsProvider().first?.let {
+                            onRefreshRequest(parseLrc(it.lyrics, lyricTrim, multilineLrc))
                         }
                     }
                 ) {
@@ -134,11 +138,6 @@ fun LyricsMenu(
             onDismiss = { showSettings = false },
             content = {
                 Column() {
-                    Text(
-                        text = stringResource(R.string.settings),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(horizontal = 18.dp)
-                    )
                     PreferenceGroupTitle(
                         title = stringResource(R.string.grp_lyrics_format)
                     )
@@ -190,14 +189,13 @@ fun LyricsMenu(
             onDismiss()
             viewModel.refetchLyrics(mediaMetadataProvider()) { onRefreshRequest(it) }
         }
-        if (lyricsProvider() != null) {
-            // TODO: hide this for when lrc exists and lyrics is not in the database
-            GridMenuItem(
-                icon = Icons.Rounded.Delete,
-                title = R.string.delete,
-            ) {
-                showDeleteLyric = true
-            }
+
+        GridMenuItem(
+            icon = Icons.Rounded.Delete,
+            title = R.string.delete,
+            enabled = isDatabase && lyrics != null
+        ) {
+            showDeleteLyric = true
         }
 
         GridMenuItem(
