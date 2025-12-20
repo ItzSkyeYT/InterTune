@@ -25,30 +25,24 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
-import com.dd3boh.outertune.constants.EnabledTabsKey
 import com.dd3boh.outertune.constants.KeepScreenOn
 import com.dd3boh.outertune.constants.KeepScreenOnKey
 import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.EnumListPreference
-import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.button.IconButton
-import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.settings.fragments.SwipeGesturesFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.TabArrangementFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.TabExtrasFrag
 import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.utils.rememberEnumPreference
-import com.dd3boh.outertune.utils.rememberPreference
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
