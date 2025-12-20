@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.sqlite.db.SimpleSQLiteQuery
 import coil3.imageLoader
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalPlayerConnection
@@ -230,6 +231,29 @@ fun ExperimentalSettings(
                         delay(500)
                     }
                     navController.navigate("setup_wizard")
+                }
+            )
+
+            Spacer(Modifier.height(64.dp))
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+                Text(
+                    text = "Migration cleanup from OuterTune",
+                    fontWeight = FontWeight.ExtraBold,
+                )
+            }
+
+            PreferenceEntry(
+                title = { Text("Nuke remote, non-downloaded songs") },
+                icon = { Icon(Icons.Rounded.ConfirmationNumber, null) },
+                onClick = {
+                    Toast.makeText(context, "Nuking remote, non-downloaded songs...", Toast.LENGTH_SHORT).show()
+                    coroutineScope.launch(Dispatchers.IO) {
+                        Log.i(SETTINGS_TAG, "Nuke remote songs status: ${database.raw(SimpleSQLiteQuery("DELETE FROM song where isLocal = 0 AND dateDownload IS NULL"))}")
+                    }
                 }
             )
 
