@@ -1,18 +1,18 @@
 [versions]
 aboutLibraries = "12.2.4"
 adaptive = "1.2.0"
-androidGradlePlugin = "8.13.0"
+androidGradlePlugin = "8.13.2"
 annotation = "1.9.1"
-kotlin = "2.2.21"
+kotlin = "2.3.0"
 coil = "3.3.0"
-compose = "1.9.4"
+compose = "1.10.2"
 lazycolumnscrollbar = "2.2.0"
-lifecycle = "2.9.4"
+lifecycle = "2.10.0"
 material3 = "1.4.0"
 media3 = "1.8.0"
-room = "2.8.3"
+room = "2.8.4"
 hilt = "2.57.2"
-ksp = "2.3.1"
+ksp = "2.3.4"
 
 [libraries]
 annotation = { module = "androidx.annotation:annotation", version.ref = "annotation" }

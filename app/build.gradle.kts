@@ -26,7 +26,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.dd3boh.outsidetune"
+        applicationId = "com.dd3boh.outertune"
         minSdk = 24
         targetSdk = 36
         versionCode = 71
