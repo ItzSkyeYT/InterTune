@@ -25,6 +25,7 @@ import androidx.core.net.toUri
 import androidx.datastore.preferences.core.edit
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -48,6 +49,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.analytics.PlaybackStats
 import androidx.media3.exoplayer.analytics.PlaybackStatsListener
+import androidx.media3.exoplayer.audio.AudioOffloadSupport
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioOffloadSupportProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
@@ -625,7 +627,12 @@ class MusicService : MediaLibraryService(),
                                 SonicAudioProcessor()
                             )
                         )
-                        .setAudioOffloadSupportProvider(if (!gaplessOffloadAllowed) OtOffloadSupportProvider(context) else DefaultAudioOffloadSupportProvider(context))
+                        .setAudioOffloadSupportProvider(
+                            MyAudioOffloadSupportProvider(
+                                DefaultAudioOffloadSupportProvider(context),
+                                !gaplessOffloadAllowed
+                            )
+                        )
                         .build()
                 }
             }
@@ -649,7 +656,12 @@ class MusicService : MediaLibraryService(),
                                 SonicAudioProcessor()
                             )
                         )
-                        .setAudioOffloadSupportProvider(if (!gaplessOffloadAllowed) OtOffloadSupportProvider(context) else DefaultAudioOffloadSupportProvider(context))
+                        .setAudioOffloadSupportProvider(
+                            MyAudioOffloadSupportProvider(
+                                DefaultAudioOffloadSupportProvider(context),
+                                !gaplessOffloadAllowed
+                            )
+                        )
                         .build()
                 }
             }
@@ -952,5 +964,23 @@ class MusicService : MediaLibraryService(),
         const val CHUNK_LENGTH = 512 * 1024L
 
         const val COMMAND_GET_BINDER = "GET_BINDER"
+    }
+}
+
+class MyAudioOffloadSupportProvider(
+    private val default: DefaultAudioOffloadSupportProvider,
+    private val disableGaplessOffload: Boolean
+) : DefaultAudioSink.AudioOffloadSupportProvider by default {
+    override fun getAudioOffloadSupport(
+        format: Format,
+        audioAttributes: AudioAttributes
+    ): AudioOffloadSupport {
+        val defaultResult = default.getAudioOffloadSupport(format, audioAttributes)
+        val audioOffloadSupport = AudioOffloadSupport.Builder()
+        return audioOffloadSupport
+            .setIsFormatSupported(defaultResult.isFormatSupported)
+            .setIsGaplessSupported(defaultResult.isGaplessSupported && !disableGaplessOffload)
+            .setIsSpeedChangeSupported(defaultResult.isSpeedChangeSupported)
+            .build()
     }
 }
