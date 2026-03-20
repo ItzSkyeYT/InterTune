@@ -100,9 +100,10 @@ lint/tmp/
 /app/uncommon_abi
 /app/x86_64
 /app/github
+
+/ffMetadataEx
 # TODO: remove in the future
 
 # misc
 .DS_Store
-
-/ffMetadataEx
+prebuilt/
