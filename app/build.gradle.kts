@@ -246,16 +246,17 @@ dependencies {
     coreLibraryDesugaring(libs.desugaring)
 
     // misc
+    implementation(libs.taglib)
     implementation(libs.aboutlibraries.compose.m3)
 
     // modules
     implementation(project(":material-color-utilities"))
-    implementation(project(":taglib"))
 
 }
 
 afterEvaluate {
     dependencies {
-        add("fullImplementation", project(":ffMetadataEx"))
+        add("fullImplementation", "wah.mikooomich:ffmetadataex")
+//        add("fullImplementation", files("../prebuilt/ffMetadataEx-release.aar"))
     }
 }

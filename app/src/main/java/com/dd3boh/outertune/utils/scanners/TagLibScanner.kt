@@ -70,7 +70,7 @@ class TagLibScanner : MetadataScanner {
             channels = audioProperties.channels
             sampleRate = audioProperties.sampleRate
             bitrate = audioProperties.bitrate * 1000
-            codec = audioProperties.codec
+//            codec = audioProperties.codec
 
 
             // Read metadata
@@ -222,7 +222,7 @@ class TagLibScanner : MetadataScanner {
                     id = songId,
                     itag = -1,
                     mimeType = "audio/${file.extension}",
-                    codecs = codec,
+                    codecs = "", //codec,
                     bitrate = bitrate,
                     sampleRate = sampleRate,
                     contentLength = duration,
