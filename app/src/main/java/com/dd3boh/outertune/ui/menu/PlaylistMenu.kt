@@ -46,6 +46,7 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.M3U_EXPORT_RELATIVE_PATH
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistSong
 import com.dd3boh.outertune.db.entities.Song
@@ -63,6 +64,7 @@ import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.scanners.fileFromUri
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -88,16 +90,53 @@ fun PlaylistMenu(
     ) { uri: Uri? ->
         uri?.let {
             CoroutineScope(lmScannerCoroutine).launch {
+                val result = StringBuilder()
                 try {
-                    var result = "#EXTM3U\n"
-                    songs.forEach { s ->
-                        val se = s.song
-                        result += "#EXTINF:${se.duration},${s.artists.joinToString(";") { it.name }} - ${s.title}\n"
-                        result += if (se.isLocal) "${se.id}, ${se.localPath}" else "https://youtube.com/watch?v=${se.id}"
-                        result += "\n"
+                    val relativePath = fileFromUri(context, uri)?.absolutePath?.substringBeforeLast('/') + "/"
+
+                    if (M3U_EXPORT_RELATIVE_PATH && relativePath == null) {
+                        result.append("Failed to get m3u uri path")
+                    } else {
+                        result.append("#EXTM3U\n")
+                        songs.forEach { s ->
+                            val se = s.song
+                            if (!M3U_EXPORT_RELATIVE_PATH) {
+                                result.append("#EXTINF:${se.duration},${s.artists.joinToString(";") { it.name }} - ${s.title}\n")
+                                result.append(if (se.isLocal) "${se.id}, ${se.localPath}" else "https://youtube.com/watch?v=${se.id}")
+                                result.append("\n")
+                            } else if (se.localPath != null) {
+                                // write the song path as relative to M3U. YTM songs will be ignored
+                                val localPath = se.localPath
+                                val targetPath = relativePath
+
+                                // playlist is in the parent or grandparent of song
+                                if (localPath.contains(targetPath)) {
+                                    result.append(localPath.replace(targetPath, ""))
+                                } else {
+                                    // find the common folder, then replace the common dir with the correct number of ../
+                                    val lpSplit = localPath.split('/').toMutableList()
+                                    val tpSplit = targetPath.trimEnd { it == '/' }.split('/').toMutableList()
+                                    val tpCommon = ArrayList<String>()
+                                    var commonDepth = 0
+                                    while (!lpSplit.isEmpty() && !tpSplit.isEmpty() && lpSplit.first() == tpSplit.first()) {
+                                        commonDepth++
+                                        lpSplit.removeAt(0)
+                                        tpCommon.add(tpSplit.removeAt(0))
+                                    }
+
+                                    result.append(
+                                        localPath.replace(
+                                            tpCommon.joinToString("/") + "/",
+                                            "../".repeat(lpSplit.size)
+                                        )
+                                    )
+                                }
+                                result.append("\n")
+                            }
+                        }
                     }
                     context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                        outputStream.write(result.toByteArray(Charsets.UTF_8))
+                        outputStream.write(result.toString().toByteArray(Charsets.UTF_8))
                     }
                 } catch (e: IOException) {
                     reportException(e)

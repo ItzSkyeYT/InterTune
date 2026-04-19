@@ -30,7 +30,7 @@ fun uriListFromString(str: String): List<Uri> {
 
 fun fileFromUri(context: Context, uri: Uri): File? {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        if (!DocumentsContract.isTreeUri(uri)) return null
+        if (!DocumentsContract.isTreeUri(uri) && !DocumentsContract.isDocumentUri(context, uri)) return null
         if (uri.authority != "com.android.externalstorage.documents") return null
 
         val treeDocId = DocumentsContract.getDocumentId(uri)

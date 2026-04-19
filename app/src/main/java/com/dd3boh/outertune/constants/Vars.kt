@@ -9,6 +9,7 @@ import com.dd3boh.outertune.BuildConfig
 
 const val ENABLE_FFMETADATAEX = BuildConfig.FLAVOR == "full"
 
+const val M3U_EXPORT_RELATIVE_PATH = false
 
 /**
  * Extra configuration
