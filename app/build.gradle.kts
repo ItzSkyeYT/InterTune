@@ -246,7 +246,6 @@ dependencies {
     coreLibraryDesugaring(libs.desugaring)
 
     // misc
-    implementation(libs.taglib)
     implementation(libs.aboutlibraries.compose.m3)
 
     // modules

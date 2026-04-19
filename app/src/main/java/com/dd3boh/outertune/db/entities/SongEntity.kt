@@ -35,6 +35,7 @@ data class SongEntity(
     val likedDate: LocalDateTime? = null,
 
     // misc non-critical tags
+    val acoustid: String? = null,
     val trackNumber: Int? = null,
     val discNumber: Int? = null,
     val albumId: String? = null,
