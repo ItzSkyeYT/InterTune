@@ -74,6 +74,7 @@ class FFmpegScanner() : MetadataScanner {
             }
 
             val songId = SongEntity.generateSongId()
+            var acoustid: String? = null
             var rawTitle: String? = data.title
             val rawArtists: String? = data.artist
             var albumName: String? = data.album
@@ -155,9 +156,12 @@ class FFmpegScanner() : MetadataScanner {
                             }
                         }
                     }
+                    "ACOUSTID_ID" -> {
+                        acoustid = it.substringAfter(':').trim()
+                    }
 
                     else -> {
-                        extraData += "$tag: $it\n"
+                        extraData += "$it\n"
                     }
                 }
             }
@@ -235,6 +239,7 @@ class FFmpegScanner() : MetadataScanner {
                 Song(
                     song = SongEntity(
                         id = songId,
+                        acoustid = acoustid,
                         title = title,
                         duration = duration.toInt(), // we use seconds for duration
                         thumbnailUrl = file.absolutePath,

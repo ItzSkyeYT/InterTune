@@ -236,6 +236,9 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
         val allLocalSongs = database.allLocalDbSongs()
         // sync
         var runs = 0
+
+        // prioritize acoustid songs to (hopefully) avoid conflicts where an untagged song takes the place of a matching acoustid song
+        finalSongs.sortBy { if (it.song.song.acoustid == null) 1 else 0 }
         finalSongs.forEach { song ->
             Log.v(TAG, "s --> ${song.song.song.title}, ${song.song.song.localPath}")
             runs++
@@ -1316,32 +1319,40 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
             strictFileNames: Boolean = false,
             strictFilePaths: Boolean = false,
         ): Boolean {
+            val songA = a.song
+            val songB = b.song
+
+            // assume the provided acoustid is always correct, and the user is at fault otherwise
+            if (songA.acoustid != null && songA.acoustid == songB.acoustid) {
+                return true
+            }
+
             /**
              * Compare file paths
              *
              * I draw the "user error" line here
              */
             fun closeEnough(): Boolean {
-                return a.song.localPath == b.song.localPath
+                return songA.localPath == songB.localPath
             }
             if (strictFilePaths) {
                 return closeEnough()
             }
             // if match file names
             if (strictFileNames &&
-                (a.song.localPath?.substringAfterLast('/') !=
-                        b.song.localPath?.substringAfterLast('/'))
+                (songA.localPath?.substringAfterLast('/') !=
+                        songB.localPath?.substringAfterLast('/'))
             ) {
                 return false
             }
 
             // compare songs based on scanner strength
             return when (matchStrength) {
-                ScannerMatchCriteria.LEVEL_1 -> a.song.title == b.song.title
-                ScannerMatchCriteria.LEVEL_2 -> closeEnough() || (a.song.title == b.song.title &&
+                ScannerMatchCriteria.LEVEL_1 -> songA.title == songB.title
+                ScannerMatchCriteria.LEVEL_2 -> closeEnough() || (songA.title == songB.title &&
                         compareArtist(a.artists, b.artists))
 
-                ScannerMatchCriteria.LEVEL_3 -> closeEnough() || (a.song.title == b.song.title &&
+                ScannerMatchCriteria.LEVEL_3 -> closeEnough() || (songA.title == songB.title &&
                         compareArtist(a.artists, b.artists) && compareAlbum(a.album, b.album))
             }
         }
@@ -1368,8 +1379,6 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                 }
 
                 // update participation(s)
-                println("--------")
-                println(old.id + "    --   " +new.id)
                 updateSongArtistMap(old.id, new.id)
                 updateAlbumArtistMap(old.id, new.id)
 
