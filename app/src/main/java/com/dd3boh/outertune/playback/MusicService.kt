@@ -191,9 +191,7 @@ class MusicService : MediaLibraryService(),
 
     private val normalizeFactor = MutableStateFlow(1f)
 
-    private val audioDecoder = dataStore.get(AudioDecoderKey, DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
-    private val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
-    val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
+    lateinit var playerVolume: MutableStateFlow<Float>
 
     private var isAudioEffectSessionOpened = false
 
@@ -202,6 +200,9 @@ class MusicService : MediaLibraryService(),
     override fun onCreate() {
         Log.i(TAG, "Starting MusicService")
         super.onCreate()
+
+        val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
+        playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(createDataSourceFactory()))
@@ -418,7 +419,8 @@ class MusicService : MediaLibraryService(),
                         shuffled = queue.startShuffled,
                         startIndex = if (initialStatus.mediaItemIndex > 0) initialStatus.mediaItemIndex else 0,
                         replace = replace || preloadItem != null,
-                        continuationEndpoint = if (isRadio) items.takeLast(4).shuffled().first().id else null // yq?.getContinuationEndpoint()
+                        continuationEndpoint = if (isRadio) items.takeLast(4).shuffled()
+                            .first().id else null // yq?.getContinuationEndpoint()
                     )
                     queueBoard.value.setCurrQueue(q, shouldResume)
                 }
@@ -454,7 +456,10 @@ class MusicService : MediaLibraryService(),
             } else {
                 // enqueue next
                 queueBoard.value.getCurrentQueue()?.let {
-                    queueBoard.value.addSongsToQueue(it, player.currentMediaItemIndex + 1, items.mapNotNull { it.metadata })
+                    queueBoard.value.addSongsToQueue(
+                        it,
+                        player.currentMediaItemIndex + 1,
+                        items.mapNotNull { it.metadata })
                 }
             }
         }
@@ -488,11 +493,15 @@ class MusicService : MediaLibraryService(),
         val persistQueue = dataStore.get(PersistentQueueKey, true)
         val maxQueues = dataStore.get(MaxQueuesKey, 19)
         if (persistQueue) {
-            queueBoard.value = QueueBoard(this, queueBoard.value.masterQueues, database.readQueue().toMutableList(), maxQueues)
+            queueBoard.value =
+                QueueBoard(this, queueBoard.value.masterQueues, database.readQueue().toMutableList(), maxQueues)
         } else {
             queueBoard.value = QueueBoard(this, queueBoard.value.masterQueues, maxQueues = maxQueues)
         }
-        Log.d(TAG, "Queue with $maxQueues queue limit. Persist queue = $persistQueue. Queues loaded = ${queueBoard.value.masterQueues.size}")
+        Log.d(
+            TAG,
+            "Queue with $maxQueues queue limit. Persist queue = $persistQueue. Queues loaded = ${queueBoard.value.masterQueues.size}"
+        )
         qbInit.value = true
         Log.i(TAG, "-initQueue()")
     }
@@ -637,7 +646,12 @@ class MusicService : MediaLibraryService(),
                 }
             }
                 .setEnableDecoderFallback(true)
-                .setExtensionRendererMode(audioDecoder)
+                .setExtensionRendererMode(
+                    dataStore.get(
+                        AudioDecoderKey,
+                        DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF
+                    )
+                )
         } else {
             return object : DefaultRenderersFactory(this) {
                 override fun buildAudioSink(
