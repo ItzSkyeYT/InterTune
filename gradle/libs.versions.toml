@@ -1,30 +1,30 @@
 [versions]
-aboutLibraries = "12.2.4"
+aboutLibraries = "14.0.1"
 adaptive = "1.2.0"
-agp = "9.0.1"
-annotation = "1.9.1"
-kotlin = "2.3.0"
-coil = "3.3.0"
-compose = "1.10.2"
+agp = "9.2.0"
+annotation = "1.10.0"
+kotlin = "2.3.21"
+coil = "3.4.0"
+compose = "1.11.0"
 lazycolumnscrollbar = "2.2.0"
 lifecycle = "2.10.0"
 material3 = "1.4.0"
 media3 = "1.8.0"
 room = "2.8.4"
-hilt = "2.57.2"
+hilt = "2.59.2"
 ksp = "2.3.4"
 
 [libraries]
 annotation = { module = "androidx.annotation:annotation", version.ref = "annotation" }
-error-prone-core = { module = "com.google.errorprone:error_prone_core", version = "2.44.0" }
-guava = { group = "com.google.guava", name = "guava", version = "33.5.0-android" }
+error-prone-core = { module = "com.google.errorprone:error_prone_core", version = "2.49.0" }
+guava = { group = "com.google.guava", name = "guava", version = "33.6.0-android" }
 coroutines-guava = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-guava", version = "1.10.2" }
 concurrent-futures = { group = "androidx.concurrent", name = "concurrent-futures-ktx", version = "1.3.0" }
 
 gradle = { group = "com.android.tools.build", name = "gradle", version.ref = "agp" }
-activity = { group = "androidx.activity", name = "activity-compose", version = "1.11.0" }
+activity = { group = "androidx.activity", name = "activity-compose", version = "1.13.0" }
 hilt-navigation = { group = "androidx.hilt", name = "hilt-navigation-compose", version = "1.3.0" }
-datastore = { group = "androidx.datastore", name = "datastore-preferences", version = "1.1.7" }
+datastore = { group = "androidx.datastore", name = "datastore-preferences", version = "1.2.1" }
 
 # compose
 compose-runtime = { group = "androidx.compose.runtime", name = "runtime", version.ref = "compose" }
@@ -33,13 +33,13 @@ compose-ui = { group = "androidx.compose.ui", name = "ui", version.ref = "compos
 compose-ui-util = { group = "androidx.compose.ui", name = "ui-util", version.ref = "compose" }
 compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling", version.ref = "compose" }
 compose-animation = { group = "androidx.compose.animation", name = "animation-graphics", version.ref = "compose" }
-compose-reorderable = { module = "sh.calvin.reorderable:reorderable", version = "3.0.0" }
+compose-reorderable = { module = "sh.calvin.reorderable:reorderable", version = "3.1.0" }
 compose-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version = "1.7.8" }
 
 # ui
 coil = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 lazycolumnscrollbar = { group = "com.github.nanihadesuka", name = "LazyColumnScrollbar", version.ref = "lazycolumnscrollbar" }
-shimmer = { group = "com.valentinilk.shimmer", name = "compose-shimmer", version = "1.3.3" }
+shimmer = { group = "com.valentinilk.shimmer", name = "compose-shimmer", version = "1.4.0" }
 
 # material 3
 adaptive = { module = "androidx.compose.material3.adaptive:adaptive", version.ref = "adaptive" }
@@ -57,7 +57,7 @@ room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 
-apache-lang3 = { group = "org.apache.commons", name = "commons-lang3", version = "3.19.0" }
+apache-lang3 = { group = "org.apache.commons", name = "commons-lang3", version = "3.20.0" }
 
 hilt = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
