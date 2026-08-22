@@ -65,12 +65,9 @@ fun Thumbnail(
     val error by playerConnection.error.collectAsState()
     val mediaMetadata = customMediaMetadata ?: playerMediaMetadata
 
-    DisposableEffect(showLyrics) {
-        currentView.keepScreenOn = showLyrics
-        onDispose {
-            currentView.keepScreenOn = false
-        }
-    }
+    // keepScreenOn is deliberately NOT set here. It is a single boolean on a single View, and
+    // BottomSheetPlayer now owns it so the lyrics request and the immersive-landscape request can
+    // be OR'd rather than clobbering one another. See the DisposableEffect in Player.kt.
 
     Box(modifier = modifier) {
         AnimatedVisibility(
