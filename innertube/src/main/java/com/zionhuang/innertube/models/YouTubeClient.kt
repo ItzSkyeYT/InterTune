@@ -9,6 +9,9 @@ data class YouTubeClient(
     val clientId: String,
     val userAgent: String,
     val osVersion: String? = null,
+    val osName: String? = null,
+    val deviceMake: String? = null,
+    val deviceModel: String? = null,
     val loginSupported: Boolean = false,
     val loginRequired: Boolean = false,
     val useSignatureTimestamp: Boolean = false,
@@ -24,7 +27,10 @@ data class YouTubeClient(
             osVersion = osVersion,
             gl = locale.gl,
             hl = locale.hl,
-            visitorData = visitorData
+            visitorData = visitorData,
+            osName = osName,
+            deviceMake = deviceMake,
+            deviceModel = deviceModel
         ),
         user = Context.User(
             onBehalfOfUser = if (loginSupported) dataSyncId else null
@@ -40,6 +46,32 @@ data class YouTubeClient(
         const val ORIGIN_YOUTUBE_MUSIC = "https://music.youtube.com"
         const val REFERER_YOUTUBE_MUSIC = "$ORIGIN_YOUTUBE_MUSIC/"
         const val API_URL_YOUTUBE_MUSIC = "$ORIGIN_YOUTUBE_MUSIC/youtubei/v1/"
+
+        const val USER_AGENT_VISIONOS = "com.google.ios.youtube/1.02 (RealityDevice17,1; U; visionOS 2_3)"
+
+        /**
+         * Apple Vision Pro. Exempt from the GVS proof-of-origin requirement that YouTube began
+         * enforcing on ANDROID_VR and IOS in August 2026, so its urls serve a whole track instead
+         * of stopping after the ~1MB cold-start allowance (which is what produced
+         * "Source error (2004): Response code: 403" partway through every song).
+         *
+         * Needs no signature deobfuscation. Requires a visitorData to clear the bot check, which
+         * toContext already supplies.
+         *
+         * Verified 2026-08-22: full 6.13MB track downloaded, versus IOS stopping at 1.05MB.
+         */
+        val VISIONOS = YouTubeClient(
+            clientName = "VISIONOS",
+            clientVersion = "1.02",
+            clientId = "101",
+            userAgent = USER_AGENT_VISIONOS,
+            osVersion = "2.3.21O5565d",
+            osName = "visionOS",
+            deviceMake = "Apple",
+            deviceModel = "RealityDevice17,1",
+            loginSupported = false,
+            useSignatureTimestamp = false,
+        )
 
         val WEB = YouTubeClient(
             clientName = "WEB",
