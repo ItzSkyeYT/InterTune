@@ -1,9 +1,9 @@
-# OuterTune — personal fork
+# InterTune
 
-<img src="./assets/outertune.webp" height="88" alt="OuterTune app icon">
+<img src="./assets/outertune.webp" height="88" alt="app icon">
 
-A personal spin on [OuterTune](https://github.com/OuterTune/OuterTune), carrying a fix that makes
-YouTube Music playback work again.
+InnerTune ∩ OuterTune. A personal fork of [OuterTune](https://github.com/OuterTune/OuterTune),
+carrying a fix that makes YouTube Music playback work again.
 
 > [!IMPORTANT]
 > **This is a personal fork.** It exists because I use this app daily and wanted it working the way
@@ -14,6 +14,10 @@ YouTube Music playback work again.
 > If you want a maintained YouTube Music client, look at
 > [Metrolist](https://github.com/MetrolistGroup/Metrolist) or
 > [ArchiveTune](https://github.com/koiverse/ArchiveTune) — upstream's own README points there.
+
+Ships as `dev.skye.intertune` with its own name and signing key, so it installs alongside upstream
+OuterTune rather than fighting it. Note that this also means it cannot update an existing OuterTune
+install in place — it is a separate app, and you migrate via Settings → Backup and restore.
 
 ## Why this fork exists
 
@@ -85,18 +89,38 @@ likely a client version bump in `YouTubeClient.kt` rather than anything structur
 
 ## Building
 
-Requires **JDK 17** and the Android SDK (compileSdk 36). The NDK is needed for the `ffMetadataEx`
-and `taglib` native modules.
+Requires **JDK 17** and the Android SDK. Upstream `v0.10.1` does not build from a clean checkout
+today; two of the fixes below are commits in this repo, the other two are SDK components you need
+installed:
+
+| Needed | Why |
+|---|---|
+| `platforms;android-36` | `compileSdk = 36` |
+| `ndk;29.0.13113456` | native modules `ffMetadataEx` and `taglib` |
+| `cmake;3.31.6` | taglib's build |
+| SDK licences accepted | `sdkmanager --licenses` |
 
 ```bash
 git clone --recurse-submodules <this repo>
-cd OuterTune
+cd InterTune
 ./gradlew assembleCoreDebug
 ```
 
 Flavors are `core` (default, smaller) and `full` (adds FFmpeg codecs — ALAC/APE/WavPack/DSD).
-Debug builds use the applicationId suffix `.debug`, so they install alongside a release build of
-upstream rather than replacing it.
+Debug builds use the applicationId suffix `.debug`, so a debug and a release build coexist.
+
+Release builds are signed from a gitignored `keystore.properties` at the repo root:
+
+```properties
+storeFile=/path/to/your.jks
+keyAlias=youralias
+storePassword=...
+keyPassword=...
+```
+
+Without that file the release variant has no signing config and will not assemble.
+
+On a memory-constrained machine, `--max-workers=2` avoids the OOM killer during the native build.
 
 ## Licence
 
