@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -51,6 +52,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.systemBarsIgnoringVisibility
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -161,7 +163,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.max
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun BottomSheetPlayer(
     state: BottomSheetState,
@@ -283,8 +285,21 @@ fun BottomSheetPlayer(
     }
 
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val tabMode = context.tabMode()
+    val wideScreen = context.supportsWideScreen()
 
-    val dismissedBound = QueuePeekHeight + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
+    /**
+     * The two-pane landscape layout, i.e. the only configuration that actually has the artwork
+     * competing with the controls for height. tabMode and narrow (<600dp) landscape both fall
+     * through to the stacked portrait layout, which already reserved the queue peek correctly and
+     * must not be perturbed.
+     */
+    val landscapeTwoPane = isLandscape && !tabMode && wideScreen
+
+    // ignoringVisibility so hiding the bars in immersive landscape does not change this bound and
+    // rebuild the sheet state mid-gesture. See the matching note in MainActivity.
+    val dismissedBound =
+        QueuePeekHeight + WindowInsets.systemBarsIgnoringVisibility.asPaddingValues().calculateBottomPadding()
 
     /**
      * The collapsed queue sheet is [QueuePeekHeight] taller than the peek it actually needs, and
@@ -301,40 +316,53 @@ fun BottomSheetPlayer(
     val queueSheetState = rememberBottomSheetState(
         dismissedBound = dismissedBound,
         expandedBound = state.expandedBound,
-        collapsedBound = if (isLandscape) dismissedBound else dismissedBound + QueuePeekHeight,
+        collapsedBound = if (landscapeTwoPane) dismissedBound else dismissedBound + QueuePeekHeight,
         initialAnchor = 1
     )
 
+    val immersiveLandscape = isLandscape && state.isExpanded
+
     /**
-     * Landscape with the player open is treated as a lean-back "now playing" mode: hide the system
-     * bars and hold the screen awake, since the user is looking at artwork rather than reading and
-     * has no reason to be reaching for the clock. Swiping from an edge still brings the bars back
-     * transiently.
+     * Landscape with the player open is a lean-back "now playing" mode: hide the system bars, since
+     * the user is looking at artwork rather than reading. An edge swipe brings them back
+     * transiently, and onDispose restores them so collapsing or rotating cannot strand the user
+     * without a status bar.
      *
-     * Deliberately gated on [state].isExpanded so the mini player does not take over the screen,
-     * and everything is undone in onDispose so rotating back or collapsing restores normal
-     * behaviour rather than leaving the bars hidden.
+     * Gated on [state].isExpanded so the mini player does not take over the screen.
      */
     val currentView = LocalView.current
-    DisposableEffect(isLandscape, state.isExpanded) {
-        val immersive = isLandscape && state.isExpanded
+    DisposableEffect(immersiveLandscape) {
         val controller = (currentView.context as? Activity)?.window?.let {
             WindowCompat.getInsetsController(it, currentView)
         }
 
-        if (immersive) {
+        if (immersiveLandscape) {
             controller?.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             controller?.hide(WindowInsetsCompat.Type.systemBars())
         } else {
             controller?.show(WindowInsetsCompat.Type.systemBars())
         }
-        currentView.keepScreenOn = immersive
 
-        onDispose {
-            controller?.show(WindowInsetsCompat.Type.systemBars())
-            currentView.keepScreenOn = false
-        }
+        onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+
+    /**
+     * Single owner of View.keepScreenOn.
+     *
+     * It is one boolean on one View, so it cannot be written from two places: whichever effect
+     * disposes last wins and silently clears the other's request. [Thumbnail] used to own it for
+     * the lyrics view; that ownership moved here so lyrics and immersive landscape can be OR'd
+     * together instead of clobbering each other.
+     *
+     * [isPlaying] is part of the condition on purpose. "Landscape holds the screen awake" is about
+     * watching playback, and a player left paused overnight in landscape would otherwise hold the
+     * screen on until the battery died. Lyrics keep it awake regardless, matching the old
+     * behaviour.
+     */
+    DisposableEffect(showLyrics, immersiveLandscape, isPlaying) {
+        currentView.keepScreenOn = showLyrics || (immersiveLandscape && isPlaying)
+        onDispose { currentView.keepScreenOn = false }
     }
 
 
@@ -419,9 +447,6 @@ fun BottomSheetPlayer(
         Log.v(TAG, "PLR-3.1")
 
         val lol: @Composable BoxScope.() -> Unit = {
-            val tabMode = context.tabMode()
-            val wideScreen = context.supportsWideScreen()
-
             val actionButtons: @Composable RowScope.() -> Unit = {
                 Log.v(TAG, "PLR-3.xa")
                 Spacer(modifier = Modifier.width(10.dp))
@@ -779,9 +804,12 @@ fun BottomSheetPlayer(
                 )
                 // Floor this. It is derived from safeDrawing, which collapses to zero once the
                 // system bars are hidden, and with no floor the artwork expands flush to the top
-                // and bottom edges and its rounded corners get clipped by the display.
+                // edge and its rounded corners get clipped by the display.
                 val vPaddingDp = with(LocalDensity.current) { vPadding.toDp() }.coerceAtLeast(16.dp)
-                val verticalInsets = WindowInsets(left = 0.dp, top = vPaddingDp, right = 0.dp, bottom = vPaddingDp)
+                // Bottom is 0 here on purpose: the bottom is reserved by the collapsedBound padding
+                // below, and collapsedBound already contains the bottom system-bar inset. Applying
+                // vPaddingDp here too would count that inset twice and over-reserve.
+                val verticalInsets = WindowInsets(left = 0.dp, top = vPaddingDp, right = 0.dp, bottom = 0.dp)
                 Row(
                     modifier = Modifier
                         .windowInsetsPadding(

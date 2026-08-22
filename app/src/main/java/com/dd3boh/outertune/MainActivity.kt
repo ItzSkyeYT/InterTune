@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,6 +48,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.systemBarsIgnoringVisibility
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -248,7 +250,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @SuppressLint("UnusedBoxWithConstraintsScope")
-    @OptIn(ExperimentalMaterial3Api::class)
+    @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         lifecycle.addObserver(controllerViewModel)
@@ -366,7 +368,13 @@ class MainActivity : ComponentActivity() {
             ) {
                 Log.v(MAIN_TAG, "RC-2.1")
                 val density = LocalDensity.current
-                val windowsInsets = WindowInsets.systemBars
+                // ignoringVisibility, NOT systemBars: the landscape player hides the bars, and
+                // bottomInset feeds the player sheet's collapsedBound, which is a remember() key
+                // for its BottomSheetState. Using the live inset rebuilds that state the instant
+                // the bars toggle, cancelling any in-flight drag and springing the sheet back to
+                // its previous anchor. The ignoringVisibility value is what the bars *would*
+                // occupy, so it stays constant and the layout does not jump either.
+                val windowsInsets = WindowInsets.systemBarsIgnoringVisibility
                 val bottomInset = with(density) { windowsInsets.getBottom(density).toDp() }
                 val cutoutInsets = WindowInsets.displayCutout
 
