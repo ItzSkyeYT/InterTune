@@ -76,6 +76,15 @@ Separate from the playback fix, the two-pane landscape now-playing screen got so
 is deliberately untouched throughout — 0.10.1's portrait UI is the reason this fork is based on
 0.10.1 at all.
 
+<img src="./assets/landscape-before-after.svg" alt="InterTune landscape player, before and after" width="100%">
+
+That image is not a screenshot. Its geometry is **computed from the layout constants in this
+repository** by [`tools/render-landscape-diagram.py`](tools/render-landscape-diagram.py), so it
+cannot quietly drift out of date the way a captured PNG would — change `QueuePeekHeight` or the
+gutter and re-running the script moves the drawing. The 49dp overlap it reports in the "before"
+panel is not an artistic choice either; it falls out of the arithmetic, and lands within a dp of
+`QueuePeekHeight` because that is exactly what the extra peek was costing.
+
 **The queue arrow no longer sits on top of the transport controls.** [`QueueSheet`][qs] pins its
 expand arrow to the *top* of the collapsed sheet, and that sheet is `QueuePeekHeight` taller than
 the peek it actually needs. In portrait, spending 96dp on that costs nothing. In landscape the
