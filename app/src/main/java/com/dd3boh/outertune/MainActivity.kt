@@ -1039,10 +1039,10 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        const val ACTION_SEARCH = "com.dd3boh.outertune.action.SEARCH"
-        const val ACTION_SONGS = "com.dd3boh.outertune.action.SONGS"
-        const val ACTION_ALBUMS = "com.dd3boh.outertune.action.ALBUMS"
-        const val ACTION_PLAYLISTS = "com.dd3boh.outertune.action.PLAYLISTS"
+        const val ACTION_SEARCH = "dev.skye.intertune.action.SEARCH"
+        const val ACTION_SONGS = "dev.skye.intertune.action.SONGS"
+        const val ACTION_ALBUMS = "dev.skye.intertune.action.ALBUMS"
+        const val ACTION_PLAYLISTS = "dev.skye.intertune.action.PLAYLISTS"
     }
 }
 
