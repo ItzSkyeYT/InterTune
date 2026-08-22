@@ -10,6 +10,7 @@
 package com.dd3boh.outertune.ui.player
 
 import android.annotation.SuppressLint
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -34,8 +35,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalView
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalPlayerConnection
@@ -79,12 +82,20 @@ fun Thumbnail(
                 .statusBarsPadding()
         ) {
 
+            // In the two-pane landscape player the artwork shares the width with the controls, so
+            // it hugs the outer edge and spends almost nothing on a gutter. Centring it inside a
+            // 32dp-inset column (as portrait does) strands it in the middle of its half and any
+            // alignment applied by the caller is overridden here, since this Column fills the
+            // parent.
+            val isLandscape =
+                LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
             Column(
                 verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
+                horizontalAlignment =
+                    if (isLandscape) Alignment.Start else Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = PlayerHorizontalPadding)
+                    .padding(horizontal = if (isLandscape) 8.dp else PlayerHorizontalPadding)
             ) {
                 BoxWithConstraints(
                     modifier = Modifier
