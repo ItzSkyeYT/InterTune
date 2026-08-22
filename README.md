@@ -3,7 +3,7 @@
 <img src="./assets/outertune.webp" height="88" alt="app icon">
 
 InnerTune ∩ OuterTune. A personal fork of [OuterTune](https://github.com/OuterTune/OuterTune),
-carrying a fix that makes YouTube Music playback work again.
+carrying a fix that makes YouTube Music playback work again, plus a reworked landscape player.
 
 > [!IMPORTANT]
 > **This is a personal fork.** It exists because I use this app daily and wanted it working the way
@@ -67,8 +67,43 @@ Measured on device, 22 August 2026, same track and network:
 `VISIONOS` does need a `visitorData` to clear YouTube's bot check, which the existing
 `toContext` already supplies.
 
-The change is 3 files and ~50 lines. Nothing in the UI is touched — this is deliberately a
-minimal diff against `v0.10.1`, not a rebase onto a newer upstream.
+The fix itself is 3 files and ~50 lines, and touches no UI. It is deliberately a minimal diff
+against `v0.10.1` rather than a rebase onto a newer upstream.
+
+## Landscape player
+
+Separate from the playback fix, the two-pane landscape now-playing screen got some work. Portrait
+is deliberately untouched throughout — 0.10.1's portrait UI is the reason this fork is based on
+0.10.1 at all.
+
+**The queue arrow no longer sits on top of the transport controls.** [`QueueSheet`][qs] pins its
+expand arrow to the *top* of the collapsed sheet, and that sheet is `QueuePeekHeight` taller than
+the peek it actually needs. In portrait, spending 96dp on that costs nothing. In landscape the
+whole player is 384dp tall, so the extra 48dp both left the arrow floating in the middle of the
+controls and came straight out of the artwork. Landscape now collapses to exactly the peek.
+
+**Fullscreen and keep-awake while the player is open.** The system bars hide, an edge swipe brings
+them back transiently, and they are restored when the player collapses or the device rotates. The
+screen is held awake while playing — lyrics keep it awake independently, as before. Both are gated
+on the player being *expanded*, so the mini player does not take over the screen, and on playback
+being active, so a player left paused in landscape does not hold the screen on all night.
+
+**Layout, sized for arm's length rather than in-hand.** Gutter 32dp → 24dp, title 22sp → 25sp,
+artist 16sp → 19sp, artwork hugging the outer edge at ~86% of screen height, like/more aligned to
+the artwork's top edge, transport icons 32dp → 42dp and the play button 72dp → 84dp.
+
+[qs]: app/src/main/java/com/dd3boh/outertune/ui/player/Queue.kt
+
+Two defects in the first cut of this are worth recording, because neither was visible in a
+screenshot and both are easy to reintroduce:
+
+- `View.keepScreenOn` is a single boolean on a single View. `Thumbnail` owned it for lyrics and the
+  new immersive effect owned it for landscape, so whichever disposed last silently cleared the
+  other's request — breaking lyrics keep-awake **in portrait**. One owner now ORs both conditions.
+- `WindowInsets.systemBars` shrinks when the bars hide, and that value reaches `collapsedBound`,
+  which is a `remember()` key for the sheet state. Toggling the bars rebuilt the state mid-drag,
+  cancelled the gesture and re-animated the sheet to its previous anchor, so the player sprang back
+  open instead of collapsing. Both sheet bounds now read `systemBarsIgnoringVisibility`.
 
 ## Relationship to upstream
 
