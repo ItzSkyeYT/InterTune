@@ -106,3 +106,7 @@ lint/tmp/
 .DS_Store
 
 /ffMetadataEx
+
+# Personal library backups pulled from the device for local testing.
+# These contain the user's listening data and must never reach the public fork.
+.local-backups/
