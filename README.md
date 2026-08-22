@@ -1,113 +1,103 @@
-# OuterTune
+# OuterTune — personal fork
 
 <img src="./assets/outertune.webp" height="88" alt="OuterTune app icon">
 
-A Material 3 YouTube Music client & local music player for Android
+A personal spin on [OuterTune](https://github.com/OuterTune/OuterTune), carrying a fix that makes
+YouTube Music playback work again.
 
-[![Latest release](https://img.shields.io/github/v/release/OuterTune/OuterTune?include_prereleases)](https://github.com/OuterTune/OuterTune/releases)
-[![License](https://img.shields.io/github/license/OuterTune/OuterTune)](https://www.gnu.org/licenses/gpl-3.0)
-[![Downloads](https://img.shields.io/github/downloads/OuterTune/OuterTune/total)](https://github.com/OuterTune/OuterTune/releases)
-
-
-<!-- use  "⠀⠀" for spacing -->
-[<img src="assets/badge_github.png" alt="Get it on GitHub" height="40">](https://github.com/OuterTune/OuterTune/releases/latest)⠀⠀
-[<img src="assets/IzzyOnDroidButtonGreyBorder.svg" alt="Get it on IzzyOnDroid" height="40">](https://apt.izzysoft.de/fdroid/index/apk/com.dd3boh.outertune)⠀⠀
-[<img src="assets/badge_fdroid.svg" alt="Get it on F-Droid" height="40">](https://f-droid.org/en/packages/com.dd3boh.outertune/)⠀⠀
-[<img src="assets/badge_obtainium.png" alt="Get it on Obtainium" height="40">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22com.dd3boh.outertune%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FDD3Boh%2FOuterTune%22%2C%22author%22%3A%22DD3Boh%22%2C%22name%22%3A%22OuterTune%22%2C%22preferredApkIndex%22%3A0%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3Afalse%2C%5C%22fallbackToOlderReleases%5C%22%3Atrue%2C%5C%22filterReleaseTitlesByRegEx%5C%22%3A%5C%22%5C%22%2C%5C%22filterReleaseNotesByRegEx%5C%22%3A%5C%22%5C%22%2C%5C%22verifyLatestTag%5C%22%3Afalse%2C%5C%22dontSortReleasesList%5C%22%3Afalse%2C%5C%22useLatestAssetDateAsReleaseDate%5C%22%3Afalse%2C%5C%22trackOnly%5C%22%3Afalse%2C%5C%22versionExtractionRegEx%5C%22%3A%5C%22%5C%22%2C%5C%22matchGroupToUse%5C%22%3A%5C%22%5C%22%2C%5C%22versionDetection%5C%22%3Atrue%2C%5C%22releaseDateAsVersion%5C%22%3Afalse%2C%5C%22useVersionCodeAsOSVersion%5C%22%3Afalse%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22%5C%22%2C%5C%22invertAPKFilter%5C%22%3Afalse%2C%5C%22autoApkFilterByArch%5C%22%3Atrue%2C%5C%22appName%5C%22%3A%5C%22%5C%22%2C%5C%22shizukuPretendToBeGooglePlay%5C%22%3Afalse%2C%5C%22allowInsecure%5C%22%3Afalse%2C%5C%22exemptFromBackgroundUpdates%5C%22%3Afalse%2C%5C%22skipUpdateNotifications%5C%22%3Afalse%2C%5C%22about%5C%22%3A%5C%22A%20Material%203%20YouTube%20Music%20client%20%26%20local%20music%20player%20for%20Android%5C%22%7D%22%2C%22overrideSource%22%3A%22GitHub%22%7D)
-
-
-> [!WARNING]
-> OuterTune is only available on the platforms listed here. This app is not listed on the Play Store or any other fake website that claim to be us. We recommend you to immediately delete any fake versions or clones for your safety.
-
-
-## Features
-
-OuterTune is a supercharged fork of [InnerTune](https://github.com/z-huang/InnerTune). This app is both a local media player, and a YouTube Music client.
-
-- YouTube Music client features
-    - Song downloading (offline playback)
-    - Seamless playback: no ADs & background playback
-    - Account synchronization
-        - Full playlist sync from the app to the remote account is temporally unavailable 
-- Local audio file playback (ex. MP3, OGG, FLAC, etc.)
-    - Play local and Youtube Music songs at the same time
-    - Uses a custom tag extractor instead of MediaStore's broken metadata extractor! (e.g tags delimited with \\ now show up properly)
-- Sleek Material3 design
-- Multiple queues
-- Synchronized lyrics, and support for word by word/Karaoke lyrics formats (e.g LRC, TTML)
-- Audio normalization, tempo/pitch adjustment, and various other audio effects
-- Android Auto support
-- Support for Android 8 (Oreo) and higher
-
-> [!NOTE]
-> Android 8 (Oreo) and higher is supported. While the app may work on Android 7.x (Nougat), we do not officially support this version
-
-> [!NOTE]
-> Read our FAQ and guides on our [wiki](https://github.com/OuterTune/OuterTune/wiki/Frequently-Asked-Questions-(FAQ))
-
-
-## Screenshots
-
-<img src="./assets/main-interface.jpg" alt="Main player interface" />
-<br/><br/>
-<img src="./assets/player.jpg" alt="Player interface"/>
-<br/><br/>
-<img src="./assets/ytm-sync.jpg" alt="Sync with YouTube Music"/>
-
-[Full image gallery](./assets/gallery)
-
-> [!WARNING]
+> [!IMPORTANT]
+> **This is a personal fork.** It exists because I use this app daily and wanted it working the way
+> I like it. It is not a community project, not a drop-in replacement for upstream, and comes with
+> no promise of support, releases, or timely updates. Use it if it's useful to you; file issues if
+> you like, but expect them to be answered on a hobby schedule or not at all.
 >
->If you're in a region where YouTube Music is not supported, you won't be able to use this app
-***unless*** you have a proxy or VPN to connect to a YTM supported region.
+> If you want a maintained YouTube Music client, look at
+> [Metrolist](https://github.com/MetrolistGroup/Metrolist) or
+> [ArchiveTune](https://github.com/koiverse/ArchiveTune) — upstream's own README points there.
 
-## Building & Contributing
+## Why this fork exists
 
-We are looking for contributors, translators, and maintainers! If you would like to help out, or just wish to build the
-app yourself, please see the [building and contribution notes](./CONTRIBUTING.md).
+### The bug
 
-### Submitting Translations
+Upstream OuterTune 0.10.1 stops playing partway through every track with:
 
-We use Weblate to translate OuterTune. For more details or to submit translations, visit our [Weblate page](https://hosted.weblate.org/projects/outertune/).
+```
+Source error (2004): Response code: 403
+```
 
-<a href="https://hosted.weblate.org/projects/outertune/">
-<img src="https://hosted.weblate.org/widget/outertune/multi-auto.svg" alt="Translation status" />
-</a>
+Usually around 30 seconds in.
 
-Thank you very much for helping to make OuterTune accessible to many people worldwide.
+### The cause
 
-## Support us
+In August 2026 YouTube began requiring a GVS proof-of-origin token from the `ANDROID_VR` and `IOS`
+InnerTube clients. A client that owes a token and sends none is granted a **cold-start allowance of
+roughly 1 MB** and then receives `403` for everything past it.
 
-If you like OuterTune, you're welcome to send a donation. Donations will support the development,
-including bug fixes and new features.
+The allowance is on **data, not time**, which is why the cutoff moves with audio quality:
 
-<a href="https://paypal.me/DD3Boh"><img src="./assets/paypal.png" alt="PayPal" height="60" ></a>
+| Audio quality | Bitrate | ~Playback before 403 |
+|---|---|---|
+| High | 256 kbps | ~31 s |
+| Default | 136 kbps | ~60 s |
 
-## Help & Support
-Contact us through GitHub
-- For bug reports and/or feature requests, please create a [GitHub issue](https://github.com/OuterTune/OuterTune/issues).
-- If you have want help with the app, check out the [Discussion Forum](https://github.com/OuterTune/OuterTune/discussions).
+Upstream lists `IOS` as its only fallback stream client. Worse, the resolution loop deliberately
+skips `validateStatus` for whichever client is *last* in the list — and with a single-element list,
+`IOS` is always last. So its capped URL is handed to the player unchecked. The check wouldn't have
+caught it anyway: these URLs answer `206` at offset 0 and only `403` past the allowance.
 
-For all other inquiries NOT related to the app, you can contact us at outertune@protonmail.com. **This is NOT a support email!**
+Upstream discontinued YouTube Music support in February 2026 and marked this error
+[Won't Fix](https://github.com/OuterTune/OuterTune/issues/735).
 
-## Attribution
+### The fix
 
-Thanks to all our contributors! Check them out [here](https://github.com/OuterTune/OuterTune/graphs/contributors)
+Add the `VISIONOS` client (Apple Vision Pro, client ID 101), which is exempt from the token
+requirement and needs no signature deobfuscation, and place it ahead of `IOS`.
 
-[z-huang/InnerTune](https://github.com/z-huang/InnerTune) for providing an awesome base for this fork, none of this
-would have been possible without it.
+Measured on device, 22 August 2026, same track and network:
 
-[Musicolet](https://play.google.com/store/apps/details?id=in.krosbits.musicolet) for inspiration of a local music player
-experience done right.
+| Client | Result |
+|---|---|
+| `VISIONOS` | full 6.13 MB track |
+| `IOS` | **stopped at 1.05 MB (~51 s) → 403** |
 
-[Gramophone](https://github.com/FoedusProgramme/Gramophone) for emotional support, and a legendary lyrics parser
+`VISIONOS` does need a `visitorData` to clear YouTube's bot check, which the existing
+`toContext` already supplies.
 
-[![Star History Chart](https://api.star-history.com/svg?repos=outertune/outertune&type=Date)](https://www.star-history.com/#outertune/outertune&Date)
+The change is 3 files and ~50 lines. Nothing in the UI is touched — this is deliberately a
+minimal diff against `v0.10.1`, not a rebase onto a newer upstream.
 
-## Disclaimer
+## Relationship to upstream
 
-This project and its contents are not affiliated with, funded, authorized, endorsed by, or in any
-way associated with YouTube, Google LLC or any of its affiliates and subsidiaries.
+Based on upstream tag **`v0.10.1`**. It is *not* based on the `lite` branch (which has the YouTube
+code removed entirely) or on newer forks — I prefer 0.10.1's UI and behaviour, so this stays close
+to it.
 
-Any trademark, service mark, trade name, or other intellectual property rights used in this project
-are owned by the respective owners.
+Credit where it's due: OuterTune is a fork of [InnerTune](https://github.com/z-huang/InnerTune) by
+z-huang, and the heavy lifting here is all upstream's. Also worth acknowledging
+[yuuichi-s/OuterTune](https://github.com/yuuichi-s/OuterTune), an actively developed fork that
+reached the same `VISIONOS` conclusion independently.
+
+## Expect this to break again
+
+`VISIONOS` is exempt because YouTube hasn't gotten to it yet, not because it's blessed. yt-dlp
+re-pinned its YouTube client versions three times during 2026. When this stops working, the fix is
+likely a client version bump in `YouTubeClient.kt` rather than anything structural.
+
+## Building
+
+Requires **JDK 17** and the Android SDK (compileSdk 36). The NDK is needed for the `ffMetadataEx`
+and `taglib` native modules.
+
+```bash
+git clone --recurse-submodules <this repo>
+cd OuterTune
+./gradlew assembleCoreDebug
+```
+
+Flavors are `core` (default, smaller) and `full` (adds FFmpeg codecs — ALAC/APE/WavPack/DSD).
+Debug builds use the applicationId suffix `.debug`, so they install alongside a release build of
+upstream rather than replacing it.
+
+## Licence
+
+GPL-3.0, inherited from upstream. See [LICENSE](LICENSE).
