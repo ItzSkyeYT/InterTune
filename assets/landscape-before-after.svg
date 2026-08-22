@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="888" height="996" viewBox="0 0 888 996" role="img" aria-label="InterTune landscape player before and after">
+<defs>
+<linearGradient id="bgw" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a7a1e"/><stop offset="0.5" stop-color="#6f6a33"/><stop offset="1" stop-color="#4a4a2c"/></linearGradient>
+<linearGradient id="sleeve" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#f5d020"/><stop offset="1" stop-color="#e0b410"/></linearGradient>
+</defs>
+<rect width="888" height="996" fill="#0d0f12"/>
+<text x="28" y="32" fill="#e8eaed" font-size="18" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-weight="700">BEFORE — upstream v0.10.1</text>
+<text x="28" y="51" fill="#6b7280" font-size="12.5" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">system bars visible · queue peek 112dp · artwork centred</text>
+<clipPath id="cl0"><rect x="28" y="62" width="832" height="384" rx="12"/></clipPath>
+<g clip-path="url(#cl0)">
+<rect x="28" y="62" width="832" height="384" fill="url(#bgw)"/>
+<rect x="28" y="62" width="832" height="24" fill="#000" opacity="0.28"/>
+<text x="42" y="78" fill="#e8eaed" font-size="11.5" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-weight="600">9:41</text>
+<rect x="802" y="75" width="3.4" height="3" fill="#e8eaed" rx="1"/>
+<rect x="808" y="73" width="3.4" height="5" fill="#e8eaed" rx="1"/>
+<rect x="814" y="71" width="3.4" height="7" fill="#e8eaed" rx="1"/>
+<rect x="820" y="69" width="3.4" height="9" fill="#e8eaed" rx="1"/>
+<rect x="834" y="69" width="16" height="9" rx="2.6" fill="none" stroke="#e8eaed" stroke-width="1.2"/>
+<rect x="835.5" y="70.5" width="11" height="6" rx="1.4" fill="#e8eaed"/>
+<rect x="28" y="430" width="832" height="16" fill="#000" opacity="0.28"/>
+<rect x="398.0" y="436.4" width="92" height="3.4" rx="1.7" fill="#e8eaed"/>
+<rect x="28" y="334" width="832" height="112" fill="#000" opacity="0.16"/>
+<line x1="28" y1="334" x2="860" y2="334" stroke="#ffffff" stroke-opacity="0.18" stroke-dasharray="5 4"/>
+<rect x="68.0" y="86" width="336" height="336" rx="15.12" fill="url(#sleeve)"/><rect x="115.04" y="156.56" width="241.92" height="213.69599999999997" rx="16.8" fill="#20242b"/><rect x="129.5552" y="280.50368000000003" width="38.7072" height="89.75231999999998" fill="#39414d"/><rect x="177.9392" y="237.76448" width="31.4496" height="132.49151999999998" fill="#39414d"/><rect x="219.06560000000002" y="295.4624" width="43.54559999999999" height="74.79359999999998" fill="#39414d"/><rect x="269.8688" y="252.72319999999996" width="29.030399999999997" height="117.5328" fill="#39414d"/><rect x="306.15680000000003" y="306.1472" width="36.288" height="64.10879999999999" fill="#39414d"/><circle cx="294.0608" cy="203.57312" r="19.232639999999996" fill="#c9a227"/><text x="236.0" y="406.0064" fill="#1c1a12" font-size="28.560000000000002" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-weight="700" letter-spacing="1.344">FREED FROM DESIRE</text>
+<circle cx="750" cy="149.0" r="21" fill="#ffffff" opacity="0.20"/>
+<path d="M750.0 155.41666666666666 c-6 -4 -8 -7.5 -8 -11 a4 4 0 0 1 8 -2 a4 4 0 0 1 8 2 c0 3.5 -2 7 -8 11 z" fill="#f4f6f8" stroke="#f4f6f8" stroke-width="1.2833333333333332" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="806" cy="149.0" r="21" fill="#ffffff" opacity="0.20"/>
+<circle cx="806" cy="143.95833333333334" r="1.7416666666666665" fill="#f4f6f8"/><circle cx="806" cy="149.0" r="1.7416666666666665" fill="#f4f6f8"/><circle cx="806" cy="154.04166666666666" r="1.7416666666666665" fill="#f4f6f8"/>
+<text x="476.0" y="210.84" fill="#ffffff" font-size="22.400000000000002" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-weight="700">Freed from Desire (Full Voc…</text>
+<text x="476.0" y="233.72" fill="#e2e5e9" font-size="17.6" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">Phil Jay, Molella, Gala</text>
+<rect x="476.0" y="258.0" width="352.0" height="7" rx="3.5" fill="#ffffff" opacity="0.26"/>
+<rect x="476.0" y="258.0" width="123.19999999999999" height="7" rx="3.5" fill="#f4f6f8"/>
+<circle cx="599.2" cy="261.5" r="6" fill="#ffffff"/>
+<text x="476.0" y="285.0" fill="#e2e5e9" font-size="13" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">1:31</text>
+<text x="828" y="285.0" fill="#e2e5e9" font-size="13" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" text-anchor="end">4:18</text>
+<rect x="616.0" y="311.0" width="72" height="72" rx="23.04" fill="#f4f6f8"/>
+<path d="M646.48 337.34 l11 7 l-11 7 z" fill="#1d2026" stroke="#1d2026" stroke-width="1.932" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M569.3333333333334 339.0 v12" fill="none" stroke="#f4f6f8" stroke-width="3.1999999999999997" stroke-linecap="round" stroke-linejoin="round"/><path d="M584.0 339.0 l-8 6 l8 6 z" fill="#f4f6f8" stroke="#f4f6f8" stroke-width="2.1333333333333333" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M734.6666666666666 339.0 v12" fill="none" stroke="#f4f6f8" stroke-width="3.1999999999999997" stroke-linecap="round" stroke-linejoin="round"/><path d="M720.0 339.0 l8 6 l-8 6 z" fill="#f4f6f8" stroke="#f4f6f8" stroke-width="2.1333333333333333" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M500.0 341.6666666666667 h4 l3 4" fill="none" stroke="#f4f6f8" stroke-width="2.6666666666666665" stroke-linecap="round" stroke-linejoin="round"/><path d="M500.0 352.3333333333333 h4 l6 -8 h4" fill="none" stroke="#f4f6f8" stroke-width="2.6666666666666665" stroke-linecap="round" stroke-linejoin="round"/><path d="M518.6666666666666 337.6666666666667 l3 3 l-3 3" fill="none" stroke="#f4f6f8" stroke-width="2.6666666666666665" stroke-linecap="round" stroke-linejoin="round"/><path d="M518.6666666666666 348.3333333333333 l3 3 l-3 3" fill="none" stroke="#f4f6f8" stroke-width="2.6666666666666665" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M782.6666666666666 343.0 a5 4 0 0 1 5 -4 h9" fill="none" stroke="#f4f6f8" stroke-width="2.6666666666666665" stroke-linecap="round" stroke-linejoin="round"/><path d="M798.6666666666666 333.6666666666667 l3 3 l-3 3" fill="none" stroke="#f4f6f8" stroke-width="2.6666666666666665" stroke-linecap="round" stroke-linejoin="round"/><path d="M801.3333333333334 351.0 a5 4 0 0 1 -5 4 h-9" fill="none" stroke="#f4f6f8" stroke-width="2.6666666666666665" stroke-linecap="round" stroke-linejoin="round"/><path d="M785.3333333333334 352.3333333333333 l-3 3 l3 3" fill="none" stroke="#f4f6f8" stroke-width="2.6666666666666665" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="444.0" cy="358.0" r="24.0" fill="#ffffff" opacity="0.14"/>
+<path d="M 434.0 363.0 l 10 -10 l 10 10" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="444.0" y="334" width="416.0" height="49.0" fill="#f28b82" opacity="0.26"/>
+</g>
+<rect x="28" y="62" width="832" height="384" rx="12" fill="none" stroke="#39404d"/>
+<text x="444.0" y="466" fill="#f28b82" font-size="13" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-weight="600">expand arrow overlaps the transport row by 49dp</text>
+<text x="28" y="524" fill="#e8eaed" font-size="18" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-weight="700">AFTER — InterTune</text>
+<text x="28" y="543" fill="#6b7280" font-size="12.5" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">system bars hidden · queue peek 64dp · artwork start-aligned</text>
+<clipPath id="cl1"><rect x="28" y="554" width="832" height="384" rx="12"/></clipPath>
+<g clip-path="url(#cl1)">
+<rect x="28" y="554" width="832" height="384" fill="url(#bgw)"/>
+<rect x="28" y="874" width="832" height="64" fill="#000" opacity="0.16"/>
+<line x1="28" y1="874" x2="860" y2="874" stroke="#ffffff" stroke-opacity="0.18" stroke-dasharray="5 4"/>
+<rect x="36" y="570" width="352" height="352" rx="15.84" fill="url(#sleeve)"/><rect x="85.28" y="643.92" width="253.44" height="223.87199999999999" rx="17.6" fill="#20242b"/><rect x="100.4864" y="773.76576" width="40.5504" height="94.02623999999999" fill="#39414d"/><rect x="151.1744" y="728.99136" width="32.9472" height="138.80064" fill="#39414d"/><rect x="194.2592" y="789.4368" width="45.6192" height="78.3552" fill="#39414d"/><rect x="247.48160000000001" y="744.6623999999999" width="30.412799999999997" height="123.1296" fill="#39414d"/><rect x="285.49760000000003" y="800.6304" width="38.016" height="67.16159999999999" fill="#39414d"/><circle cx="272.8256" cy="693.17184" r="20.14848" fill="#c9a227"/><text x="212.0" y="905.2447999999999" fill="#1c1a12" font-size="29.92" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-weight="700" letter-spacing="1.408">FREED FROM DESIRE</text>
+<circle cx="758" cy="594.0" r="21" fill="#ffffff" opacity="0.20"/>
+<path d="M758.0 600.4166666666666 c-6 -4 -8 -7.5 -8 -11 a4 4 0 0 1 8 -2 a4 4 0 0 1 8 2 c0 3.5 -2 7 -8 11 z" fill="#f4f6f8" stroke="#f4f6f8" stroke-width="1.2833333333333332" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="814" cy="594.0" r="21" fill="#ffffff" opacity="0.20"/>
+<circle cx="814" cy="588.9583333333334" r="1.7416666666666665" fill="#f4f6f8"/><circle cx="814" cy="594.0" r="1.7416666666666665" fill="#f4f6f8"/><circle cx="814" cy="599.0416666666666" r="1.7416666666666665" fill="#f4f6f8"/>
+<text x="468.0" y="663.96" fill="#ffffff" font-size="25.6" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-weight="700">Freed from Desire (Full V…</text>
+<text x="468.0" y="690.76" fill="#e2e5e9" font-size="20.8" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">Phil Jay, Molella, Gala</text>
+<rect x="468.0" y="716.0" width="368.0" height="7" rx="3.5" fill="#ffffff" opacity="0.26"/>
+<rect x="468.0" y="716.0" width="128.79999999999998" height="7" rx="3.5" fill="#f4f6f8"/>
+<circle cx="596.8" cy="719.5" r="6" fill="#ffffff"/>
+<text x="468.0" y="743.0" fill="#e2e5e9" font-size="13" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">1:31</text>
+<text x="836" y="743.0" fill="#e2e5e9" font-size="13" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" text-anchor="end">4:18</text>
+<rect x="610.0" y="769.0" width="84" height="84" rx="26.88" fill="#f4f6f8"/>
+<path d="M645.56 799.7299999999999 l11 7 l-11 7 z" fill="#1d2026" stroke="#1d2026" stroke-width="2.254" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M561.25 800.5 v12" fill="none" stroke="#f4f6f8" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M580.5 800.5 l-8 6 l8 6 z" fill="#f4f6f8" stroke="#f4f6f8" stroke-width="2.8000000000000003" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M742.75 800.5 v12" fill="none" stroke="#f4f6f8" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M723.5 800.5 l8 6 l-8 6 z" fill="#f4f6f8" stroke="#f4f6f8" stroke-width="2.8000000000000003" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M490.25 804.0 h4 l3 4" fill="none" stroke="#f4f6f8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M490.25 818.0 h4 l6 -8 h4" fill="none" stroke="#f4f6f8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M514.75 798.75 l3 3 l-3 3" fill="none" stroke="#f4f6f8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M514.75 812.75 l3 3 l-3 3" fill="none" stroke="#f4f6f8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M785.75 805.75 a5 4 0 0 1 5 -4 h9" fill="none" stroke="#f4f6f8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M806.75 793.5 l3 3 l-3 3" fill="none" stroke="#f4f6f8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M810.25 816.25 a5 4 0 0 1 -5 4 h-9" fill="none" stroke="#f4f6f8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M789.25 818.0 l-3 3 l3 3" fill="none" stroke="#f4f6f8" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="444.0" cy="898.0" r="24.0" fill="#ffffff" opacity="0.14"/>
+<path d="M 434.0 903.0 l 10 -10 l 10 10" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<rect x="28" y="554" width="832" height="384" rx="12" fill="none" stroke="#39404d"/>
+<text x="444.0" y="958" fill="#81c995" font-size="13" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif" font-weight="600">21dp of clearance · artwork 352dp, was 336dp</text>
+<text x="28" y="987" fill="#6b7280" font-size="11.5" font-family="system-ui,-apple-system,Segoe UI,Roboto,sans-serif">Geometry computed from the layout constants in source at 832x384dp (3120x1440 @ 600dpi) — drawn, not screenshotted.</text>
+</svg>
