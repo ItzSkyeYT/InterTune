@@ -447,6 +447,28 @@ fun BottomSheetPlayer(
         Log.v(TAG, "PLR-3.1")
 
         val lol: @Composable BoxScope.() -> Unit = {
+            /**
+             * Landscape gets a tighter gutter and a larger type scale. In landscape the controls
+             * share the width with the artwork, so the column is narrow and the default 32dp
+             * gutter wastes space the progress bar and title want; the screen also sits further
+             * from the eye than a held phone, so the text runs a size up.
+             *
+             * Hoisted to this scope because both [controlsContent] and the two-pane landscape
+             * column need them.
+             */
+            val landscapePlayer = isLandscape && !tabMode
+            val hPadding = if (landscapePlayer) 24.dp else PlayerHorizontalPadding
+            val titleSize = if (landscapePlayer) 25.sp else TextUnit.Unspecified
+            val artistSize = if (landscapePlayer) 19.sp else TextUnit.Unspecified
+
+            /** Transport controls run larger in landscape, where there is room for them. */
+            val transportIconSize = if (landscapePlayer) 42.dp else 32.dp
+            val playButtonSize = when {
+                showLyrics -> 56.dp
+                landscapePlayer -> 84.dp
+                else -> 72.dp
+            }
+
             val actionButtons: @Composable RowScope.() -> Unit = {
                 Log.v(TAG, "PLR-3.xa")
                 Spacer(modifier = Modifier.width(10.dp))
@@ -505,19 +527,10 @@ fun BottomSheetPlayer(
                     label = "playPauseRoundness"
                 )
 
-                /**
-                 * Landscape gets a tighter gutter and a larger type scale. In landscape the controls
-                 * share the width with the artwork, so the column is narrow and the default 32dp
-                 * gutter wastes space that the progress bar and title want; the screen is also
-                 * further from the eye than a held-portrait phone, so the text runs a size up.
-                 */
-                val landscapePlayer = isLandscape && !tabMode
-                val hPadding = if (landscapePlayer) 24.dp else PlayerHorizontalPadding
-                val titleSize = if (landscapePlayer) 25.sp else TextUnit.Unspecified
-                val artistSize = if (landscapePlayer) 19.sp else TextUnit.Unspecified
-
-                // action buttons for landscape (above title)
-                if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE && !tabMode) {
+                // Action buttons for landscape, above the title. The two-pane layout hoists these
+                // to the top of its controls column instead, so this only covers narrow landscape,
+                // which still uses the stacked layout.
+                if (landscapePlayer && !wideScreen) {
                     Row(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically,
@@ -658,7 +671,7 @@ fun BottomSheetPlayer(
                         ResizableIconButton(
                             icon = if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(transportIconSize)
                                 .padding(4.dp)
                                 .align(Alignment.Center),
                             color = onBackgroundColor,
@@ -675,7 +688,7 @@ fun BottomSheetPlayer(
                             icon = Icons.Rounded.SkipPrevious,
                             enabled = canSkipPrevious,
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(transportIconSize)
                                 .align(Alignment.Center),
                             color = onBackgroundColor,
                             onClick = {
@@ -693,7 +706,7 @@ fun BottomSheetPlayer(
                             ResizableIconButton(
                                 icon = Icons.Rounded.FastRewind,
                                 modifier = Modifier
-                                    .size(32.dp)
+                                    .size(transportIconSize)
                                     .align(Alignment.Center),
                                 color = onBackgroundColor,
                                 enabled = playerConnection.player.currentMediaItem != null,
@@ -708,7 +721,7 @@ fun BottomSheetPlayer(
 
                     Box(
                         modifier = Modifier
-                            .size(if (showLyrics) 56.dp else 72.dp)
+                            .size(playButtonSize)
                             .animateContentSize()
                             .clip(RoundedCornerShape(playPauseRoundness))
                             .background(MaterialTheme.colorScheme.primary)
@@ -743,7 +756,7 @@ fun BottomSheetPlayer(
                             ResizableIconButton(
                                 icon = Icons.Rounded.FastForward,
                                 modifier = Modifier
-                                    .size(32.dp)
+                                    .size(transportIconSize)
                                     .align(Alignment.Center),
                                 color = onBackgroundColor,
                                 enabled = playerConnection.player.currentMediaItem != null,
@@ -763,7 +776,7 @@ fun BottomSheetPlayer(
                             icon = Icons.Rounded.SkipNext,
                             enabled = canSkipNext,
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(transportIconSize)
                                 .align(Alignment.Center),
                             color = onBackgroundColor,
                             onClick = {
@@ -782,7 +795,7 @@ fun BottomSheetPlayer(
                                 else -> throw IllegalStateException()
                             },
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(transportIconSize)
                                 .padding(4.dp)
                                 .align(Alignment.Center),
                             color = onBackgroundColor,
@@ -806,23 +819,21 @@ fun BottomSheetPlayer(
                 // system bars are hidden, and with no floor the artwork expands flush to the top
                 // edge and its rounded corners get clipped by the display.
                 val vPaddingDp = with(LocalDensity.current) { vPadding.toDp() }.coerceAtLeast(16.dp)
-                // Bottom is 0 here on purpose: the bottom is reserved by the collapsedBound padding
-                // below, and collapsedBound already contains the bottom system-bar inset. Applying
-                // vPaddingDp here too would count that inset twice and over-reserve.
-                val verticalInsets = WindowInsets(left = 0.dp, top = vPaddingDp, right = 0.dp, bottom = 0.dp)
+                val verticalInsets = WindowInsets(left = 0.dp, top = vPaddingDp, right = 0.dp, bottom = vPaddingDp)
                 Row(
                     modifier = Modifier
                         .windowInsetsPadding(
                             WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).add(verticalInsets)
                         )
-                        // Reserve the collapsed sheet so its arrow stops drawing over the transport
-                        // controls. In landscape collapsedBound is narrowed to the peek itself (see
-                        // where queueSheetState is built), so this costs 48dp here rather than 96dp.
-                        .padding(bottom = queueSheetState.collapsedBound)
                         .fillMaxSize()
                 ) {
+                    // The queue sheet's peek is reserved on the controls column alone, not on this
+                    // Row. The arrow is horizontally centred on the window, well clear of the
+                    // artwork's half, so making the artwork dodge it vertically only wasted height.
+                    // CenterStart rather than Center: the artwork hugs the inner edge instead of
+                    // floating in the middle of its half.
                     BoxWithConstraints(
-                        contentAlignment = Alignment.Center,
+                        contentAlignment = Alignment.CenterStart,
                         modifier = Modifier
                             .weight(1f)
                             .nestedScroll(state.preUpPostDownNestedScrollConnection)
@@ -905,7 +916,23 @@ fun BottomSheetPlayer(
                             .weight(if (showLyrics) 0.65f else 1f, false)
                             .animateContentSize()
                             .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
+                            // Only this column dodges the queue sheet's peek; the artwork does not
+                            // need to, since the arrow is centred on the window and never reaches
+                            // the artwork's half.
+                            .padding(bottom = queueSheetState.collapsedBound)
                     ) {
+                        // Like/more sit at the very top of the column rather than riding the
+                        // centred block, so they line up with the top of the artwork.
+                        Row(
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = hPadding)
+                        ) {
+                            actionButtons()
+                        }
+
                         Spacer(Modifier.weight(1f))
 
                         mediaMetadata?.let {
