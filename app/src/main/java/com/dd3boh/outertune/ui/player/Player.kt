@@ -10,6 +10,7 @@
 package com.dd3boh.outertune.ui.player
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.res.Configuration
 import android.util.Log
 import androidx.compose.animation.AnimatedContent
@@ -74,6 +75,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -97,10 +99,16 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEachIndexed
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.C
 import androidx.media3.common.Player.REPEAT_MODE_ALL
 import androidx.media3.common.Player.REPEAT_MODE_OFF
@@ -274,13 +282,60 @@ fun BottomSheetPlayer(
         }
     }
 
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     val dismissedBound = QueuePeekHeight + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
+
+    /**
+     * The collapsed queue sheet is [QueuePeekHeight] taller than the peek it actually needs, and
+     * [QueueSheet] pins its expand arrow to the *top* of that strip. In portrait, spending 96dp on
+     * it costs nothing. In landscape the whole player is 384dp tall and the artwork is
+     * height-constrained, so those extra 48dp come straight out of the artwork while leaving the
+     * arrow floating in the middle of the transport controls.
+     *
+     * Landscape therefore collapses to exactly the peek. Safe: [rememberBottomSheetState] already
+     * defaults collapsedBound to dismissedBound, and the slow-drag dismiss branch that compares the
+     * two is unreachable with stock values anyway (l0 = 48dp+inset, l1 = 24dp, so `in l0..l1` is an
+     * empty range). Velocity-based dismiss is unaffected.
+     */
     val queueSheetState = rememberBottomSheetState(
         dismissedBound = dismissedBound,
         expandedBound = state.expandedBound,
-        collapsedBound = dismissedBound + QueuePeekHeight,
+        collapsedBound = if (isLandscape) dismissedBound else dismissedBound + QueuePeekHeight,
         initialAnchor = 1
     )
+
+    /**
+     * Landscape with the player open is treated as a lean-back "now playing" mode: hide the system
+     * bars and hold the screen awake, since the user is looking at artwork rather than reading and
+     * has no reason to be reaching for the clock. Swiping from an edge still brings the bars back
+     * transiently.
+     *
+     * Deliberately gated on [state].isExpanded so the mini player does not take over the screen,
+     * and everything is undone in onDispose so rotating back or collapsing restores normal
+     * behaviour rather than leaving the bars hidden.
+     */
+    val currentView = LocalView.current
+    DisposableEffect(isLandscape, state.isExpanded) {
+        val immersive = isLandscape && state.isExpanded
+        val controller = (currentView.context as? Activity)?.window?.let {
+            WindowCompat.getInsetsController(it, currentView)
+        }
+
+        if (immersive) {
+            controller?.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller?.hide(WindowInsetsCompat.Type.systemBars())
+        } else {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
+        }
+        currentView.keepScreenOn = immersive
+
+        onDispose {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
+            currentView.keepScreenOn = false
+        }
+    }
 
 
     BottomSheet(
@@ -425,6 +480,17 @@ fun BottomSheetPlayer(
                     label = "playPauseRoundness"
                 )
 
+                /**
+                 * Landscape gets a tighter gutter and a larger type scale. In landscape the controls
+                 * share the width with the artwork, so the column is narrow and the default 32dp
+                 * gutter wastes space that the progress bar and title want; the screen is also
+                 * further from the eye than a held-portrait phone, so the text runs a size up.
+                 */
+                val landscapePlayer = isLandscape && !tabMode
+                val hPadding = if (landscapePlayer) 24.dp else PlayerHorizontalPadding
+                val titleSize = if (landscapePlayer) 25.sp else TextUnit.Unspecified
+                val artistSize = if (landscapePlayer) 19.sp else TextUnit.Unspecified
+
                 // action buttons for landscape (above title)
                 if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE && !tabMode) {
                     Row(
@@ -432,7 +498,7 @@ fun BottomSheetPlayer(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = PlayerHorizontalPadding, end = PlayerHorizontalPadding, bottom = 16.dp)
+                            .padding(start = hPadding, end = hPadding, bottom = 16.dp)
                     ) {
                         actionButtons()
                     }
@@ -442,13 +508,14 @@ fun BottomSheetPlayer(
                     horizontalArrangement = Arrangement.Start,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = PlayerHorizontalPadding)
+                        .padding(horizontal = hPadding)
                 ) {
                     Row {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = mediaMetadata.title,
                                 style = MaterialTheme.typography.titleLarge,
+                                fontSize = titleSize,
                                 color = onBackgroundColor,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
@@ -469,6 +536,7 @@ fun BottomSheetPlayer(
                                     Text(
                                         text = artist.name,
                                         style = MaterialTheme.typography.titleMedium,
+                                        fontSize = artistSize,
                                         color = onBackgroundColor,
                                         maxLines = 1,
                                         modifier = Modifier
@@ -486,6 +554,7 @@ fun BottomSheetPlayer(
                                         Text(
                                             text = ", ",
                                             style = MaterialTheme.typography.titleMedium,
+                                            fontSize = artistSize,
                                             color = onBackgroundColor
                                         )
                                     }
@@ -523,7 +592,7 @@ fun BottomSheetPlayer(
                             colors = SliderDefaults.colors()
                         )
                     },
-                    modifier = Modifier.padding(horizontal = PlayerHorizontalPadding)
+                    modifier = Modifier.padding(horizontal = hPadding)
                 )
 
                 Row(
@@ -531,7 +600,7 @@ fun BottomSheetPlayer(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = PlayerHorizontalPadding + 4.dp)
+                        .padding(horizontal = hPadding + 4.dp)
                 ) {
                     Text(
                         text = makeTimeString(sliderPosition ?: position),
@@ -556,7 +625,7 @@ fun BottomSheetPlayer(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = PlayerHorizontalPadding)
+                        .padding(horizontal = hPadding)
                 ) {
                     val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
 
@@ -708,13 +777,20 @@ fun BottomSheetPlayer(
                     WindowInsets.safeDrawing.getTop(LocalDensity.current),
                     WindowInsets.safeDrawing.getBottom(LocalDensity.current)
                 )
-                val vPaddingDp = with(LocalDensity.current) { vPadding.toDp() }
+                // Floor this. It is derived from safeDrawing, which collapses to zero once the
+                // system bars are hidden, and with no floor the artwork expands flush to the top
+                // and bottom edges and its rounded corners get clipped by the display.
+                val vPaddingDp = with(LocalDensity.current) { vPadding.toDp() }.coerceAtLeast(16.dp)
                 val verticalInsets = WindowInsets(left = 0.dp, top = vPaddingDp, right = 0.dp, bottom = vPaddingDp)
                 Row(
                     modifier = Modifier
                         .windowInsetsPadding(
                             WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).add(verticalInsets)
                         )
+                        // Reserve the collapsed sheet so its arrow stops drawing over the transport
+                        // controls. In landscape collapsedBound is narrowed to the peek itself (see
+                        // where queueSheetState is built), so this costs 48dp here rather than 96dp.
+                        .padding(bottom = queueSheetState.collapsedBound)
                         .fillMaxSize()
                 ) {
                     BoxWithConstraints(
