@@ -25,6 +25,7 @@ import com.zionhuang.innertube.models.YouTubeClient.Companion.ANDROID_VR_NO_AUTH
 import com.zionhuang.innertube.models.YouTubeClient.Companion.IOS
 import com.zionhuang.innertube.models.YouTubeClient.Companion.TVHTML5
 import com.zionhuang.innertube.models.YouTubeClient.Companion.TVHTML5_SIMPLY_EMBEDDED_PLAYER
+import com.zionhuang.innertube.models.YouTubeClient.Companion.VISIONOS
 import com.zionhuang.innertube.models.YouTubeClient.Companion.WEB_REMIX
 import com.zionhuang.innertube.models.response.PlayerResponse
 import okhttp3.OkHttpClient
@@ -55,6 +56,16 @@ object YTPlayerUtils {
      * Clients used for fallback streams in case the streams of the main client do not work.
      */
     private val STREAM_FALLBACK_CLIENTS: Array<YouTubeClient> = arrayOf(
+        /**
+         * First on purpose. YouTube began requiring a proof-of-origin token from ANDROID_VR and
+         * IOS in August 2026; without one they serve roughly 1MB and then 403 forever, which is
+         * the "Source error (2004)" that cut every song off partway through. VISIONOS is exempt,
+         * so it plays a track to the end.
+         *
+         * Note the loop below skips validateStatus for whichever client is LAST, so anything
+         * placed after this is accepted unchecked. Keep IOS last and keep this ahead of it.
+         */
+        VISIONOS,
         // Could not parse deobfuscation function
 //        WEB_REMIX,
 //        ANDROID,

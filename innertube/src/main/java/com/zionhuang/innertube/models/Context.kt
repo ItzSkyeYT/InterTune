@@ -17,6 +17,14 @@ data class Context(
         val gl: String,
         val hl: String,
         val visitorData: String?,
+        /**
+         * Device identity fields. Only the Apple-device clients (VISIONOS) need these; every
+         * other client leaves them null and they are dropped from the payload because the
+         * Json config sets explicitNulls = false.
+         */
+        val osName: String? = null,
+        val deviceMake: String? = null,
+        val deviceModel: String? = null,
     )
 
     @Serializable
