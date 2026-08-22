@@ -101,10 +101,13 @@ installed:
 | SDK licences accepted | `sdkmanager --licenses` |
 
 ```bash
-git clone --recurse-submodules <this repo>
+git clone --recurse-submodules https://github.com/ItzSkyeYT/InterTune.git
 cd InterTune
 ./gradlew assembleCoreDebug
 ```
+
+`--recurse-submodules` matters: `taglib` pulls its own submodules and the build fails
+without them.
 
 Flavors are `core` (default, smaller) and `full` (adds FFmpeg codecs — ALAC/APE/WavPack/DSD).
 Debug builds use the applicationId suffix `.debug`, so a debug and a release build coexist.
