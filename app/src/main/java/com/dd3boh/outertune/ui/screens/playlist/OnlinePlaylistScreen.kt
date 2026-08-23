@@ -374,7 +374,10 @@ fun OnlinePlaylistScreen(
                                                         if (dbPlaylist?.playlist == null) {
                                                             database.transaction {
                                                                 val playlistEntity = PlaylistEntity(
-                                                                    name = playlist.title,
+                                                                    // A playlist with no Music header parses with a blank
+                                                                    // title (see YouTube.playlist()); saving that gives an
+                                                                    // unnamed row in Library.
+                                                                    name = playlist.title.ifEmpty { playlist.id },
                                                                     browseId = playlist.id,
                                                                     isEditable = playlist.isEditable,
                                                                     playEndpointParams = playlist.playEndpoint?.params,

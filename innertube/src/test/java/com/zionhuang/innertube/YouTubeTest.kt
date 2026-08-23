@@ -51,17 +51,28 @@ class YouTubeTest {
         // Top result with radio link
         val searchAllTypeResult = youTube.searchSummary("musi").getOrThrow()
         assertTrue(searchAllTypeResult.summaries.size > 1)
-        for (filter in listOf(
-            FILTER_SONG,
-            FILTER_VIDEO,
-            FILTER_ALBUM,
-            FILTER_ARTIST,
-            FILTER_FEATURED_PLAYLIST,
-            FILTER_COMMUNITY_PLAYLIST
-        )) {
+
+        // An artist query covers songs, videos, albums, the artist itself,
+        // and user-created (community) playlists.
+        val filters = mapOf(
+            "song" to FILTER_SONG,
+            "video" to FILTER_VIDEO,
+            "album" to FILTER_ALBUM,
+            "artist" to FILTER_ARTIST,
+            "community playlist" to FILTER_COMMUNITY_PLAYLIST,
+        )
+        for ((name, filter) in filters) {
             val searchResult = youTube.search(SEARCH_QUERY, filter).getOrThrow()
-            assertTrue(searchResult.items.isNotEmpty())
+            assertTrue("no items returned for filter: $name", searchResult.items.isNotEmpty())
         }
+    }
+
+    @Test
+    fun `Check 'featured playlist' search`() = runBlocking {
+        // Featured (YouTube Music curated) playlists exist for moods/genres,
+        // not for artist names, so a mood query is used here.
+        val searchResult = youTube.search("relax", FILTER_FEATURED_PLAYLIST).getOrThrow()
+        assertTrue(searchResult.items.isNotEmpty())
     }
 
     @Test
@@ -133,21 +144,26 @@ class YouTubeTest {
 
     @Test
     fun `Browse playlist`() = runBlocking {
-        // This playlist has 2900 songs
-        val playlistId = "PLtAw-mgfCzRwduBTjBHknz5U4_ZM4n6qm"
-        var count = 5
-        val playlistPage = YouTube.playlist(playlistId).getOrThrow()
-        var songs = playlistPage.songs
-        var continuation = playlistPage.songsContinuation
-        while (count > 0) {
-            songs.forEach {
-                println(it.id)
+        val playlistIds = listOf(
+            "PLtAw-mgfCzRwduBTjBHknz5U4_ZM4n6qm", // user-created playlist without a header
+            "RDCLAK5uy_l2pHac-aawJYLcesgTf67gaKU-B9ekk1o" // YouTube Music curated playlist with a header
+        )
+        for (playlistId in playlistIds) {
+            var count = 5
+            val playlistPage = YouTube.playlist(playlistId).getOrThrow()
+            var songs = playlistPage.songs
+            assertTrue(songs.isNotEmpty())
+            var continuation = playlistPage.songsContinuation
+            while (count > 0) {
+                songs.forEach {
+                    println(it.id)
+                }
+                if (continuation == null) break
+                val continuationPage = YouTube.playlistContinuation(continuation).getOrThrow()
+                songs = continuationPage.songs
+                continuation = continuationPage.continuation
+                count--
             }
-            if (continuation == null) break
-            val continuationPage = YouTube.playlistContinuation(continuation).getOrThrow()
-            songs = continuationPage.songs
-            continuation = continuationPage.continuation
-            count--
         }
     }
 
