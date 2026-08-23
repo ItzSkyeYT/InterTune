@@ -94,6 +94,7 @@ interface PlaylistsDao {
     """)
     fun playlistIdBySongs(songs: List<String>): Flow<List<String>>
 
+    @Transaction
     @RawQuery(observedEntities = [PlaylistEntity::class])
     fun _getPlaylists(query: SupportSQLiteQuery): Flow<List<Playlist>>
 
