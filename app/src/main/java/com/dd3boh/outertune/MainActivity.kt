@@ -383,6 +383,16 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
 
+                /**
+                 * Hoisted out of [SearchBarContainer] so the navigation bar can close the search
+                 * overlay. The search bar is drawn on top of whatever destination you were on, not
+                 * as a destination of its own, so while it is open navBackStackEntry still points
+                 * at (say) library. Tapping Library therefore matched the "already on this tab"
+                 * branch and only requested a scroll-to-top, leaving the search UI up and looking
+                 * like the tap did nothing.
+                 */
+                var searchActive by rememberSaveable { mutableStateOf(false) }
+
                 val tabOpenedFromShortcut = remember {
                     // reroute to library page for new layout is handled in NavHost section
                     when (intent?.action) {
@@ -612,7 +622,7 @@ class MainActivity : ComponentActivity() {
                                     composable(
                                         route = "search",
                                     ) {
-                                        SearchBarContainer(navController, scrollBehavior)
+                                        SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
                                     }
                                     composable(
                                         route = "search/{query}",
@@ -847,11 +857,22 @@ class MainActivity : ComponentActivity() {
                                                     playerBottomSheetState.collapseSoft()
                                                 }
 
+                                                // Close the search overlay first. It is drawn on
+                                                // top of the current destination rather than being
+                                                // one, so while it is open the checks below still
+                                                // see the destination underneath it and would just
+                                                // scroll that to top, leaving search on screen.
+                                                if (searchActive) {
+                                                    searchActive = false
+                                                }
+
                                                 if (navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true) {
-                                                    navBackStackEntry?.savedStateHandle?.set(
-                                                        "scrollToTop",
-                                                        true
-                                                    )
+                                                    if (!searchActive) {
+                                                        navBackStackEntry?.savedStateHandle?.set(
+                                                            "scrollToTop",
+                                                            true
+                                                        )
+                                                    }
                                                 } else {
                                                     navigateToNavTab(navController, screen.route, navigationItems, navBackStackEntry)
                                                 }
@@ -937,11 +958,22 @@ class MainActivity : ComponentActivity() {
                                                 if (playerBottomSheetState.isExpanded) {
                                                     playerBottomSheetState.collapseSoft()
                                                 }
+                                                // Close the search overlay first. It is drawn on
+                                                // top of the current destination rather than being
+                                                // one, so while it is open the checks below still
+                                                // see the destination underneath it and would just
+                                                // scroll that to top, leaving search on screen.
+                                                if (searchActive) {
+                                                    searchActive = false
+                                                }
+
                                                 if (navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true) {
-                                                    navBackStackEntry?.savedStateHandle?.set(
-                                                        "scrollToTop",
-                                                        true
-                                                    )
+                                                    if (!searchActive) {
+                                                        navBackStackEntry?.savedStateHandle?.set(
+                                                            "scrollToTop",
+                                                            true
+                                                        )
+                                                    }
                                                 } else {
                                                     navigateToNavTab(navController, screen.route, navigationItems, navBackStackEntry)
                                                 }
@@ -963,7 +995,7 @@ class MainActivity : ComponentActivity() {
                             // phone
                             navHost()
 
-                            SearchBarContainer(navController, scrollBehavior)
+                            SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
 
                             if (oobeStatus >= OOBE_VERSION) {
                                 BottomSheetPlayer(

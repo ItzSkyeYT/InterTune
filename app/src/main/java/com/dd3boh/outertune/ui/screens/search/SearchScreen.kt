@@ -76,6 +76,8 @@ import com.dd3boh.outertune.youtubeNavigator
 fun SearchBarContainer(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
+    searchActive: Boolean,
+    onActiveChange: (Boolean) -> Unit,
 ) {
     Log.v("SearchBarContainer", "SB-1")
     val context = LocalContext.current
@@ -98,11 +100,10 @@ fun SearchBarContainer(
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
 
-    var searchActive by rememberSaveable {
-        mutableStateOf(false)
-    }
+    // searchActive is hoisted to MainActivity so the navigation bar can close this overlay; see
+    // the note at its declaration there.
     val onSearchActiveChange: (Boolean) -> Unit = { newActive ->
-        searchActive = newActive
+        onActiveChange(newActive)
         if (!newActive) {
             focusManager.clearFocus()
             if (navigationItems.fastAny { it.route == navBackStackEntry?.destination?.route }) {
