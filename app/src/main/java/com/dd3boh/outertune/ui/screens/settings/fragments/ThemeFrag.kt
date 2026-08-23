@@ -11,15 +11,22 @@ package com.dd3boh.outertune.ui.screens.settings.fragments
 import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Opacity
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.DEFAULT_PLAYER_BACKGROUND
 import com.dd3boh.outertune.constants.DarkMode
@@ -29,10 +36,13 @@ import com.dd3boh.outertune.constants.HighContrastKey
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.constants.PureBlackKey
+import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
+import com.dd3boh.outertune.constants.PlayerGlassKey
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
+import kotlin.math.roundToInt
 
 @Composable
 fun ColumnScope.ThemeAppFrag() {
@@ -88,6 +98,11 @@ fun ColumnScope.ThemePlayerFrag() {
     val availableBackgroundStyles = PlayerBackgroundStyle.entries.filter {
         it != PlayerBackgroundStyle.BLUR || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     }
+    val (glass, onGlassChange) = rememberPreference(PlayerGlassKey, defaultValue = false)
+    val (glassIntensity, onGlassIntensityChange) = rememberPreference(
+        PlayerGlassIntensityKey,
+        defaultValue = 1f
+    )
 
     EnumListPreference(
         title = { Text(stringResource(R.string.player_background_style)) },
@@ -103,5 +118,35 @@ fun ColumnScope.ThemePlayerFrag() {
         },
         values = availableBackgroundStyles
     )
+
+    // Glass has nothing to act on when the background follows the theme: there is no artwork blur
+    // and no gradient to make translucent.
+    val glassApplies = playerBackground != PlayerBackgroundStyle.FOLLOW_THEME
+
+    SwitchPreference(
+        title = { Text(stringResource(R.string.player_glass)) },
+        description = stringResource(R.string.player_glass_description),
+        icon = { Icon(Icons.Rounded.Opacity, null) },
+        isEnabled = glassApplies,
+        checked = glass,
+        onCheckedChange = onGlassChange
+    )
+    if (glass && glassApplies) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Text(
+                text = stringResource(
+                    R.string.player_glass_intensity_value,
+                    (glassIntensity * 100).roundToInt()
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.secondary
+            )
+            Slider(
+                value = glassIntensity,
+                onValueChange = onGlassIntensityChange,
+                valueRange = 0f..1f
+            )
+        }
+    }
 }
 
