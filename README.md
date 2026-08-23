@@ -136,6 +136,89 @@ so a 48dp list row could poison the entry a 96dp grid cell then upscaled. That i
 fine on the album page and pixelated in the grid, and why it seemed to depend on which screen you
 opened first. The size now falls back to the size the thumbnail is actually drawn at.
 
+## Liquid glass
+
+Optional. **Settings → Appearance → Liquid glass**, off by default, Android 13 and above.
+
+The bottom bar becomes a floating frosted dock and the mini player a separate slab above it, both
+refracting the album grid that scrolls underneath. The player's transport row gets the same
+treatment. One intensity slider drives it, from near-clear glass with only a refracting rim through
+to the solid surface the app uses without it.
+
+Built on [AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) (`io.github.kyant0:backdrop`,
+Apache-2.0) rather than hand-rolled shaders. Refraction is displacement by distance to a rounded-rect
+edge along that rect's outward normal, so the backdrop bends at the rim and stays clean in the
+middle. Two hand-written shaders were tried first and deleted: a beat-triggered ripple, and an
+edge-driven chromatic split that just traced an orange outline around every bright shape in the
+artwork. Chromatic aberration is a garnish on glass, not the substance of it.
+
+Pinned to backdrop **1.0.6**, not 2.0.0. 2.0.0 declares `minCompileSdk=37`, and raising `compileSdk`
+to 37 trips a Kotlin backend crash const-evaluating literal `.toULong()` calls in `Lyrics.kt`.
+
+Two things worth recording, because neither is visible in a screenshot:
+
+- The nav bar and mini player read one shared backdrop published over the app content. Putting the
+  player sheet *inside* that layer, which is the obvious way to capture its background, makes the
+  layer contain one of its own readers: `RenderNode::prepareTreeImpl` recurses until the native
+  stack overflows and the process dies on launch, with no Java exception and only a tombstone
+  hundreds of frames deep in `libhwui`.
+- Panel tints go in `.background(color, shape)` after `drawBackdrop`, never in its `onDrawSurface`
+  callback. That callback runs on the node's own unclipped canvas, so a tint painted there is a
+  square patch on a rounded panel.
+
+Deliberately not glassed: song rows, grids, artwork and the lyrics body, because glass belongs on
+floating chrome and not on content; and the tablet nav rail, because nothing scrolls behind it, so
+it would be a full offscreen pass refracting a flat fill.
+
+The [glass background](https://github.com/OuterTune/OuterTune/issues/1282) option is separate and
+older: it reproduces the one-off `pre_rel-0.10.1-b1-glass` build by dropping the flat overlay wash
+behind the player, halving the gradient and putting the blurred artwork at half alpha, interpolated
+so 0% is stock 0.10.1 exactly and 100% is that build exactly.
+
+## Other fixes
+
+Small things, each verified on a device rather than assumed.
+
+**Bulk remove from playlist**, upstream [#1172](https://github.com/OuterTune/OuterTune/issues/1172).
+Selection mode in a playlist had no way to remove the selected songs; you opened each song's own
+menu one at a time. Removal reuses the existing move-to-end-then-delete pattern, processing rows in
+descending position order inside one transaction so each removal only renumbers rows already
+handled. Synced playlists also fire the remote removal.
+
+**m3u import.** Two bugs, both reported by [cchery2512](https://github.com/cchery2512/OuterTune).
+The preview lists keyed rows by `song.hashCode()`, so an m3u listing the same title twice crashed on
+duplicate keys. And YouTube ids were never parsed at all: the code read the id with
+`substringBefore(',')`, which returns the whole url for a YTM entry and is therefore never empty, so
+the branch that parsed the url was unreachable and every entry fell through to fuzzy title matching.
+Ids from `watch?v=` and `youtu.be/` now resolve, `&list=` and all.
+
+**Wi-Fi only downloads.** A setting under Storage, off by default. Uses media3's download
+requirements rather than refusing the request, so a download asked for on mobile data is queued and
+starts on its own once an unmetered network appears. Unmetered rather than a literal Wi-Fi check, so
+an unmetered ethernet or hotspot counts and a metered Wi-Fi network correctly does not.
+
+**Sleep timer fade-out.** The timer used to cut playback dead. The volume now eases down over a
+configurable window, on both the fixed-duration and end-of-song modes, and the fade is released
+afterwards so the next play is not silent.
+
+**Album pages showed "1 song"**, and albums whose track rows carry their videoId only in the overlay
+play button opened empty. That second one matters more than it sounds here: one malformed row used
+to throw inside the enclosing `runCatching` and fail the entire album load, not just that row.
+
+**Playlists with no header** — plain `PL…` playlists shared as a `youtube.com/playlist?list=…` link
+— threw an NPE, so the screen stayed blank forever and syncing them silently produced nothing.
+
+**Search returned one section.** The response models only covered two shelf types, so every
+`itemSectionRenderer` section was dropped. An unfiltered search now returns the top result plus
+"Listen again", "Albums" and the rest, instead of a single card.
+
+**A crash in album and playlist reads.** Both are two-pass `@Relation` queries that were not
+transactional, so a sync committing between the passes could leave a parent whose key was missing
+from the relation map, throwing `NoSuchElementException`.
+
+Several of these come from [yuuichi-s/OuterTune](https://github.com/yuuichi-s/OuterTune), rewritten
+against 0.10.1 rather than cherry-picked where the bases had diverged.
+
 ## Relationship to upstream
 
 Based on upstream tag **`v0.10.1`**. It is *not* based on the `lite` branch (which has the YouTube
