@@ -137,7 +137,9 @@ fun ColumnScope.ThemePlayerFrag() {
         checked = glass,
         onCheckedChange = onGlassChange
     )
-    if (glass && glassApplies) {
+    // Both glass features read PlayerGlassIntensityKey, so the slider has to be reachable when
+    // either is on. Gating it on the background wash alone stranded liquid glass at its default.
+    if ((glass && glassApplies) || liquidGlass) {
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
             Text(
                 text = stringResource(
