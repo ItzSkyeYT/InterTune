@@ -70,6 +70,7 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.ui.util.lerp
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.rememberGlassSpec
 import com.dd3boh.outertune.utils.rememberPreference
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -89,14 +90,12 @@ fun MiniPlayer(
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
 
-    val appBackdrop = LocalAppBackdrop.current
-    val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
-    val glassOn = appBackdrop != null
+    val glass = rememberGlassSpec()
+    val glassOn = glass != null
     val glassShape = RoundedCornerShape(24.dp)
-    val glassTint = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp)
-        .copy(alpha = lerp(0.82f, 0.52f, glassIntensity.coerceIn(0f, 1f)))
-    // lens() early-returns at 0, dropping the rounded SDF entirely. Floored.
-    val glassLensT = glassIntensity.coerceIn(0.15f, 1f)
+    // Slightly more opaque than the dock: this panel carries two lines of text over whatever the
+    // library happens to be showing, so it is the first place a section heading bleeds through.
+    val glassTint = glass?.tint(min = 0.66f, max = 0.98f) ?: Color.Transparent
 
     Box(
         modifier = modifier
@@ -110,16 +109,16 @@ fun MiniPlayer(
                     Modifier
                         .padding(horizontal = 8.dp, vertical = 2.dp)
                         .drawBackdrop(
-                            backdrop = appBackdrop!!,
+                            backdrop = glass!!.backdrop,
                             shape = { glassShape },
                             effects = {
                                 vibrancy()
-                                blur(8f.dp.toPx())
+                                blur(glass.blur.toPx())
                                 // 12/24 rather than a symmetric rim: the panel is 60dp tall, so a
                                 // 24dp rim from both edges would leave no flat centre.
                                 lens(
-                                    refractionHeight = 12f.dp.toPx() * glassLensT,
-                                    refractionAmount = 24f.dp.toPx() * glassLensT,
+                                    refractionHeight = 12f.dp.toPx() * glass.lensT,
+                                    refractionAmount = 24f.dp.toPx() * glass.lensT,
                                     depthEffect = true,
                                     chromaticAberration = true
                                 )
