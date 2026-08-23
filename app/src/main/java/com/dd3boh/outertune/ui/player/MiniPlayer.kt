@@ -65,6 +65,17 @@ import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.button.IconButton
 import kotlin.math.roundToInt
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.ui.util.lerp
+import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
+import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.rememberGlassSpec
+import com.dd3boh.outertune.utils.rememberPreference
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 
 @Composable
 fun MiniPlayer(
@@ -79,26 +90,59 @@ fun MiniPlayer(
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
 
+    val glass = rememberGlassSpec()
+    val glassOn = glass != null
+    val glassShape = RoundedCornerShape(24.dp)
+    // Slightly more opaque than the dock: this panel carries two lines of text over whatever the
+    // library happens to be showing, so it is the first place a section heading bleeds through.
+    val glassTint = glass?.tint(min = 0.66f, max = 0.98f) ?: Color.Transparent
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(MiniPlayerHeight)
+            // Inset clearance first, then the panel's own gutter.
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal))
 //            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp))
+            .then(
+                if (glassOn) {
+                    Modifier
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                        .drawBackdrop(
+                            backdrop = glass!!.backdrop,
+                            shape = { glassShape },
+                            effects = {
+                                vibrancy()
+                                blur(glass.blur.toPx())
+                                // 12/24 rather than a symmetric rim: the panel is 60dp tall, so a
+                                // 24dp rim from both edges would leave no flat centre.
+                                lens(
+                                    refractionHeight = 12f.dp.toPx() * glass.lensT,
+                                    refractionAmount = 24f.dp.toPx() * glass.lensT,
+                                    depthEffect = true,
+                                    chromaticAberration = true
+                                )
+                            }
+                        )
+                        .background(glassTint, glassShape)
+                } else Modifier
+            )
     ) {
         LinearProgressIndicator(
             progress = { (position.toFloat() / duration).coerceIn(0f, 1f) },
             drawStopIndicator = { },
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(horizontal = if (glassOn) 20.dp else 0.dp)
                 .height(2.dp)
+                .then(if (glassOn) Modifier.clip(CircleShape) else Modifier)
                 .align(Alignment.BottomCenter),
         )
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = modifier
-
-                .fillMaxSize(),
+            // Was `modifier`, re-applying the caller's modifier that the outer Box already
+            // consumed. Inert while nothing passed one; not inert once the glass lands above.
+            modifier = Modifier.fillMaxSize(),
         ) {
             val iconButtonColor = MaterialTheme.colorScheme.onSecondaryContainer
             Box(Modifier.weight(1f)) {

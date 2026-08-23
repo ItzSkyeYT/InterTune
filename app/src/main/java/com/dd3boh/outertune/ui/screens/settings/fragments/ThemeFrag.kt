@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
@@ -33,6 +34,7 @@ import com.dd3boh.outertune.constants.DarkMode
 import com.dd3boh.outertune.constants.DarkModeKey
 import com.dd3boh.outertune.constants.DynamicThemeKey
 import com.dd3boh.outertune.constants.HighContrastKey
+import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.constants.PureBlackKey
@@ -103,6 +105,10 @@ fun ColumnScope.ThemePlayerFrag() {
         PlayerGlassIntensityKey,
         defaultValue = 1f
     )
+    val (liquidGlass, onChromaticShockChange) = rememberPreference(
+        PlayerLiquidGlassKey,
+        defaultValue = false
+    )
 
     EnumListPreference(
         title = { Text(stringResource(R.string.player_background_style)) },
@@ -131,7 +137,9 @@ fun ColumnScope.ThemePlayerFrag() {
         checked = glass,
         onCheckedChange = onGlassChange
     )
-    if (glass && glassApplies) {
+    // Both glass features read PlayerGlassIntensityKey, so the slider has to be reachable when
+    // either is on. Gating it on the background wash alone stranded liquid glass at its default.
+    if ((glass && glassApplies) || liquidGlass) {
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
             Text(
                 text = stringResource(
@@ -147,6 +155,17 @@ fun ColumnScope.ThemePlayerFrag() {
                 valueRange = 0f..1f
             )
         }
+    }
+
+    // RuntimeShader is API 33+, so there is nothing to offer below that.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        SwitchPreference(
+            title = { Text(stringResource(R.string.player_liquid_glass)) },
+            description = stringResource(R.string.player_liquid_glass_description),
+            icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+            checked = liquidGlass,
+            onCheckedChange = onChromaticShockChange
+        )
     }
 }
 
