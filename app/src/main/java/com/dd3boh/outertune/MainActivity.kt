@@ -202,6 +202,19 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.NavigationBarDefaults
+import androidx.compose.ui.util.lerp
+import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
+import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
+import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.rememberGlassSpec
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -380,6 +393,16 @@ class MainActivity : ComponentActivity() {
                 val bottomInset = with(density) { windowsInsets.getBottom(density).toDp() }
                 val cutoutInsets = WindowInsets.displayCutout
 
+                val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
+                val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
+                // TIRAMISU because lens() needs a RuntimeShader and the settings toggle is only
+                // offered at 33+. !useNavRail because playerAwareWindowInsets reserves left = 80dp
+                // on tablets, so nothing ever scrolls behind the rail and a glass rail would be a
+                // full offscreen pass refracting the flat surface fill.
+                val navGlass = liquidGlass &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !useNavRail
+                val appBackdrop = rememberLayerBackdrop()
+
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
 
@@ -492,6 +515,7 @@ class MainActivity : ComponentActivity() {
                         LocalSyncUtils provides syncUtils,
                         LocalNetworkConnected provides isNetworkConnected,
                         LocalSnackbarHostState provides snackbarHostState,
+                        LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
                     ) {
                         Box(
                             modifier = Modifier
@@ -798,6 +822,10 @@ class MainActivity : ComponentActivity() {
                             }
 
                             val navbar: @Composable() (() -> Unit) = @Composable {
+                                val dockGlass = rememberGlassSpec()
+                                val dockTint = dockGlass?.tint() ?: Color.Transparent
+                                val dockShape = RoundedCornerShape(if (slimNav) 26.dp else 28.dp)
+
                                 val navigationBarHeight by animateDpAsState(
                                     targetValue = NavigationBarHeight,
                                     animationSpec = NavigationBarAnimationSpec,
@@ -827,8 +855,52 @@ class MainActivity : ComponentActivity() {
                                                     y = (slideOffset + hideOffset).roundToPx()
                                                 )
                                             }
-                                        },
-                                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp)
+                                        }
+                                        .then(
+                                            if (navGlass) {
+                                                Modifier
+                                                    // windowInsets is zeroed below for the glass
+                                                    // path, which would otherwise throw away the
+                                                    // horizontal component. useNavRail is EXPANDED
+                                                    // (>=840dp) so a landscape phone still gets the
+                                                    // bar and would slide tabs under a cutout.
+                                                    .windowInsetsPadding(
+                                                        windowsInsets.only(WindowInsetsSides.Horizontal)
+                                                            .add(cutoutInsets.only(WindowInsetsSides.Horizontal))
+                                                    )
+                                                    // Shrinks the drawn panel into a floating dock
+                                                    // without changing the measured outer height,
+                                                    // so collapsedBound and playerAwareWindowInsets
+                                                    // are untouched.
+                                                    .padding(
+                                                        start = 12.dp,
+                                                        end = 12.dp,
+                                                        bottom = (bottomInset - 4.dp).coerceAtLeast(6.dp)
+                                                    )
+                                                    .drawBackdrop(
+                                                        backdrop = appBackdrop,
+                                                        shape = { dockShape },
+                                                        effects = {
+                                                            vibrancy()
+                                                            blur(dockGlass!!.blur.toPx())
+                                                            lens(
+                                                                refractionHeight = 20f.dp.toPx() * dockGlass.lensT,
+                                                                refractionAmount = 28f.dp.toPx() * dockGlass.lensT,
+                                                                depthEffect = true
+                                                            )
+                                                        }
+                                                    )
+                                                    // Tint goes here, not in onDrawSurface: that
+                                                    // callback runs on the node's own unclipped
+                                                    // canvas, so it would paint a square patch.
+                                                    .background(dockTint, dockShape)
+                                            } else Modifier
+                                        ),
+                                    containerColor = if (navGlass) Color.Transparent
+                                    else MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
+                                    contentColor = MaterialTheme.colorScheme.onSurface,
+                                    windowInsets = if (navGlass) WindowInsets(0, 0, 0, 0)
+                                    else NavigationBarDefaults.windowInsets
                                 ) {
                                     navigationItems.fastForEach { screen ->
                                         // TODO: display selection when based on root page user entered
@@ -993,10 +1065,33 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // phone
-                            navHost()
+                            // Everything the glass panels refract goes in here. The .background()
+                            // must come AFTER layerBackdrop: LayerBackdropNode records only what
+                            // follows it in the chain, and the app's surface fill lives on the
+                            // outer BoxWithConstraints, outside this layer. Without it the recorded
+                            // layer is transparent between rows and blur() bleeds into nothing.
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .then(
+                                        if (navGlass) {
+                                            Modifier
+                                                .background(MaterialTheme.colorScheme.surface)
+                                                .layerBackdrop(appBackdrop)
+                                        } else Modifier
+                                    )
+                            ) {
+                                navHost()
 
-                            SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
+                                SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
+                            }
 
+                            // BottomSheetPlayer and the dock BOTH stay outside the published layer.
+                            // MiniPlayer consumes this backdrop, so putting the sheet inside would
+                            // make the layer contain a reader of itself: RenderNode::prepareTreeImpl
+                            // recurses until the native stack overflows and the process dies. The
+                            // sheet's collapsed fill is transparent under glass anyway (Player.kt),
+                            // so there is nothing of it worth capturing.
                             if (oobeStatus >= OOBE_VERSION) {
                                 BottomSheetPlayer(
                                     state = playerBottomSheetState,

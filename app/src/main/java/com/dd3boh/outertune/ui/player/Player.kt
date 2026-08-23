@@ -60,6 +60,11 @@ import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
@@ -141,6 +146,7 @@ import com.dd3boh.outertune.constants.SeekIncrementKey
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SwipeToSkipKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
+import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.constants.PlayerGlassKey
 import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.extensions.metadata
@@ -214,6 +220,9 @@ fun BottomSheetPlayer(
 
     val glassEnabled by rememberPreference(PlayerGlassKey, defaultValue = false)
     val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
+
+    val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
+    val playerBackdrop = rememberLayerBackdrop()
 
     val seekIncrement by rememberEnumPreference(
         key = SeekIncrementKey,
@@ -373,6 +382,10 @@ fun BottomSheetPlayer(
     }
 
 
+    // Chromatic shock ripple, adapted from notK50BML/OuterTune. Wraps the whole sheet so the
+    // refraction crosses the background and the controls together, which is what makes the
+    // rainbow fringing show up along element edges. Gated on the player being expanded, so the
+    // mini player never pays for it, and a no-op below API 33.
     BottomSheet(
         state = state,
         modifier = modifier,
@@ -382,6 +395,10 @@ fun BottomSheetPlayer(
                 modifier = Modifier
                     .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
                     .fillMaxSize()
+                    // Publishes the artwork and gradient we already draw as a backdrop so the glass
+                    // panel can refract it. Capturing here keeps this self-contained: no MainActivity
+                    // change, and the lens only ever sees pixels the player itself drew.
+                    .layerBackdrop(playerBackdrop)
             ) {
                 // "Glass" look, requested in upstream #1282. The one-off
                 // pre_rel-0.10.1-b1-glass build differed from stock only in this background: it
@@ -454,7 +471,10 @@ fun BottomSheetPlayer(
                 }
             }
         },
-        collapsedBackgroundColor = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
+        // Transparent under glass: the collapsed sheet otherwise paints a solid fill over
+        // exactly the region the dock refracts, so ~70% of what the dock would show is flat colour.
+        collapsedBackgroundColor = if (liquidGlass) Color.Transparent
+        else MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
         onDismiss = {
             playerConnection.softKillPlayer()
         },
@@ -685,6 +705,23 @@ fun BottomSheetPlayer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
+                    .then(
+                        if (liquidGlass) {
+                            Modifier.drawBackdrop(
+                                backdrop = playerBackdrop,
+                                shape = { RoundedCornerShape(32.dp) },
+                                effects = {
+                                    blur(4f.dp.toPx())
+                                    lens(
+                                        refractionHeight = 24f.dp.toPx() * glassIntensity,
+                                        refractionAmount = 32f.dp.toPx() * glassIntensity,
+                                        depthEffect = true,
+                                        chromaticAberration = true
+                                    )
+                                }
+                            )
+                        } else Modifier
+                    )
                 ) {
                     val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
 
