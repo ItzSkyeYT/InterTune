@@ -13,6 +13,7 @@ import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.LibraryAddCheck
+import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -58,6 +59,7 @@ fun SelectionMediaMetadataMenu(
     onDismiss: () -> Unit,
     clearAction: () -> Unit,
     onRemoveFromHistory: (() -> Unit)? = null,
+    onRemoveFromPlaylist: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -234,6 +236,17 @@ fun SelectionMediaMetadataMenu(
                 title = R.string.remove_from_history,
             ) {
                 onRemoveFromHistory()
+                onDismiss()
+                clearAction()
+            }
+        }
+
+        if (onRemoveFromPlaylist != null) {
+            GridMenuItem(
+                icon = Icons.Rounded.PlaylistRemove,
+                title = R.string.remove_from_playlist,
+            ) {
+                onRemoveFromPlaylist()
                 onDismiss()
                 clearAction()
             }

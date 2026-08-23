@@ -650,7 +650,36 @@ fun LocalPlaylistScreen(
                 },
                 onDeselectAll = { selection.clear() },
                 menuState = menuState,
-                onDismiss = onExitSelectionMode
+                onDismiss = onExitSelectionMode,
+                onRemoveFromPlaylist = if (!editable) null else {
+                    {
+                        // Snapshot the maps before touching the db, since removing a row renumbers
+                        // the ones after it. Descending position order means each removal only
+                        // shifts rows we have already handled, so the captured positions stay valid.
+                        val doomed = playlistWithSongs.second
+                            .filter { it.song.id in selection }
+                            .sortedByDescending { it.map.position }
+
+                        database.transaction {
+                            doomed.forEach { playlistSong ->
+                                move(playlistSong.map.playlistId, playlistSong.map.position, Int.MAX_VALUE)
+                                delete(playlistSong.map.copy(position = Int.MAX_VALUE))
+                            }
+                        }
+
+                        viewModel.viewModelScope.launch(Dispatchers.IO) {
+                            playlistWithSongs.first?.playlist?.browseId?.let { playlistId ->
+                                doomed.forEach { playlistSong ->
+                                    playlistSong.map.setVideoId?.let { setVideoId ->
+                                        YouTube.removeFromPlaylist(
+                                            playlistId, playlistSong.map.songId, setVideoId
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             )
         }
         SnackbarHost(
