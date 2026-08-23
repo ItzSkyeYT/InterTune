@@ -20,7 +20,11 @@ import javax.inject.Inject
 class OnlineSearchViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
-    val query = savedStateHandle.get<String>("query")!!
+    // Recover the literal rather than !!. androidx.navigation parses the path segment "null" into
+    // an actual null, and the route pattern search/{query} guarantees the segment is present, so a
+    // null here can only mean the user searched for the word "null". Without this the nullable
+    // nav arg just moves upstream #1190's crash from a verification failure to an NPE.
+    val query = savedStateHandle.get<String>("query") ?: "null"
     val filter = MutableStateFlow<YouTube.SearchFilter?>(null)
     var summaryPage by mutableStateOf<SearchSummaryPage?>(null)
     val viewStateMap = mutableStateMapOf<String, ItemsPage?>()

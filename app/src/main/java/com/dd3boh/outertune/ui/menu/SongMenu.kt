@@ -100,7 +100,22 @@ fun SongMenu(
 
     val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
 
-    val song = originalSong
+    /**
+     * Observe the row rather than trusting the snapshot the sheet was opened with. MenuState.show
+     * stores the content lambda once, so this parameter can never change while the sheet is up and
+     * nothing here recomposed when the heart button wrote to Room.
+     *
+     * That is upstream #1171, and it is worse than "the icon does not update": SongEntity.toggleLike
+     * derives the new value from its receiver, so with a frozen receiver every tap writes
+     * liked = true again and un-liking from this sheet is impossible. The Add/Remove-from-library
+     * item and the edit dialog's prefilled title read the same value and were stale for the same
+     * reason.
+     *
+     * This read was removed in 63de271d while deleting auto-download-on-like; only the effect was
+     * meant to go. YouTubeSongMenu still observes correctly, which is why its heart works.
+     */
+    val songState = database.song(originalSong.id).collectAsState(initial = originalSong)
+    val song = songState.value ?: originalSong
     val download by LocalDownloadUtil.current.getDownload(originalSong.id).collectAsState(initial = null)
     val coroutineScope =
         CoroutineScope(syncCoroutine) // rememberCoroutineScope has exception "rememberCoroutineScope left the composition"
