@@ -9,8 +9,11 @@ fun String.resize(
         val (W, H) = group.drop(1).map { it.toInt() }
         var w = width
         var h = height
-        if (w != null && h == null) h = (w / W) * H
-        if (w == null && h != null) w = (h / H) * W
+        // Multiply before dividing. These are Ints, so (w / W) * H truncates to zero whenever the
+        // requested size is smaller than the source's, and collapses to the source's own dimension
+        // when it is larger - either way the aspect ratio is lost.
+        if (w != null && h == null) h = w * H / W
+        if (w == null && h != null) w = h * W / H
         return "${split("=w")[0]}=w$w-h$h-p-l90-rj"
     }
     if (this matches "https://yt3\\.ggpht\\.com/.*=s(\\d+)".toRegex()) {
