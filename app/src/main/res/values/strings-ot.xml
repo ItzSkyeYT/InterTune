@@ -260,6 +260,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="clear_image_cache_confirm">Are you sure you want to clear image cache? All exiting album thumbnails will be removed.</string>
     <string name="clear_song_cache_confirm">Are you sure you want to clear song cache?</string>
     <string name="dl_calculate_size">Tap to calculate download size</string>
+    <string name="sleep_timer_fade">Fade out before stopping</string>
+    <string name="sleep_timer_fade_description">Ease the volume down as the sleep timer runs out, instead of cutting off abruptly</string>
+    <string name="sleep_timer_fade_duration">Fade length</string>
+    <string name="sleep_timer_fade_duration_description">How long the fade out lasts before the sleep timer stops playback</string>
+    <string name="sleep_timer_fade_duration_value">%1$d seconds</string>
     <string name="download_on_wifi_only_title">Download on Wi-Fi only</string>
     <string name="download_on_wifi_only_description">Wait for an unmetered connection before downloading. Downloads requested on mobile data are queued and start on their own once Wi-Fi is back</string>
     <string name="download_waiting_for_wifi">Queued. Will download when Wi-Fi is available</string>

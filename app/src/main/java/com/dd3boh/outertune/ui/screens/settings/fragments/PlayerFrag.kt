@@ -8,6 +8,8 @@ import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +32,9 @@ import com.dd3boh.outertune.constants.SkipOnErrorKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.minPlaybackDurKey
+import com.dd3boh.outertune.constants.SleepTimerDefaults
+import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
+import com.dd3boh.outertune.constants.SleepTimerFadeKey
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -127,7 +132,19 @@ fun PlaybackBehaviourFrag() {
         defaultValue = false
     )
 
+    val (sleepTimerFade, onSleepTimerFadeChange) = rememberPreference(
+        key = SleepTimerFadeKey,
+        defaultValue = SleepTimerDefaults.FADE_ENABLED
+    )
+    val (sleepTimerFadeDuration, onSleepTimerFadeDurationChange) = rememberPreference(
+        key = SleepTimerFadeDurationKey,
+        defaultValue = SleepTimerDefaults.FADE_DURATION_SECONDS
+    )
+
     var showMinPlaybackDur by remember {
+        mutableStateOf(false)
+    }
+    var showSleepTimerFadeDur by remember {
         mutableStateOf(false)
     }
 
@@ -149,6 +166,20 @@ fun PlaybackBehaviourFrag() {
         isEnabled = !keepAlive,
         checked = stopMusicOnTaskClear,
         onCheckedChange = onStopMusicOnTaskClearChange,
+    )
+    SwitchPreference(
+        title = { Text(stringResource(R.string.sleep_timer_fade)) },
+        description = stringResource(R.string.sleep_timer_fade_description),
+        icon = { Icon(Icons.Rounded.Bedtime, null) },
+        checked = sleepTimerFade,
+        onCheckedChange = onSleepTimerFadeChange,
+    )
+    PreferenceEntry(
+        title = { Text(stringResource(R.string.sleep_timer_fade_duration)) },
+        description = stringResource(R.string.sleep_timer_fade_duration_value, sleepTimerFadeDuration),
+        icon = { Icon(Icons.Rounded.Timer, null) },
+        isEnabled = sleepTimerFade,
+        onClick = { showSleepTimerFadeDur = true }
     )
 
     /**
@@ -173,6 +204,25 @@ fun PlaybackBehaviourFrag() {
             },
             onCancel = {
                 showMinPlaybackDur = false
+            }
+        )
+    }
+
+    if (showSleepTimerFadeDur) {
+        CounterDialog(
+            title = stringResource(R.string.sleep_timer_fade_duration),
+            description = stringResource(R.string.sleep_timer_fade_duration_description),
+            initialValue = sleepTimerFadeDuration,
+            upperBound = SleepTimerDefaults.FADE_DURATION_RANGE.last,
+            lowerBound = SleepTimerDefaults.FADE_DURATION_RANGE.first,
+            unitDisplay = " s",
+            onDismiss = { showSleepTimerFadeDur = false },
+            onConfirm = {
+                showSleepTimerFadeDur = false
+                onSleepTimerFadeDurationChange(it)
+            },
+            onCancel = {
+                showSleepTimerFadeDur = false
             }
         )
     }

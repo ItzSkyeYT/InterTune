@@ -85,6 +85,9 @@ import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.constants.PlayerVolumeKey
 import com.dd3boh.outertune.constants.RepeatModeKey
 import com.dd3boh.outertune.constants.SkipOnErrorKey
+import com.dd3boh.outertune.constants.SleepTimerDefaults
+import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
+import com.dd3boh.outertune.constants.SleepTimerFadeKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.minPlaybackDurKey
@@ -303,8 +306,12 @@ class MusicService : MediaLibraryService(),
                 initQueue()
             }
 
-            combine(playerVolume, normalizeFactor) { playerVolume, normalizeFactor ->
-                playerVolume * normalizeFactor
+            combine(
+                playerVolume,
+                normalizeFactor,
+                sleepTimer.fadeFactor
+            ) { playerVolume, normalizeFactor, fadeFactor ->
+                playerVolume * normalizeFactor * fadeFactor
             }.collectLatest(scope) {
                 withContext(Dispatchers.Main) {
                     player.volume = it
@@ -324,6 +331,19 @@ class MusicService : MediaLibraryService(),
                     withContext(Dispatchers.Main) {
                         player.skipSilenceEnabled = it
                     }
+                }
+
+            combine(
+                dataStore.data
+                    .map { it[SleepTimerFadeKey] ?: SleepTimerDefaults.FADE_ENABLED }
+                    .distinctUntilChanged(),
+                dataStore.data
+                    .map { it[SleepTimerFadeDurationKey] ?: SleepTimerDefaults.FADE_DURATION_SECONDS }
+                    .distinctUntilChanged()
+            ) { fade, seconds -> fade to seconds }
+                .collectLatest(scope) { (fade, seconds) ->
+                    sleepTimer.fadeEnabled = fade
+                    sleepTimer.fadeDurationMs = seconds * 1000L
                 }
 
             combine(
