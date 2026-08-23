@@ -102,7 +102,7 @@
     <string name="audio_offload">Lülita ülekandmist</string>
     <string name="audio_offload_description">Kasuta heli taasesitamiseks põhiprotsessorivälist töötlust. Selle funktsiooni aktiveerimine võib vähendada energiatarbimist, kuid võib põhjustada probleeme heli taasesitamisel või järeltöötlemisel. See eelistus ei toimi mittetoetatud koodekite ja seadmete puhul</string>
     <string name="keep_alive_title">Välti rakenduse tapmist süsteemiga</string>
-    <string name="keep_alive_description">Kasuta püsivat esiplaaniteenust, et vältida OuterTune\'i sulgemist taustal</string>
+    <string name="keep_alive_description">Kasuta püsivat esiplaaniteenust, et vältida InterTune\'i sulgemist taustal</string>
     <string name="persistent_queue_desc_ot">Taasta eelmiseid avatuid esitusjärjekordi kui rakendus käivitub</string>
     <string name="min_playback_duration">Minimaalne taasesitusaeg</string>
     <string name="min_playback_duration_description">Minimaalne arv loost mis peab olema mängitud, et see oleks märgitud \"mängitud\"</string>

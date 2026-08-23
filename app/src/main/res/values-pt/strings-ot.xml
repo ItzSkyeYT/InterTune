@@ -109,7 +109,7 @@
     <string name="audio_offload">Ativar descarga</string>
     <string name="audio_offload_description">Utilize o caminho de áudio de descarregamento para a reprodução de áudio. A ativação desta opção pode reduzir o consumo de energia, mas pode causar problemas com a reprodução ou o pós-processamento de áudio. Esta preferência não tem qualquer efeito para codecs ou dispositivos não suportados</string>
     <string name="keep_alive_title">Evitar encerramento pelo sistema</string>
-    <string name="keep_alive_description">Usar um serviço de primeiro plano persistente para evitar que o OuterTune seja encerrado em segundo plano</string>
+    <string name="keep_alive_description">Usar um serviço de primeiro plano persistente para evitar que o InterTune seja encerrado em segundo plano</string>
     <string name="persistent_queue_desc_ot">Restaurar fila(s) aberta(s) previamente ao iniciar a app</string>
     <string name="min_playback_duration">Duração mínima de reprodução</string>
     <string name="min_playback_duration_description">A duração mínima que uma música deve ser reproduzida antes que seja considerada realmente reproduzida</string>
@@ -196,7 +196,7 @@
     <string name="dl_size_used_cache">Interno: %s usados</string>
     <string name="dl_size_used_main">Externo: %s usados</string>
     <string name="dl_size_used_extra">Importados extra: %s usados</string>
-    <string name="dl_storage_tooltip">As descargas internas são gravadas no armazenamento privado da app e não são acessíveis sem root.\n\nAs descargas externas são gravadas no armazenamento externo do seu dispositivo (ex: /sdcard ou em cartões micro SD) e podem serem acedidas e editados diretamente com um explorador de ficheiros. Para a pasta de descargas externas, recomendamos selecionar uma pasta vazia especificamente para descarregar músicas, já que o OuterTune pode modificar ou apagar ficheiros nesta pasta.\n\nPastas de importações extra são somente de leitura e são usadas para carregar músicas adicionais. O OuterTune nunca alterará ou apagará ficheiros nestas pastas. Pode selecionar uma dessas pastas na secção avançada.\n\nAo apagar descargas, somente as músicas internas serão apagadas. As descargas externas e as importações extra devem serem apagados manualmente, ou pelo menu da música ou manualmente usando um explorador de ficheiros.\n\nPastas de análise de descargas: Descargas de músicas externas e importações extra NÃO são atualizadas automaticamente. Se adicionar, remover, ou alterar ficheiros manualmente usando um explorador de ficheiros, precisará analisar as pastas de descargas novamente para atualizar a base de dados da app. Esta opção está disponível na secção avançada.</string>
+    <string name="dl_storage_tooltip">As descargas internas são gravadas no armazenamento privado da app e não são acessíveis sem root.\n\nAs descargas externas são gravadas no armazenamento externo do seu dispositivo (ex: /sdcard ou em cartões micro SD) e podem serem acedidas e editados diretamente com um explorador de ficheiros. Para a pasta de descargas externas, recomendamos selecionar uma pasta vazia especificamente para descarregar músicas, já que o InterTune pode modificar ou apagar ficheiros nesta pasta.\n\nPastas de importações extra são somente de leitura e são usadas para carregar músicas adicionais. O InterTune nunca alterará ou apagará ficheiros nestas pastas. Pode selecionar uma dessas pastas na secção avançada.\n\nAo apagar descargas, somente as músicas internas serão apagadas. As descargas externas e as importações extra devem serem apagados manualmente, ou pelo menu da música ou manualmente usando um explorador de ficheiros.\n\nPastas de análise de descargas: Descargas de músicas externas e importações extra NÃO são atualizadas automaticamente. Se adicionar, remover, ou alterar ficheiros manualmente usando um explorador de ficheiros, precisará analisar as pastas de descargas novamente para atualizar a base de dados da app. Esta opção está disponível na secção avançada.</string>
     <string name="restart_to_apply_changes">Reinicie a app para que as alterações tomem efeito</string>
     <string name="pause_remote_listen_history">Pausar o compartilhamento do histórico de reprodução com o YouTube Music</string>
     <string name="err_restore_incompatible_database">Não foi possível restaurar a base de dados incompatível</string>
@@ -206,7 +206,7 @@
     <string name="dev_settings_description">Revela configurações avançadas adicionais utilizadas no desenvolvimento</string>
     <string name="swipe_to_skip_title">Deslizar horizontalmente para mudar de música</string>
     <string name="swipe_to_skip_description">Deslize horizontalmente no reprodutor para mudar de música</string>
-    <string name="oobe_welcome_message">Boas vindas ao OuterTune</string>
+    <string name="oobe_welcome_message">Boas vindas ao InterTune</string>
     <string name="oobe_ytm_integration">Integração com o YouTube Music</string>
     <string name="oobe_ytm_integration_description">Aceda as suas músicas favoritas</string>
     <string name="oobe_ad_free_exp">Sem anúncios do YouTube</string>
@@ -216,7 +216,7 @@
     <string name="oobe_cross_platform_sync">Sincronização entre plataformas</string>
     <string name="oobe_cross_platform_sync_description">Mantenha a sua música em harmonia entre dispositivos</string>
     <string name="oobe_use_backup">Tenho um backup</string>
-    <string name="oobe_interface_subtitle">Customize como o OuterTune parece e que conteúdo lhe mostra.</string>
+    <string name="oobe_interface_subtitle">Customize como o InterTune parece e que conteúdo lhe mostra.</string>
     <string name="oobe_ytm_logon_title">Conta</string>
     <string name="oobe_ytm_logon_subtitle">Conecte-se à sua conta do YouTube Music para sincronizar e aceder conteúdo privado da conta. Isto é opcional.</string>
     <string name="oobe_local_media_title">Média local</string>
@@ -224,7 +224,7 @@
     <string name="oobe_downloads_title">Descargas de músicas</string>
     <string name="oobe_downloads_subtitle">Selecione uma pasta na qual as músicas descarregadas serão gravadas.</string>
     <string name="oobe_complete_title">Está tudo pronto!</string>
-    <string name="oobe_complete">O OuterTune está configurado e pronto para ser usado. Explore as suas músicas, descubra novas faixas e aproveite a experiência!</string>
+    <string name="oobe_complete">O InterTune está configurado e pronto para ser usado. Explore as suas músicas, descubra novas faixas e aproveite a experiência!</string>
     <string name="import_failed_songs">Não foi possível importar</string>
     <string name="import_success_songs">Importadas com sucesso</string>
     <string name="m3u_export">Exportar como um ficheiro M3U</string>

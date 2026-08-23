@@ -87,7 +87,7 @@
     <string name="tab_arrangement_disable_tip">--- अक्षम करने के लिए नीचे खींचें ---</string>
     <string name="audio_offload">ऑफ़लोड सक्षम करें</string>
     <string name="keep_alive_title">सिस्टम को ऐप बंद करने से रोकें</string>
-    <string name="keep_alive_description">OuterTune को पृष्ठभूमि में बंद होने से रोकने के लिए एक स्थायी फोरग्राउंड सेवा का उपयोग करें</string>
+    <string name="keep_alive_description">InterTune को पृष्ठभूमि में बंद होने से रोकने के लिए एक स्थायी फोरग्राउंड सेवा का उपयोग करें</string>
     <string name="persistent_queue_desc_ot">ऐप शुरू होने पर पिछली खुली कतार(कतारों) को पुनर्स्थापित करें</string>
     <string name="min_playback_duration">कम से कम चलाने की अवधि</string>
     <string name="min_playback_duration_description">किसी गीत को \"चलाया गया\" मानने से पहले उसे जितनी न्यूनतम अवधि तक चलाना आवश्यक है</string>
