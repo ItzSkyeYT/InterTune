@@ -159,10 +159,12 @@ fun AboutScreen(
             IconLabelButton(
                 text = "GitHub",
                 painter = painterResource(R.drawable.github),
-                onClick = { uriHandler.openUri("https://github.com/OuterTune/OuterTune") },
+                onClick = { uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune") },
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
 
+            // Upstream's wiki, deliberately. It documents the app this is a fork of and still
+            // applies; there is no InterTune wiki to send anyone to.
             IconLabelButton(
                 text = stringResource(R.string.wiki),
                 icon = Icons.Outlined.Info,
@@ -197,16 +199,19 @@ fun AboutScreen(
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // These MUST point at the fork. Upstream's tracker is not the place for bugs in a
+                // build upstream did not ship, and it is already busy with reports of the 403 this
+                // fork exists to fix.
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_bug_report_action)) },
                     onClick = {
-                        uriHandler.openUri("https://github.com/OuterTune/OuterTune/issues")
+                        uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune/issues")
                     }
                 )
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_support_forum)) },
                     onClick = {
-                        uriHandler.openUri("https://github.com/OuterTune/OuterTune/discussions")
+                        uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune/discussions")
                     }
                 )
                 PreferenceEntry(

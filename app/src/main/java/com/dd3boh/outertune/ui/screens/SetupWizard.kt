@@ -809,7 +809,7 @@ fun SetupWizard(
                                 IconLabelButton(
                                     text = "GitHub",
                                     icon = Icons.Rounded.Code,
-                                    onClick = { uriHandler.openUri("https://github.com/OuterTune/OuterTune") },
+                                    onClick = { uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune") },
                                     modifier = Modifier.padding(horizontal = 8.dp)
                                 )
 

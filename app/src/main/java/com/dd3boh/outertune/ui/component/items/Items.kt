@@ -66,6 +66,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -671,10 +672,21 @@ fun ItemThumbnail(
         contentAlignment = Alignment.Center,
         modifier = modifier
     ) {
+        /**
+         * Fall back to the size this thumbnail is actually being drawn at when the caller does not
+         * name one. [AlbumGridItem] and friends did not, so [preferredSize] stayed -1, and
+         * LocalArtworkPathKeyer builds its cache key as "path;x;y" -- meaning every size shared the
+         * single key "path;-1;-1". Coil samples a bitmap down to whichever view asked first, so a
+         * 48dp list row could poison the entry that a 96dp grid cell then upscaled. Sizing the key
+         * per use gives each one its own entry.
+         */
+        val drawnPx = with(LocalDensity.current) { minOf(maxWidth, maxHeight).roundToPx() }
+        val artSize = if (preferredSize > 0) preferredSize else drawnPx
+
         AsyncImage(
             imageLoader = context.imageLoader,
             model = if (thumbnailUrl?.startsWith("/storage") == true) {
-                LocalArtworkPath(thumbnailUrl, preferredSize, preferredSize)
+                LocalArtworkPath(thumbnailUrl, artSize, artSize)
             } else {
                 thumbnailUrl
             },
