@@ -83,11 +83,18 @@ source, then this fork. The system bars are gone, the artwork is larger and sits
 edge instead of floating in the middle of its half, the type and transport controls are bigger, and
 the queue arrow sits at the bottom edge rather than in the gap beside the controls.
 
-**The queue arrow no longer sits on top of the transport controls.** [`QueueSheet`][qs] pins its
-expand arrow to the *top* of the collapsed sheet, and that sheet is `QueuePeekHeight` taller than
-the peek it actually needs. In portrait, spending 96dp on that costs nothing. In landscape the
-whole player is 384dp tall, so the extra 48dp both left the arrow floating in the middle of the
-controls and came straight out of the artwork. Landscape now collapses to exactly the peek.
+**The queue arrow no longer sits on top of the transport controls**, which is upstream
+[#1133](https://github.com/OuterTune/OuterTune/issues/1133), open since February and reported there
+as "the player buttons are covered by an invisible element". [`QueueSheet`][qs] pins its expand
+arrow to the *top* of the collapsed sheet, and that sheet is `QueuePeekHeight` taller than the peek
+it actually needs. In portrait, spending 96dp on that costs nothing. In landscape the whole player
+is 384dp tall, so the extra 48dp reached up over the transport row. The sheet is transparent but
+still takes the touches, which is why the buttons look uncovered and do nothing. Landscape now
+collapses to exactly the peek.
+
+Upstream's maintainer guessed the 0.10.2-b1 build had fixed it, and he was right: that build sets
+`collapsedBound = dismissedBound` in its landscape player. He never verified or closed the issue,
+and that fix only exists in a one-off release. This is the same fix on 0.10.1.
 
 **Fullscreen and keep-awake while the player is open.** The system bars hide, an edge swipe brings
 them back transiently, and they are restored when the player collapses or the device rotates. The
