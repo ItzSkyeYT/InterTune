@@ -76,14 +76,12 @@ Separate from the playback fix, the two-pane landscape now-playing screen got so
 is deliberately untouched throughout — 0.10.1's portrait UI is the reason this fork is based on
 0.10.1 at all.
 
-<img src="./assets/landscape-before-after.svg" alt="InterTune landscape player, before and after" width="100%">
+<img src="./assets/landscape-before-after.png" alt="InterTune landscape player, before and after" width="100%">
 
-That image is not a screenshot. Its geometry is **computed from the layout constants in this
-repository** by [`tools/render-landscape-diagram.py`](tools/render-landscape-diagram.py), so it
-cannot quietly drift out of date the way a captured PNG would — change `QueuePeekHeight` or the
-gutter and re-running the script moves the drawing. The 49dp overlap it reports in the "before"
-panel is not an artistic choice either; it falls out of the arithmetic, and lands within a dp of
-`QueuePeekHeight` because that is exactly what the extra peek was costing.
+Both shots are the same track on the same device, taken back to back: upstream `v0.10.1` built from
+source, then this fork. The system bars are gone, the artwork is larger and sits against the outer
+edge instead of floating in the middle of its half, the type and transport controls are bigger, and
+the queue arrow sits at the bottom edge rather than in the gap beside the controls.
 
 **The queue arrow no longer sits on top of the transport controls.** [`QueueSheet`][qs] pins its
 expand arrow to the *top* of the collapsed sheet, and that sheet is `QueuePeekHeight` taller than
@@ -113,6 +111,23 @@ screenshot and both are easy to reintroduce:
   which is a `remember()` key for the sheet state. Toggling the bars rebuilt the state mid-drag,
   cancelled the gesture and re-animated the sheet to its previous anchor, so the player sprang back
   open instead of collapsing. Both sheet bounds now read `systemBarsIgnoringVisibility`.
+
+## Artwork
+
+Two separate resolution bugs, both of which the larger landscape artwork made obvious.
+
+**Remote covers were fetched at the wrong size.** `getThumbnailModel(sizeX, sizeY)` took a size and
+used it only for local files; for YouTube artwork it returned the raw url and ignored both
+arguments. YouTube serves a small thumbnail by default, so the player was upscaling it. The size now
+goes into the url, and `Thumbnail` passes the size its own `BoxWithConstraints` already measured.
+
+**Local covers collided in the image cache**, which is upstream
+[#798](https://github.com/OuterTune/OuterTune/issues/798). `ItemThumbnail` defaults its size to `-1`
+when a caller does not pass one, and the Coil cache key is built from that size, so every size of a
+given file shared the key `path;-1;-1`. Coil samples a bitmap down to whatever asked for it first,
+so a 48dp list row could poison the entry a 96dp grid cell then upscaled. That is why it looked
+fine on the album page and pixelated in the grid, and why it seemed to depend on which screen you
+opened first. The size now falls back to the size the thumbnail is actually drawn at.
 
 ## Relationship to upstream
 
