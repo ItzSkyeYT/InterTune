@@ -5,6 +5,7 @@ import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.ui.utils.resize
 import com.dd3boh.outertune.utils.LocalArtworkPath
+import com.dd3boh.outertune.ui.utils.resize
 import com.zionhuang.innertube.models.SongItem
 import java.io.Serializable
 import java.time.LocalDateTime
@@ -99,9 +100,20 @@ data class MediaMetadata(
      */
     fun getDateModifiedLong(): Long? = dateModified?.toEpochSecond(ZoneOffset.UTC)
 
+    /**
+     * @param sizeX width in PIXELS the image will be drawn at, or -1 for whatever the source gives
+     * @param sizeY height in pixels, likewise
+     *
+     * Remote artwork used to ignore both, returning the raw url no matter what the caller asked
+     * for. YouTube hands out a small thumbnail by default, so anything drawing it larger than that
+     * — the landscape player draws it around 1050px — got an upscaled, mushy image. The size is now
+     * baked into the url so the CDN serves one that actually fits.
+     */
     fun getThumbnailModel(sizeX: Int = -1, sizeY: Int = -1): Any? {
         return if (isLocal) {
             LocalArtworkPath(thumbnailUrl ?: localPath, sizeX, sizeY)
+        } else if (sizeX > 0 || sizeY > 0) {
+            thumbnailUrl?.resize(sizeX.takeIf { it > 0 }, sizeY.takeIf { it > 0 })
         } else {
             thumbnailUrl
         }

@@ -37,6 +37,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalView
@@ -101,8 +102,15 @@ fun Thumbnail(
                     modifier = Modifier
                         .weight(1f, false)
                 ) {
+                    // Ask the CDN for an image the size we are actually going to draw. The box is
+                    // square (aspectRatio(1f) below), so the shorter side wins. Without this the
+                    // default thumbnail gets upscaled and looks soft — very visible in landscape,
+                    // where the artwork is far larger than it is in portrait.
+                    val artPx = with(LocalDensity.current) {
+                        minOf(maxWidth, maxHeight).roundToPx()
+                    }
                     AsyncImage(
-                        model = mediaMetadata?.getThumbnailModel(),
+                        model = mediaMetadata?.getThumbnailModel(artPx, artPx),
                         contentDescription = null,
                         modifier = Modifier
                             .aspectRatio(1f)
