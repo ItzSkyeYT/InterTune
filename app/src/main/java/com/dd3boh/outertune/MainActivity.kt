@@ -208,6 +208,7 @@ import androidx.compose.ui.util.lerp
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.rememberGlassSpec
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
@@ -821,18 +822,9 @@ class MainActivity : ComponentActivity() {
                             }
 
                             val navbar: @Composable() (() -> Unit) = @Composable {
-                                val dockTint = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp)
-                                    .copy(
-                                        alpha = lerp(
-                                            0.92f,
-                                            if (pureBlack) 0.62f else 0.55f,
-                                            glassIntensity.coerceIn(0f, 1f)
-                                        )
-                                    )
+                                val dockGlass = rememberGlassSpec()
+                                val dockTint = dockGlass?.tint() ?: Color.Transparent
                                 val dockShape = RoundedCornerShape(if (slimNav) 26.dp else 28.dp)
-                                // lens() early-returns when either arg is 0, which would drop the
-                                // rounded SDF and leave an unshaped blurred rectangle. Floored.
-                                val dockLensT = glassIntensity.coerceIn(0.15f, 1f)
 
                                 val navigationBarHeight by animateDpAsState(
                                     targetValue = NavigationBarHeight,
@@ -890,10 +882,10 @@ class MainActivity : ComponentActivity() {
                                                         shape = { dockShape },
                                                         effects = {
                                                             vibrancy()
-                                                            blur(6f.dp.toPx())
+                                                            blur(dockGlass!!.blur.toPx())
                                                             lens(
-                                                                refractionHeight = 20f.dp.toPx() * dockLensT,
-                                                                refractionAmount = 28f.dp.toPx() * dockLensT,
+                                                                refractionHeight = 20f.dp.toPx() * dockGlass.lensT,
+                                                                refractionAmount = 28f.dp.toPx() * dockGlass.lensT,
                                                                 depthEffect = true
                                                             )
                                                         }
