@@ -471,7 +471,10 @@ fun BottomSheetPlayer(
                 }
             }
         },
-        collapsedBackgroundColor = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
+        // Transparent under glass: the collapsed sheet otherwise paints a solid fill over
+        // exactly the region the dock refracts, so ~70% of what the dock would show is flat colour.
+        collapsedBackgroundColor = if (liquidGlass) Color.Transparent
+        else MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
         onDismiss = {
             playerConnection.softKillPlayer()
         },
