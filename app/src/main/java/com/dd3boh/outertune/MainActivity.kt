@@ -617,8 +617,16 @@ class MainActivity : ComponentActivity() {
                                     composable(
                                         route = "search/{query}",
                                         arguments = listOf(
+                                            // nullable because androidx.navigation reserves the
+                                            // literal string "null" as its null marker: StringType
+                                            // parses the path segment "null" into an actual null,
+                                            // and a non-nullable arg then fails verification and
+                                            // throws. Searching the word "null" crashed the app,
+                                            // upstream #1190. No amount of encoding avoids it, the
+                                            // segment is decoded before parsing.
                                             navArgument("query") {
                                                 type = NavType.StringType
+                                                nullable = true
                                             }
                                         )
                                     ) {
