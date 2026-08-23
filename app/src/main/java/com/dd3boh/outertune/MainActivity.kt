@@ -102,6 +102,8 @@ import androidx.compose.ui.util.fastForEach
 import androidx.core.net.toUri
 import androidx.core.util.Consumer
 import androidx.core.view.WindowCompat
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavHostController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -842,18 +844,8 @@ class MainActivity : ComponentActivity() {
                                                         "scrollToTop",
                                                         true
                                                     )
-                                                } else if (navigationItems.none { scr -> navBackStackEntry?.destination?.hierarchy?.any { it.route == scr.route } == true }) {
-                                                    // this eye bleach allows you to navigate back when you tap on the navbar on a non-root page
-                                                    // TODO: nav3 allows us to access back stack... maybe do indicators properly and remove this hack
-                                                    navController.navigateUp()
                                                 } else {
-                                                    navController.navigate(screen.route) {
-                                                        popUpTo(navController.graph.startDestinationId) {
-                                                            saveState = true
-                                                        }
-                                                        launchSingleTop = true
-                                                        restoreState = true
-                                                    }
+                                                    navigateToNavTab(navController, screen.route, navigationItems, navBackStackEntry)
                                                 }
 
                                                 haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
@@ -943,14 +935,7 @@ class MainActivity : ComponentActivity() {
                                                         true
                                                     )
                                                 } else {
-                                                    navController.navigate(screen.route) {
-                                                        popUpTo(navController.graph.startDestinationId) {
-                                                            saveState = true
-                                                        }
-
-                                                        launchSingleTop = true
-                                                        restoreState = true
-                                                    }
+                                                    navigateToNavTab(navController, screen.route, navigationItems, navBackStackEntry)
                                                 }
 
                                                 haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
@@ -1051,6 +1036,41 @@ class MainActivity : ComponentActivity() {
         const val ACTION_SONGS = "dev.skye.intertune.action.SONGS"
         const val ACTION_ALBUMS = "dev.skye.intertune.action.ALBUMS"
         const val ACTION_PLAYLISTS = "dev.skye.intertune.action.PLAYLISTS"
+    }
+}
+
+/**
+ * Navigate to a bottom-bar / rail tab that is not the one currently shown.
+ *
+ * The only subtlety is [restoreState]. The nav graph is flat, so every route is a sibling and
+ * there are no per-tab back stacks; `popUpTo(start) { saveState = true }` saves whatever was
+ * above the start destination, and `restoreState = true` puts it back.
+ *
+ * That is what upstream #959 was: from a playlist, tapping Library saved the stack and then
+ * immediately restored it, landing you back in the playlist. "Nothing happens."
+ *
+ * The fix there was a branch that called [NavHostController.navigateUp] whenever the current
+ * destination was not itself a tab. That escapes the sub-page, but it ignores *which* tab was
+ * tapped, so from History tapping Songs walked back to Home instead — upstream #1168.
+ *
+ * Restoring is only ever wanted when hopping between tab roots, where it preserves each tab's
+ * scroll position. Coming from a sub-page there is nothing worth restoring and restoring is
+ * precisely what breaks it. So: restore when leaving a tab, jump cleanly when leaving anything
+ * else. One rule, both issues.
+ */
+private fun navigateToNavTab(
+    navController: NavHostController,
+    route: String,
+    navigationItems: List<Screens>,
+    current: NavBackStackEntry?,
+) {
+    val leavingATab = navigationItems.any { scr ->
+        current?.destination?.hierarchy?.any { it.route == scr.route } == true
+    }
+    navController.navigate(route) {
+        popUpTo(navController.graph.startDestinationId) { saveState = true }
+        launchSingleTop = true
+        restoreState = leavingATab
     }
 }
 
