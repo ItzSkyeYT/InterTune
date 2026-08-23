@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.FolderCopy
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
@@ -61,6 +62,7 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
 import com.dd3boh.outertune.constants.DownloadPathKey
+import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
 import com.dd3boh.outertune.constants.MaxImageCacheSizeKey
 import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
 import com.dd3boh.outertune.constants.ScanPathsKey
@@ -70,6 +72,7 @@ import com.dd3boh.outertune.extensions.tryOrNull
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SettingsClickToReveal
+import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
@@ -144,6 +147,7 @@ fun ColumnScope.DownloadsFrag() {
     val downloadUtil = LocalDownloadUtil.current
 
     val (downloadPath, onDownloadPathChange) = rememberPreference(DownloadPathKey, "")
+    val (downloadOnWifiOnly, onDownloadOnWifiOnlyChange) = rememberPreference(DownloadOnWifiOnlyKey, defaultValue = false)
     val (scanPaths, onScanPathsChange) = rememberPreference(ScanPathsKey, defaultValue = "")
 
     // size stats
@@ -187,6 +191,19 @@ fun ColumnScope.DownloadsFrag() {
             downloadCacheSize = tryOrNull { downloadCache.cacheSpace } ?: 0
         }
     }
+
+    SwitchPreference(
+        title = { Text(stringResource(R.string.download_on_wifi_only_title)) },
+        description = stringResource(R.string.download_on_wifi_only_description),
+        icon = { Icon(Icons.Rounded.Wifi, null) },
+        checked = downloadOnWifiOnly,
+        onCheckedChange = {
+            onDownloadOnWifiOnlyChange(it)
+            // Push it to the running service too, so queued and in-flight downloads follow the new
+            // rule rather than waiting for the next app start.
+            downloadUtil.setDownloadRequirements(it)
+        }
+    )
 
     PreferenceEntry(
         title = { Text(stringResource(R.string.dl_main_path_title)) },

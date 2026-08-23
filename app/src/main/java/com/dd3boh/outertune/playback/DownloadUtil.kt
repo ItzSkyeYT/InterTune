@@ -18,9 +18,12 @@ import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadNotificationHelper
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.DownloadService
+import androidx.media3.exoplayer.scheduler.Requirements
+import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
+import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.FormatEntity
@@ -139,6 +142,7 @@ class DownloadUtil @Inject constructor(
     val downloadManager: DownloadManager =
         DownloadManager(context, databaseProvider, downloadCache, dataSourceFactory, Executor(Runnable::run)).apply {
             maxParallelDownloads = 3
+            requirements = downloadRequirements(context.dataStore.get(DownloadOnWifiOnlyKey, false))
             addListener(
                 ExoDownloadService.TerminalStateNotificationHelper(
                     context = context,
@@ -160,15 +164,50 @@ class DownloadUtil @Inject constructor(
     fun getDownload(songId: String): Flow<LocalDateTime?> = downloads.map { it[songId] }
 
     fun download(songs: List<MediaMetadata>) {
+        if (songs.any { downloads.value[it.id] == null }) notifyIfWaitingForWifi()
         songs.forEach { song -> downloadSong(song.id, song.title) }
     }
 
     fun download(song: MediaMetadata) {
+        if (downloads.value[song.id] == null) notifyIfWaitingForWifi()
         downloadSong(song.id, song.title)
     }
 
     fun download(song: SongEntity) {
+        if (downloads.value[song.id] == null) notifyIfWaitingForWifi()
         downloadSong(song.id, song.title)
+    }
+
+    /**
+     * Network requirement for downloads. Unmetered rather than "wifi" specifically, so an unmetered
+     * ethernet or hotspot connection also counts, and a metered wifi network correctly does not.
+     */
+    private fun downloadRequirements(wifiOnly: Boolean) =
+        if (wifiOnly) Requirements(Requirements.NETWORK_UNMETERED) else Requirements(Requirements.NETWORK)
+
+    /**
+     * Applies the requirement immediately, including to downloads already queued or running. media3
+     * pauses anything that no longer meets it and resumes automatically once it does, so nothing is
+     * lost by toggling this mid-download.
+     */
+    fun setDownloadRequirements(wifiOnly: Boolean) {
+        DownloadService.sendSetRequirements(
+            context,
+            ExoDownloadService::class.java,
+            downloadRequirements(wifiOnly),
+            false
+        )
+    }
+
+    /**
+     * Downloads requested on a metered network while this is on are queued silently, with no visible
+     * progress, until an unmetered network appears. Without a hint that reads as the download having
+     * failed.
+     */
+    private fun notifyIfWaitingForWifi() {
+        if (context.dataStore.get(DownloadOnWifiOnlyKey, false) && connectivityManager.isActiveNetworkMetered) {
+            Toast.makeText(context, R.string.download_waiting_for_wifi, Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun downloadSong(id: String, title: String) {
