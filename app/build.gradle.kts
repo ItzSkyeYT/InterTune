@@ -199,6 +199,7 @@ ksp {
 }
 
 dependencies {
+    implementation(libs.kyant.backdrop)
     implementation(libs.guava)
     implementation(libs.coroutines.guava)
     implementation(libs.concurrent.futures)
