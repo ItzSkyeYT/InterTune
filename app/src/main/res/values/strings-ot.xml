@@ -261,8 +261,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="clear_song_cache_confirm">Are you sure you want to clear song cache?</string>
     <string name="dl_calculate_size">Tap to calculate download size</string>
     <string name="player_glass">Glass player background</string>
-    <string name="player_chromatic_shock">Chromatic ripple</string>
-    <string name="player_chromatic_shock_description">Send a ring of colour-split refraction across the player when a track starts. Android 13 and above</string>
+    <string name="player_liquid_glass">Liquid glass</string>
+    <string name="player_liquid_glass_description">Refract the artwork through the transport controls, like a pane of glass. Uses the intensity above. Android 13 and above</string>
     <string name="player_glass_description">Drop the flat overlay behind the player so the artwork colours come through. Needs the background style above to be Gradient or Blur</string>
     <string name="player_glass_intensity_value">Intensity: %1$d%%</string>
     <string name="sleep_timer_fade">Fade out before stopping</string>

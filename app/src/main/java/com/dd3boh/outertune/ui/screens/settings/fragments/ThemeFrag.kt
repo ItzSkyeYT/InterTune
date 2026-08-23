@@ -34,7 +34,7 @@ import com.dd3boh.outertune.constants.DarkMode
 import com.dd3boh.outertune.constants.DarkModeKey
 import com.dd3boh.outertune.constants.DynamicThemeKey
 import com.dd3boh.outertune.constants.HighContrastKey
-import com.dd3boh.outertune.constants.PlayerChromaticShockKey
+import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.constants.PureBlackKey
@@ -105,8 +105,8 @@ fun ColumnScope.ThemePlayerFrag() {
         PlayerGlassIntensityKey,
         defaultValue = 1f
     )
-    val (chromaticShock, onChromaticShockChange) = rememberPreference(
-        PlayerChromaticShockKey,
+    val (liquidGlass, onChromaticShockChange) = rememberPreference(
+        PlayerLiquidGlassKey,
         defaultValue = false
     )
 
@@ -158,10 +158,10 @@ fun ColumnScope.ThemePlayerFrag() {
     // RuntimeShader is API 33+, so there is nothing to offer below that.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         SwitchPreference(
-            title = { Text(stringResource(R.string.player_chromatic_shock)) },
-            description = stringResource(R.string.player_chromatic_shock_description),
+            title = { Text(stringResource(R.string.player_liquid_glass)) },
+            description = stringResource(R.string.player_liquid_glass_description),
             icon = { Icon(Icons.Rounded.AutoAwesome, null) },
-            checked = chromaticShock,
+            checked = liquidGlass,
             onCheckedChange = onChromaticShockChange
         )
     }

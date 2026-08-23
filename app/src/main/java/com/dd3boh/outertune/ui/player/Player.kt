@@ -60,6 +60,11 @@ import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
@@ -141,7 +146,7 @@ import com.dd3boh.outertune.constants.SeekIncrementKey
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SwipeToSkipKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
-import com.dd3boh.outertune.constants.PlayerChromaticShockKey
+import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.constants.PlayerGlassKey
 import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.extensions.metadata
@@ -216,10 +221,8 @@ fun BottomSheetPlayer(
     val glassEnabled by rememberPreference(PlayerGlassKey, defaultValue = false)
     val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
 
-    val chromaticShock by rememberPreference(PlayerChromaticShockKey, defaultValue = false)
-    // Stand-in beat source: one decaying pulse per track change. Real beat detection needs an
-    // AudioProcessor in the media3 sink, which is a much larger change than the effect itself.
-    val transientPulse = rememberTransientPulse(trigger = mediaMetadata?.id)
+    val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
+    val playerBackdrop = rememberLayerBackdrop()
 
     val seekIncrement by rememberEnumPreference(
         key = SeekIncrementKey,
@@ -383,705 +386,720 @@ fun BottomSheetPlayer(
     // refraction crosses the background and the controls together, which is what makes the
     // rainbow fringing show up along element edges. Gated on the player being expanded, so the
     // mini player never pays for it, and a no-op below API 33.
-    ChromaticShockEffect(
-        enabled = chromaticShock,
-        isActive = state.isExpanded,
-        transient = { transientPulse.floatValue },
-    ) {
-        BottomSheet(
-            state = state,
-            modifier = modifier,
-            background = {
-                Log.v(TAG, "PLR-2.1")
-                Box(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
-                        .fillMaxSize()
-                ) {
-                    // "Glass" look, requested in upstream #1282. The one-off
-                    // pre_rel-0.10.1-b1-glass build differed from stock only in this background: it
-                    // dropped the flat overlay wash, halved the gradient, put the blurred artwork at
-                    // half alpha and used a single blur radius. Rather than ship a second app, all four
-                    // are interpolated by `glassIntensity`, so 0f reproduces stock 0.10.1 exactly and
-                    // 1f reproduces that build exactly.
-                    val glassT = if (glassEnabled) glassIntensity.coerceIn(0f, 1f) else 0f
+    BottomSheet(
+        state = state,
+        modifier = modifier,
+        background = {
+            Log.v(TAG, "PLR-2.1")
+            Box(
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
+                    .fillMaxSize()
+                    // Publishes the artwork and gradient we already draw as a backdrop so the glass
+                    // panel can refract it. Capturing here keeps this self-contained: no MainActivity
+                    // change, and the lens only ever sees pixels the player itself drew.
+                    .layerBackdrop(playerBackdrop)
+            ) {
+                // "Glass" look, requested in upstream #1282. The one-off
+                // pre_rel-0.10.1-b1-glass build differed from stock only in this background: it
+                // dropped the flat overlay wash, halved the gradient, put the blurred artwork at
+                // half alpha and used a single blur radius. Rather than ship a second app, all four
+                // are interpolated by `glassIntensity`, so 0f reproduces stock 0.10.1 exactly and
+                // 1f reproduces that build exactly.
+                val glassT = if (glassEnabled) glassIntensity.coerceIn(0f, 1f) else 0f
 
-                    val stockOverlayAlpha = if (useDarkTheme) 0.4f else 0.55f
-                    val overlayColor = (if (useDarkTheme) Color.Black else Color.White)
-                        .copy(alpha = lerp(stockOverlayAlpha, 0f, glassT))
-                    val artworkAlpha = lerp(1f, 0.5f, glassT)
-                    val gradientAlpha = lerp(0.8f, 0.4f, glassT)
-                    val blurRadius = lerp(if (useDarkTheme) 150f else 100f, 100f, glassT).dp
-                    AnimatedContent(
-                        targetState = mediaMetadata,
-                        transitionSpec = {
-                            fadeIn(tween(1000)).togetherWith(fadeOut(tween(1000)))
-                        }
-                    ) { metadata ->
-                        if (playerBackground == PlayerBackgroundStyle.BLUR) {
-                            Log.v(TAG, "PLR-2.2a")
-                            AsyncImage(
-                                model = metadata?.getThumbnailModel(100, 100),
-                                contentDescription = null,
-                                contentScale = ContentScale.FillBounds,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .blur(blurRadius)
-                                    .alpha(artworkAlpha)
-                            )
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(overlayColor)
-                            )
-                        }
+                val stockOverlayAlpha = if (useDarkTheme) 0.4f else 0.55f
+                val overlayColor = (if (useDarkTheme) Color.Black else Color.White)
+                    .copy(alpha = lerp(stockOverlayAlpha, 0f, glassT))
+                val artworkAlpha = lerp(1f, 0.5f, glassT)
+                val gradientAlpha = lerp(0.8f, 0.4f, glassT)
+                val blurRadius = lerp(if (useDarkTheme) 150f else 100f, 100f, glassT).dp
+                AnimatedContent(
+                    targetState = mediaMetadata,
+                    transitionSpec = {
+                        fadeIn(tween(1000)).togetherWith(fadeOut(tween(1000)))
                     }
+                ) { metadata ->
+                    if (playerBackground == PlayerBackgroundStyle.BLUR) {
+                        Log.v(TAG, "PLR-2.2a")
+                        AsyncImage(
+                            model = metadata?.getThumbnailModel(100, 100),
+                            contentDescription = null,
+                            contentScale = ContentScale.FillBounds,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .blur(blurRadius)
+                                .alpha(artworkAlpha)
+                        )
 
-                    AnimatedContent(
-                        targetState = gradientColors,
-                        transitionSpec = {
-                            fadeIn(tween(1000)).togetherWith(fadeOut(tween(1000)))
-                        }
-                    ) { colors ->
-                        if (playerBackground == PlayerBackgroundStyle.GRADIENT && colors.size >= 2) {
-                            Log.v(TAG, "PLR-2.2b")
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Brush.verticalGradient(colors), alpha = gradientAlpha)
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(overlayColor)
-                            )
-                        }
-                    }
-
-                    if (playerBackground != PlayerBackgroundStyle.FOLLOW_THEME && showLyrics) {
-                        Log.v(TAG, "PLR-2.2c")
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(if (useDarkTheme) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.5f))
+                                .background(overlayColor)
                         )
                     }
                 }
-            },
-            collapsedBackgroundColor = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
-            onDismiss = {
-                playerConnection.softKillPlayer()
-            },
-            collapsedContent = {
-                MiniPlayer(
-                    position = position,
-                    duration = duration
-                )
+
+                AnimatedContent(
+                    targetState = gradientColors,
+                    transitionSpec = {
+                        fadeIn(tween(1000)).togetherWith(fadeOut(tween(1000)))
+                    }
+                ) { colors ->
+                    if (playerBackground == PlayerBackgroundStyle.GRADIENT && colors.size >= 2) {
+                        Log.v(TAG, "PLR-2.2b")
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Brush.verticalGradient(colors), alpha = gradientAlpha)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(overlayColor)
+                        )
+                    }
+                }
+
+                if (playerBackground != PlayerBackgroundStyle.FOLLOW_THEME && showLyrics) {
+                    Log.v(TAG, "PLR-2.2c")
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(if (useDarkTheme) Color.Black.copy(alpha = 0.3f) else Color.White.copy(alpha = 0.5f))
+                    )
+                }
             }
-        ) {
-            Log.v(TAG, "PLR-3.1")
+        },
+        collapsedBackgroundColor = MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
+        onDismiss = {
+            playerConnection.softKillPlayer()
+        },
+        collapsedContent = {
+            MiniPlayer(
+                position = position,
+                duration = duration
+            )
+        }
+    ) {
+        Log.v(TAG, "PLR-3.1")
 
-            val lol: @Composable BoxScope.() -> Unit = {
-                /**
-                 * Landscape gets a tighter gutter and a larger type scale. In landscape the controls
-                 * share the width with the artwork, so the column is narrow and the default 32dp
-                 * gutter wastes space the progress bar and title want; the screen also sits further
-                 * from the eye than a held phone, so the text runs a size up.
-                 *
-                 * Hoisted to this scope because both [controlsContent] and the two-pane landscape
-                 * column need them.
-                 */
-                val landscapePlayer = isLandscape && !tabMode
-                val hPadding = if (landscapePlayer) 24.dp else PlayerHorizontalPadding
-                val titleSize = if (landscapePlayer) 25.sp else TextUnit.Unspecified
-                val artistSize = if (landscapePlayer) 19.sp else TextUnit.Unspecified
+        val lol: @Composable BoxScope.() -> Unit = {
+            /**
+             * Landscape gets a tighter gutter and a larger type scale. In landscape the controls
+             * share the width with the artwork, so the column is narrow and the default 32dp
+             * gutter wastes space the progress bar and title want; the screen also sits further
+             * from the eye than a held phone, so the text runs a size up.
+             *
+             * Hoisted to this scope because both [controlsContent] and the two-pane landscape
+             * column need them.
+             */
+            val landscapePlayer = isLandscape && !tabMode
+            val hPadding = if (landscapePlayer) 24.dp else PlayerHorizontalPadding
+            val titleSize = if (landscapePlayer) 25.sp else TextUnit.Unspecified
+            val artistSize = if (landscapePlayer) 19.sp else TextUnit.Unspecified
 
-                /** Transport controls run larger in landscape, where there is room for them. */
-                val transportIconSize = if (landscapePlayer) 42.dp else 32.dp
-                val playButtonSize = when {
-                    showLyrics -> 56.dp
-                    landscapePlayer -> 84.dp
-                    else -> 72.dp
+            /** Transport controls run larger in landscape, where there is room for them. */
+            val transportIconSize = if (landscapePlayer) 42.dp else 32.dp
+            val playButtonSize = when {
+                showLyrics -> 56.dp
+                landscapePlayer -> 84.dp
+                else -> 72.dp
+            }
+
+            val actionButtons: @Composable RowScope.() -> Unit = {
+                Log.v(TAG, "PLR-3.xa")
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Box(
+                    modifier = Modifier
+                        .offset(y = 5.dp)
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                ) {
+                    ResizableIconButton(
+                        icon = if (currentSong?.song?.liked == true) R.drawable.favorite else R.drawable.favorite_border,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(24.dp),
+                        onClick = playerConnection::toggleLike
+                    )
                 }
 
-                val actionButtons: @Composable RowScope.() -> Unit = {
-                    Log.v(TAG, "PLR-3.xa")
-                    Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(7.dp))
 
-                    Box(
+                Box(
+                    modifier = Modifier
+                        .offset(y = 5.dp)
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                ) {
+                    ResizableIconButton(
+                        icon = Icons.Rounded.MoreVert,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier
-                            .offset(y = 5.dp)
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(MaterialTheme.colorScheme.primary)
+                            .size(24.dp)
+                            .align(Alignment.Center),
+                        onClick = {
+                            menuState.show {
+                                PlayerMenu(
+                                    mediaMetadata = mediaMetadata,
+                                    navController = navController,
+                                    playerBottomSheetState = state,
+                                    onDismiss = menuState::dismiss
+                                )
+                            }
+                        }
+                    )
+                }
+            }
+
+            val controlsContent: @Composable ColumnScope.(MediaMetadata) -> Unit = { mediaMetadata ->
+                Log.v(TAG, "PLR-3.xb")
+                val playPauseRoundness by animateDpAsState(
+                    targetValue = if (isPlaying) 24.dp else 36.dp,
+                    animationSpec = tween(durationMillis = 100, easing = LinearEasing),
+                    label = "playPauseRoundness"
+                )
+
+                // Action buttons for landscape, above the title. The two-pane layout hoists these
+                // to the top of its controls column instead, so this only covers narrow landscape,
+                // which still uses the stacked layout.
+                if (landscapePlayer && !wideScreen) {
+                    Row(
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = hPadding, end = hPadding, bottom = 16.dp)
                     ) {
-                        ResizableIconButton(
-                            icon = if (currentSong?.song?.liked == true) R.drawable.favorite else R.drawable.favorite_border,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .size(24.dp),
-                            onClick = playerConnection::toggleLike
-                        )
+                        actionButtons()
                     }
+                }
 
-                    Spacer(modifier = Modifier.width(7.dp))
+                Row(
+                    horizontalArrangement = Arrangement.Start,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = hPadding)
+                ) {
+                    Row {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = mediaMetadata.title,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontSize = titleSize,
+                                color = onBackgroundColor,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .basicMarquee(
+                                        iterations = 1,
+                                        initialDelayMillis = 3000
+                                    )
+                                    .clickable(enabled = mediaMetadata.album != null) {
+                                        navController.navigate("album/${mediaMetadata.album!!.id}")
+                                        state.collapseSoft()
+                                    }
+                            )
 
-                    Box(
-                        modifier = Modifier
-                            .offset(y = 5.dp)
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(MaterialTheme.colorScheme.primary)
-                    ) {
-                        ResizableIconButton(
-                            icon = Icons.Rounded.MoreVert,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .align(Alignment.Center),
-                            onClick = {
-                                menuState.show {
-                                    PlayerMenu(
-                                        mediaMetadata = mediaMetadata,
-                                        navController = navController,
-                                        playerBottomSheetState = state,
-                                        onDismiss = menuState::dismiss
+                            Row {
+                                mediaMetadata.artists.fastForEachIndexed { index, artist ->
+                                    Text(
+                                        text = artist.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontSize = artistSize,
+                                        color = onBackgroundColor,
+                                        maxLines = 1,
+                                        modifier = Modifier
+                                            .basicMarquee(
+                                                iterations = 1,
+                                                initialDelayMillis = 5000
+                                            )
+                                            .clickable(enabled = artist.id != null) {
+                                                navController.navigate("artist/${artist.id}")
+                                                state.collapseSoft()
+                                            }
+                                    )
+
+                                    if (index != mediaMetadata.artists.lastIndex) {
+                                        Text(
+                                            text = ", ",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontSize = artistSize,
+                                            color = onBackgroundColor
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // action buttons for portrait (inline with title)
+                        if (LocalConfiguration.current.orientation != Configuration.ORIENTATION_LANDSCAPE && !tabMode) {
+                            actionButtons()
+                        }
+                    }
+                }
+
+                Slider(
+                    value = (sliderPosition ?: position).toFloat(),
+                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                    onValueChange = {
+                        sliderPosition = it.toLong()
+                        // slider too granular for this haptic to feel right
+//                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                    },
+                    onValueChangeFinished = {
+                        sliderPosition?.let {
+                            playerConnection.player.seekTo(it)
+                            position = it
+                        }
+                        sliderPosition = null
+                        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                    },
+                    thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                    track = { sliderState ->
+                        PlayerSliderTrack(
+                            sliderState = sliderState,
+                            colors = SliderDefaults.colors()
+                        )
+                    },
+                    modifier = Modifier.padding(horizontal = hPadding)
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = hPadding + 4.dp)
+                ) {
+                    Text(
+                        text = makeTimeString(sliderPosition ?: position),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = onBackgroundColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+
+                    Text(
+                        text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = onBackgroundColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = hPadding)
+                    .then(
+                        if (liquidGlass) {
+                            Modifier.drawBackdrop(
+                                backdrop = playerBackdrop,
+                                shape = { RoundedCornerShape(32.dp) },
+                                effects = {
+                                    blur(4f.dp.toPx())
+                                    lens(
+                                        refractionHeight = 24f.dp.toPx() * glassIntensity,
+                                        refractionAmount = 32f.dp.toPx() * glassIntensity,
+                                        depthEffect = true,
+                                        chromaticAberration = true
                                     )
                                 }
+                            )
+                        } else Modifier
+                    )
+                ) {
+                    val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
+
+                    Box(modifier = Modifier.weight(1f)) {
+                        ResizableIconButton(
+                            icon = if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
+                            modifier = Modifier
+                                .size(transportIconSize)
+                                .padding(4.dp)
+                                .align(Alignment.Center),
+                            color = onBackgroundColor,
+                            enabled = playerConnection.player.currentMediaItem != null,
+                            onClick = {
+                                playerConnection.triggerShuffle()
+                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                            }
+                        )
+                    }
+
+                    Box(modifier = Modifier.weight(1f)) {
+                        ResizableIconButton(
+                            icon = Icons.Rounded.SkipPrevious,
+                            enabled = canSkipPrevious,
+                            modifier = Modifier
+                                .size(transportIconSize)
+                                .align(Alignment.Center),
+                            color = onBackgroundColor,
+                            onClick = {
+                                if (playerConnection.player.currentMediaItem == null) {
+                                    playerConnection.service.queueBoard.setCurrQueue()
+                                }
+                                playerConnection.player.seekToPrevious()
+                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                            }
+                        )
+                    }
+
+                    if (seekIncrement != SeekIncrement.OFF) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            ResizableIconButton(
+                                icon = Icons.Rounded.FastRewind,
+                                modifier = Modifier
+                                    .size(transportIconSize)
+                                    .align(Alignment.Center),
+                                color = onBackgroundColor,
+                                enabled = playerConnection.player.currentMediaItem != null,
+                                onClick = {
+                                    playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
+                                }
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .size(playButtonSize)
+                            .animateContentSize()
+                            .clip(RoundedCornerShape(playPauseRoundness))
+                            .background(MaterialTheme.colorScheme.primary)
+                            .clickable {
+                                if (playerConnection.player.currentMediaItem == null) {
+                                    playerConnection.service.queueBoard.setCurrQueue()
+                                    playerConnection.player.togglePlayPause()
+                                } else if (playbackState == STATE_ENDED) {
+                                    playerConnection.player.seekTo(0, 0)
+                                    playerConnection.player.playWhenReady = true
+                                } else {
+                                    playerConnection.player.togglePlayPause()
+                                }
+                                // play/pause is slightly harder haptic
+                                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                            }
+                    ) {
+                        Image(
+                            imageVector = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(36.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    if (seekIncrement != SeekIncrement.OFF) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            ResizableIconButton(
+                                icon = Icons.Rounded.FastForward,
+                                modifier = Modifier
+                                    .size(transportIconSize)
+                                    .align(Alignment.Center),
+                                color = onBackgroundColor,
+                                enabled = playerConnection.player.currentMediaItem != null,
+                                onClick = {
+                                    //ExoPlayer seek increment can only be set in builder
+                                    //playerConnection.player.seekForward()
+                                    playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
+                                }
+                            )
+                        }
+                    }
+
+
+
+                    Box(modifier = Modifier.weight(1f)) {
+                        ResizableIconButton(
+                            icon = Icons.Rounded.SkipNext,
+                            enabled = canSkipNext,
+                            modifier = Modifier
+                                .size(transportIconSize)
+                                .align(Alignment.Center),
+                            color = onBackgroundColor,
+                            onClick = {
+                                playerConnection.player.seekToNext()
+                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                            }
+                        )
+                    }
+
+                    Box(modifier = Modifier.weight(1f)) {
+                        ResizableIconButton(
+                            icon = when (repeatMode) {
+                                REPEAT_MODE_OFF -> R.drawable.repeat_off
+                                REPEAT_MODE_ALL -> R.drawable.repeat_on
+                                REPEAT_MODE_ONE -> R.drawable.repeat_one
+                                else -> throw IllegalStateException()
+                            },
+                            modifier = Modifier
+                                .size(transportIconSize)
+                                .padding(4.dp)
+                                .align(Alignment.Center),
+                            color = onBackgroundColor,
+                            enabled = playerConnection.player.currentMediaItem != null,
+                            onClick = {
+                                playerConnection.player.toggleRepeatMode()
+                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                             }
                         )
                     }
                 }
+            }
 
-                val controlsContent: @Composable ColumnScope.(MediaMetadata) -> Unit = { mediaMetadata ->
-                    Log.v(TAG, "PLR-3.xb")
-                    val playPauseRoundness by animateDpAsState(
-                        targetValue = if (isPlaying) 24.dp else 36.dp,
-                        animationSpec = tween(durationMillis = 100, easing = LinearEasing),
-                        label = "playPauseRoundness"
-                    )
 
-                    // Action buttons for landscape, above the title. The two-pane layout hoists these
-                    // to the top of its controls column instead, so this only covers narrow landscape,
-                    // which still uses the stacked layout.
-                    if (landscapePlayer && !wideScreen) {
+            if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE && !tabMode && wideScreen) {
+                val vPadding = max(
+                    WindowInsets.safeDrawing.getTop(LocalDensity.current),
+                    WindowInsets.safeDrawing.getBottom(LocalDensity.current)
+                )
+                // Floor this. It is derived from safeDrawing, which collapses to zero once the
+                // system bars are hidden, and with no floor the artwork expands flush to the top
+                // edge and its rounded corners get clipped by the display.
+                val vPaddingDp = with(LocalDensity.current) { vPadding.toDp() }.coerceAtLeast(16.dp)
+                val verticalInsets = WindowInsets(left = 0.dp, top = vPaddingDp, right = 0.dp, bottom = vPaddingDp)
+                Row(
+                    modifier = Modifier
+                        .windowInsetsPadding(
+                            WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).add(verticalInsets)
+                        )
+                        .fillMaxSize()
+                ) {
+                    // The queue sheet's peek is reserved on the controls column alone, not on this
+                    // Row. The arrow is horizontally centred on the window, well clear of the
+                    // artwork's half, so making the artwork dodge it vertically only wasted height.
+                    // CenterStart rather than Center: the artwork hugs the inner edge instead of
+                    // floating in the middle of its half.
+                    BoxWithConstraints(
+                        contentAlignment = Alignment.CenterStart,
+                        modifier = Modifier
+                            .weight(1f)
+                            .nestedScroll(state.preUpPostDownNestedScrollConnection)
+                    ) {
+                        Log.v(TAG, "PLR-3.2a")
+                        if (!swipeToSkip) {
+                            Thumbnail(
+                                sliderPositionProvider = { sliderPosition },
+                                modifier = Modifier
+//                                .width(horizontalLazyGridItemWidth)
+                                    .animateContentSize(),
+                                showLyricsOnClick = true,
+                                customMediaMetadata = mediaMetadata
+                            )
+                        } else {
+                            val thumbnailLazyGridState = rememberLazyGridState()
+                            val currentItem by remember { derivedStateOf { thumbnailLazyGridState.firstVisibleItemIndex } }
+                            val itemScrollOffset by remember { derivedStateOf { thumbnailLazyGridState.firstVisibleItemScrollOffset } }
+
+                            LaunchedEffect(itemScrollOffset) {
+                                if (!thumbnailLazyGridState.isScrollInProgress || itemScrollOffset != 0) return@LaunchedEffect
+
+                                if (currentItem > currentMediaIndex)
+                                    playerConnection.player.seekToNext()
+                                else if (currentItem < currentMediaIndex)
+                                    playerConnection.player.seekToPreviousMediaItem()
+                            }
+
+                            LaunchedEffect(mediaMetadata, canSkipPrevious, canSkipNext) {
+                                // When the media item changes, scroll to it
+                                val index = maxOf(0, currentMediaIndex)
+
+                                // Only animate scroll when player expanded, otherwise animated scroll won't work
+                                if (state.isExpanded)
+                                    thumbnailLazyGridState.animateScrollToItem(index)
+                                else
+                                    thumbnailLazyGridState.scrollToItem(index)
+                            }
+
+                            val horizontalLazyGridItemWidthFactor = 1f
+                            val thumbnailSnapLayoutInfoProvider = remember(thumbnailLazyGridState) {
+                                SnapLayoutInfoProvider(
+                                    lazyGridState = thumbnailLazyGridState,
+                                    positionInLayout = { layoutSize, itemSize ->
+                                        (layoutSize * horizontalLazyGridItemWidthFactor / 2f - itemSize / 2f)
+                                    }
+                                )
+                            }
+                            val horizontalLazyGridItemWidth = maxWidth * horizontalLazyGridItemWidthFactor
+
+
+                            LazyHorizontalGrid(
+                                state = thumbnailLazyGridState,
+                                rows = GridCells.Fixed(1),
+                                contentPadding = PaddingValues(vertical = 16.dp),
+                                flingBehavior = rememberSnapFlingBehavior(thumbnailSnapLayoutInfoProvider),
+                                userScrollEnabled = state.isExpanded && swipeToSkip
+                            ) {
+                                items(
+                                    items = mediaItems,
+                                    key = { it.id }
+                                ) {
+                                    Thumbnail(
+                                        sliderPositionProvider = { sliderPosition },
+                                        modifier = Modifier
+                                            .width(horizontalLazyGridItemWidth)
+                                            .animateContentSize(),
+                                        showLyricsOnClick = true,
+                                        customMediaMetadata = it
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            // "percentage to half width", not "percentage of width"
+                            .weight(if (showLyrics) 0.65f else 1f, false)
+                            .animateContentSize()
+                            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
+                            // Only this column dodges the queue sheet's peek; the artwork does not
+                            // need to, since the arrow is centred on the window and never reaches
+                            // the artwork's half.
+                            .padding(bottom = queueSheetState.collapsedBound)
+                    ) {
+                        // Like/more sit at the very top of the column rather than riding the
+                        // centred block, so they line up with the top of the artwork.
                         Row(
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = hPadding, end = hPadding, bottom = 16.dp)
+                                .padding(horizontal = hPadding)
                         ) {
                             actionButtons()
                         }
-                    }
 
-                    Row(
-                        horizontalArrangement = Arrangement.Start,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = hPadding)
-                    ) {
-                        Row {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = mediaMetadata.title,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontSize = titleSize,
-                                    color = onBackgroundColor,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .basicMarquee(
-                                            iterations = 1,
-                                            initialDelayMillis = 3000
-                                        )
-                                        .clickable(enabled = mediaMetadata.album != null) {
-                                            navController.navigate("album/${mediaMetadata.album!!.id}")
-                                            state.collapseSoft()
-                                        }
-                                )
-
-                                Row {
-                                    mediaMetadata.artists.fastForEachIndexed { index, artist ->
-                                        Text(
-                                            text = artist.name,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontSize = artistSize,
-                                            color = onBackgroundColor,
-                                            maxLines = 1,
-                                            modifier = Modifier
-                                                .basicMarquee(
-                                                    iterations = 1,
-                                                    initialDelayMillis = 5000
-                                                )
-                                                .clickable(enabled = artist.id != null) {
-                                                    navController.navigate("artist/${artist.id}")
-                                                    state.collapseSoft()
-                                                }
-                                        )
-
-                                        if (index != mediaMetadata.artists.lastIndex) {
-                                            Text(
-                                                text = ", ",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                fontSize = artistSize,
-                                                color = onBackgroundColor
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            // action buttons for portrait (inline with title)
-                            if (LocalConfiguration.current.orientation != Configuration.ORIENTATION_LANDSCAPE && !tabMode) {
-                                actionButtons()
-                            }
-                        }
-                    }
-
-                    Slider(
-                        value = (sliderPosition ?: position).toFloat(),
-                        valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
-                        onValueChange = {
-                            sliderPosition = it.toLong()
-                            // slider too granular for this haptic to feel right
-    //                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                        },
-                        onValueChangeFinished = {
-                            sliderPosition?.let {
-                                playerConnection.player.seekTo(it)
-                                position = it
-                            }
-                            sliderPosition = null
-                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                        },
-                        thumb = { Spacer(modifier = Modifier.size(0.dp)) },
-                        track = { sliderState ->
-                            PlayerSliderTrack(
-                                sliderState = sliderState,
-                                colors = SliderDefaults.colors()
-                            )
-                        },
-                        modifier = Modifier.padding(horizontal = hPadding)
-                    )
-
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = hPadding + 4.dp)
-                    ) {
-                        Text(
-                            text = makeTimeString(sliderPosition ?: position),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = onBackgroundColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-
-                        Text(
-                            text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = onBackgroundColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-
-                    Spacer(Modifier.height(12.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = hPadding)
-                    ) {
-                        val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
-
-                        Box(modifier = Modifier.weight(1f)) {
-                            ResizableIconButton(
-                                icon = if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
-                                modifier = Modifier
-                                    .size(transportIconSize)
-                                    .padding(4.dp)
-                                    .align(Alignment.Center),
-                                color = onBackgroundColor,
-                                enabled = playerConnection.player.currentMediaItem != null,
-                                onClick = {
-                                    playerConnection.triggerShuffle()
-                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                                }
-                            )
-                        }
-
-                        Box(modifier = Modifier.weight(1f)) {
-                            ResizableIconButton(
-                                icon = Icons.Rounded.SkipPrevious,
-                                enabled = canSkipPrevious,
-                                modifier = Modifier
-                                    .size(transportIconSize)
-                                    .align(Alignment.Center),
-                                color = onBackgroundColor,
-                                onClick = {
-                                    if (playerConnection.player.currentMediaItem == null) {
-                                        playerConnection.service.queueBoard.setCurrQueue()
-                                    }
-                                    playerConnection.player.seekToPrevious()
-                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                                }
-                            )
-                        }
-
-                        if (seekIncrement != SeekIncrement.OFF) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                ResizableIconButton(
-                                    icon = Icons.Rounded.FastRewind,
-                                    modifier = Modifier
-                                        .size(transportIconSize)
-                                        .align(Alignment.Center),
-                                    color = onBackgroundColor,
-                                    enabled = playerConnection.player.currentMediaItem != null,
-                                    onClick = {
-                                        playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
-                                    }
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.width(8.dp))
-
-                        Box(
-                            modifier = Modifier
-                                .size(playButtonSize)
-                                .animateContentSize()
-                                .clip(RoundedCornerShape(playPauseRoundness))
-                                .background(MaterialTheme.colorScheme.primary)
-                                .clickable {
-                                    if (playerConnection.player.currentMediaItem == null) {
-                                        playerConnection.service.queueBoard.setCurrQueue()
-                                        playerConnection.player.togglePlayPause()
-                                    } else if (playbackState == STATE_ENDED) {
-                                        playerConnection.player.seekTo(0, 0)
-                                        playerConnection.player.playWhenReady = true
-                                    } else {
-                                        playerConnection.player.togglePlayPause()
-                                    }
-                                    // play/pause is slightly harder haptic
-                                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                                }
-                        ) {
-                            Image(
-                                imageVector = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                                contentDescription = null,
-                                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
-                                modifier = Modifier
-                                    .align(Alignment.Center)
-                                    .size(36.dp)
-                            )
-                        }
-
-                        Spacer(Modifier.width(8.dp))
-
-                        if (seekIncrement != SeekIncrement.OFF) {
-                            Box(modifier = Modifier.weight(1f)) {
-                                ResizableIconButton(
-                                    icon = Icons.Rounded.FastForward,
-                                    modifier = Modifier
-                                        .size(transportIconSize)
-                                        .align(Alignment.Center),
-                                    color = onBackgroundColor,
-                                    enabled = playerConnection.player.currentMediaItem != null,
-                                    onClick = {
-                                        //ExoPlayer seek increment can only be set in builder
-                                        //playerConnection.player.seekForward()
-                                        playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
-                                    }
-                                )
-                            }
-                        }
-
-
-
-                        Box(modifier = Modifier.weight(1f)) {
-                            ResizableIconButton(
-                                icon = Icons.Rounded.SkipNext,
-                                enabled = canSkipNext,
-                                modifier = Modifier
-                                    .size(transportIconSize)
-                                    .align(Alignment.Center),
-                                color = onBackgroundColor,
-                                onClick = {
-                                    playerConnection.player.seekToNext()
-                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                                }
-                            )
-                        }
-
-                        Box(modifier = Modifier.weight(1f)) {
-                            ResizableIconButton(
-                                icon = when (repeatMode) {
-                                    REPEAT_MODE_OFF -> R.drawable.repeat_off
-                                    REPEAT_MODE_ALL -> R.drawable.repeat_on
-                                    REPEAT_MODE_ONE -> R.drawable.repeat_one
-                                    else -> throw IllegalStateException()
-                                },
-                                modifier = Modifier
-                                    .size(transportIconSize)
-                                    .padding(4.dp)
-                                    .align(Alignment.Center),
-                                color = onBackgroundColor,
-                                enabled = playerConnection.player.currentMediaItem != null,
-                                onClick = {
-                                    playerConnection.player.toggleRepeatMode()
-                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                                }
-                            )
-                        }
-                    }
-                }
-
-
-                if (LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE && !tabMode && wideScreen) {
-                    val vPadding = max(
-                        WindowInsets.safeDrawing.getTop(LocalDensity.current),
-                        WindowInsets.safeDrawing.getBottom(LocalDensity.current)
-                    )
-                    // Floor this. It is derived from safeDrawing, which collapses to zero once the
-                    // system bars are hidden, and with no floor the artwork expands flush to the top
-                    // edge and its rounded corners get clipped by the display.
-                    val vPaddingDp = with(LocalDensity.current) { vPadding.toDp() }.coerceAtLeast(16.dp)
-                    val verticalInsets = WindowInsets(left = 0.dp, top = vPaddingDp, right = 0.dp, bottom = vPaddingDp)
-                    Row(
-                        modifier = Modifier
-                            .windowInsetsPadding(
-                                WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).add(verticalInsets)
-                            )
-                            .fillMaxSize()
-                    ) {
-                        // The queue sheet's peek is reserved on the controls column alone, not on this
-                        // Row. The arrow is horizontally centred on the window, well clear of the
-                        // artwork's half, so making the artwork dodge it vertically only wasted height.
-                        // CenterStart rather than Center: the artwork hugs the inner edge instead of
-                        // floating in the middle of its half.
-                        BoxWithConstraints(
-                            contentAlignment = Alignment.CenterStart,
-                            modifier = Modifier
-                                .weight(1f)
-                                .nestedScroll(state.preUpPostDownNestedScrollConnection)
-                        ) {
-                            Log.v(TAG, "PLR-3.2a")
-                            if (!swipeToSkip) {
-                                Thumbnail(
-                                    sliderPositionProvider = { sliderPosition },
-                                    modifier = Modifier
-    //                                .width(horizontalLazyGridItemWidth)
-                                        .animateContentSize(),
-                                    showLyricsOnClick = true,
-                                    customMediaMetadata = mediaMetadata
-                                )
-                            } else {
-                                val thumbnailLazyGridState = rememberLazyGridState()
-                                val currentItem by remember { derivedStateOf { thumbnailLazyGridState.firstVisibleItemIndex } }
-                                val itemScrollOffset by remember { derivedStateOf { thumbnailLazyGridState.firstVisibleItemScrollOffset } }
-
-                                LaunchedEffect(itemScrollOffset) {
-                                    if (!thumbnailLazyGridState.isScrollInProgress || itemScrollOffset != 0) return@LaunchedEffect
-
-                                    if (currentItem > currentMediaIndex)
-                                        playerConnection.player.seekToNext()
-                                    else if (currentItem < currentMediaIndex)
-                                        playerConnection.player.seekToPreviousMediaItem()
-                                }
-
-                                LaunchedEffect(mediaMetadata, canSkipPrevious, canSkipNext) {
-                                    // When the media item changes, scroll to it
-                                    val index = maxOf(0, currentMediaIndex)
-
-                                    // Only animate scroll when player expanded, otherwise animated scroll won't work
-                                    if (state.isExpanded)
-                                        thumbnailLazyGridState.animateScrollToItem(index)
-                                    else
-                                        thumbnailLazyGridState.scrollToItem(index)
-                                }
-
-                                val horizontalLazyGridItemWidthFactor = 1f
-                                val thumbnailSnapLayoutInfoProvider = remember(thumbnailLazyGridState) {
-                                    SnapLayoutInfoProvider(
-                                        lazyGridState = thumbnailLazyGridState,
-                                        positionInLayout = { layoutSize, itemSize ->
-                                            (layoutSize * horizontalLazyGridItemWidthFactor / 2f - itemSize / 2f)
-                                        }
-                                    )
-                                }
-                                val horizontalLazyGridItemWidth = maxWidth * horizontalLazyGridItemWidthFactor
-
-
-                                LazyHorizontalGrid(
-                                    state = thumbnailLazyGridState,
-                                    rows = GridCells.Fixed(1),
-                                    contentPadding = PaddingValues(vertical = 16.dp),
-                                    flingBehavior = rememberSnapFlingBehavior(thumbnailSnapLayoutInfoProvider),
-                                    userScrollEnabled = state.isExpanded && swipeToSkip
-                                ) {
-                                    items(
-                                        items = mediaItems,
-                                        key = { it.id }
-                                    ) {
-                                        Thumbnail(
-                                            sliderPositionProvider = { sliderPosition },
-                                            modifier = Modifier
-                                                .width(horizontalLazyGridItemWidth)
-                                                .animateContentSize(),
-                                            showLyricsOnClick = true,
-                                            customMediaMetadata = it
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                // "percentage to half width", not "percentage of width"
-                                .weight(if (showLyrics) 0.65f else 1f, false)
-                                .animateContentSize()
-                                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
-                                // Only this column dodges the queue sheet's peek; the artwork does not
-                                // need to, since the arrow is centred on the window and never reaches
-                                // the artwork's half.
-                                .padding(bottom = queueSheetState.collapsedBound)
-                        ) {
-                            // Like/more sit at the very top of the column rather than riding the
-                            // centred block, so they line up with the top of the artwork.
-                            Row(
-                                horizontalArrangement = Arrangement.End,
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = hPadding)
-                            ) {
-                                actionButtons()
-                            }
-
-                            Spacer(Modifier.weight(1f))
-
-                            mediaMetadata?.let {
-                                controlsContent(it)
-                            }
-
-                            Spacer(Modifier.weight(1f))
-                        }
-                    }
-                } else {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
-                            .padding(bottom = queueSheetState.collapsedBound)
-                    ) {
-                        BoxWithConstraints(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .weight(1f)
-                                .nestedScroll(state.preUpPostDownNestedScrollConnection)
-                        ) {
-                            Log.v(TAG, "PLR-3.2b")
-                            if (!swipeToSkip) {
-                                Thumbnail(
-                                    modifier = Modifier
-    //                                .width(horizontalLazyGridItemWidth)
-                                        .animateContentSize(),
-                                    sliderPositionProvider = { sliderPosition },
-                                    showLyricsOnClick = true,
-                                    customMediaMetadata = mediaMetadata
-                                )
-                            } else {
-                                val thumbnailLazyGridState = rememberLazyGridState()
-                                val currentItem by remember { derivedStateOf { thumbnailLazyGridState.firstVisibleItemIndex } }
-                                val itemScrollOffset by remember { derivedStateOf { thumbnailLazyGridState.firstVisibleItemScrollOffset } }
-
-                                LaunchedEffect(itemScrollOffset) {
-                                    if (!thumbnailLazyGridState.isScrollInProgress || itemScrollOffset != 0) return@LaunchedEffect
-
-                                    if (currentItem > currentMediaIndex)
-                                        playerConnection.player.seekToNext()
-                                    else if (currentItem < currentMediaIndex)
-                                        playerConnection.player.seekToPreviousMediaItem()
-                                }
-
-                                LaunchedEffect(mediaMetadata, canSkipPrevious, canSkipNext) {
-                                    // When the media item changes, scroll to it
-                                    val index = maxOf(0, currentMediaIndex)
-
-                                    // Only animate scroll when player expanded, otherwise animated scroll won't work
-                                    if (state.isExpanded)
-                                        thumbnailLazyGridState.animateScrollToItem(index)
-                                    else
-                                        thumbnailLazyGridState.scrollToItem(index)
-                                }
-
-                                val horizontalLazyGridItemWidthFactor = 1f
-                                val thumbnailSnapLayoutInfoProvider = remember(thumbnailLazyGridState) {
-                                    SnapLayoutInfoProvider(
-                                        lazyGridState = thumbnailLazyGridState,
-                                        positionInLayout = { layoutSize, itemSize ->
-                                            (layoutSize * horizontalLazyGridItemWidthFactor / 2f - itemSize / 2f)
-                                        }
-                                    )
-                                }
-                                val horizontalLazyGridItemWidth = maxWidth * horizontalLazyGridItemWidthFactor
-
-                                LazyHorizontalGrid(
-                                    state = thumbnailLazyGridState,
-                                    rows = GridCells.Fixed(1),
-                                    flingBehavior = rememberSnapFlingBehavior(thumbnailSnapLayoutInfoProvider),
-                                    userScrollEnabled = swipeToSkip && state.isExpanded,
-                                    modifier = Modifier.padding(vertical = QueuePeekHeight / 2)
-                                ) {
-                                    items(
-                                        items = mediaItems,
-                                        key = { it.id }
-                                    ) {
-                                        Thumbnail(
-                                            modifier = Modifier
-                                                .width(horizontalLazyGridItemWidth)
-                                                .animateContentSize(),
-                                            sliderPositionProvider = { sliderPosition },
-                                            showLyricsOnClick = true,
-                                            customMediaMetadata = it
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        Spacer(Modifier.weight(1f))
 
                         mediaMetadata?.let {
                             controlsContent(it)
                         }
 
-                        Spacer(Modifier.height(24.dp))
+                        Spacer(Modifier.weight(1f))
                     }
                 }
+            } else {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
+                        .padding(bottom = queueSheetState.collapsedBound)
+                ) {
+                    BoxWithConstraints(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .nestedScroll(state.preUpPostDownNestedScrollConnection)
+                    ) {
+                        Log.v(TAG, "PLR-3.2b")
+                        if (!swipeToSkip) {
+                            Thumbnail(
+                                modifier = Modifier
+//                                .width(horizontalLazyGridItemWidth)
+                                    .animateContentSize(),
+                                sliderPositionProvider = { sliderPosition },
+                                showLyricsOnClick = true,
+                                customMediaMetadata = mediaMetadata
+                            )
+                        } else {
+                            val thumbnailLazyGridState = rememberLazyGridState()
+                            val currentItem by remember { derivedStateOf { thumbnailLazyGridState.firstVisibleItemIndex } }
+                            val itemScrollOffset by remember { derivedStateOf { thumbnailLazyGridState.firstVisibleItemScrollOffset } }
 
+                            LaunchedEffect(itemScrollOffset) {
+                                if (!thumbnailLazyGridState.isScrollInProgress || itemScrollOffset != 0) return@LaunchedEffect
+
+                                if (currentItem > currentMediaIndex)
+                                    playerConnection.player.seekToNext()
+                                else if (currentItem < currentMediaIndex)
+                                    playerConnection.player.seekToPreviousMediaItem()
+                            }
+
+                            LaunchedEffect(mediaMetadata, canSkipPrevious, canSkipNext) {
+                                // When the media item changes, scroll to it
+                                val index = maxOf(0, currentMediaIndex)
+
+                                // Only animate scroll when player expanded, otherwise animated scroll won't work
+                                if (state.isExpanded)
+                                    thumbnailLazyGridState.animateScrollToItem(index)
+                                else
+                                    thumbnailLazyGridState.scrollToItem(index)
+                            }
+
+                            val horizontalLazyGridItemWidthFactor = 1f
+                            val thumbnailSnapLayoutInfoProvider = remember(thumbnailLazyGridState) {
+                                SnapLayoutInfoProvider(
+                                    lazyGridState = thumbnailLazyGridState,
+                                    positionInLayout = { layoutSize, itemSize ->
+                                        (layoutSize * horizontalLazyGridItemWidthFactor / 2f - itemSize / 2f)
+                                    }
+                                )
+                            }
+                            val horizontalLazyGridItemWidth = maxWidth * horizontalLazyGridItemWidthFactor
+
+                            LazyHorizontalGrid(
+                                state = thumbnailLazyGridState,
+                                rows = GridCells.Fixed(1),
+                                flingBehavior = rememberSnapFlingBehavior(thumbnailSnapLayoutInfoProvider),
+                                userScrollEnabled = swipeToSkip && state.isExpanded,
+                                modifier = Modifier.padding(vertical = QueuePeekHeight / 2)
+                            ) {
+                                items(
+                                    items = mediaItems,
+                                    key = { it.id }
+                                ) {
+                                    Thumbnail(
+                                        modifier = Modifier
+                                            .width(horizontalLazyGridItemWidth)
+                                            .animateContentSize(),
+                                        sliderPositionProvider = { sliderPosition },
+                                        showLyricsOnClick = true,
+                                        customMediaMetadata = it
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    mediaMetadata?.let {
+                        controlsContent(it)
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+                }
             }
-            lol()
 
-            QueueSheet(
-                state = queueSheetState,
-                playerBottomSheetState = state,
-                onTerminate = {
-                    state.dismiss()
-                    playerConnection.service.queueBoard.detachedHead = false
-                },
-                onBackgroundColor = onBackgroundColor,
-                navController = navController
-            )
         }
+        lol()
+
+        QueueSheet(
+            state = queueSheetState,
+            playerBottomSheetState = state,
+            onTerminate = {
+                state.dismiss()
+                playerConnection.service.queueBoard.detachedHead = false
+            },
+            onBackgroundColor = onBackgroundColor,
+            navController = navController
+        )
     }
 }
