@@ -29,8 +29,8 @@ android {
         applicationId = "dev.skye.intertune"
         minSdk = 24
         targetSdk = 36
-        versionCode = 71
-        versionName = "0.10.1"
+        versionCode = 72
+        versionName = "0.10.1-2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
