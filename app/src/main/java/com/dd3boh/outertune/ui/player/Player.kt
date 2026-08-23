@@ -91,6 +91,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -108,6 +109,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEachIndexed
+import androidx.compose.ui.util.lerp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -138,6 +140,8 @@ import com.dd3boh.outertune.constants.SeekIncrement
 import com.dd3boh.outertune.constants.SeekIncrementKey
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SwipeToSkipKey
+import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
+import com.dd3boh.outertune.constants.PlayerGlassKey
 import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.supportsWideScreen
@@ -207,6 +211,9 @@ fun BottomSheetPlayer(
         key = PlayerBackgroundStyleKey,
         defaultValue = DEFAULT_PLAYER_BACKGROUND
     )
+
+    val glassEnabled by rememberPreference(PlayerGlassKey, defaultValue = false)
+    val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
 
     val seekIncrement by rememberEnumPreference(
         key = SeekIncrementKey,
@@ -376,7 +383,20 @@ fun BottomSheetPlayer(
                     .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
                     .fillMaxSize()
             ) {
-                val overlayColor = if (useDarkTheme) Color.Black.copy(alpha = 0.4f) else Color.White.copy(alpha = 0.55f)
+                // "Glass" look, requested in upstream #1282. The one-off
+                // pre_rel-0.10.1-b1-glass build differed from stock only in this background: it
+                // dropped the flat overlay wash, halved the gradient, put the blurred artwork at
+                // half alpha and used a single blur radius. Rather than ship a second app, all four
+                // are interpolated by `glassIntensity`, so 0f reproduces stock 0.10.1 exactly and
+                // 1f reproduces that build exactly.
+                val glassT = if (glassEnabled) glassIntensity.coerceIn(0f, 1f) else 0f
+
+                val stockOverlayAlpha = if (useDarkTheme) 0.4f else 0.55f
+                val overlayColor = (if (useDarkTheme) Color.Black else Color.White)
+                    .copy(alpha = lerp(stockOverlayAlpha, 0f, glassT))
+                val artworkAlpha = lerp(1f, 0.5f, glassT)
+                val gradientAlpha = lerp(0.8f, 0.4f, glassT)
+                val blurRadius = lerp(if (useDarkTheme) 150f else 100f, 100f, glassT).dp
                 AnimatedContent(
                     targetState = mediaMetadata,
                     transitionSpec = {
@@ -391,7 +411,8 @@ fun BottomSheetPlayer(
                             contentScale = ContentScale.FillBounds,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .blur(if (useDarkTheme) 150.dp else 100.dp)
+                                .blur(blurRadius)
+                                .alpha(artworkAlpha)
                         )
 
                         Box(
@@ -413,7 +434,7 @@ fun BottomSheetPlayer(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(Brush.verticalGradient(colors), alpha = 0.8f)
+                                .background(Brush.verticalGradient(colors), alpha = gradientAlpha)
                         )
                         Box(
                             modifier = Modifier
