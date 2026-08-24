@@ -260,11 +260,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="clear_image_cache_confirm">Are you sure you want to clear image cache? All exiting album thumbnails will be removed.</string>
     <string name="clear_song_cache_confirm">Are you sure you want to clear song cache?</string>
     <string name="dl_calculate_size">Tap to calculate download size</string>
-    <string name="player_glass">Glass player background</string>
+    <string name="player_glass">Vivid player background</string>
     <string name="player_liquid_glass">Liquid glass</string>
-    <string name="player_liquid_glass_description">Refract the artwork through the transport controls, like a pane of glass. Uses the intensity above. Android 13 and above</string>
-    <string name="player_glass_description">Drop the flat overlay behind the player so the artwork colours come through. Needs the background style above to be Gradient or Blur</string>
-    <string name="player_glass_intensity_value">Intensity: %1$d%%</string>
+    <string name="player_liquid_glass_description">Turn the navigation bar, mini player and transport controls into floating glass panels that bend the artwork behind them. Android 13 and above</string>
+    <string name="player_glass_description">Drop the grey wash behind the now playing screen so the artwork colours come through. Needs the background style above to be Gradient or Blur</string>
+    <string name="player_glass_intensity">Glass intensity</string>
+    <string name="player_glass_intensity_description">Applies to both settings above. Higher is more see-through and more strongly refracted; lower is closer to a plain solid bar</string>
+    <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="sleep_timer_fade">Fade out before stopping</string>
     <string name="sleep_timer_fade_description">Ease the volume down as the sleep timer runs out, instead of cutting off abruptly</string>
     <string name="sleep_timer_fade_duration">Fade length</string>

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Opacity
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,7 @@ import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.constants.PlayerGlassKey
 import com.dd3boh.outertune.ui.component.EnumListPreference
+import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
@@ -137,10 +139,28 @@ fun ColumnScope.ThemePlayerFrag() {
         checked = glass,
         onCheckedChange = onGlassChange
     )
-    // Both glass features read PlayerGlassIntensityKey, so the slider has to be reachable when
-    // either is on. Gating it on the background wash alone stranded liquid glass at its default.
+    // RuntimeShader is API 33+, so there is nothing to offer below that.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        SwitchPreference(
+            title = { Text(stringResource(R.string.player_liquid_glass)) },
+            description = stringResource(R.string.player_liquid_glass_description),
+            icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+            checked = liquidGlass,
+            onCheckedChange = onChromaticShockChange
+        )
+    }
+
+    // Below BOTH toggles, not nested under the first. It drives both, and while it sat under the
+    // vivid-background switch people read it as belonging to that alone and turned it down looking
+    // for more glass, which does the opposite.
     if ((glass && glassApplies) || liquidGlass) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.player_glass_intensity)) },
+            description = stringResource(R.string.player_glass_intensity_description),
+            icon = { Icon(Icons.Rounded.Tune, null) },
+            onClick = { }
+        )
+        Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
             Text(
                 text = stringResource(
                     R.string.player_glass_intensity_value,
@@ -155,17 +175,6 @@ fun ColumnScope.ThemePlayerFrag() {
                 valueRange = 0f..1f
             )
         }
-    }
-
-    // RuntimeShader is API 33+, so there is nothing to offer below that.
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        SwitchPreference(
-            title = { Text(stringResource(R.string.player_liquid_glass)) },
-            description = stringResource(R.string.player_liquid_glass_description),
-            icon = { Icon(Icons.Rounded.AutoAwesome, null) },
-            checked = liquidGlass,
-            onCheckedChange = onChromaticShockChange
-        )
     }
 }
 
