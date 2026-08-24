@@ -86,6 +86,7 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.ExoDownloadService
@@ -405,6 +406,10 @@ fun PlayerMenu(
         BigSeekBar(
             progressProvider = playerVolume::value,
             onProgressChange = { playerConnection.service.playerVolume.value = it },
+            // Past 100% the gain is applied to the samples rather than through player.volume,
+            // which cannot exceed unity. Soft clipped, so pushing it hard compresses peaks
+            // instead of tearing them.
+            maxProgress = MAX_PLAYER_VOLUME,
             modifier = Modifier.weight(1f)
         )
     }

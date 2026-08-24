@@ -204,6 +204,13 @@ class MusicService : MediaLibraryService(),
 
     lateinit var sleepTimer: SleepTimer
 
+    /**
+     * Applies gain on the PCM stream, which is the only way to exceed unity: player.volume is
+     * clamped to [0,1]. Shared by both sink builders below so there is one instance whichever
+     * decoder path is in use.
+     */
+    val gainProcessor = GainAudioProcessor()
+
     // Player vars
     val currentMediaMetadata = MutableStateFlow<MediaMetadata?>(null)
 
@@ -312,9 +319,19 @@ class MusicService : MediaLibraryService(),
                 sleepTimer.fadeFactor
             ) { playerVolume, normalizeFactor, fadeFactor ->
                 playerVolume * normalizeFactor * fadeFactor
-            }.collectLatest(scope) {
+            }.collectLatest(scope) { total ->
+                // Split across the two places gain can be applied. player.volume is clamped to
+                // [0,1], so anything above unity has to go through the PCM processor, and anything
+                // at or below is left to the player where it is free.
+                //
+                // The split is multiplicative, not either/or: at a total of 1.6 the player runs at
+                // full and the processor supplies 1.6, while at 0.4 the processor sits at unity and
+                // does a plain copy. That keeps the processor idle for the common case.
+                val processorGain = if (total > 1f) total else 1f
+                val playerGain = if (total > 1f) 1f else total
+                gainProcessor.gain = processorGain
                 withContext(Dispatchers.Main) {
-                    player.volume = it
+                    player.volume = playerGain
                 }
             }
 
@@ -805,7 +822,7 @@ class MusicService : MediaLibraryService(),
                         .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
-                                emptyArray(),
+                                arrayOf(gainProcessor),
                                 SilenceSkippingAudioProcessor(),
                                 SonicAudioProcessor()
                             )
@@ -827,7 +844,7 @@ class MusicService : MediaLibraryService(),
                         .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
-                                emptyArray(),
+                                arrayOf(gainProcessor),
                                 SilenceSkippingAudioProcessor(),
                                 SonicAudioProcessor()
                             )
