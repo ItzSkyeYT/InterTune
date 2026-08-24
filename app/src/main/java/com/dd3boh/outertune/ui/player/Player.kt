@@ -145,6 +145,8 @@ import com.dd3boh.outertune.constants.SeekIncrement
 import com.dd3boh.outertune.constants.SeekIncrementKey
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SwipeToSkipKey
+import com.dd3boh.outertune.constants.SwipeToDismissPlayerKey
+import com.dd3boh.outertune.constants.GroupedPlayerControlsKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.extensions.isPowerSaver
@@ -220,6 +222,8 @@ fun BottomSheetPlayer(
     val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
 
     val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
+    val swipeToDismissPlayer by rememberPreference(SwipeToDismissPlayerKey, defaultValue = true)
+    val groupedControls by rememberPreference(GroupedPlayerControlsKey, defaultValue = true)
     val playerBackdrop = rememberLayerBackdrop()
 
     val seekIncrement by rememberEnumPreference(
@@ -475,9 +479,16 @@ fun BottomSheetPlayer(
         // exactly the region the dock refracts, so ~70% of what the dock would show is flat colour.
         collapsedBackgroundColor = if (liquidGlass) Color.Transparent
         else MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
-        onDismiss = {
-            playerConnection.softKillPlayer()
-        },
+        // performFling only dismisses when this is non-null and falls back to collapse() when it
+        // is not, so withholding the callback is what actually prevents the dismiss. BottomSheet
+        // reads it through rememberUpdatedState, without which toggling this at runtime would not
+        // reach the already-running gesture coroutine.
+        onDismiss = if (swipeToDismissPlayer) {
+            { playerConnection.softKillPlayer() }
+        } else null,
+        // Belt and braces on top of that: with the dismiss off, the mini player should not budge
+        // downwards either, rather than sliding away and springing back as if it were about to go.
+        pinAtCollapsed = !swipeToDismissPlayer,
         collapsedContent = {
             MiniPlayer(
                 position = position,
@@ -706,7 +717,7 @@ fun BottomSheetPlayer(
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
                     .then(
-                        if (liquidGlass) {
+                        if (liquidGlass && groupedControls) {
                             Modifier.drawBackdrop(
                                 backdrop = playerBackdrop,
                                 shape = { RoundedCornerShape(32.dp) },

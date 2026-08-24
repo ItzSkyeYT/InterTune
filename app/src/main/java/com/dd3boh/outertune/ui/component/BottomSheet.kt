@@ -33,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -72,11 +73,36 @@ fun BottomSheet(
     modifier: Modifier = Modifier,
     background: @Composable (BoxScope.() -> Unit) = { },
     onDismiss: (() -> Unit)? = null,
+    /**
+     * Stops the sheet being dragged below its collapsed height, so it does not slide away under
+     * the finger at all.
+     *
+     * Deliberately a separate flag rather than being inferred from a null [onDismiss]. Plenty of
+     * sheets are simply not dismissible, the queue sheet among them, and those should keep their
+     * existing rubber band. This is for the narrower case of a sheet that COULD be dismissed but
+     * where the user has asked for that to be switched off.
+     */
+    pinAtCollapsed: Boolean = false,
     collapsedContent: @Composable BoxScope.() -> Unit,
     collapsedBackgroundColor: Color = Color.Transparent,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val density = LocalDensity.current
+
+    /**
+     * The gesture below is keyed on [state] alone, and Compose only restarts a running pointer
+     * input coroutine when a key changes or when the handler's *class* changes (see
+     * SuspendingPointerInputModifierNodeImpl.update). Swapping [onDismiss] between a lambda and
+     * null yields a new instance of the same generated class, so the live gesture would go on
+     * invoking whichever callback it captured the first time the sheet was touched. Reading it
+     * through a State keeps the captured references stable and always current.
+     */
+    val currentOnDismiss by rememberUpdatedState(onDismiss)
+
+    // Same trap, same remedy. Captured as a raw Boolean this would be read once when the gesture
+    // coroutine starts and then never again, so toggling the setting mid-session would leave the
+    // clamp stale even though the dismiss itself had correctly switched off.
+    val currentPinAtCollapsed by rememberUpdatedState(pinAtCollapsed)
 
     Box(
         modifier = modifier
@@ -102,7 +128,15 @@ fun BottomSheet(
                 detectVerticalDragGestures(
                     onVerticalDrag = { change, dragAmount ->
                         velocityTracker.addPointerInputChange(change)
-                        state.dispatchRawDelta(dragAmount)
+                        // Pinned: downward travel is capped at collapsedBound so the sheet does
+                        // not slide away under the finger at all. Upward drags are untouched.
+                        val delta = if (currentPinAtCollapsed) {
+                            val room = (state.value - state.collapsedBound).coerceAtLeast(0.dp).toPx()
+                            dragAmount.coerceAtMost(room)
+                        } else {
+                            dragAmount
+                        }
+                        state.dispatchRawDelta(delta)
                     },
                     onDragCancel = {
                         velocityTracker.resetTracking()
@@ -111,7 +145,7 @@ fun BottomSheet(
                     onDragEnd = {
                         val velocity = -velocityTracker.calculateVelocity().y
                         velocityTracker.resetTracking()
-                        state.performFling(velocity, onDismiss)
+                        state.performFling(velocity, currentOnDismiss)
                     }
                 )
             }

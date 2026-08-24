@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.ViewAgenda
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
@@ -39,6 +40,7 @@ import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
+import com.dd3boh.outertune.constants.GroupedPlayerControlsKey
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -108,6 +110,10 @@ fun ColumnScope.ThemePlayerFrag() {
         PlayerLiquidGlassKey,
         defaultValue = false
     )
+    val (groupedControls, onGroupedControlsChange) = rememberPreference(
+        GroupedPlayerControlsKey,
+        defaultValue = true
+    )
 
     EnumListPreference(
         title = { Text(stringResource(R.string.player_background_style)) },
@@ -146,6 +152,18 @@ fun ColumnScope.ThemePlayerFrag() {
         checked = liquidGlass,
         onCheckedChange = onChromaticShockChange
     )
+
+    // Nested under the glass switch because the panel it controls IS the glass slab: with glass
+    // off there is no shared container to group anything into, so the setting would do nothing.
+    if (liquidGlass) {
+        SwitchPreference(
+            title = { Text(stringResource(R.string.grouped_player_controls)) },
+            description = stringResource(R.string.grouped_player_controls_description),
+            icon = { Icon(Icons.Rounded.ViewAgenda, null) },
+            checked = groupedControls,
+            onCheckedChange = onGroupedControlsChange
+        )
+    }
 
     // Below BOTH toggles, not nested under the first. It drives both, and while it sat under the
     // vivid-background switch people read it as belonging to that alone and turned it down looking
