@@ -127,7 +127,6 @@ object YTPlayerUtils {
             YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestamp, webPlayerPot)
                 .getOrThrow()
 
-        val audioConfig = mainPlayerResponse.playerConfig?.audioConfig
         val videoDetails = mainPlayerResponse.videoDetails
         val playbackTracking = mainPlayerResponse.playbackTracking
 
@@ -220,6 +219,21 @@ object YTPlayerUtils {
         }
 
         Log.d(TAG, "[$videoId] stream url: $streamUrl")
+
+        /**
+         * Loudness for volume normalisation.
+         *
+         * [MAIN_CLIENT] is documented above as the source of metadata, but ANDROID_VR returns no
+         * playerConfig.audioConfig at all, so taking it only from there leaves loudness null on
+         * every track and normalisation silently does nothing. The client that actually served the
+         * stream does return one, so fall back to it.
+         *
+         * Preference order matters: the main client stays first so that if it ever starts sending
+         * audioConfig again we use its numbers, since normalisation targets can differ per client
+         * and mixing a target from one with a measurement from another would be wrong.
+         */
+        val audioConfig = mainPlayerResponse.playerConfig?.audioConfig
+            ?: streamPlayerResponse.playerConfig?.audioConfig
 
         PlaybackData(
             audioConfig,
