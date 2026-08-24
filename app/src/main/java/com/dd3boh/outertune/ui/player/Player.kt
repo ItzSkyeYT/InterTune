@@ -338,7 +338,28 @@ fun BottomSheetPlayer(
         initialAnchor = 1
     )
 
-    val immersiveLandscape = isLandscape && state.isExpanded
+    /**
+     * Whether landscape is in lean-back mode, with the system bars hidden.
+     *
+     * Latched rather than derived straight from `state.isExpanded`, which is true only at the exact
+     * expanded bound and therefore flips false on the very first pixel of a drag. That put the
+     * system bars back mid-gesture, and since they carry window insets the entire player relaid out
+     * underneath the finger: the artwork visibly disappeared the moment you started dragging and
+     * came back smaller. The same thing happened in reverse while opening.
+     *
+     * So: enter when fully expanded, leave only once the sheet has actually settled at collapsed or
+     * dismissed, and hold the current value for everything in between. Insets then change once, at
+     * a moment when the layout is already changing anyway, instead of twice per gesture.
+     */
+    var immersiveLandscape by remember { mutableStateOf(false) }
+    LaunchedEffect(isLandscape, state.isExpanded, state.isCollapsed, state.isDismissed) {
+        immersiveLandscape = when {
+            !isLandscape -> false
+            state.isExpanded -> true
+            state.isCollapsed || state.isDismissed -> false
+            else -> immersiveLandscape // mid-drag, hold
+        }
+    }
 
     /**
      * Landscape with the player open is a lean-back "now playing" mode: hide the system bars, since
