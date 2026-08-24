@@ -12,6 +12,9 @@ package com.dd3boh.outertune.ui.player
 import android.annotation.SuppressLint
 import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.clickable
@@ -51,6 +54,21 @@ import com.dd3boh.outertune.ui.component.Lyrics
 import com.dd3boh.outertune.utils.rememberPreference
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
+/**
+ * Crossfade timings for the artwork / lyrics / error swap.
+ *
+ * The three states share one Box, so their fades run at the same time. Bare fadeIn()/fadeOut() both
+ * use the same default curve and duration, which makes the outgoing view still be at half opacity
+ * while the incoming one is also at half, and the swap reads as a flicker rather than a fade. The
+ * incoming view is given a slower, decelerating curve and the outgoing one a quicker accelerating
+ * curve, so the old view clears out of the way before the new one arrives.
+ *
+ * Deliberately local to this file: the bottom sheet's own transitions are already tuned and are not
+ * touched.
+ */
+private val ThumbnailEnter = fadeIn(tween(durationMillis = 320, easing = LinearOutSlowInEasing))
+private val ThumbnailExit = fadeOut(tween(durationMillis = 180, easing = FastOutLinearInEasing))
+
 @Composable
 fun Thumbnail(
     sliderPositionProvider: () -> Long?,
@@ -76,8 +94,8 @@ fun Thumbnail(
     Box(modifier = modifier) {
         AnimatedVisibility(
             visible = !showLyrics && error == null,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = ThumbnailEnter,
+            exit = ThumbnailExit,
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
@@ -130,16 +148,26 @@ fun Thumbnail(
 
         AnimatedVisibility(
             visible = showLyrics && error == null,
-            enter = fadeIn(),
-            exit = fadeOut()
+            enter = ThumbnailEnter,
+            exit = ThumbnailExit
         ) {
-            Lyrics(sliderPositionProvider = sliderPositionProvider)
+            Lyrics(
+                sliderPositionProvider = sliderPositionProvider,
+                // Same gesture that opened it closes it again. Only wired when tapping the artwork
+                // is what toggles lyrics in the first place, so the two stay symmetrical.
+                onNoLyricsClick = if (showLyricsOnClick) {
+                    {
+                        showLyrics = false
+                        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                    }
+                } else null
+            )
         }
 
         AnimatedVisibility(
             visible = error != null,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = ThumbnailEnter,
+            exit = ThumbnailExit,
         ) {
             error?.let { error ->
                 ThumbnailPlaybackError(

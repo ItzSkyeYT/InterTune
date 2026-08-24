@@ -110,3 +110,7 @@ lint/tmp/
 # Personal library backups pulled from the device for local testing.
 # These contain the user's listening data and must never reach the public fork.
 .local-backups/
+
+# Private working notes. Contains internal paths, unreleased plans and notes on
+# other people's projects. Must never reach the public fork.
+TODO.md
