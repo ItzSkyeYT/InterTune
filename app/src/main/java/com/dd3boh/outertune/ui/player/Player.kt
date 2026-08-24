@@ -147,7 +147,6 @@ import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SwipeToSkipKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
-import com.dd3boh.outertune.constants.PlayerGlassKey
 import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.supportsWideScreen
@@ -218,7 +217,6 @@ fun BottomSheetPlayer(
         defaultValue = DEFAULT_PLAYER_BACKGROUND
     )
 
-    val glassEnabled by rememberPreference(PlayerGlassKey, defaultValue = false)
     val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
 
     val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
@@ -406,7 +404,9 @@ fun BottomSheetPlayer(
                 // half alpha and used a single blur radius. Rather than ship a second app, all four
                 // are interpolated by `glassIntensity`, so 0f reproduces stock 0.10.1 exactly and
                 // 1f reproduces that build exactly.
-                val glassT = if (glassEnabled) glassIntensity.coerceIn(0f, 1f) else 0f
+                // Rides the single Liquid glass switch. This half needs no RuntimeShader, so it
+                // still works below API 33 where the refraction cannot.
+                val glassT = if (liquidGlass) glassIntensity.coerceIn(0f, 1f) else 0f
 
                 val stockOverlayAlpha = if (useDarkTheme) 0.4f else 0.55f
                 val overlayColor = (if (useDarkTheme) Color.Black else Color.White)
