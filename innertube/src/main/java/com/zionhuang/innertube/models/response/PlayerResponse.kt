@@ -32,7 +32,33 @@ data class PlayerResponse(
         data class AudioConfig(
             val loudnessDb: Double?,
             val perceptualLoudnessDb: Double?,
-        )
+            val loudnessTargetLkfs: Double? = null,
+        ) {
+            /**
+             * Loudness above YouTube's normalisation target, in dB, which is what the player needs
+             * to attenuate by. Positive means the track is louder than target.
+             *
+             * YouTube stopped sending `loudnessDb` and now sends `perceptualLoudnessDb` measured
+             * against `loudnessTargetLkfs` instead, so reading only the old field silently yields
+             * null and normalisation quietly does nothing.
+             *
+             * The two are related by `loudnessDb = perceptualLoudnessDb - loudnessTargetLkfs`.
+             * Verified against real data rather than inferred: for wAoq__SQpwk the API now returns
+             * perceptualLoudnessDb -7.73 with target -14, and the value stored back when the old
+             * field still existed was 6.27; for yauDRYS_bnk, -7.95 and -14 against a stored 6.05.
+             * Both match exactly.
+             *
+             * Target defaults to -14 LKFS, which is what YouTube has used throughout and what both
+             * probes returned, so a response that omits it still normalises correctly.
+             */
+            val effectiveLoudnessDb: Double?
+                get() = loudnessDb
+                    ?: perceptualLoudnessDb?.minus(loudnessTargetLkfs ?: DEFAULT_LOUDNESS_TARGET_LKFS)
+
+            companion object {
+                const val DEFAULT_LOUDNESS_TARGET_LKFS = -14.0
+            }
+        }
     }
 
     @Serializable

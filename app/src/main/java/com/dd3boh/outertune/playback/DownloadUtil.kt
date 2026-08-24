@@ -124,7 +124,7 @@ class DownloadUtil @Inject constructor(
                     bitrate = format.bitrate,
                     sampleRate = format.audioSampleRate,
                     contentLength = format.contentLength!!,
-                    loudnessDb = playbackData.audioConfig?.loudnessDb,
+                    loudnessDb = playbackData.audioConfig?.effectiveLoudnessDb,
                     playbackTrackingUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
                 )
             )
