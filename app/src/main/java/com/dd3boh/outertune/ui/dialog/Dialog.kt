@@ -396,43 +396,6 @@ fun CounterDialog(
                     )
                 }
 
-                // plus minus buttons
-                Row(
-                    horizontalArrangement = Arrangement.End,
-                    modifier = Modifier
-                        .padding(horizontal = 8.dp)
-                        .fillMaxWidth()
-                ) {
-                    IconButton(
-                        onClick = {
-                            if (tempValue.intValue < upperBound) {
-                                tempValue.intValue += 1
-                            }
-                        },
-                    ) {
-                        Text(
-                            text = "+",
-//                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                    }
-
-
-                    IconButton(
-                        onClick = {
-                            if (tempValue.intValue > lowerBound) {
-                                tempValue.intValue -= 1
-                            }
-                        },
-                    ) {
-                        Text(
-                            text = "—",
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                    }
-                }
-
                 // slider and value display
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

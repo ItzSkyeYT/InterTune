@@ -15,6 +15,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -113,6 +114,12 @@ import kotlin.time.Duration.Companion.seconds
 fun Lyrics(
     sliderPositionProvider: () -> Long?,
     modifier: Modifier = Modifier,
+    /**
+     * Invoked when the user taps the "lyrics not found" state. There is nothing to read and nothing
+     * to seek to, so the tap that got them here should also get them back to the artwork rather
+     * than leaving them on a dead screen that only the menu can escape.
+     */
+    onNoLyricsClick: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -417,20 +424,35 @@ fun Lyrics(
         }
 
         if (lyricsModel == uninitializedLyric) {
-            Text(
-                text = stringResource(R.string.lyrics_not_found),
-                fontSize = lyricsFontSize.sp,
-                color = textColor,
-                textAlign = when (lyricsTextPosition) {
-                    LyricsPosition.LEFT -> TextAlign.Left
-                    LyricsPosition.CENTER -> TextAlign.Center
-                    LyricsPosition.RIGHT -> TextAlign.Right
-                },
-                fontWeight = FontWeight.Bold,
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp)
-            )
+                    .fillMaxSize()
+                    .then(
+                        if (onNoLyricsClick != null) {
+                            Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onNoLyricsClick
+                            )
+                        } else Modifier
+                    )
+            ) {
+                Text(
+                    text = stringResource(R.string.lyrics_not_found),
+                    fontSize = lyricsFontSize.sp,
+                    color = textColor,
+                    textAlign = when (lyricsTextPosition) {
+                        LyricsPosition.LEFT -> TextAlign.Left
+                        LyricsPosition.CENTER -> TextAlign.Center
+                        LyricsPosition.RIGHT -> TextAlign.Right
+                    },
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 8.dp)
+                )
+            }
         }
 
         mediaMetadata?.let { mediaMetadata ->
