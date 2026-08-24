@@ -39,44 +39,51 @@ val LocalAppBackdrop = staticCompositionLocalOf<LayerBackdrop?> { null }
  * Resolved glass parameters, so every surface derives its numbers the same way instead of each
  * hard-coding its own.
  *
- * Both derived from the single existing intensity slider. A separate frost control was tried and
- * dropped: the two move together in practice, since a panel that bends the backdrop harder also
- * needs to obscure more of it to stay readable, and two sliders for one visual idea is worse than
- * one that does the obvious thing.
+ * Both derived from the single intensity slider, which means "how much glass", so turning it up
+ * makes the panel MORE glassy: more transparent and more strongly refracted. That direction matters.
+ * It used to run the other way, where 100% produced a solid opaque bar, which is the least glassy
+ * thing the panel can be. Two separate users read that as the effect being broken and turned the
+ * slider down to 0 looking for more glass, getting panels so clear that text behind them collided
+ * with the text on them.
  *
- *  - [refraction] is how hard the lens bends the backdrop at the panel rim.
- *  - [frost] is how much the panel obscures what is behind it: tint opacity plus blur radius.
+ *  - [refraction] is how hard the lens bends the backdrop at the panel rim. Rises with intensity.
+ *  - [frost] is how much the panel obscures what is behind it. FALLS as intensity rises.
  */
 @Immutable
 data class GlassSpec(
     val backdrop: LayerBackdrop,
-    val refraction: Float,
+    /** The user's "glass intensity", 0..1. 0 is almost the solid bar, 1 is as glassy as it gets. */
+    val intensity: Float,
 ) {
-    /**
-     * Frosting tracks refraction, but not linearly: it ramps in faster at the bottom of the range,
-     * because the readability cost of a clear panel shows up long before the lens looks strong.
-     */
-    val frost: Float get() = kotlin.math.sqrt(refraction.coerceIn(0f, 1f))
+    /** Lens strength. More intensity, more bend. */
+    val refraction: Float get() = intensity.coerceIn(0f, 1f)
 
-    /** Blur behind the panel. Scales hard with frost, which is what "frosted" actually means. */
+    /**
+     * How opaque the panel is. Inverse of intensity, eased so it falls off gently at first: the
+     * readability cost of a clear panel arrives well before the lens starts looking strong.
+     */
+    val frost: Float get() = 1f - kotlin.math.sqrt(intensity.coerceIn(0f, 1f))
+
+    /** Blur behind the panel. More frost, more blur, which is what "frosted" actually means. */
     val blur: Dp get() = lerp(6.dp, 32.dp, frost)
 
     /**
      * lens() early-returns when either argument is 0, which drops the rounded SDF and leaves an
-     * unshaped blurred rectangle. Floored so the panel always keeps its shape.
+     * unshaped blurred rectangle. Floored so the panel always keeps its shape even at intensity 0.
      */
     val lensT: Float get() = refraction.coerceIn(0.15f, 1f)
 
     /**
-     * Tint opacity. The full range is exposed deliberately: at 0 the panel is nearly clear glass
-     * with only a refracting rim, at 1 it is the solid surface the app uses without glass, still
-     * with the rim. Anything readable lives above roughly 0.6, but where exactly is taste, which is
-     * why it is on a slider rather than pinned to a constant.
+     * Tint opacity.
+     *
+     * [min] is the floor at full intensity and is deliberately not near zero. Below roughly 0.5 a
+     * section heading behind the panel starts fighting the text on it, and no amount of blur
+     * rescues that. The slider controls how glassy it looks, not whether it stays readable.
      */
-    fun tintAlpha(min: Float = 0.30f, max: Float = 1f): Float = lerp(min, max, frost)
+    fun tintAlpha(min: Float = 0.52f, max: Float = 0.97f): Float = lerp(min, max, frost)
 
     @Composable
-    fun tint(elevation: Dp = 6.dp, min: Float = 0.30f, max: Float = 1f): Color =
+    fun tint(elevation: Dp = 6.dp, min: Float = 0.52f, max: Float = 0.97f): Color =
         MaterialTheme.colorScheme.surfaceColorAtElevation(elevation).copy(alpha = tintAlpha(min, max))
 }
 
@@ -88,6 +95,6 @@ data class GlassSpec(
 @Composable
 fun rememberGlassSpec(): GlassSpec? {
     val backdrop = LocalAppBackdrop.current ?: return null
-    val refraction by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
-    return GlassSpec(backdrop, refraction.coerceIn(0f, 1f))
+    val intensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
+    return GlassSpec(backdrop, intensity.coerceIn(0f, 1f))
 }
