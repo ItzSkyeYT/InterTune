@@ -45,10 +45,16 @@ object YTPlayerUtils {
      * Do not use other clients for this because it can result in inconsistent metadata.
      * For example other clients can have different normalization targets (loudnessDb).
      *
-     * [com.zionhuang.innertube.models.YouTubeClient.ANDROID_VR_NO_AUTH] Is temporally used as it is out only working client
-     * [com.zionhuang.innertube.models.YouTubeClient.WEB_REMIX] should be preferred here because currently it is the only client which provides:
-     * - the correct metadata (like loudnessDb)
-     * - premium formats
+     * [com.zionhuang.innertube.models.YouTubeClient.ANDROID_VR_NO_AUTH] is what we use, because it
+     * is the one that reliably serves streams here.
+     *
+     * The note that used to sit here, saying WEB_REMIX "should be preferred because it is the only
+     * client which provides the correct metadata (like loudnessDb) and premium formats", is out of
+     * date and was actively misleading. Two things changed under it:
+     * - WEB_REMIX now fails the poToken check on /player and returns UNPLAYABLE, so it provides
+     *   nothing at all. See [playerResponseForMetadata].
+     * - ANDROID_VR_NO_AUTH stopped returning audioConfig, which is why loudness is read from the
+     *   client that actually served the audio rather than from this one.
      */
     private val MAIN_CLIENT: YouTubeClient = ANDROID_VR_NO_AUTH
 
@@ -249,11 +255,29 @@ object YTPlayerUtils {
      * Simple player response intended to use for metadata only.
      * Stream URLs of this response might not work so don't use them.
      */
+    /**
+     * WEB_REMIX used to serve this, and stopped. YouTube tightened the poToken requirement on the
+     * web /player endpoint, so the request now comes back UNPLAYABLE ("The page needs to be
+     * reloaded") with no playbackTracking at all. That is silent: MusicService reads
+     * `playbackTracking?.videostatsPlaybackUrl?.baseUrl` and the `playbackUrl?.let { }` below it
+     * simply does nothing when it is null, so registerPlayback never fires and nothing reaches the
+     * user's YouTube history. No error, no log.
+     *
+     * Probed directly against the API rather than guessed. With a fresh visitorData:
+     *   WEB_REMIX                -> UNPLAYABLE, no playbackTracking
+     *   WEB_REMIX + sts          -> byte-identical, so signatureTimestamp is NOT the problem
+     *   ANDROID_VR (MAIN_CLIENT) -> LOGIN_REQUIRED, which is why the old comment here said
+     *                               ANDROID_VR does not work with history
+     *   VISIONOS                 -> OK, real videostatsPlaybackUrl
+     *
+     * VISIONOS it is. This path is metadata only, its stream urls are never used, and the only
+     * other caller just wants videoDetails.lengthSeconds, which VISIONOS also returns.
+     */
     suspend fun playerResponseForMetadata(
         videoId: String,
         playlistId: String? = null,
     ): Result<PlayerResponse> =
-        YouTube.player(videoId, playlistId, client = WEB_REMIX) // ANDROID_VR does not work with history
+        YouTube.player(videoId, playlistId, client = VISIONOS)
 
     private fun findFormat(
         playerResponse: PlayerResponse,
