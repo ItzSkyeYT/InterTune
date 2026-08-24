@@ -143,6 +143,28 @@ val DevSettingsKey = booleanPreferencesKey("devSettings")
 val OobeStatusKey = intPreferencesKey("oobeStatus")
 val SwipeToSkipKey = booleanPreferencesKey("swipeToSkip")
 
+/**
+ * Whether swiping the mini player downwards closes it and stops playback.
+ *
+ * Default true, which is the long-standing behaviour. Off leaves the mini player pinned: the drag
+ * still follows your finger, but letting go springs it back and the music keeps going. The gesture
+ * fires easily by accident when reaching for the mini player, and losing playback to a stray swipe
+ * is a poor trade for a shortcut.
+ *
+ * Implemented by withholding the sheet's onDismiss callback rather than by blocking the drag.
+ * BottomSheetState.performFling only dismisses when that callback is present and falls back to
+ * collapse() when it is not, so there is no second copy of the gesture logic to keep in step.
+ */
+val SwipeToDismissPlayerKey = booleanPreferencesKey("swipeToDismissPlayer")
+
+/**
+ * Whether the transport controls sit inside one shared panel, or stand on their own.
+ *
+ * Only visible when liquid glass is on, since that panel is the glass slab. Default true keeps the
+ * grouped look; off returns to free-standing buttons over the artwork.
+ */
+val GroupedPlayerControlsKey = booleanPreferencesKey("groupedPlayerControls")
+
 
 /**
  * Non-settings UI preferences

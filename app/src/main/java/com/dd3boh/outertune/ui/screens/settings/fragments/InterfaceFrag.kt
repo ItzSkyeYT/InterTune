@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Reorder
 import androidx.compose.material.icons.rounded.Swipe
+import androidx.compose.material.icons.rounded.SwipeDown
 import androidx.compose.material.icons.rounded.Tab
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +55,7 @@ import com.dd3boh.outertune.constants.ListItemHeight
 import com.dd3boh.outertune.constants.SYSTEM_DEFAULT
 import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.constants.SwipeToSkipKey
+import com.dd3boh.outertune.constants.SwipeToDismissPlayerKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.extensions.move
 import com.dd3boh.outertune.ui.component.ListPreference
@@ -393,6 +395,8 @@ fun ColumnScope.TabExtrasFrag() {
 fun ColumnScope.SwipeGesturesFrag() {
     val (swipeToSkip, onSwipeToSkipChange) = rememberPreference(SwipeToSkipKey, defaultValue = false)
     val (swipe2Queue, onSwipe2QueueChange) = rememberPreference(SwipeToQueueKey, defaultValue = true)
+    val (swipeToDismissPlayer, onSwipeToDismissPlayerChange) =
+        rememberPreference(SwipeToDismissPlayerKey, defaultValue = true)
 
     SwitchPreference(
         title = { Text(stringResource(R.string.swipe2Queue)) },
@@ -407,6 +411,13 @@ fun ColumnScope.SwipeGesturesFrag() {
         icon = { Icon(Icons.Rounded.Swipe, null) },
         checked = swipeToSkip,
         onCheckedChange = onSwipeToSkipChange
+    )
+    SwitchPreference(
+        title = { Text(stringResource(R.string.swipe_to_dismiss_player)) },
+        description = stringResource(R.string.swipe_to_dismiss_player_description),
+        icon = { Icon(Icons.Rounded.SwipeDown, null) },
+        checked = swipeToDismissPlayer,
+        onCheckedChange = onSwipeToDismissPlayerChange
     )
 }
 
