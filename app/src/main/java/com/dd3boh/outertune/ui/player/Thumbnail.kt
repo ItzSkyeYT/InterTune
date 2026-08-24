@@ -124,8 +124,15 @@ fun Thumbnail(
                     // square (aspectRatio(1f) below), so the shorter side wins. Without this the
                     // default thumbnail gets upscaled and looks soft — very visible in landscape,
                     // where the artwork is far larger than it is in portrait.
+                    //
+                    // Rounded up to a bucket rather than used exactly. The url is the cache key, so
+                    // an exact size mints a separate download, disk entry and decode for every
+                    // distinct pixel width: portrait measured 1152 and landscape 1248 on the same
+                    // device, which is two full copies of one cover for no visible gain. Bucketing
+                    // makes a rotation reuse what portrait already fetched.
                     val artPx = with(LocalDensity.current) {
-                        minOf(maxWidth, maxHeight).roundToPx()
+                        val exact = minOf(maxWidth, maxHeight).roundToPx()
+                        ((exact + ART_SIZE_BUCKET - 1) / ART_SIZE_BUCKET) * ART_SIZE_BUCKET
                     }
                     AsyncImage(
                         model = mediaMetadata?.getThumbnailModel(artPx, artPx),
@@ -178,3 +185,20 @@ fun Thumbnail(
         }
     }
 }
+
+/**
+ * Granularity for artwork requests, in pixels.
+ *
+ * The requested size ends up in the url, and the url is the cache key, so every distinct width is a
+ * separate fetch, disk entry and decode.
+ *
+ * 256 rather than something finer, because the point is to make the common pair collide. A device
+ * measuring 1152 in portrait and 1248 in landscape still lands on two different buckets at 64 or
+ * 128; at 256 both round to 1280 and a rotation reuses what portrait already fetched. The cost is
+ * up to 255px of over-fetch on one axis, which is cheaper than a second copy of the whole cover.
+ *
+ * Only the full-size player artwork goes through this. The mini player and the palette source ask
+ * for their own much smaller sizes and are better off unrounded.
+ */
+private const val ART_SIZE_BUCKET = 256
+

@@ -190,7 +190,19 @@ class App : Application(), SingletonImageLoader.Factory {
                 add(LocalArtworkPathKeyer())
             }
             .crossfade(true)
-            .allowHardware(false)
+            // Hardware bitmaps left ON deliberately. This used to be allowHardware(false) globally,
+            // which forced every image into the Java heap as ARGB_8888. That was survivable while
+            // the player drew a 120px thumbnail, but artwork is now requested at the size it is
+            // actually drawn, and a 1152px cover is 5.06 MB of heap. The memory cache is 30% of a
+            // 192 MB heap, so it went from holding roughly a thousand covers to eleven, and every
+            // new track evicted the list thumbnails behind it, which is why artwork started
+            // reloading constantly.
+            //
+            // Nothing is lost by removing it: all three places that actually read pixels back
+            // already pass allowHardware(false) on their own request, and must keep doing so.
+            //   MainActivity.kt  extractThemeColor
+            //   Player.kt        extractGradientColors
+            //   CoilBitmapLoader loadBitmap, whose output is parcelled to the media session
             .memoryCache {
                 MemoryCache.Builder()
                     .maxSizePercent(context, 0.3)
