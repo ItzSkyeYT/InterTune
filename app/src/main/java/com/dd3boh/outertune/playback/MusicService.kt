@@ -319,19 +319,18 @@ class MusicService : MediaLibraryService(),
                 sleepTimer.fadeFactor
             ) { playerVolume, normalizeFactor, fadeFactor ->
                 playerVolume * normalizeFactor * fadeFactor
-            }.collectLatest(scope) { total ->
-                // Split across the two places gain can be applied. player.volume is clamped to
-                // [0,1], so anything above unity has to go through the PCM processor, and anything
-                // at or below is left to the player where it is free.
+            }.collectLatest(scope) { _ ->
+                // Signal order is decode -> normalise -> amplify -> soft clip -> player.volume.
                 //
-                // The split is multiplicative, not either/or: at a total of 1.6 the player runs at
-                // full and the processor supplies 1.6, while at 0.4 the processor sits at unity and
-                // does a plain copy. That keeps the processor idle for the common case.
-                val processorGain = if (total > 1f) total else 1f
-                val playerGain = if (total > 1f) 1f else total
-                gainProcessor.gain = processorGain
+                // Both normalisation and the user volume live in the processor so that order is
+                // real rather than incidental: the amplifier operates on an already-levelled
+                // signal, and the soft clip therefore judges peaks against what actually reaches
+                // the speaker. player.volume keeps only the sleep-timer fade, which is a smooth
+                // ramp to silence and can never clip.
+                gainProcessor.normalizeGain = normalizeFactor.value
+                gainProcessor.volumeGain = playerVolume.value
                 withContext(Dispatchers.Main) {
-                    player.volume = playerGain
+                    player.volume = sleepTimer.fadeFactor.value
                 }
             }
 

@@ -103,4 +103,16 @@ const val QUEUE_DEBUG = false
  * slider to the top compresses peaks rather than tearing them, but it is still gain on already
  * mastered audio: past unity is a tool, not free loudness.
  */
-const val MAX_PLAYER_VOLUME = 2f
+/**
+ * Top of the in-app volume slider, as linear gain. 4f is +12 dB.
+ *
+ * 2f was not enough to be useful. Normalisation pulls a median track down to about 0.345 and the
+ * loudest in a real library to 0.153, so a 2x ceiling topped out at 0.69 net: still 3 dB BELOW
+ * unity, which is why the amplifier felt like it was doing nothing. 4x reaches roughly +3 dB above
+ * unity on a median track, which is an amplifier rather than a partial refund.
+ *
+ * Not raised further because the slider is linear, so unity already sits at a quarter of its
+ * travel and fine control near normal listening levels gets worse the higher this goes. If more
+ * boost is wanted the slider should become logarithmic first.
+ */
+const val MAX_PLAYER_VOLUME = 4f

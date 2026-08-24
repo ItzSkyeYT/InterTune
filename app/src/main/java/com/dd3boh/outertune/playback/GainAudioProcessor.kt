@@ -37,14 +37,27 @@ import kotlin.math.abs
 class GainAudioProcessor : BaseAudioProcessor() {
 
     /**
-     * Linear gain. 1.0 is unity, 2.0 is +6 dB, 0.5 is -6 dB.
+     * Loudness normalisation, applied FIRST. Always at or below 1.0, since normalisation only ever
+     * pulls a track down toward the reference.
+     */
+    // Volatile: written from the player thread, read on the audio thread. A 32-bit float cannot
+    // tear, and a one-buffer-late value is inaudible, so nothing stronger is needed.
+    @Volatile
+    var normalizeGain: Float = 1f
+
+    /**
+     * User volume, applied AFTER normalisation. This is the amplifier: 1.0 is unity, 2.0 is +6 dB.
      *
-     * Volatile because it is written from the player thread and read on the audio thread. A torn
-     * read is not possible for a 32-bit float, and a one-buffer-late value is inaudible, so no
-     * stronger synchronisation is needed.
+     * Order matters even though both are scalars. Normalising first means the amplifier works on
+     * an already-levelled signal, so the soft clip below is evaluated against what the user is
+     * actually going to hear. Boosting first and normalising afterwards would shape peaks that the
+     * normalisation was about to pull down anyway, baking in distortion for no reason.
      */
     @Volatile
-    var gain: Float = 1f
+    var volumeGain: Float = 1f
+
+    /** Net gain through both stages. */
+    private val gain: Float get() = normalizeGain * volumeGain
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         // 16-bit and float are the two encodings that actually reach here. Anything else is
