@@ -94,3 +94,13 @@ const val EXTRACTOR_DEBUG = false
 const val DEBUG_SAVE_OUTPUT = false // ignored (will be false) when EXTRACTOR_DEBUG IS false
 
 const val QUEUE_DEBUG = false
+
+/**
+ * Upper end of the in-app volume slider. 2.0 is +6 dB above unity.
+ *
+ * Anything past 1.0 is applied by [com.dd3boh.outertune.playback.GainAudioProcessor] on the PCM,
+ * because ExoPlayer's own volume is clamped to [0,1]. The processor soft clips, so pushing the
+ * slider to the top compresses peaks rather than tearing them, but it is still gain on already
+ * mastered audio: past unity is a tool, not free loudness.
+ */
+const val MAX_PLAYER_VOLUME = 2f
