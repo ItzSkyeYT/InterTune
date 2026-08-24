@@ -19,7 +19,6 @@ import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.Opacity
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -40,7 +39,6 @@ import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
-import com.dd3boh.outertune.constants.PlayerGlassKey
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -102,7 +100,6 @@ fun ColumnScope.ThemePlayerFrag() {
     val availableBackgroundStyles = PlayerBackgroundStyle.entries.filter {
         it != PlayerBackgroundStyle.BLUR || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
     }
-    val (glass, onGlassChange) = rememberPreference(PlayerGlassKey, defaultValue = false)
     val (glassIntensity, onGlassIntensityChange) = rememberPreference(
         PlayerGlassIntensityKey,
         defaultValue = 1f
@@ -131,29 +128,29 @@ fun ColumnScope.ThemePlayerFrag() {
     // and no gradient to make translucent.
     val glassApplies = playerBackground != PlayerBackgroundStyle.FOLLOW_THEME
 
+    // One switch, not two. There used to be a separate "glass player background" that only
+    // recoloured the now playing screen, and having two settings both called glass sharing one
+    // intensity slider is what made people turn the slider to 0 looking for more glass.
+    //
+    // The refraction half needs API 33 for RuntimeShader; the background half does not, so below
+    // 33 this still does something and the description says which half you get.
     SwitchPreference(
-        title = { Text(stringResource(R.string.player_glass)) },
-        description = stringResource(R.string.player_glass_description),
-        icon = { Icon(Icons.Rounded.Opacity, null) },
-        isEnabled = glassApplies,
-        checked = glass,
-        onCheckedChange = onGlassChange
+        title = { Text(stringResource(R.string.player_liquid_glass)) },
+        description = stringResource(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                R.string.player_liquid_glass_description
+            else
+                R.string.player_liquid_glass_description_legacy
+        ),
+        icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+        checked = liquidGlass,
+        onCheckedChange = onChromaticShockChange
     )
-    // RuntimeShader is API 33+, so there is nothing to offer below that.
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        SwitchPreference(
-            title = { Text(stringResource(R.string.player_liquid_glass)) },
-            description = stringResource(R.string.player_liquid_glass_description),
-            icon = { Icon(Icons.Rounded.AutoAwesome, null) },
-            checked = liquidGlass,
-            onCheckedChange = onChromaticShockChange
-        )
-    }
 
     // Below BOTH toggles, not nested under the first. It drives both, and while it sat under the
     // vivid-background switch people read it as belonging to that alone and turned it down looking
     // for more glass, which does the opposite.
-    if ((glass && glassApplies) || liquidGlass) {
+    if (liquidGlass) {
         PreferenceEntry(
             title = { Text(stringResource(R.string.player_glass_intensity)) },
             description = stringResource(R.string.player_glass_intensity_description),

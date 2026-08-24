@@ -12,7 +12,9 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 val DynamicThemeKey = booleanPreferencesKey("dynamicTheme")
 val HighContrastKey = booleanPreferencesKey("highContrast")
 val PlayerBackgroundStyleKey = stringPreferencesKey("playerBackgroundStyle")
-val PlayerGlassKey = booleanPreferencesKey("playerGlass")
+// playerGlass was the separate "vivid player background" switch, folded into
+// PlayerLiquidGlassKey. The stored value is left alone rather than migrated: it is a boolean
+// nobody reads now, and deleting user data to tidy a key is not worth it.
 val PlayerGlassIntensityKey = floatPreferencesKey("playerGlassIntensity")
 val PlayerLiquidGlassKey = booleanPreferencesKey("playerLiquidGlass")
 val DarkModeKey = stringPreferencesKey("darkMode")
