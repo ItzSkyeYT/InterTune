@@ -138,12 +138,17 @@ opened first. The size now falls back to the size the thumbnail is actually draw
 
 ## Liquid glass
 
-Optional. **Settings → Appearance → Liquid glass**, off by default, Android 13 and above.
+Optional. **Settings → Appearance → Liquid glass**, off by default.
 
 The bottom bar becomes a floating frosted dock and the mini player a separate slab above it, both
 refracting the album grid that scrolls underneath. The player's transport row gets the same
-treatment. One intensity slider drives it, from near-clear glass with only a refracting rim through
-to the solid surface the app uses without it.
+treatment, and the now playing background drops its flat grey wash so the artwork colours come
+through. One intensity slider drives all of it: higher is more see-through and more strongly
+refracted, lower is closer to plain solid surfaces.
+
+The refraction needs Android 13 or newer, because it uses a runtime shader. The artwork-colour half
+does not, so the switch still does something on older versions and the description says which half
+you get.
 
 Built on [AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) (`io.github.kyant0:backdrop`,
 Apache-2.0) rather than hand-rolled shaders. Refraction is displacement by distance to a rounded-rect
