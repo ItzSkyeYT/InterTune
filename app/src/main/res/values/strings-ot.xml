@@ -163,6 +163,15 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="swipe_to_dismiss_player_description">Swiping the mini player downwards closes it and stops the music. Turn this off and it stays put instead, so the song keeps playing and you cannot close it by accident.</string>
     <string name="grouped_player_controls">Group the player buttons</string>
     <string name="grouped_player_controls_description">Puts shuffle, skip, play and repeat together inside one glass bar. Turn it off to have the buttons sit on their own over the artwork. Needs Liquid glass to be on.</string>
+    <string name="loudness_repair">Fix song volumes</string>
+    <string name="loudness_repair_none">Every song has volume information. Nothing to fix.</string>
+    <string name="loudness_repair_available">%1$d songs are missing volume information, so they may play louder or quieter than the rest. Tap to look them up.</string>
+    <string name="loudness_repair_running">Checking %1$d of %2$d, fixed %3$d. Tap to stop.</string>
+    <string name="loudness_repair_done">Fixed %1$d songs.</string>
+    <string name="loudness_repair_done_partial">Fixed %1$d songs. %2$d could not be looked up.</string>
+    <string name="loudness_repair_stopped">Stopped. Fixed %1$d songs so far, the rest are still to do.</string>
+    <string name="loudness_repair_offline">No internet connection.</string>
+    <string name="loudness_repair_blocked">Stopped early after too many failures in a row. Fixed %1$d. Try again later.</string>
     <string name="audio_offload">Enable offload</string>
     <string name="audio_offload_description">Use the offload audio path for audio playback. Enabling this may reduce power usage but can lead experience issues with audio playback or post processing. This preference has no effect for unsupported codecs or devices</string>
     <string name="keep_alive_title">Prevent system killing app</string>
