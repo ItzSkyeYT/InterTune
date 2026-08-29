@@ -115,7 +115,7 @@ class DownloadUtil @Inject constructor(
         val format = playbackData.format
 
         database.query {
-            upsert(
+            upsertFormatKeepingLoudness(
                 FormatEntity(
                     id = mediaId,
                     itag = format.itag,

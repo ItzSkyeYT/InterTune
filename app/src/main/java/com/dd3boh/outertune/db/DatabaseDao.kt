@@ -308,8 +308,40 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao 
     @Upsert
     fun upsert(lyrics: LyricsEntity)
 
+    /**
+     * Writes the whole row, nulls included. Prefer [upsertFormatKeepingLoudness].
+     *
+     * Room's @Upsert compiles to a full-row UPDATE binding every column, so a FormatEntity carrying
+     * a null loudnessDb overwrites a good stored value with null. Not theoretical: a bulk download
+     * on 23 Aug 2026 nulled 305 of 307 rows exactly this way. Because normalisation only ever
+     * attenuates, null reads as "do not attenuate", and those tracks then played up to 16 dB louder
+     * than everything around them.
+     */
     @Upsert
-    fun upsert(format: FormatEntity)
+    fun upsertFormatAllColumns(format: FormatEntity)
+
+    @Query("SELECT loudnessDb FROM format WHERE id = :id")
+    fun formatLoudnessDb(id: String): Double?
+
+    /**
+     * Upserts a format row without ever downgrading a known loudness back to unknown.
+     *
+     * Every other column is refreshed as usual, because itag, bitrate and friends describe the
+     * stream just resolved and the newest answer is the correct one. Loudness is the exception: it
+     * is a property of the recording rather than of this particular stream, it does not change
+     * between fetches, and losing it is audible.
+     */
+    @Transaction
+    fun upsertFormatKeepingLoudness(format: FormatEntity) {
+        val existing = formatLoudnessDb(format.id)
+        upsertFormatAllColumns(
+            if (format.loudnessDb == null && existing != null) {
+                format.copy(loudnessDb = existing)
+            } else {
+                format
+            }
+        )
+    }
 
     @Delete
     fun delete(lyrics: LyricsEntity)

@@ -285,7 +285,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
 
                         // update format
                         if (song.format != null) {
-                            upsert(song.format.copy(id = songToUpdate.id))
+                            upsertFormatKeepingLoudness(song.format.copy(id = songToUpdate.id))
                         }
                     }
                 }
@@ -330,7 +330,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                         )
                     )
                     if (song.format != null) {
-                        upsert(song.format.copy(id = songToUpdate.id))
+                        upsertFormatKeepingLoudness(song.format.copy(id = songToUpdate.id))
                     }
 
                     // destroy existing artist links
@@ -384,7 +384,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                 database.transaction {
                     insert(song.song.toMediaMetadata())
                     song.format?.let {
-                        upsert(it.copy(id = song.song.id))
+                        upsertFormatKeepingLoudness(it.copy(id = song.song.id))
                     }
                 }
             }

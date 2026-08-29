@@ -380,7 +380,16 @@ class MusicService : MediaLibraryService(),
             ) { format, normalizeAudio ->
                 format to normalizeAudio
             }.collectLatest(scope) { (format, normalizeAudio) ->
-                normalizeFactor.value = if (normalizeAudio && format?.loudnessDb != null) {
+                // Reject impossible values rather than trusting the column. The observed range over
+                // 3178 real rows is -16.5 to +12.6, so this only ever catches corruption.
+                val loudnessDb = format?.loudnessDb
+                    ?.takeIf { it.isFinite() && it in -60.0..40.0 }
+                    ?.toFloat()
+
+                normalizeFactor.value = when {
+                    // Off is the only case allowed to leave the signal at unity.
+                    !normalizeAudio -> 1f
+
                     // loudnessDb is how far above YouTube's -14 LKFS target this track sits.
                     // Everything above the reference is pulled down to it; everything below is left
                     // alone, because setVolume cannot exceed 1 and so cannot boost.
@@ -389,10 +398,20 @@ class MusicService : MediaLibraryService(),
                     // nearly half the library untouched and still varying; going lower trades
                     // absolute loudness, which the device volume can recover, for consistency,
                     // which it cannot.
-                    val aboveReference = format.loudnessDb.toFloat() - NORMALIZATION_REFERENCE_DB
-                    min(10f.pow(-aboveReference / 20), 1f)
-                } else {
-                    1f
+                    loudnessDb != null ->
+                        min(10f.pow(-(loudnessDb - NORMALIZATION_REFERENCE_DB) / 20), 1f)
+
+                    // Loudness unknown. This used to be 1f, meaning no attenuation, which is the
+                    // LOUDEST possible answer to "I do not know". Since every track that does have
+                    // a value is pulled down 6 to 10 dB, an unknown one stood out by up to 16 dB.
+                    // That is the entire "some songs are much louder" complaint.
+                    //
+                    // Assume it is loud instead. Being wrong quietly is recoverable with the volume
+                    // rocker; being wrong loudly is not.
+                    else -> min(
+                        10f.pow(-(UNKNOWN_LOUDNESS_DB - NORMALIZATION_REFERENCE_DB) / 20),
+                        1f
+                    )
                 }
             }
 
@@ -795,7 +814,7 @@ class MusicService : MediaLibraryService(),
             val format = playbackData.format
 
             database.query {
-                upsert(
+                upsertFormatKeepingLoudness(
                     FormatEntity(
                         id = mediaId,
                         itag = format.itag,
@@ -1193,6 +1212,32 @@ class MusicService : MediaLibraryService(),
          * SNR. What it does cost is headroom on the device volume slider.
          */
         const val NORMALIZATION_REFERENCE_DB = -3f
+
+        /**
+         * Loudness assumed for a track whose real value is not known, in dB above -14 LKFS.
+         *
+         * Only reachable when normalisation is on and the stored loudness is null or nonsense. The
+         * previous behaviour was to apply no attenuation at all, which is the loudest possible
+         * answer to "I do not know" and is why a handful of tracks blared.
+         *
+         * Chosen against the 3178 real values in the library, not picked by feel. The residual
+         * error for an unknown track is simply trueLoudness minus this number, so a high guess
+         * makes it slightly quiet and a low guess makes it loud:
+         *
+         *     assume median  6.25 -> 50% of tracks still too loud, worst +6.3 dB
+         *     assume p90     9.63 -> 10% still too loud, worst +2.9 dB
+         *     assume 10.0         ->  6% still too loud, worst +2.5 dB   <- here
+         *     assume max    12.56 ->  0% too loud, but everything unknown is 6 dB quiet
+         *
+         * 10 sits just past p90. Roughly 6% of unknown tracks stay marginally loud, by an amount
+         * under the ~3 dB most people notice, and the rest play about 3.8 dB quieter than they
+         * strictly should. That asymmetry is deliberate and matches how this actually gets used:
+         * a track that is a bit quiet is a shrug, a track that is 16 dB loud is a jump scare.
+         *
+         * This is a safety net, not the fix. The fix is repairing the stored value, after which
+         * almost nothing reaches this branch. See the loudness repair scan in settings.
+         */
+        const val UNKNOWN_LOUDNESS_DB = 10f
 
         const val ROOT = "root"
         const val SONG = "song"
