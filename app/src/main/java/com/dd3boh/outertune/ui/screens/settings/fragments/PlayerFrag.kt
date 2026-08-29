@@ -13,11 +13,10 @@ import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.DisposableEffect
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalLoudnessRepair
-import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.utils.LoudnessRepair
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -140,17 +139,14 @@ fun AudioEffectsFrag() {
 fun LoudnessRepairEntry() {
     val database = LocalDatabase.current
     val repair = LocalLoudnessRepair.current
-    val playerConnection = LocalPlayerConnection.current
-
     val state by repair.state.collectAsState()
-    val missing by database.countFormatsMissingLoudness().collectAsState(initial = 0)
 
-    // Read fresh per song rather than captured once, so a track that starts playing mid scan is
-    // still protected from being changed under the listener.
-    DisposableEffect(playerConnection) {
-        repair.nowPlayingIdProvider = { playerConnection?.player?.currentMediaItem?.mediaId }
-        onDispose { repair.nowPlayingIdProvider = { null } }
+    // The result lives on a singleton, so without this a finished run would still be reported the
+    // next time the screen is opened, days later, alongside a count that has moved on since.
+    DisposableEffect(Unit) {
+        onDispose { repair.acknowledge() }
     }
+    val missing by database.countFormatsMissingLoudness().collectAsState(initial = 0)
 
     val description = when (val s = state) {
         is LoudnessRepair.State.Running ->

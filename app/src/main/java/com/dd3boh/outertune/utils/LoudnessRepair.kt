@@ -51,6 +51,13 @@ class LoudnessRepair @Inject constructor(
     private var job: Job? = null
 
     /**
+     * Incremented for every run. A cancelled coroutine keeps unwinding after cancel() returns, so
+     * without this its finally block can publish a stale "stopped" result over the state of a run
+     * the user has already started. Only the run holding the current token may publish.
+     */
+    private val generation = java.util.concurrent.atomic.AtomicInteger(0)
+
+    /**
      * Ids that answered "no loudness available" this session.
      *
      * Kept so pressing the button again does not re-ask the same hopeless questions. Deliberately
@@ -92,7 +99,13 @@ class LoudnessRepair @Inject constructor(
 
     fun start() {
         if (isRunning) return
+        val token = generation.incrementAndGet()
         _state.value = State.Running(done = 0, total = 0, repaired = 0)
+
+        // Publishes only if this run is still the current one.
+        fun publish(s: State) {
+            if (generation.get() == token) _state.value = s
+        }
 
         job = scope.launch {
             var repaired = 0
@@ -102,7 +115,7 @@ class LoudnessRepair @Inject constructor(
 
             try {
                 if (!context.isInternetConnected()) {
-                    _state.value = State.Offline
+                    publish(State.Offline)
                     return@launch
                 }
 
@@ -112,19 +125,19 @@ class LoudnessRepair @Inject constructor(
                     .filterNot { it in unavailable }
 
                 if (candidates.isEmpty()) {
-                    _state.value = State.NothingToDo
+                    publish(nothingLeftState(unavailableCount))
                     return@launch
                 }
 
                 Log.i(TAG, "Repairing loudness for ${candidates.size} songs")
-                _state.value = State.Running(0, candidates.size, 0)
+                publish(State.Running(0, candidates.size, 0))
 
                 candidates.forEachIndexed { index, id ->
                     if (!isActive) return@forEachIndexed
 
                     // Leave the playing track alone. See the class comment.
                     if (id == nowPlayingIdProvider()) {
-                        _state.value = State.Running(index + 1, candidates.size, repaired)
+                        publish(State.Running(index + 1, candidates.size, repaired))
                         return@forEachIndexed
                     }
 
@@ -133,7 +146,14 @@ class LoudnessRepair @Inject constructor(
                     }) {
                         is YTPlayerUtils.LoudnessResult.Found -> {
                             consecutiveFailures = 0
-                            if (database.fillMissingLoudness(id, result.loudnessDb) > 0) repaired++
+                            // Checked again rather than relying on the check before the request:
+                            // the lookup can take up to REQUEST_TIMEOUT_MS and the queue may have
+                            // moved onto this very song while it was in flight.
+                            if (id != nowPlayingIdProvider() &&
+                                database.fillMissingLoudness(id, result.loudnessDb) > 0
+                            ) {
+                                repaired++
+                            }
                         }
 
                         is YTPlayerUtils.LoudnessResult.Unavailable -> {
@@ -148,13 +168,13 @@ class LoudnessRepair @Inject constructor(
                             consecutiveFailures++
                             if (consecutiveFailures >= FAILURE_ABORT_THRESHOLD) {
                                 Log.w(TAG, "Stopping: $consecutiveFailures failures in a row")
-                                _state.value = State.Blocked(repaired)
+                                publish(State.Blocked(repaired))
                                 return@launch
                             }
                         }
                     }
 
-                    _state.value = State.Running(index + 1, candidates.size, repaired)
+                    publish(State.Running(index + 1, candidates.size, repaired))
 
                     // Paced on purpose. These are sequential anonymous requests against YouTube's
                     // player endpoint and the point is to be unremarkable, not fast. A few hundred
@@ -162,20 +182,32 @@ class LoudnessRepair @Inject constructor(
                     if (index < candidates.lastIndex) delay(REQUEST_GAP_MS)
                 }
 
-                _state.value = State.Finished(
-                    repaired = repaired,
-                    unavailable = unavailableCount,
-                    failed = failed,
-                    stoppedEarly = !isActive,
+                publish(
+                    State.Finished(
+                        repaired = repaired,
+                        unavailable = unavailableCount,
+                        failed = failed,
+                        stoppedEarly = !isActive,
+                    )
                 )
                 Log.i(TAG, "Loudness repair done: $repaired repaired, $unavailableCount unavailable, $failed failed")
             } catch (e: Exception) {
                 // Cancellation lands here too; report what was achieved rather than losing it.
                 Log.w(TAG, "Loudness repair ended early", e)
-                _state.value = State.Finished(repaired, unavailableCount, failed, stoppedEarly = true)
+                publish(State.Finished(repaired, unavailableCount, failed, stoppedEarly = true))
             }
         }
     }
+
+    /**
+     * Distinguishes "there is genuinely nothing missing" from "everything left already answered
+     * that it has no loudness". The settings count cannot tell them apart, because an unavailable
+     * song keeps its null row, so without this the row would claim every song is fine while still
+     * advertising a number.
+     */
+    private fun nothingLeftState(unavailableCount: Int): State =
+        if (unavailable.isEmpty()) State.NothingToDo
+        else State.Finished(repaired = 0, unavailable = unavailable.size, failed = 0, stoppedEarly = false)
 
     fun cancel() {
         job?.cancel()

@@ -113,6 +113,7 @@ import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.utils.CoilBitmapLoader
+import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.YTPlayerUtils
@@ -176,6 +177,12 @@ class MusicService : MediaLibraryService(),
     @Inject
     lateinit var mediaLibrarySessionCallback: MediaLibrarySessionCallback
 
+    @Inject
+    lateinit var loudnessRepair: LoudnessRepair
+
+    /** Kept so onDestroy only clears the provider if it is still the one this instance installed. */
+    private var installedNowPlayingProvider: (() -> String?)? = null
+
     private val binder = MusicBinder()
     private lateinit var connectivityManager: ConnectivityManager
 
@@ -218,8 +225,18 @@ class MusicService : MediaLibraryService(),
         database.song(mediaMetadata?.id)
     }.stateIn(offloadScope, SharingStarted.Lazily, null)
 
+    /**
+     * Format row for the current song, paired with whether that song is a local file.
+     *
+     * Paired inside the flatMapLatest rather than combined downstream on purpose. This flow is
+     * derived from currentMediaMetadata, so adding the metadata as a separate combine input would
+     * emit the new song's flag against the previous song's format for one round, and apply the
+     * wrong gain for the opening moments of every single track change.
+     */
     private val currentFormat = currentMediaMetadata.flatMapLatest { mediaMetadata ->
-        database.format(mediaMetadata?.id)
+        database.format(mediaMetadata?.id).map { format ->
+            format to (mediaMetadata?.isLocal == true)
+        }
     }
 
     private val normalizeFactor = MutableStateFlow(1f)
@@ -235,6 +252,21 @@ class MusicService : MediaLibraryService(),
     override fun onCreate() {
         Log.i(TAG, "Starting MusicService")
         super.onCreate()
+
+        // The repair scan must never rewrite the loudness of the song that is playing, because
+        // after the unknown-loudness fallback an unrepaired track sits at heavy attenuation and
+        // filling in its real value would make it jump louder mid-song.
+        //
+        // Owned here rather than by the settings screen for two reasons. The scan runs on a
+        // singleton scope that outlives any screen, so a composable installing the provider means
+        // navigating away silently switches the guarantee off. And the scan runs on Dispatchers.IO,
+        // where touching ExoPlayer throws IllegalStateException; currentMediaMetadata is a
+        // StateFlow, so reading .value is safe from any thread. It is also the same flow
+        // currentFormat is derived from, so the guard cannot disagree with what it guards.
+        val nowPlaying = currentMediaMetadata
+        val provider: () -> String? = { nowPlaying.value?.id }
+        installedNowPlayingProvider = provider
+        loudnessRepair.nowPlayingIdProvider = provider
 
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(createDataSourceFactory()))
@@ -377,9 +409,10 @@ class MusicService : MediaLibraryService(),
                 dataStore.data
                     .map { it[AudioNormalizationKey] ?: true }
                     .distinctUntilChanged()
-            ) { format, normalizeAudio ->
-                format to normalizeAudio
-            }.collectLatest(scope) { (format, normalizeAudio) ->
+            ) { formatAndLocal, normalizeAudio ->
+                formatAndLocal to normalizeAudio
+            }.collectLatest(scope) { (formatAndLocal, normalizeAudio) ->
+                val (format, isLocal) = formatAndLocal
                 // Reject impossible values rather than trusting the column. The observed range over
                 // 3178 real rows is -16.5 to +12.6, so this only ever catches corruption.
                 val loudnessDb = format?.loudnessDb
@@ -389,6 +422,14 @@ class MusicService : MediaLibraryService(),
                 normalizeFactor.value = when {
                     // Off is the only case allowed to leave the signal at unity.
                     !normalizeAudio -> 1f
+
+                    // A local file has no YouTube loudness and never will. The repair scan excludes
+                    // local rows deliberately, and nothing else writes the column for them, so
+                    // falling through to the presumed value would attenuate every local file by
+                    // 13 dB permanently with no way to undo it from inside the app. Levelling local
+                    // files properly needs ReplayGain or R128 tags read at scan time, which does
+                    // not exist yet, so until then they are left alone.
+                    isLocal -> 1f
 
                     // loudnessDb is how far above YouTube's -14 LKFS target this track sits.
                     // Everything above the reference is pulled down to it; everything below is left
@@ -1154,6 +1195,12 @@ class MusicService : MediaLibraryService(),
 
     override fun onDestroy() {
         Log.i(TAG, "Terminating MusicService.")
+
+        // Only clear it if it is still ours; a newer service instance may already have replaced it.
+        if (loudnessRepair.nowPlayingIdProvider === installedNowPlayingProvider) {
+            loudnessRepair.nowPlayingIdProvider = { null }
+        }
+        installedNowPlayingProvider = null
         deInitQueue()
 
         mediaSession.player.stop()
