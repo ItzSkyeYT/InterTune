@@ -114,3 +114,4 @@ lint/tmp/
 # Private working notes. Contains internal paths, unreleased plans and notes on
 # other people's projects. Must never reach the public fork.
 TODO.md
+strip-coauthor.sh
