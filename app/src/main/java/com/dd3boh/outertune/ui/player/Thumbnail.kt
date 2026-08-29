@@ -134,9 +134,7 @@ fun Thumbnail(
                         val exact = minOf(maxWidth, maxHeight).roundToPx()
                         ((exact + ART_SIZE_BUCKET - 1) / ART_SIZE_BUCKET) * ART_SIZE_BUCKET
                     }
-                    AsyncImage(
-                        model = mediaMetadata?.getThumbnailModel(artPx, artPx),
-                        contentDescription = null,
+                    Box(
                         modifier = Modifier
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(ThumbnailCornerRadius * 2))
@@ -148,7 +146,34 @@ fun Thumbnail(
                                 showLyrics = !showLyrics
                                 haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                             }
-                    )
+                    ) {
+                        // Low resolution underlay, drawn first and left in place.
+                        //
+                        // This is the whole progressive-loading trick, and it needs no measurement
+                        // of the connection. The small cover is a few kB and lands almost at once,
+                        // so a slow or flaky link shows the artwork immediately instead of an empty
+                        // square; the full size version is still fetched, and simply covers this
+                        // when it arrives, however long that takes. Fast link: the sharp one wins so
+                        // quickly the underlay is never really seen. Slow link: blurry now, sharp
+                        // later. Permanently slow link: still sharp eventually, just later.
+                        //
+                        // Deliberately NOT bucketed to artPx. It is one fixed small size, so it is
+                        // fetched once per cover ever and is a cache hit for every later play, on
+                        // any screen and either orientation.
+                        AsyncImage(
+                            model = mediaMetadata?.getThumbnailModel(
+                                ART_PREVIEW_PX,
+                                ART_PREVIEW_PX
+                            ),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        AsyncImage(
+                            model = mediaMetadata?.getThumbnailModel(artPx, artPx),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
         }
@@ -202,3 +227,11 @@ fun Thumbnail(
  */
 private const val ART_SIZE_BUCKET = 256
 
+/**
+ * Size of the low resolution cover drawn underneath the real one, in pixels.
+ *
+ * Small enough to arrive on a bad connection (roughly 12 kB against 350 kB or more for the full
+ * size one) and still carry the colours and rough shapes, which is all it has to do for the moment
+ * before the sharp version lands on top of it.
+ */
+private const val ART_PREVIEW_PX = 128
