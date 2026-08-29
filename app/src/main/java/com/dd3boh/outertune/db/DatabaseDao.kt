@@ -343,6 +343,49 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao 
         )
     }
 
+    /**
+     * Ids of format rows that have no usable loudness, for the repair scan.
+     *
+     * Joined against song on purpose. Dangling format rows exist (that is why
+     * nukeDanglingFormatEntities exists), and a row with no song is not something the user can
+     * play, so repairing it would be work that never shows up. Local songs are excluded because
+     * YouTube has nothing to say about a file on disk.
+     *
+     * Note this deliberately does NOT include songs with no format row at all. Those are not
+     * broken: a format row is written the first time a song is played, with loudness. On this
+     * library that distinction is 355 rows against 28940, so getting it wrong would mean tens of
+     * thousands of pointless network requests.
+     */
+    @Query(
+        """
+        SELECT f.id FROM format f
+        JOIN song s ON s.id = f.id
+        WHERE f.loudnessDb IS NULL AND s.isLocal = 0
+        ORDER BY s.dateDownload IS NULL, s.liked DESC, s.inLibrary IS NULL
+        """
+    )
+    fun formatIdsMissingLoudness(): List<String>
+
+    /** Live count of the same set, for the settings screen. */
+    @Query(
+        """
+        SELECT COUNT(*) FROM format f
+        JOIN song s ON s.id = f.id
+        WHERE f.loudnessDb IS NULL AND s.isLocal = 0
+        """
+    )
+    fun countFormatsMissingLoudness(): Flow<Int>
+
+    /**
+     * Writes loudness and nothing else.
+     *
+     * A targeted UPDATE rather than an entity write, so the repair physically cannot disturb itag,
+     * bitrate, contentLength or any other column. The `IS NULL` guard makes it idempotent and means
+     * a scan can never overwrite a value that arrived while it was running.
+     */
+    @Query("UPDATE format SET loudnessDb = :loudnessDb WHERE id = :id AND loudnessDb IS NULL")
+    fun fillMissingLoudness(id: String, loudnessDb: Double): Int
+
     @Delete
     fun delete(lyrics: LyricsEntity)
 

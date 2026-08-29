@@ -279,6 +279,41 @@ object YTPlayerUtils {
     ): Result<PlayerResponse> =
         YouTube.player(videoId, playlistId, client = VISIONOS)
 
+    /** Outcome of a loudness lookup. Distinguishes "no value exists" from "the request failed". */
+    sealed interface LoudnessResult {
+        data class Found(val loudnessDb: Double) : LoudnessResult
+
+        /** The request succeeded but carried no loudness, or a value outside the plausible range. */
+        data object Unavailable : LoudnessResult
+
+        /** Network or server problem. Worth retrying later; NOT worth writing anything for. */
+        data class Failed(val cause: Throwable?) : LoudnessResult
+    }
+
+    /**
+     * Fetches just the loudness for one video id, without touching playback.
+     *
+     * VISIONOS because it is the client that actually answers: probed directly, WEB_REMIX returns
+     * UNPLAYABLE on the poToken check and ANDROID_VR returns LOGIN_REQUIRED. It also needs no
+     * cookie, no signature timestamp and no poToken, so this is a plain anonymous request.
+     *
+     * Nothing here is written to the database and no stream is resolved, so a failure costs only
+     * the request. The caller decides what to do about each outcome.
+     */
+    suspend fun loudnessFor(videoId: String): LoudnessResult {
+        val response = YouTube.player(videoId, client = VISIONOS)
+            .getOrElse { return LoudnessResult.Failed(it) }
+
+        val db = response.playerConfig?.audioConfig?.effectiveLoudnessDb
+            ?: return LoudnessResult.Unavailable
+
+        // Same sanity band the player applies. Observed range over 3178 real rows is -16.5 to
+        // +12.6, so anything outside this is not a loudness figure and must not be stored.
+        if (!db.isFinite() || db !in -60.0..40.0) return LoudnessResult.Unavailable
+
+        return LoudnessResult.Found(db)
+    }
+
     private fun findFormat(
         playerResponse: PlayerResponse,
         audioQuality: AudioQuality,

@@ -12,6 +12,12 @@ import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
+import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.LocalLoudnessRepair
+import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.utils.LoudnessRepair
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -120,6 +126,62 @@ fun AudioEffectsFrag() {
         onCheckedChange = onSkipSilenceChange
     )
 
+    LoudnessRepairEntry()
+}
+
+/**
+ * Looks up the real loudness for songs that are missing it.
+ *
+ * Sits under the normalisation switch because it only matters to someone who has normalisation on
+ * and is still hearing uneven volumes. Deliberately NOT hidden when normalisation is off: the
+ * person most likely to have switched it off is the person the uneven volumes drove away from it.
+ */
+@Composable
+fun LoudnessRepairEntry() {
+    val database = LocalDatabase.current
+    val repair = LocalLoudnessRepair.current
+    val playerConnection = LocalPlayerConnection.current
+
+    val state by repair.state.collectAsState()
+    val missing by database.countFormatsMissingLoudness().collectAsState(initial = 0)
+
+    // Read fresh per song rather than captured once, so a track that starts playing mid scan is
+    // still protected from being changed under the listener.
+    DisposableEffect(playerConnection) {
+        repair.nowPlayingIdProvider = { playerConnection?.player?.currentMediaItem?.mediaId }
+        onDispose { repair.nowPlayingIdProvider = { null } }
+    }
+
+    val description = when (val s = state) {
+        is LoudnessRepair.State.Running ->
+            stringResource(R.string.loudness_repair_running, s.done, s.total, s.repaired)
+
+        is LoudnessRepair.State.Finished -> when {
+            s.stoppedEarly -> stringResource(R.string.loudness_repair_stopped, s.repaired)
+            s.unavailable > 0 ->
+                stringResource(R.string.loudness_repair_done_partial, s.repaired, s.unavailable)
+
+            else -> stringResource(R.string.loudness_repair_done, s.repaired)
+        }
+
+        is LoudnessRepair.State.Blocked -> stringResource(R.string.loudness_repair_blocked, s.repaired)
+        LoudnessRepair.State.Offline -> stringResource(R.string.loudness_repair_offline)
+        LoudnessRepair.State.NothingToDo -> stringResource(R.string.loudness_repair_none)
+        LoudnessRepair.State.Idle ->
+            if (missing > 0) stringResource(R.string.loudness_repair_available, missing)
+            else stringResource(R.string.loudness_repair_none)
+    }
+
+    PreferenceEntry(
+        title = { Text(stringResource(R.string.loudness_repair)) },
+        description = description,
+        icon = { Icon(Icons.Rounded.GraphicEq, null) },
+        // Nothing to do is not a failure, but it should not be a button either.
+        isEnabled = state is LoudnessRepair.State.Running || missing > 0,
+        onClick = {
+            if (repair.isRunning) repair.cancel() else repair.start()
+        }
+    )
 }
 
 @Composable
