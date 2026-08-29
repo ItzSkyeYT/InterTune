@@ -11,17 +11,18 @@ import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import java.nio.ByteBuffer
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * Applies gain to the PCM stream, including gain above unity.
  *
  * This exists because [androidx.media3.exoplayer.ExoPlayer.setVolume] hard-clamps to [0, 1]
  * (ExoPlayerImpl calls `Util.constrainValue(v, 0f, 1f)`), so the player's own volume can only ever
- * attenuate. Anything that needs to make audio *louder* has to do it on the samples:
+ * attenuate. Making audio *louder* has to happen on the samples, which is what this is for: volume
+ * boost past 100%, the way VLC and friends offer it.
  *
- *  - volume boost past 100%, the way VLC and friends offer it
- *  - loudness normalisation that raises quiet tracks instead of only lowering loud ones, which is
- *    the difference between "consistent" and "consistently quiet"
+ * Attenuation deliberately does NOT happen here. Turning things down is left to the sink, so this
+ * processor is a straight passthrough for any gain at or below unity. See [gain].
  *
  * Boosting can clip, and loudness metadata says nothing about peaks, so everything past
  * [SOFT_CLIP_THRESHOLD] is compressed into the remaining headroom rather than being allowed to wrap
@@ -29,35 +30,30 @@ import kotlin.math.abs
  * is no audible kink when a signal crosses it, and it approaches full scale asymptotically without
  * ever exceeding it.
  *
- * CAVEAT: audio offload bypasses the processor chain entirely, because offload hands compressed
- * data straight to the DSP. With offload enabled this processor never runs and gain silently has no
- * effect. Offload is off by default (`AudioOffloadKey`), but anything depending on gain should say
- * so where the user can see it.
+ * OFFLOAD: audio offload and passthrough bypass the processor chain entirely, because
+ * DefaultAudioSink.configure builds an empty AudioProcessingPipeline for any sampleMimeType other
+ * than audio/raw, so this class never runs. Loudness normalisation no longer depends on it: gain at
+ * or below unity is applied through AudioTrack.setVolume, which is not offload gated. The only
+ * thing genuinely lost under offload is gain ABOVE unity, and that is physically unavailable there,
+ * since the chain is out of the pipeline and ExoPlayerImpl.setVolume clamps to [0, 1]. media3 has
+ * no third gain stage to fall back on.
  */
 class GainAudioProcessor : BaseAudioProcessor() {
 
     /**
-     * Loudness normalisation, applied FIRST. Always at or below 1.0, since normalisation only ever
-     * pulls a track down toward the reference.
+     * Total linear gain asked for: loudness normalisation multiplied by user volume.
+     *
+     * Only the part ABOVE unity is applied here. Everything at or below unity is handed to
+     * AudioTrack.setVolume by MusicService instead, because that path keeps working when audio
+     * offload bypasses this processor, and because it avoids requantising 16-bit samples in the
+     * app for the overwhelmingly common case of turning a loud track down.
      */
     // Volatile: written from the player thread, read on the audio thread. A 32-bit float cannot
-    // tear, and a one-buffer-late value is inaudible, so nothing stronger is needed.
+    // tear, and a one-buffer-late value is inaudible, so nothing stronger is needed. Keeping this
+    // as ONE field rather than a normalise/volume pair also means a buffer can never observe a
+    // half-updated combination and apply a gain nobody asked for.
     @Volatile
-    var normalizeGain: Float = 1f
-
-    /**
-     * User volume, applied AFTER normalisation. This is the amplifier: 1.0 is unity, 2.0 is +6 dB.
-     *
-     * Order matters even though both are scalars. Normalising first means the amplifier works on
-     * an already-levelled signal, so the soft clip below is evaluated against what the user is
-     * actually going to hear. Boosting first and normalising afterwards would shape peaks that the
-     * normalisation was about to pull down anyway, baking in distortion for no reason.
-     */
-    @Volatile
-    var volumeGain: Float = 1f
-
-    /** Net gain through both stages. */
-    private val gain: Float get() = normalizeGain * volumeGain
+    var gain: Float = 1f
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         // 16-bit and float are the two encodings that actually reach here. Anything else is
@@ -79,18 +75,25 @@ class GainAudioProcessor : BaseAudioProcessor() {
         if (size == 0) return
 
         val output = replaceOutputBuffer(size)
-        val g = gain
+        val total = gain // one volatile read for the whole buffer
 
-        if (g == 1f) {
-            // Unity: straight copy. The chain still runs, but this is a memcpy of a few kB per
-            // buffer, which is not worth the reconfigure churn of toggling isActive() at runtime.
+        if (total <= 1f) {
+            // Attenuation is the sink's job, so there is nothing to do here but hand the samples
+            // straight through, bit for bit. Note this is not merely an optimisation: running the
+            // old maths at, say, 0.9 would soft clip every sample above 0.83 of full scale even
+            // though the output physically cannot clip, which is audible non-linearity added for
+            // no reason, on top of a pointless 16-bit round trip.
             output.put(inputBuffer)
         } else when (inputAudioFormat.encoding) {
             C.ENCODING_PCM_16BIT -> {
                 var i = position
                 while (i < limit - 1) {
                     val sample = inputBuffer.getShort(i).toFloat() / SHORT_SCALE
-                    output.putShort((softClip(sample * g) * SHORT_SCALE).toInt().toShort())
+                    val scaled = softClip(sample * total) * SHORT_SCALE
+                    // roundToInt, not toInt. Truncation biases every sample toward zero, and an
+                    // error that tracks the signal is distortion rather than noise. coerceIn is
+                    // belt and braces, since softClip is already strictly inside (-1, 1).
+                    output.putShort(scaled.roundToInt().coerceIn(SHORT_MIN, SHORT_MAX).toShort())
                     i += 2
                 }
                 inputBuffer.position(limit)
@@ -99,7 +102,7 @@ class GainAudioProcessor : BaseAudioProcessor() {
             C.ENCODING_PCM_FLOAT -> {
                 var i = position
                 while (i < limit - 3) {
-                    output.putFloat(softClip(inputBuffer.getFloat(i) * g))
+                    output.putFloat(softClip(inputBuffer.getFloat(i) * total))
                     i += 4
                 }
                 inputBuffer.position(limit)
@@ -143,5 +146,9 @@ class GainAudioProcessor : BaseAudioProcessor() {
 
         /** 16-bit samples are signed, so full scale is 32768 downward and 32767 upward. */
         const val SHORT_SCALE = 32767f
+
+        /** Signed 16-bit rails, for the coerceIn guard on the boost path. */
+        const val SHORT_MIN = -32768
+        const val SHORT_MAX = 32767
     }
 }

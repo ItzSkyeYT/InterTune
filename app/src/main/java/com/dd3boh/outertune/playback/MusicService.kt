@@ -320,17 +320,27 @@ class MusicService : MediaLibraryService(),
             ) { playerVolume, normalizeFactor, fadeFactor ->
                 playerVolume * normalizeFactor * fadeFactor
             }.collectLatest(scope) { _ ->
-                // Signal order is decode -> normalise -> amplify -> soft clip -> player.volume.
+                // Signal order is still decode -> normalise -> amplify -> soft clip. What changed
+                // is WHERE each stage runs, and the split is by what survives audio offload rather
+                // than by what the gain means.
                 //
-                // Both normalisation and the user volume live in the processor so that order is
-                // real rather than incidental: the amplifier operates on an already-levelled
-                // signal, and the soft clip therefore judges peaks against what actually reaches
-                // the speaker. player.volume keeps only the sleep-timer fade, which is a smooth
-                // ramp to silence and can never clip.
-                gainProcessor.normalizeGain = normalizeFactor.value
-                gainProcessor.volumeGain = playerVolume.value
+                // Everything at or below unity goes to player.volume, because that is the only
+                // gain stage offload cannot skip: DefaultAudioSink.setVolumeInternal is guarded
+                // only by "is there an AudioTrack", it never looks at outputMode. Offload skips
+                // the processor chain entirely, since DefaultAudioSink.configure builds an empty
+                // AudioProcessingPipeline for any sampleMimeType other than audio/raw.
+                //
+                // Normalisation only ever attenuates, so it is ALWAYS in that half. That is the
+                // whole point: loudness normalisation now behaves identically with offload on or
+                // off, and there is no setting for anyone to get wrong.
+                //
+                // Only gain above unity goes to the processor, which is where the soft clip lives.
+                // min(total, 1f) is exactly 1f whenever total > 1, so the two stages are disjoint
+                // and their product is exact, with no division to reconstruct.
+                val total = normalizeFactor.value * playerVolume.value
+                gainProcessor.gain = total
                 withContext(Dispatchers.Main) {
-                    player.volume = sleepTimer.fadeFactor.value
+                    player.volume = min(total, 1f) * sleepTimer.fadeFactor.value
                 }
             }
 
