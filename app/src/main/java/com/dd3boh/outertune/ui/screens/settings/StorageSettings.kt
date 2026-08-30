@@ -69,8 +69,11 @@ fun StorageSettings(
             title = stringResource(R.string.song_cache)
         )
 
+        // Same default spring as the Downloads card above, so the three agree with each other and
+        // with the AnimatedVisibility springs nested inside them. Both of these gate content on a
+        // ListPreference and were snapping by 48 to 64dp.
         ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().animateContentSize()
         ) {
             SongCacheFrag()
         }
@@ -81,7 +84,7 @@ fun StorageSettings(
         )
 
         ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().animateContentSize()
         ) {
             ImageCacheFrag()
         }

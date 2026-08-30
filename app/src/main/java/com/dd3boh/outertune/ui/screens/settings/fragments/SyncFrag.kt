@@ -7,7 +7,13 @@
  */
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -156,26 +162,42 @@ fun ColumnScope.SyncManualFrag() {
                 else -> false
             }
 
-            if (syncProgressIndicator) {
-                Row(
-                    modifier = Modifier.padding(14.dp)
-                ) {
-                    SyncProgressItem(true)
+            // A swap, not a reveal, so this crossfades rather than expanding. Both branches
+            // already measure 48x48dp: the 14dp padding below is what matches the spinner to
+            // Checkbox's interactive minimum, so neither the row nor the label shifts.
+            AnimatedContent(
+                targetState = syncProgressIndicator,
+                transitionSpec = {
+                    fadeIn(tween(200, easing = LinearOutSlowInEasing))
+                        .togetherWith(fadeOut(tween(120, easing = FastOutLinearInEasing)))
+                },
+                label = "syncProgress"
+            ) { syncing ->
+                if (syncing) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(14.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                    }
+                } else {
+                    Checkbox(
+                        checked = enabledContent.contains(item),
+                        onCheckedChange = { checked ->
+                            val updated = enabledContent.toMutableList()
+                            if (checked) {
+                                updated.add(item)
+                            } else {
+                                updated.removeAll { it == item }
+                            }
+                            onSyncContentChange(encodeSyncString(updated))
+                        },
+                        enabled = isLoggedIn
+                    )
                 }
-            } else {
-                Checkbox(
-                    checked = enabledContent.contains(item),
-                    onCheckedChange = { checked ->
-                        val updated = enabledContent.toMutableList()
-                        if (checked) {
-                            updated.add(item)
-                        } else {
-                            updated.removeAll { it == item }
-                        }
-                        onSyncContentChange(encodeSyncString(updated))
-                    },
-                    enabled = isLoggedIn
-                )
             }
             Text(
                 text = title,
@@ -241,14 +263,3 @@ fun ColumnScope.SyncExtrasFrag() {
     )
 }
 
-@Composable
-fun SyncProgressItem(isSyncing: Boolean, modifier: Modifier = Modifier) {
-    AnimatedVisibility(isSyncing) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = modifier
-        ) {
-            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-        }
-    }
-}

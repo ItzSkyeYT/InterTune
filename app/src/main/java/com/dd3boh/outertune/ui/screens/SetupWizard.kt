@@ -13,8 +13,21 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -87,6 +100,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -96,6 +110,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.navigation.NavController
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.LocalDownloadUtil
@@ -223,8 +239,17 @@ fun SetupWizard(
                 )
             }
 
+            // The determinate indicator draws whatever value it is handed with no interpolation,
+            // so the bar teleported a fifth of its width per tap. 400ms deliberately outlives the
+            // 300ms step transition, so the bar is still moving as the new step settles.
+            val stepProgress by animateFloatAsState(
+                targetValue = oobeStatus.toFloat() / (OOBE_VERSION - 1),
+                animationSpec = tween(400, easing = FastOutSlowInEasing),
+                label = "oobeProgress"
+            )
+
             LinearProgressIndicator(
-                progress = { oobeStatus.toFloat() / (OOBE_VERSION - 1) },
+                progress = { stepProgress },
 //                color = ProgressIndicatorDefaults.linearColor,
 //                trackColor = MaterialTheme.colorScheme.primary,
                 strokeCap = StrokeCap.Butt,
@@ -295,550 +320,600 @@ fun SetupWizard(
                 )
                 .fillMaxSize()
         ) {
+            // Keyed on the step. One shared ScrollState only clamps to the new step's maximum
+            // rather than resetting, so advancing from a scrolled page landed you part way down a
+            // page you had never seen. The saver keeps the position across a rotation.
+            val stepScrollState = rememberSaveable(oobeStatus, saver = ScrollState.Saver) {
+                ScrollState(0)
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp)
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(stepScrollState),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Spacer(Modifier.height(WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 16.dp))
 
-                when (oobeStatus) {
-                    0 -> { // landing page
-                        Image(
-                            painter = painterResource(R.drawable.launcher_monochrome),
-                            contentDescription = null,
-                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary, BlendMode.SrcIn),
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .background(
-                                    MaterialTheme.colorScheme.surfaceColorAtElevation(
-                                        NavigationBarDefaults.Elevation
-                                    )
+                // Each step used to hard cut. Entering the wizard from MainActivity slides and
+                // fades, so the wizard felt stiller than the app that launched it.
+                //
+                // Fade through, not cross dissolve: the incoming fade waits for the outgoing one
+                // to finish, otherwise both headlines are legible at once and it reads muddy.
+                // Fixed 48dp of travel rather than a fraction of the width: a fraction gives a
+                // tablet a long heavy sweep and a phone a short one for the same duration.
+                // The inner Column is required, because AnimatedContent stacks its children at
+                // (0,0) and most branches emit a run of siblings that rely on the outer
+                // horizontalAlignment. coerceIn guards the terminal state: finishing sets
+                // oobeStatus to OOBE_VERSION, which has no branch.
+                // The slide lambdas get no Density receiver, so resolve the travel here.
+                val enterTravelPx = with(LocalDensity.current) { 48.dp.roundToPx() }
+                val exitTravelPx = with(LocalDensity.current) { 24.dp.roundToPx() }
+
+                AnimatedContent(
+                    targetState = oobeStatus.coerceIn(0, OOBE_VERSION - 1),
+                    transitionSpec = {
+                        val forward = targetState > initialState
+                        (slideIntoContainer(
+                            towards = if (forward) AnimatedContentTransitionScope.SlideDirection.Start
+                            else AnimatedContentTransitionScope.SlideDirection.End,
+                            animationSpec = tween(300, easing = LinearOutSlowInEasing)
+                        ) { enterTravelPx } + fadeIn(tween(220, delayMillis = 110, easing = LinearOutSlowInEasing)))
+                            .togetherWith(
+                                slideOutOfContainer(
+                                    towards = if (forward) AnimatedContentTransitionScope.SlideDirection.Start
+                                    else AnimatedContentTransitionScope.SlideDirection.End,
+                                    animationSpec = tween(200, easing = FastOutLinearInEasing)
+                                ) { exitTravelPx } + fadeOut(tween(110, easing = FastOutLinearInEasing))
+                            )
+                            // Snapped, and unclipped: the scroll container's maxValue would
+                            // otherwise swing every frame and tug the viewport.
+                            .using(SizeTransform(clip = false) { _, _ -> snap() })
+                    },
+                    label = "oobeStep"
+                ) { step ->
+                    Column(
+                        modifier = Modifier.widthIn(max = 720.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        when (step) {
+                            0 -> { // landing page
+                                Image(
+                                    painter = painterResource(R.drawable.launcher_monochrome),
+                                    contentDescription = null,
+                                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary, BlendMode.SrcIn),
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .background(
+                                            MaterialTheme.colorScheme.surfaceColorAtElevation(
+                                                NavigationBarDefaults.Elevation
+                                            )
+                                        )
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                        }
                                 )
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                                }
-                        )
 
-                        Text(
-                            text = stringResource(R.string.oobe_welcome_message),
-                            style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp),
-                            textAlign = TextAlign.Center
-                        )
-
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 16.dp, top = 48.dp, end = 16.dp, bottom = 16.dp)
-                        ) {
-                            OobeFeatureRow(
-                                title = stringResource(R.string.oobe_ytm_integration),
-                                description = stringResource(R.string.oobe_ytm_integration_description),
-                                icon = Icons.Rounded.MusicNote,
-                                MaterialTheme.colorScheme.secondary
-                            )
-                            OobeFeatureRow(
-                                title = stringResource(R.string.oobe_ad_free_exp),
-                                description = stringResource(R.string.oobe_ad_free_exp_description),
-                                icon = Icons.Rounded.Block,
-                                Color.Red
-                            )
-                            OobeFeatureRow(
-                                title = stringResource(R.string.oobe_cross_platform_sync),
-                                description = stringResource(R.string.oobe_cross_platform_sync_description),
-                                icon = Icons.Rounded.Sync,
-                                MaterialTheme.colorScheme.tertiary
-                            )
-                            OobeFeatureRow(
-                                title = stringResource(R.string.oobe_local_music_support),
-                                description = stringResource(R.string.oobe_local_music_support_description),
-                                icon = Icons.Rounded.SdCard,
-                                MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-
-                        Spacer(Modifier.height(16.dp))
-                        InfoLabel(
-                            text = stringResource(R.string.oobe_welcome_tip),
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp)
-                        )
-                        Spacer(Modifier.height(16.dp))
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 48.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            TextButton(
-                                onClick = {
-                                    navController.navigate("settings/backup_restore")
-                                }
-                            ) {
                                 Text(
-                                    text = stringResource(R.string.oobe_use_backup),
-                                    style = MaterialTheme.typography.bodyMedium
+                                    text = stringResource(R.string.oobe_welcome_message),
+                                    style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 24.dp),
+                                    textAlign = TextAlign.Center
                                 )
-                            }
 
-                            TextButton(
-                                onClick = {
-                                    oobeStatus = OOBE_VERSION
-                                    navController.navigateUp()
-                                }
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.action_skip),
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        }
-                    }
-
-                    // appearance
-                    1 -> {
-                        Icon(
-                            imageVector = Icons.Rounded.DarkMode,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(80.dp)
-                                .padding(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-
-                        Text(
-                            text = stringResource(R.string.grp_interface),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                        )
-
-                        Text(
-                            text = stringResource(R.string.oobe_interface_subtitle),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
-                        )
-
-
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            ThemeAppFrag()
-
-                            // Player look, including liquid glass. Setup is where someone decides
-                            // how the app should look, and the now playing screen is the screen
-                            // they will spend the most time staring at.
-                            ThemePlayerFrag()
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            LocalizationFrag()
-                        }
-                    }
-
-                    // account
-                    2 -> {
-                        Icon(
-                            imageVector = Icons.Rounded.AccountCircle,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(80.dp)
-                                .padding(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-
-                        Text(
-                            text = stringResource(R.string.oobe_ytm_logon_title),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                        )
-
-                        Text(
-                            text = stringResource(R.string.oobe_ytm_logon_subtitle),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
-                        )
-
-
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            AccountFrag(navController)
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            SwitchPreference(
-                                title = { Text(stringResource(R.string.ytm_sync)) },
-                                icon = { Icon(Icons.Rounded.Sync, null) },
-                                checked = ytmSync,
-                                onCheckedChange = onYtmSyncChange,
-                                isEnabled = isLoggedIn
-                            )
-                        }
-                    }
-
-                    // local media
-                    3 -> {
-                        Icon(
-                            imageVector = Icons.Rounded.LibraryMusic,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(80.dp)
-                                .padding(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-
-                        Text(
-                            text = stringResource(R.string.oobe_local_media_title),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                        )
-
-                        Text(
-                            text = stringResource(R.string.oobe_local_media_subtitle),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
-                        )
-
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            SwitchPreference(
-                                title = { Text(stringResource(R.string.local_library_enable_title)) },
-                                description = stringResource(R.string.local_library_enable_description),
-                                icon = { Icon(Icons.Rounded.SdCard, null) },
-                                checked = localLibEnable,
-                                onCheckedChange = onLocalLibEnableChange
-                            )
-                        }
-
-                        AnimatedVisibility(localLibEnable) {
-                            Column {
-                                Spacer(modifier = Modifier.height(16.dp))
-                                ElevatedCard(
-                                    modifier = Modifier.fillMaxWidth()
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(start = 16.dp, top = 48.dp, end = 16.dp, bottom = 16.dp)
                                 ) {
-                                    SwitchPreference(
-                                        title = { Text(stringResource(R.string.auto_scanner_title)) },
-                                        description = stringResource(R.string.auto_scanner_description),
-                                        icon = { Icon(Icons.Rounded.Autorenew, null) },
-                                        checked = autoScan,
-                                        onCheckedChange = onAutoScanChange
+                                    OobeFeatureRow(
+                                        title = stringResource(R.string.oobe_ytm_integration),
+                                        description = stringResource(R.string.oobe_ytm_integration_description),
+                                        icon = Icons.Rounded.MusicNote,
+                                        MaterialTheme.colorScheme.secondary
+                                    )
+                                    OobeFeatureRow(
+                                        title = stringResource(R.string.oobe_ad_free_exp),
+                                        description = stringResource(R.string.oobe_ad_free_exp_description),
+                                        icon = Icons.Rounded.Block,
+                                        Color.Red
+                                    )
+                                    OobeFeatureRow(
+                                        title = stringResource(R.string.oobe_cross_platform_sync),
+                                        description = stringResource(R.string.oobe_cross_platform_sync_description),
+                                        icon = Icons.Rounded.Sync,
+                                        MaterialTheme.colorScheme.tertiary
+                                    )
+                                    OobeFeatureRow(
+                                        title = stringResource(R.string.oobe_local_music_support),
+                                        description = stringResource(R.string.oobe_local_music_support_description),
+                                        icon = Icons.Rounded.SdCard,
+                                        MaterialTheme.colorScheme.onSurface
                                     )
                                 }
-                                Spacer(modifier = Modifier.height(16.dp))
-                                ElevatedCard(
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    PreferenceGroupTitle(
-                                        title = stringResource(R.string.grp_manual_scanner)
-                                    )
 
-
-                                    LocalScannerFrag()
-                                }
-                            }
-
-                        }
-                    }
-
-                    // downloads
-                    4 -> {
-                        val downloadUtil = LocalDownloadUtil.current
-                        val (downloadPath, onDownloadPathChange) = rememberPreference(DownloadPathKey, "")
-                        val (maxSongCacheSize, onMaxSongCacheSizeChange) = rememberPreference(
-                            key = MaxSongCacheSizeKey,
-                            defaultValue = 0
-                        )
-                        val (scanPaths, onScanPathsChange) = rememberPreference(ScanPathsKey, defaultValue = "")
-
-                        var showDlPathDialog: Boolean by remember {
-                            mutableStateOf(false)
-                        }
-
-
-                        Icon(
-                            imageVector = Icons.Rounded.Download,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(80.dp)
-                                .padding(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-
-                        Text(
-                            text = stringResource(R.string.oobe_downloads_title),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                        )
-
-                        Text(
-                            text = stringResource(R.string.oobe_downloads_subtitle),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
-                        )
-
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            PreferenceEntry(
-                                title = { Text(stringResource(R.string.dl_main_path_title)) },
-                                onClick = {
-                                    showDlPathDialog = true
-                                },
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        InfoLabel(stringResource(R.string.dl_oobe_tooltip))
-
-                        Spacer(Modifier.height(16.dp))
-                        Icon(
-                            imageVector = Icons.Rounded.Cached,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(80.dp)
-                                .padding(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = stringResource(R.string.song_cache), // TODO: oobe_cache_subtitle when localization is done
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                        )
-                        Text(
-                            text = stringResource(R.string.oobe_cache_subtitle),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
-                        )
-
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            ListPreference(
-                                title = { Text(stringResource(R.string.max_cache_size)) },
-                                selectedValue = maxSongCacheSize,
-                                values = listOf(0, 128, 256, 512, 1024, 2048, 4096, 8192, -1),
-                                valueText = {
-                                    when (it) {
-                                        0 -> stringResource(androidx.compose.ui.R.string.state_off)
-                                        -1 -> stringResource(R.string.unlimited)
-                                        else -> formatFileSize(it * 1024 * 1024L)
-                                    }
-                                },
-                                onValueSelected = onMaxSongCacheSizeChange
-                            )
-                            InfoLabel(stringResource(R.string.restart_to_apply_changes))
-                            Spacer(Modifier.height(12.dp))
-                        }
-
-                        if (showDlPathDialog) {
-                            var tempFilePath by remember {
-                                mutableStateOf<Uri?>(null)
-                            }
-                            LaunchedEffect(downloadPath) {
-                                tempFilePath = uriListFromString(downloadPath).firstOrNull()
-                            }
-
-                            ActionPromptDialog(
-                                titleBar = {
-                                    Text(
-                                        text = stringResource(R.string.dl_main_path_title),
-                                        style = MaterialTheme.typography.titleLarge,
-                                    )
-                                },
-                                onDismiss = {
-                                    showDlPathDialog = false
-                                    tempFilePath = null
-                                },
-                                onConfirm = {
-                                    tempFilePath?.let { f ->
-                                        val uris = stringFromUriList(listOfNotNull(f))
-                                        onDownloadPathChange(uris)
-                                    }
-
-                                    showDlPathDialog = false
-                                    tempFilePath = null
-
-                                    coroutineScope.launch(dlCoroutine) {
-                                        delay(1000)
-                                        downloadUtil.cd()
-                                        downloadUtil.scanDownloads()
-                                    }
-                                },
-                                onReset = {
-                                    tempFilePath = null
-                                },
-                                onCancel = {
-                                    showDlPathDialog = false
-                                    tempFilePath = null
-                                },
-                                isInputValid = uriListFromString(scanPaths).none {
-                                    // download path cannot a scan path, or a subdir of a scan path
-                                    tempFilePath.toString().length <= it.toString().length && tempFilePath.toString()
-                                        .contains(it.toString())
-                                }
-                            ) {
-
-                                val dirPickerLauncher = rememberLauncherForActivityResult(
-                                    ActivityResultContracts.OpenDocumentTree()
-                                ) { uri ->
-                                    if (tempFilePath.toString() == uri.toString()) return@rememberLauncherForActivityResult
-                                    if (uri?.path != null) {
-                                        // Take persistable URI permission
-                                        val contentResolver = context.contentResolver
-                                        val takeFlags: Int =
-                                            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                                        contentResolver.takePersistableUriPermission(uri, takeFlags)
-
-                                        tempFilePath = uri
-                                    }
-                                }
-
-                                val valid = uriListFromString(scanPaths).none {
-                                    // download path cannot a scan path, or a subdir of a scan path
-                                    tempFilePath.toString().length <= it.toString().length && tempFilePath.toString()
-                                        .contains(it.toString())
-                                }
-
-                                Text(
-                                    text = stringResource(R.string.dl_main_path_description),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.padding(horizontal = 4.dp)
+                                Spacer(Modifier.height(16.dp))
+                                InfoLabel(
+                                    text = stringResource(R.string.oobe_welcome_tip),
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp)
                                 )
-                                Spacer(Modifier.padding(vertical = 8.dp))
+                                Spacer(Modifier.height(16.dp))
 
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(16.dp)
-                                        .border(
-                                            2.dp,
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
-                                            RoundedCornerShape(ThumbnailCornerRadius)
-                                        )
-                                        .background(if (valid) Color.Transparent else MaterialTheme.colorScheme.errorContainer)
+                                        .padding(horizontal = 48.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    tempFilePath?.let {
+                                    TextButton(
+                                        onClick = {
+                                            navController.navigate("settings/backup_restore")
+                                        }
+                                    ) {
                                         Text(
-                                            text = it.toString(),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            modifier = Modifier.padding(8.dp)
+                                            text = stringResource(R.string.oobe_use_backup),
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
+
+                                    TextButton(
+                                        onClick = {
+                                            oobeStatus = OOBE_VERSION
+                                            navController.navigateUp()
+                                        }
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.action_skip),
+                                            style = MaterialTheme.typography.bodyMedium
                                         )
                                     }
                                 }
+                            }
 
-                                // add folder button
-                                Column {
-                                    Button(onClick = { dirPickerLauncher.launch(null) }) {
-                                        Text(stringResource(R.string.scan_paths_add_folder))
-                                    }
+                            // appearance
+                            1 -> {
+                                Icon(
+                                    imageVector = Icons.Rounded.DarkMode,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .padding(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
 
-                                    InfoLabel(
-                                        text = stringResource(R.string.scan_paths_tooltip),
-                                        modifier = Modifier.padding(vertical = 16.dp)
+                                Text(
+                                    text = stringResource(R.string.grp_interface),
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                                )
+
+                                Text(
+                                    text = stringResource(R.string.oobe_interface_subtitle),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
+                                )
+
+
+                                ElevatedCard(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    ThemeAppFrag()
+
+                                    // Player look, including liquid glass. Setup is where someone decides
+                                    // how the app should look, and the now playing screen is the screen
+                                    // they will spend the most time staring at.
+                                    ThemePlayerFrag()
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                ElevatedCard(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    LocalizationFrag()
+                                }
+                            }
+
+                            // account
+                            2 -> {
+                                Icon(
+                                    imageVector = Icons.Rounded.AccountCircle,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .padding(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+
+                                Text(
+                                    text = stringResource(R.string.oobe_ytm_logon_title),
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                                )
+
+                                Text(
+                                    text = stringResource(R.string.oobe_ytm_logon_subtitle),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
+                                )
+
+
+                                ElevatedCard(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    AccountFrag(navController)
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                ElevatedCard(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    SwitchPreference(
+                                        title = { Text(stringResource(R.string.ytm_sync)) },
+                                        icon = { Icon(Icons.Rounded.Sync, null) },
+                                        checked = ytmSync,
+                                        onCheckedChange = onYtmSyncChange,
+                                        isEnabled = isLoggedIn
                                     )
+                                }
+                            }
 
-                                    if (!valid) {
-                                        InfoLabel(
-                                            text = stringResource(R.string.scanner_rejected_dir),
-                                            isError = true,
-                                            modifier = Modifier.padding(top = 8.dp)
+                            // local media
+                            3 -> {
+                                Icon(
+                                    imageVector = Icons.Rounded.LibraryMusic,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .padding(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+
+                                Text(
+                                    text = stringResource(R.string.oobe_local_media_title),
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                                )
+
+                                Text(
+                                    text = stringResource(R.string.oobe_local_media_subtitle),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
+                                )
+
+                                ElevatedCard(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    SwitchPreference(
+                                        title = { Text(stringResource(R.string.local_library_enable_title)) },
+                                        description = stringResource(R.string.local_library_enable_description),
+                                        icon = { Icon(Icons.Rounded.SdCard, null) },
+                                        checked = localLibEnable,
+                                        onCheckedChange = onLocalLibEnableChange
+                                    )
+                                }
+
+                                AnimatedVisibility(localLibEnable) {
+                                    Column {
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        ElevatedCard(
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            SwitchPreference(
+                                                title = { Text(stringResource(R.string.auto_scanner_title)) },
+                                                description = stringResource(R.string.auto_scanner_description),
+                                                icon = { Icon(Icons.Rounded.Autorenew, null) },
+                                                checked = autoScan,
+                                                onCheckedChange = onAutoScanChange
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        ElevatedCard(
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            PreferenceGroupTitle(
+                                                title = stringResource(R.string.grp_manual_scanner)
+                                            )
+
+
+                                            LocalScannerFrag()
+                                        }
+                                    }
+
+                                }
+                            }
+
+                            // downloads
+                            4 -> {
+                                val downloadUtil = LocalDownloadUtil.current
+                                val (downloadPath, onDownloadPathChange) = rememberPreference(DownloadPathKey, "")
+                                val (maxSongCacheSize, onMaxSongCacheSizeChange) = rememberPreference(
+                                    key = MaxSongCacheSizeKey,
+                                    defaultValue = 0
+                                )
+                                val (scanPaths, onScanPathsChange) = rememberPreference(ScanPathsKey, defaultValue = "")
+
+                                var showDlPathDialog: Boolean by remember {
+                                    mutableStateOf(false)
+                                }
+
+
+                                Icon(
+                                    imageVector = Icons.Rounded.Download,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .padding(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+
+                                Text(
+                                    text = stringResource(R.string.oobe_downloads_title),
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                                )
+
+                                Text(
+                                    text = stringResource(R.string.oobe_downloads_subtitle),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
+                                )
+
+                                ElevatedCard(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    PreferenceEntry(
+                                        title = { Text(stringResource(R.string.dl_main_path_title)) },
+                                        onClick = {
+                                            showDlPathDialog = true
+                                        },
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(16.dp))
+                                InfoLabel(stringResource(R.string.dl_oobe_tooltip))
+
+                                Spacer(Modifier.height(16.dp))
+                                Icon(
+                                    imageVector = Icons.Rounded.Cached,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(80.dp)
+                                        .padding(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = stringResource(R.string.song_cache), // TODO: oobe_cache_subtitle when localization is done
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                                )
+                                Text(
+                                    text = stringResource(R.string.oobe_cache_subtitle),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
+                                )
+
+                                ElevatedCard(
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    ListPreference(
+                                        title = { Text(stringResource(R.string.max_cache_size)) },
+                                        selectedValue = maxSongCacheSize,
+                                        values = listOf(0, 128, 256, 512, 1024, 2048, 4096, 8192, -1),
+                                        valueText = {
+                                            when (it) {
+                                                0 -> stringResource(androidx.compose.ui.R.string.state_off)
+                                                -1 -> stringResource(R.string.unlimited)
+                                                else -> formatFileSize(it * 1024 * 1024L)
+                                            }
+                                        },
+                                        onValueSelected = onMaxSongCacheSizeChange
+                                    )
+                                    InfoLabel(stringResource(R.string.restart_to_apply_changes))
+                                    Spacer(Modifier.height(12.dp))
+                                }
+
+                                if (showDlPathDialog) {
+                                    var tempFilePath by remember {
+                                        mutableStateOf<Uri?>(null)
+                                    }
+                                    LaunchedEffect(downloadPath) {
+                                        tempFilePath = uriListFromString(downloadPath).firstOrNull()
+                                    }
+
+                                    ActionPromptDialog(
+                                        titleBar = {
+                                            Text(
+                                                text = stringResource(R.string.dl_main_path_title),
+                                                style = MaterialTheme.typography.titleLarge,
+                                            )
+                                        },
+                                        onDismiss = {
+                                            showDlPathDialog = false
+                                            tempFilePath = null
+                                        },
+                                        onConfirm = {
+                                            tempFilePath?.let { f ->
+                                                val uris = stringFromUriList(listOfNotNull(f))
+                                                onDownloadPathChange(uris)
+                                            }
+
+                                            showDlPathDialog = false
+                                            tempFilePath = null
+
+                                            coroutineScope.launch(dlCoroutine) {
+                                                delay(1000)
+                                                downloadUtil.cd()
+                                                downloadUtil.scanDownloads()
+                                            }
+                                        },
+                                        onReset = {
+                                            tempFilePath = null
+                                        },
+                                        onCancel = {
+                                            showDlPathDialog = false
+                                            tempFilePath = null
+                                        },
+                                        isInputValid = uriListFromString(scanPaths).none {
+                                            // download path cannot a scan path, or a subdir of a scan path
+                                            tempFilePath.toString().length <= it.toString().length && tempFilePath.toString()
+                                                .contains(it.toString())
+                                        }
+                                    ) {
+
+                                        val dirPickerLauncher = rememberLauncherForActivityResult(
+                                            ActivityResultContracts.OpenDocumentTree()
+                                        ) { uri ->
+                                            if (tempFilePath.toString() == uri.toString()) return@rememberLauncherForActivityResult
+                                            if (uri?.path != null) {
+                                                // Take persistable URI permission
+                                                val contentResolver = context.contentResolver
+                                                val takeFlags: Int =
+                                                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                                                contentResolver.takePersistableUriPermission(uri, takeFlags)
+
+                                                tempFilePath = uri
+                                            }
+                                        }
+
+                                        val valid = uriListFromString(scanPaths).none {
+                                            // download path cannot a scan path, or a subdir of a scan path
+                                            tempFilePath.toString().length <= it.toString().length && tempFilePath.toString()
+                                                .contains(it.toString())
+                                        }
+
+                                        Text(
+                                            text = stringResource(R.string.dl_main_path_description),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            modifier = Modifier.padding(horizontal = 4.dp)
                                         )
+                                        Spacer(Modifier.padding(vertical = 8.dp))
+
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(16.dp)
+                                                .border(
+                                                    2.dp,
+                                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                                                    RoundedCornerShape(ThumbnailCornerRadius)
+                                                )
+                                                .background(if (valid) Color.Transparent else MaterialTheme.colorScheme.errorContainer)
+                                        ) {
+                                            tempFilePath?.let {
+                                                Text(
+                                                    text = it.toString(),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    modifier = Modifier.padding(8.dp)
+                                                )
+                                            }
+                                        }
+
+                                        // add folder button
+                                        Column {
+                                            Button(onClick = { dirPickerLauncher.launch(null) }) {
+                                                Text(stringResource(R.string.scan_paths_add_folder))
+                                            }
+
+                                            InfoLabel(
+                                                text = stringResource(R.string.scan_paths_tooltip),
+                                                modifier = Modifier.padding(vertical = 16.dp)
+                                            )
+
+                                            if (!valid) {
+                                                InfoLabel(
+                                                    text = stringResource(R.string.scanner_rejected_dir),
+                                                    isError = true,
+                                                    modifier = Modifier.padding(top = 8.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
-                        }
-                    }
 
-                    // exit page
-                    5 -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Check,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(80.dp)
-                                    .padding(16.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = stringResource(R.string.oobe_complete_title),
-                                style = MaterialTheme.typography.headlineLarge,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                            )
-                            Text(
-                                text = stringResource(R.string.oobe_complete),
-                                style = MaterialTheme.typography.bodyLarge,
-                                textAlign = TextAlign.Center,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                            )
-                            UpdateOptInCard()
+                            // exit page
+                            5 -> {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(80.dp)
+                                            .padding(16.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.oobe_complete_title),
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.oobe_complete),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        textAlign = TextAlign.Center,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                                    )
+                                    UpdateOptInCard()
 
-                            Row(
-                                horizontalArrangement = Arrangement.Center,
-                                modifier = Modifier.padding(vertical = 16.dp)
-                            ) {
-                                IconLabelButton(
-                                    text = "GitHub",
-                                    icon = Icons.Rounded.Code,
-                                    onClick = { uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune") },
-                                    modifier = Modifier.padding(horizontal = 8.dp)
-                                )
+                                    Row(
+                                        horizontalArrangement = Arrangement.Center,
+                                        modifier = Modifier.padding(vertical = 16.dp)
+                                    ) {
+                                        IconLabelButton(
+                                            text = "GitHub",
+                                            icon = Icons.Rounded.Code,
+                                            onClick = { uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune") },
+                                            modifier = Modifier.padding(horizontal = 8.dp)
+                                        )
 
-                                IconLabelButton(
-                                    text = "Wiki",
-                                    icon = Icons.Outlined.Info,
-                                    onClick = { uriHandler.openUri("https://github.com/OuterTune/OuterTune/wiki") },
-                                    modifier = Modifier.padding(horizontal = 8.dp)
-                                )
+                                        IconLabelButton(
+                                            text = "Wiki",
+                                            icon = Icons.Outlined.Info,
+                                            onClick = { uriHandler.openUri("https://github.com/OuterTune/OuterTune/wiki") },
+                                            modifier = Modifier.padding(horizontal = 8.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) | ${BuildConfig.FLAVOR}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 8.dp)
+                                    )
+                                }
                             }
-                            Text(
-                                text = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) | ${BuildConfig.FLAVOR}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(top = 8.dp)
-                            )
                         }
                     }
                 }
