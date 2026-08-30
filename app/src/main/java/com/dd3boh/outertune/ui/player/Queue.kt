@@ -635,6 +635,20 @@ fun BoxScope.QueueContent(
                 )
             }
 
+            // The lock normally lives in the saved-queues header, which songsOnly hides. Locking
+            // is what gates drag-to-reorder, so without it here the tablet pane can be stuck
+            // locked with no way to unlock and reordering just stops working, with nothing on
+            // screen explaining why. Sits outside the detached/search choice below because both
+            // of those branches occupy the same slot and would otherwise hide it.
+            if (songsOnly) {
+                ResizableIconButton(
+                    icon = if (lockQueue) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                    onClick = {
+                        lockQueue = !lockQueue
+                    },
+                )
+            }
+
             // play the detached queue
             if (detachedHead) {
                 ResizableIconButton(
