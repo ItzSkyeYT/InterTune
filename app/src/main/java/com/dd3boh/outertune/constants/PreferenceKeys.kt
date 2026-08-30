@@ -216,6 +216,17 @@ val LastUpdateCheckKey = longPreferencesKey("lastUpdateCheck")
 val LastVersionKey = stringPreferencesKey("lastVersion")
 val UpdateAvailableKey = booleanPreferencesKey("updateAvailable")
 
+/**
+ * Whether to look for newer InterTune releases on GitHub.
+ *
+ * Off by default and opt in. A version check is a request to a third party that reveals roughly
+ * when the app is used, which is not something to switch on for somebody.
+ */
+val UpdateCheckEnabledKey = booleanPreferencesKey("updateCheckEnabled")
+
+/** versionCode the user dismissed. Anything newer than this is still worth raising. */
+val DismissedUpdateCodeKey = intPreferencesKey("dismissedUpdateCode")
+
 val LanguageCodeToName = mapOf(
     "af" to "Afrikaans",
     "az" to "Azərbaycan",

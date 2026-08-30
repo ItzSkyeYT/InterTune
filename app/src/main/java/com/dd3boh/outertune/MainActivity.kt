@@ -194,6 +194,7 @@ import com.dd3boh.outertune.utils.LocalArtworkPath
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.SyncUtils
+import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -232,6 +233,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var loudnessRepair: LoudnessRepair
+
+    @Inject
+    lateinit var updateChecker: UpdateChecker
 
     lateinit var activityLauncher: ActivityLauncherHelper
     lateinit var connectivityObserver: NetworkConnectivityObserver
@@ -319,6 +323,11 @@ class MainActivity : ComponentActivity() {
 
 
             LaunchedEffect(Unit) {
+                // Look for a newer release. Does nothing unless the user opted in, and rate limits
+                // itself to once every few hours, so this is cheap to call on every open. Failure
+                // is silent on purpose: nobody opened a music player to be told GitHub is down.
+                coroutineScope.launch { updateChecker.check() }
+
                 // local media & download folders auto scan
                 coroutineScope.launch(lmScannerCoroutine) {
                     scanInit(
@@ -518,6 +527,7 @@ class MainActivity : ComponentActivity() {
                         LocalShimmerTheme provides ShimmerTheme,
                         LocalSyncUtils provides syncUtils,
                         LocalLoudnessRepair provides loudnessRepair,
+                        LocalUpdateChecker provides updateChecker,
                         LocalNetworkConnected provides isNetworkConnected,
                         LocalSnackbarHostState provides snackbarHostState,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
@@ -1221,5 +1231,6 @@ val LocalPlayerAwareWindowInsets = compositionLocalOf<WindowInsets> { error("No 
 val LocalDownloadUtil = staticCompositionLocalOf<DownloadUtil> { error("No DownloadUtil provided") }
 val LocalSyncUtils = staticCompositionLocalOf<SyncUtils> { error("No SyncUtils provided") }
 val LocalLoudnessRepair = staticCompositionLocalOf<LoudnessRepair> { error("No LoudnessRepair provided") }
+val LocalUpdateChecker = staticCompositionLocalOf<UpdateChecker> { error("No UpdateChecker provided") }
 val LocalNetworkConnected = staticCompositionLocalOf<Boolean> { error("No Network Status provided") }
 val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> { error("No SnackbarHostState provided") }
