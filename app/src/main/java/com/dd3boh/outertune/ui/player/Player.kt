@@ -1184,7 +1184,10 @@ fun BottomSheetPlayer(
                                     state.dismiss()
                                     playerConnection.service.queueBoard.detachedHead = false
                                 },
-                                navController = navController
+                                navController = navController,
+                                // Up next only. Choosing a different saved queue stays in the
+                                // slide-up sheet, where the rest of queue management lives.
+                                songsOnly = true
                             )
                         }
                     }
