@@ -293,6 +293,14 @@ fun BoxScope.QueueContent(
     var mqExpand by remember { mutableStateOf(fallBackQueue != null) }
     var detachedHead by remember { mutableStateOf(fallBackQueue != null) }
     var detachedQueue by remember { mutableStateOf<MultiQueueObject?>(fallBackQueue) }
+
+    /**
+     * The queue the fallback seeded us with, captured once alongside the remembers above.
+     *
+     * Used to tell "we are detached because nothing had loaded yet" apart from "the user picked a
+     * queue to preview". Only the first is safe to clear automatically.
+     */
+    val fallbackSeed = remember { fallBackQueue }
     val mutableQueues = remember { mutableStateListOf<MultiQueueObject>() }
     var playingQueue by remember { mutableIntStateOf(-1) }
 
@@ -414,6 +422,24 @@ fun BoxScope.QueueContent(
         detachedHead = false
         detachedQueue = null // detachedQueue should only exist in detached mode
         onExitSelectionMode()
+    }
+
+    /**
+     * Undo the detached state that the fallback seeds on first composition.
+     *
+     * queueWindows is a flow, so it is empty for the first composition or two even when something
+     * is already playing. That makes fallBackQueue non-null, which seeds detachedHead true. The
+     * remember holding it has no key, so when the real queue arrives a moment later the value is
+     * never reconsidered: the song list stays in detached mode, and detached mode disables
+     * drag-to-reorder. The handles were therefore missing on every open, and came back only after
+     * switching to another queue and back, because that path calls exitDetachHead.
+     *
+     * Only clears a detach the user did not ask for, hence the identity check against the seed.
+     */
+    LaunchedEffect(queueWindows.isEmpty()) {
+        if (queueWindows.isNotEmpty() && detachedHead && detachedQueue === fallbackSeed) {
+            exitDetachHead()
+        }
     }
 
     LaunchedEffect(queueWindows, detachedQueue) { // add to songs list & scroll
