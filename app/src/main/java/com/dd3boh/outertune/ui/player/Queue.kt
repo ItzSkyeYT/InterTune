@@ -244,6 +244,15 @@ fun BoxScope.QueueContent(
     playerState: BottomSheetState,
     onTerminate: () -> Unit,
     navController: NavController,
+    /**
+     * Show only the up-next song list, without the saved-queues panel beside it.
+     *
+     * For the tablet player's side pane. That pane is already half the screen, so the normal
+     * landscape split would squeeze the up-next list into a quarter of the display, and picking a
+     * different saved queue belongs with the rest of the queue management in the slide-up sheet
+     * rather than permanently occupying the player.
+     */
+    songsOnly: Boolean = false,
 ) {
     Log.v("QueueContent", "QC-1")
     val context = LocalContext.current
@@ -1111,11 +1120,13 @@ fun BoxScope.QueueContent(
         Row {
             // song header & song list
             Column(
-                modifier = Modifier.fillMaxWidth(0.5f)
+                modifier = if (songsOnly) Modifier.fillMaxWidth() else Modifier.fillMaxWidth(0.5f)
             ) {
                 songHeader(Modifier.windowInsetsPadding(InsetsSafeSTE))
                 songList(InsetsSafeS.asPaddingValues())
             }
+
+            if (!songsOnly) {
 
             Spacer(Modifier.width(8.dp))
 
@@ -1161,6 +1172,7 @@ fun BoxScope.QueueContent(
                     bottomNav()
                 }
             }
+            } // songsOnly
         }
     } else {
         Log.v("QueueContent", "QC-2.1")
