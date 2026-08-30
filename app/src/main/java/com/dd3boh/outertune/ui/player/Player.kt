@@ -336,6 +336,14 @@ fun BottomSheetPlayer(
      */
     val landscapeTwoPane = isLandscape && !tabMode && wideScreen
 
+    /**
+     * A tablet in landscape, which is the case with width to spare for a permanent queue pane.
+     *
+     * tabMode is already "tablet sized AND landscape", so this is just tabMode with the intent
+     * spelled out at the point of use.
+     */
+    val tabletTwoPane = tabMode
+
 
     // ignoringVisibility so hiding the bars in immersive landscape does not change this bound and
     // rebuild the sheet state mid-gesture. See the matching note in MainActivity.
@@ -1056,9 +1064,23 @@ fun BottomSheetPlayer(
                     }
                 }
             } else {
+                /**
+                 * Two panes on a tablet: player on the left, the up-next queue on the right.
+                 *
+                 * A tablet in landscape is excluded from the phone's landscape layout by tabMode,
+                 * so it falls through to this stacked one and the artwork, title and controls end
+                 * up spread across a 2560px width with the entire right half empty. Splitting the
+                 * width and putting the queue in the space it was wasting is the whole change; the
+                 * player column below is untouched apart from being handed half the room.
+                 *
+                 * Not a Row on phones. This branch is also what portrait and small landscape use,
+                 * and they have no width to spare.
+                 */
+                Row(modifier = Modifier.fillMaxSize()) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
+                        .then(if (tabletTwoPane) Modifier.weight(1f) else Modifier)
                         .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
                         .padding(bottom = queueSheetState.collapsedBound)
                 ) {
@@ -1143,6 +1165,29 @@ fun BottomSheetPlayer(
                     }
 
                     Spacer(Modifier.height(24.dp))
+                }
+
+                    // The right pane. Same list the queue sheet shows, so there is one queue
+                    // implementation rather than two that drift apart.
+                    if (tabletTwoPane) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxSize()
+                                .windowInsetsPadding(
+                                    WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)
+                                )
+                        ) {
+                            QueueContent(
+                                playerState = state,
+                                onTerminate = {
+                                    state.dismiss()
+                                    playerConnection.service.queueBoard.detachedHead = false
+                                },
+                                navController = navController
+                            )
+                        }
+                    }
                 }
             }
 
