@@ -1086,7 +1086,16 @@ fun BottomSheetPlayer(
                     modifier = Modifier
                         .then(if (tabletTwoPane) Modifier.weight(1f) else Modifier)
                         .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
-                        .padding(bottom = queueSheetState.collapsedBound)
+                        // On a tablet the collapsed sheet is just a handle, not a peek at the queue,
+                        // because the queue is already in the side pane. Reserving the full peek
+                        // height under the controls leaves a dead band at the bottom, holds the
+                        // controls up, and costs the artwork the same height twice over, since the
+                        // artwork is sized from whatever the column has left. Reserve only the
+                        // handle.
+                        .padding(
+                            bottom = if (tabletTwoPane) TabletQueueHandleReserve
+                            else queueSheetState.collapsedBound
+                        )
                 ) {
                     BoxWithConstraints(
                         contentAlignment = Alignment.Center,
@@ -1213,3 +1222,11 @@ fun BottomSheetPlayer(
         )
     }
 }
+
+/**
+ * Space kept under the tablet player's controls for the queue handle.
+ *
+ * Only the arrow needs to fit. The full collapsed-sheet height is for a peek at the queue, which a
+ * tablet does not need because the queue is permanently beside the player.
+ */
+private val TabletQueueHandleReserve = 48.dp
