@@ -7,6 +7,8 @@
  */
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -79,17 +81,20 @@ fun ColumnScope.AccountFrag(navController: NavController) {
         icon = { Icon(Icons.Rounded.Person, null) },
         onClick = { navController.navigate("login") }
     )
-    if (isLoggedIn) {
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.action_logout)) },
-            icon = { Icon(Icons.AutoMirrored.Rounded.Logout, null) },
-            onClick = {
-                forgetAccount(context)
-            }
-        )
-        Spacer(Modifier.height(8.dp))
-        InfoLabel(stringResource(R.string.action_logout_tooltip))
-        Spacer(Modifier.height(24.dp))
+    // Roughly 100dp that used to snap in and out on login and logout.
+    AnimatedVisibility(isLoggedIn) {
+        Column {
+            PreferenceEntry(
+                title = { Text(stringResource(R.string.action_logout)) },
+                icon = { Icon(Icons.AutoMirrored.Rounded.Logout, null) },
+                onClick = {
+                    forgetAccount(context)
+                }
+            )
+            Spacer(Modifier.height(8.dp))
+            InfoLabel(stringResource(R.string.action_logout_tooltip))
+            Spacer(Modifier.height(24.dp))
+        }
     }
 
     PreferenceEntry(

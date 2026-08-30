@@ -153,43 +153,47 @@ fun ColumnScope.ThemePlayerFrag() {
         onCheckedChange = onChromaticShockChange
     )
 
-    // Nested under the glass switch because the panel it controls IS the glass slab: with glass
-    // off there is no shared container to group anything into, so the setting would do nothing.
-    if (liquidGlass) {
-        SwitchPreference(
-            title = { Text(stringResource(R.string.grouped_player_controls)) },
-            description = stringResource(R.string.grouped_player_controls_description),
-            icon = { Icon(Icons.Rounded.ViewAgenda, null) },
-            checked = groupedControls,
-            onCheckedChange = onGroupedControlsChange
-        )
-    }
+    // One reveal rather than two consecutive `if` blocks, which popped ~320dp into existence in a
+    // single frame directly under the switch that was just tapped. ThemeAppFrag above already
+    // animates its equivalent, so the file disagreed with itself. ColumnScope defaults, to match.
+    AnimatedVisibility(liquidGlass) {
+        // Required: AnimatedVisibility takes one child, and this holds three.
+        Column {
+            // Nested under the glass switch because the panel it controls IS the glass slab: with
+            // glass off there is no shared container to group anything into, so it would do nothing.
+            SwitchPreference(
+                title = { Text(stringResource(R.string.grouped_player_controls)) },
+                description = stringResource(R.string.grouped_player_controls_description),
+                icon = { Icon(Icons.Rounded.ViewAgenda, null) },
+                checked = groupedControls,
+                onCheckedChange = onGroupedControlsChange
+            )
 
-    // Below BOTH toggles, not nested under the first. It drives both, and while it sat under the
-    // vivid-background switch people read it as belonging to that alone and turned it down looking
-    // for more glass, which does the opposite.
-    if (liquidGlass) {
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.player_glass_intensity)) },
-            description = stringResource(R.string.player_glass_intensity_description),
-            icon = { Icon(Icons.Rounded.Tune, null) },
-            // A label for the slider underneath, not a button.
-            onClick = null
-        )
-        Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-            Text(
-                text = stringResource(
-                    R.string.player_glass_intensity_value,
-                    (glassIntensity * 100).roundToInt()
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.secondary
+            // Below BOTH toggles, not nested under the first. It drives both, and while it sat
+            // under the vivid-background switch people read it as belonging to that alone and
+            // turned it down looking for more glass, which does the opposite.
+            PreferenceEntry(
+                title = { Text(stringResource(R.string.player_glass_intensity)) },
+                description = stringResource(R.string.player_glass_intensity_description),
+                icon = { Icon(Icons.Rounded.Tune, null) },
+                // A label for the slider underneath, not a button.
+                onClick = null
             )
-            Slider(
-                value = glassIntensity,
-                onValueChange = onGlassIntensityChange,
-                valueRange = 0f..1f
-            )
+            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                Text(
+                    text = stringResource(
+                        R.string.player_glass_intensity_value,
+                        (glassIntensity * 100).roundToInt()
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                Slider(
+                    value = glassIntensity,
+                    onValueChange = onGlassIntensityChange,
+                    valueRange = 0f..1f
+                )
+            }
         }
     }
 }
