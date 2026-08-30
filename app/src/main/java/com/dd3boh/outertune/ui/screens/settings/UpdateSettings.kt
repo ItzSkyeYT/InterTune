@@ -10,8 +10,6 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
@@ -76,7 +74,6 @@ fun UpdateSettings(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier
             .padding(horizontal = 16.dp)
-            .verticalScroll(rememberScrollState())
     ) {
         PreferenceGroupTitle(title = stringResource(R.string.grp_updates))
 
@@ -146,7 +143,7 @@ fun UpdateSettings(
             PreferenceEntry(
                 title = { Text(stringResource(R.string.update_installed_version)) },
                 description = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
-                onClick = { }
+                onClick = null
             )
         }
     }

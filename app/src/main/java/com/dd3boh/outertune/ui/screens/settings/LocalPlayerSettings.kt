@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Autorenew
@@ -90,7 +88,6 @@ fun LocalPlayerSettings(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier
             .padding(horizontal = 16.dp)
-            .verticalScroll(rememberScrollState())
     ) {
         SwitchPreference(
             title = { Text(stringResource(R.string.local_library_enable_title)) },

@@ -24,9 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.Info
@@ -109,8 +107,7 @@ fun AboutScreen(
     ColumnWithContentPadding(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
+            .fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Image(
@@ -127,7 +124,8 @@ fun AboutScreen(
             verticalAlignment = Alignment.Top,
         ) {
             Text(
-                text = "OuterTune",
+                // Was hardcoded, so the rebrand's string sweep never reached it.
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)

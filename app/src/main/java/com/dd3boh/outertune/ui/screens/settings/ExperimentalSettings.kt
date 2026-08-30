@@ -21,8 +21,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Backup
@@ -127,69 +125,73 @@ fun ExperimentalSettings(
     ColumnWithContentPadding(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier
-            .verticalScroll(rememberScrollState())
     ) {
-        PreferenceGroupTitle(
-            title = stringResource(R.string.experimental_settings_title)
-        )
-        SwitchPreference(
-            title = { Text(stringResource(R.string.tablet_ui_title)) },
-            description = stringResource(R.string.tablet_ui_title),
-            icon = { Icon(Icons.Rounded.Devices, null) },
-            checked = tabletUi,
-            onCheckedChange = onTabletUiChange
-        )
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.max_queues_title)) },
-            icon = { Icon(Icons.Rounded.Queue, null) },
-            onClick = { showMaxQueuesDialog = true }
-        )
+        // Only the user-facing rows get the 16dp gutter every other settings screen has.
+        // The dev block below stays edge to edge on purpose: its colour swatches are
+        // fillMaxWidth backgrounds that are meant to bleed.
+        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            PreferenceGroupTitle(
+                title = stringResource(R.string.experimental_settings_title)
+            )
+            SwitchPreference(
+                title = { Text(stringResource(R.string.tablet_ui_title)) },
+                description = stringResource(R.string.tablet_ui_title_description),
+                icon = { Icon(Icons.Rounded.Devices, null) },
+                checked = tabletUi,
+                onCheckedChange = onTabletUiChange
+            )
+            PreferenceEntry(
+                title = { Text(stringResource(R.string.max_queues_title)) },
+                icon = { Icon(Icons.Rounded.Queue, null) },
+                onClick = { showMaxQueuesDialog = true }
+            )
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        if (showMaxQueuesDialog) {
-            CounterDialog(
-                title = stringResource(R.string.max_queues_title),
-                initialValue = maxQueues,
-                upperBound = 30,
-                lowerBound = 1,
-                onDismiss = { showMaxQueuesDialog = false },
-                onConfirm = {
-                    showMaxQueuesDialog = false
-                    coroutineScope.launch(Dispatchers.IO) {
-                        onMaxQueuesChange(it)
-                        delay(500)
-                        // the queues get reloaded, but not cleared by the database
-                        // this will allow the user to (immediately) revert any accidental changes
-                        playerConnection?.service?.initQueue()
+            if (showMaxQueuesDialog) {
+                CounterDialog(
+                    title = stringResource(R.string.max_queues_title),
+                    initialValue = maxQueues,
+                    upperBound = 30,
+                    lowerBound = 1,
+                    onDismiss = { showMaxQueuesDialog = false },
+                    onConfirm = {
+                        showMaxQueuesDialog = false
+                        coroutineScope.launch(Dispatchers.IO) {
+                            onMaxQueuesChange(it)
+                            delay(500)
+                            // the queues get reloaded, but not cleared by the database
+                            // this will allow the user to (immediately) revert any accidental changes
+                            playerConnection?.service?.initQueue()
+                        }
+                    },
+                    onCancel = {
+                        showMaxQueuesDialog = false
                     }
-                },
-                onCancel = {
-                    showMaxQueuesDialog = false
+                )
+            }
+
+            PreferenceGroupTitle(
+                title = stringResource(R.string.settings_debug)
+            )
+
+            PreferenceEntry(
+                title = { Text("Flush local image cache") },
+                icon = { Icon(Icons.Rounded.Delete, null) },
+                onClick = {
+                    context.imageLoader.memoryCache?.clear()
                 }
             )
+
+            // dev settings
+            SwitchPreference(
+                title = { Text(stringResource(R.string.dev_settings_title)) },
+                description = stringResource(R.string.dev_settings_description),
+                icon = { Icon(Icons.Rounded.DeveloperMode, null) },
+                checked = devSettings,
+                onCheckedChange = onDevSettingsChange
+            )
         }
-
-        PreferenceGroupTitle(
-            title = stringResource(R.string.settings_debug)
-        )
-
-        PreferenceEntry(
-            title = { Text("Flush local image cache") },
-            icon = { Icon(Icons.Rounded.Delete, null) },
-            onClick = {
-                context.imageLoader.memoryCache?.clear()
-            }
-        )
-
-        // dev settings
-        SwitchPreference(
-            title = { Text(stringResource(R.string.dev_settings_title)) },
-            description = stringResource(R.string.dev_settings_description),
-            icon = { Icon(Icons.Rounded.DeveloperMode, null) },
-            checked = devSettings,
-            onCheckedChange = onDevSettingsChange
-        )
 
         if (devSettings) {
             SwitchPreference(

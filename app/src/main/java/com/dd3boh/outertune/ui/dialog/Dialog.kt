@@ -102,7 +102,11 @@ fun DefaultDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            modifier = Modifier.padding(24.dp),
+            // usePlatformDefaultWidth is off above, so without a cap these run the full window
+            // width. On a tablet that turns a one-word picker into a slab.
+            modifier = Modifier
+                .padding(24.dp)
+                .sizeIn(minWidth = 280.dp, maxWidth = 560.dp),
             shape = AlertDialogDefaults.shape,
             color = AlertDialogDefaults.containerColor,
             tonalElevation = AlertDialogDefaults.TonalElevation
@@ -171,7 +175,11 @@ fun ListDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            modifier = Modifier.padding(24.dp),
+            // usePlatformDefaultWidth is off above, so without a cap these run the full window
+            // width. On a tablet that turns a one-word picker into a slab.
+            modifier = Modifier
+                .padding(24.dp)
+                .sizeIn(minWidth = 280.dp, maxWidth = 560.dp),
             shape = AlertDialogDefaults.shape,
             color = AlertDialogDefaults.containerColor,
             tonalElevation = AlertDialogDefaults.TonalElevation
