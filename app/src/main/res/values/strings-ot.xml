@@ -348,6 +348,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="oobe_local_music_support_description">Play your music files (ex. MP3, OGG, FLAC, etc.)</string>
     <string name="oobe_cross_platform_sync">Cross-Platform Sync</string>
     <string name="oobe_cross_platform_sync_description">Keep your music in harmony across devices</string>
+    <string name="oobe_update_check_title">Tell you about updates?</string>
+    <string name="oobe_update_check_description">InterTune is not on an app store, so it cannot update itself. It can check GitHub when you open the app and let you know when there is a new version. It never installs anything on its own, and you can change this later in Settings.</string>
+    <string name="oobe_update_check_yes">Yes, check</string>
+    <string name="oobe_update_check_no">No thanks</string>
     <string name="oobe_use_backup">I have a backup</string>
 
     <!-- Interface setup page -->
