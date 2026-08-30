@@ -25,7 +25,7 @@ data class AlbumEntity(
     val duration: Int,
     val lastUpdateTime: LocalDateTime = LocalDateTime.now(),
     val bookmarkedAt: LocalDateTime? = null,
-    @ColumnInfo(name = "isLocal", defaultValue = false.toString())
+    @ColumnInfo(name = "isLocal", defaultValue = "false")
     val isLocal: Boolean = false
 ) {
 

@@ -31,7 +31,7 @@ data class SongEntity(
     val duration: Int = -1, // in seconds TODO: in milliseconds
     val thumbnailUrl: String? = null,
     val inLibrary: LocalDateTime? = null, // doubles as "date added"
-    @ColumnInfo(name = "isLocal", defaultValue = false.toString())
+    @ColumnInfo(name = "isLocal", defaultValue = "false")
     val isLocal: Boolean = false,
     @ColumnInfo(index = true)
     val localPath: String?,

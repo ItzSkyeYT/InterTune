@@ -19,7 +19,7 @@ class GenreEntity(
     val playEndpointParams: String? = null,
     val shuffleEndpointParams: String? = null,
     val radioEndpointParams: String? = null,
-    @ColumnInfo(name = "isLocal", defaultValue = false.toString())
+    @ColumnInfo(name = "isLocal", defaultValue = "false")
     val isLocal: Boolean = false,
     // In hopes of not having to modify the database again, I barf vals
 ) {

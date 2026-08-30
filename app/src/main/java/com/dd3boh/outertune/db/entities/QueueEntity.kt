@@ -13,9 +13,9 @@ data class QueueEntity(
     var title: String,
     var shuffled: Boolean = false,
     var queuePos: Int = -1, // position of current song
-    @ColumnInfo(name = "lastSongPos", defaultValue = C.TIME_UNSET.toString())
+    @ColumnInfo(name = "lastSongPos", defaultValue = "-9223372036854775807")
     var lastSongPos: Long = C.TIME_UNSET,
-    @ColumnInfo(name = "index", defaultValue = 0.toString())
+    @ColumnInfo(name = "index", defaultValue = "0")
     val index: Int, // order of queue
     val playlistId: String? = null,
 ) {
