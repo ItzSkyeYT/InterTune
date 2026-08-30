@@ -365,7 +365,11 @@ fun BottomSheetPlayer(
     val queueSheetState = rememberBottomSheetState(
         dismissedBound = dismissedBound,
         expandedBound = state.expandedBound,
-        collapsedBound = if (landscapeTwoPane) dismissedBound else dismissedBound + QueuePeekHeight,
+        // No queue peek on a tablet: the queue is permanently in the side pane, so reserving a
+        // strip for a preview of it wastes the bottom of the screen, squashes the artwork (which
+        // is sized by the height left over) and pushes the handle up into the middle of nowhere.
+        collapsedBound = if (landscapeTwoPane || tabletTwoPane) dismissedBound
+        else dismissedBound + QueuePeekHeight,
         initialAnchor = 1
     )
 
