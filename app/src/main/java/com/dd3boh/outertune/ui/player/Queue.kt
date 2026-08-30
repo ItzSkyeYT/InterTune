@@ -570,14 +570,25 @@ fun BoxScope.QueueContent(
                             )
                             .combinedClickable(
                                 onClick = {
-                                    // clicking on queue shows it in the ui
+                                    // Tapping a queue switches to it and plays it. It used to only
+                                    // preview the queue in detached mode and wait for a second tap
+                                    // on the play button in the Songs header, which is not what a
+                                    // tap on a queue reads as, and detached mode also disables
+                                    // drag-to-reorder while you sit in it.
                                     if (playingQueue == index) {
+                                        // Already the playing queue, so there is nothing to switch
+                                        // to. Just drop out of any preview.
                                         exitDetachHead()
                                     } else {
-                                        detachedHead = true
-                                        isSearching = false // no searching in detach mode
-                                        detachedQueue = mq
-                                        onExitSelectionMode()
+                                        coroutineScope.launch(Dispatchers.Main) {
+                                            isSearching = false
+                                            qb.setCurrQueue(mq)
+                                            // prepare() first, else it cannot start after playback
+                                            // was stopped by an auto-skip on error.
+                                            playerConnection.player.prepare()
+                                            playerConnection.player.playWhenReady = true
+                                            exitDetachHead()
+                                        }
                                     }
                                 },
                                 onLongClick = {
