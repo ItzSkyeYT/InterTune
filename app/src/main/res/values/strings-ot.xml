@@ -172,6 +172,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="loudness_repair_stopped">Stopped. Fixed %1$d songs, the rest are still to do. Tap to carry on.</string>
     <string name="loudness_repair_offline">Needs an internet connection to look up song volumes.</string>
     <string name="loudness_repair_blocked">Stopped after several failures in a row, which usually means YouTube wants a break. Fixed %1$d. Try again in a little while.</string>
+    <string name="update_check">Tell me about updates</string>
+    <string name="update_check_description">Checks GitHub for a newer version of InterTune when you open the app, at most once every few hours. Off by default, and it never installs anything on its own.</string>
+    <string name="update_available">Version %1$s is available</string>
     <string name="audio_offload">Enable offload</string>
     <string name="audio_offload_description">Use the offload audio path for audio playback. Enabling this may reduce power usage but can lead experience issues with audio playback or post processing. This preference has no effect for unsupported codecs or devices</string>
     <string name="keep_alive_title">Prevent system killing app</string>
