@@ -195,8 +195,6 @@ fun AboutScreen(
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
-                UpdateCheckPreference()
-
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.attribution_title)) },
                     onClick = {
@@ -337,68 +335,5 @@ fun AboutScreen(
         },
         windowInsets = TopBarInsets,
         scrollBehavior = scrollBehavior
-    )
-}
-
-/**
- * Opt in to update checks, plus a manual check.
- *
- * Lives in About because that is where someone goes to find out what version they are on. The
- * switch is off by default: a check is a request to GitHub, and turning that on for somebody is
- * not mine to do.
- */
-@Composable
-private fun UpdateCheckPreference() {
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    val updateChecker = LocalUpdateChecker.current
-
-    val (enabled, onEnabledChange) = rememberPreference(UpdateCheckEnabledKey, defaultValue = false)
-    val update: UpdateChecker.Update? by updateChecker.available.collectAsState()
-    var checking by remember { mutableStateOf(false) }
-
-    SwitchPreference(
-        title = { Text(stringResource(R.string.update_check)) },
-        description = stringResource(R.string.update_check_description),
-        icon = { Icon(Icons.Rounded.Update, null) },
-        checked = enabled,
-        onCheckedChange = {
-            onEnabledChange(it)
-            if (it) {
-                coroutineScope.launch { updateChecker.check(force = true) }
-            }
-        }
-    )
-
-    PreferenceEntry(
-        title = {
-            Text(
-                update?.let { stringResource(R.string.update_available, it.versionName) }
-                    ?: stringResource(R.string.check_for_update)
-            )
-        },
-        description = if (checking) stringResource(R.string.checking_for_update) else null,
-        isEnabled = !checking,
-        onClick = {
-            val found = update
-            if (found != null) {
-                // Straight to the release page rather than the apk, so the notes can be read
-                // before anything is downloaded.
-                context.startActivity(Intent(Intent.ACTION_VIEW, found.releaseUrl.toUri()))
-            } else {
-                coroutineScope.launch {
-                    checking = true
-                    val result = updateChecker.check(force = true)
-                    checking = false
-                    if (result == null) {
-                        Toast.makeText(
-                            context,
-                            context.getString(R.string.no_updates_available),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-            }
-        }
     )
 }

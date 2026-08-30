@@ -172,6 +172,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="loudness_repair_stopped">Stopped. Fixed %1$d songs, the rest are still to do. Tap to carry on.</string>
     <string name="loudness_repair_offline">Needs an internet connection to look up song volumes.</string>
     <string name="loudness_repair_blocked">Stopped after several failures in a row, which usually means YouTube wants a break. Fixed %1$d. Try again in a little while.</string>
+    <string name="grp_updates">Updates</string>
+    <string name="update_available_title">Available</string>
+    <string name="update_available_description">Opens the release page so you can read what changed and download it yourself. InterTune never installs anything on its own.</string>
+    <string name="update_skip">Skip this version</string>
+    <string name="update_installed_version">Installed version</string>
     <string name="update_check">Tell me about updates</string>
     <string name="update_check_description">Checks GitHub for a newer version of InterTune when you open the app, at most once every few hours. Off by default, and it never installs anything on its own.</string>
     <string name="update_available">Version %1$s is available</string>
