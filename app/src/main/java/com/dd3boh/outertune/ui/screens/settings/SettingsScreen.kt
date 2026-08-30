@@ -166,6 +166,11 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             PreferenceEntry(
+                title = { Text(stringResource(R.string.grp_updates)) },
+                icon = { Icon(Icons.Rounded.Update, null) },
+                onClick = { navController.navigate("settings/updates") }
+            )
+            PreferenceEntry(
                 title = { Text(stringResource(R.string.about)) },
                 icon = { Icon(Icons.Rounded.Info, null) },
                 onClick = { navController.navigate("settings/about") }

@@ -184,6 +184,7 @@ import com.dd3boh.outertune.ui.screens.settings.LyricsSettings
 import com.dd3boh.outertune.ui.screens.settings.PlayerSettings
 import com.dd3boh.outertune.ui.screens.settings.SettingsScreen
 import com.dd3boh.outertune.ui.screens.settings.StorageSettings
+import com.dd3boh.outertune.ui.screens.settings.UpdateSettings
 import com.dd3boh.outertune.ui.theme.ColorSaver
 import com.dd3boh.outertune.ui.theme.DefaultThemeColor
 import com.dd3boh.outertune.ui.theme.OuterTuneTheme
@@ -816,6 +817,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                     composable("settings/experimental") {
                                         ExperimentalSettings(navController, scrollBehavior)
+                                    }
+                                    composable("settings/updates") {
+                                        UpdateSettings(navController, scrollBehavior)
                                     }
                                     composable("settings/about") {
                                         AboutScreen(navController, scrollBehavior)
