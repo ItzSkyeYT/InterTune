@@ -39,6 +39,11 @@ import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import com.dd3boh.outertune.constants.TopBarInsets
+import com.dd3boh.outertune.ui.component.button.IconButton
+import com.dd3boh.outertune.ui.utils.backToMain
+import androidx.compose.material3.TopAppBar
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
@@ -145,4 +150,23 @@ fun UpdateSettings(
             )
         }
     }
+
+    // Every settings screen draws its own bar. Without this one there is no way back except the
+    // system gesture, which on a tablet in landscape is not obvious at all.
+    TopAppBar(
+        title = { Text(stringResource(R.string.grp_updates)) },
+        navigationIcon = {
+            IconButton(
+                onClick = navController::navigateUp,
+                onLongClick = navController::backToMain
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = null
+                )
+            }
+        },
+        windowInsets = TopBarInsets,
+        scrollBehavior = scrollBehavior
+    )
 }

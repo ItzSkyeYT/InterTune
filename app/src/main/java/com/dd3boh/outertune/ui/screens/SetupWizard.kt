@@ -132,6 +132,7 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.AccountFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalScannerFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalizationFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.ThemeAppFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.ThemePlayerFrag
 import com.dd3boh.outertune.utils.dlCoroutine
 import com.dd3boh.outertune.utils.formatFileSize
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -432,6 +433,11 @@ fun SetupWizard(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             ThemeAppFrag()
+
+                            // Player look, including liquid glass. Setup is where someone decides
+                            // how the app should look, and the now playing screen is the screen
+                            // they will spend the most time staring at.
+                            ThemePlayerFrag()
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
