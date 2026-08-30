@@ -37,16 +37,18 @@ fun PreferenceEntry(
     content: (@Composable () -> Unit)? = null,
     icon: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null,
-    onClick: () -> Unit,
+    /** Null for a row that only displays something. It then draws no ripple and screen readers
+     *  stop announcing it as something you can activate. */
+    onClick: (() -> Unit)?,
     isEnabled: Boolean = true,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .clickable(
-                enabled = isEnabled,
-                onClick = onClick
+            .then(
+                if (onClick != null) Modifier.clickable(enabled = isEnabled, onClick = onClick)
+                else Modifier
             )
             .alpha(if (isEnabled) 1f else 0.5f)
             .padding(horizontal = 16.dp, vertical = 16.dp)

@@ -173,7 +173,8 @@ fun ColumnScope.ThemePlayerFrag() {
             title = { Text(stringResource(R.string.player_glass_intensity)) },
             description = stringResource(R.string.player_glass_intensity_description),
             icon = { Icon(Icons.Rounded.Tune, null) },
-            onClick = { }
+            // A label for the slider underneath, not a button.
+            onClick = null
         )
         Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
             Text(
