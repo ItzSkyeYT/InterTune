@@ -86,20 +86,48 @@ fun Bitmap.extractThemeColor(): Color {
     return Color(rankedColors.first())
 }
 
+/**
+ * Two colours taken from the artwork, for the player background gradient.
+ *
+ * [Score.score] is asked first because it picks colours that work as a theme. It is filtered, so it
+ * rejects anything it judges unusable, and on plenty of real covers it returns fewer than two.
+ * Measured on The Eminem Show, a strongly red cover: it came back short and the background rendered
+ * a flat neutral grey, which is the one outcome this function exists to avoid.
+ *
+ * Three tiers now. Scored colours, then the palette's own swatches, which are the colour clusters
+ * actually present in the image and are therefore always album-coloured, and only then grey, which
+ * now means "no usable palette at all" rather than "the scorer was fussy".
+ */
 fun Bitmap.extractGradientColors(): List<Color> {
-    val extractedColors = Palette.from(this)
+    val palette = Palette.from(this)
         .maximumColorCount(16)
         .generate()
-        .swatches
-        .associate { it.rgb to it.population }
+
+    val extractedColors = palette.swatches.associate { it.rgb to it.population }
 
     val orderedColors = Score.score(extractedColors, 2, 0xff4285f4.toInt(), true)
         .sortedByDescending { Color(it).luminance() }
 
-    return if (orderedColors.size >= 2)
-        listOf(Color(orderedColors[0]), Color(orderedColors[1]))
-    else
-        listOf(Color(0xFF595959), Color(0xFF0D0D0D))
+    if (orderedColors.size >= 2) {
+        return listOf(Color(orderedColors[0]), Color(orderedColors[1]))
+    }
+
+    // Straight from the image. Ordered by how much of the cover each one occupies, so the result is
+    // what the artwork actually reads as, then lightest first for a top-down gradient.
+    val fromSwatches = palette.swatches
+        .sortedByDescending { it.population }
+        .take(2)
+        .map { Color(it.rgb) }
+        .sortedByDescending { it.luminance() }
+
+    if (fromSwatches.size >= 2) return fromSwatches
+
+    // One swatch still beats none: pair it with a much darker version of itself.
+    fromSwatches.firstOrNull()?.let { only ->
+        return listOf(only, Color(only.red * 0.2f, only.green * 0.2f, only.blue * 0.2f))
+    }
+
+    return listOf(Color(0xFF595959), Color(0xFF0D0D0D))
 }
 
 fun DynamicScheme.toColorScheme() = ColorScheme(

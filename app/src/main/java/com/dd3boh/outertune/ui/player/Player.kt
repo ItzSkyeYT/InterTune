@@ -265,9 +265,31 @@ fun BottomSheetPlayer(
     }
 
 
+    /**
+     * Background style actually used, which is not always the one the user picked.
+     *
+     * BLUR draws the cover art stretched across the whole window with ContentScale.FillBounds,
+     * from a 100px source. On a phone that is about a 10x upscale and the blur hides it. On a
+     * 2560px wide tablet it is a 25x upscale, and FillBounds also squashes a square cover into a
+     * 16:10 box, so it reads as a blocky stretched mess rather than a background.
+     *
+     * On big screens the gradient is simply the better picture: it is built from the artwork's own
+     * colours, so it still feels like the album, and it cannot pixelate because there are no pixels
+     * to stretch. The preference is left alone, so a phone keeps whatever was chosen.
+     */
+    val effectivePlayerBackground = if (playerBackground == PlayerBackgroundStyle.BLUR && context.supportsWideScreen()) {
+        PlayerBackgroundStyle.GRADIENT
+    } else {
+        playerBackground
+    }
+
     // gradient colours
-    LaunchedEffect(mediaMetadata, playerBackground) {
-        if (playerBackground != PlayerBackgroundStyle.GRADIENT || context.isPowerSaver()) return@LaunchedEffect
+    LaunchedEffect(mediaMetadata, effectivePlayerBackground) {
+        // Keyed on the EFFECTIVE style. Keying on the raw preference would mean a tablet that has
+        // BLUR selected never extracts any colours, and then renders a gradient of nothing.
+        if (effectivePlayerBackground != PlayerBackgroundStyle.GRADIENT || context.isPowerSaver()) {
+            return@LaunchedEffect
+        }
 
         withContext(coilCoroutine) {
             val result = context.imageLoader.execute(
@@ -313,6 +335,7 @@ fun BottomSheetPlayer(
      * must not be perturbed.
      */
     val landscapeTwoPane = isLandscape && !tabMode && wideScreen
+
 
     // ignoringVisibility so hiding the bars in immersive landscape does not change this bound and
     // rebuild the sheet state mid-gesture. See the matching note in MainActivity.
@@ -445,7 +468,7 @@ fun BottomSheetPlayer(
                         fadeIn(tween(1000)).togetherWith(fadeOut(tween(1000)))
                     }
                 ) { metadata ->
-                    if (playerBackground == PlayerBackgroundStyle.BLUR) {
+                    if (effectivePlayerBackground == PlayerBackgroundStyle.BLUR) {
                         Log.v(TAG, "PLR-2.2a")
                         AsyncImage(
                             model = metadata?.getThumbnailModel(100, 100),
@@ -471,7 +494,7 @@ fun BottomSheetPlayer(
                         fadeIn(tween(1000)).togetherWith(fadeOut(tween(1000)))
                     }
                 ) { colors ->
-                    if (playerBackground == PlayerBackgroundStyle.GRADIENT && colors.size >= 2) {
+                    if (effectivePlayerBackground == PlayerBackgroundStyle.GRADIENT && colors.size >= 2) {
                         Log.v(TAG, "PLR-2.2b")
                         Box(
                             modifier = Modifier
