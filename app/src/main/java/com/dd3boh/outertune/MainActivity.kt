@@ -63,6 +63,12 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.AlertDialog
+import androidx.datastore.preferences.core.edit
+import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.contentColorFor
@@ -322,6 +328,47 @@ class MainActivity : ComponentActivity() {
 
 
 
+
+            /**
+             * Ask about update checks if the question has never been answered.
+             *
+             * Onboarding asks, but that only covers fresh installs. Restoring a backup taken before
+             * this setting existed leaves the preference unset with onboarding already complete, and
+             * so does upgrading from an older build. Unset genuinely means "never asked" rather than
+             * "said no", because both onboarding buttons write a value, so this cannot pester anyone
+             * who already declined.
+             */
+            var askAboutUpdates by rememberSaveable {
+                mutableStateOf(
+                    this@MainActivity.dataStore[UpdateCheckEnabledKey] == null &&
+                            this@MainActivity.dataStore.get(OobeStatusKey, 0) >= OOBE_VERSION
+                )
+            }
+
+            if (askAboutUpdates) {
+                AlertDialog(
+                    onDismissRequest = { },
+                    title = { Text(stringResource(R.string.oobe_update_check_title)) },
+                    text = { Text(stringResource(R.string.oobe_update_check_description)) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            coroutineScope.launch {
+                                dataStore.edit { it[UpdateCheckEnabledKey] = true }
+                                askAboutUpdates = false
+                                updateChecker.check(force = true)
+                            }
+                        }) { Text(stringResource(R.string.oobe_update_check_yes)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            coroutineScope.launch {
+                                dataStore.edit { it[UpdateCheckEnabledKey] = false }
+                                askAboutUpdates = false
+                            }
+                        }) { Text(stringResource(R.string.oobe_update_check_no)) }
+                    }
+                )
+            }
 
             LaunchedEffect(Unit) {
                 // Look for a newer release. Does nothing unless the user opted in, and rate limits

@@ -112,6 +112,10 @@ import com.dd3boh.outertune.constants.LibraryFilterKey
 import com.dd3boh.outertune.constants.LocalLibraryEnableKey
 import com.dd3boh.outertune.constants.LyricTrimKey
 import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
+import androidx.datastore.preferences.core.edit
+import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.ScanPathsKey
@@ -802,6 +806,8 @@ fun SetupWizard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                             )
+                            UpdateOptInCard()
+
                             Row(
                                 horizontalArrangement = Arrangement.Center,
                                 modifier = Modifier.padding(vertical = 16.dp)
@@ -905,6 +911,74 @@ private fun OobeFeatureRow(title: String, description: String?, icon: ImageVecto
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Asks, once, whether to check for updates.
+ *
+ * Deliberately two buttons rather than a switch. A switch has a default, and a default is an answer
+ * nobody gave: the preference stays unset and there is no way to tell "left it alone" from "said
+ * no". Both buttons write the preference, so afterwards it is set either way and nothing asks again.
+ *
+ * That distinction is what lets the app ask a second time after a backup restore from a version
+ * that predates this setting, without pestering anyone who already declined.
+ */
+@Composable
+fun UpdateOptInCard() {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    // Read once. Recomposing on every write would make the card vanish mid-tap.
+    val alreadyAnswered = remember { context.dataStore[UpdateCheckEnabledKey] != null }
+    var answered by remember { mutableStateOf(alreadyAnswered) }
+
+    if (answered) return
+
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = stringResource(R.string.oobe_update_check_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = stringResource(R.string.oobe_update_check_description),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            Row(
+                horizontalArrangement = Arrangement.End,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+            ) {
+                TextButton(onClick = {
+                    coroutineScope.launch {
+                        context.dataStore.edit { it[UpdateCheckEnabledKey] = false }
+                        answered = true
+                    }
+                }) {
+                    Text(stringResource(R.string.oobe_update_check_no))
+                }
+
+                Spacer(Modifier.width(8.dp))
+
+                Button(onClick = {
+                    coroutineScope.launch {
+                        context.dataStore.edit { it[UpdateCheckEnabledKey] = true }
+                        answered = true
+                    }
+                }) {
+                    Text(stringResource(R.string.oobe_update_check_yes))
                 }
             }
         }
