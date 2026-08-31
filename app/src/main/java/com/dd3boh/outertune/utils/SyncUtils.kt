@@ -208,6 +208,11 @@ class SyncUtils @Inject constructor(
                         }
                     }
                 }
+
+                // Songs liked on YouTube never pass through a like button, so without this a fresh
+                // login syncs hundreds of liked songs and downloads none of them, under a setting
+                // that says it downloads your liked songs. One bounded snapshot, no collector.
+                downloadUtil.downloadLikedSongs()
             }
 
         } finally {

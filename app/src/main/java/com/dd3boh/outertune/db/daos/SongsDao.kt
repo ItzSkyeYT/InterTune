@@ -80,9 +80,28 @@ interface SongsDao {
     @Query("SELECT count from playCount WHERE song = :songId AND year = :year AND month = :month")
     fun getPlayCountByMonth(songId: String?, year: Int, month: Int): Flow<Int>
 
-    @Transaction
-    @Query("SELECT * FROM song WHERE liked AND dateDownload IS NULL")
-    fun likedSongsNotDownloaded(): Flow<List<Song>>
+    /**
+     * Liked songs with no usable download.
+     *
+     * dateDownload = 0 is STATE_INVALID, not a real download: Converters stores LocalDateTime as
+     * epoch millis and scanDownloads() writes epoch 0 for failed and stopped downloads. Treating it
+     * as downloaded would lock a song that once failed out of auto-download forever.
+     *
+     * isLocal and localPath mirror the sibling download queries. A local file can never acquire a
+     * dateDownload, so it would be handed to media3 as a video id and retried on every backfill.
+     *
+     * Newest like first, so the song you just liked is at the front of a backfill rather than behind
+     * two thousand older ones.
+     */
+    @Query(
+        """
+        SELECT * FROM song
+        WHERE liked AND isLocal = 0 AND localPath IS NULL
+          AND (dateDownload IS NULL OR dateDownload = 0)
+        ORDER BY likedDate DESC
+        """
+    )
+    fun likedSongsNotDownloaded(): Flow<List<SongEntity>>
 
     // region Songs Sort
     @Transaction

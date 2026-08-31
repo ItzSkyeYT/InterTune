@@ -91,6 +91,16 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.material.icons.rounded.Favorite
+import com.dd3boh.outertune.constants.LikedAutoDownloadKey
+import com.dd3boh.outertune.constants.LikedAutodownloadMode
+import com.dd3boh.outertune.playback.DownloadUtil
+import com.dd3boh.outertune.ui.component.EnumListPreference
+import com.dd3boh.outertune.utils.rememberEnumPreference
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
@@ -143,16 +153,21 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
 fun ColumnScope.DownloadsFrag() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val downloadCache = LocalPlayerConnection.current?.service?.downloadCache ?: return
+    // Nullable rather than an early return. This used to bail before rendering anything, so
+    // opening Settings > Storage on a cold start, before the player service had bound, showed no
+    // Downloads card at all and any setting in it looked missing.
+    val downloadCache = LocalPlayerConnection.current?.service?.downloadCache
     val downloadUtil = LocalDownloadUtil.current
 
     val (downloadPath, onDownloadPathChange) = rememberPreference(DownloadPathKey, "")
     val (downloadOnWifiOnly, onDownloadOnWifiOnlyChange) = rememberPreference(DownloadOnWifiOnlyKey, defaultValue = false)
     val (scanPaths, onScanPathsChange) = rememberPreference(ScanPathsKey, defaultValue = "")
+    val (likedAutodownload, onLikedAutodownloadChange) =
+        rememberEnumPreference(LikedAutoDownloadKey, LikedAutodownloadMode.OFF)
 
     // size stats
     var downloadCacheSize by remember {
-        mutableLongStateOf(tryOrNull { downloadCache.cacheSpace } ?: 0)
+        mutableLongStateOf(tryOrNull { downloadCache?.cacheSpace } ?: 0)
     }
     var downloadMainPathSize by remember {
         mutableLongStateOf(-2L)
@@ -188,7 +203,7 @@ fun ColumnScope.DownloadsFrag() {
     LaunchedEffect(downloadCache) {
         while (isActive) {
             delay(2000)
-            downloadCacheSize = tryOrNull { downloadCache.cacheSpace } ?: 0
+            downloadCacheSize = tryOrNull { downloadCache?.cacheSpace } ?: 0
         }
     }
 
@@ -202,6 +217,40 @@ fun ColumnScope.DownloadsFrag() {
             // Push it to the running service too, so queued and in-flight downloads follow the new
             // rule rather than waiting for the next app start.
             downloadUtil.setDownloadRequirements(it)
+        }
+    )
+
+    EnumListPreference(
+        title = { Text(stringResource(R.string.like_autodownload)) },
+        icon = { Icon(Icons.Rounded.Favorite, null) },
+        selectedValue = likedAutodownload,
+        valueText = {
+            when (it) {
+                LikedAutodownloadMode.OFF -> stringResource(androidx.compose.ui.R.string.state_off)
+                LikedAutodownloadMode.ON -> stringResource(androidx.compose.ui.R.string.state_on)
+                LikedAutodownloadMode.WIFI_ONLY -> stringResource(R.string.wifi_only)
+            }
+        },
+        onValueSelected = { mode ->
+            onLikedAutodownloadChange(mode)
+            // Switching it on is itself the catch-up trigger, which is what "download all my liked
+            // songs" means. Not rememberCoroutineScope: that dies when this screen leaves the
+            // composition, which would abandon a few-hundred-song enqueue halfway.
+            if (mode != LikedAutodownloadMode.OFF) {
+                CoroutineScope(dlCoroutine).launch { runLikedBackfill(context, downloadUtil, mode) }
+            }
+        },
+    )
+
+    PreferenceEntry(
+        title = { Text(stringResource(R.string.liked_autodownload_backfill_title)) },
+        description = stringResource(R.string.liked_autodownload_backfill_description),
+        icon = { Icon(Icons.Rounded.Downloading, null) },
+        isEnabled = likedAutodownload != LikedAutodownloadMode.OFF,
+        onClick = {
+            CoroutineScope(dlCoroutine).launch {
+                runLikedBackfill(context, downloadUtil, likedAutodownload)
+            }
         }
     )
 
@@ -486,7 +535,7 @@ fun ColumnScope.DownloadsFrag() {
                         showClearConfirmDialog = false
                         coroutineScope.launch(Dispatchers.IO) {
                             // clear internal downloads
-                            downloadCache.keys.forEach { key ->
+                            downloadCache?.keys?.forEach { key ->
                                 downloadCache.removeResource(key)
                             }
 
@@ -952,5 +1001,27 @@ fun ColumnScope.ImageCacheFrag() {
                 }
             }
         )
+    }
+}
+
+/**
+ * Runs the liked-songs catch-up and reports what happened. Off the main thread because it reads the
+ * database, back onto it for the toast.
+ */
+private suspend fun runLikedBackfill(
+    context: Context,
+    downloadUtil: DownloadUtil,
+    mode: LikedAutodownloadMode,
+) {
+    val queued = downloadUtil.downloadLikedSongs(mode)
+    withContext(Dispatchers.Main) {
+        val message = when {
+            queued > 0 -> context.resources.getQuantityString(
+                R.plurals.liked_autodownload_started, queued, queued
+            )
+            queued < 0 -> context.getString(R.string.liked_autodownload_needs_wifi)
+            else -> context.getString(R.string.liked_autodownload_nothing_to_do)
+        }
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
 }
