@@ -52,7 +52,7 @@ class QueueBoard(
 ) {
     private val TAG = QueueBoard::class.simpleName.toString()
 
-    private var masterIndex = masterQueues.size - 1 // current queue index
+    private var masterIndex = -1 // current queue index, assigned at the end of init
     var detachedHead = false
 
     init {
@@ -63,6 +63,12 @@ class QueueBoard(
         if (!queues.isEmpty()) {
             masterQueues.addAll(queues.subList((queues.size - maxQueues).coerceAtLeast(0), queues.size))
         }
+        // Must be computed AFTER masterQueues is filled. As a property initializer this ran first,
+        // reading the size before this block cleared and refilled the SAME list instance, because
+        // MusicService threads the previous board's list back in. On a cold start that previous
+        // board is empty, so the index came out -1 while N queues then loaded, leaving the board
+        // pointing at nothing.
+        masterIndex = masterQueues.size - 1
     }
 
     /**
@@ -687,12 +693,18 @@ class QueueBoard(
      * @return Queue object (entire object)
      */
     fun getCurrentQueue(): MultiQueueObject? {
-        try {
-            return masterQueues[masterIndex]
-        } catch (e: IndexOutOfBoundsException) {
-            masterIndex = masterQueues.size - 1 // reset var if invalid
+        if (masterQueues.isEmpty()) {
             return null
         }
+        // This used to repair the index and then still return null, so the first caller after a
+        // bad index got nothing even though real queues existed, and only the second call worked.
+        // That is what turned a stale index into a queue that would not load until you tapped
+        // play twice.
+        if (masterIndex !in masterQueues.indices) {
+            Log.w(TAG, "masterIndex $masterIndex out of bounds (size ${masterQueues.size}), resetting")
+            masterIndex = masterQueues.size - 1
+        }
+        return masterQueues[masterIndex]
     }
 
     fun renameQueue(queue: MultiQueueObject, newName: String) {
