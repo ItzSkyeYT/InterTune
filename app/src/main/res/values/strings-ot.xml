@@ -297,12 +297,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="download_waiting_for_wifi">Queued. Will download when Wi-Fi is available</string>
     <string name="liked_autodownload_backfill_title">Download all liked songs now</string>
     <string name="liked_autodownload_backfill_description">Catches up every liked song you do not already have. On Wi-Fi only, songs you like while on mobile data are skipped rather than queued, so use this once you are back on Wi-Fi. Songs you deleted by hand will come back.</string>
+    <string name="liked_autodownload_running">Downloading %1$d of %2$d. Tap to stop.</string>
+    <string name="liked_autodownload_finished">Downloaded %1$d liked songs.</string>
+    <string name="liked_autodownload_stopped">Stopped. %1$d downloaded, the rest were cancelled.</string>
     <string name="liked_autodownload_needs_wifi">You are not on Wi-Fi. Connect to Wi-Fi and try again.</string>
     <string name="liked_autodownload_nothing_to_do">Your liked songs are already downloaded.</string>
-    <plurals name="liked_autodownload_started">
-        <item quantity="one">Downloading %1$d liked song</item>
-        <item quantity="other">Downloading %1$d liked songs</item>
-    </plurals>
     <string name="dl_extra_path_title">Configure extra import locations…</string>
     <string name="dl_extra_path_description">Songs from these folders will only appear in the app if you\'ve played them before or added them to a playlist</string>
     <string name="dl_migrate_title">Migrate downloads to external storage…</string>
