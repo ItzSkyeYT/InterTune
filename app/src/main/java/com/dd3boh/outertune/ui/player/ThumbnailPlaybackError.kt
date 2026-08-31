@@ -53,6 +53,8 @@ import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.ui.utils.fadingEdge
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.Throttle
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -62,6 +64,7 @@ fun ThumbnailPlaybackError(
     modifier: Modifier = Modifier,
 ) {
     val clipboardManager = LocalClipboard.current
+    val context = LocalContext.current
 
     val playerBackground by rememberEnumPreference(
         key = PlayerBackgroundStyleKey,
@@ -124,12 +127,41 @@ fun ThumbnailPlaybackError(
                 style = MaterialTheme.typography.bodyMedium
             )
         }
-        AnimatedVisibility(!showStackTrace) {
-            TextButton(
-                onClick = { showStackTrace = true }
-            ) {
+        // Copying used to be a hidden tap on the stack trace itself, which meant nobody found it
+        // and bug reports arrived as photographs of a screen. It is a button now, and it says when
+        // it has worked.
+        val copyDetails = {
+            val systemInfo = buildString {
+                appendLine("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) | ${BuildConfig.FLAVOR}")
+                appendLine("${BuildConfig.APPLICATION_ID} | ${BuildConfig.BUILD_TYPE}")
+                appendLine("${Build.BRAND} ${Build.DEVICE} (${Build.MODEL})")
+                appendLine("Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT} (${Build.ID})")
+            }
+            val headline = "${error.message} (${error.errorCode}): " +
+                    (error.cause?.message ?: error.cause?.cause?.message ?: "")
+            val report = "InterTune player error\n\n" + systemInfo + "\n" + headline +
+                    "\n\n" + error.stackTraceToString()
+            clipboardManager.nativeClipboard.setPrimaryClip(
+                ClipData.newPlainText("InterTune player error", AnnotatedString(report))
+            )
+            Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AnimatedVisibility(!showStackTrace) {
+                TextButton(
+                    onClick = { showStackTrace = true }
+                ) {
+                    Text(
+                        text = stringResource(R.string.tap_show_more),
+                        color = textColor,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+            TextButton(onClick = copyDetails) {
                 Text(
-                    text = stringResource(R.string.tap_show_more),
+                    text = stringResource(R.string.err_copy_details),
                     color = textColor,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -143,17 +175,7 @@ fun ThumbnailPlaybackError(
                 modifier = Modifier
                     .padding(top = 64.dp)
                     .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = {
-                                val systemInfo =
-                                    "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) | ${BuildConfig.FLAVOR}\n${BuildConfig.APPLICATION_ID} | ${BuildConfig.BUILD_TYPE}\n${Build.BRAND} ${Build.DEVICE} (${Build.MODEL})\n${Build.VERSION.SDK_INT} (${Build.ID})\n\n"
-                                val clipData = ClipData.newPlainText(
-                                    "OuterTune player error",
-                                    AnnotatedString(systemInfo + "OuterTune player error\n\n" + error.stackTraceToString())
-                                )
-                                clipboardManager.nativeClipboard.setPrimaryClip(clipData)
-                            }
-                        )
+                        detectTapGestures(onTap = { copyDetails() })
                     },
             )
         }

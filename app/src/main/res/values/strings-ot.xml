@@ -50,6 +50,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="err_stop_on_too_many_errors">Too many errors. Playback stopped</string>
     <string name="wait_to_reconnect">Wait to reconnect</string>
     <string name="err_youtube_busy">YouTube has temporarily stopped serving music to this internet connection. It is not your phone, your account or this song, and it clears by itself. Switching to mobile data usually works straight away. Otherwise leave it a little while and try again.</string>
+    <string name="err_copy_details">Copy error details</string>
 
 <!-- Sort menu -->
     <string name="sort_by_date_modified">Date modified</string>
