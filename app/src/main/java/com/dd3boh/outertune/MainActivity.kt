@@ -67,7 +67,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.utils.dataStore
-import com.dd3boh.outertune.utils.get
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -206,6 +205,7 @@ import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.utils.rememberNullablePreference
 import com.valentinilk.shimmer.LocalShimmerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
@@ -329,47 +329,6 @@ class MainActivity : ComponentActivity() {
 
 
 
-            /**
-             * Ask about update checks if the question has never been answered.
-             *
-             * Onboarding asks, but that only covers fresh installs. Restoring a backup taken before
-             * this setting existed leaves the preference unset with onboarding already complete, and
-             * so does upgrading from an older build. Unset genuinely means "never asked" rather than
-             * "said no", because both onboarding buttons write a value, so this cannot pester anyone
-             * who already declined.
-             */
-            var askAboutUpdates by rememberSaveable {
-                mutableStateOf(
-                    this@MainActivity.dataStore[UpdateCheckEnabledKey] == null &&
-                            this@MainActivity.dataStore.get(OobeStatusKey, 0) >= OOBE_VERSION
-                )
-            }
-
-            if (askAboutUpdates) {
-                AlertDialog(
-                    onDismissRequest = { },
-                    title = { Text(stringResource(R.string.oobe_update_check_title)) },
-                    text = { Text(stringResource(R.string.oobe_update_check_description)) },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            coroutineScope.launch {
-                                dataStore.edit { it[UpdateCheckEnabledKey] = true }
-                                askAboutUpdates = false
-                                updateChecker.check(force = true)
-                            }
-                        }) { Text(stringResource(R.string.oobe_update_check_yes)) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = {
-                            coroutineScope.launch {
-                                dataStore.edit { it[UpdateCheckEnabledKey] = false }
-                                askAboutUpdates = false
-                            }
-                        }) { Text(stringResource(R.string.oobe_update_check_no)) }
-                    }
-                )
-            }
-
             LaunchedEffect(Unit) {
                 // Look for a newer release. Does nothing unless the user opted in, and rate limits
                 // itself to once every few hours, so this is cheap to call on every open. Failure
@@ -443,6 +402,53 @@ class MainActivity : ComponentActivity() {
                 themeColor = themeColor
             ) {
                 Log.v(MAIN_TAG, "RC-2.1")
+
+                /**
+                 * Ask about update checks if the question has never been answered.
+                 *
+                 * Derived from the two preferences rather than snapshotted at launch, so it becomes
+                 * true the moment onboarding completes with the question still open. That is what
+                 * makes the ask unconditional: the wizard's card is the pleasant place to answer,
+                 * this is the guarantee. Skipping on the welcome page, or walking past the card and
+                 * tapping finish, both land here rather than leaving the user never asked.
+                 *
+                 * The rememberSaveable this replaces could not do that. With no keys its initialiser
+                 * ran once, at launch, when a fresh install still had OobeStatusKey at 0, so it
+                 * latched false for the whole first session, and being saveable it survived process
+                 * death too. Nothing re-evaluated it when the wizard wrote OOBE_VERSION seconds
+                 * later.
+                 *
+                 * Unset genuinely means "never asked" rather than "said no", because every path that
+                 * answers writes a value, so this cannot pester anyone who already declined.
+                 *
+                 * Inside the theme on purpose: at the top of setContent it drew in baseline Material
+                 * purple, because OuterTuneTheme had not opened yet.
+                 */
+                val updateChoice by rememberNullablePreference(UpdateCheckEnabledKey)
+
+                if (updateChoice == null && oobeStatus >= OOBE_VERSION) {
+                    AlertDialog(
+                        onDismissRequest = { },
+                        title = { Text(stringResource(R.string.oobe_update_check_title)) },
+                        text = { Text(stringResource(R.string.oobe_update_check_description)) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                coroutineScope.launch {
+                                    dataStore.edit { it[UpdateCheckEnabledKey] = true }
+                                    updateChecker.check(force = true)
+                                }
+                            }) { Text(stringResource(R.string.oobe_update_check_yes)) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = {
+                                coroutineScope.launch {
+                                    dataStore.edit { it[UpdateCheckEnabledKey] = false }
+                                }
+                            }) { Text(stringResource(R.string.oobe_update_check_no)) }
+                        }
+                    )
+                }
+
                 val density = LocalDensity.current
                 // ignoringVisibility, NOT systemBars: the landscape player hides the bars, and
                 // bottomInset feeds the player sheet's collapsedBound, which is a remember() key

@@ -3,6 +3,7 @@ package com.dd3boh.outertune.utils
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -74,6 +75,28 @@ fun <T> rememberPreference(
             override fun component2(): (T) -> Unit = { value = it }
         }
     }
+}
+
+/**
+ * Reads a preference without collapsing "never set" into the default.
+ *
+ * [rememberPreference] substitutes the default for a missing key, so "said no" and "was never
+ * asked" arrive identical. Asking a question exactly once needs to tell those apart, and needs to
+ * see the answer land in the same session rather than at the next launch.
+ *
+ * The initial value is remembered rather than passed inline, because the operator get is a blocking
+ * IO read and a plain argument would be re-evaluated on every recomposition.
+ */
+@Composable
+fun <T> rememberNullablePreference(key: Preferences.Key<T>): State<T?> {
+    val context = LocalContext.current
+    val initial = remember(key) { context.dataStore[key] }
+    val flow = remember(key) {
+        context.dataStore.data
+            .map { it[key] }
+            .distinctUntilChanged()
+    }
+    return flow.collectAsState(initial)
 }
 
 @Composable

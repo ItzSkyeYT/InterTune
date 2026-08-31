@@ -72,6 +72,7 @@ import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -115,6 +116,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.navigation.NavController
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.LocalDownloadUtil
+import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AutomaticScannerKey
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_FILTERS
@@ -130,7 +132,6 @@ import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.utils.dataStore
-import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.ScanPathsKey
@@ -152,6 +153,7 @@ import com.dd3boh.outertune.utils.dlCoroutine
 import com.dd3boh.outertune.utils.formatFileSize
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.utils.rememberNullablePreference
 import com.dd3boh.outertune.utils.scanners.stringFromUriList
 import com.dd3boh.outertune.utils.scanners.uriListFromString
 import com.zionhuang.innertube.utils.parseCookieString
@@ -212,6 +214,10 @@ fun SetupWizard(
     }
 
     val navBar = @Composable {
+        // The exit page keeps Back and the progress bar, but not Next: its forward action is the
+        // FAB, and two forward controls on one page is worse than none.
+        val onFinalStep = oobeStatus == OOBE_VERSION - 1
+
         // nav bar
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -260,6 +266,9 @@ fun SetupWizard(
                     .padding(2.dp),  // Add some padding at the top
             )
 
+            // Always present, so the bar keeps Back at one end and a forward action at the other.
+            // On the exit page it becomes Done and finishes, which is why that page no longer needs
+            // a floating button sitting at a different height breaking the line.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.clickable {
@@ -267,19 +276,26 @@ fun SetupWizard(
                         filter = LibraryFilter.ALL // hax
                     }
 
-                    if (oobeStatus < OOBE_VERSION) {
+                    // Never leave oobeStatus at OOBE_VERSION without popping. That value fails this
+                    // bar's gate, while AnimatedContent coerces the step and keeps painting the exit
+                    // page, so the user would be looking at a page with no control on it at all.
+                    if (oobeStatus < OOBE_VERSION - 1) {
                         oobeStatus += 1
+                    } else {
+                        oobeStatus = OOBE_VERSION
+                        navController.navigateUp()
                     }
 
                     haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                 }
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.NavigateNext,
+                    imageVector = if (onFinalStep) Icons.Rounded.Check
+                    else Icons.AutoMirrored.Rounded.NavigateNext,
                     contentDescription = null
                 )
                 Text(
-                    text = stringResource(R.string.action_next),
+                    text = stringResource(if (onFinalStep) R.string.action_done else R.string.action_next),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
@@ -290,7 +306,9 @@ fun SetupWizard(
 
     Scaffold(
         bottomBar = {
-            if (oobeStatus > 0 && oobeStatus < OOBE_VERSION - 1) {
+            // Through to the exit page, so there is always a way back. Still excludes step 0, where
+            // the BackHandler deliberately refuses to go lower and a Back control would be dead.
+            if (oobeStatus > 0 && oobeStatus < OOBE_VERSION) {
                 Box(
                     Modifier
                         .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom))
@@ -902,7 +920,7 @@ fun SetupWizard(
                                         IconLabelButton(
                                             text = "Wiki",
                                             icon = Icons.Outlined.Info,
-                                            onClick = { uriHandler.openUri("https://github.com/OuterTune/OuterTune/wiki") },
+                                            onClick = { uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune/wiki") },
                                             modifier = Modifier.padding(horizontal = 8.dp)
                                         )
                                     }
@@ -919,18 +937,16 @@ fun SetupWizard(
                 }
             }
 
-            if (oobeStatus == 0 || oobeStatus == OOBE_VERSION - 1) {
+            // Only the welcome page, which has no bottom bar, so the button is the whole control
+            // rather than a second one floating beside a bar that already has Back at the other end.
+            // The exit page finishes with Done in the bar instead.
+            if (oobeStatus == 0) {
                 FloatingActionButton(
                     modifier = Modifier
                         .padding(16.dp)
                         .align(Alignment.BottomEnd),
                     onClick = {
-                        if (oobeStatus == 0) {
-                            oobeStatus += 1
-                        } else {
-                            oobeStatus = OOBE_VERSION
-                            navController.navigateUp()
-                        }
+                        oobeStatus += 1
                         haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                     }
                 ) {
@@ -1000,69 +1016,84 @@ private fun OobeFeatureRow(title: String, description: String?, icon: ImageVecto
 }
 
 /**
- * Asks, once, whether to check for updates.
+ * Asks, once, whether to check for updates, and afterwards shows the answer.
  *
- * Deliberately two buttons rather than a switch. A switch has a default, and a default is an answer
- * nobody gave: the preference stays unset and there is no way to tell "left it alone" from "said
- * no". Both buttons write the preference, so afterwards it is set either way and nothing asks again.
+ * While the question is open it is two buttons rather than a switch. A switch has a default, and a
+ * default is an answer nobody gave: the preference stays unset and there is no way to tell "left it
+ * alone" from "said no". Both buttons write the preference, so afterwards it is set either way and
+ * nothing asks again. That distinction is what lets the app ask a second time after restoring a
+ * backup from a version that predates this setting, without pestering anyone who already declined.
  *
- * That distinction is what lets the app ask a second time after a backup restore from a version
- * that predates this setting, without pestering anyone who already declined.
+ * Once answered the card does not disappear, it becomes the setting. Disappearing was the bug: this
+ * page is what "Enter configurator" replays, so on any install that had already answered, which is
+ * every install more than five minutes old, the final page silently dropped the one thing it
+ * offered and read as broken. Showing the current value is what the rest of the wizard already
+ * does, since steps 1 to 4 embed the real settings fragments rather than onboarding copies.
  */
 @Composable
 fun UpdateOptInCard() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val updateChecker = LocalUpdateChecker.current
 
-    // Read once. Recomposing on every write would make the card vanish mid-tap.
-    val alreadyAnswered = remember { context.dataStore[UpdateCheckEnabledKey] != null }
-    var answered by remember { mutableStateOf(alreadyAnswered) }
+    // Nullable on purpose. null is "never asked", which is not "said no".
+    val choice by rememberNullablePreference(UpdateCheckEnabledKey)
 
-    if (answered) return
+    // Opting in checks straight away, otherwise the answer appears to do nothing for hours.
+    // Same reason as the switch in Settings > Updates.
+    fun answer(enabled: Boolean) {
+        coroutineScope.launch {
+            context.dataStore.edit { it[UpdateCheckEnabledKey] = enabled }
+            if (enabled) updateChecker.check(force = true)
+        }
+    }
 
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 8.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.oobe_update_check_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = stringResource(R.string.oobe_update_check_description),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-            Row(
-                horizontalArrangement = Arrangement.End,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp)
-            ) {
-                TextButton(onClick = {
-                    coroutineScope.launch {
-                        context.dataStore.edit { it[UpdateCheckEnabledKey] = false }
-                        answered = true
+        val answered = choice
+        if (answered == null) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.oobe_update_check_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = stringResource(R.string.oobe_update_check_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                ) {
+                    TextButton(onClick = { answer(false) }) {
+                        Text(stringResource(R.string.oobe_update_check_no))
                     }
-                }) {
-                    Text(stringResource(R.string.oobe_update_check_no))
-                }
 
-                Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(8.dp))
 
-                Button(onClick = {
-                    coroutineScope.launch {
-                        context.dataStore.edit { it[UpdateCheckEnabledKey] = true }
-                        answered = true
+                    Button(onClick = { answer(true) }) {
+                        Text(stringResource(R.string.oobe_update_check_yes))
                     }
-                }) {
-                    Text(stringResource(R.string.oobe_update_check_yes))
                 }
             }
+        } else {
+            // Deliberately the same component and title string as the row in Settings > Updates, so
+            // it reads as "this is that setting" rather than a copy of it.
+            SwitchPreference(
+                title = { Text(stringResource(R.string.update_check)) },
+                description = stringResource(R.string.oobe_update_check_answered),
+                icon = { Icon(Icons.Rounded.Update, null) },
+                checked = answered,
+                onCheckedChange = { answer(it) }
+            )
         }
     }
 }

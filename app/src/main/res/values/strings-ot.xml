@@ -352,6 +352,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="oobe_update_check_description">InterTune is not on an app store, so it cannot update itself. It can check GitHub when you open the app and let you know when there is a new version. It never installs anything on its own, and you can change this later in Settings.</string>
     <string name="oobe_update_check_yes">Yes, check</string>
     <string name="oobe_update_check_no">No thanks</string>
+    <string name="oobe_update_check_answered">You can change this any time in Settings, under Updates.</string>
+    <string name="action_done">Done</string>
     <string name="oobe_use_backup">I have a backup</string>
 
     <!-- Interface setup page -->
