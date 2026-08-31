@@ -61,6 +61,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.yield
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.onEach
 import okhttp3.OkHttpClient
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -255,6 +264,115 @@ class DownloadUtil @Inject constructor(
         if (eligible.isEmpty()) return
         notifyIfWaitingForWifi()
         eligible.forEach { downloadSong(it.id, it.title) }
+    }
+
+    private val _likedDownloadState = MutableStateFlow<LikedDownloadState>(LikedDownloadState.Idle)
+
+    /** Progress of the liked-songs catch up, for the settings row. Mirrors LoudnessRepair. */
+    val likedDownloadState: StateFlow<LikedDownloadState> = _likedDownloadState.asStateFlow()
+
+    sealed interface LikedDownloadState {
+        data object Idle : LikedDownloadState
+        data class Running(val done: Int, val total: Int) : LikedDownloadState
+        data class Finished(val done: Int, val total: Int, val stoppedEarly: Boolean) : LikedDownloadState
+        data object NeedsWifi : LikedDownloadState
+        data object NothingToDo : LikedDownloadState
+    }
+
+    private var likedJob: Job? = null
+
+    val isDownloadingLiked: Boolean get() = likedJob?.isActive == true
+
+    /**
+     * Queues every liked song that is missing, then reports how many have actually landed.
+     *
+     * Progress follows the downloads themselves rather than the enqueue loop. Handing 300 requests
+     * to media3 takes a moment; waiting for 300 songs to arrive is the part worth watching.
+     */
+    fun startLikedDownloads(mode: LikedAutodownloadMode = likedAutodownload) {
+        if (isDownloadingLiked) return
+        likedJob = CoroutineScope(dlCoroutine).launch {
+            if (mode == LikedAutodownloadMode.OFF) {
+                _likedDownloadState.value = LikedDownloadState.NothingToDo
+                return@launch
+            }
+            if (!autodownloadAllowedNow(mode)) {
+                _likedDownloadState.value = LikedDownloadState.NeedsWifi
+                return@launch
+            }
+            // Never race a scan: it clears every dateDownload first, so until it has finished
+            // re-registering them, every song reads as not downloaded.
+            if (isProcessingDownloads.value) {
+                _likedDownloadState.value = LikedDownloadState.NothingToDo
+                return@launch
+            }
+
+            val pending = database.likedSongsNotDownloaded().first()
+                .filter { isNotDownloaded(it.id) }
+            if (pending.isEmpty()) {
+                _likedDownloadState.value = LikedDownloadState.NothingToDo
+                return@launch
+            }
+
+            val batch = pending.map { it.id }.toSet()
+            val total = batch.size
+            _likedDownloadState.value = LikedDownloadState.Running(0, total)
+            notifyIfWaitingForWifi()
+
+            // Chunked with a yield between, so cancelling stays responsive on a large library
+            // instead of having to wait out the whole enqueue.
+            pending.chunked(ENQUEUE_CHUNK).forEach { chunk ->
+                if (!currentCoroutineContext().isActive) return@launch
+                chunk.forEach { downloadSong(it.id, it.title) }
+                yield()
+            }
+
+            // Follow the map until the batch lands. first {} is what actually ends the
+            // collection: returning from a collect lambda only ends that one emission, so the
+            // earlier version kept collecting forever. The job must also stay owned by the
+            // coroutine until it really finishes, or isDownloadingLiked reads false while this is
+            // still running and tapping the row starts a second run on top of the first.
+            downloads
+                .map { map -> batch.count { id -> map[id].let { it != null && it != STATE_INVALID } } }
+                .distinctUntilChanged()
+                .onEach { done -> _likedDownloadState.value = LikedDownloadState.Running(done, total) }
+                .first { done -> done >= total }
+
+            _likedDownloadState.value =
+                LikedDownloadState.Finished(total, total, stoppedEarly = false)
+        }
+    }
+
+    /**
+     * Stops the catch up and drops what has not arrived yet.
+     *
+     * Removes rather than pauses: a paused download reads as STATE_INVALID, which this feature
+     * treats as missing, so pausing would leave the row offering to start the same work again.
+     * Songs already downloaded are kept.
+     */
+    fun cancelLikedDownloads() {
+        val state = _likedDownloadState.value
+        likedJob?.cancel()
+        likedJob = null
+
+        if (state is LikedDownloadState.Running) {
+            runCatching {
+                downloads.value.filter { it.value == STATE_INVALID }.keys.forEach { id ->
+                    DownloadService.sendRemoveDownload(
+                        context, ExoDownloadService::class.java, id, false
+                    )
+                }
+            }.onFailure { Log.w(TAG, "Could not clear queued downloads on cancel", it) }
+            _likedDownloadState.value =
+                LikedDownloadState.Finished(state.done, state.total, stoppedEarly = true)
+        } else {
+            _likedDownloadState.value = LikedDownloadState.Idle
+        }
+    }
+
+    /** Clears a finished result so the settings row goes back to resting. */
+    fun acknowledgeLikedDownloads() {
+        if (!isDownloadingLiked) _likedDownloadState.value = LikedDownloadState.Idle
     }
 
     /**
@@ -553,6 +671,9 @@ class DownloadUtil @Inject constructor(
     companion object {
         val STATE_DOWNLOADING: LocalDateTime = Instant.ofEpochMilli(1).atZone(ZoneOffset.UTC).toLocalDateTime()
         val STATE_INVALID: LocalDateTime = Instant.ofEpochMilli(0).atZone(ZoneOffset.UTC).toLocalDateTime()
+
+        /** Enqueue in bites, so cancelling a large catch up responds quickly. */
+        private const val ENQUEUE_CHUNK = 25
     }
 
 

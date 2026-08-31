@@ -47,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -237,20 +238,45 @@ fun ColumnScope.DownloadsFrag() {
             // songs" means. Not rememberCoroutineScope: that dies when this screen leaves the
             // composition, which would abandon a few-hundred-song enqueue halfway.
             if (mode != LikedAutodownloadMode.OFF) {
-                CoroutineScope(dlCoroutine).launch { runLikedBackfill(context, downloadUtil, mode) }
+                downloadUtil.startLikedDownloads(mode)
             }
         },
     )
 
+    val likedDownloadState by downloadUtil.likedDownloadState.collectAsState()
+
+    // The state lives on a singleton, so without this a finished run would still be reported the
+    // next time this screen is opened, against a count that has moved on since.
+    DisposableEffect(Unit) {
+        onDispose { downloadUtil.acknowledgeLikedDownloads() }
+    }
+
     PreferenceEntry(
         title = { Text(stringResource(R.string.liked_autodownload_backfill_title)) },
-        description = stringResource(R.string.liked_autodownload_backfill_description),
+        description = when (val st = likedDownloadState) {
+            is DownloadUtil.LikedDownloadState.Running ->
+                stringResource(R.string.liked_autodownload_running, st.done, st.total)
+
+            is DownloadUtil.LikedDownloadState.Finished ->
+                if (st.stoppedEarly) stringResource(R.string.liked_autodownload_stopped, st.done)
+                else stringResource(R.string.liked_autodownload_finished, st.done)
+
+            DownloadUtil.LikedDownloadState.NeedsWifi ->
+                stringResource(R.string.liked_autodownload_needs_wifi)
+
+            DownloadUtil.LikedDownloadState.NothingToDo ->
+                stringResource(R.string.liked_autodownload_nothing_to_do)
+
+            DownloadUtil.LikedDownloadState.Idle ->
+                stringResource(R.string.liked_autodownload_backfill_description)
+        },
         icon = { Icon(Icons.Rounded.Downloading, null) },
-        isEnabled = likedAutodownload != LikedAutodownloadMode.OFF,
+        isEnabled = likedAutodownload != LikedAutodownloadMode.OFF ||
+                likedDownloadState is DownloadUtil.LikedDownloadState.Running,
         onClick = {
-            CoroutineScope(dlCoroutine).launch {
-                runLikedBackfill(context, downloadUtil, likedAutodownload)
-            }
+            // Same shape as the loudness repair row: while it runs, the button stops it.
+            if (downloadUtil.isDownloadingLiked) downloadUtil.cancelLikedDownloads()
+            else downloadUtil.startLikedDownloads(likedAutodownload)
         }
     )
 
@@ -1001,27 +1027,5 @@ fun ColumnScope.ImageCacheFrag() {
                 }
             }
         )
-    }
-}
-
-/**
- * Runs the liked-songs catch-up and reports what happened. Off the main thread because it reads the
- * database, back onto it for the toast.
- */
-private suspend fun runLikedBackfill(
-    context: Context,
-    downloadUtil: DownloadUtil,
-    mode: LikedAutodownloadMode,
-) {
-    val queued = downloadUtil.downloadLikedSongs(mode)
-    withContext(Dispatchers.Main) {
-        val message = when {
-            queued > 0 -> context.resources.getQuantityString(
-                R.plurals.liked_autodownload_started, queued, queued
-            )
-            queued < 0 -> context.getString(R.string.liked_autodownload_needs_wifi)
-            else -> context.getString(R.string.liked_autodownload_nothing_to_do)
-        }
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
 }
