@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.util.Log
 import android.widget.Toast
 import android.widget.Toast.LENGTH_SHORT
+import android.os.SystemClock
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import androidx.media3.database.DatabaseProvider
@@ -48,6 +49,7 @@ import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.scanners.InvalidAudioFileException
 import com.dd3boh.outertune.utils.scanners.fileFromUri
 import com.dd3boh.outertune.utils.scanners.uriListFromString
+import com.dd3boh.outertune.utils.Throttle
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -94,7 +96,13 @@ class DownloadUtil @Inject constructor(
 
     private val connectivityManager = context.getSystemService<ConnectivityManager>()!!
     private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.AUTO)
-    private val songUrlCache = HashMap<String, Pair<String, Long>>()
+    // Concurrent, because media3 runs each download on its own thread and this is read and written
+    // from all of them. An unsynchronised HashMap can corrupt its table under concurrent put.
+    private val songUrlCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
+
+    /** Serialises the player requests that downloads make. See the gate in the resolver. */
+    private val resolveGate = Any()
+    private var lastResolveAt = 0L
     private val dataSourceFactory = ResolvingDataSource.Factory(
         CacheDataSource.Factory()
             .setCache(playerCache)
@@ -114,6 +122,23 @@ class DownloadUtil @Inject constructor(
 
         songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
             return@Factory dataSpec.withUri(it.first.toUri())
+        }
+
+        // Paced here rather than at the enqueue loop, because this is the only point a download's
+        // player request actually passes through. Chunking the enqueue paces the loop; media3 then
+        // drains it at whatever rate it likes.
+        //
+        // 700ms, derived from the loudness scan's 350ms rather than invented. A download resolve
+        // costs two player requests on the healthy path, so this lands on the same requests per
+        // second as the scan we already decided was polite.
+        //
+        // The asymmetry is the point. On a healthy network the gap is invisible, because the audio
+        // transfer that follows takes seconds. On a refused network nothing transfers and every
+        // resolve fails in about a second, which is exactly when the app would otherwise hammer.
+        synchronized(resolveGate) {
+            val wait = RESOLVE_GAP_MS - (SystemClock.elapsedRealtime() - lastResolveAt)
+            if (wait > 0) Thread.sleep(wait)
+            lastResolveAt = SystemClock.elapsedRealtime()
         }
 
         val playbackData = runBlocking(Dispatchers.IO) {
@@ -258,6 +283,7 @@ class DownloadUtil @Inject constructor(
     fun autoDownloadOnLike(songs: List<SongEntity>) {
         val mode = likedAutodownload
         if (!autodownloadAllowedNow(mode)) return
+        if (Throttle.isBlocked) return
         val eligible = songs.filter {
             it.liked && !it.isLocal && it.localPath == null && isNotDownloaded(it.id)
         }
@@ -277,6 +303,9 @@ class DownloadUtil @Inject constructor(
         data class Finished(val done: Int, val total: Int, val stoppedEarly: Boolean) : LikedDownloadState
         data object NeedsWifi : LikedDownloadState
         data object NothingToDo : LikedDownloadState
+
+        /** YouTube is refusing this network. Not a failure, and not worth retrying now. */
+        data object Blocked : LikedDownloadState
     }
 
     private var likedJob: Job? = null
@@ -304,6 +333,12 @@ class DownloadUtil @Inject constructor(
             // re-registering them, every song reads as not downloaded.
             if (isProcessingDownloads.value) {
                 _likedDownloadState.value = LikedDownloadState.NothingToDo
+                return@launch
+            }
+            // Queueing hundreds of songs at a network YouTube is already refusing achieves nothing
+            // except keeping it refused. Wait it out; it clears by itself.
+            if (Throttle.isBlocked) {
+                _likedDownloadState.value = LikedDownloadState.Blocked
                 return@launch
             }
 
@@ -390,6 +425,7 @@ class DownloadUtil @Inject constructor(
     suspend fun downloadLikedSongs(mode: LikedAutodownloadMode = likedAutodownload): Int {
         if (mode == LikedAutodownloadMode.OFF) return 0
         if (!autodownloadAllowedNow(mode)) return -1
+        if (Throttle.isBlocked) return 0
         // Never race a scan: it clears every dateDownload first, so until it has finished
         // re-registering them, every song reads as not downloaded.
         if (isProcessingDownloads.value) return 0
@@ -674,6 +710,9 @@ class DownloadUtil @Inject constructor(
 
         /** Enqueue in bites, so cancelling a large catch up responds quickly. */
         private const val ENQUEUE_CHUNK = 25
+
+        /** Minimum gap between the player requests downloads make. See the gate in the resolver. */
+        private const val RESOLVE_GAP_MS = 700L
     }
 
 

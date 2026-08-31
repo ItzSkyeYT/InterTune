@@ -52,6 +52,7 @@ import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.ui.utils.fadingEdge
 import com.dd3boh.outertune.utils.rememberEnumPreference
+import com.dd3boh.outertune.utils.Throttle
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -81,6 +82,13 @@ fun ThumbnailPlaybackError(
                 MaterialTheme.colorScheme.onPrimary
     }
 
+    // Decomposing what the user actually saw, "Source error (2000): Unexpected P: Sign in to
+    // confirm you're not a bot": "Source error" is ExoPlaybackException, 2000 is
+    // ERROR_CODE_IO_UNSPECIFIED, "Unexpected P" is a minified class name, and only the tail carries
+    // any information. Branching on errorCode would never fire, because the code set when the
+    // response is rejected does not survive the re-wrap. Walk the cause chain instead.
+    val isYouTubeBusy = remember(error) { Throttle.isBlock(error) }
+
     var showStackTrace by remember { mutableStateOf(false) }
 
     Column(
@@ -103,11 +111,15 @@ fun ThumbnailPlaybackError(
                 tint = MaterialTheme.colorScheme.error
             )
             Text(
-                text = "${error.message} (${error.errorCode}): ${
-                    error.cause?.message ?: error.cause?.cause?.message ?: stringResource(
-                        R.string.error_unknown
-                    )
-                }",
+                text = if (isYouTubeBusy) {
+                    stringResource(R.string.err_youtube_busy)
+                } else {
+                    "${error.message} (${error.errorCode}): ${
+                        error.cause?.message ?: error.cause?.cause?.message ?: stringResource(
+                            R.string.error_unknown
+                        )
+                    }"
+                },
                 color = textColor,
                 style = MaterialTheme.typography.bodyMedium
             )

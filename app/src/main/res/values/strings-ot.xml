@@ -49,6 +49,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="err_stop_on_error">Error occurred. Playback stopped</string>
     <string name="err_stop_on_too_many_errors">Too many errors. Playback stopped</string>
     <string name="wait_to_reconnect">Wait to reconnect</string>
+    <string name="err_youtube_busy">YouTube has temporarily stopped serving music to this internet connection. It is not your phone, your account or this song, and it clears by itself. Switching to mobile data usually works straight away. Otherwise leave it a little while and try again.</string>
 
 <!-- Sort menu -->
     <string name="sort_by_date_modified">Date modified</string>
@@ -302,6 +303,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="liked_autodownload_stopped">Stopped. %1$d downloaded, the rest were cancelled.</string>
     <string name="liked_autodownload_needs_wifi">You are not on Wi-Fi. Connect to Wi-Fi and try again.</string>
     <string name="liked_autodownload_nothing_to_do">Your liked songs are already downloaded.</string>
+    <string name="liked_autodownload_blocked">Paused. YouTube has temporarily stopped serving music to this connection, so downloads are waiting rather than failing. They carry on by themselves.</string>
     <string name="dl_extra_path_title">Configure extra import locations…</string>
     <string name="dl_extra_path_description">Songs from these folders will only appear in the app if you\'ve played them before or added them to a playlist</string>
     <string name="dl_migrate_title">Migrate downloads to external storage…</string>

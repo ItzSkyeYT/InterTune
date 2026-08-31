@@ -130,7 +130,7 @@ object YTPlayerUtils {
         }
 
         val mainPlayerResponse =
-            YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestamp, webPlayerPot)
+            YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestamp, webPlayerPot).noteThrottle()
                 .getOrThrow()
 
         val videoDetails = mainPlayerResponse.videoDetails
@@ -165,7 +165,7 @@ object YTPlayerUtils {
                 }
 
                 streamPlayerResponse =
-                    YouTube.player(videoId, playlistId, client, signatureTimestamp, webPlayerPot)
+                    YouTube.player(videoId, playlistId, client, signatureTimestamp, webPlayerPot).noteThrottle()
                         .getOrNull()
             }
 
@@ -277,7 +277,7 @@ object YTPlayerUtils {
         videoId: String,
         playlistId: String? = null,
     ): Result<PlayerResponse> =
-        YouTube.player(videoId, playlistId, client = VISIONOS)
+        YouTube.player(videoId, playlistId, client = VISIONOS).noteThrottle()
 
     /** Outcome of a loudness lookup. Distinguishes "no value exists" from "the request failed". */
     sealed interface LoudnessResult {
@@ -301,7 +301,7 @@ object YTPlayerUtils {
      * the request. The caller decides what to do about each outcome.
      */
     suspend fun loudnessFor(videoId: String): LoudnessResult {
-        val response = YouTube.player(videoId, client = VISIONOS)
+        val response = YouTube.player(videoId, client = VISIONOS).noteThrottle()
             .getOrElse { return LoudnessResult.Failed(it) }
 
         val db = response.playerConfig?.audioConfig?.effectiveLoudnessDb
