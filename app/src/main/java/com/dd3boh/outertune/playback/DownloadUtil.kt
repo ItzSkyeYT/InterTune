@@ -25,6 +25,8 @@ import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
 import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
 import com.dd3boh.outertune.constants.DownloadPathKey
+import com.dd3boh.outertune.constants.LikedAutoDownloadKey
+import com.dd3boh.outertune.constants.LikedAutodownloadMode
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.FormatEntity
 import com.dd3boh.outertune.db.entities.PlaylistSong
@@ -206,22 +208,110 @@ class DownloadUtil @Inject constructor(
      */
     private fun notifyIfWaitingForWifi() {
         if (context.dataStore.get(DownloadOnWifiOnlyKey, false) && connectivityManager.isActiveNetworkMetered) {
-            Toast.makeText(context, R.string.download_waiting_for_wifi, Toast.LENGTH_SHORT).show()
+            // Main.immediate, so the existing UI callers still post inline exactly as before while
+            // the auto-download paths stop throwing. Those run on Room's executors and on
+            // dlCoroutine, which have no Looper, and Toast kills the process without one. It would
+            // only have fired for someone with wifi-only downloads on a metered network, which is
+            // precisely the person this feature is for.
+            CoroutineScope(Dispatchers.Main.immediate).launch {
+                Toast.makeText(context, R.string.download_waiting_for_wifi, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
+    private val likedAutodownload by enumPreference(context, LikedAutoDownloadKey, LikedAutodownloadMode.OFF)
+
+    /**
+     * Wi-Fi only gates whether we enqueue at all. It deliberately never touches media3's
+     * Requirements: those are service-wide, and the user already owns that single lever through the
+     * "Download on Wi-Fi only" switch. A second writer would silently make manual downloads
+     * Wi-Fi-only too, and the two settings would overwrite each other.
+     */
+    private fun autodownloadAllowedNow(mode: LikedAutodownloadMode) = when (mode) {
+        LikedAutodownloadMode.OFF -> false
+        LikedAutodownloadMode.ON -> true
+        LikedAutodownloadMode.WIFI_ONLY -> !connectivityManager.isActiveNetworkMetered
+    }
+
+    /**
+     * Call right after a like has been written to the database.
+     *
+     * Every guard lives here, so a call site is one line and cannot forget one. It no-ops on
+     * un-like, on local files, on anything already downloaded or in flight, when the setting is off,
+     * and when Wi-Fi only is set on a metered connection.
+     *
+     * Fires on the like itself, never on a download-state change. That is what makes deleting a
+     * download of a song you still like stick, instead of it silently coming back.
+     */
+    fun autoDownloadOnLike(song: SongEntity) = autoDownloadOnLike(listOf(song))
+
+    /** Batch variant, so liking 500 songs at once fires one Wi-Fi warning rather than 500. */
+    fun autoDownloadOnLike(songs: List<SongEntity>) {
+        val mode = likedAutodownload
+        if (!autodownloadAllowedNow(mode)) return
+        val eligible = songs.filter {
+            it.liked && !it.isLocal && it.localPath == null && isNotDownloaded(it.id)
+        }
+        if (eligible.isEmpty()) return
+        notifyIfWaitingForWifi()
+        eligible.forEach { downloadSong(it.id, it.title) }
+    }
+
+    /**
+     * One shot: enqueue every liked song that is not already downloaded.
+     *
+     * Taking a single snapshot rather than collecting the flow is deliberate. onDownloadChanged
+     * writes a null dateDownload for every non-completed state, so an enqueued song never leaves
+     * that query and each state change would re-emit it: collecting it is a self-feeding loop. One
+     * snapshot cannot loop, and each call only shrinks the pending set.
+     *
+     * @param mode passed in rather than read back, because the preference setter writes
+     *   asynchronously and calling this straight after choosing a value would read the old one.
+     * @return how many were queued, or -1 if the Wi-Fi rule blocked the whole run.
+     */
+    suspend fun downloadLikedSongs(mode: LikedAutodownloadMode = likedAutodownload): Int {
+        if (mode == LikedAutodownloadMode.OFF) return 0
+        if (!autodownloadAllowedNow(mode)) return -1
+        // Never race a scan: it clears every dateDownload first, so until it has finished
+        // re-registering them, every song reads as not downloaded.
+        if (isProcessingDownloads.value) return 0
+        val pending = database.likedSongsNotDownloaded().first().filter { isNotDownloaded(it.id) }
+        if (pending.isEmpty()) return 0
+        notifyIfWaitingForWifi()
+        pending.forEach { downloadSong(it.id, it.title) }
+        return pending.size
+    }
+
+    /**
+     * A song with no download, or one whose download failed.
+     *
+     * The plain null check treated STATE_INVALID (epoch 0) as downloaded, so a song that failed
+     * once and then went through any scan became invisible to the download button as well as to
+     * auto-download.
+     */
+    private fun isNotDownloaded(id: String): Boolean =
+        downloads.value[id].let { it == null || it == STATE_INVALID }
+
     private fun downloadSong(id: String, title: String) {
-        if (downloads.value[id] != null) return
+        if (!isNotDownloaded(id)) return
         val downloadRequest = DownloadRequest.Builder(id, id.toUri())
             .setCustomCacheKey(id)
             .setData(title.toByteArray())
             .build()
-        DownloadService.sendAddDownload(
-            context,
-            ExoDownloadService::class.java,
-            downloadRequest,
-            false
-        )
+        try {
+            DownloadService.sendAddDownload(
+                context,
+                ExoDownloadService::class.java,
+                downloadRequest,
+                false
+            )
+        } catch (e: IllegalStateException) {
+            // foreground = false is a bare startService. Every UI caller is in the foreground, but
+            // liking is reachable from the media notification with no Activity alive, which Android
+            // rejects. Losing one auto-download is not worth killing the process, and the backfill
+            // picks it up.
+            Log.w(TAG, "Could not enqueue download for $id from the background", e)
+        }
     }
 
     fun resumeDownloadsOnStart() {

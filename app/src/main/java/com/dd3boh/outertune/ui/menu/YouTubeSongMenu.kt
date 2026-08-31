@@ -127,6 +127,9 @@ fun YouTubeSongMenu(
                             }
 
                             syncUtils.likeSong(s)
+                            // Inside the transaction and after the insert, so the row exists
+                            // before a finishing download tries to stamp dateDownload onto it.
+                            downloadUtil.autoDownloadOnLike(s)
                         }
                     }
                 }

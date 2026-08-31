@@ -208,13 +208,17 @@ fun SelectionMediaMetadataMenu(
                         }
                     }
                 } else {
-                    selection.filter { !it.liked }.forEach { song ->
-                        val s = song.toSongEntity().toggleLike()
+                    val newlyLiked = selection.filter { !it.liked }
+                        .map { it.toSongEntity().toggleLike() }
+                    newlyLiked.forEach { s ->
                         update(s)
                         if (!s.isLocal) {
                             syncUtils.likeSong(s)
                         }
                     }
+                    // One batch call, so liking a large selection fires a single Wi-Fi warning
+                    // rather than one per song. The branch above is an un-like, so it gets none.
+                    downloadUtil.autoDownloadOnLike(newlyLiked)
                 }
             }
         }
