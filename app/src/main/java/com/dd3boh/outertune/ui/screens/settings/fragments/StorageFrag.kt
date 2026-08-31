@@ -267,6 +267,9 @@ fun ColumnScope.DownloadsFrag() {
             DownloadUtil.LikedDownloadState.NothingToDo ->
                 stringResource(R.string.liked_autodownload_nothing_to_do)
 
+            DownloadUtil.LikedDownloadState.Blocked ->
+                stringResource(R.string.liked_autodownload_blocked)
+
             DownloadUtil.LikedDownloadState.Idle ->
                 stringResource(R.string.liked_autodownload_backfill_description)
         },
