@@ -175,12 +175,12 @@ fun AboutScreen(
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
 
-            // Upstream's wiki, deliberately. It documents the app this is a fork of and still
-            // applies; there is no InterTune wiki to send anyone to.
+            // InterTune's own wiki. It used to point at upstream's, which sent our users to another
+            // project's documentation for an app that has diverged from it.
             IconLabelButton(
                 text = stringResource(R.string.wiki),
                 icon = Icons.Outlined.Info,
-                onClick = { uriHandler.openUri("https://github.com/OuterTune/OuterTune/wiki") },
+                onClick = { uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune/wiki") },
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
         }
