@@ -62,6 +62,10 @@ import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.dd3boh.outertune.LocalUpdateChecker
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 
 val SETTINGS_TAG = "Settings"
 
@@ -74,6 +78,11 @@ fun SettingsScreen(
     val context = LocalContext.current
     val snackbarHostState = LocalSnackbarHostState.current
     val uriHandler = LocalUriHandler.current
+
+    // Sourced from the checker rather than the persisted flag. The flag says "an update existed
+    // once"; this says "there is one now, and here it is", which is what the row needs to show.
+    val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
+    val updateBadgeLabel = stringResource(R.string.update_available_title)
 
     val lastVer by rememberPreference(LastVersionKey, defaultValue = "0.0.0")
     val (updateAvailable, onUpdateAvailableChange) = rememberPreference(UpdateAvailableKey, defaultValue = false)
@@ -164,7 +173,25 @@ fun SettingsScreen(
         ) {
             PreferenceEntry(
                 title = { Text(stringResource(R.string.grp_updates)) },
-                icon = { Icon(Icons.Rounded.Update, null) },
+                // The one place the app tells you an update exists without being asked. The Badge
+                // and BadgedBox imports have been sitting here unused since upstream deleted its
+                // own checker, so this finally connects them to something.
+                icon = {
+                    BadgedBox(
+                        badge = {
+                            if (pendingUpdate != null) {
+                                Badge(modifier = Modifier.semantics {
+                                    contentDescription = updateBadgeLabel
+                                })
+                            }
+                        }
+                    ) {
+                        Icon(Icons.Rounded.Update, null)
+                    }
+                },
+                description = pendingUpdate?.let {
+                    stringResource(R.string.update_available, it.versionName)
+                },
                 onClick = { navController.navigate("settings/updates") }
             )
             PreferenceEntry(

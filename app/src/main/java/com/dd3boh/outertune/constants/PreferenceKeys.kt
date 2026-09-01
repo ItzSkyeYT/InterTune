@@ -216,6 +216,10 @@ val LastUpdateCheckKey = longPreferencesKey("lastUpdateCheck")
 val LastVersionKey = stringPreferencesKey("lastVersion")
 val UpdateAvailableKey = booleanPreferencesKey("updateAvailable")
 
+/** The rest of the last found release, so a restart does not forget it. See UpdateChecker. */
+val LastVersionCodeKey = intPreferencesKey("lastVersionCode")
+val LastReleaseUrlKey = stringPreferencesKey("lastReleaseUrl")
+
 /**
  * Whether to look for newer InterTune releases on GitHub.
  *
