@@ -1,5 +1,21 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
 contact_links:
-  - name: Help and support
-    url: https://github.com/OuterTune/OuterTune/discussions/categories/help-and-support
-    about: Questions and technical support is offered in the discussion forum.
+  - name: A question, or you are not sure it is a bug
+    url: https://github.com/ItzSkyeYT/InterTune/discussions/categories/q-a
+    about: "Ask in Discussions instead. Nothing gets closed for being in the wrong place, but questions are easier to answer there, other people can answer them, and the answers stay findable."
+
+  - name: Playback stops partway through every track on upstream OuterTune
+    url: https://github.com/ItzSkyeYT/InterTune/releases/latest
+    about: "That is the known upstream bug this fork exists to fix, and it needs no issue — install InterTune, which sits alongside upstream rather than replacing it. If it is happening on InterTune itself, that is new and I want the report, so open a bug and say so."
+
+  - name: The same thing also happens on upstream OuterTune
+    url: https://github.com/OuterTune/OuterTune/issues
+    about: "Then it is inherited code this fork did not write and does not maintain — the scanner, sync, downloads, the library. File it upstream, where the people who own that code will see it. One exception, YouTube Music playback, which upstream has discontinued support for."
+
+  - name: A translation reads wrong in your language
+    url: https://github.com/ItzSkyeYT/InterTune/issues/new?template=translation_report.yml
+    about: "Most of the translations were not written by native speakers, so please do say if something is wrong, awkward or still in English. A one line report is plenty and you do not need to suggest a replacement."
+
+  - name: You want a maintained YouTube Music client
+    url: https://github.com/MetrolistGroup/Metrolist
+    about: "This is one person's fork on a hobby schedule, with no promise of support, releases or timely updates. Metrolist, linked here, and ArchiveTune are both actively maintained; upstream points there, and so does this fork's README."
