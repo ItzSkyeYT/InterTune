@@ -119,3 +119,9 @@ strip-coauthor.sh
 bugplan.md
 likedplan.md
 throttleplan.md
+
+# Icon design bakeoff. Working files only; the shipped icon is assets/intertune.svg.
+assets/icon-candidates/
+
+# local scratch, an embedded git repo
+media/

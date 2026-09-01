@@ -1,56 +1,56 @@
-<!-- Hey there. Thank you so much for improving OuterTune, and filling out the details. Having roughly the same layout helps everyone considerably :)-->
+<!--
+This is a personal fork, so pull requests are not expected — but a small, tested, single-purpose one
+gets read.
 
-### What is it?
+Worth knowing before you spend a weekend on it: InterTune is deliberately a minimal diff against
+upstream v0.10.1. Rebases onto newer upstream, portrait redesigns and translations are out of scope,
+as is extending glass onto song rows, grids, artwork, the lyrics body or the tablet nav rail — the
+README says why. Anything inside what the fork already changed — the landscape player, liquid glass,
+artwork loading, playback — is fair game.
 
-- [ ] New feature (user facing)
-- [ ] Update to existing feature (user facing)
-- [ ] Bugfix (user facing)
-- [ ] Codebase improvements or refactors (dev facing)
-- [ ] Other
+Delete any section below that does not apply rather than leaving it empty.
+-->
 
-### Description of the changes in your PR
+## What this changes, and why
 
-<!-- While bullet points are the norm in this section, feel free to write free-form text instead of a list -->
+<!-- Bullets or prose. Say what a user would notice, and what problem it solves. -->
 
-- record videos
-- create clones
-- take over the world
+<!-- One "Fixes #123" per line so GitHub closes each on merge. Delete the line if no issue applies. -->
+Fixes #
 
-### Before/After Screenshots/Screen Record
+## Before and after
 
-<!-- If your PR changes the app's UI in any way, please include screenshots or a video showing exactly what changed, so that developers and users can pinpoint it easily. Delete this if it doesn't apply to your PR.-->
+<!--
+UI changes only; delete this section otherwise. For anything animated, gesture-driven or inside the
+landscape player, record a video rather than taking a screenshot — two defects in this fork's own
+landscape work were invisible in a still.
+-->
 
-- Before:
-- After:
+| Before | After |
+| --- | --- |
+|  |  |
 
-### Fixes the following issue(s)
+## Built and tested
 
-<!-- Prefix issues with "Fixes" so that GitHub closes them when the PR is merged (ex: "Fixes #69". Note that each "Fixes #" should be in its own item). Also add any other relevant links. -->
+<!-- Building it and running it is the one thing genuinely required. Build setup is in the README:
+https://github.com/ItzSkyeYT/InterTune#building -->
 
-- Fixes #
+- Device and Android version:
+- Variant built: <!-- coreDebug, coreRelease, fullDebug, ... -->
+- What you did to convince yourself it works:
 
-### Relies on the following changes
+## Scope
 
-<!-- Tag any pull requests that are required before this can be merged.
-Delete this if it doesn't apply to your PR. -->
+<!-- Leave a box unticked and say why rather than ticking it dishonestly — an explained exception is
+fine, a silent one is not. -->
 
--
+- [ ] Stays on the `v0.10.1` base — no rebase onto newer upstream, no `lite` branch behaviour
+- [ ] Leaves the portrait player alone, or is deliberately about portrait
+- [ ] Any new user-facing strings are in `strings-ot.xml`
+- [ ] No drive-by refactors riding along
+- [ ] If ported from upstream or another fork, the original is credited above
 
-## Due diligence
+---
 
-<!-- Please mark WIP pull requests and "Draft" and only "Ready for review" once it is ready to be merged  -->
-
-- [ ] I have read and agreed to the [contribution guidelines](https://github.com/OuterTune/OuterTune/blob/dev/CONTRIBUTING.md).
-
-### Merging strategy / Merge conflict resolution
-
-Select only ONE. If you select none, or both, the first selection will used as your final choice
-
-- [ ] When merging this pull request, or in the event of merge conflicts, I give permission for the merger to rebase,
-  or squash my code, or apply merge conflict amendments as needed
-- [ ] When merging this pull request, or in the event of merge conflicts, I ***DO NOT*** give permission for the
-  merger to modify my code to solve merge conflicts. I understand in the event of a merge conflict, I will be
-  responsible to resolve merge conflicts in a way that adheres to
-  the [contribution guidelines](https://github.com/OuterTune/OuterTune/blob/dev/CONTRIBUTING.md)
-
-<!-- This pull request template is based on Newpipe's:  https://github.com/TeamNewPipe/NewPipe/ -->
+Commits may be squashed or rebased on merge, and conflicts may be resolved for you. Say so here if
+you would rather do that yourself.
