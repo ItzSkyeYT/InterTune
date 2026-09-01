@@ -1,0 +1,125 @@
+{
+  "schema": 1,
+  "note": "Every finding ever surfaced by the proactive bug scan (routine N2-A), keyed by fingerprint. Fingerprint = <path>#<enclosing symbol>#<bug class>. Never re-report a fingerprint whose state is reported, patched, wontfix or accepted.",
+  "findings": [
+    {
+      "fingerprint": "app/src/main/java/com/dd3boh/outertune/utils/UpdateChecker.kt#check#logic",
+      "file": "app/src/main/java/com/dd3boh/outertune/utils/UpdateChecker.kt",
+      "line": 76,
+      "symbol": "check",
+      "bug_class": "logic",
+      "summary": "The update-check rate limit is keyed on a persisted timestamp but guards an in-memory result, so a cold start inside the interval returns null for an update the app already knows about. The badge (persisted) advertises it while Settings -> Updates (in memory) shows nothing and the skip control is unreachable.",
+      "score": 81,
+      "score_breakdown": {
+        "failure_path_clarity": 25,
+        "localization": 25,
+        "blast_radius": 25,
+        "verifiability": 6
+      },
+      "state": "patched",
+      "issue": 4,
+      "pr": 7,
+      "pr_state": "draft",
+      "verified": false,
+      "plan": ".bug-scan/plans/UpdateChecker.kt--check--logic.md",
+      "first_seen": "2026-09-01",
+      "run": 1
+    },
+    {
+      "fingerprint": "app/src/main/java/com/dd3boh/outertune/utils/LoudnessRepair.kt#cancel#concurrency",
+      "file": "app/src/main/java/com/dd3boh/outertune/utils/LoudnessRepair.kt",
+      "line": 212,
+      "symbol": "cancel",
+      "bug_class": "concurrency",
+      "summary": "cancel() nulls the job before the coroutine has stopped, so isRunning under-reports while the cancelled run is still inside an in-flight request. Tapping the settings row again starts a second scan concurrently: the request pacing doubles and the plain LinkedHashSet 'unavailable' is mutated from two coroutines on Dispatchers.IO.",
+      "score": 76,
+      "score_breakdown": {
+        "failure_path_clarity": 20,
+        "localization": 25,
+        "blast_radius": 25,
+        "verifiability": 6
+      },
+      "state": "reported",
+      "issue": 5,
+      "pr": null,
+      "verified": false,
+      "not_patched_reason": "Scored below the 80 patch bar, and the run's single code PR went to the higher-scoring finding.",
+      "first_seen": "2026-09-01",
+      "run": 1
+    },
+    {
+      "fingerprint": "app/src/main/java/com/dd3boh/outertune/MainActivity.kt#onCreate.dynamicThemeEffect#concurrency",
+      "file": "app/src/main/java/com/dd3boh/outertune/MainActivity.kt",
+      "line": 363,
+      "symbol": "onCreate / LaunchedEffect(playerConnection, enableDynamicTheme, isSystemInDarkTheme)",
+      "bug_class": "concurrency",
+      "summary": "The artwork-colour extraction launches into an outer coroutine scope from inside collectLatest, so collectLatest has nothing left to cancel. The launched work is never cancelled and its completions are unordered, so a stale song's colour can win and a colour can land after the user has switched dynamic theme off.",
+      "score": 78,
+      "score_breakdown": {
+        "failure_path_clarity": 22,
+        "localization": 25,
+        "blast_radius": 25,
+        "verifiability": 6
+      },
+      "state": "reported",
+      "issue": 6,
+      "pr": null,
+      "verified": false,
+      "not_patched_reason": "Scored below the 80 patch bar, and the run's single code PR went to the higher-scoring finding.",
+      "provenance_note": "The collectLatest { scope.launch { } } shape is inherited verbatim from upstream's ui/theme/Theme.kt; the fork relocated it into MainActivity.kt during the theming rework. Filed because it now lives in our file and affects our users, not as a claim that the fork introduced it.",
+      "first_seen": "2026-09-01",
+      "run": 1
+    }
+  ],
+  "discarded": [
+    {
+      "file": "app/src/main/java/com/dd3boh/outertune/ui/utils/GlassBackdrop.kt",
+      "symbol": "rememberGlassSpec",
+      "candidate": "Conditional early return placed before a remember call (rememberPreference), which looked like a slot-table hazard.",
+      "verdict": "false-positive",
+      "reason": "The Compose compiler supports early returns from composables by emitting group end markers, so the slot table stays consistent. No failure path."
+    },
+    {
+      "file": "app/src/main/java/com/dd3boh/outertune/playback/SleepTimer.kt",
+      "symbol": "start",
+      "candidate": "'while (isActive && pauseWhenSongEnd)' inside scope.launch, where the class also declares its own isActive property, so the two could be confused.",
+      "verdict": "false-positive",
+      "reason": "Ambiguous to read but harmless. Kotlin resolves to CoroutineScope.isActive (an extension on the innermost implicit receiver beats a member of an outer one), and either reading terminates the loop correctly anyway."
+    },
+    {
+      "file": "app/src/main/java/com/dd3boh/outertune/ui/screens/settings/UpdateSettings.kt",
+      "symbol": "UpdateSettings",
+      "candidate": "'checking' is not reset in a finally, so a throw from check() would leave the row permanently disabled.",
+      "verdict": "wontfix-thin",
+      "reason": "Real but the throw surface is only a DataStore IO error, and cancellation takes the whole composition with it. No concrete failure path worth an issue on its own."
+    },
+    {
+      "file": "app/src/main/java/com/dd3boh/outertune/utils/CoilBitmapLoader.kt",
+      "symbol": "fetch",
+      "candidate": "MediaMetadataRetriever is constructed and never released, leaking a native handle on every local-artwork fetch.",
+      "verdict": "out-of-scope",
+      "reason": "Verbatim upstream code; the fork's diff of this file against OuterTune@dev is empty. Belongs to the upstream-issue routine (N1), not to this scan."
+    },
+    {
+      "file": "app/src/main/java/com/dd3boh/outertune/MainActivity.kt",
+      "symbol": "onCreate",
+      "candidate": "connectivityObserver is unregistered and re-registered inside the setContent composable body, so it re-registers on recomposition.",
+      "verdict": "out-of-scope",
+      "reason": "Unchanged upstream code (appears only as diff context). N1 territory."
+    },
+    {
+      "file": "app/src/main/java/com/dd3boh/outertune/ui/component/AnchorDraggable.kt",
+      "symbol": "SwipeActionBox",
+      "candidate": "Swipe offsets are computed from dp values but fed to Modifier.offset {}, which takes pixels.",
+      "verdict": "out-of-scope",
+      "reason": "Pre-existing upstream behaviour; the fork only swapped the dp source from BoxWithConstraints.maxWidth to screenWidthDp. Not fork-introduced."
+    },
+    {
+      "file": "app/src/main/java/com/dd3boh/outertune/ui/player/Player.kt",
+      "symbol": "BottomSheetPlayer / gradient colours LaunchedEffect",
+      "candidate": "gradientColors keeps the previous song's colours when extraction is skipped (power saver, non-GRADIENT style) or when the artwork fetch fails.",
+      "verdict": "wontfix-thin",
+      "reason": "Cosmetic and only visible in the background gradient. No crash, leak or data error; below the bar for an issue."
+    }
+  ]
+}
