@@ -75,7 +75,24 @@ class UpdateChecker @Inject constructor(
 
         val last = store.get(LastUpdateCheckKey, 0L)
         val now = System.currentTimeMillis()
-        if (!force && now - last < MIN_CHECK_INTERVAL_MS) {
+
+        // The interval is stored on disk but the result it protects is only in memory, so the two
+        // disagree after the process is killed: a cold start inside the interval skipped the
+        // request and handed back a null _available for an update the app already knows about.
+        // UpdateAvailableKey (persisted, and what the search-bar badge reads) still said one
+        // existed, so the badge advertised an update the Updates screen would not show and the
+        // "skip this version" control could not be reached, for up to MIN_CHECK_INTERVAL_MS.
+        //
+        // So skip the request only when it would tell us nothing new: either the answer is still
+        // in memory, or the persisted flag says there was no update to hold. That leaves the rate
+        // limit fully in force for the ordinary case of nothing pending, and costs at most one
+        // request per cold start while an undismissed update is outstanding. It also lets the
+        // badge clear itself on the first open after the user actually updates, instead of
+        // sitting there stale until the interval elapses.
+        val knownAvailable = store.get(UpdateAvailableKey, false)
+        if (!force && now - last < MIN_CHECK_INTERVAL_MS &&
+            (_available.value != null || !knownAvailable)
+        ) {
             return@withContext _available.value
         }
 
