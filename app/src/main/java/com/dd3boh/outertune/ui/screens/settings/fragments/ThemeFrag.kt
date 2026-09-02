@@ -153,22 +153,27 @@ fun ColumnScope.ThemePlayerFrag() {
         onCheckedChange = onChromaticShockChange
     )
 
-    // One reveal rather than two consecutive `if` blocks, which popped ~320dp into existence in a
+    // Always drawn, dimmed when glass is off, rather than hidden. It only does anything with glass
+    // on (Player.kt gates on `liquidGlass && groupedControls`), but hiding it outright meant the
+    // 0.10.2 notes could point people at a setting that was not on their screen, and it read as
+    // missing. Its description already says it needs Liquid glass, which is the whole explanation.
+    SwitchPreference(
+        title = { Text(stringResource(R.string.grouped_player_controls)) },
+        description = stringResource(R.string.grouped_player_controls_description),
+        icon = { Icon(Icons.Rounded.ViewAgenda, null) },
+        checked = groupedControls,
+        onCheckedChange = onGroupedControlsChange,
+        isEnabled = liquidGlass
+    )
+
+    // The intensity slider stays hidden rather than dimmed: a greyed out slider still looks
+    // draggable, and this one already has history of people misreading what it belongs to.
+    // One reveal rather than two consecutive `if` blocks, which popped content into existence in a
     // single frame directly under the switch that was just tapped. ThemeAppFrag above already
     // animates its equivalent, so the file disagreed with itself. ColumnScope defaults, to match.
     AnimatedVisibility(liquidGlass) {
-        // Required: AnimatedVisibility takes one child, and this holds three.
+        // Required: AnimatedVisibility takes one child, and this holds two.
         Column {
-            // Nested under the glass switch because the panel it controls IS the glass slab: with
-            // glass off there is no shared container to group anything into, so it would do nothing.
-            SwitchPreference(
-                title = { Text(stringResource(R.string.grouped_player_controls)) },
-                description = stringResource(R.string.grouped_player_controls_description),
-                icon = { Icon(Icons.Rounded.ViewAgenda, null) },
-                checked = groupedControls,
-                onCheckedChange = onGroupedControlsChange
-            )
-
             // Below BOTH toggles, not nested under the first. It drives both, and while it sat
             // under the vivid-background switch people read it as belonging to that alone and
             // turned it down looking for more glass, which does the opposite.

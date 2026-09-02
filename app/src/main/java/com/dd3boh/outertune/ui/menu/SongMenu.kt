@@ -162,6 +162,7 @@ fun SongMenu(
                     database.query {
                         update(s)
                     }
+                    downloadUtil.autoDownloadOnLike(s)
 
                     if (!s.isLocal) {
                         syncUtils.likeSong(s)

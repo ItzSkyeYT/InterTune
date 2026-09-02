@@ -26,6 +26,10 @@ class NetworkConnectivityObserver(context: Context) {
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             _networkStatus.trySend(true)
+            // A different network almost certainly means a different public IP, and switching
+            // networks is literally what clears this by hand. Over-clearing costs one request that
+            // immediately re-trips; under-clearing costs the user their music.
+            Throttle.onNetworkChanged()
         }
 
         override fun onLost(network: Network) {

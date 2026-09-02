@@ -47,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -91,6 +92,16 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.material.icons.rounded.Favorite
+import com.dd3boh.outertune.constants.LikedAutoDownloadKey
+import com.dd3boh.outertune.constants.LikedAutodownloadMode
+import com.dd3boh.outertune.playback.DownloadUtil
+import com.dd3boh.outertune.ui.component.EnumListPreference
+import com.dd3boh.outertune.utils.rememberEnumPreference
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
@@ -143,16 +154,21 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
 fun ColumnScope.DownloadsFrag() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val downloadCache = LocalPlayerConnection.current?.service?.downloadCache ?: return
+    // Nullable rather than an early return. This used to bail before rendering anything, so
+    // opening Settings > Storage on a cold start, before the player service had bound, showed no
+    // Downloads card at all and any setting in it looked missing.
+    val downloadCache = LocalPlayerConnection.current?.service?.downloadCache
     val downloadUtil = LocalDownloadUtil.current
 
     val (downloadPath, onDownloadPathChange) = rememberPreference(DownloadPathKey, "")
     val (downloadOnWifiOnly, onDownloadOnWifiOnlyChange) = rememberPreference(DownloadOnWifiOnlyKey, defaultValue = false)
     val (scanPaths, onScanPathsChange) = rememberPreference(ScanPathsKey, defaultValue = "")
+    val (likedAutodownload, onLikedAutodownloadChange) =
+        rememberEnumPreference(LikedAutoDownloadKey, LikedAutodownloadMode.OFF)
 
     // size stats
     var downloadCacheSize by remember {
-        mutableLongStateOf(tryOrNull { downloadCache.cacheSpace } ?: 0)
+        mutableLongStateOf(tryOrNull { downloadCache?.cacheSpace } ?: 0)
     }
     var downloadMainPathSize by remember {
         mutableLongStateOf(-2L)
@@ -188,7 +204,7 @@ fun ColumnScope.DownloadsFrag() {
     LaunchedEffect(downloadCache) {
         while (isActive) {
             delay(2000)
-            downloadCacheSize = tryOrNull { downloadCache.cacheSpace } ?: 0
+            downloadCacheSize = tryOrNull { downloadCache?.cacheSpace } ?: 0
         }
     }
 
@@ -202,6 +218,68 @@ fun ColumnScope.DownloadsFrag() {
             // Push it to the running service too, so queued and in-flight downloads follow the new
             // rule rather than waiting for the next app start.
             downloadUtil.setDownloadRequirements(it)
+        }
+    )
+
+    EnumListPreference(
+        title = { Text(stringResource(R.string.like_autodownload)) },
+        icon = { Icon(Icons.Rounded.Favorite, null) },
+        selectedValue = likedAutodownload,
+        valueText = {
+            when (it) {
+                LikedAutodownloadMode.OFF -> stringResource(androidx.compose.ui.R.string.state_off)
+                LikedAutodownloadMode.ON -> stringResource(androidx.compose.ui.R.string.state_on)
+                LikedAutodownloadMode.WIFI_ONLY -> stringResource(R.string.wifi_only)
+            }
+        },
+        onValueSelected = { mode ->
+            onLikedAutodownloadChange(mode)
+            // Switching it on is itself the catch-up trigger, which is what "download all my liked
+            // songs" means. Not rememberCoroutineScope: that dies when this screen leaves the
+            // composition, which would abandon a few-hundred-song enqueue halfway.
+            if (mode != LikedAutodownloadMode.OFF) {
+                downloadUtil.startLikedDownloads(mode)
+            }
+        },
+    )
+
+    val likedDownloadState by downloadUtil.likedDownloadState.collectAsState()
+
+    // The state lives on a singleton, so without this a finished run would still be reported the
+    // next time this screen is opened, against a count that has moved on since.
+    DisposableEffect(Unit) {
+        onDispose { downloadUtil.acknowledgeLikedDownloads() }
+    }
+
+    PreferenceEntry(
+        title = { Text(stringResource(R.string.liked_autodownload_backfill_title)) },
+        description = when (val st = likedDownloadState) {
+            is DownloadUtil.LikedDownloadState.Running ->
+                stringResource(R.string.liked_autodownload_running, st.done, st.total)
+
+            is DownloadUtil.LikedDownloadState.Finished ->
+                if (st.stoppedEarly) stringResource(R.string.liked_autodownload_stopped, st.done)
+                else stringResource(R.string.liked_autodownload_finished, st.done)
+
+            DownloadUtil.LikedDownloadState.NeedsWifi ->
+                stringResource(R.string.liked_autodownload_needs_wifi)
+
+            DownloadUtil.LikedDownloadState.NothingToDo ->
+                stringResource(R.string.liked_autodownload_nothing_to_do)
+
+            DownloadUtil.LikedDownloadState.Blocked ->
+                stringResource(R.string.liked_autodownload_blocked)
+
+            DownloadUtil.LikedDownloadState.Idle ->
+                stringResource(R.string.liked_autodownload_backfill_description)
+        },
+        icon = { Icon(Icons.Rounded.Downloading, null) },
+        isEnabled = likedAutodownload != LikedAutodownloadMode.OFF ||
+                likedDownloadState is DownloadUtil.LikedDownloadState.Running,
+        onClick = {
+            // Same shape as the loudness repair row: while it runs, the button stops it.
+            if (downloadUtil.isDownloadingLiked) downloadUtil.cancelLikedDownloads()
+            else downloadUtil.startLikedDownloads(likedAutodownload)
         }
     )
 
@@ -486,7 +564,7 @@ fun ColumnScope.DownloadsFrag() {
                         showClearConfirmDialog = false
                         coroutineScope.launch(Dispatchers.IO) {
                             // clear internal downloads
-                            downloadCache.keys.forEach { key ->
+                            downloadCache?.keys?.forEach { key ->
                                 downloadCache.removeResource(key)
                             }
 

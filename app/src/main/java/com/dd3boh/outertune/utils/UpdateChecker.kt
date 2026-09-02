@@ -12,6 +12,8 @@ import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.DismissedUpdateCodeKey
 import com.dd3boh.outertune.constants.LastUpdateCheckKey
+import com.dd3boh.outertune.constants.LastReleaseUrlKey
+import com.dd3boh.outertune.constants.LastVersionCodeKey
 import com.dd3boh.outertune.constants.LastVersionKey
 import com.dd3boh.outertune.constants.UpdateAvailableKey
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
@@ -76,7 +78,10 @@ class UpdateChecker @Inject constructor(
         val last = store.get(LastUpdateCheckKey, 0L)
         val now = System.currentTimeMillis()
         if (!force && now - last < MIN_CHECK_INTERVAL_MS) {
-            return@withContext _available.value
+            // Rebuild from disk rather than reporting the in-memory value. That value is null on
+            // every process start, so opening the app inside the six hour window used to answer
+            // "no update" even when one had already been found, and the Updates screen went blank.
+            return@withContext restoreFromDisk()
         }
 
         val body = runCatching {
@@ -111,17 +116,38 @@ class UpdateChecker @Inject constructor(
             return@withContext null
         }
 
-        // UpdateAvailableKey and LastVersionKey already exist and already drive the badge on the
-        // search bar. Upstream deleted the checker that used to set them and left the UI behind,
-        // so this fills the gap rather than adding a parallel mechanism.
+        // The whole result, not just the name. Without the code and the url a restart cannot
+        // rebuild what it found, and the rate limit below then reports "no update" for six hours.
         context.dataStore.edit {
             it[UpdateAvailableKey] = true
             it[LastVersionKey] = update.versionName
+            it[LastVersionCodeKey] = update.versionCode
+            it[LastReleaseUrlKey] = update.releaseUrl
         }
 
         Log.i(TAG, "Update available: ${update.versionName} (${update.versionCode})")
         _available.value = update
         update
+    }
+
+    /**
+     * The last found release, read back from disk.
+     *
+     * Re-checked against the installed version and the dismissed one, so an update that was found,
+     * then installed or dismissed, does not come back from the dead after a restart.
+     */
+    private suspend fun restoreFromDisk(): Update? {
+        val store = context.dataStore
+        if (!store.get(UpdateAvailableKey, false)) return null
+        val code = store.get(LastVersionCodeKey, -1)
+        val name = store.get(LastVersionKey, "")
+        val url = store.get(LastReleaseUrlKey, "")
+        if (code <= BuildConfig.VERSION_CODE || name.isEmpty() || url.isEmpty()) return null
+        if (code == store.get(DismissedUpdateCodeKey, -1)) return null
+
+        val restored = Update(code, name, url)
+        _available.value = restored
+        return restored
     }
 
     /** Stops this particular version being raised again. A later one still will be. */

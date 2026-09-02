@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.util.Log
 import android.widget.Toast
 import android.widget.Toast.LENGTH_SHORT
+import android.os.SystemClock
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import androidx.media3.database.DatabaseProvider
@@ -25,6 +26,8 @@ import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
 import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
 import com.dd3boh.outertune.constants.DownloadPathKey
+import com.dd3boh.outertune.constants.LikedAutoDownloadKey
+import com.dd3boh.outertune.constants.LikedAutodownloadMode
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.FormatEntity
 import com.dd3boh.outertune.db.entities.PlaylistSong
@@ -46,6 +49,7 @@ import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.scanners.InvalidAudioFileException
 import com.dd3boh.outertune.utils.scanners.fileFromUri
 import com.dd3boh.outertune.utils.scanners.uriListFromString
+import com.dd3boh.outertune.utils.Throttle
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -59,6 +63,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.yield
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.onEach
 import okhttp3.OkHttpClient
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -83,7 +96,13 @@ class DownloadUtil @Inject constructor(
 
     private val connectivityManager = context.getSystemService<ConnectivityManager>()!!
     private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.AUTO)
-    private val songUrlCache = HashMap<String, Pair<String, Long>>()
+    // Concurrent, because media3 runs each download on its own thread and this is read and written
+    // from all of them. An unsynchronised HashMap can corrupt its table under concurrent put.
+    private val songUrlCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
+
+    /** Serialises the player requests that downloads make. See the gate in the resolver. */
+    private val resolveGate = Any()
+    private var lastResolveAt = 0L
     private val dataSourceFactory = ResolvingDataSource.Factory(
         CacheDataSource.Factory()
             .setCache(playerCache)
@@ -103,6 +122,23 @@ class DownloadUtil @Inject constructor(
 
         songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
             return@Factory dataSpec.withUri(it.first.toUri())
+        }
+
+        // Paced here rather than at the enqueue loop, because this is the only point a download's
+        // player request actually passes through. Chunking the enqueue paces the loop; media3 then
+        // drains it at whatever rate it likes.
+        //
+        // 700ms, derived from the loudness scan's 350ms rather than invented. A download resolve
+        // costs two player requests on the healthy path, so this lands on the same requests per
+        // second as the scan we already decided was polite.
+        //
+        // The asymmetry is the point. On a healthy network the gap is invisible, because the audio
+        // transfer that follows takes seconds. On a refused network nothing transfers and every
+        // resolve fails in about a second, which is exactly when the app would otherwise hammer.
+        synchronized(resolveGate) {
+            val wait = RESOLVE_GAP_MS - (SystemClock.elapsedRealtime() - lastResolveAt)
+            if (wait > 0) Thread.sleep(wait)
+            lastResolveAt = SystemClock.elapsedRealtime()
         }
 
         val playbackData = runBlocking(Dispatchers.IO) {
@@ -206,22 +242,230 @@ class DownloadUtil @Inject constructor(
      */
     private fun notifyIfWaitingForWifi() {
         if (context.dataStore.get(DownloadOnWifiOnlyKey, false) && connectivityManager.isActiveNetworkMetered) {
-            Toast.makeText(context, R.string.download_waiting_for_wifi, Toast.LENGTH_SHORT).show()
+            // Main.immediate, so the existing UI callers still post inline exactly as before while
+            // the auto-download paths stop throwing. Those run on Room's executors and on
+            // dlCoroutine, which have no Looper, and Toast kills the process without one. It would
+            // only have fired for someone with wifi-only downloads on a metered network, which is
+            // precisely the person this feature is for.
+            CoroutineScope(Dispatchers.Main.immediate).launch {
+                Toast.makeText(context, R.string.download_waiting_for_wifi, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
+    private val likedAutodownload by enumPreference(context, LikedAutoDownloadKey, LikedAutodownloadMode.OFF)
+
+    /**
+     * Wi-Fi only gates whether we enqueue at all. It deliberately never touches media3's
+     * Requirements: those are service-wide, and the user already owns that single lever through the
+     * "Download on Wi-Fi only" switch. A second writer would silently make manual downloads
+     * Wi-Fi-only too, and the two settings would overwrite each other.
+     */
+    private fun autodownloadAllowedNow(mode: LikedAutodownloadMode) = when (mode) {
+        LikedAutodownloadMode.OFF -> false
+        LikedAutodownloadMode.ON -> true
+        LikedAutodownloadMode.WIFI_ONLY -> !connectivityManager.isActiveNetworkMetered
+    }
+
+    /**
+     * Call right after a like has been written to the database.
+     *
+     * Every guard lives here, so a call site is one line and cannot forget one. It no-ops on
+     * un-like, on local files, on anything already downloaded or in flight, when the setting is off,
+     * and when Wi-Fi only is set on a metered connection.
+     *
+     * Fires on the like itself, never on a download-state change. That is what makes deleting a
+     * download of a song you still like stick, instead of it silently coming back.
+     */
+    fun autoDownloadOnLike(song: SongEntity) = autoDownloadOnLike(listOf(song))
+
+    /** Batch variant, so liking 500 songs at once fires one Wi-Fi warning rather than 500. */
+    fun autoDownloadOnLike(songs: List<SongEntity>) {
+        val mode = likedAutodownload
+        if (!autodownloadAllowedNow(mode)) return
+        if (Throttle.isBlocked) return
+        val eligible = songs.filter {
+            it.liked && !it.isLocal && it.localPath == null && isNotDownloaded(it.id)
+        }
+        if (eligible.isEmpty()) return
+        notifyIfWaitingForWifi()
+        eligible.forEach { downloadSong(it.id, it.title) }
+    }
+
+    private val _likedDownloadState = MutableStateFlow<LikedDownloadState>(LikedDownloadState.Idle)
+
+    /** Progress of the liked-songs catch up, for the settings row. Mirrors LoudnessRepair. */
+    val likedDownloadState: StateFlow<LikedDownloadState> = _likedDownloadState.asStateFlow()
+
+    sealed interface LikedDownloadState {
+        data object Idle : LikedDownloadState
+        data class Running(val done: Int, val total: Int) : LikedDownloadState
+        data class Finished(val done: Int, val total: Int, val stoppedEarly: Boolean) : LikedDownloadState
+        data object NeedsWifi : LikedDownloadState
+        data object NothingToDo : LikedDownloadState
+
+        /** YouTube is refusing this network. Not a failure, and not worth retrying now. */
+        data object Blocked : LikedDownloadState
+    }
+
+    private var likedJob: Job? = null
+
+    val isDownloadingLiked: Boolean get() = likedJob?.isActive == true
+
+    /**
+     * Queues every liked song that is missing, then reports how many have actually landed.
+     *
+     * Progress follows the downloads themselves rather than the enqueue loop. Handing 300 requests
+     * to media3 takes a moment; waiting for 300 songs to arrive is the part worth watching.
+     */
+    fun startLikedDownloads(mode: LikedAutodownloadMode = likedAutodownload) {
+        if (isDownloadingLiked) return
+        likedJob = CoroutineScope(dlCoroutine).launch {
+            if (mode == LikedAutodownloadMode.OFF) {
+                _likedDownloadState.value = LikedDownloadState.NothingToDo
+                return@launch
+            }
+            if (!autodownloadAllowedNow(mode)) {
+                _likedDownloadState.value = LikedDownloadState.NeedsWifi
+                return@launch
+            }
+            // Never race a scan: it clears every dateDownload first, so until it has finished
+            // re-registering them, every song reads as not downloaded.
+            if (isProcessingDownloads.value) {
+                _likedDownloadState.value = LikedDownloadState.NothingToDo
+                return@launch
+            }
+            // Queueing hundreds of songs at a network YouTube is already refusing achieves nothing
+            // except keeping it refused. Wait it out; it clears by itself.
+            if (Throttle.isBlocked) {
+                _likedDownloadState.value = LikedDownloadState.Blocked
+                return@launch
+            }
+
+            val pending = database.likedSongsNotDownloaded().first()
+                .filter { isNotDownloaded(it.id) }
+            if (pending.isEmpty()) {
+                _likedDownloadState.value = LikedDownloadState.NothingToDo
+                return@launch
+            }
+
+            val batch = pending.map { it.id }.toSet()
+            val total = batch.size
+            _likedDownloadState.value = LikedDownloadState.Running(0, total)
+            notifyIfWaitingForWifi()
+
+            // Chunked with a yield between, so cancelling stays responsive on a large library
+            // instead of having to wait out the whole enqueue.
+            pending.chunked(ENQUEUE_CHUNK).forEach { chunk ->
+                if (!currentCoroutineContext().isActive) return@launch
+                chunk.forEach { downloadSong(it.id, it.title) }
+                yield()
+            }
+
+            // Follow the map until the batch lands. first {} is what actually ends the
+            // collection: returning from a collect lambda only ends that one emission, so the
+            // earlier version kept collecting forever. The job must also stay owned by the
+            // coroutine until it really finishes, or isDownloadingLiked reads false while this is
+            // still running and tapping the row starts a second run on top of the first.
+            downloads
+                .map { map -> batch.count { id -> map[id].let { it != null && it != STATE_INVALID } } }
+                .distinctUntilChanged()
+                .onEach { done -> _likedDownloadState.value = LikedDownloadState.Running(done, total) }
+                .first { done -> done >= total }
+
+            _likedDownloadState.value =
+                LikedDownloadState.Finished(total, total, stoppedEarly = false)
+        }
+    }
+
+    /**
+     * Stops the catch up and drops what has not arrived yet.
+     *
+     * Removes rather than pauses: a paused download reads as STATE_INVALID, which this feature
+     * treats as missing, so pausing would leave the row offering to start the same work again.
+     * Songs already downloaded are kept.
+     */
+    fun cancelLikedDownloads() {
+        val state = _likedDownloadState.value
+        likedJob?.cancel()
+        likedJob = null
+
+        if (state is LikedDownloadState.Running) {
+            runCatching {
+                downloads.value.filter { it.value == STATE_INVALID }.keys.forEach { id ->
+                    DownloadService.sendRemoveDownload(
+                        context, ExoDownloadService::class.java, id, false
+                    )
+                }
+            }.onFailure { Log.w(TAG, "Could not clear queued downloads on cancel", it) }
+            _likedDownloadState.value =
+                LikedDownloadState.Finished(state.done, state.total, stoppedEarly = true)
+        } else {
+            _likedDownloadState.value = LikedDownloadState.Idle
+        }
+    }
+
+    /** Clears a finished result so the settings row goes back to resting. */
+    fun acknowledgeLikedDownloads() {
+        if (!isDownloadingLiked) _likedDownloadState.value = LikedDownloadState.Idle
+    }
+
+    /**
+     * One shot: enqueue every liked song that is not already downloaded.
+     *
+     * Taking a single snapshot rather than collecting the flow is deliberate. onDownloadChanged
+     * writes a null dateDownload for every non-completed state, so an enqueued song never leaves
+     * that query and each state change would re-emit it: collecting it is a self-feeding loop. One
+     * snapshot cannot loop, and each call only shrinks the pending set.
+     *
+     * @param mode passed in rather than read back, because the preference setter writes
+     *   asynchronously and calling this straight after choosing a value would read the old one.
+     * @return how many were queued, or -1 if the Wi-Fi rule blocked the whole run.
+     */
+    suspend fun downloadLikedSongs(mode: LikedAutodownloadMode = likedAutodownload): Int {
+        if (mode == LikedAutodownloadMode.OFF) return 0
+        if (!autodownloadAllowedNow(mode)) return -1
+        if (Throttle.isBlocked) return 0
+        // Never race a scan: it clears every dateDownload first, so until it has finished
+        // re-registering them, every song reads as not downloaded.
+        if (isProcessingDownloads.value) return 0
+        val pending = database.likedSongsNotDownloaded().first().filter { isNotDownloaded(it.id) }
+        if (pending.isEmpty()) return 0
+        notifyIfWaitingForWifi()
+        pending.forEach { downloadSong(it.id, it.title) }
+        return pending.size
+    }
+
+    /**
+     * A song with no download, or one whose download failed.
+     *
+     * The plain null check treated STATE_INVALID (epoch 0) as downloaded, so a song that failed
+     * once and then went through any scan became invisible to the download button as well as to
+     * auto-download.
+     */
+    private fun isNotDownloaded(id: String): Boolean =
+        downloads.value[id].let { it == null || it == STATE_INVALID }
+
     private fun downloadSong(id: String, title: String) {
-        if (downloads.value[id] != null) return
+        if (!isNotDownloaded(id)) return
         val downloadRequest = DownloadRequest.Builder(id, id.toUri())
             .setCustomCacheKey(id)
             .setData(title.toByteArray())
             .build()
-        DownloadService.sendAddDownload(
-            context,
-            ExoDownloadService::class.java,
-            downloadRequest,
-            false
-        )
+        try {
+            DownloadService.sendAddDownload(
+                context,
+                ExoDownloadService::class.java,
+                downloadRequest,
+                false
+            )
+        } catch (e: IllegalStateException) {
+            // foreground = false is a bare startService. Every UI caller is in the foreground, but
+            // liking is reachable from the media notification with no Activity alive, which Android
+            // rejects. Losing one auto-download is not worth killing the process, and the backfill
+            // picks it up.
+            Log.w(TAG, "Could not enqueue download for $id from the background", e)
+        }
     }
 
     fun resumeDownloadsOnStart() {
@@ -463,6 +707,12 @@ class DownloadUtil @Inject constructor(
     companion object {
         val STATE_DOWNLOADING: LocalDateTime = Instant.ofEpochMilli(1).atZone(ZoneOffset.UTC).toLocalDateTime()
         val STATE_INVALID: LocalDateTime = Instant.ofEpochMilli(0).atZone(ZoneOffset.UTC).toLocalDateTime()
+
+        /** Enqueue in bites, so cancelling a large catch up responds quickly. */
+        private const val ENQUEUE_CHUNK = 25
+
+        /** Minimum gap between the player requests downloads make. See the gate in the resolver. */
+        private const val RESOLVE_GAP_MS = 700L
     }
 
 

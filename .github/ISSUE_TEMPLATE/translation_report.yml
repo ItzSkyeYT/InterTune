@@ -1,0 +1,66 @@
+name: Translation problem
+description: A string is wrong, awkward, untranslated, or cut off in your language
+labels: ["translation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Please open one of these if anything reads badly.** Most of InterTune's translations were
+        not written by native speakers, and a translation that is merely grammatical can still be
+        the wrong word for what a button does. Nobody minds being corrected, and a one line report
+        is genuinely useful. You do not need to know how to code, and you do not need to open a
+        pull request unless you want to.
+
+        Strings inherited from InnerTune and OuterTune belong upstream. Anything about updates,
+        loudness repair, liquid glass, the sleep timer fade, or downloading liked songs is this
+        fork's own, and belongs here.
+
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: The language the app is showing you, and the region if it matters.
+      placeholder: "French, or Portuguese (Brazil)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What it says now
+      description: |
+        Paste the text, or say where it is: **Settings → Storage → the row under Download on Wi-Fi
+        only**. A screenshot is perfect and saves you typing it out.
+    validations:
+      required: true
+
+  - type: textarea
+    id: better
+    attributes:
+      label: What it should say
+      description: |
+        Your suggestion, if you have one. If you only know it reads wrong and cannot think of a
+        better wording, say that instead. Reporting it is still worth doing.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem is it?
+      options:
+        - "Wrong word, or the wrong meaning"
+        - "Awkward, but understandable"
+        - "Still in English"
+        - "Cut off or overlapping on screen"
+        - "A number or name is missing or in the wrong place"
+        - "Something else"
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        The last one matters more than it sounds. Several of these strings contain a count, like
+        "Downloading 3 of 20", and if that number vanished or landed in the wrong place in your
+        language, that is a real bug rather than a wording preference.
