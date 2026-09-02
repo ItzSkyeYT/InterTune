@@ -231,6 +231,9 @@ import com.dd3boh.outertune.constants.UPDATE_SNOOZE_MS
 import com.dd3boh.outertune.ui.component.UpdatePrompt
 import kotlinx.coroutines.delay
 import android.provider.Settings
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -348,6 +351,9 @@ class MainActivity : ComponentActivity() {
                 // Receives the outcome of an in-app install. Registered here rather than in the
                 // manifest because it is only meaningful while the app is alive to show it.
                 updateInstaller.registerReceiver()
+                // Forget the update once it has actually installed, so a finished one cannot sit
+                // there prompting forever if the process happened to survive.
+                updateInstaller.onInstalled = { coroutineScope.launch { updateChecker.clearFound() } }
 
                 // local media & download folders auto scan
                 coroutineScope.launch(lmScannerCoroutine) {
@@ -476,6 +482,23 @@ class MainActivity : ComponentActivity() {
                  * that is per version, so the next release still gets through.
                  */
                 val pendingUpdate by updateChecker.available.collectAsState()
+
+                // Re-read on resume. Granting "install unknown apps" happens in another activity,
+                // and a plain canRequestInstall() call would still read false when the user comes
+                // back, so the prompt would keep offering to send them there. The tap handler
+                // re-checks live so it always behaves correctly; this is what makes it also say
+                // the right thing.
+                var canInstall by remember { mutableStateOf(updateInstaller.canRequestInstall()) }
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            canInstall = updateInstaller.canRequestInstall()
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
                 val autoInstall by rememberPreference(AutoInstallUpdatesKey, defaultValue = false)
                 val snoozeUntil by rememberPreference(UpdateSnoozeUntilKey, defaultValue = 0L)
                 val installState by updateInstaller.state.collectAsState()
@@ -507,7 +530,7 @@ class MainActivity : ComponentActivity() {
                         UpdatePrompt(
                             update = found,
                             ready = updateInstaller.isDownloaded(found.sizeBytes),
-                            needsPermission = !updateInstaller.canRequestInstall(),
+                            needsPermission = !canInstall,
                             onInstall = {
                                 // Android refuses to show its install prompt until this app is
                                 // allowed to install apps, and refuses silently, so send the user
