@@ -69,6 +69,75 @@
       "provenance_note": "The collectLatest { scope.launch { } } shape is inherited verbatim from upstream's ui/theme/Theme.kt; the fork relocated it into MainActivity.kt during the theming rework. Filed because it now lives in our file and affects our users, not as a claim that the fork introduced it.",
       "first_seen": "2026-09-01",
       "run": 1
+    },
+    {
+      "fingerprint": "app/src/main/java/com/dd3boh/outertune/playback/DownloadUtil.kt#startLikedDownloads#logic",
+      "file": "app/src/main/java/com/dd3boh/outertune/playback/DownloadUtil.kt",
+      "line": 371,
+      "symbol": "startLikedDownloads",
+      "bug_class": "logic",
+      "summary": "The catch-up progress predicate counts STATE_DOWNLOADING (epoch 1, meaning queued or in flight) as a landed download, because it only excludes null and STATE_INVALID. media3 fires onDownloadChanged with STATE_QUEUED as soon as a request is added, so the whole batch reads as done the moment enqueue finishes and the row jumps to \"Downloaded N liked songs\" before anything has been fetched. The same predicate cannot be tightened on its own: failed ids are removed from the map entirely (:736-739), so a completion-only count would never reach total and the coroutine would hang forever.",
+      "score": 64,
+      "score_breakdown": {
+        "failure_path_clarity": 21,
+        "localization": 25,
+        "blast_radius": 12,
+        "verifiability": 6
+      },
+      "state": "reported",
+      "issue": 9,
+      "pr": null,
+      "verified": false,
+      "not_patched_reason": "Scored 64, below the 80 patch bar. A correct fix must restructure the progress collector to track completion and settlement together (>30 lines), and cannot be compiled or unit tested in this environment.",
+      "introduced_by": "c750adc1 (Show catch-up progress on the button, and let a second tap stop it)",
+      "first_seen": "2026-09-02",
+      "run": 2
+    },
+    {
+      "fingerprint": "app/src/main/java/com/dd3boh/outertune/playback/DownloadUtil.kt#cancelLikedDownloads#logic",
+      "file": "app/src/main/java/com/dd3boh/outertune/playback/DownloadUtil.kt",
+      "line": 395,
+      "symbol": "cancelLikedDownloads",
+      "bug_class": "logic",
+      "summary": "The cancel path filters the download map for STATE_INVALID (epoch 0, failed) where it means STATE_DOWNLOADING (epoch 1, queued). Two consequences: none of the batch is actually removed, so media3 keeps downloading all of it after the user taps stop; and the entries that do match, which can only come from rescanDownloads reading epoch-0 dateDownload rows, are unrelated songs the user queued by hand. The function has no access to batch, so it also cannot distinguish the catch-up's downloads from anyone else's.",
+      "score": 68,
+      "score_breakdown": {
+        "failure_path_clarity": 22,
+        "localization": 25,
+        "blast_radius": 15,
+        "verifiability": 6
+      },
+      "state": "reported",
+      "issue": 10,
+      "pr": null,
+      "verified": false,
+      "not_patched_reason": "Scored 68, below the 80 patch bar. Swapping the sentinel alone is also wrong (it would cancel manual downloads too), so the fix needs the batch lifted to a field; runtime-only verification.",
+      "introduced_by": "c750adc1 (Show catch-up progress on the button, and let a second tap stop it)",
+      "first_seen": "2026-09-02",
+      "run": 2
+    },
+    {
+      "fingerprint": "app/src/main/java/com/dd3boh/outertune/utils/Throttle.kt#trip#logic",
+      "file": "app/src/main/java/com/dd3boh/outertune/utils/Throttle.kt",
+      "line": 145,
+      "symbol": "trip",
+      "bug_class": "logic",
+      "summary": "trip() recomputes the deadline as now + backoff on every call and its guard only refuses to shorten an existing stop, so any failing request during an active back off re-arms a fresh deadline (up to 20 minutes) from that moment. Playback is deliberately never gated, so a user retrying play on a refused network keeps pushing the deadline out and downloads, sync and scans stay disabled far longer than MAX_BACKOFF_MS. This contradicts the class's own stated invariant at Throttle.kt:39. Separately, strikes is incremented per call rather than per episode, so the documented 5/10/20 ladder is consumed within the first episode.",
+      "score": 75,
+      "score_breakdown": {
+        "failure_path_clarity": 19,
+        "localization": 25,
+        "blast_radius": 25,
+        "verifiability": 6
+      },
+      "state": "reported",
+      "issue": 11,
+      "pr": null,
+      "verified": false,
+      "not_patched_reason": "Highest scorer of run 2 at 75, still below the 80 patch bar. Blast radius is small (an early return in trip), but Verifiability is capped at 6 because SystemClock and android.util.Log are framework calls and :app has no JVM unit-test source set.",
+      "introduced_by": "baa74f26 (Back off when YouTube refuses the network, and say so in words)",
+      "first_seen": "2026-09-02",
+      "run": 2
     }
   ],
   "discarded": [
@@ -120,6 +189,54 @@
       "candidate": "gradientColors keeps the previous song's colours when extraction is skipped (power saver, non-GRADIENT style) or when the artwork fetch fails.",
       "verdict": "wontfix-thin",
       "reason": "Cosmetic and only visible in the background gradient. No crash, leak or data error; below the bar for an issue."
+    },
+    {
+      "file": "app/src/main/java/com/dd3boh/outertune/utils/CoilBitmapLoader.kt",
+      "symbol": "fetch",
+      "candidate": "MediaMetadataRetriever is constructed at :94 and never released, leaking a native handle and an fd on every local-artwork fetch.",
+      "verdict": "out-of-scope",
+      "reason": "RE-ENCOUNTERED in run 2 and skipped per the run 1 baseline entry below: verbatim upstream code, the fork's diff of this file against OuterTune@dev is empty, and the file is not in run 2's diff surface either. N1 territory. Recorded again only so a future run recognises it as already-triaged rather than spending the read.",
+      "run": 2
+    },
+    {
+      "file": "app/src/main/java/com/dd3boh/outertune/playback/DownloadUtil.kt",
+      "symbol": "downloadLikedSongs / autoDownloadOnLike",
+      "candidate": "The Throttle guard added in baa74f26 might cover only some of the three enqueue entry points, leaving the SyncUtils post-login backfill able to queue hundreds of requests at a refused network.",
+      "verdict": "false-positive",
+      "reason": "All three paths are guarded: DownloadUtil.kt:286 (autoDownloadOnLike), :340 (startLikedDownloads) and :428 (downloadLikedSongs, which is the one SyncUtils.kt:211 calls).",
+      "run": 2
+    },
+    {
+      "file": "app/src/main/java/com/dd3boh/outertune/playback/DownloadUtil.kt",
+      "symbol": "rescanDownloads",
+      "candidate": "result[s.song.id] = s.song.dateDownload!! force-unwraps a nullable column on rows drawn from downloadedOrQueuedSongs(), which by its name includes queued songs.",
+      "verdict": "false-positive",
+      "reason": "The query is \"SELECT * FROM song WHERE isLocal = 0 AND dateDownload IS NOT NULL\" (SongsDao.kt:295), so the unwrap cannot fail. The inline comment \"sql should cover our butts\" is accurate.",
+      "run": 2
+    },
+    {
+      "file": "app/src/main/java/com/dd3boh/outertune/playback/MusicService.kt",
+      "symbol": "gain/volume combine block",
+      "candidate": "gainProcessor.gain is set from normalizeFactor * playerVolume without the sleep-timer fade factor, so a fading-out track might keep full above-unity boost.",
+      "verdict": "false-positive",
+      "reason": "The two stages are in series and disjoint: the processor passes through at or below unity, and player.volume carries min(total, 1f) * fadeFactor. The product is correct at every gain, so the fade still reaches silence.",
+      "run": 2
+    },
+    {
+      "file": "app/src/main/java/org/akanework/gramophone/logic/utils/SemanticLyrics.kt",
+      "symbol": "TtmlTimeTracker.init",
+      "candidate": "parts[1] on a split of ttp:frameRateMultiplier throws IndexOutOfBounds for a malformed TTML attribute, and toInt() can throw NumberFormatException.",
+      "verdict": "out-of-scope",
+      "reason": "Vendored third-party code under org.akanework.gramophone, not fork-authored, and not in run 2's diff surface.",
+      "run": 2
+    },
+    {
+      "file": "app/src/main/java/com/dd3boh/outertune/App.kt",
+      "symbol": "onCreate",
+      "candidate": "Three GlobalScope.launch collectors are never cancelled.",
+      "verdict": "wontfix-thin",
+      "reason": "Application-scoped by intent: they collect DataStore for the life of the process, which is exactly GlobalScope's lifetime. No leak beyond process death, and no failure path.",
+      "run": 2
     }
   ]
 }

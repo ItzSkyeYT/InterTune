@@ -1,28 +1,29 @@
 {
   "meta": {
-    "last_scanned_sha": "de158cf58fa55fcdc5c50fd0d8511fbccdcc536e",
+    "last_scanned_sha": "da4843be",
     "last_scanned_branch": "visionos-fix",
     "last_full_sweep": "2026-09-01",
-    "last_run": "2026-09-01",
-    "run_count": 1,
+    "last_run": "2026-09-02",
+    "run_count": 2,
     "build_capability": "none",
     "build_capability_evidence": {
       "task": ":app:compileCoreDebugKotlin",
-      "result": "FAILURE",
-      "cause": "SDK location not found. Define a valid SDK location with an ANDROID_HOME environment variable or by setting the sdk.dir path in your project's local properties file at '/home/user/InterTune/local.properties'. (configuring project ':ffMetadataEx')",
+      "result": "NOT ATTEMPTED (run 2)",
+      "cause": "No Android SDK present, same as run 1. ANDROID_HOME and ANDROID_SDK_ROOT are unset; /opt holds gradle, maven, node, ruby, rbenv, rclone and pw-browsers but no android-sdk; no SDK at ~/Android/Sdk or /usr/lib/android-sdk; no local.properties. Gradle 8.14.3 and JDK 21.0.10 are present, so the blocker is the SDK alone.",
       "notes": [
-        "ANDROID_HOME and ANDROID_SDK_ROOT are unset; no SDK at ~/Android/Sdk, /usr/lib/android-sdk or /opt/android-sdk.",
-        "A first attempt failed earlier still, on a transient 429 Too Many Requests from Maven Central via the agent proxy. Dependency resolution succeeded on retry, so the SDK is the real blocker.",
-        "Submodules taglib and ffMetadataEx were absent on checkout and were self-healed with 'git submodule update --init --recursive --depth 1'.",
-        "Consequence: every patch produced in this environment is UNVERIFIED, and the Verifiability dimension cannot score above 6/25 for anything that is not pure JVM logic. :app has no JVM unit-test source set either; only :innertube and :kugou do."
+        "Run 1 established the same result by actually invoking the task and recording the SDK-location failure. Run 2 re-probed the environment for an SDK rather than repeating a multi-minute Gradle configuration that can only fail the same way.",
+        "Submodules taglib and ffMetadataEx were absent on checkout again and were self-healed with 'git submodule update --init --recursive --depth 1' (exit 0, taglib/build.gradle.kts present afterwards).",
+        "Consequence: every patch produced in this environment is UNVERIFIED, and the Verifiability dimension cannot score above 6/25 for anything that is not pure JVM logic. :app still has no JVM unit-test source set; only :innertube and :kugou do (innertube/build.gradle.kts:18 is the sole junit dependency).",
+        "Practical effect on the 80/100 patch bar: with Verifiability capped at 6, a finding must score a perfect 25/25/25 on the other three dimensions to reach 81. Nothing did this run, so no code PR was opened."
       ]
     },
     "scan_surface_method": {
-      "description": "The repo is a shallow clone (54 commits) with no common ancestor available for OuterTune/OuterTune, so merge-base does not work. The fork's own surface was computed instead as a tree diff of HEAD against a read-only fetch of OuterTune/OuterTune@dev.",
-      "upstream_ref_fetched": "12f61da05f82fdb870c97dcc89c847ce29c75428",
-      "fork_only_files": 7,
-      "modified_vs_upstream_kt_files": 45,
-      "note": "Upstream was fetched read-only via 'git fetch <url> dev' without adding a remote. Nothing was written to OuterTune/OuterTune."
-    }
+      "description": "Diff scan, per Phase 1: fewer than 7 days since the last full sweep (2026-09-01), so the surface is the *.kt files changed between run 1's last_scanned_sha and the current head of visionos-fix.",
+      "range": "de158cf58fa55fcdc5c50fd0d8511fbccdcc536e..da4843be",
+      "changed_kt_files": 22,
+      "commits_in_range": 8,
+      "note": "All 22 files were reviewed. Deep reads: DownloadUtil.kt, Throttle.kt, UpdateChecker.kt, SongsDao.kt, MusicService.kt (gain and loudness paths), QueueBoard.kt, PlayerExt.kt, MainActivityUtils.kt, YTPlayerUtils.kt, SyncUtils.kt, NetworkConnectivityObserver.kt, ThumbnailPlaybackError.kt, StorageFrag.kt. Adjacent non-diff files read as context because the diff calls into them: LoudnessRepair.kt, GainAudioProcessor.kt, CoilBitmapLoader.kt, ExoDownloadService.kt, LocalMediaScanner.kt, AsyncImageLocal.kt, App.kt, Theme.kt. Smaller UI diffs (menus, MiniPlayer, Player, SettingsScreen, ThemeFrag, SyncFrag, PreferenceKeys) were read as diffs only."
+    },
+    "next_full_sweep_due": "2026-09-08"
   }
 }
