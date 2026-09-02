@@ -53,9 +53,11 @@ One signed APK per release. Requires Android 7.0 or later. Sideload it, or point
   [Asked for](https://github.com/OuterTune/OuterTune/issues/1282#issuecomment-5383885534) in the
   comments of a 403 report rather than in an issue of its own.
   [Notes](docs/CHANGES.md#liquid-glass)
-- **An update check.** Upstream removed its own before 0.10.1
-  ([#1046](https://github.com/OuterTune/OuterTune/issues/1046)); InterTune asks GitHub about
-  new releases, if you let it. [Notes](docs/CHANGES.md#updates-and-onboarding)
+- **Updates that arrive in the app.** Upstream removed its own check before 0.10.1
+  ([#1046](https://github.com/OuterTune/OuterTune/issues/1046)). InterTune asks GitHub about new
+  releases, if you let it, then downloads one and hands it to Android to install, instead of
+  sending you to a browser. Android still asks you to confirm every install, because only you can
+  approve one. [Notes](docs/CHANGES.md#updates-and-onboarding)
 - **Play starts on the first tap.** Coming back to the app after a while, the play button turned
   into a replay button and took up to three taps to make a sound; the first tap was what created
   the replay button. [Notes](docs/CHANGES.md#play-on-the-first-tap)
