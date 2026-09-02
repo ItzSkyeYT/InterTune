@@ -201,6 +201,7 @@ import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.UpdateChecker
+import com.dd3boh.outertune.utils.UpdateInstaller
 import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -224,6 +225,12 @@ import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.dd3boh.outertune.constants.AutoInstallUpdatesKey
+import com.dd3boh.outertune.constants.UpdateSnoozeUntilKey
+import com.dd3boh.outertune.constants.UPDATE_SNOOZE_MS
+import com.dd3boh.outertune.ui.component.UpdatePrompt
+import kotlinx.coroutines.delay
+import android.provider.Settings
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -243,6 +250,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var updateChecker: UpdateChecker
+
+    @Inject
+    lateinit var updateInstaller: UpdateInstaller
 
     lateinit var activityLauncher: ActivityLauncherHelper
     lateinit var connectivityObserver: NetworkConnectivityObserver
@@ -334,6 +344,10 @@ class MainActivity : ComponentActivity() {
                 // itself to once every few hours, so this is cheap to call on every open. Failure
                 // is silent on purpose: nobody opened a music player to be told GitHub is down.
                 coroutineScope.launch { updateChecker.check() }
+
+                // Receives the outcome of an in-app install. Registered here rather than in the
+                // manifest because it is only meaningful while the app is alive to show it.
+                updateInstaller.registerReceiver()
 
                 // local media & download folders auto scan
                 coroutineScope.launch(lmScannerCoroutine) {
@@ -447,6 +461,83 @@ class MainActivity : ComponentActivity() {
                             }) { Text(stringResource(R.string.oobe_update_check_no)) }
                         }
                     )
+                }
+
+                /**
+                 * Offer the update, and let the answer stick.
+                 *
+                 * Shown regardless of the automatic setting, because Android never installs without
+                 * a confirmation anyway, so there is no version of this that happens invisibly. The
+                 * setting only decides whether the apk is already downloaded by the time this
+                 * appears.
+                 *
+                 * Snoozed rather than dismissed by default: "later" writes a timestamp an hour out,
+                 * and tapping outside counts as later. Only Cancel marks the version dismissed, and
+                 * that is per version, so the next release still gets through.
+                 */
+                val pendingUpdate by updateChecker.available.collectAsState()
+                val autoInstall by rememberPreference(AutoInstallUpdatesKey, defaultValue = false)
+                val snoozeUntil by rememberPreference(UpdateSnoozeUntilKey, defaultValue = 0L)
+                val installState by updateInstaller.state.collectAsState()
+
+                // Pre-fetch only when asked to, and only once per found update.
+                LaunchedEffect(pendingUpdate, autoInstall) {
+                    val u = pendingUpdate
+                    if (u != null && autoInstall && !updateInstaller.isBusy &&
+                        installState is UpdateInstaller.State.Idle
+                    ) {
+                        updateInstaller.download(u.downloadUrl, u.sizeBytes)
+                    }
+                }
+
+                var snoozeTick by remember { mutableStateOf(System.currentTimeMillis()) }
+                LaunchedEffect(snoozeUntil) {
+                    // Wake up when the snooze expires so the prompt returns without needing a
+                    // relaunch. A plain timestamp comparison would not recompose on its own.
+                    val wait = snoozeUntil - System.currentTimeMillis()
+                    if (wait > 0) {
+                        delay(wait)
+                        snoozeTick = System.currentTimeMillis()
+                    }
+                }
+
+                pendingUpdate?.let { found ->
+                    val snoozed = snoozeUntil > snoozeTick.coerceAtLeast(System.currentTimeMillis())
+                    if (!snoozed && installState !is UpdateInstaller.State.AwaitingConfirmation) {
+                        UpdatePrompt(
+                            update = found,
+                            ready = updateInstaller.isDownloaded(found.sizeBytes),
+                            needsPermission = !updateInstaller.canRequestInstall(),
+                            onInstall = {
+                                // Android refuses to show its install prompt until this app is
+                                // allowed to install apps, and refuses silently, so send the user
+                                // to the one screen that grants it rather than appearing to do
+                                // nothing. The apk stays downloaded, so coming back and tapping
+                                // install again goes straight through.
+                                if (!updateInstaller.canRequestInstall()) {
+                                    startActivity(
+                                        Intent(
+                                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                            "package:$packageName".toUri()
+                                        )
+                                    )
+                                } else {
+                                    updateInstaller.installOrDownload(found.downloadUrl, found.sizeBytes)
+                                }
+                            },
+                            onRemindLater = {
+                                coroutineScope.launch {
+                                    dataStore.edit {
+                                        it[UpdateSnoozeUntilKey] =
+                                            System.currentTimeMillis() + UPDATE_SNOOZE_MS
+                                    }
+                                }
+                            },
+                            onCancel = {
+                                coroutineScope.launch { updateChecker.dismiss(found.versionCode) }
+                            },
+                        )
+                    }
                 }
 
                 val density = LocalDensity.current
@@ -582,6 +673,7 @@ class MainActivity : ComponentActivity() {
                         LocalSyncUtils provides syncUtils,
                         LocalLoudnessRepair provides loudnessRepair,
                         LocalUpdateChecker provides updateChecker,
+                        LocalUpdateInstaller provides updateInstaller,
                         LocalNetworkConnected provides isNetworkConnected,
                         LocalSnackbarHostState provides snackbarHostState,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
@@ -1289,5 +1381,6 @@ val LocalDownloadUtil = staticCompositionLocalOf<DownloadUtil> { error("No Downl
 val LocalSyncUtils = staticCompositionLocalOf<SyncUtils> { error("No SyncUtils provided") }
 val LocalLoudnessRepair = staticCompositionLocalOf<LoudnessRepair> { error("No LoudnessRepair provided") }
 val LocalUpdateChecker = staticCompositionLocalOf<UpdateChecker> { error("No UpdateChecker provided") }
+val LocalUpdateInstaller = staticCompositionLocalOf<UpdateInstaller> { error("No UpdateInstaller provided") }
 val LocalNetworkConnected = staticCompositionLocalOf<Boolean> { error("No Network Status provided") }
 val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> { error("No SnackbarHostState provided") }

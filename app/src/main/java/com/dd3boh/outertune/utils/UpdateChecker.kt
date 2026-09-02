@@ -12,6 +12,9 @@ import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.DismissedUpdateCodeKey
 import com.dd3boh.outertune.constants.LastUpdateCheckKey
+import com.dd3boh.outertune.constants.LastAssetSizeKey
+import com.dd3boh.outertune.constants.LastChangelogKey
+import com.dd3boh.outertune.constants.LastDownloadUrlKey
 import com.dd3boh.outertune.constants.LastReleaseUrlKey
 import com.dd3boh.outertune.constants.LastVersionCodeKey
 import com.dd3boh.outertune.constants.LastVersionKey
@@ -48,7 +51,14 @@ class UpdateChecker @Inject constructor(
     data class Update(
         val versionCode: Int,
         val versionName: String,
+        /** The release page, for reading what changed. */
         val releaseUrl: String,
+        /** The apk itself, for installing it without leaving the app. */
+        val downloadUrl: String,
+        /** Bytes, from the release metadata, so the download can show real progress. */
+        val sizeBytes: Long,
+        /** The release notes, shown in the prompt so the user knows what they are agreeing to. */
+        val changelog: String,
     )
 
     private val _available = MutableStateFlow<Update?>(null)
@@ -77,6 +87,9 @@ class UpdateChecker @Inject constructor(
 
         val last = store.get(LastUpdateCheckKey, 0L)
         val now = System.currentTimeMillis()
+        // A short floor rather than the old six hours. Opening the app should tell you the truth,
+        // and one request per launch is nothing against GitHub's unauthenticated budget. The floor
+        // only stops a pathological relaunch loop hammering it.
         if (!force && now - last < MIN_CHECK_INTERVAL_MS) {
             // Rebuild from disk rather than reporting the in-memory value. That value is null on
             // every process start, so opening the app inside the six hour window used to answer
@@ -123,6 +136,9 @@ class UpdateChecker @Inject constructor(
             it[LastVersionKey] = update.versionName
             it[LastVersionCodeKey] = update.versionCode
             it[LastReleaseUrlKey] = update.releaseUrl
+            it[LastDownloadUrlKey] = update.downloadUrl
+            it[LastAssetSizeKey] = update.sizeBytes
+            it[LastChangelogKey] = update.changelog
         }
 
         Log.i(TAG, "Update available: ${update.versionName} (${update.versionCode})")
@@ -142,10 +158,15 @@ class UpdateChecker @Inject constructor(
         val code = store.get(LastVersionCodeKey, -1)
         val name = store.get(LastVersionKey, "")
         val url = store.get(LastReleaseUrlKey, "")
+        val apk = store.get(LastDownloadUrlKey, "")
         if (code <= BuildConfig.VERSION_CODE || name.isEmpty() || url.isEmpty()) return null
         if (code == store.get(DismissedUpdateCodeKey, -1)) return null
 
-        val restored = Update(code, name, url)
+        val restored = Update(
+            code, name, url, apk,
+            store.get(LastAssetSizeKey, 0L),
+            store.get(LastChangelogKey, ""),
+        )
         _available.value = restored
         return restored
     }
@@ -175,19 +196,32 @@ class UpdateChecker @Inject constructor(
         val release = JSONObject(json)
         if (release.optBoolean("draft") || release.optBoolean("prerelease")) return null
 
+        // Keep the asset itself, not just its version. The apk url and size are what let the app
+        // download and install the update rather than sending the user to a browser.
         val assets = release.optJSONArray("assets") ?: return null
         var code = -1
+        var downloadUrl = ""
+        var size = 0L
         for (i in 0 until assets.length()) {
-            val name = assets.getJSONObject(i).optString("name")
+            val asset = assets.getJSONObject(i)
+            val name = asset.optString("name")
             val match = ASSET_VERSION_CODE.find(name) ?: continue
-            code = maxOf(code, match.groupValues[1].toIntOrNull() ?: continue)
+            val assetCode = match.groupValues[1].toIntOrNull() ?: continue
+            if (assetCode > code) {
+                code = assetCode
+                downloadUrl = asset.optString("browser_download_url")
+                size = asset.optLong("size", 0L)
+            }
         }
-        if (code < 0) return null
+        if (code < 0 || downloadUrl.isEmpty()) return null
 
         return Update(
             versionCode = code,
             versionName = release.optString("tag_name").removePrefix("v"),
             releaseUrl = release.optString("html_url"),
+            downloadUrl = downloadUrl,
+            sizeBytes = size,
+            changelog = release.optString("body"),
         )
     }
 
@@ -201,9 +235,13 @@ class UpdateChecker @Inject constructor(
         private val ASSET_VERSION_CODE = Regex("""-release-(\d+)\.apk$""")
 
         /**
-         * Six hours. Frequent enough that a release is noticed the same day, rare enough that the
-         * unauthenticated GitHub budget is never a concern even on shared addresses.
+         * Two minutes.
+         *
+         * Was six hours, which meant reopening the app usually told you nothing. A check is one
+         * small request and app launches are not frequent, so this now runs on essentially every
+         * open. The floor exists only so that something relaunching the activity in a loop cannot
+         * turn into a request storm.
          */
-        private const val MIN_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000L
+        private const val MIN_CHECK_INTERVAL_MS = 2 * 60 * 1000L
     }
 }

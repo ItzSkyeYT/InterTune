@@ -219,6 +219,15 @@ val UpdateAvailableKey = booleanPreferencesKey("updateAvailable")
 /** The rest of the last found release, so a restart does not forget it. See UpdateChecker. */
 val LastVersionCodeKey = intPreferencesKey("lastVersionCode")
 val LastReleaseUrlKey = stringPreferencesKey("lastReleaseUrl")
+val LastDownloadUrlKey = stringPreferencesKey("lastDownloadUrl")
+val LastAssetSizeKey = longPreferencesKey("lastAssetSize")
+val LastChangelogKey = stringPreferencesKey("lastChangelog")
+
+/** Download and open the install prompt without asking first. Off by default. */
+val AutoInstallUpdatesKey = booleanPreferencesKey("autoInstallUpdates")
+
+/** Epoch millis before which the update prompt stays quiet, set by "remind me later". */
+val UpdateSnoozeUntilKey = longPreferencesKey("updateSnoozeUntil")
 
 /**
  * Whether to look for newer InterTune releases on GitHub.

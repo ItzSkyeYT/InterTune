@@ -36,6 +36,7 @@ import androidx.navigation.NavController
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.AutoInstallUpdatesKey
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import com.dd3boh.outertune.constants.TopBarInsets
@@ -49,6 +50,10 @@ import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.launch
+import android.provider.Settings
+import androidx.compose.runtime.DisposableEffect
+import com.dd3boh.outertune.LocalUpdateInstaller
+import com.dd3boh.outertune.utils.UpdateInstaller
 
 /**
  * Everything to do with app updates, in one place.
@@ -70,6 +75,18 @@ fun UpdateSettings(
     val update: UpdateChecker.Update? by updateChecker.available.collectAsState()
     var checking by remember { mutableStateOf(false) }
 
+    val (autoInstall, onAutoInstallChange) =
+        rememberPreference(AutoInstallUpdatesKey, defaultValue = false)
+
+    val installer = LocalUpdateInstaller.current
+    val installState by installer.state.collectAsState()
+
+    // The state lives on a singleton, so a finished or failed run would otherwise still be showing
+    // the next time this screen is opened.
+    DisposableEffect(Unit) {
+        onDispose { installer.acknowledge() }
+    }
+
     ColumnWithContentPadding(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier
@@ -89,6 +106,17 @@ fun UpdateSettings(
                     // for up to six hours.
                     if (it) coroutineScope.launch { updateChecker.check(force = true) }
                 }
+            )
+
+            // Off by default. It cannot make installing silent, because Android will not allow
+            // that, so it is worded as what it actually does: fetch it ahead of time.
+            SwitchPreference(
+                title = { Text(stringResource(R.string.update_auto)) },
+                description = stringResource(R.string.update_auto_description),
+                icon = { Icon(Icons.Rounded.Download, null) },
+                checked = autoInstall,
+                onCheckedChange = onAutoInstallChange,
+                isEnabled = enabled,
             )
 
             PreferenceEntry(
@@ -117,12 +145,55 @@ fun UpdateSettings(
             PreferenceGroupTitle(title = stringResource(R.string.update_available_title))
 
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                // Download and install, matching the progress-row idiom used by the loudness
+                // repair and the liked-songs catch up: the description carries the state and a tap
+                // stops it while it runs.
                 PreferenceEntry(
-                    title = { Text(stringResource(R.string.update_available, found.versionName)) },
-                    // Link to the release page rather than the apk, so the notes can be read before
-                    // anything is downloaded. There is deliberately no in-app installer.
-                    description = stringResource(R.string.update_available_description),
+                    title = { Text(stringResource(R.string.update_install)) },
+                    description = when (val st = installState) {
+                        is UpdateInstaller.State.Downloading ->
+                            if (st.total > 0) stringResource(
+                                R.string.update_downloading,
+                                ((st.downloaded * 100) / st.total).toInt()
+                            ) else stringResource(R.string.update_downloading_indeterminate)
+
+                        UpdateInstaller.State.AwaitingConfirmation ->
+                            stringResource(R.string.update_awaiting_confirmation)
+
+                        UpdateInstaller.State.NeedsPermission ->
+                            stringResource(R.string.update_needs_permission)
+
+                        is UpdateInstaller.State.Failed ->
+                            stringResource(R.string.update_install_failed, st.reason)
+
+                        UpdateInstaller.State.Idle ->
+                            stringResource(R.string.update_install_description)
+                    },
                     icon = { Icon(Icons.Rounded.Download, null) },
+                    onClick = {
+                        when (installState) {
+                            is UpdateInstaller.State.Downloading -> installer.cancel()
+
+                            // Android will not let us ask until this is granted, so send the user
+                            // straight to the one screen that grants it.
+                            UpdateInstaller.State.NeedsPermission ->
+                                context.startActivity(
+                                    Intent(
+                                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                        "package:${context.packageName}".toUri()
+                                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+
+                            else -> installer.downloadAndInstall(found.downloadUrl, found.sizeBytes)
+                        }
+                    }
+                )
+
+                // Kept, because reading what changed before installing is reasonable, and because
+                // it is the way out if the install will not work on this device.
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.update_open_page)) },
+                    description = stringResource(R.string.update_available_description),
                     onClick = {
                         context.startActivity(Intent(Intent.ACTION_VIEW, found.releaseUrl.toUri()))
                     }

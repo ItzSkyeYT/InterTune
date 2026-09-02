@@ -116,3 +116,6 @@ const val QUEUE_DEBUG = false
  * boost is wanted the slider should become logarithmic first.
  */
 const val MAX_PLAYER_VOLUME = 4f
+
+/** How long "remind me later" keeps the update prompt quiet. */
+const val UPDATE_SNOOZE_MS = 60 * 60 * 1000L
