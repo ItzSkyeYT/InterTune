@@ -210,6 +210,10 @@ class UpdateInstaller @Inject constructor(
         }
     }
 
+    /** Called after a successful install, so the checker can forget what it found. */
+    @Volatile
+    var onInstalled: (() -> Unit)? = null
+
     fun cancel() {
         job?.cancel()
         job = null
@@ -243,8 +247,11 @@ class UpdateInstaller @Inject constructor(
                 }
 
                 PackageInstaller.STATUS_SUCCESS -> {
-                    // The process is about to be replaced, so there is nobody left to tell.
+                    // Usually nobody is left to see this: installing over ourselves kills the
+                    // process. It still matters when the install did not replace us, and it clears
+                    // the stored update so a completed one cannot keep prompting.
                     _state.value = State.Idle
+                    onInstalled?.invoke()
                 }
 
                 PackageInstaller.STATUS_FAILURE_ABORTED -> _state.value = State.Idle

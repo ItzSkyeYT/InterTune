@@ -171,6 +171,9 @@ class UpdateChecker @Inject constructor(
         return restored
     }
 
+    /** Forgets the pending update entirely, for when it has been installed. */
+    suspend fun clearFound() = clearAvailable()
+
     /** Stops this particular version being raised again. A later one still will be. */
     suspend fun dismiss(versionCode: Int) {
         context.dataStore.edit {

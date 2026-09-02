@@ -21,6 +21,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.utils.UpdateChecker
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Button
 
 /**
  * Asks whether to install an update, and shows what is in it.
@@ -63,6 +68,7 @@ fun UpdatePrompt(
                 )
 
                 if (update.changelog.isNotBlank()) {
+                    Spacer(Modifier.height(12.dp))
                     // Capped and scrollable: release notes run long, and a dialog that grows past
                     // the screen loses its buttons.
                     Text(
@@ -75,26 +81,43 @@ fun UpdatePrompt(
                 }
             }
         },
+        // Three actions do not fit the two slots a dialog gives you, and squeezing the third in
+        // beside the others produced a lopsided L. Material's answer for three is to stack them
+        // full width in priority order, which also gives each one a proper touch target.
         confirmButton = {
-            TextButton(onClick = onInstall) {
-                Text(
-                    stringResource(
-                        if (needsPermission) R.string.update_prompt_allow
-                        else R.string.update_prompt_install
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Button(
+                    onClick = onInstall,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        stringResource(
+                            if (needsPermission) R.string.update_prompt_allow
+                            else R.string.update_prompt_install
+                        )
                     )
-                )
-            }
-        },
-        dismissButton = {
-            Column {
-                TextButton(onClick = onRemindLater) {
+                }
+                TextButton(
+                    onClick = onRemindLater,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
                     Text(stringResource(R.string.update_prompt_later))
                 }
-                TextButton(onClick = onCancel) {
-                    Text(stringResource(R.string.action_cancel))
+                TextButton(
+                    onClick = onCancel,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = stringResource(R.string.update_skip),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         },
+        dismissButton = null,
     )
 }
 
@@ -107,6 +130,7 @@ fun UpdatePrompt(
  */
 private fun tidyChangelog(raw: String): String = raw
     .lineSequence()
+    .filterNot { it.trim().matches(Regex("^[-*_]{1,}$")) }
     .map { line ->
         line.trim()
             .removePrefix("###").removePrefix("##").removePrefix("#")

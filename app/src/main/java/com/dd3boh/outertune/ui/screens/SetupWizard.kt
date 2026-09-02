@@ -352,7 +352,7 @@ fun SetupWizard(
                     .verticalScroll(stepScrollState),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(Modifier.height(WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 16.dp))
+                Spacer(Modifier.height(WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 8.dp))
 
                 // Each step used to hard cut. Entering the wizard from MainActivity slides and
                 // fades, so the wizard felt stiller than the app that launched it.
@@ -426,7 +426,7 @@ fun SetupWizard(
                                     verticalArrangement = Arrangement.spacedBy(12.dp),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(start = 16.dp, top = 48.dp, end = 16.dp, bottom = 16.dp)
+                                        .padding(start = 16.dp, top = 28.dp, end = 16.dp, bottom = 16.dp)
                                 ) {
                                     OobeFeatureRow(
                                         title = stringResource(R.string.oobe_ytm_integration),
@@ -454,13 +454,13 @@ fun SetupWizard(
                                     )
                                 }
 
-                                Spacer(Modifier.height(16.dp))
+                                Spacer(Modifier.height(24.dp))
                                 InfoLabel(
                                     text = stringResource(R.string.oobe_welcome_tip),
                                     modifier = Modifier
                                         .padding(horizontal = 16.dp)
                                 )
-                                Spacer(Modifier.height(16.dp))
+                                Spacer(Modifier.height(24.dp))
 
                                 Row(
                                     modifier = Modifier
