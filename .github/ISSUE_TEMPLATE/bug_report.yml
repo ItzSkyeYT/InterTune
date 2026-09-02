@@ -1,101 +1,195 @@
 name: Bug report
-description: Create a bug report to help us improve
-labels: [ bug ]
+description: Something in InterTune is broken
+labels: ["bug"]
 body:
-  - type: checkboxes
-    id: checklist
+  - type: markdown
     attributes:
-      label: Checklist
-      description: Make sure to complete each task before checking it off the checklist. We reserve the right to ignore or delete your issue, (and/or block your account in extreme cases) if you check the list blindly, disregard the template, or post a nonsensical or blatantly duplicate issue.
-      options:
-        - label: I am able to reproduce the bug with the [latest debug version](https://github.com/OuterTune/OuterTune/actions) AND any logs I have attached are taken with the DEBUG version (NOT release).
-          required: true
-        - label: I've checked that there is no open or closed issue about this bug. [CHECK THE ISSUE TRACKER HERE](https://github.com/OuterTune/OuterTune/issues)
-          required: true
-        - label: This issue contains only one bug.
-          required: true
-        - label: The title of this issue accurately describes the bug.
-          required: true
-        - label: I've checked these boxes without reading carefully.
-          required: false
+      value: |
+        InterTune is a personal fork on a hobby schedule. Issues get read. Nothing is promised about
+        when, or about whether a fix ever ships.
 
-  - type: textarea
-    id: reproduce-steps
-    attributes:
-      label: Steps to reproduce the bug
-      description: What did you do for the bug to show up?
-      placeholder: |
-        Example:
-          1. Go to '...'
-          2. Click on '....'
-          3. Scroll down to '....'
-          4. See error
-    validations:
-      required: true
+        Four of the required fields are a tap or a short paste. Two ask for real sentences.
+        Everything else is optional, apart from two boxes to tick at the end.
 
-  - type: textarea
-    id: expected-behavior
+  - type: input
+    id: build
     attributes:
-      label: Expected behavior
-      placeholder: |
-        Example:
-          "This should happen..."
-    validations:
-      required: true
-
-  - type: textarea
-    id: actual-behavior
-    attributes:
-      label: Actual behavior
-      placeholder: |
-        Example:
-          "This happened instead..."
-    validations:
-      required: true
-
-  - type: textarea
-    id: screen-media
-    attributes:
-      label: Screenshots/Screen recordings
+      label: InterTune version
       description: |
-        A picture or video helps us understand the bug more.
+        The small line under the app icon on **Settings → About** — all of it, the flavour on the
+        end included. That line is not selectable, so it has to be typed. If you still have the APK,
+        its filename says the same thing (`InterTune-0.10.2-core-release-79.apk`).
+      placeholder: "0.10.2 (79) | core"
+    validations:
+      required: true
 
-        You can upload them directly in the text box.
+  - type: dropdown
+    id: upstream
+    attributes:
+      label: Does this also happen on upstream OuterTune 0.10.1?
+      description: |
+        InterTune has its own app ID and signing key, so
+        [upstream v0.10.1](https://github.com/OuterTune/OuterTune/releases/tag/v0.10.1) installs
+        beside it rather than replacing it — you can keep both and compare. This is the one answer
+        that decides whether the bug is in the small diff I own or in code I inherited untouched.
+        Not knowing is a fine answer and blocks nothing.
+      options:
+        - "No — only InterTune does it"
+        - "Yes — upstream does it too"
+        - "Haven't checked"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where in the app
+      description: One tap. A rough guess is fine.
+      options:
+        - "Playback and streaming"
+        - "Landscape player"
+        - "Appearance, liquid glass and artwork"
+        - "Library, playlists and downloads"
+        - "Local files and the media scanner"
+        - "Lyrics"
+        - "Search and browse"
+        - "Account sync and login"
+        - "Backup and restore"
+        - "Somewhere else, or not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+      description: |
+        Whatever you would say if someone asked. If you are not sure,
+        **Settings → About → Device information** has both once you tap the row to expand it — it
+        prints Android as an API level (36) rather than a marketing version (16), either is fine.
+      placeholder: "Pixel 7a, Android 16"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Written so that someone who has never opened the app could follow them. Start from a cold launch where you can.
+      placeholder: |
+        1. Open the app and play any song from Home
+        2. Rotate to landscape and expand the player
+        3. Tap the queue arrow
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happens
+    attributes:
+      label: What happens
+      description: |
+        And what you expected instead, if that is anything more specific than the opposite of what
+        happened. If it used to work, say which InterTune version it last worked on — there have
+        only been five releases, so that narrows it a long way.
+      placeholder: |
+        The player collapses back to the mini player and the song keeps playing. I expected the
+        queue to open. Worked on 0.10.1-8.
+    validations:
+      required: true
+
+  - type: textarea
+    id: playback-cutoff
+    attributes:
+      label: If playback cuts out partway through a track
+      description: |
+        Skip this unless that is your bug. Upstream 0.10.1 dies partway through every track with a
+        403, and fixing that is why this fork exists — so the same thing happening on InterTune
+        means YouTube has caught up with the fix, which is the single most useful report I can get.
+
+        The cap is on **data, not time**, so three things identify it: your audio quality
+        (**Settings → Player and audio → Audio quality** — Auto, High or Low), roughly how far in it
+        stops, and the exact error text if you can see one.
+      placeholder: |
+        High, stops about 30 seconds in, every track.
+        Source error (2004): Response code: 403
+
+  - type: checkboxes
+    id: extra
+    attributes:
+      label: Anything that applies
+      description: All optional, one tap each. Only tick what you have actually confirmed — a blank list is fine.
+      options:
+        - label: Still happens in portrait as well as landscape
+        - label: Still happens with liquid glass turned off (Settings → Appearance)
+        - label: Playback lasts longer if I lower the audio quality
+        - label: I am signed in to a YouTube account in the app
+
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshot or screen recording
+      description: |
+        Optional. Drag the file straight into this box.
+
+        For a layout, a gesture, or anything in the landscape player, **record it rather than
+        screenshot it** — two defects in this fork's own landscape work were invisible in a still.
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Optional. Whatever did not fit above.
+
+  - type: markdown
+    attributes:
+      value: |
+        <details>
+        <summary><b>How to capture a logcat — optional, but it is what makes a crash fixable</b></summary>
+
+        Without one I am guessing, so it is worth ten minutes on a crash or a playback failure. If
+        it turns into a wall, skip it: a clear description and a recording are still a usable report.
+
+        **With a computer.** Enable Developer options (Settings → About phone → tap Build number
+        seven times), turn on USB debugging, plug the phone in, then:
+
+        ```
+        adb logcat -c
+        adb logcat > log.txt
+        ```
+
+        Reproduce the bug, press Ctrl+C, then open `log.txt` and paste the failure and the minute
+        around it below. For a crash, `adb logcat -b crash` alone is usually the whole story.
+
+        If the app is already running and you want only its lines, and you are in bash or zsh:
+        `adb logcat --pid=$(adb shell pidof -s dev.skye.intertune)`. The package is
+        `dev.skye.intertune.debug` if you built it yourself in debug.
+
+        **Phone only.** [LogFox](https://f-droid.org/packages/com.f0x1d.logfox/) can do it, but
+        reading another app's log needs the `READ_LOGS` permission, which still has to be granted
+        over adb or through [Shizuku](https://github.com/RikkaApps/Shizuku/releases) — Shizuku is
+        not on F-Droid.
+
+        **If the app dies instantly on launch,** start the capture first and open the app second,
+        or you catch nothing.
+        </details>
 
   - type: textarea
     id: logs
     attributes:
-      label: Logs
+      label: Logcat
       description: |
-        Please use `adb logcat` or other equivalent ways to provide logs. This field is strongly recommended to be filled. Telling us "the app crashed" with no logs means we will gladly ignore your issue. Without this information, we likely cannot take any meaningful action or provide further assistance.
-    validations:
-      required: false
+        Optional. Anything pasted here is formatted as a code block automatically, so paste it raw —
+        but trim it to the failure. GitHub refuses an issue over about 65,000 characters, which a
+        few minutes of unfiltered logcat will exceed; past that, drop the file into the screenshot
+        box above instead.
+      render: shell
 
-  - type: input
-    id: app-version
+  - type: checkboxes
+    id: checks
     attributes:
-      label: OuterTune version
-      description: |
-        You can find your OuterTune version in **Settings --> About**.
-      placeholder: |
-        Example: "0.5.3"
-    validations:
-      required: true
-
-  - type: input
-    id: android-version
-    attributes:
-      label: Device & Android version
-      description: |
-        You can find this somewhere in your Android settings. Alternatively, you can install the debug variant of the app from GitHub actions, navigate to settings -> about, and upload a screenshot of the debug info.
-      placeholder: |
-        Example: "Asus Zenfone 8, Android 12"
-    validations:
-      required: true
-
-  - type: textarea
-    id: additional-information
-    attributes:
-      label: Additional information
-      placeholder: |
-        Additional details and attachments.
+      label: Before you submit
+      options:
+        - label: I looked through the [existing issues](https://github.com/ItzSkyeYT/InterTune/issues?q=is%3Aissue) and this is not already one of them
+          required: true
+        - label: This is one bug. If I have two, I will file two.
+          required: true

@@ -529,6 +529,7 @@ class MusicService : MediaLibraryService(),
             currentSong.value?.let {
                 val song = it.song.toggleLike()
                 update(song)
+                downloadUtil.autoDownloadOnLike(song)
 
                 if (!song.isLocal) {
                     syncUtils.likeSong(song)

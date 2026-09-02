@@ -177,16 +177,27 @@ suspend fun scanInit(
         settings[LastLocalScanKey] =
             timeNow - AUTO_SCAN_COOLDOWN + AUTO_SCAN_SOFT_COOLDOWN // min cooldown to avoid crash loops
     }
-    coroutineScope.launch {
-        snackbarHostState.showSnackbar(
-            message = context.getString(R.string.scanner_auto_start),
-            withDismissAction = true,
-            duration = SnackbarDuration.Short
-        )
+    // Only the local media scan is worth announcing. The downloads pass below runs on every auto
+    // scan, including installs with local media turned off, and has to stay quiet there. Otherwise
+    // someone who only uses downloads is told "Refreshing local media" for work that never touches
+    // local media, which is exactly how this read as a bug.
+    val perms = context.checkSelfPermission(MEDIA_PERMISSION_LEVEL)
+    val willScanLocalMedia = localLibEnable &&
+            scannerState.value <= 0 &&
+            perms == PackageManager.PERMISSION_GRANTED
+
+    if (willScanLocalMedia) {
+        coroutineScope.launch {
+            snackbarHostState.showSnackbar(
+                message = context.getString(R.string.scanner_auto_start),
+                withDismissAction = true,
+                duration = SnackbarDuration.Short
+            )
+        }
     }
 
-
-    // scan download folders
+    // scan download folders. Runs whenever the automatic scanner is on, whatever localLibEnable is,
+    // because downloaded songs still need their paths re-resolved.
     downloadUtil.scanDownloads()
     downloadUtil.resumeDownloadsOnStart()
     if (!localLibEnable) {
@@ -195,11 +206,13 @@ suspend fun scanInit(
         }
         playerConnection?.service?.initQueue()
         Log.i(MAIN_TAG, "Downloads scan completed. Local media is disabled.")
+        // Without this the routine fell through to the completion snackbar below, so a
+        // downloads-only user got told about local media twice.
+        return
     }
 
 
     // local media scan
-    val perms = context.checkSelfPermission(MEDIA_PERMISSION_LEVEL)
     // Check if the permissions for local media access
     if (scannerState.value <= 0 && localLibEnable) {
         if (perms == PackageManager.PERMISSION_GRANTED) {
@@ -260,12 +273,14 @@ suspend fun scanInit(
     }
 
     Log.i(MAIN_TAG, "Local media and downloads auto scan complete")
-    coroutineScope.launch {
-        snackbarHostState.showSnackbar(
-            message = context.getString(R.string.scanner_auto_end),
-            withDismissAction = true,
-            duration = SnackbarDuration.Short
-        )
+    if (willScanLocalMedia) {
+        coroutineScope.launch {
+            snackbarHostState.showSnackbar(
+                message = context.getString(R.string.scanner_auto_end),
+                withDismissAction = true,
+                duration = SnackbarDuration.Short
+            )
+        }
     }
 
 }

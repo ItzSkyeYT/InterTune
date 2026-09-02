@@ -11,11 +11,42 @@ import androidx.media3.common.TrackSelectionParameters
 import com.dd3boh.outertune.models.MediaMetadata
 import java.util.ArrayDeque
 
-fun Player.togglePlayPause() {
-    if (!playWhenReady && playbackState == Player.STATE_IDLE) {
-        prepare()
+/**
+ * Should the button show "play" rather than "pause"?
+ *
+ * Mirrors media3's own Util.shouldShowPlayButton, which is what the notification and MediaSession
+ * buttons use. That is why the notification's play button always worked on the first tap while the
+ * one inside the app did not.
+ */
+fun Player.shouldShowPlayButton(): Boolean =
+    !playWhenReady || playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED
+
+/**
+ * Actually start playback, mirroring Util.handlePlayButtonAction: prepare when idle, rewind when
+ * ended, then play. Never a toggle.
+ */
+fun Player.playSafe() {
+    // prepare() on an empty timeline lands in STATE_ENDED rather than IDLE, which is exactly how
+    // the play button used to turn itself into a replay button on the first tap.
+    if (currentTimeline.isEmpty()) return
+    when (playbackState) {
+        Player.STATE_IDLE -> prepare()
+        Player.STATE_ENDED -> seekTo(0, 0)
     }
-    playWhenReady = !playWhenReady
+    play()
+}
+
+/**
+ * The old version flipped playWhenReady unconditionally and only called prepare() when the player
+ * was BOTH paused and idle. Coming back to a queue that had finished, playWhenReady was still true,
+ * so the first tap skipped prepare and set it to false: silence, and a tap wasted.
+ */
+fun Player.togglePlayPause() {
+    if (shouldShowPlayButton()) {
+        playSafe()
+    } else {
+        pause()
+    }
 }
 
 fun Player.toggleRepeatMode() {

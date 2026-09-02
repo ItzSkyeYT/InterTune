@@ -37,7 +37,7 @@ val YtmSyncKey = booleanPreferencesKey("ytmSync")
 val YtmSyncContentKey = stringPreferencesKey("ytmSyncContent")
 val YtmSyncModeKey = stringPreferencesKey("ytmSyncMode")
 val YtmSyncConflictKey = stringPreferencesKey("ytmSyncConflict")
-//val LikedAutoDownloadKey = stringPreferencesKey("likedAutoDownloadKey")
+val LikedAutoDownloadKey = stringPreferencesKey("likedAutoDownloadKey")
 val ContentLanguageKey = stringPreferencesKey("contentLanguage")
 val ContentCountryKey = stringPreferencesKey("contentCountry")
 val ProxyEnabledKey = booleanPreferencesKey("proxyEnabled")
@@ -215,6 +215,10 @@ val AccountChannelHandleKey = stringPreferencesKey("accountChannelHandle")
 val LastUpdateCheckKey = longPreferencesKey("lastUpdateCheck")
 val LastVersionKey = stringPreferencesKey("lastVersion")
 val UpdateAvailableKey = booleanPreferencesKey("updateAvailable")
+
+/** The rest of the last found release, so a restart does not forget it. See UpdateChecker. */
+val LastVersionCodeKey = intPreferencesKey("lastVersionCode")
+val LastReleaseUrlKey = stringPreferencesKey("lastReleaseUrl")
 
 /**
  * Whether to look for newer InterTune releases on GitHub.

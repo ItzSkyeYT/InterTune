@@ -851,15 +851,13 @@ fun BottomSheetPlayer(
                             .clip(RoundedCornerShape(playPauseRoundness))
                             .background(MaterialTheme.colorScheme.primary)
                             .clickable {
+                                // One branch. setCurrQueue loads the queue but never prepares,
+                                // and togglePlayPause used to flip playWhenReady instead of
+                                // starting, so this took up to three taps to make a sound.
                                 if (playerConnection.player.currentMediaItem == null) {
                                     playerConnection.service.queueBoard.setCurrQueue()
-                                    playerConnection.player.togglePlayPause()
-                                } else if (playbackState == STATE_ENDED) {
-                                    playerConnection.player.seekTo(0, 0)
-                                    playerConnection.player.playWhenReady = true
-                                } else {
-                                    playerConnection.player.togglePlayPause()
                                 }
+                                playerConnection.player.togglePlayPause()
                                 // play/pause is slightly harder haptic
                                 haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                             }

@@ -1,42 +1,74 @@
 name: Feature request
-description: Suggest an idea for OuterTune
-labels: [enhancement]
+description: Suggest a change to InterTune
+labels: ["enhancement"]
 body:
-  - type: checkboxes
-    id: checklist
+  - type: markdown
     attributes:
-      label: Checklist
-      description: Make sure to complete each task before checking it off the checklist. We reserve the right to ignore or delete your issue, (and/or block your account in extreme cases) if you check the list blindly, disregard the template, or post a nonsensical or blatantly duplicate issue.
-      options:
-        - label: I've checked that there is no other issue about this feature request.
-          required: true
-        - label: This issue contains only one feature request.
-          required: true
-        - label: The title of this issue accurately describes the feature request.
-          required: true
-        - label: I've checked these boxes without reading carefully.
-          required: false
+      value: |
+        Worth knowing first, because it decides most of these. InterTune is deliberately a minimal
+        diff against upstream `v0.10.1`, not a rebase onto anything newer — 0.10.1's UI and
+        behaviour are the reason the fork exists. Portrait is deliberately untouched. There is no
+        translation project for this fork.
+
+        So app-wide features, redesigns and version bumps are almost certainly a no. Small fixes and
+        refinements to what this fork already changed — the landscape player, liquid glass, artwork
+        loading, playback — are the ones with a real chance. Glass itself is deliberately kept off
+        song rows, grids, artwork, the lyrics body and the tablet nav rail; that is a decision, not
+        an oversight. Asking is free either way.
 
   - type: textarea
-    id: feature-description
+    id: what
     attributes:
-      label: Feature description
-      description: What feature you want the app to have? Provide detailed description about what it should look like or where it should be added.
-    validations:
-      required: true
-
-  - type: textarea
-    id: why-is-the-feature-requested
-    attributes:
-      label: Why do you want this feature?
-      description: Describe the problem or limitation that motivates you to want this feature to be added.
-    validations:
-      required: true
-
-  - type: textarea
-    id: additional-information
-    attributes:
-      label: Additional information
-      description: Add any other context or screenshots about the feature request here. Images or videos would help us better understand your request.
+      label: What you want
+      description: Describe the finished thing rather than how to build it. Where it lives in the app, what it looks like, what happens when you tap it.
       placeholder: |
-        Additional details and attachments.
+        Long-pressing a song in the queue opens the same menu the library rows have, with Play next
+        and Add to playlist.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: What you are trying to do
+      description: |
+        The problem underneath the request, which matters more than the request itself — there is
+        often a smaller change that solves the same problem, and that is impossible to spot when
+        only the proposed solution is on the page.
+      placeholder: |
+        I build queues by hand while walking, and right now I have to leave the player, find the
+        song again in the library, then come back.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: upstream-parity
+    attributes:
+      label: Does upstream OuterTune already do this?
+      description: |
+        This fork sits on 0.10.1 and does not follow upstream forward. If a
+        [newer upstream release](https://github.com/OuterTune/OuterTune/releases) already has it,
+        this becomes porting a known change rather than writing something new, which is a far
+        easier ask — a link in the last box below helps a lot. And if 0.10.1 itself does it and
+        InterTune does not, that is a regression I broke and I want to know.
+      options:
+        - "No, or not that I know of"
+        - "Yes — a newer upstream release has it"
+        - "Yes — upstream 0.10.1 has it and InterTune does not"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Mockups, screenshots or links
+      description: Optional, and worth more than another paragraph. A shot of another app doing it, a rough sketch, or a link to the upstream change that implemented it. Drag files straight into this box.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I looked through the [existing issues](https://github.com/ItzSkyeYT/InterTune/issues?q=is%3Aissue) and this has not been asked for
+          required: true
