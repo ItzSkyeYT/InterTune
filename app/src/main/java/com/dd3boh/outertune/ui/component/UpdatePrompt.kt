@@ -56,9 +56,13 @@ fun UpdatePrompt(
         text = {
             Column {
                 Text(
+                    // Download state decides the line, and the permission wording is only used
+                    // when the apk really is downloaded, because that string says so. Checking
+                    // permission first would have claimed "downloaded and ready" with nothing
+                    // downloaded, which is the usual case: automatic downloading is off by default.
                     text = stringResource(
                         when {
-                            needsPermission -> R.string.update_prompt_needs_permission
+                            ready && needsPermission -> R.string.update_prompt_needs_permission
                             ready -> R.string.update_prompt_ready
                             else -> R.string.update_prompt_will_download
                         }
