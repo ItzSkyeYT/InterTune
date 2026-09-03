@@ -219,10 +219,22 @@ had diverged.
 
 ## Updates and onboarding
 
-InterTune is on no store, so it checks GitHub for a newer release and tells you about one. It
+InterTune is on no store, so it checks GitHub for a newer release and offers to install it. It
 asks whether you want that on the last page of first-time setup, and asks once in a dialogue if
-you are coming from an older build or a restored backup. It is off until you answer, it never
-installs anything itself, and it checks at most once every six hours.
+you are coming from an older build or a restored backup. It is off until you answer.
+
+With it on, the check runs each time the app is opened and a new version raises a prompt showing
+what changed, with three ways out: install, ask again in an hour, or skip that version. Install
+downloads the APK and hands it to Android, which asks you to confirm, because approving an install
+is the one thing an app cannot do on your behalf. The first time, Android sends you to grant
+"install unknown apps" first, which is a one-off. A second setting, off unless you turn it on,
+fetches the APK ahead of time so install does not have to wait on it.
+
+**Google Play Protect will interrupt** with "App scan recommended" and offer *Scan app* or *Don't
+install app*. That happens with anything not installed from the Play Store and is not a sign that
+something is wrong. To avoid sending the file to Google, tap **More details**, then **Install
+without scanning**. Choosing "Don't install app" cancels the update, and InterTune is never told,
+so it will look as though nothing happened.
 See [Updates](https://github.com/ItzSkyeYT/InterTune/wiki/Updates) in the wiki.
 
 ## Play on the first tap
@@ -306,6 +318,9 @@ still bites.
   new song" is the same fault and the same fix. A reporter on #1282 installed it and confirmed.
 - [#1133](https://github.com/OuterTune/OuterTune/issues/1133), landscape transport buttons
   covered by an invisible element.
+- [#502](https://github.com/OuterTune/OuterTune/issues/502), a built-in update checker. It checks
+  on every open, prompts with the changelog, downloads the APK and hands it to Android's installer.
+  Android still confirms every install, and Play Protect adds a step of its own.
 - [#1247](https://github.com/OuterTune/OuterTune/issues/1247), blurry now playing artwork.
   Remote covers; artwork embedded in a local file is unchanged.
 - [#1172](https://github.com/OuterTune/OuterTune/issues/1172), no way to remove several songs
@@ -339,9 +354,6 @@ still bites.
   be brought *up*, and that is neither solved nor planned.
 - [#1062](https://github.com/OuterTune/OuterTune/issues/1062), auto-download. Liked songs, yes.
   Adding a song to a playlist, no.
-- [#502](https://github.com/OuterTune/OuterTune/issues/502), a built-in update checker. It
-  checks, and it shows the answer under **Settings → Updates**. Nothing prompts you outside
-  that screen, and it never installs anything itself.
 - [#1251](https://github.com/OuterTune/OuterTune/issues/1251), sleep timer with fade-out.
   0.10.1 already had the timer, in the player's overflow menu; the fade is what was missing.
   No preset buttons and no countdown in the notification.
