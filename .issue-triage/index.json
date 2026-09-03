@@ -1,0 +1,165 @@
+{
+  "meta": {
+    "last_run": "2026-09-01",
+    "build_capability": "none",
+    "schema": 1
+  },
+  "issues": [
+    {
+      "number": 883,
+      "title": "Playing downloaded song from artist page fetches the song online instead of locally",
+      "url": "https://github.com/OuterTune/OuterTune/issues/883",
+      "labels": ["bug"],
+      "triage_score": 55,
+      "fix_confidence": 55,
+      "confidence_breakdown": {
+        "reproduction": 15,
+        "diagnostic": 3,
+        "localization": 12,
+        "blast_radius": 20,
+        "verifiability": 5
+      },
+      "state": "scored",
+      "last_scored": "2026-09-01",
+      "summary": ".issue-triage/issues/883.md",
+      "pr": null,
+      "notes": "Top candidate this run. Real defect confirmed in MusicService.kt:createDataSourceFactory (queue-supplied SongItem.toMediaMetadata() never carries isLocal/localPath, so the DB fallback never runs). Confidently explains the custom/external-download failure mode; does not confidently explain the internal-download failure mode the reporter also describes (that path uses downloadCache.isCached() by mediaId, independent of queue metadata). No logs/stack trace/viewable recording. build_capability=none this run caps verifiability low. Did not clear the 80 gate (55/100)."
+    },
+    {
+      "number": 965,
+      "title": "Authentication Tokens Stored in Plaintext",
+      "url": "https://github.com/OuterTune/OuterTune/issues/965",
+      "labels": ["bug"],
+      "triage_score": 45,
+      "fix_confidence": 30,
+      "confidence_breakdown": {
+        "reproduction": 3,
+        "diagnostic": 14,
+        "localization": 25,
+        "blast_radius": 0,
+        "verifiability": 0
+      },
+      "state": "blocked",
+      "last_scored": "2026-09-01",
+      "summary": ".issue-triage/issues/965.md",
+      "pr": null,
+      "notes": "Hard abort: fix needs either a new dependency (androidx.security-crypto, requires editing gradle/libs.versions.toml — forbidden) or touching ~10 call sites with no shared token accessor plus a migration for existing plaintext values, well past blast-radius limits. Precisely localized (PreferenceKeys.kt:204-208, DataStore.kt:24) but blocked on scope, not evidence."
+    },
+    {
+      "number": 787,
+      "title": "Scrollbar flickering / scroll bar jumping / scrollbar skipping or glitching",
+      "url": "https://github.com/OuterTune/OuterTune/issues/787",
+      "labels": ["bug", "c: UI", "confirmed"],
+      "triage_score": 40,
+      "fix_confidence": 20,
+      "confidence_breakdown": {
+        "reproduction": 15,
+        "diagnostic": 3,
+        "localization": 20,
+        "blast_radius": 0,
+        "verifiability": 0
+      },
+      "state": "not-applicable",
+      "last_scored": "2026-09-01",
+      "summary": ".issue-triage/issues/787.md",
+      "pr": null,
+      "notes": "Root cause confirmed to live in third-party dependency com.github.nanihadesuka:LazyColumnScrollbar (gradle/libs.versions.toml:45) — InterTune's own wrapper (ui/component/ScrollBar.kt:18-19) already documents the exact upstream bug (nanihadesuka/LazyColumnScrollbar#40). Hard abort per Phase 2 rule: root cause in a third-party library."
+    },
+    {
+      "number": 1190,
+      "title": "Searching \"null\" results in a crash",
+      "url": "https://github.com/OuterTune/OuterTune/issues/1190",
+      "labels": ["bug"],
+      "triage_score": 15,
+      "fix_confidence": 0,
+      "confidence_breakdown": {
+        "reproduction": 0,
+        "diagnostic": 0,
+        "localization": 0,
+        "blast_radius": 0,
+        "verifiability": 0
+      },
+      "state": "not-applicable",
+      "last_scored": "2026-09-01",
+      "summary": ".issue-triage/issues/1190.md",
+      "pr": null,
+      "notes": "Already fixed in this fork. Verified directly: MainActivity.kt:730-733 declares the search route's query nav arg nullable=true, and OnlineSearchViewModel.kt:27 recovers via `?: \"null\"` instead of `!!`. Both guard against androidx.navigation's StringType treating the literal path segment \"null\" as its null sentinel. LocalSearchViewModel.kt never routes through nav args at all, so it was never exposed either."
+    },
+    {
+      "number": 839,
+      "title": "Modal bottom sheet does not consume insets",
+      "url": "https://github.com/OuterTune/OuterTune/issues/839",
+      "labels": ["bug", "c: UI", "confirmed"],
+      "triage_score": 35,
+      "fix_confidence": 5,
+      "confidence_breakdown": {
+        "reproduction": 3,
+        "diagnostic": 0,
+        "localization": 0,
+        "blast_radius": 0,
+        "verifiability": 0
+      },
+      "state": "blocked",
+      "last_scored": "2026-09-01",
+      "summary": ".issue-triage/issues/839.md",
+      "pr": null,
+      "notes": "Confirmed label but the report body is a troll submission (placeholder device fields, joke actual-behavior text) with two screenshots this environment can't render. No screen/component named, no repro steps. Needs the reporter to name the affected screen or a maintainer to attach a real repro."
+    },
+    {
+      "number": 996,
+      "title": "Sync with yt music doesn't work",
+      "url": "https://github.com/OuterTune/OuterTune/issues/996",
+      "labels": ["bug"],
+      "triage_score": 15,
+      "fix_confidence": 0,
+      "confidence_breakdown": { "reproduction": 3, "diagnostic": 0, "localization": 0, "blast_radius": 0, "verifiability": 0 },
+      "state": "blocked",
+      "last_scored": "2026-09-01",
+      "summary": ".issue-triage/issues/996.md",
+      "pr": null,
+      "notes": "No logs, single report, likely server-side YT Music sync behavior. Needs a logcat."
+    },
+    {
+      "number": 1075,
+      "title": "Unable to search songs",
+      "url": "https://github.com/OuterTune/OuterTune/issues/1075",
+      "labels": ["bug"],
+      "triage_score": 15,
+      "fix_confidence": 0,
+      "confidence_breakdown": { "reproduction": 3, "diagnostic": 0, "localization": 0, "blast_radius": 0, "verifiability": 0 },
+      "state": "blocked",
+      "last_scored": "2026-09-01",
+      "summary": ".issue-triage/issues/1075.md",
+      "pr": null,
+      "notes": "No logs, single report, could be network/API-layer. Needs a logcat or screen recording."
+    },
+    {
+      "number": 1096,
+      "title": "Unsynced playlist",
+      "url": "https://github.com/OuterTune/OuterTune/issues/1096",
+      "labels": ["bug"],
+      "triage_score": 15,
+      "fix_confidence": 0,
+      "confidence_breakdown": { "reproduction": 3, "diagnostic": 0, "localization": 0, "blast_radius": 0, "verifiability": 0 },
+      "state": "blocked",
+      "last_scored": "2026-09-01",
+      "summary": ".issue-triage/issues/1096.md",
+      "pr": null,
+      "notes": "Playlists disappear after a YT bot-check prompt. Likely an auth/session edge case, not a locally reproducible logic bug. Needs a logcat around the auth flow."
+    },
+    {
+      "number": 878,
+      "title": "The app deleted all my downloaded songs",
+      "url": "https://github.com/OuterTune/OuterTune/issues/878",
+      "labels": ["bug"],
+      "triage_score": 15,
+      "fix_confidence": 0,
+      "confidence_breakdown": { "reproduction": 0, "diagnostic": 0, "localization": 0, "blast_radius": 0, "verifiability": 0 },
+      "state": "blocked",
+      "last_scored": "2026-09-01",
+      "summary": ".issue-triage/issues/878.md",
+      "pr": null,
+      "notes": "One-time occurrence, no repro steps, no logs. Could be storage/cache/permission related; too many possible causes to localize."
+    }
+  ]
+}
