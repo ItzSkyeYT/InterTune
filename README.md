@@ -25,6 +25,9 @@ upstream 0.10.1, that plays every song to the end again and reworks the landscap
 One signed APK per release. Requires Android 7.0 or later. Sideload it, or point
 [Obtainium](https://github.com/ImranR98/Obtainium) at this repo.
 
+From 0.10.4 onward you only need this page once. Turn update checking on and InterTune finds new
+releases itself, shows you what changed, and installs them with your confirmation.
+
 > [!IMPORTANT]
 >
 > InterTune installs alongside OuterTune, so both can sit on the device at once: it ships as
