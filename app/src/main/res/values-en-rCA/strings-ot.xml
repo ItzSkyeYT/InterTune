@@ -29,7 +29,7 @@
     <string name="loudness_repair_running">Checking song %1$d of %2$d, fixed %3$d so far. Tap to stop.</string>
     <string name="loudness_repair_stopped">Stopped. Fixed %1$d songs, the rest are still to do. Tap to resume.</string>
     <string name="oobe_update_check_answered">You can change this any time in Settings, under Updates.</string>
-    <string name="oobe_update_check_description">InterTune is not on an app store, so it cannot update itself. It can check GitHub when you open the app and let you know when there is a new version. It never installs anything on its own, and you can change this later in Settings.</string>
+    <string name="oobe_update_check_description">InterTune is not on an app store, so it checks GitHub when you open the app and tells you when there is a new version. It can download and install one for you, and Android always asks you to confirm first. You can change this later in Settings.</string>
     <string name="oobe_update_check_no">No thanks</string>
     <string name="oobe_update_check_title">Tell you about updates?</string>
     <string name="oobe_update_check_yes">Yes, check</string>
@@ -47,10 +47,10 @@
     <string name="swipe_to_dismiss_player">Swipe the mini player away</string>
     <string name="swipe_to_dismiss_player_description">Swiping the mini player downwards closes it and stops the music. Turn this off and it stays put instead, so the song keeps playing and you cannot close it by accident.</string>
     <string name="update_available">Version %1$s is available</string>
-    <string name="update_available_description">Opens the release page so you can read what changed and download it yourself. InterTune never installs anything on its own.</string>
+    <string name="update_available_description">Opens the release page so you can read what changed and download it yourself. Useful if the in-app install will not work on this device.</string>
     <string name="update_available_title">Available</string>
     <string name="update_check">Tell me about updates</string>
-    <string name="update_check_description">Checks GitHub for a newer version of InterTune when you open the app, at most once every few hours. Off by default, and it never installs anything on its own.</string>
+    <string name="update_check_description">Checks GitHub for a newer version of InterTune each time you open the app. Off by default. Nothing is ever installed without you confirming it.</string>
     <string name="update_installed_version">Installed version</string>
     <string name="update_skip">Skip this version</string>
 </resources>
