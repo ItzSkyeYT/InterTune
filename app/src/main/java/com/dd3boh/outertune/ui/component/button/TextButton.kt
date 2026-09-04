@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -28,9 +29,12 @@ fun IconLabelButton(
 ) = Row(
     verticalAlignment = Alignment.Companion.CenterVertically,
     modifier = modifier
-        .background(background, RoundedCornerShape(MenuCornerRadius))
-        .padding(horizontal = 8.dp)
+        // clip before clickable, so the ripple stops at the rounded edge rather than filling
+        // the square bounds, and padding after it, so the visible pill is all tappable.
+        .clip(RoundedCornerShape(MenuCornerRadius))
+        .background(background)
         .clickable { onClick() }
+        .padding(horizontal = 8.dp)
 ) {
     Icon(
         imageVector = icon,
@@ -56,9 +60,12 @@ fun IconLabelButton(
 ) = Row(
     verticalAlignment = Alignment.Companion.CenterVertically,
     modifier = modifier
-        .background(background, androidx.compose.foundation.shape.RoundedCornerShape(MenuCornerRadius))
-        .padding(horizontal = 8.dp)
+        // clip before clickable, so the ripple stops at the rounded edge rather than filling
+        // the square bounds, and padding after it, so the visible pill is all tappable.
+        .clip(RoundedCornerShape(MenuCornerRadius))
+        .background(background)
         .clickable { onClick() }
+        .padding(horizontal = 8.dp)
 ) {
     Icon(
         painter = painter,
