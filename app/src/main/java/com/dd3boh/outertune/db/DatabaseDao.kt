@@ -72,6 +72,8 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao 
                          SELECT id
                          FROM (SELECT id
                                FROM song
+                               WHERE liked
+                               ORDER BY likedDate DESC
                                LIMIT 10))
         ORDER BY referredCount DESC
         LIMIT 100
