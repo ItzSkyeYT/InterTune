@@ -977,22 +977,31 @@ private fun OobeStep(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if (maxWidth >= 720.dp) {
+        // Matched to AOSP's own setup wizard rather than guessed at. Its setupdesign library keeps
+        // the two-pane templates in layout-w840dp-v34 only, so the split starts at the expanded
+        // breakpoint, not at tablet-portrait width. The height guard is Android's: a window that is
+        // wide but short, which is any phone in landscape, is a case where two panes are explicitly
+        // not practical.
+        //
+        // The left pane holding only an icon, a title and a line, with space under it, is not a gap
+        // to fill. That is precisely what sud_landscape_header_area is, top-aligned with no gravity,
+        // on every Android device. Centring it and adding a counter both made it worse, which is
+        // what the source would have predicted.
+        if (maxWidth >= 840.dp && maxHeight >= 480.dp) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(40.dp),
+                // 1:1 with a 48dp gutter, which is sud_glif_land_header_area_weight against
+                // sud_glif_land_content_area_weight.
+                horizontalArrangement = Arrangement.spacedBy(48.dp),
             ) {
-                // Not half and half. The left side holds a title and one line; the right holds
-                // every control on the page. Splitting the width evenly left the hero floating in
-                // an empty half, which looked worse than the single column it replaced.
                 Column(
                     modifier = Modifier
-                        .weight(0.72f)
+                        .weight(1f)
                         .padding(top = 8.dp)
                 ) {
                     OobeHero(icon, title, subtitle, centred = false)
                 }
-                Column(modifier = Modifier.weight(1.28f), content = content)
+                Column(modifier = Modifier.weight(1f), content = content)
             }
         } else {
             Column(
