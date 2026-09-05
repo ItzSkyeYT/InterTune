@@ -53,6 +53,7 @@ import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
+import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.SearchBarIconOffsetX
 import com.dd3boh.outertune.ui.component.SwipeToQueueBox
@@ -237,13 +238,12 @@ fun OnlineSearchScreen(
                                     if (item.id == mediaMetadata?.id) {
                                         playerConnection.player.togglePlayPause()
                                     } else {
-                                        val songSuggestions = viewState.items.filter { it is SongItem }
+                                        // Same change as the full results screen: a tapped suggestion
+                                        // starts a radio from that song rather than queueing the rest
+                                        // of the suggestion list.
                                         playerConnection.playQueue(
-                                            ListQueue(
-                                                title = "${context.getString(R.string.queue_searched_songs_ot)} $query",
-                                                items = songSuggestions.map { (it as SongItem).toMediaMetadata() },
-                                                startIndex = songSuggestions.indexOf(item)
-                                            ),
+                                            YouTubeQueue.radio(item.toMediaMetadata()),
+                                            isRadio = true,
                                             replace = true,
                                         )
                                         onDismiss()
