@@ -91,6 +91,7 @@ import com.dd3boh.outertune.ui.component.items.ArtistGridItem
 import com.dd3boh.outertune.ui.component.items.SongGridItem
 import com.dd3boh.outertune.ui.component.items.SongListItem
 import com.dd3boh.outertune.ui.component.items.YouTubeGridItem
+import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.ui.component.shimmer.GridItemPlaceHolder
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerHost
 import com.dd3boh.outertune.ui.component.shimmer.TextPlaceholder
@@ -134,6 +135,7 @@ fun HomeScreen(
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
 
     val quickPicks by viewModel.quickPicks.collectAsState()
+    val ytQuickPicks by viewModel.ytQuickPicks.collectAsState()
     val forgottenFavorites by viewModel.forgottenFavorites.collectAsState()
     val keepListening by viewModel.keepListening.collectAsState()
     val similarRecommendations by viewModel.similarRecommendations.collectAsState()
@@ -427,7 +429,11 @@ fun HomeScreen(
 
 
 
-            quickPicks?.takeIf { it.isNotEmpty() }?.let { quickPicks ->
+            // The row shows if EITHER source has something. It used to be gated on the local list
+            // alone, which would have hidden YouTube's picks on a fresh install with no history.
+            val ytPicks = ytQuickPicks?.takeIf { it.isNotEmpty() }
+            val localPicks = quickPicks.orEmpty()
+            if (ytPicks != null || localPicks.isNotEmpty()) {
                 item {
                     NavigationTitle(
                         title = stringResource(R.string.quick_picks),
@@ -448,30 +454,69 @@ fun HomeScreen(
                             .height(ListItemHeight * 4)
                             .animateItem()
                     ) {
-                        items(
-                            items = quickPicks,
-                            key = { it.id }
-                        ) { originalSong ->
-                            SongListItem(
-                                song = originalSong,
-                                navController = navController,
+                        // Same grid either way. Only the source differs: YouTube's own picks for
+                        // this account when it sent them, the local query when it did not.
+                        if (ytPicks != null) {
+                            items(
+                                items = ytPicks,
+                                key = { it.id }
+                            ) { song ->
+                                YouTubeListItem(
+                                    item = song,
+                                    isActive = song.id == mediaMetadata?.id,
+                                    isPlaying = isPlaying,
+                                    modifier = Modifier
+                                        .width(horizontalLazyGridItemWidth)
+                                        .combinedClickable(
+                                            onClick = {
+                                                if (song.id == mediaMetadata?.id) {
+                                                    playerConnection.player.togglePlayPause()
+                                                } else {
+                                                    playerConnection.playQueue(
+                                                        YouTubeQueue.radio(song.toMediaMetadata()),
+                                                        isRadio = true
+                                                    )
+                                                }
+                                            },
+                                            onLongClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                menuState.show {
+                                                    YouTubeSongMenu(
+                                                        song = song,
+                                                        navController = navController,
+                                                        onDismiss = menuState::dismiss
+                                                    )
+                                                }
+                                            }
+                                        )
+                                )
+                            }
+                        } else {
+                            items(
+                                items = localPicks,
+                                key = { it.id }
+                            ) { originalSong ->
+                                SongListItem(
+                                    song = originalSong,
+                                    navController = navController,
 
-                                isActive = originalSong.id == mediaMetadata?.id,
-                                isPlaying = isPlaying,
-                                inSelectMode = null,
-                                isSelected = false,
-                                onSelectedChange = {},
-                                swipeEnabled = false,
+                                    isActive = originalSong.id == mediaMetadata?.id,
+                                    isPlaying = isPlaying,
+                                    inSelectMode = null,
+                                    isSelected = false,
+                                    onSelectedChange = {},
+                                    swipeEnabled = false,
 
-                                thumbnailSize = listThumbnailSize,
-                                onPlay = {
-                                    playerConnection.playQueue(
-                                        YouTubeQueue.radio(originalSong.toMediaMetadata()),
-                                        isRadio = true
-                                    )
-                                },
-                                modifier = Modifier.width(horizontalLazyGridItemWidth)
-                            )
+                                    thumbnailSize = listThumbnailSize,
+                                    onPlay = {
+                                        playerConnection.playQueue(
+                                            YouTubeQueue.radio(originalSong.toMediaMetadata()),
+                                            isRadio = true
+                                        )
+                                    },
+                                    modifier = Modifier.width(horizontalLazyGridItemWidth)
+                                )
+                            }
                         }
                     }
                 }
