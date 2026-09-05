@@ -153,11 +153,13 @@ fun ColumnScope.LocalScannerFrag() {
 
     val (lastLocalScan, onLastLocalScanChange) = rememberPreference(LastLocalScanKey, 0L)
 
-    LaunchedEffect(scanPaths) {
-        if (scanPaths.isBlank()) {
-            showAddFolderDialog = true
-        }
-    }
+    // Deliberately not opening the folder dialog on its own any more.
+    //
+    // This used to fire whenever scanPaths was blank, which on a fresh install is always, so the
+    // local media step of setup covered itself with a folder picker before the page underneath had
+    // been read. It fired again on every return to the step, including pressing Back, so someone
+    // stepping through setup met it repeatedly. The page already offers the button; a screen that
+    // opens a dialog at you unasked is not offering anything.
 
     // scanner
     Row(

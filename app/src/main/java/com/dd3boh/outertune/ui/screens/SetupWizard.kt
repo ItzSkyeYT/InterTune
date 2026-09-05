@@ -33,6 +33,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -72,6 +74,7 @@ import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.Poll
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
@@ -115,12 +118,15 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.navigation.NavController
 import com.dd3boh.outertune.BuildConfig
+import com.dd3boh.outertune.LocalPollChecker
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AutomaticScannerKey
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_FILTERS
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
+import com.dd3boh.outertune.constants.AutoInstallUpdatesKey
+import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.constants.EnabledFiltersKey
 import com.dd3boh.outertune.constants.EnabledTabsKey
@@ -494,31 +500,11 @@ fun SetupWizard(
                             }
 
                             // appearance
-                            1 -> {
-                                Icon(
-                                    imageVector = Icons.Rounded.DarkMode,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(80.dp)
-                                        .padding(16.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-
-                                Text(
-                                    text = stringResource(R.string.grp_interface),
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                                )
-
-                                Text(
-                                    text = stringResource(R.string.oobe_interface_subtitle),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
-                                )
+                            1 -> OobeStep(
+                                icon = Icons.Rounded.DarkMode,
+                                title = stringResource(R.string.grp_interface),
+                                subtitle = stringResource(R.string.oobe_interface_subtitle),
+                            ) {
 
 
                                 ElevatedCard(
@@ -542,31 +528,11 @@ fun SetupWizard(
                             }
 
                             // account
-                            2 -> {
-                                Icon(
-                                    imageVector = Icons.Rounded.AccountCircle,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(80.dp)
-                                        .padding(16.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-
-                                Text(
-                                    text = stringResource(R.string.oobe_ytm_logon_title),
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                                )
-
-                                Text(
-                                    text = stringResource(R.string.oobe_ytm_logon_subtitle),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
-                                )
+                            2 -> OobeStep(
+                                icon = Icons.Rounded.AccountCircle,
+                                title = stringResource(R.string.oobe_ytm_logon_title),
+                                subtitle = stringResource(R.string.oobe_ytm_logon_subtitle),
+                            ) {
 
 
                                 ElevatedCard(
@@ -591,31 +557,11 @@ fun SetupWizard(
                             }
 
                             // local media
-                            3 -> {
-                                Icon(
-                                    imageVector = Icons.Rounded.LibraryMusic,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(80.dp)
-                                        .padding(16.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-
-                                Text(
-                                    text = stringResource(R.string.oobe_local_media_title),
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                                )
-
-                                Text(
-                                    text = stringResource(R.string.oobe_local_media_subtitle),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
-                                )
+                            3 -> OobeStep(
+                                icon = Icons.Rounded.LibraryMusic,
+                                title = stringResource(R.string.oobe_local_media_title),
+                                subtitle = stringResource(R.string.oobe_local_media_subtitle),
+                            ) {
 
                                 ElevatedCard(
                                     modifier = Modifier.fillMaxWidth()
@@ -674,30 +620,11 @@ fun SetupWizard(
                                 }
 
 
-                                Icon(
-                                    imageVector = Icons.Rounded.Download,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(80.dp)
-                                        .padding(16.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-
-                                Text(
-                                    text = stringResource(R.string.oobe_downloads_title),
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                                )
-
-                                Text(
-                                    text = stringResource(R.string.oobe_downloads_subtitle),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
-                                )
+                                OobeStep(
+                                    icon = Icons.Rounded.Download,
+                                    title = stringResource(R.string.oobe_downloads_title),
+                                    subtitle = stringResource(R.string.oobe_downloads_subtitle),
+                                ) {
 
                                 ElevatedCard(
                                     modifier = Modifier.fillMaxWidth()
@@ -712,29 +639,14 @@ fun SetupWizard(
                                 Spacer(modifier = Modifier.height(16.dp))
                                 InfoLabel(stringResource(R.string.dl_oobe_tooltip))
 
-                                Spacer(Modifier.height(16.dp))
-                                Icon(
-                                    imageVector = Icons.Rounded.Cached,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(80.dp)
-                                        .padding(16.dp),
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = stringResource(R.string.song_cache), // TODO: oobe_cache_subtitle when localization is done
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                                )
-                                Text(
-                                    text = stringResource(R.string.oobe_cache_subtitle),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
-                                )
+                                // Was a second 80dp hero with its own headline, which made one page
+                                // look like two and pushed the cache picker off the bottom. Downloads
+                                // and the cache are the same subject, so the cache is a group inside
+                                // the page rather than a page of its own.
+                                Spacer(Modifier.height(24.dp))
+                                PreferenceGroupTitle(title = stringResource(R.string.song_cache))
+                                InfoLabel(stringResource(R.string.oobe_cache_subtitle))
+                                Spacer(Modifier.height(8.dp))
 
                                 ElevatedCard(
                                     modifier = Modifier.fillMaxWidth()
@@ -873,6 +785,7 @@ fun SetupWizard(
                                         }
                                     }
                                 }
+                                }
                             }
 
                             // exit page
@@ -905,6 +818,8 @@ fun SetupWizard(
                                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                                     )
                                     UpdateOptInCard()
+
+                                    PollsOptInCard()
 
                                     Row(
                                         horizontalArrangement = Arrangement.Center,
@@ -960,6 +875,104 @@ fun SetupWizard(
     }
 }
 
+
+/**
+ * The hero for one setup step: a badged icon, a headline and a line of explanation.
+ *
+ * Extracted because steps 1 to 4 each hand-rolled the identical block, five copies in all, with the
+ * same magic numbers pasted each time. Restyling meant editing five places and hoping.
+ *
+ * The badge is the same construction the poll banner uses, at a larger size. A bare tinted glyph on
+ * a dark page reads as an icon in a settings list; the same glyph in a filled circle reads as the
+ * subject of the page, which is what a setup step wants.
+ */
+@Composable
+private fun OobeHero(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    centred: Boolean,
+) {
+    Column(
+        horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.secondaryContainer)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(34.dp),
+            )
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = if (centred) TextAlign.Center else TextAlign.Start,
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = if (centred) TextAlign.Center else TextAlign.Start,
+        )
+    }
+}
+
+/**
+ * One setup step: its hero, and whatever it is asking for.
+ *
+ * Two panes when there is room, one when there is not. A tablet in landscape was showing a 720dp
+ * ribbon with roughly 280dp of dead margin down each side, on every step, which made setup look
+ * like a phone screen someone had forgotten to finish. Side by side, the hero explains the page
+ * while the controls sit next to it, and the crammed steps stop needing to scroll at all.
+ *
+ * [content] is a ColumnScope lambda because every step's body is a stack of cards, and because the
+ * settings fragments it calls are themselves ColumnScope extensions.
+ */
+@Composable
+private fun OobeStep(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (maxWidth >= 720.dp) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(40.dp),
+            ) {
+                Column(modifier = Modifier.weight(1f).padding(top = 8.dp)) {
+                    OobeHero(icon, title, subtitle, centred = false)
+                }
+                Column(modifier = Modifier.weight(1f), content = content)
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                OobeHero(icon, title, subtitle, centred = true)
+                Spacer(Modifier.height(28.dp))
+                content()
+            }
+        }
+    }
+}
 
 @Composable
 private fun OobeFeatureRow(title: String, description: String?, icon: ImageVector, tint: Color) {
@@ -1038,6 +1051,7 @@ fun UpdateOptInCard() {
 
     // Nullable on purpose. null is "never asked", which is not "said no".
     val choice by rememberNullablePreference(UpdateCheckEnabledKey)
+    val (autoInstall, onAutoInstallChange) = rememberPreference(AutoInstallUpdatesKey, defaultValue = false)
 
     // Opting in checks straight away, otherwise the answer appears to do nothing for hours.
     // Same reason as the switch in Settings > Updates.
@@ -1091,6 +1105,91 @@ fun UpdateOptInCard() {
                 title = { Text(stringResource(R.string.update_check)) },
                 description = stringResource(R.string.oobe_update_check_answered),
                 icon = { Icon(Icons.Rounded.Update, null) },
+                checked = answered,
+                onCheckedChange = { answer(it) }
+            )
+
+            // A dependent row rather than a card of its own, the same shape Settings > Updates
+            // uses. Offering to download updates automatically to somebody who has just declined
+            // update checking is incoherent, so it only exists once they have said yes.
+            AnimatedVisibility(visible = answered) {
+                SwitchPreference(
+                    title = { Text(stringResource(R.string.update_auto)) },
+                    description = stringResource(R.string.oobe_update_auto_description),
+                    icon = { Icon(Icons.Rounded.Download, null) },
+                    checked = autoInstall,
+                    onCheckedChange = onAutoInstallChange,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The other question worth asking during setup.
+ *
+ * A sibling of [UpdateOptInCard] rather than a variation of it: same nullable preference trick, so
+ * "never asked" stays distinguishable from "said no", and the same two shapes. Someone who skips
+ * the wizard has not answered, and can still be asked later.
+ */
+@Composable
+fun PollsOptInCard() {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val pollChecker = LocalPollChecker.current
+
+    val choice by rememberNullablePreference(PollsEnabledKey)
+
+    fun answer(enabled: Boolean) {
+        coroutineScope.launch {
+            // Write first, then look. The setter is fire and forget, so checking immediately after
+            // it reads the old value and reports that there is nothing to ask.
+            context.dataStore.edit { it[PollsEnabledKey] = enabled }
+            if (enabled) pollChecker.check(force = true)
+        }
+    }
+
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp)
+    ) {
+        val answered = choice
+        if (answered == null) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.polls_opt_in_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = stringResource(R.string.polls_opt_in_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                ) {
+                    TextButton(onClick = { answer(false) }) {
+                        Text(stringResource(R.string.polls_opt_in_no))
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Button(onClick = { answer(true) }) {
+                        Text(stringResource(R.string.polls_opt_in_yes))
+                    }
+                }
+            }
+        } else {
+            SwitchPreference(
+                title = { Text(stringResource(R.string.polls_enabled)) },
+                description = stringResource(R.string.oobe_polls_answered),
+                icon = { Icon(Icons.Rounded.Poll, null) },
                 checked = answered,
                 onCheckedChange = { answer(it) }
             )

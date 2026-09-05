@@ -178,6 +178,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="quick_picks_source_youtube">YouTube Music</string>
     <string name="quick_picks_source_library">Your library</string>
     <string name="quick_picks_source_description">YouTube Music suggests these from your account. Your library builds them instead from songs related to what you have played, which works signed out and offline.</string>
+    <string name="oobe_update_auto_description">Fetch it in the background so it is ready when you want it. Android still asks you to confirm.</string>
+    <string name="oobe_polls_answered">You can change this any time in Settings, under Questions.</string>
     <string name="poll_title">A question from InterTune</string>
     <string name="poll_banner_hint">Tap to answer, or dismiss with the cross</string>
     <string name="poll_dismiss">Dismiss this question</string>
