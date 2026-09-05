@@ -10,6 +10,10 @@
     <string name="err_youtube_busy">YouTube has temporarily stopped serving music to this internet connection. It is not your phone, your account or this song, and it clears by itself. Switching to mobile data usually works right away. Otherwise wait a little while and try again.</string>
     <string name="grouped_player_controls">Group the player buttons</string>
     <string name="grouped_player_controls_description">Puts shuffle, skip, play and repeat together inside one glass bar. Turn it off to have the buttons sit on their own over the artwork. Needs Liquid glass to be on.</string>
+    <string name="quick_picks_source">Quick picks source</string>
+    <string name="quick_picks_source_youtube">YouTube Music</string>
+    <string name="quick_picks_source_library">Your library</string>
+    <string name="quick_picks_source_description">YouTube Music suggests these from your account. Your library builds them instead from songs related to what you have played, which works signed out and offline.</string>
     <string name="grp_updates">Updates</string>
     <string name="liked_autodownload_backfill_description">Catches up every liked song you do not already have. On Wi-Fi only, songs you like while on mobile data are skipped rather than queued, so use this once you are back on Wi-Fi. Songs you deleted by hand will come back.</string>
     <string name="liked_autodownload_backfill_title">Download all liked songs now</string>

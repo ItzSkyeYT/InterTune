@@ -12,6 +12,10 @@ import com.dd3boh.outertune.db.entities.LocalItem
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.models.SimilarRecommendation
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
+import com.dd3boh.outertune.extensions.toEnum
+import com.dd3boh.outertune.utils.get
+import com.dd3boh.outertune.constants.QuickPicksSourceKey
+import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.Throttle
@@ -209,6 +213,12 @@ class HomeViewModel @Inject constructor(
      * localised, so matching the words "Quick picks" would find nothing outside English.
      */
     private fun takeQuickPicks(page: HomePage): HomePage {
+        // Set to Your library and YouTube's shelf is left where it is, rendering as an ordinary
+        // section of the feed rather than being lifted into the row.
+        if (context.dataStore.get(QuickPicksSourceKey, QuickPicksSource.YOUTUBE.name)
+                .toEnum(QuickPicksSource.YOUTUBE) != QuickPicksSource.YOUTUBE
+        ) return page
+
         val shelf = page.sections.firstOrNull { section ->
             section.itemsPerColumn != null &&
                     section.items.isNotEmpty() &&
@@ -277,14 +287,16 @@ class HomeViewModel @Inject constructor(
 
         // Signing in changes what this whole page should show, and nothing recreated this view
         // model when it happened, so the feed sat there showing the signed-out page until the app
-        // was restarted. Signing out has the same problem in reverse.
+        // was restarted. Signing out has the same problem in reverse. Changing where Quick picks
+        // come from is the same situation: the setting is read while building the page, so without
+        // this it would appear to do nothing until something else happened to reload.
         //
         // force, because this is a real change of state rather than a routine open, so it should go
         // out even while backing off. drop(1) because init above has already loaded once, and the
         // flow replays its current value the moment it is collected.
         viewModelScope.launch {
             context.dataStore.data
-                .map { it[InnerTubeCookieKey].orEmpty() }
+                .map { it[InnerTubeCookieKey].orEmpty() to it[QuickPicksSourceKey].orEmpty() }
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { refresh(force = true) }

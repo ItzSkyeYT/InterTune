@@ -174,6 +174,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="loudness_repair_stopped">Stopped. Fixed %1$d songs, the rest are still to do. Tap to carry on.</string>
     <string name="loudness_repair_offline">Needs an internet connection to look up song volumes.</string>
     <string name="loudness_repair_blocked">Stopped after several failures in a row, which usually means YouTube wants a break. Fixed %1$d. Try again in a little while.</string>
+    <string name="quick_picks_source">Quick picks source</string>
+    <string name="quick_picks_source_youtube">YouTube Music</string>
+    <string name="quick_picks_source_library">Your library</string>
+    <string name="quick_picks_source_description">YouTube Music suggests these from your account. Your library builds them instead from songs related to what you have played, which works signed out and offline.</string>
     <string name="grp_updates">Updates</string>
     <string name="update_available_title">Available</string>
     <string name="update_available_description">Opens the release page so you can read what changed and download it yourself. Useful if the in-app install will not work on this device.</string>

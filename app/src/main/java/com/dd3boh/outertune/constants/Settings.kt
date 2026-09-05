@@ -16,6 +16,16 @@ enum class PlayerBackgroundStyle {
     FOLLOW_THEME, GRADIENT, BLUR
 }
 
+/**
+ * Where the Quick picks row gets its songs.
+ *
+ * YOUTUBE falls back to LIBRARY on its own whenever YouTube sends no such shelf, which is every
+ * signed-out session, so it is safe as the default.
+ */
+enum class QuickPicksSource {
+    YOUTUBE, LIBRARY
+}
+
 enum class LibraryViewType {
     LIST, GRID;
 
