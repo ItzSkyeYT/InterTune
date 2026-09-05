@@ -155,20 +155,29 @@ class HomeViewModel @Inject constructor(
                 }
         similarRecommendations.value = (artistRecommendations + songRecommendations).shuffled()
 
+        ytQuickPicks.value = null
         YouTube.home().onSuccess { page ->
-            // YouTube's Quick picks arrives as a LIST shelf while everything else on the home feed
-            // is a row of cards, so it can be picked out by shape. Deliberately not by title: that
-            // is localised, and matching "Quick picks" would find nothing in French or Japanese.
-            val ytQuick = page.sections.firstOrNull { section ->
-                section.itemsPerColumn != null &&
-                        section.items.isNotEmpty() &&
-                        section.items.all { it is SongItem }
-            }
-            ytQuickPicks.value = ytQuick?.items?.filterIsInstance<SongItem>()
+            var merged = takeQuickPicks(page)
 
-            // Drop it from the generic section list, or it renders twice: once as the Quick picks
-            // row at the top and again as a carousel further down.
-            homePage.value = if (ytQuick == null) page else page.copy(sections = page.sections - ytQuick)
+            // YouTube does not put Quick picks in the first response. Measured against the live API
+            // on 5 Sep: the first response is three card carousels, and Quick picks is index 0 of
+            // the FIRST continuation, numItemsPerColumn 4. So fetch that one batch now, or the row
+            // would only appear once the user happened to scroll far enough to trigger it.
+            //
+            // One extra request per home load, which is affordable now that the sync cooldown no
+            // longer runs a full library sync on every app open.
+            if (ytQuickPicks.value == null) {
+                merged.continuation?.let { next ->
+                    YouTube.home(next).getOrNull()?.let { page2 ->
+                        val cleaned = takeQuickPicks(page2)
+                        merged = merged.copy(
+                            sections = merged.sections + cleaned.sections,
+                            continuation = cleaned.continuation,
+                        )
+                    }
+                }
+            }
+            homePage.value = merged
         }.onFailure {
             reportException(it)
         }
@@ -187,6 +196,23 @@ class HomeViewModel @Inject constructor(
         isLoading.value = false
     }
 
+    /**
+     * Lifts YouTube's own Quick picks out of one batch of the home feed, and returns the batch
+     * without it so it does not also render as a carousel further down the page.
+     *
+     * Found by shape rather than by name: the one carousel that is a list of songs. Its title is
+     * localised, so matching the words "Quick picks" would find nothing outside English.
+     */
+    private fun takeQuickPicks(page: HomePage): HomePage {
+        val shelf = page.sections.firstOrNull { section ->
+            section.itemsPerColumn != null &&
+                    section.items.isNotEmpty() &&
+                    section.items.all { it is SongItem }
+        } ?: return page
+        ytQuickPicks.value = shelf.items.filterIsInstance<SongItem>()
+        return page.copy(sections = page.sections - shelf)
+    }
+
     private val _isLoadingMore = MutableStateFlow(false)
     fun loadMoreYouTubeItems(continuation: String?) {
         if (continuation == null || _isLoadingMore.value) return
@@ -197,9 +223,10 @@ class HomeViewModel @Inject constructor(
                 _isLoadingMore.value = false
                 return@launch
             }
-            homePage.value = nextSections.copy(
+            val cleaned = takeQuickPicks(nextSections)
+            homePage.value = cleaned.copy(
                 chips = homePage.value?.chips,
-                sections = homePage.value?.sections.orEmpty() + nextSections.sections
+                sections = homePage.value?.sections.orEmpty() + cleaned.sections
             )
             _isLoadingMore.value = false
         }
