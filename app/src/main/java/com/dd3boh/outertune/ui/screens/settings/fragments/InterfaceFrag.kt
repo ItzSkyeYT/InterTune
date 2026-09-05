@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Reorder
 import androidx.compose.material.icons.rounded.Swipe
 import androidx.compose.material.icons.rounded.SwipeDown
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Tab
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +46,8 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ContentCountryKey
 import com.dd3boh.outertune.constants.ContentLanguageKey
 import com.dd3boh.outertune.constants.CountryCodeToName
+import com.dd3boh.outertune.constants.QuickPicksSource
+import com.dd3boh.outertune.constants.QuickPicksSourceKey
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_FILTERS
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
 import com.dd3boh.outertune.constants.DefaultOpenTabKey
@@ -58,6 +61,7 @@ import com.dd3boh.outertune.constants.SwipeToSkipKey
 import com.dd3boh.outertune.constants.SwipeToDismissPlayerKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.extensions.move
+import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -65,6 +69,7 @@ import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.Screens.LibraryFilter
+import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.YouTube
 import sh.calvin.reorderable.ReorderableItem
@@ -378,6 +383,8 @@ fun ColumnScope.TabArrangementFrag() {
 fun ColumnScope.TabExtrasFrag() {
     val enabledTabs by rememberPreference(EnabledTabsKey, defaultValue = DEFAULT_ENABLED_TABS)
     val (defaultOpenTab, onDefaultOpenTabChange) = rememberPreference(DefaultOpenTabKey, defaultValue = "home")
+    val (quickPicksSource, onQuickPicksSourceChange) =
+        rememberEnumPreference(QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE)
 
     ListPreference(
         title = { Text(stringResource(R.string.default_open_tab)) },
@@ -389,6 +396,20 @@ fun ColumnScope.TabExtrasFrag() {
         values = Screens.getAllScreens().filter { Screens.getScreens(enabledTabs).contains(it) },
         valueText = { stringResource(it.titleId) }
     )
+
+    EnumListPreference(
+        title = { Text(stringResource(R.string.quick_picks_source)) },
+        icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+        selectedValue = quickPicksSource,
+        onValueSelected = onQuickPicksSourceChange,
+        valueText = {
+            when (it) {
+                QuickPicksSource.YOUTUBE -> stringResource(R.string.quick_picks_source_youtube)
+                QuickPicksSource.LIBRARY -> stringResource(R.string.quick_picks_source_library)
+            }
+        }
+    )
+    InfoLabel(stringResource(R.string.quick_picks_source_description))
 }
 
 @Composable

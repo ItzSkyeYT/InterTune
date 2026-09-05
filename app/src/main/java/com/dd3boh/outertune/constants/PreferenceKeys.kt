@@ -45,6 +45,7 @@ val ProxyUrlKey = stringPreferencesKey("proxyUrl")
 val ProxyTypeKey = stringPreferencesKey("proxyType")
 
 // sync time tracks
+val QuickPicksSourceKey = stringPreferencesKey("quickPicksSource")
 val LastFullSyncKey = longPreferencesKey("lastFullSync")
 val LastLikeSongSyncKey = longPreferencesKey("lastLikeSongSync")
 val LastLibSongSyncKey = longPreferencesKey("lastLibSongSync")
