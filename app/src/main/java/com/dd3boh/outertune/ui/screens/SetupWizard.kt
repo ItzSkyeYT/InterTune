@@ -398,7 +398,10 @@ fun SetupWizard(
                     label = "oobeStep"
                 ) { step ->
                     Column(
-                        modifier = Modifier.widthIn(max = 720.dp),
+                        // Was 720dp, which is right for one column of settings and far too
+                        // narrow once a step lays itself out as two. Steps fall back to a single
+                        // column below 720dp themselves, so this only ever widens a large screen.
+                        modifier = Modifier.widthIn(max = 1100.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         when (step) {
@@ -408,6 +411,10 @@ fun SetupWizard(
                                     contentDescription = null,
                                     colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary, BlendMode.SrcIn),
                                     modifier = Modifier
+                                        // Sized explicitly. Without this it drew at the drawable's
+                                        // intrinsic 108dp, so the one screen that sets the first
+                                        // impression was the one whose hero size was an accident.
+                                        .size(112.dp)
                                         .clip(CircleShape)
                                         .background(
                                             MaterialTheme.colorScheme.surfaceColorAtElevation(
@@ -417,6 +424,7 @@ fun SetupWizard(
                                         .clickable {
                                             haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                                         }
+                                        .padding(16.dp)
                                 )
 
                                 Text(
@@ -438,25 +446,25 @@ fun SetupWizard(
                                         title = stringResource(R.string.oobe_ytm_integration),
                                         description = stringResource(R.string.oobe_ytm_integration_description),
                                         icon = Icons.Rounded.MusicNote,
-                                        MaterialTheme.colorScheme.secondary
+                                        tint = MaterialTheme.colorScheme.secondary,
                                     )
                                     OobeFeatureRow(
                                         title = stringResource(R.string.oobe_ad_free_exp),
                                         description = stringResource(R.string.oobe_ad_free_exp_description),
                                         icon = Icons.Rounded.Block,
-                                        Color.Red
+                                        tint = MaterialTheme.colorScheme.error,
                                     )
                                     OobeFeatureRow(
                                         title = stringResource(R.string.oobe_cross_platform_sync),
                                         description = stringResource(R.string.oobe_cross_platform_sync_description),
                                         icon = Icons.Rounded.Sync,
-                                        MaterialTheme.colorScheme.tertiary
+                                        tint = MaterialTheme.colorScheme.tertiary,
                                     )
                                     OobeFeatureRow(
                                         title = stringResource(R.string.oobe_local_music_support),
                                         description = stringResource(R.string.oobe_local_music_support_description),
                                         icon = Icons.Rounded.SdCard,
-                                        MaterialTheme.colorScheme.onSurface
+                                        tint = MaterialTheme.colorScheme.primary,
                                     )
                                 }
 
@@ -975,16 +983,16 @@ private fun OobeStep(
 }
 
 @Composable
-private fun OobeFeatureRow(title: String, description: String?, icon: ImageVector, tint: Color) {
-    val haptic = LocalHapticFeedback.current
-
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
-            },
-    ) {
+private fun OobeFeatureRow(
+    title: String,
+    description: String?,
+    icon: ImageVector,
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    // No clickable. These four cards took a tap, buzzed, and did nothing, which is worse than not
+    // responding at all: it teaches somebody on their first screen that things here do not work.
+    ElevatedCard(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -992,17 +1000,20 @@ private fun OobeFeatureRow(title: String, description: String?, icon: ImageVecto
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start
         ) {
+            // The tint was being passed in and thrown away: every icon drew in primary, so four
+            // cards meant to look distinct looked identical. Badged, so the colour actually reads.
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .padding(4.dp),
+                    .clip(CircleShape)
+                    .background(tint.copy(alpha = 0.22f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(32.dp)
+                    tint = tint,
+                    modifier = Modifier.size(26.dp)
                 )
             }
 
