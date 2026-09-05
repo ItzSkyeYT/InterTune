@@ -11,7 +11,9 @@ import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.LocalItem
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.models.SimilarRecommendation
+import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.utils.SyncUtils
+import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.syncCoroutine
@@ -29,13 +31,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext val context: Context,
     val database: MusicDatabase,
     val syncUtils: SyncUtils
 ) : ViewModel() {
@@ -268,6 +273,21 @@ class HomeViewModel @Inject constructor(
         refresh()
         viewModelScope.launch(syncCoroutine) {
             syncUtils.tryAutoSync()
+        }
+
+        // Signing in changes what this whole page should show, and nothing recreated this view
+        // model when it happened, so the feed sat there showing the signed-out page until the app
+        // was restarted. Signing out has the same problem in reverse.
+        //
+        // force, because this is a real change of state rather than a routine open, so it should go
+        // out even while backing off. drop(1) because init above has already loaded once, and the
+        // flow replays its current value the moment it is collected.
+        viewModelScope.launch {
+            context.dataStore.data
+                .map { it[InnerTubeCookieKey].orEmpty() }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { refresh(force = true) }
         }
     }
 }
