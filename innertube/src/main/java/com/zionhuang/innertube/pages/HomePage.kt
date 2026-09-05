@@ -39,21 +39,41 @@ data class HomePage(
         val thumbnail: String?,
         val endpoint: BrowseEndpoint?,
         val items: List<YTItem>,
+        /**
+         * Rows per column when this shelf is a LIST rather than a row of cards, null when it is
+         * cards. YouTube's own "Quick picks" is a list shelf with 4, which is the shape the home
+         * screen already draws that row in.
+         */
+        val itemsPerColumn: Int? = null,
     ) {
         companion object {
             fun fromMusicCarouselShelfRenderer(renderer: MusicCarouselShelfRenderer): Section? {
+                // A carousel shelf comes in two shapes and only one of them was ever read. Cards
+                // (musicTwoRowItemRenderer) gave us "New releases" and the rest; lists
+                // (musicResponsiveListItemRenderer) produced no items and the whole section was then
+                // dropped by ifEmpty. YouTube's Quick picks is a list, which is why it never showed.
+                val cardItems = renderer.contents.mapNotNull {
+                    it.musicTwoRowItemRenderer
+                }.mapNotNull {
+                    fromMusicTwoRowItemRenderer(it)
+                }
+
+                val listItems = if (cardItems.isNotEmpty()) emptyList() else {
+                    renderer.contents.mapNotNull {
+                        it.musicResponsiveListItemRenderer
+                    }.mapNotNull {
+                        // Same rows search results are built from, reused rather than rewritten.
+                        SearchSummaryPage.fromMusicResponsiveListItemRenderer(it)
+                    }
+                }
+
                 return Section(
                     title = renderer.header?.musicCarouselShelfBasicHeaderRenderer?.title?.runs?.firstOrNull()?.text ?: return null,
                     label = renderer.header.musicCarouselShelfBasicHeaderRenderer.strapline?.runs?.firstOrNull()?.text,
                     thumbnail = renderer.header.musicCarouselShelfBasicHeaderRenderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl(),
                     endpoint = renderer.header.musicCarouselShelfBasicHeaderRenderer.moreContentButton?.buttonRenderer?.navigationEndpoint?.browseEndpoint,
-                    items = renderer.contents.mapNotNull {
-                        it.musicTwoRowItemRenderer
-                    }.mapNotNull {
-                        fromMusicTwoRowItemRenderer(it)
-                    }.ifEmpty {
-                        return null
-                    }
+                    items = cardItems.ifEmpty { listItems }.ifEmpty { return null },
+                    itemsPerColumn = if (cardItems.isNotEmpty()) null else (renderer.numItemsPerColumn ?: 1),
                 )
             }
 

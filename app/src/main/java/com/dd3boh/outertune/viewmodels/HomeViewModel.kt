@@ -20,6 +20,7 @@ import com.zionhuang.innertube.models.PlaylistItem
 import com.zionhuang.innertube.models.WatchEndpoint
 import com.zionhuang.innertube.models.YTItem
 import com.zionhuang.innertube.pages.ExplorePage
+import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.pages.HomePage
 import com.zionhuang.innertube.utils.completed
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,6 +43,15 @@ class HomeViewModel @Inject constructor(
     val isLoading = MutableStateFlow(false)
 
     val quickPicks = MutableStateFlow<List<Song>?>(null)
+
+    /**
+     * YouTube Music's own Quick picks for this account, when it sends them.
+     *
+     * Preferred over [quickPicks] when present. The local one is a query over songs related to
+     * things already played, which can only ever recirculate the library; this is YouTube's model
+     * of the user. Null when signed out, offline, or when the shelf is simply absent.
+     */
+    val ytQuickPicks = MutableStateFlow<List<SongItem>?>(null)
     val forgottenFavorites = MutableStateFlow<List<Song>?>(null)
     val keepListening = MutableStateFlow<List<LocalItem>?>(null)
     val similarRecommendations = MutableStateFlow<List<SimilarRecommendation>?>(null)
@@ -146,7 +156,19 @@ class HomeViewModel @Inject constructor(
         similarRecommendations.value = (artistRecommendations + songRecommendations).shuffled()
 
         YouTube.home().onSuccess { page ->
-            homePage.value = page
+            // YouTube's Quick picks arrives as a LIST shelf while everything else on the home feed
+            // is a row of cards, so it can be picked out by shape. Deliberately not by title: that
+            // is localised, and matching "Quick picks" would find nothing in French or Japanese.
+            val ytQuick = page.sections.firstOrNull { section ->
+                section.itemsPerColumn != null &&
+                        section.items.isNotEmpty() &&
+                        section.items.all { it is SongItem }
+            }
+            ytQuickPicks.value = ytQuick?.items?.filterIsInstance<SongItem>()
+
+            // Drop it from the generic section list, or it renders twice: once as the Quick picks
+            // row at the top and again as a carousel further down.
+            homePage.value = if (ytQuick == null) page else page.copy(sections = page.sections - ytQuick)
         }.onFailure {
             reportException(it)
         }
