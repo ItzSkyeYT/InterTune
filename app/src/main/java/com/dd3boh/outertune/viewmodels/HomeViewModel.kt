@@ -61,6 +61,16 @@ class HomeViewModel @Inject constructor(
      * of the user. Null when signed out, offline, or when the shelf is simply absent.
      */
     val ytQuickPicks = MutableStateFlow<List<SongItem>?>(null)
+
+    /**
+     * True while the Quick picks row has no settled answer yet.
+     *
+     * Separate from [isLoading], which covers the whole page. This one goes false the moment Quick
+     * picks are decided, which for the library source is as soon as the query returns and for the
+     * YouTube source is after its shelf has been looked for. The row shows a skeleton while it is
+     * true, so a refresh replaces the songs rather than leaving the old ones sitting there.
+     */
+    val quickPicksLoading = MutableStateFlow(false)
     val forgottenFavorites = MutableStateFlow<List<Song>?>(null)
     val keepListening = MutableStateFlow<List<LocalItem>?>(null)
     val similarRecommendations = MutableStateFlow<List<SimilarRecommendation>?>(null)
@@ -79,6 +89,7 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun load(force: Boolean) {
         isLoading.value = true
+        quickPicksLoading.value = true
 
         // The query already ranks by how many of your seed songs point at each result, strongest
         // first. Shuffling all 100 of them threw that away and gave the 100th the same odds as the
@@ -103,6 +114,10 @@ class HomeViewModel @Inject constructor(
             (quickPicks.value.orEmpty() + forgottenFavorites.value.orEmpty() + keepListening.value.orEmpty())
                 .filter { it is Song || it is Album }
 
+        // Nothing remote is going to change the row when the library is the chosen source, so stop
+        // showing a skeleton over an answer that is already final.
+        if (quickPicksSource() != QuickPicksSource.YOUTUBE) quickPicksLoading.value = false
+
         // Everything above is local and always runs. Everything below is remote, and opening the app
         // fires all of it: an artist lookup per recommendation seed, a related lookup per seed, home,
         // explore and a recent-activity sync. While YouTube is refusing this network that is a pile
@@ -111,6 +126,7 @@ class HomeViewModel @Inject constructor(
         // probe that clears the block.
         if (!force && Throttle.isBlocked) {
             Log.d("HomeViewModel", "Skipping remote home load, backing off")
+            quickPicksLoading.value = false
             isLoading.value = false
             return
         }
@@ -190,6 +206,9 @@ class HomeViewModel @Inject constructor(
         }.onFailure {
             reportException(it)
         }
+        // Settled either way: found, or looked for and not there. Leaving it true on failure would
+        // leave a skeleton shimmering over a row that is never going to fill.
+        quickPicksLoading.value = false
 
         YouTube.explore().onSuccess { page ->
             explorePage.value = page
@@ -212,12 +231,14 @@ class HomeViewModel @Inject constructor(
      * Found by shape rather than by name: the one carousel that is a list of songs. Its title is
      * localised, so matching the words "Quick picks" would find nothing outside English.
      */
+    private fun quickPicksSource(): QuickPicksSource =
+        context.dataStore.get(QuickPicksSourceKey, QuickPicksSource.YOUTUBE.name)
+            .toEnum(QuickPicksSource.YOUTUBE)
+
     private fun takeQuickPicks(page: HomePage): HomePage {
         // Set to Your library and YouTube's shelf is left where it is, rendering as an ordinary
         // section of the feed rather than being lifted into the row.
-        if (context.dataStore.get(QuickPicksSourceKey, QuickPicksSource.YOUTUBE.name)
-                .toEnum(QuickPicksSource.YOUTUBE) != QuickPicksSource.YOUTUBE
-        ) return page
+        if (quickPicksSource() != QuickPicksSource.YOUTUBE) return page
 
         val shelf = page.sections.firstOrNull { section ->
             section.itemsPerColumn != null &&

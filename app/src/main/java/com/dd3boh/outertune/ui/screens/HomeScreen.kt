@@ -99,6 +99,8 @@ import com.dd3boh.outertune.ui.component.items.SongListItem
 import com.dd3boh.outertune.ui.component.items.YouTubeGridItem
 import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.ui.component.shimmer.GridItemPlaceHolder
+import com.valentinilk.shimmer.shimmer
+import com.dd3boh.outertune.ui.component.shimmer.ListItemPlaceHolder
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerHost
 import com.dd3boh.outertune.ui.component.shimmer.TextPlaceholder
 import com.dd3boh.outertune.ui.menu.AlbumMenu
@@ -146,6 +148,7 @@ fun HomeScreen(
     val pendingPoll by pollChecker.current.collectAsState()
     var showPoll by rememberSaveable { mutableStateOf(false) }
     val ytQuickPicks by viewModel.ytQuickPicks.collectAsState()
+    val quickPicksLoading by viewModel.quickPicksLoading.collectAsState()
     val forgottenFavorites by viewModel.forgottenFavorites.collectAsState()
     val keepListening by viewModel.keepListening.collectAsState()
     val similarRecommendations by viewModel.similarRecommendations.collectAsState()
@@ -456,7 +459,38 @@ fun HomeScreen(
             // alone, which would have hidden YouTube's picks on a fresh install with no history.
             val ytPicks = ytQuickPicks?.takeIf { it.isNotEmpty() }
             val localPicks = quickPicks.orEmpty()
-            if (ytPicks != null || localPicks.isNotEmpty()) {
+
+            // Skeleton while the answer is still being worked out, including during a pull to
+            // refresh, so the row visibly reloads rather than sitting on the previous songs. The
+            // same grid, filled with placeholders, so nothing shifts size when the songs arrive.
+            if (quickPicksLoading && ytPicks == null) {
+                item {
+                    NavigationTitle(
+                        title = stringResource(R.string.quick_picks),
+                        modifier = Modifier.animateItem()
+                    )
+                }
+                item {
+                    LazyHorizontalGrid(
+                        rows = GridCells.Fixed(4),
+                        userScrollEnabled = false,
+                        contentPadding = WindowInsets.systemBars
+                            .only(WindowInsetsSides.Horizontal)
+                            .asPaddingValues(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(ListItemHeight * 4)
+                            .shimmer()
+                            .animateItem()
+                    ) {
+                        items(6) {
+                            ListItemPlaceHolder(
+                                modifier = Modifier.width(horizontalLazyGridItemWidth)
+                            )
+                        }
+                    }
+                }
+            } else if (ytPicks != null || localPicks.isNotEmpty()) {
                 item {
                     NavigationTitle(
                         title = stringResource(R.string.quick_picks),
