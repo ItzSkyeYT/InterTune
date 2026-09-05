@@ -1,6 +1,7 @@
 package com.dd3boh.outertune.viewmodels
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.constants.PlaylistFilter
@@ -11,6 +12,7 @@ import com.dd3boh.outertune.db.entities.LocalItem
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.models.SimilarRecommendation
 import com.dd3boh.outertune.utils.SyncUtils
+import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
@@ -56,11 +58,15 @@ class HomeViewModel @Inject constructor(
     val allLocalItems = MutableStateFlow<List<LocalItem>>(emptyList())
     val allYtItems = MutableStateFlow<List<YTItem>>(emptyList())
 
-    private suspend fun load() {
+    private suspend fun load(force: Boolean) {
         isLoading.value = true
 
+        // The query already ranks by how many of your seed songs point at each result, strongest
+        // first. Shuffling all 100 of them threw that away and gave the 100th the same odds as the
+        // 1st. Shuffle inside the strongest 40 instead: still different on each refresh, but drawn
+        // from the good end.
         quickPicks.value = database.quickPicks()
-            .first().shuffled().take(20)
+            .first().take(40).shuffled().take(20)
 
         forgottenFavorites.value = database.forgottenFavorites()
             .first().shuffled().take(20)
@@ -77,6 +83,18 @@ class HomeViewModel @Inject constructor(
         allLocalItems.value =
             (quickPicks.value.orEmpty() + forgottenFavorites.value.orEmpty() + keepListening.value.orEmpty())
                 .filter { it is Song || it is Album }
+
+        // Everything above is local and always runs. Everything below is remote, and opening the app
+        // fires all of it: an artist lookup per recommendation seed, a related lookup per seed, home,
+        // explore and a recent-activity sync. While YouTube is refusing this network that is a pile
+        // of requests that cannot succeed and that make the refusal last longer. Pulling to refresh
+        // passes force and still tries, because the user asked for it and one request doubles as the
+        // probe that clears the block.
+        if (!force && Throttle.isBlocked) {
+            Log.d("HomeViewModel", "Skipping remote home load, backing off")
+            isLoading.value = false
+            return
+        }
 
         if (YouTube.cookie != null) { // if logged in
             // InnerTune way is YouTube.likedPlaylists().onSuccess { ... }
@@ -188,11 +206,11 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun refresh() {
+    fun refresh(force: Boolean = false) {
         if (isRefreshing.value) return
         viewModelScope.launch(syncCoroutine) {
             isRefreshing.value = true
-            load()
+            load(force)
             isRefreshing.value = false
         }
     }
