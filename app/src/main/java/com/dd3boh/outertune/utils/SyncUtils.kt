@@ -95,12 +95,21 @@ class SyncUtils @Inject constructor(
         if (!context.isAutoSyncEnabled()) {
             return
         }
+        // bypassCd is the user pressing Sync now, which should always try. An automatic sync is
+        // the "work nobody asked for" the throttle exists to drop.
+        if (!bypassCd && Throttle.isBlocked) {
+            Log.d(TAG, "Skipping auto sync, backing off")
+            return
+        }
         Log.d(TAG, "Starting auto sync job")
         if (!bypassCd) {
-            val lastSync = context.dataStore.get(LastFullSyncKey, LocalDateTime.now().toEpochSecond(ZoneOffset.UTC))
+            // Default 0, not now: an account that has never synced should sync straight away
+            // rather than sit out a cooldown it never earned.
+            val lastSync = context.dataStore.get(LastFullSyncKey, 0L)
             val currentTime = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-            if (currentTime - lastSync > SYNC_CD) {
-                Log.d(TAG, "Aborting auto sync. ${(currentTime - lastSync) * 60000} minutes until eligible")
+            val elapsed = currentTime - lastSync
+            if (elapsed < SYNC_CD) {
+                Log.d(TAG, "Aborting auto sync. ${(SYNC_CD - elapsed) / 60} minutes until eligible")
                 return
             }
         }
@@ -120,10 +129,11 @@ class SyncUtils @Inject constructor(
     }
 
     private fun checkPartialSyncEligibility(key: Preferences.Key<Long>): Boolean {
-        val lastSync = context.dataStore.get(key, LocalDateTime.now().toEpochSecond(ZoneOffset.UTC))
+        val lastSync = context.dataStore.get(key, 0L)
         val currentTime = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-        if (currentTime - lastSync > SYNC_CD) {
-            Log.d(TAG, "Aborting auto sync. ${(currentTime - lastSync) * 60000} minutes until eligible")
+        val elapsed = currentTime - lastSync
+        if (elapsed < SYNC_CD) {
+            Log.d(TAG, "Aborting auto sync. ${(SYNC_CD - elapsed) / 60} minutes until eligible")
             return false
         }
         return true

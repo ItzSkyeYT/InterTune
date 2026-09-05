@@ -135,6 +135,13 @@ object Throttle {
     }
 
     fun trip(why: String) {
+        // Already stopped means this is the same incident being reported again, not a new one.
+        // Resolving one song asks three clients and every one of them reports the block, so without
+        // this the ladder walked 5 to 10 to 20 minutes inside a second and the first two rungs were
+        // never actually used. Escalation is meant to measure repeat incidents, and the timer
+        // already covers the current one.
+        if (isBlocked) return
+
         val now = SystemClock.elapsedRealtime()
         if (now - lastTripAt > STRIKE_RESET_MS) strikes = 0
         lastTripAt = now
@@ -142,10 +149,7 @@ object Throttle {
         val backoff = (FIRST_BACKOFF_MS shl strikes.coerceAtMost(2)).coerceAtMost(MAX_BACKOFF_MS)
         if (strikes < 2) strikes++
 
-        val newUntil = now + backoff
-        // Never shorten an existing stop, never lengthen it past the cap.
-        if (isBlocked && newUntil <= until) return
-        until = newUntil
+        until = now + backoff
         consecutiveFailures.set(0)
         _blocked.value = true
         Log.w(TAG, "Backing off for ${backoff / 1000}s: $why")
