@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug builds only. Lets a debug build talk to a server on the development machine over plain
+  http, reached through `adb reverse`, so a feature that fetches a document or posts a result can
+  be exercised end to end without standing up real infrastructure first.
+
+  This file does not exist in the release source set, so a release build keeps Android's default:
+  no cleartext to anywhere.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <!-- The host machine, as seen from the standard emulator. -->
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

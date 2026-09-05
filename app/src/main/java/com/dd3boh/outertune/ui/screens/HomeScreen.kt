@@ -47,6 +47,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -63,6 +66,7 @@ import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
+import com.dd3boh.outertune.LocalPollChecker
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.GridThumbnailHeight
@@ -80,6 +84,8 @@ import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.YouTubeAlbumRadio
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
+import com.dd3boh.outertune.ui.component.PollBanner
+import com.dd3boh.outertune.ui.component.PollDialog
 import com.dd3boh.outertune.ui.component.ChipsRow
 import com.dd3boh.outertune.ui.component.HideOnScrollFAB
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
@@ -135,6 +141,10 @@ fun HomeScreen(
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
 
     val quickPicks by viewModel.quickPicks.collectAsState()
+
+    val pollChecker = LocalPollChecker.current
+    val pendingPoll by pollChecker.current.collectAsState()
+    var showPoll by rememberSaveable { mutableStateOf(false) }
     val ytQuickPicks by viewModel.ytQuickPicks.collectAsState()
     val forgottenFavorites by viewModel.forgottenFavorites.collectAsState()
     val keepListening by viewModel.keepListening.collectAsState()
@@ -428,6 +438,19 @@ fun HomeScreen(
             }
 
 
+
+            // Above Quick picks and below the chips: visible without being in the way, and it
+            // scrolls off with everything else rather than pinning itself to the top.
+            pendingPoll?.let { poll ->
+                item(key = "poll_banner") {
+                    PollBanner(
+                        poll = poll,
+                        onOpen = { showPoll = true },
+                        onDismiss = { scope.launch { pollChecker.dismiss(poll.id) } },
+                        modifier = Modifier.animateItem(),
+                    )
+                }
+            }
 
             // The row shows if EITHER source has something. It used to be gated on the local list
             // alone, which would have hidden YouTube's picks on a fresh install with no history.
@@ -865,6 +888,19 @@ fun HomeScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(LocalPlayerAwareWindowInsets.current.asPaddingValues()),
+        )
+    }
+
+    // Only ever opened by tapping the banner. Closing without answering leaves the question
+    // unanswered rather than marking it dealt with, so the banner stays until it is dismissed.
+    pendingPoll?.takeIf { showPoll }?.let { poll ->
+        PollDialog(
+            poll = poll,
+            onSubmit = { chosen ->
+                showPoll = false
+                scope.launch { pollChecker.answer(poll, chosen) }
+            },
+            onClose = { showPoll = false },
         )
     }
 }

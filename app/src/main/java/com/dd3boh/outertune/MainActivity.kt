@@ -189,6 +189,7 @@ import com.dd3boh.outertune.ui.screens.settings.LyricsSettings
 import com.dd3boh.outertune.ui.screens.settings.PlayerSettings
 import com.dd3boh.outertune.ui.screens.settings.SettingsScreen
 import com.dd3boh.outertune.ui.screens.settings.StorageSettings
+import com.dd3boh.outertune.ui.screens.settings.PollSettings
 import com.dd3boh.outertune.ui.screens.settings.UpdateSettings
 import com.dd3boh.outertune.ui.theme.ColorSaver
 import com.dd3boh.outertune.ui.theme.DefaultThemeColor
@@ -200,6 +201,7 @@ import com.dd3boh.outertune.utils.LocalArtworkPath
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.SyncUtils
+import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.UpdateInstaller
 import com.dd3boh.outertune.utils.coilCoroutine
@@ -256,6 +258,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var updateInstaller: UpdateInstaller
+
+    @Inject
+    lateinit var pollChecker: PollChecker
 
     lateinit var activityLauncher: ActivityLauncherHelper
     lateinit var connectivityObserver: NetworkConnectivityObserver
@@ -347,6 +352,10 @@ class MainActivity : ComponentActivity() {
                 // itself to once every few hours, so this is cheap to call on every open. Failure
                 // is silent on purpose: nobody opened a music player to be told GitHub is down.
                 coroutineScope.launch { updateChecker.check() }
+
+                // Same contract as the update check: nothing happens unless the user opted in, it
+                // rate limits itself, and failure is silent.
+                coroutineScope.launch { pollChecker.check() }
 
                 // Receives the outcome of an in-app install. Registered here rather than in the
                 // manifest because it is only meaningful while the app is alive to show it.
@@ -697,6 +706,7 @@ class MainActivity : ComponentActivity() {
                         LocalLoudnessRepair provides loudnessRepair,
                         LocalUpdateChecker provides updateChecker,
                         LocalUpdateInstaller provides updateInstaller,
+                        LocalPollChecker provides pollChecker,
                         LocalNetworkConnected provides isNetworkConnected,
                         LocalSnackbarHostState provides snackbarHostState,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
@@ -988,6 +998,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                     composable("settings/updates") {
                                         UpdateSettings(navController, scrollBehavior)
+                                    }
+                                    composable("settings/polls") {
+                                        PollSettings(navController, scrollBehavior)
                                     }
                                     composable("settings/about") {
                                         AboutScreen(navController, scrollBehavior)
@@ -1405,5 +1418,6 @@ val LocalSyncUtils = staticCompositionLocalOf<SyncUtils> { error("No SyncUtils p
 val LocalLoudnessRepair = staticCompositionLocalOf<LoudnessRepair> { error("No LoudnessRepair provided") }
 val LocalUpdateChecker = staticCompositionLocalOf<UpdateChecker> { error("No UpdateChecker provided") }
 val LocalUpdateInstaller = staticCompositionLocalOf<UpdateInstaller> { error("No UpdateInstaller provided") }
+val LocalPollChecker = staticCompositionLocalOf<PollChecker> { error("No PollChecker provided") }
 val LocalNetworkConnected = staticCompositionLocalOf<Boolean> { error("No Network Status provided") }
 val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> { error("No SnackbarHostState provided") }

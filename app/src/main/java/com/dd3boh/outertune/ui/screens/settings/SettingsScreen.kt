@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material.icons.rounded.Poll
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Badge
@@ -193,6 +194,11 @@ fun SettingsScreen(
                     stringResource(R.string.update_available, it.versionName)
                 },
                 onClick = { navController.navigate("settings/updates") }
+            )
+            PreferenceEntry(
+                title = { Text(stringResource(R.string.grp_polls)) },
+                icon = { Icon(Icons.Rounded.Poll, null) },
+                onClick = { navController.navigate("settings/polls") }
             )
             PreferenceEntry(
                 title = { Text(stringResource(R.string.about)) },
