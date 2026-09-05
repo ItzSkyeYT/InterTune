@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 
 /**
  * Appearance
@@ -240,6 +241,33 @@ val UpdateCheckEnabledKey = booleanPreferencesKey("updateCheckEnabled")
 
 /** versionCode the user dismissed. Anything newer than this is still worth raising. */
 val DismissedUpdateCodeKey = intPreferencesKey("dismissedUpdateCode")
+
+/**
+ * Whether InterTune may ask the occasional question and send the answer.
+ *
+ * Off by default and opt in, read through rememberNullablePreference so that "never asked" stays
+ * distinguishable from "said no". Nothing is fetched and nothing is sent until this is true, which
+ * is the whole basis on which the feature can honestly be described to people.
+ */
+val PollsEnabledKey = booleanPreferencesKey("pollsEnabled")
+
+/** Poll ids already answered. Never asked again, on any device that shares this datastore. */
+val AnsweredPollIdsKey = stringSetPreferencesKey("answeredPollIds")
+
+/** Poll ids waved away with the banner's close button. Not answered, but not to be raised again. */
+val DismissedPollIdsKey = stringSetPreferencesKey("dismissedPollIds")
+
+/** Epoch millis of the last poll fetch, for the rate limit floor. */
+val LastPollFetchKey = longPreferencesKey("lastPollFetch")
+
+/**
+ * The last poll document, verbatim.
+ *
+ * Cached rather than parsed into separate keys because polls are a list and the interesting one
+ * depends on what has since been answered. Re-parsing the raw json on restore keeps one source of
+ * truth and means a restart inside the rate limit window still shows the right question.
+ */
+val CachedPollsJsonKey = stringPreferencesKey("cachedPollsJson")
 
 val LanguageCodeToName = mapOf(
     "af" to "Afrikaans",
