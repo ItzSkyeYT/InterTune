@@ -44,6 +44,8 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -228,7 +230,9 @@ fun SetupWizard(
         Row(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -267,7 +271,7 @@ fun SetupWizard(
                 strokeCap = StrokeCap.Butt,
                 drawStopIndicator = {},
                 modifier = Modifier
-                    .weight(1f, false)
+                    .weight(1f)
                     .height(8.dp)  // Height of the progress bar
                     .padding(2.dp),  // Add some padding at the top
             )
@@ -320,11 +324,21 @@ fun SetupWizard(
                         .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom))
                         .fillMaxWidth()
                 ) {
+                    // Centred as a block, but given the same width the content gets, so the
+                    // controls sit under the columns they belong to instead of bunching in the
+                    // middle of the screen. SpaceAround around a wrap-content row was doing
+                    // nothing except centring one crowded lump.
                     Row(
-                        horizontalArrangement = Arrangement.SpaceAround,
+                        horizontalArrangement = Arrangement.Center,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        navBar()
+                        Box(
+                            Modifier
+                                .widthIn(max = 1100.dp)
+                                .fillMaxWidth()
+                        ) {
+                            navBar()
+                        }
                     }
                 }
             }
@@ -353,7 +367,11 @@ fun SetupWizard(
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    // Width, not size. fillMaxSize inside a vertical scroll makes the content at
+                    // least a viewport tall, and the inset spacer above then pushes it over, so
+                    // every page could be dragged a little even when everything already fitted.
+                    // Wrapping the height means it only scrolls when there is genuinely more.
+                    .fillMaxWidth()
                     .padding(horizontal = 16.dp)
                     .verticalScroll(stepScrollState),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -964,10 +982,17 @@ private fun OobeStep(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(40.dp),
             ) {
-                Column(modifier = Modifier.weight(1f).padding(top = 8.dp)) {
+                // Not half and half. The left side holds a title and one line; the right holds
+                // every control on the page. Splitting the width evenly left the hero floating in
+                // an empty half, which looked worse than the single column it replaced.
+                Column(
+                    modifier = Modifier
+                        .weight(0.72f)
+                        .padding(top = 8.dp)
+                ) {
                     OobeHero(icon, title, subtitle, centred = false)
                 }
-                Column(modifier = Modifier.weight(1f), content = content)
+                Column(modifier = Modifier.weight(1.28f), content = content)
             }
         } else {
             Column(
