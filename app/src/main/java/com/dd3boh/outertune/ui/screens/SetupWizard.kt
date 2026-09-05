@@ -60,6 +60,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.NavigateBefore
 import androidx.compose.material.icons.automirrored.rounded.NavigateNext
@@ -83,6 +84,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarDefaults
@@ -222,36 +224,26 @@ fun SetupWizard(
     }
 
     val navBar = @Composable {
-        // The exit page keeps Back and the progress bar, but not Next: its forward action is the
-        // FAB, and two forward controls on one page is worse than none.
-        val onFinalStep = oobeStatus == OOBE_VERSION - 1
-
-        // nav bar
+        // Back and progress only. Forward is the floating button, on every page, so there is one
+        // shape for "continue" the whole way through instead of a round button on the first page
+        // and a word in a bar on the rest.
         Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .padding(start = 4.dp, end = 20.dp, top = 8.dp, bottom = 8.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable {
+            IconButton(
+                onClick = {
                     if (oobeStatus > 0) {
                         oobeStatus -= 1
                     }
                     haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                 }
             ) {
-                Text(
-                    text = stringResource(R.string.action_back),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
-                )
                 Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.NavigateBefore,
-                    contentDescription = null
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = stringResource(R.string.action_back),
                 )
             }
 
@@ -266,51 +258,13 @@ fun SetupWizard(
 
             LinearProgressIndicator(
                 progress = { stepProgress },
-//                color = ProgressIndicatorDefaults.linearColor,
-//                trackColor = MaterialTheme.colorScheme.primary,
-                strokeCap = StrokeCap.Butt,
+                strokeCap = StrokeCap.Round,
                 drawStopIndicator = {},
                 modifier = Modifier
                     .weight(1f)
-                    .height(8.dp)  // Height of the progress bar
-                    .padding(2.dp),  // Add some padding at the top
+                    .padding(start = 8.dp)
+                    .height(4.dp),
             )
-
-            // Always present, so the bar keeps Back at one end and a forward action at the other.
-            // On the exit page it becomes Done and finishes, which is why that page no longer needs
-            // a floating button sitting at a different height breaking the line.
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable {
-                    if (oobeStatus == 1) {
-                        filter = LibraryFilter.ALL // hax
-                    }
-
-                    // Never leave oobeStatus at OOBE_VERSION without popping. That value fails this
-                    // bar's gate, while AnimatedContent coerces the step and keeps painting the exit
-                    // page, so the user would be looking at a page with no control on it at all.
-                    if (oobeStatus < OOBE_VERSION - 1) {
-                        oobeStatus += 1
-                    } else {
-                        oobeStatus = OOBE_VERSION
-                        navController.navigateUp()
-                    }
-
-                    haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                }
-            ) {
-                Icon(
-                    imageVector = if (onFinalStep) Icons.Rounded.Check
-                    else Icons.AutoMirrored.Rounded.NavigateNext,
-                    contentDescription = null
-                )
-                Text(
-                    text = stringResource(if (onFinalStep) R.string.action_done else R.string.action_next),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
-                )
-            }
         }
     }
 
@@ -334,7 +288,7 @@ fun SetupWizard(
                     ) {
                         Box(
                             Modifier
-                                .widthIn(max = 1100.dp)
+                                .widthIn(max = 720.dp)
                                 .fillMaxWidth()
                         ) {
                             navBar()
@@ -416,10 +370,7 @@ fun SetupWizard(
                     label = "oobeStep"
                 ) { step ->
                     Column(
-                        // Was 720dp, which is right for one column of settings and far too
-                        // narrow once a step lays itself out as two. Steps fall back to a single
-                        // column below 720dp themselves, so this only ever widens a large screen.
-                        modifier = Modifier.widthIn(max = 1100.dp),
+                        modifier = Modifier.widthIn(max = 720.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         when (step) {
@@ -494,11 +445,18 @@ fun SetupWizard(
                                 )
                                 Spacer(Modifier.height(24.dp))
 
+                                // Both secondary actions on the left, together, with the right
+                                // side left to the one primary action.
+                                //
+                                // SpaceBetween put Skip hard right, which landed it against the
+                                // continue button: leaving setup and carrying on with it, touching,
+                                // at the same visual weight. The end padding reserves the floating
+                                // button's footprint so the row can never run under it.
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 48.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                        .padding(start = 8.dp, end = 88.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     TextButton(
                                         onClick = {
@@ -878,22 +836,39 @@ fun SetupWizard(
                 }
             }
 
-            // Only the welcome page, which has no bottom bar, so the button is the whole control
-            // rather than a second one floating beside a bar that already has Back at the other end.
-            // The exit page finishes with Done in the bar instead.
-            if (oobeStatus == 0) {
+            // Every page, not just the welcome one. It was the only round button in the flow and
+            // the rest used a word in a bar, so "continue" changed shape halfway through setup.
+            // On the last page it becomes a tick and finishes.
+            if (oobeStatus < OOBE_VERSION) {
+                val onFinalStep = oobeStatus == OOBE_VERSION - 1
                 FloatingActionButton(
                     modifier = Modifier
                         .padding(16.dp)
                         .align(Alignment.BottomEnd),
                     onClick = {
-                        oobeStatus += 1
+                        if (oobeStatus == 1) {
+                            filter = LibraryFilter.ALL // hax
+                        }
+
+                        // Never leave oobeStatus at OOBE_VERSION without popping. That value fails
+                        // the bar's gate, while AnimatedContent coerces the step and keeps painting
+                        // the exit page, so the user would be looking at a page with no control.
+                        if (!onFinalStep) {
+                            oobeStatus += 1
+                        } else {
+                            oobeStatus = OOBE_VERSION
+                            navController.navigateUp()
+                        }
+
                         haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                     }
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                        contentDescription = null
+                        imageVector = if (onFinalStep) Icons.Rounded.Check
+                        else Icons.AutoMirrored.Rounded.ArrowForward,
+                        contentDescription = stringResource(
+                            if (onFinalStep) R.string.action_done else R.string.action_next
+                        ),
                     )
                 }
             }
@@ -917,10 +892,9 @@ private fun OobeHero(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    centred: Boolean,
 ) {
     Column(
-        horizontalAlignment = if (centred) Alignment.CenterHorizontally else Alignment.Start,
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Box(
@@ -944,7 +918,7 @@ private fun OobeHero(
             text = title,
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = if (centred) TextAlign.Center else TextAlign.Start,
+            textAlign = TextAlign.Center,
         )
 
         Spacer(Modifier.height(8.dp))
@@ -953,7 +927,7 @@ private fun OobeHero(
             text = subtitle,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = if (centred) TextAlign.Center else TextAlign.Start,
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -976,43 +950,13 @@ private fun OobeStep(
     subtitle: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        // Matched to AOSP's own setup wizard rather than guessed at. Its setupdesign library keeps
-        // the two-pane templates in layout-w840dp-v34 only, so the split starts at the expanded
-        // breakpoint, not at tablet-portrait width. The height guard is Android's: a window that is
-        // wide but short, which is any phone in landscape, is a case where two panes are explicitly
-        // not practical.
-        //
-        // The left pane holding only an icon, a title and a line, with space under it, is not a gap
-        // to fill. That is precisely what sud_landscape_header_area is, top-aligned with no gravity,
-        // on every Android device. Centring it and adding a counter both made it worse, which is
-        // what the source would have predicted.
-        if (maxWidth >= 840.dp && maxHeight >= 480.dp) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                // 1:1 with a 48dp gutter, which is sud_glif_land_header_area_weight against
-                // sud_glif_land_content_area_weight.
-                horizontalArrangement = Arrangement.spacedBy(48.dp),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(top = 8.dp)
-                ) {
-                    OobeHero(icon, title, subtitle, centred = false)
-                }
-                Column(modifier = Modifier.weight(1f), content = content)
-            }
-        } else {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                OobeHero(icon, title, subtitle, centred = true)
-                Spacer(Modifier.height(28.dp))
-                content()
-            }
-        }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        OobeHero(icon, title, subtitle)
+        Spacer(Modifier.height(28.dp))
+        content()
     }
 }
 
