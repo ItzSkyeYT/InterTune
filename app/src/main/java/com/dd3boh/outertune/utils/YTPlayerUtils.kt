@@ -109,7 +109,20 @@ object YTPlayerUtils {
          * is required even if the streams won't work from this client.
          * This is why it is allowed to be null.
          */
-        val signatureTimestamp = getSignatureTimestampOrNull(videoId)
+        // Both of these are expensive and both were being thrown away. InnerTube gates the
+        // signature timestamp on client.useSignatureTimestamp and the po token on
+        // client.useWebPoTokens, and none of the clients this actually calls sets either, so every
+        // song paid for a NewPipe signature extraction and a WebView po token that were dropped
+        // before the request left. The po token generator is the worse of the two: it makes two
+        // POSTs of its own to youtube.com, from the same address already in trouble.
+        //
+        // Keyed off the client list rather than hardcoded off, so putting a client that does use
+        // them back in the chain starts generating them again on its own.
+        val playerClients = listOf(MAIN_CLIENT) + STREAM_FALLBACK_CLIENTS
+        val wantsSignatureTimestamp = playerClients.any { it.useSignatureTimestamp }
+        val wantsPoToken = playerClients.any { it.useWebPoTokens }
+
+        val signatureTimestamp = if (wantsSignatureTimestamp) getSignatureTimestampOrNull(videoId) else null
 
         val isLoggedIn = YouTube.cookie != null
         val sessionId =
@@ -123,10 +136,14 @@ object YTPlayerUtils {
 
         Log.d(TAG, "[$videoId] signatureTimestamp: $signatureTimestamp, isLoggedIn: $isLoggedIn")
 
-        val (webPlayerPot, webStreamingPot) = getWebClientPoTokenOrNull(videoId, sessionId)?.let {
-            Pair(it.playerRequestPoToken, it.streamingDataPoToken)
-        } ?: Pair(null, null).also {
-            Log.w(TAG, "[$videoId] No po token")
+        val (webPlayerPot, webStreamingPot) = if (!wantsPoToken) {
+            Pair(null, null)
+        } else {
+            getWebClientPoTokenOrNull(videoId, sessionId)?.let {
+                Pair(it.playerRequestPoToken, it.streamingDataPoToken)
+            } ?: Pair(null, null).also {
+                Log.w(TAG, "[$videoId] No po token")
+            }
         }
 
         val mainPlayerResponse =

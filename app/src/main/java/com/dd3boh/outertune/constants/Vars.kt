@@ -57,7 +57,14 @@ const val SCANNER_OWNER_DL = 32
 const val SCANNER_OWNER_LM = 1
 const val SCANNER_OWNER_M3U = 2
 
-const val SYNC_CD = 60000 * 30
+/**
+ * How long to leave between automatic syncs.
+ *
+ * Seconds, because both sides of every comparison against it come from
+ * `LocalDateTime.toEpochSecond`. It used to be written as `60000 * 30`, milliseconds, which made the
+ * real threshold 1,800,000 seconds, near enough three weeks.
+ */
+const val SYNC_CD = 30 * 60
 
 const val MAX_PLAYER_CONSECUTIVE_ERR = 3
 
