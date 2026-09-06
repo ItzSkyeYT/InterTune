@@ -53,11 +53,14 @@ fun <T> rememberPreference(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    // Remembered, not inline: the operator get is a blocking IO read, and as a plain argument it
+    // re-ran on every recomposition. Same reasoning as rememberNullablePreference below.
+    val initialValue = remember(key) { context.dataStore[key] ?: defaultValue }
     val state = remember {
         context.dataStore.data
             .map { it[key] ?: defaultValue }
             .distinctUntilChanged()
-    }.collectAsState(context.dataStore[key] ?: defaultValue)
+    }.collectAsState(initialValue)
 
     return remember {
         object : MutableState<T> {
@@ -107,7 +110,9 @@ inline fun <reified T : Enum<T>> rememberEnumPreference(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
-    val initialValue = context.dataStore[key].toEnum(defaultValue = defaultValue)
+    // Remembered for the same reason as in rememberPreference: a blocking IO read must not be
+    // re-evaluated on every recomposition.
+    val initialValue = remember(key) { context.dataStore[key].toEnum(defaultValue = defaultValue) }
     val state = remember {
         context.dataStore.data
             .map { it[key].toEnum(defaultValue = defaultValue) }
