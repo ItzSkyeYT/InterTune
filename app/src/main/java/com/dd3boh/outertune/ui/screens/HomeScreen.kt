@@ -90,6 +90,7 @@ import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.YouTubeAlbumRadio
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.PollBanner
+import com.dd3boh.outertune.ui.component.ThrottleBanner
 import com.dd3boh.outertune.ui.component.PollDialog
 import com.dd3boh.outertune.ui.component.ChipsRow
 import com.dd3boh.outertune.ui.component.HideOnScrollFAB
@@ -450,6 +451,13 @@ fun HomeScreen(
             }
 
 
+
+            // Same slot reasoning as the poll banner below: above Quick picks, below the chips.
+            // Shown only while YouTube is actually refusing this connection, and it takes itself
+            // away when the back-off expires.
+            item(key = "throttle_banner") {
+                ThrottleBanner(modifier = Modifier.animateItem())
+            }
 
             // Above Quick picks and below the chips: visible without being in the way, and it
             // scrolls off with everything else rather than pinning itself to the top.
