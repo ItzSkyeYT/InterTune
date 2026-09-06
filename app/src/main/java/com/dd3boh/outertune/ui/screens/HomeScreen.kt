@@ -73,8 +73,6 @@ import com.dd3boh.outertune.constants.GridThumbnailHeight
 import com.dd3boh.outertune.constants.ListItemHeight
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.LocalLibraryEnableKey
-import com.dd3boh.outertune.constants.QuickPicksSource
-import com.dd3boh.outertune.constants.QuickPicksSourceKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.Artist
@@ -113,7 +111,6 @@ import com.dd3boh.outertune.ui.menu.YouTubeArtistMenu
 import com.dd3boh.outertune.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
 import com.dd3boh.outertune.ui.utils.SnapLayoutInfoProvider
-import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.HomeViewModel
 import com.zionhuang.innertube.models.AlbumItem
@@ -172,9 +169,6 @@ fun HomeScreen(
     val forgottenFavoritesLazyGridState = rememberLazyGridState()
 
     val localLibEnable by rememberPreference(LocalLibraryEnableKey, defaultValue = true)
-    val quickPicksSource by rememberEnumPreference(
-        QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE
-    )
 
     val scope = rememberCoroutineScope()
     val lazylistState = rememberLazyListState()
@@ -461,16 +455,12 @@ fun HomeScreen(
                 }
             }
 
-            // The row shows if EITHER source has something, and it is the same four-row grid
-            // whichever one fills it. The setting picks the order, not the shape: each side falls
-            // back to the other rather than leaving the row out, because an empty Quick picks is
-            // worse than one filled from the wrong place. YouTube has nothing to give while you are
-            // signed out; the library has nothing to give until you have played something.
+            // Same four-row grid whichever list fills it. On Your library that list is the app's
+            // own recommendations, built from what you have played, and it is never substituted:
+            // ytQuickPicks is only ever populated on the YouTube setting. The YouTube setting does
+            // fall back to the local list, because YouTube sends no shelf at all while signed out.
             val ytPicks = ytQuickPicks?.takeIf { it.isNotEmpty() }
             val localPicks = quickPicks.orEmpty()
-            val useLocalPicks =
-                (quickPicksSource == QuickPicksSource.LIBRARY && localPicks.isNotEmpty()) ||
-                        ytPicks == null
 
             // Skeleton while the answer is still being worked out, including during a pull to
             // refresh, so the row visibly reloads rather than sitting on the previous songs. The
@@ -524,7 +514,7 @@ fun HomeScreen(
                             .animateItem()
                     ) {
                         // Same grid either way. Only which list fills it differs.
-                        if (!useLocalPicks && ytPicks != null) {
+                        if (ytPicks != null) {
                             items(
                                 items = ytPicks,
                                 key = { it.id }

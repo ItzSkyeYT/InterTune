@@ -118,12 +118,9 @@ class HomeViewModel @Inject constructor(
             (quickPicks.value.orEmpty() + forgottenFavorites.value.orEmpty() + keepListening.value.orEmpty())
                 .filter { it is Song || it is Album }
 
-        // Settle the skeleton early only when the local answer is final: the library source with
-        // songs to show needs nothing from the network. With no history it still waits, because
-        // YouTube's shelf is what will fill the row.
-        if (quickPicksSource() != QuickPicksSource.YOUTUBE && !quickPicks.value.isNullOrEmpty()) {
-            quickPicksLoading.value = false
-        }
+        // Nothing remote is going to change the row when the library is the chosen source, so stop
+        // showing a skeleton over an answer that is already final.
+        if (quickPicksSource() != QuickPicksSource.YOUTUBE) quickPicksLoading.value = false
 
         // Your own playlists come first, and are exempt from both gates below.
         //
@@ -258,10 +255,12 @@ class HomeViewModel @Inject constructor(
             .toEnum(QuickPicksSource.YOUTUBE)
 
     private fun takeQuickPicks(page: HomePage): HomePage {
-        // Lifted whichever source is chosen. On the library source it is the fallback the row uses
-        // when there is no listening history to build from yet, which is every fresh install, and
-        // an empty Quick picks row is worse than one filled by YouTube until you have played
-        // something. Lifting it also keeps it from rendering a second time as a feed carousel.
+        // Set to Your library and YouTube's shelf is left exactly where it is, rendering as an
+        // ordinary section of the feed rather than being lifted into the row. The row on that
+        // setting is the app's own recommendations and nothing else, so there is nothing to lift
+        // it for, and taking it out would just lose a section of the feed.
+        if (quickPicksSource() != QuickPicksSource.YOUTUBE) return page
+
         val shelf = page.sections.firstOrNull { section ->
             section.itemsPerColumn != null &&
                     section.items.isNotEmpty() &&
