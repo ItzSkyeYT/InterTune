@@ -37,7 +37,7 @@ import com.dd3boh.outertune.ui.component.SettingsClickToReveal
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalizationFrag
-import com.dd3boh.outertune.ui.screens.settings.fragments.RecommendationsFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.QuickPicksSourceFrag
 import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.utils.rememberPreference
 
@@ -73,7 +73,7 @@ fun LibrarySettings(
         ElevatedCard(
             modifier = Modifier.fillMaxWidth()
         ) {
-            RecommendationsFrag()
+            QuickPicksSourceFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))
 
