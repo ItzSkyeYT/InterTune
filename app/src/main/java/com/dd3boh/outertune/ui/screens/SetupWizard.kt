@@ -122,6 +122,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.LocalPollChecker
@@ -144,6 +145,7 @@ import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.ScanPathsKey
@@ -180,6 +182,14 @@ fun SetupWizard(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+
+    // "I have a backup" used to navigate to a screen that was nothing but these two rows. That
+    // screen is now a group part way down Storage and downloads, so the link landed you on
+    // Downloads with a scroll ahead of you. Restoring is one file picker, so just open it.
+    val backupRestoreViewModel: BackupRestoreViewModel = hiltViewModel()
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) backupRestoreViewModel.restore(uri)
+    }
     val layoutDirection = LocalLayoutDirection.current
     val uriHandler = LocalUriHandler.current
 
@@ -520,7 +530,7 @@ fun SetupWizard(
                                 ) {
                                     TextButton(
                                         onClick = {
-                                            navController.navigate("settings/storage")
+                                            restoreLauncher.launch(arrayOf("application/octet-stream"))
                                         }
                                     ) {
                                         Text(
@@ -545,7 +555,7 @@ fun SetupWizard(
                             // appearance
                             1 -> OobeStep(
                                 icon = Icons.Rounded.DarkMode,
-                                title = stringResource(R.string.grp_interface),
+                                title = stringResource(R.string.look_and_feel),
                                 subtitle = stringResource(R.string.oobe_interface_subtitle),
                             ) {
 

@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -29,10 +28,7 @@ import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.ConfirmationNumber
 import androidx.compose.material.icons.rounded.Coronavirus
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.DeveloperMode
-import androidx.compose.material.icons.rounded.Devices
 import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Queue
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -56,19 +52,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.edit
-import coil3.imageLoader
 import com.dd3boh.outertune.LocalDatabase
-import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioGaplessOffloadKey
 import com.dd3boh.outertune.constants.AudioOffloadKey
-import com.dd3boh.outertune.constants.DevSettingsKey
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.SCANNER_OWNER_LM
 import com.dd3boh.outertune.constants.ScannerImpl
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.ui.component.PreferenceEntry
-import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.settings.SETTINGS_TAG
 import com.dd3boh.outertune.utils.dataStore
@@ -76,7 +68,6 @@ import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
@@ -103,7 +94,6 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
         defaultValue = false
     )
     val (audioOffload, onAudioOffloadChange) = rememberPreference(key = AudioOffloadKey, defaultValue = false)
-    val (oobeStatus, onOobeStatusChange) = rememberPreference(OobeStatusKey, defaultValue = 0)
 
     var nukeEnabled by remember {
         mutableStateOf(false)
@@ -136,7 +126,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
         PreferenceEntry(
             title = { Text("Delete VisitorData: This may (or may not) help resolve \"Sign in to confirm you're not a bot\" issues. Not recommended for logged in users.") },
             onClick = {
-                runBlocking {
+                coroutineScope.launch {
                     context.dataStore.edit { settings ->
                         settings.remove(VisitorDataKey)
                     }
@@ -168,11 +158,12 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
             title = { Text("Enter configurator") },
             icon = { Icon(Icons.Rounded.ConfirmationNumber, null) },
             onClick = {
-                onOobeStatusChange(0)
-                runBlocking { // hax. page loads before pref updates
-                    delay(500)
+                // Was a main-thread runBlocking(delay(500)) waiting for a fire-and-forget write.
+                // Same race the wizard's own exit had; same fix: await the write, then navigate.
+                coroutineScope.launch {
+                    context.dataStore.edit { it[OobeStatusKey] = 0 }
+                    navController.navigate("setup_wizard")
                 }
-                navController.navigate("setup_wizard")
             }
         )
 
