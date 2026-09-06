@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
+import android.os.Build
 import androidx.media3.common.util.NotificationUtil
 import androidx.media3.common.util.Util
 import androidx.media3.exoplayer.offline.Download
@@ -71,9 +72,37 @@ class ExoDownloadService : DownloadService(
                         PendingIntent.FLAG_IMMUTABLE
                     )
                 ).build()
-            ).build()
+            ).let(::asLiveUpdate).build()
         }
 
+    /**
+     * Opts the download notification into Android 16's Live Updates, which is what Samsung's Now
+     * Bar and the status bar chip show.
+     *
+     * Only this notification qualifies. Playback cannot: a media notification is explicitly
+     * excluded from promotion, because it uses its own content view, so "InterTune in the Now Bar
+     * while a song plays" is not something an app can ask for. Downloads are the real fit anyway,
+     * being the thing with a start, an end and a number in between.
+     *
+     * The promotion is requested through the extra rather than setRequestPromotedOngoing, which
+     * needs API 36.1 to compile against while this builds on 36. Setting an extra the platform does
+     * not know is harmless, so no version check is needed for that half.
+     */
+    private fun asLiveUpdate(builder: Notification.Builder): Notification.Builder {
+        builder.extras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true)
+        if (Build.VERSION.SDK_INT >= 36) {
+            // The status bar chip, roughly seven characters. Anything longer is cut without asking.
+            builder.setShortCriticalText(getString(R.string.action_download))
+        }
+        return builder
+    }
+
+
+    /**
+     * `Notification.EXTRA_REQUEST_PROMOTED_ONGOING`, spelled out because the constant needs API
+     * 36.1 to reference and this compiles against 36.
+     */
+    private val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
 
     /**
      * This helper will outlive the lifespan of a single instance of [ExoDownloadService]
