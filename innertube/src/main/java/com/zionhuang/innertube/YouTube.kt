@@ -12,6 +12,7 @@ import com.zionhuang.innertube.models.PlaylistItem
 import com.zionhuang.innertube.models.SearchSuggestions
 import com.zionhuang.innertube.models.YTItem
 import com.zionhuang.innertube.models.SongItem
+import com.zionhuang.innertube.models.Tabs
 import com.zionhuang.innertube.models.WatchEndpoint
 import com.zionhuang.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_ATV
 import com.zionhuang.innertube.models.YouTubeClient
@@ -727,6 +728,24 @@ object YouTube {
         )
     }
 
+    /**
+     * The watch-next tabs used to be exactly [Up next, Lyrics, Related], and the parser read them
+     * by position. YouTube now inserts a Comments tab before Related, so position 2 lands on a tab
+     * with no browse endpoint and every related-songs lookup silently returned nothing. Match the
+     * tab by its browse id prefix instead (MPLY = lyrics, MPTR = related), which is what the ids
+     * have always carried, and only fall back to the old positions when no tab matches.
+     */
+    private fun List<Tabs.Tab>.lyricsEndpoint(): BrowseEndpoint? =
+        tabEndpoint("MPLY", 1)
+
+    private fun List<Tabs.Tab>.relatedEndpoint(): BrowseEndpoint? =
+        tabEndpoint("MPTR", 2)
+
+    private fun List<Tabs.Tab>.tabEndpoint(browseIdPrefix: String, legacyIndex: Int): BrowseEndpoint? =
+        firstNotNullOfOrNull { tab ->
+            tab.tabRenderer.endpoint?.browseEndpoint?.takeIf { it.browseId.startsWith(browseIdPrefix) }
+        } ?: getOrNull(legacyIndex)?.tabRenderer?.endpoint?.browseEndpoint
+
     suspend fun next(endpoint: WatchEndpoint, continuation: String? = null): Result<NextResult> = runCatching {
         val response = innerTube.next(
             WEB_REMIX,
@@ -757,8 +776,8 @@ object YouTube {
                 result.copy(
                     title = title,
                     items = songs + result.items,
-                    lyricsEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs.getOrNull(1)?.tabRenderer?.endpoint?.browseEndpoint,
-                    relatedEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs.getOrNull(2)?.tabRenderer?.endpoint?.browseEndpoint,
+                    lyricsEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs.lyricsEndpoint(),
+                    relatedEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs.relatedEndpoint(),
                     currentIndex = currentIndex,
                     endpoint = watchPlaylistEndpoint
                 )
@@ -768,8 +787,8 @@ object YouTube {
             title = title,
             items = songs,
             currentIndex = currentIndex,
-            lyricsEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs.getOrNull(1)?.tabRenderer?.endpoint?.browseEndpoint,
-            relatedEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs.getOrNull(2)?.tabRenderer?.endpoint?.browseEndpoint,
+            lyricsEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs.lyricsEndpoint(),
+            relatedEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs.relatedEndpoint(),
             continuation = playlistPanelRenderer.continuations?.getContinuation(),
             endpoint = endpoint
         )
