@@ -185,6 +185,22 @@ fun SetupWizard(
 
     var oobeStatus by rememberPreference(OobeStatusKey, defaultValue = 0)
 
+    // Leaving setup writes a preference and then navigates. The setter behind oobeStatus is fire
+    // and forget, so doing both in one breath is a race: MainActivity can re-read the old value
+    // while the write is still in flight and send you straight back into the wizard, which by then
+    // is showing its last page with no navigation bar, because the write has finally landed and
+    // the bar's own gate now fails. You are stuck there until the app is restarted.
+    //
+    // Waiting for the write before navigating removes the window entirely. Same fault, and the
+    // same fix, as the polls opt-in in PollSettings.
+    val finishSetup: () -> Unit = {
+        coroutineScope.launch {
+            context.dataStore.edit { it[OobeStatusKey] = OOBE_VERSION }
+            navController.navigateUp()
+        }
+        Unit
+    }
+
     // content prefs
     var filter by rememberEnumPreference(LibraryFilterKey, LibraryFilter.ALL)
 
@@ -295,8 +311,7 @@ fun SetupWizard(
                     if (!onFinalStep) {
                         oobeStatus += 1
                     } else {
-                        oobeStatus = OOBE_VERSION
-                        navController.navigateUp()
+                        finishSetup()
                     }
 
                     haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
@@ -516,8 +531,7 @@ fun SetupWizard(
 
                                     TextButton(
                                         onClick = {
-                                            oobeStatus = OOBE_VERSION
-                                            navController.navigateUp()
+                                            finishSetup()
                                         }
                                     ) {
                                         Text(
