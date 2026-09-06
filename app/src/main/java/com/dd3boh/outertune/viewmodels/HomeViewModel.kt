@@ -14,8 +14,8 @@ import com.dd3boh.outertune.models.SimilarRecommendation
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.utils.get
-import com.dd3boh.outertune.constants.QuickPicksSourceKey
-import com.dd3boh.outertune.constants.QuickPicksSource
+import com.dd3boh.outertune.constants.RecommendationSourceKey
+import com.dd3boh.outertune.constants.RecommendationSource
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.Throttle
@@ -116,7 +116,7 @@ class HomeViewModel @Inject constructor(
 
         // Nothing remote is going to change the row when the library is the chosen source, so stop
         // showing a skeleton over an answer that is already final.
-        if (quickPicksSource() != QuickPicksSource.YOUTUBE) quickPicksLoading.value = false
+        if (recommendationSource() != RecommendationSource.YOUTUBE) quickPicksLoading.value = false
 
         // Everything above is local and always runs. Everything below is remote, and opening the app
         // fires all of it: an artist lookup per recommendation seed, a related lookup per seed, home,
@@ -139,6 +139,25 @@ class HomeViewModel @Inject constructor(
             }.onFailure {
                 reportException(it)
             }
+        }
+
+        // Your own playlists are fetched above whatever the source, because asking YouTube for the
+        // playlists you made is not a recommendation and hiding them would just be losing your data.
+        //
+        // Everything below this point is YouTube deciding what you should hear: the "Similar to"
+        // rows, its Quick picks shelf, its home carousels and its mood tiles. On the library source
+        // none of it is wanted, so none of it is requested. Clearing the flows rather than leaving
+        // them stale is what actually removes the rows, since every section on the home screen is a
+        // null guard over one of these.
+        if (recommendationSource() != RecommendationSource.YOUTUBE) {
+            similarRecommendations.value = null
+            ytQuickPicks.value = null
+            homePage.value = null
+            explorePage.value = null
+            allYtItems.value = emptyList()
+            quickPicksLoading.value = false
+            isLoading.value = false
+            return
         }
 
         // Similar to artists
@@ -231,14 +250,14 @@ class HomeViewModel @Inject constructor(
      * Found by shape rather than by name: the one carousel that is a list of songs. Its title is
      * localised, so matching the words "Quick picks" would find nothing outside English.
      */
-    private fun quickPicksSource(): QuickPicksSource =
-        context.dataStore.get(QuickPicksSourceKey, QuickPicksSource.YOUTUBE.name)
-            .toEnum(QuickPicksSource.YOUTUBE)
+    private fun recommendationSource(): RecommendationSource =
+        context.dataStore.get(RecommendationSourceKey, RecommendationSource.YOUTUBE.name)
+            .toEnum(RecommendationSource.YOUTUBE)
 
     private fun takeQuickPicks(page: HomePage): HomePage {
         // Set to Your library and YouTube's shelf is left where it is, rendering as an ordinary
         // section of the feed rather than being lifted into the row.
-        if (quickPicksSource() != QuickPicksSource.YOUTUBE) return page
+        if (recommendationSource() != RecommendationSource.YOUTUBE) return page
 
         val shelf = page.sections.firstOrNull { section ->
             section.itemsPerColumn != null &&
@@ -317,7 +336,7 @@ class HomeViewModel @Inject constructor(
         // flow replays its current value the moment it is collected.
         viewModelScope.launch {
             context.dataStore.data
-                .map { it[InnerTubeCookieKey].orEmpty() to it[QuickPicksSourceKey].orEmpty() }
+                .map { it[InnerTubeCookieKey].orEmpty() to it[RecommendationSourceKey].orEmpty() }
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { refresh(force = true) }

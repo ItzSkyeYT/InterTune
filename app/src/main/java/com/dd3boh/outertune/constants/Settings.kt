@@ -17,12 +17,23 @@ enum class PlayerBackgroundStyle {
 }
 
 /**
- * Where the Quick picks row gets its songs.
+ * Who chooses what the home screen suggests.
  *
- * YOUTUBE falls back to LIBRARY on its own whenever YouTube sends no such shelf, which is every
- * signed-out session, so it is safe as the default.
+ * YOUTUBE is the whole of YouTube Music's own home feed: its Quick picks shelf, its carousels, its
+ * mood tiles, and the "Similar to" rows built by asking YouTube about artists and songs you play.
+ *
+ * LIBRARY drops all of that and builds the page out of the local database instead: Quick picks from
+ * the related-songs table, plus Forgotten favourites and Keep listening, which are yours either way.
+ *
+ * Note that LIBRARY is not an offline mode and not an independent recommender. The related-songs
+ * table it draws on is filled by MusicService asking YouTube for related songs while you play, so
+ * it is a cache of YouTube's own graph, shaped by your history rather than by your account. Playing
+ * anything from it still starts a YouTube radio.
+ *
+ * YOUTUBE is the default, and falls back to the library row on its own whenever YouTube sends no
+ * Quick picks shelf, which is every signed-out session.
  */
-enum class QuickPicksSource {
+enum class RecommendationSource {
     YOUTUBE, LIBRARY
 }
 

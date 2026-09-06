@@ -46,7 +46,9 @@ val ProxyUrlKey = stringPreferencesKey("proxyUrl")
 val ProxyTypeKey = stringPreferencesKey("proxyType")
 
 // sync time tracks
-val QuickPicksSourceKey = stringPreferencesKey("quickPicksSource")
+// Stored name kept from when this only governed the Quick picks row, so that widening it to
+// the whole home screen does not silently reset the choice of anyone already on "Your library".
+val RecommendationSourceKey = stringPreferencesKey("quickPicksSource")
 val LastFullSyncKey = longPreferencesKey("lastFullSync")
 val LastLikeSongSyncKey = longPreferencesKey("lastLikeSongSync")
 val LastLibSongSyncKey = longPreferencesKey("lastLibSongSync")
