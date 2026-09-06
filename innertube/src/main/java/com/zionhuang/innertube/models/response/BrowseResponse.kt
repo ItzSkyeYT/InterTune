@@ -63,8 +63,11 @@ data class BrowseResponse(
 
         @Serializable
         data class GridContinuation(
-            val items: List<GridRenderer.Item>,
-            val continuations: List<Continuation>?,
+            // Defaulted, not required. YouTube sends a gridContinuation with no items at all on the
+            // last page of a paginated grid, and a required field turned that into a
+            // MissingFieldException that took the whole library fetch down with it.
+            val items: List<GridRenderer.Item> = emptyList(),
+            val continuations: List<Continuation>? = null,
         )
     }
 

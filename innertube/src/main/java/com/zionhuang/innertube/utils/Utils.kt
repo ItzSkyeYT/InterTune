@@ -29,7 +29,10 @@ suspend fun Result<LibraryPage>.completed(): Result<LibraryPage> = runCatching {
     val items = page.items.toMutableList()
     var continuation = page.continuation
     while (continuation != null) {
-        val continuationPage = YouTube.libraryContinuation(continuation).getOrThrow()
+        // Keep what we have rather than losing it. getOrThrow here meant one failed continuation
+        // threw away every item already parsed from the first page, so a partial success became a
+        // completely missing row.
+        val continuationPage = YouTube.libraryContinuation(continuation).getOrNull() ?: break
         items += continuationPage.items
         continuation = continuationPage.continuation
     }
