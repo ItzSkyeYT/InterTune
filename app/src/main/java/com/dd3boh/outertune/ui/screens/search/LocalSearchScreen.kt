@@ -50,6 +50,7 @@ import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
+import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.ChipsRow
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
@@ -183,16 +184,31 @@ fun LocalSearchScreen(
 
                                 thumbnailSize = thumbnailSize,
                                 onPlay = {
-                                    val songs = result.map
-                                        .getOrDefault(LocalFilter.SONG, emptyList())
-                                        .filterIsInstance<Song>()
-                                        .map { it.toMediaMetadata() }
-                                    playerConnection.playQueue(
-                                        ListQueue(
-                                            title = "${context.getString(R.string.queue_searched_songs_ot)} $query",
-                                            items = songs,
-                                            startIndex = songs.indexOfFirst { it.id == item.id }
-                                        ))
+                                    // Play the song that was tapped, not the search.
+                                    //
+                                    // Queueing every other result behind it is what online search
+                                    // did until 4 Sep, and it is the one behaviour nobody asks
+                                    // for: search "3am", tap one, get nineteen unrelated songs
+                                    // called "3am" queued after it.
+                                    //
+                                    // Online search continues into a radio. That needs a YouTube
+                                    // id, which a local file does not have, so a song that lives
+                                    // only on the device plays on its own and stops. Anything with
+                                    // a YouTube id gets the same radio as everywhere else.
+                                    val metadata = item.toMediaMetadata()
+                                    if (metadata.isLocal) {
+                                        playerConnection.playQueue(
+                                            ListQueue(
+                                                title = metadata.title,
+                                                items = listOf(metadata),
+                                            )
+                                        )
+                                    } else {
+                                        playerConnection.playQueue(
+                                            YouTubeQueue.radio(metadata),
+                                            isRadio = true,
+                                        )
+                                    }
                                 },
                                 modifier = Modifier.animateItem()
                             )
