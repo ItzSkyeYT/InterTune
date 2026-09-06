@@ -122,4 +122,5 @@
     <string name="enable_dynamic_theme_description">Take the app\'s colours from your wallpaper.</string>
     <string name="pure_black_description">Use true black instead of dark grey. On an OLED screen this also saves a little battery.</string>
     <string name="min_playback_duration_short">How much of a song has to play before it counts as a play.</string>
+    <string name="home_library_source_empty">Nothing to show yet. The home screen is set to build itself from what you play, so play a few songs and it will fill up. To have YouTube Music suggest things instead, change Recommendations in Settings, under Library and content.</string>
 </resources>

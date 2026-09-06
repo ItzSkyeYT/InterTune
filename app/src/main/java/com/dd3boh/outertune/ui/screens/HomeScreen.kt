@@ -589,18 +589,24 @@ fun HomeScreen(
 
             // On the library source there is no YouTube feed underneath to carry the page, so
             // somebody who has not played anything yet gets nothing but the navigation tiles and
-            // no idea why. Say what fills it. The string has shipped and been translated into 43
-            // languages since upstream, and until now was rendered nowhere.
+            // no idea why. Say what fills it, and how to change it.
+            //
+            // Every row this page can hold has to be empty, accountPlaylists included, or this
+            // draws a centred "nothing here" directly above a populated list of your playlists.
+            // isLoading too, because quickPicksLoading starts false, so without it the placeholder
+            // flashes on every entry to Home before the first load has finished.
             if (recommendationSource == RecommendationSource.LIBRARY &&
+                !isLoading &&
                 !quickPicksLoading &&
                 localPicks.isEmpty() &&
                 forgottenFavorites.isNullOrEmpty() &&
-                keepListening.isNullOrEmpty()
+                keepListening.isNullOrEmpty() &&
+                accountPlaylists.isNullOrEmpty()
             ) {
-                item {
+                item(key = "library_source_empty") {
                     EmptyPlaceholder(
                         icon = Icons.Rounded.MusicNote,
-                        text = stringResource(R.string.quick_picks_empty),
+                        text = stringResource(R.string.home_library_source_empty),
                         modifier = Modifier.animateItem()
                     )
                 }

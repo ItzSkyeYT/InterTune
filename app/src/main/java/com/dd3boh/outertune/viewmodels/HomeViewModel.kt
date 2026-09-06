@@ -77,6 +77,10 @@ class HomeViewModel @Inject constructor(
     val accountPlaylists = MutableStateFlow<List<PlaylistItem>?>(null)
     val homePage = MutableStateFlow<HomePage?>(null)
     val selectedChip = MutableStateFlow<HomePage.Chip?>(null)
+
+    // A reload asked for while one was already running, and whether it asked to bypass the back-off.
+    private var pendingRefresh = false
+    private var pendingRefreshForce = false
     private val previousHomePage = MutableStateFlow<HomePage?>(null)
     val explorePage = MutableStateFlow<ExplorePage?>(null)
     val playlists = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true)
@@ -118,43 +122,58 @@ class HomeViewModel @Inject constructor(
         // showing a skeleton over an answer that is already final.
         if (recommendationSource() != RecommendationSource.YOUTUBE) quickPicksLoading.value = false
 
-        // Everything above is local and always runs. Everything below is remote, and opening the app
-        // fires all of it: an artist lookup per recommendation seed, a related lookup per seed, home,
-        // explore and a recent-activity sync. While YouTube is refusing this network that is a pile
-        // of requests that cannot succeed and that make the refusal last longer. Pulling to refresh
-        // passes force and still tries, because the user asked for it and one request doubles as the
-        // probe that clears the block.
-        if (!force && Throttle.isBlocked) {
-            Log.d("HomeViewModel", "Skipping remote home load, backing off")
-            quickPicksLoading.value = false
-            isLoading.value = false
-            return
-        }
-
-        if (YouTube.cookie != null) { // if logged in
-            // InnerTune way is YouTube.likedPlaylists().onSuccess { ... }
-            // OuterTune uses YouTube.library("FEmusic_liked_playlists").completedL().onSuccess { ... }
+        // Your own playlists come first, and are exempt from both gates below.
+        //
+        // Asking YouTube for the playlists you made is not a recommendation, so the source does not
+        // govern it. It is also not the kind of request the back-off is protecting you from: the
+        // back-off exists to stop a pile of recommendation lookups hammering a network that is
+        // already refusing us, and this is one request for your own data. It used to sit below the
+        // back-off guard, which meant a back-off silently cost you your own playlists too.
+        //
+        // Assigned on every path, including failure and signed out, because leaving the previous
+        // value in place shows a signed-out user the last account's playlists.
+        if (YouTube.cookie != null) {
             YouTube.library("FEmusic_liked_playlists").completed().onSuccess {
                 accountPlaylists.value = it.items.filterIsInstance<PlaylistItem>()
             }.onFailure {
+                accountPlaylists.value = null
                 reportException(it)
             }
+        } else {
+            accountPlaylists.value = null
         }
 
-        // Your own playlists are fetched above whatever the source, because asking YouTube for the
-        // playlists you made is not a recommendation and hiding them would just be losing your data.
+        // Everything below is YouTube deciding what you should hear: the "Similar to" rows, its
+        // Quick picks shelf, its home carousels and its mood tiles. On the library source none of it
+        // is wanted, so none of it is requested. Clearing the flows rather than leaving them stale
+        // is what actually removes the rows, since every section on the home screen is a null guard
+        // over one of these.
         //
-        // Everything below this point is YouTube deciding what you should hear: the "Similar to"
-        // rows, its Quick picks shelf, its home carousels and its mood tiles. On the library source
-        // none of it is wanted, so none of it is requested. Clearing the flows rather than leaving
-        // them stale is what actually removes the rows, since every section on the home screen is a
-        // null guard over one of these.
+        // selectedChip and previousHomePage go too. A chip is a filter over a feed that no longer
+        // exists, and previousHomePage is what the chip row restores on deselect, so leaving either
+        // set meant tapping Back could put the cleared feed straight back on screen.
         if (recommendationSource() != RecommendationSource.YOUTUBE) {
             similarRecommendations.value = null
             ytQuickPicks.value = null
             homePage.value = null
             explorePage.value = null
+            previousHomePage.value = null
+            selectedChip.value = null
             allYtItems.value = emptyList()
+            quickPicksLoading.value = false
+            // Recent activity is your own listening, not a recommendation, so it syncs either way.
+            syncUtils.syncRecentActivity()
+            isLoading.value = false
+            return
+        }
+
+        // Everything below here is remote recommendation work, and opening the app fires all of it:
+        // an artist lookup per seed, a related lookup per seed, home, and explore. While YouTube is
+        // refusing this network that is a pile of requests that cannot succeed and that make the
+        // refusal last longer. Pulling to refresh passes force and still tries, because the user
+        // asked for it and one request doubles as the probe that clears the block.
+        if (!force && Throttle.isBlocked) {
+            Log.d("HomeViewModel", "Skipping remote home load, backing off")
             quickPicksLoading.value = false
             isLoading.value = false
             return
@@ -310,12 +329,38 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Reloads the page.
+     *
+     * The old guard was `if (isRefreshing.value) return`, which threw the request away whenever a
+     * load happened to be in flight. That is fine for a second pull on the refresh indicator and
+     * wrong for everything else: the sign-in watcher below is the only thing that reloads when a
+     * cookie appears, its upstream is distinctUntilChanged, so a dropped emission never comes back
+     * and the page stays signed out for the life of the view model.
+     *
+     * So a dropped request is remembered instead, and the running load repeats when it finishes.
+     * The try/finally matters too: without it a thrown load latched isRefreshing true and disabled
+     * both this watcher and pull to refresh permanently.
+     */
     fun refresh(force: Boolean = false) {
-        if (isRefreshing.value) return
+        if (isRefreshing.value) {
+            pendingRefresh = true
+            pendingRefreshForce = pendingRefreshForce || force
+            return
+        }
         viewModelScope.launch(syncCoroutine) {
             isRefreshing.value = true
-            load(force)
-            isRefreshing.value = false
+            try {
+                var nextForce = force
+                do {
+                    pendingRefresh = false
+                    load(nextForce)
+                    nextForce = pendingRefreshForce
+                    pendingRefreshForce = false
+                } while (pendingRefresh)
+            } finally {
+                isRefreshing.value = false
+            }
         }
     }
 
