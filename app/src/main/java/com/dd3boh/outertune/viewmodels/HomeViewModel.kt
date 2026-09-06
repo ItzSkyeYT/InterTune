@@ -93,7 +93,17 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun load(force: Boolean) {
         isLoading.value = true
-        quickPicksLoading.value = true
+        // Only the YouTube source has anything to wait for. On the library source the row is a
+        // Room query, so a shimmer would flash over an answer that is already in hand, which is
+        // also a thing v0.10.5 never did.
+        quickPicksLoading.value = quickPicksSource() == QuickPicksSource.YOUTUBE
+
+        // Cleared here, at the top, rather than deep in the remote half below. It used to be
+        // cleared just before the home() call, which is after the account playlists request and up
+        // to seven recommendation round trips. Switching from YouTube to Your library therefore
+        // left YouTube's shelf sitting in the row, under the Quick picks heading, for as long as
+        // all that took. The screen has no way to know better: it draws whatever this flow holds.
+        ytQuickPicks.value = null
 
         // The query already ranks by how many of your seed songs point at each result, strongest
         // first. Shuffling all 100 of them threw that away and gave the 100th the same odds as the
@@ -118,10 +128,6 @@ class HomeViewModel @Inject constructor(
             (quickPicks.value.orEmpty() + forgottenFavorites.value.orEmpty() + keepListening.value.orEmpty())
                 .filter { it is Song || it is Album }
 
-        // Nothing remote is going to change the row when the library is the chosen source, so stop
-        // showing a skeleton over an answer that is already final.
-        if (quickPicksSource() != QuickPicksSource.YOUTUBE) quickPicksLoading.value = false
-
         // Your own playlists come first, and are exempt from both gates below.
         //
         // Asking YouTube for the playlists you made is not a recommendation, so the source does not
@@ -136,7 +142,8 @@ class HomeViewModel @Inject constructor(
             YouTube.library("FEmusic_liked_playlists").completed().onSuccess {
                 accountPlaylists.value = it.items.filterIsInstance<PlaylistItem>()
             }.onFailure {
-                accountPlaylists.value = null
+                // Left as it was. A transient failure blanking your playlists is worse than
+                // briefly showing the previous list, and this runs on every home load.
                 reportException(it)
             }
         } else {
@@ -199,7 +206,6 @@ class HomeViewModel @Inject constructor(
                 }
         similarRecommendations.value = (artistRecommendations + songRecommendations).shuffled()
 
-        ytQuickPicks.value = null
         YouTube.home().onSuccess { page ->
             var merged = takeQuickPicks(page)
 
@@ -210,7 +216,7 @@ class HomeViewModel @Inject constructor(
             //
             // One extra request per home load, which is affordable now that the sync cooldown no
             // longer runs a full library sync on every app open.
-            if (ytQuickPicks.value == null) {
+            if (ytQuickPicks.value == null && quickPicksSource() == QuickPicksSource.YOUTUBE) {
                 merged.continuation?.let { next ->
                     YouTube.home(next).getOrNull()?.let { page2 ->
                         val cleaned = takeQuickPicks(page2)
