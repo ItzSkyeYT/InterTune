@@ -534,7 +534,7 @@ object YouTube {
 
         val tabs = response.contents?.singleColumnBrowseResultsRenderer?.tabs
 
-        val contents = if (tabs != null && tabs.size >= tabIndex) {
+        val contents = if (tabs != null && tabIndex in tabs.indices) {
             tabs[tabIndex].tabRenderer.content?.sectionListRenderer?.contents?.firstOrNull()
         }
         else {
@@ -552,11 +552,13 @@ object YouTube {
             }
 
             else -> { // contents?.musicShelfRenderer != null
+                // Was `!!`, which made "a shape we did not expect" indistinguishable from a crash.
+                // An empty page is the honest answer and lets the caller carry on.
                 LibraryPage(
-                    items = contents?.musicShelfRenderer?.contents!!
+                    items = contents?.musicShelfRenderer?.contents.orEmpty()
                         .mapNotNull (MusicShelfRenderer.Content::musicResponsiveListItemRenderer)
                         .mapNotNull { LibraryPage.fromMusicResponsiveListItemRenderer(it) },
-                    continuation = contents.musicShelfRenderer.continuations?.getContinuation()
+                    continuation = contents?.musicShelfRenderer?.continuations?.getContinuation()
                 )
             }
         }
@@ -583,10 +585,10 @@ object YouTube {
 
             else -> { // contents?.musicShelfContinuation != null
                 LibraryContinuationPage(
-                    items = contents?.musicShelfContinuation?.contents!!
+                    items = contents?.musicShelfContinuation?.contents.orEmpty()
                         .mapNotNull (MusicShelfRenderer.Content::musicResponsiveListItemRenderer)
                         .mapNotNull { LibraryPage.fromMusicResponsiveListItemRenderer(it) },
-                    continuation = contents.musicShelfContinuation.continuations?.getContinuation()
+                    continuation = contents?.musicShelfContinuation?.continuations?.getContinuation()
                 )
             }
         }
