@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator
 import androidx.compose.material3.pulltorefresh.pullToRefresh
@@ -53,6 +55,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -506,7 +509,11 @@ fun HomeScreen(
                         }
                     }
                 }
-            } else if (ytPicks != null || localPicks.isNotEmpty()) {
+            } else {
+                // The heading is unconditional. Both sources put Quick picks at the top of Home;
+                // all that differs is where its songs come from. Dropping the whole block when the
+                // chosen source has nothing to show made the row look like it had been taken away,
+                // when the truth is just that it has not been filled yet.
                 item {
                     NavigationTitle(
                         title = stringResource(R.string.quick_picks),
@@ -514,81 +521,105 @@ fun HomeScreen(
                     )
                 }
 
-                item {
-                    LazyHorizontalGrid(
-                        state = quickPicksLazyGridState,
-                        rows = GridCells.Fixed(4),
-                        flingBehavior = rememberSnapFlingBehavior(quickPicksSnapLayoutInfoProvider),
-                        contentPadding = WindowInsets.systemBars
-                            .only(WindowInsetsSides.Horizontal)
-                            .asPaddingValues(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(ListItemHeight * 4)
-                            .animateItem()
-                    ) {
-                        // Same grid either way. Only which list fills it differs.
-                        if (ytPicks != null) {
-                            items(
-                                items = ytPicks,
-                                key = { it.id }
-                            ) { song ->
-                                YouTubeListItem(
-                                    item = song,
-                                    isActive = song.id == mediaMetadata?.id,
-                                    isPlaying = isPlaying,
-                                    modifier = Modifier
-                                        .width(horizontalLazyGridItemWidth)
-                                        .combinedClickable(
-                                            onClick = {
-                                                if (song.id == mediaMetadata?.id) {
-                                                    playerConnection.player.togglePlayPause()
-                                                } else {
-                                                    playerConnection.playQueue(
-                                                        YouTubeQueue.radio(song.toMediaMetadata()),
-                                                        isRadio = true
-                                                    )
+                if (ytPicks != null || localPicks.isNotEmpty()) {
+                    item {
+                        LazyHorizontalGrid(
+                            state = quickPicksLazyGridState,
+                            rows = GridCells.Fixed(4),
+                            flingBehavior = rememberSnapFlingBehavior(quickPicksSnapLayoutInfoProvider),
+                            contentPadding = WindowInsets.systemBars
+                                .only(WindowInsetsSides.Horizontal)
+                                .asPaddingValues(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(ListItemHeight * 4)
+                                .animateItem()
+                        ) {
+                            // Same grid either way. Only which list fills it differs.
+                            if (ytPicks != null) {
+                                items(
+                                    items = ytPicks,
+                                    key = { it.id }
+                                ) { song ->
+                                    YouTubeListItem(
+                                        item = song,
+                                        isActive = song.id == mediaMetadata?.id,
+                                        isPlaying = isPlaying,
+                                        modifier = Modifier
+                                            .width(horizontalLazyGridItemWidth)
+                                            .combinedClickable(
+                                                onClick = {
+                                                    if (song.id == mediaMetadata?.id) {
+                                                        playerConnection.player.togglePlayPause()
+                                                    } else {
+                                                        playerConnection.playQueue(
+                                                            YouTubeQueue.radio(song.toMediaMetadata()),
+                                                            isRadio = true
+                                                        )
+                                                    }
+                                                },
+                                                onLongClick = {
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    menuState.show {
+                                                        YouTubeSongMenu(
+                                                            song = song,
+                                                            navController = navController,
+                                                            onDismiss = menuState::dismiss
+                                                        )
+                                                    }
                                                 }
-                                            },
-                                            onLongClick = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                menuState.show {
-                                                    YouTubeSongMenu(
-                                                        song = song,
-                                                        navController = navController,
-                                                        onDismiss = menuState::dismiss
-                                                    )
-                                                }
-                                            }
-                                        )
-                                )
-                            }
-                        } else {
-                            items(
-                                items = localPicks,
-                                key = { it.id }
-                            ) { originalSong ->
-                                SongListItem(
-                                    song = originalSong,
-                                    navController = navController,
+                                            )
+                                    )
+                                }
+                            } else {
+                                items(
+                                    items = localPicks,
+                                    key = { it.id }
+                                ) { originalSong ->
+                                    SongListItem(
+                                        song = originalSong,
+                                        navController = navController,
 
-                                    isActive = originalSong.id == mediaMetadata?.id,
-                                    isPlaying = isPlaying,
-                                    inSelectMode = null,
-                                    isSelected = false,
-                                    onSelectedChange = {},
-                                    swipeEnabled = false,
+                                        isActive = originalSong.id == mediaMetadata?.id,
+                                        isPlaying = isPlaying,
+                                        inSelectMode = null,
+                                        isSelected = false,
+                                        onSelectedChange = {},
+                                        swipeEnabled = false,
 
-                                    thumbnailSize = listThumbnailSize,
-                                    onPlay = {
-                                        playerConnection.playQueue(
-                                            YouTubeQueue.radio(originalSong.toMediaMetadata()),
-                                            isRadio = true
-                                        )
-                                    },
-                                    modifier = Modifier.width(horizontalLazyGridItemWidth)
-                                )
+                                        thumbnailSize = listThumbnailSize,
+                                        onPlay = {
+                                            playerConnection.playQueue(
+                                                YouTubeQueue.radio(originalSong.toMediaMetadata()),
+                                                isRadio = true
+                                            )
+                                        },
+                                        modifier = Modifier.width(horizontalLazyGridItemWidth)
+                                    )
+                                }
                             }
+                        }
+                    }
+            
+                } else {
+                    // Nothing to show yet. On Your library that means nothing has been played for
+                    // the recommendations to be built from, which is what this string has said
+                    // since upstream wrote it, in 43 languages, without ever being rendered.
+                    item {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(ListItemHeight * 2)
+                                .animateItem()
+                        ) {
+                            Text(
+                                text = stringResource(R.string.quick_picks_empty),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(horizontal = 32.dp)
+                            )
                         }
                     }
                 }
