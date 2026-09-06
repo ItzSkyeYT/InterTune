@@ -8,7 +8,6 @@ import androidx.compose.material.icons.rounded.ClearAll
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Icon
@@ -37,7 +36,6 @@ import com.dd3boh.outertune.constants.SeekIncrementKey
 import com.dd3boh.outertune.constants.SkipOnErrorKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
-import com.dd3boh.outertune.constants.minPlaybackDurKey
 import com.dd3boh.outertune.constants.SleepTimerDefaults
 import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
 import com.dd3boh.outertune.constants.SleepTimerFadeKey
