@@ -83,6 +83,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -91,6 +92,7 @@ import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -224,22 +226,37 @@ fun SetupWizard(
     }
 
     val navBar = @Composable {
-        // Back and progress only. Forward is the floating button, on every page, so there is one
-        // shape for "continue" the whole way through instead of a round button on the first page
-        // and a word in a bar on the rest.
+        val onFinalStep = oobeStatus == OOBE_VERSION - 1
+        val canGoBack = oobeStatus > 0
+
+        // Back, progress, forward: one row, one centre line, the two buttons the same shape at
+        // either end of the content column rather than at the screen's edges.
+        //
+        // Back used to be a bare icon and forward a floating button in the corner, which made the
+        // two halves of the same decision look like different kinds of control. They are now the
+        // same button mirrored, so the pair reads as one thing.
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 4.dp, end = 20.dp, top = 8.dp, bottom = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
-            IconButton(
+            // Present but dead on the welcome page. There is nowhere back to from the first step,
+            // and removing it there would leave the row lopsided on exactly the screen that sets
+            // the first impression.
+            FloatingActionButton(
                 onClick = {
-                    if (oobeStatus > 0) {
+                    if (canGoBack) {
                         oobeStatus -= 1
+                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                     }
-                    haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                }
+                },
+                containerColor = if (canGoBack) FloatingActionButtonDefaults.containerColor
+                else MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation),
+                contentColor = if (canGoBack) contentColorFor(FloatingActionButtonDefaults.containerColor)
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+                elevation = if (canGoBack) FloatingActionButtonDefaults.elevation()
+                else FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -262,9 +279,37 @@ fun SetupWizard(
                 drawStopIndicator = {},
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 8.dp)
+                    .padding(horizontal = 20.dp)
                     .height(4.dp),
             )
+
+            FloatingActionButton(
+                onClick = {
+                    if (oobeStatus == 1) {
+                        filter = LibraryFilter.ALL // hax
+                    }
+
+                    // Never leave oobeStatus at OOBE_VERSION without popping. That value fails the
+                    // bar's gate, while AnimatedContent coerces the step and keeps painting the
+                    // exit page, so the user would be looking at a page with no control on it.
+                    if (!onFinalStep) {
+                        oobeStatus += 1
+                    } else {
+                        oobeStatus = OOBE_VERSION
+                        navController.navigateUp()
+                    }
+
+                    haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                }
+            ) {
+                Icon(
+                    imageVector = if (onFinalStep) Icons.Rounded.Check
+                    else Icons.AutoMirrored.Rounded.ArrowForward,
+                    contentDescription = stringResource(
+                        if (onFinalStep) R.string.action_done else R.string.action_next
+                    ),
+                )
+            }
         }
     }
 
@@ -272,7 +317,7 @@ fun SetupWizard(
         bottomBar = {
             // Through to the exit page, so there is always a way back. Still excludes step 0, where
             // the BackHandler deliberately refuses to go lower and a Back control would be dead.
-            if (oobeStatus > 0 && oobeStatus < OOBE_VERSION) {
+            if (oobeStatus < OOBE_VERSION) {
                 Box(
                     Modifier
                         .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom))
@@ -836,42 +881,6 @@ fun SetupWizard(
                 }
             }
 
-            // Every page, not just the welcome one. It was the only round button in the flow and
-            // the rest used a word in a bar, so "continue" changed shape halfway through setup.
-            // On the last page it becomes a tick and finishes.
-            if (oobeStatus < OOBE_VERSION) {
-                val onFinalStep = oobeStatus == OOBE_VERSION - 1
-                FloatingActionButton(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .align(Alignment.BottomEnd),
-                    onClick = {
-                        if (oobeStatus == 1) {
-                            filter = LibraryFilter.ALL // hax
-                        }
-
-                        // Never leave oobeStatus at OOBE_VERSION without popping. That value fails
-                        // the bar's gate, while AnimatedContent coerces the step and keeps painting
-                        // the exit page, so the user would be looking at a page with no control.
-                        if (!onFinalStep) {
-                            oobeStatus += 1
-                        } else {
-                            oobeStatus = OOBE_VERSION
-                            navController.navigateUp()
-                        }
-
-                        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                    }
-                ) {
-                    Icon(
-                        imageVector = if (onFinalStep) Icons.Rounded.Check
-                        else Icons.AutoMirrored.Rounded.ArrowForward,
-                        contentDescription = stringResource(
-                            if (onFinalStep) R.string.action_done else R.string.action_next
-                        ),
-                    )
-                }
-            }
         }
     }
 }
