@@ -27,8 +27,8 @@ import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.PauseSearchHistoryKey
 import com.dd3boh.outertune.constants.minPlaybackDurKey
-import com.dd3boh.outertune.constants.RecommendationSource
-import com.dd3boh.outertune.constants.RecommendationSourceKey
+import com.dd3boh.outertune.constants.QuickPicksSource
+import com.dd3boh.outertune.constants.QuickPicksSourceKey
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -227,21 +227,21 @@ fun ColumnScope.SearchHistoryFrag() {
  * it belongs with the rest of the content settings.
  */
 @Composable
-fun ColumnScope.RecommendationsFrag() {
-    val (recommendationSource, onRecommendationSourceChange) =
-        rememberEnumPreference(RecommendationSourceKey, defaultValue = RecommendationSource.YOUTUBE)
+fun ColumnScope.QuickPicksSourceFrag() {
+    val (quickPicksSource, onQuickPicksSourceChange) =
+        rememberEnumPreference(QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE)
 
     EnumListPreference(
-        title = { Text(stringResource(R.string.recommendation_source)) },
+        title = { Text(stringResource(R.string.quick_picks_source)) },
         icon = { Icon(Icons.Rounded.AutoAwesome, null) },
-        selectedValue = recommendationSource,
-        onValueSelected = onRecommendationSourceChange,
+        selectedValue = quickPicksSource,
+        onValueSelected = onQuickPicksSourceChange,
         valueText = {
             when (it) {
-                RecommendationSource.YOUTUBE -> stringResource(R.string.recommendation_source_youtube)
-                RecommendationSource.LIBRARY -> stringResource(R.string.recommendation_source_library)
+                QuickPicksSource.YOUTUBE -> stringResource(R.string.quick_picks_source_youtube)
+                QuickPicksSource.LIBRARY -> stringResource(R.string.quick_picks_source_library)
             }
         }
     )
-    InfoLabel(stringResource(R.string.recommendation_source_description))
+    InfoLabel(stringResource(R.string.quick_picks_source_description))
 }

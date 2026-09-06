@@ -14,8 +14,8 @@ import com.dd3boh.outertune.models.SimilarRecommendation
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.utils.get
-import com.dd3boh.outertune.constants.RecommendationSourceKey
-import com.dd3boh.outertune.constants.RecommendationSource
+import com.dd3boh.outertune.constants.QuickPicksSourceKey
+import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.Throttle
@@ -118,9 +118,12 @@ class HomeViewModel @Inject constructor(
             (quickPicks.value.orEmpty() + forgottenFavorites.value.orEmpty() + keepListening.value.orEmpty())
                 .filter { it is Song || it is Album }
 
-        // Nothing remote is going to change the row when the library is the chosen source, so stop
-        // showing a skeleton over an answer that is already final.
-        if (recommendationSource() != RecommendationSource.YOUTUBE) quickPicksLoading.value = false
+        // Settle the skeleton early only when the local answer is final: the library source with
+        // songs to show needs nothing from the network. With no history it still waits, because
+        // YouTube's shelf is what will fill the row.
+        if (quickPicksSource() != QuickPicksSource.YOUTUBE && !quickPicks.value.isNullOrEmpty()) {
+            quickPicksLoading.value = false
+        }
 
         // Your own playlists come first, and are exempt from both gates below.
         //
@@ -143,29 +146,10 @@ class HomeViewModel @Inject constructor(
             accountPlaylists.value = null
         }
 
-        // Everything below is YouTube deciding what you should hear: the "Similar to" rows, its
-        // Quick picks shelf, its home carousels and its mood tiles. On the library source none of it
-        // is wanted, so none of it is requested. Clearing the flows rather than leaving them stale
-        // is what actually removes the rows, since every section on the home screen is a null guard
-        // over one of these.
-        //
-        // selectedChip and previousHomePage go too. A chip is a filter over a feed that no longer
-        // exists, and previousHomePage is what the chip row restores on deselect, so leaving either
-        // set meant tapping Back could put the cleared feed straight back on screen.
-        if (recommendationSource() != RecommendationSource.YOUTUBE) {
-            similarRecommendations.value = null
-            ytQuickPicks.value = null
-            homePage.value = null
-            explorePage.value = null
-            previousHomePage.value = null
-            selectedChip.value = null
-            allYtItems.value = emptyList()
-            quickPicksLoading.value = false
-            // Recent activity is your own listening, not a recommendation, so it syncs either way.
-            syncUtils.syncRecentActivity()
-            isLoading.value = false
-            return
-        }
+        // The Quick picks source governs the Quick picks row and nothing else. It briefly governed
+        // the whole page, hiding YouTube's carousels, its "Similar to" rows and its mood tiles when
+        // the library was chosen, and that was wrong: choosing where one row's songs come from is
+        // not a request to empty the home screen. See takeQuickPicks, which is the whole of it.
 
         // Everything below here is remote recommendation work, and opening the app fires all of it:
         // an artist lookup per seed, a related lookup per seed, home, and explore. While YouTube is
@@ -269,15 +253,15 @@ class HomeViewModel @Inject constructor(
      * Found by shape rather than by name: the one carousel that is a list of songs. Its title is
      * localised, so matching the words "Quick picks" would find nothing outside English.
      */
-    private fun recommendationSource(): RecommendationSource =
-        context.dataStore.get(RecommendationSourceKey, RecommendationSource.YOUTUBE.name)
-            .toEnum(RecommendationSource.YOUTUBE)
+    private fun quickPicksSource(): QuickPicksSource =
+        context.dataStore.get(QuickPicksSourceKey, QuickPicksSource.YOUTUBE.name)
+            .toEnum(QuickPicksSource.YOUTUBE)
 
     private fun takeQuickPicks(page: HomePage): HomePage {
-        // Set to Your library and YouTube's shelf is left where it is, rendering as an ordinary
-        // section of the feed rather than being lifted into the row.
-        if (recommendationSource() != RecommendationSource.YOUTUBE) return page
-
+        // Lifted whichever source is chosen. On the library source it is the fallback the row uses
+        // when there is no listening history to build from yet, which is every fresh install, and
+        // an empty Quick picks row is worse than one filled by YouTube until you have played
+        // something. Lifting it also keeps it from rendering a second time as a feed carousel.
         val shelf = page.sections.firstOrNull { section ->
             section.itemsPerColumn != null &&
                     section.items.isNotEmpty() &&
@@ -381,7 +365,7 @@ class HomeViewModel @Inject constructor(
         // flow replays its current value the moment it is collected.
         viewModelScope.launch {
             context.dataStore.data
-                .map { it[InnerTubeCookieKey].orEmpty() to it[RecommendationSourceKey].orEmpty() }
+                .map { it[InnerTubeCookieKey].orEmpty() to it[QuickPicksSourceKey].orEmpty() }
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { refresh(force = true) }

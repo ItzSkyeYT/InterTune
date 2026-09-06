@@ -10,10 +10,10 @@
     <string name="err_youtube_busy">YouTube has temporarily stopped serving music to this internet connection. It is not your phone, your account or this song, and it clears by itself. Switching to mobile data usually works right away. Otherwise wait a little while and try again.</string>
     <string name="grouped_player_controls">Group the player buttons</string>
     <string name="grouped_player_controls_description">Puts shuffle, skip, play and repeat together inside one glass bar. Turn it off to have the buttons sit on their own over the artwork. Needs Liquid glass to be on.</string>
-    <string name="recommendation_source">Recommendations</string>
-    <string name="recommendation_source_youtube">YouTube Music</string>
-    <string name="recommendation_source_library">Your library</string>
-    <string name="recommendation_source_description">Choose who picks what the home screen suggests. YouTube Music fills it with its own quick picks, carousels and moods. Your library builds it from what you have actually played instead, so you get your quick picks, forgotten favourites and what you keep listening to, and nothing else. Your own playlists show either way.</string>
+    <string name="quick_picks_source">Quick picks source</string>
+    <string name="quick_picks_source_youtube">YouTube Music</string>
+    <string name="quick_picks_source_library">Your library</string>
+    <string name="quick_picks_source_description">Where the Quick picks row gets its songs. YouTube Music picks them for your account. Your library builds the row instead from songs related to what you have already played. This changes that one row; the rest of the home screen is the same either way.</string>
     <string name="oobe_update_auto_description">Fetch it in the background so it is ready when you want it. Android still asks you to confirm.</string>
     <string name="oobe_polls_answered">You can change this any time in Settings, under Questions.</string>
     <string name="poll_title">A question from InterTune</string>
@@ -122,5 +122,4 @@
     <string name="enable_dynamic_theme_description">Take the app\'s colours from your wallpaper.</string>
     <string name="pure_black_description">Use true black instead of dark grey. On an OLED screen this also saves a little battery.</string>
     <string name="min_playback_duration_short">How much of a song has to play before it counts as a play.</string>
-    <string name="home_library_source_empty">Nothing to show yet. The home screen is set to build itself from what you play, so play a few songs and it will fill up. To have YouTube Music suggest things instead, change Recommendations in Settings, under Library and content.</string>
 </resources>

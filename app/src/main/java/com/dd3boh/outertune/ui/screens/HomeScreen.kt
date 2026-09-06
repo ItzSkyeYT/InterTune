@@ -35,7 +35,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -74,8 +73,8 @@ import com.dd3boh.outertune.constants.GridThumbnailHeight
 import com.dd3boh.outertune.constants.ListItemHeight
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.LocalLibraryEnableKey
-import com.dd3boh.outertune.constants.RecommendationSource
-import com.dd3boh.outertune.constants.RecommendationSourceKey
+import com.dd3boh.outertune.constants.QuickPicksSource
+import com.dd3boh.outertune.constants.QuickPicksSourceKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.Artist
@@ -90,7 +89,6 @@ import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.PollBanner
 import com.dd3boh.outertune.ui.component.PollDialog
 import com.dd3boh.outertune.ui.component.ChipsRow
-import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.ui.component.HideOnScrollFAB
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.NavigationTile
@@ -174,8 +172,8 @@ fun HomeScreen(
     val forgottenFavoritesLazyGridState = rememberLazyGridState()
 
     val localLibEnable by rememberPreference(LocalLibraryEnableKey, defaultValue = true)
-    val recommendationSource by rememberEnumPreference(
-        RecommendationSourceKey, defaultValue = RecommendationSource.YOUTUBE
+    val quickPicksSource by rememberEnumPreference(
+        QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE
     )
 
     val scope = rememberCoroutineScope()
@@ -463,10 +461,16 @@ fun HomeScreen(
                 }
             }
 
-            // The row shows if EITHER source has something. It used to be gated on the local list
-            // alone, which would have hidden YouTube's picks on a fresh install with no history.
+            // The row shows if EITHER source has something, and it is the same four-row grid
+            // whichever one fills it. The setting picks the order, not the shape: each side falls
+            // back to the other rather than leaving the row out, because an empty Quick picks is
+            // worse than one filled from the wrong place. YouTube has nothing to give while you are
+            // signed out; the library has nothing to give until you have played something.
             val ytPicks = ytQuickPicks?.takeIf { it.isNotEmpty() }
             val localPicks = quickPicks.orEmpty()
+            val useLocalPicks =
+                (quickPicksSource == QuickPicksSource.LIBRARY && localPicks.isNotEmpty()) ||
+                        ytPicks == null
 
             // Skeleton while the answer is still being worked out, including during a pull to
             // refresh, so the row visibly reloads rather than sitting on the previous songs. The
@@ -519,9 +523,8 @@ fun HomeScreen(
                             .height(ListItemHeight * 4)
                             .animateItem()
                     ) {
-                        // Same grid either way. Only the source differs: YouTube's own picks for
-                        // this account when it sent them, the local query when it did not.
-                        if (ytPicks != null) {
+                        // Same grid either way. Only which list fills it differs.
+                        if (!useLocalPicks && ytPicks != null) {
                             items(
                                 items = ytPicks,
                                 key = { it.id }
@@ -584,31 +587,6 @@ fun HomeScreen(
                             }
                         }
                     }
-                }
-            }
-
-            // On the library source there is no YouTube feed underneath to carry the page, so
-            // somebody who has not played anything yet gets nothing but the navigation tiles and
-            // no idea why. Say what fills it, and how to change it.
-            //
-            // Every row this page can hold has to be empty, accountPlaylists included, or this
-            // draws a centred "nothing here" directly above a populated list of your playlists.
-            // isLoading too, because quickPicksLoading starts false, so without it the placeholder
-            // flashes on every entry to Home before the first load has finished.
-            if (recommendationSource == RecommendationSource.LIBRARY &&
-                !isLoading &&
-                !quickPicksLoading &&
-                localPicks.isEmpty() &&
-                forgottenFavorites.isNullOrEmpty() &&
-                keepListening.isNullOrEmpty() &&
-                accountPlaylists.isNullOrEmpty()
-            ) {
-                item(key = "library_source_empty") {
-                    EmptyPlaceholder(
-                        icon = Icons.Rounded.MusicNote,
-                        text = stringResource(R.string.home_library_source_empty),
-                        modifier = Modifier.animateItem()
-                    )
                 }
             }
 
