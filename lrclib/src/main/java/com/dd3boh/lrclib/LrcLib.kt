@@ -79,11 +79,11 @@ object LrcLib {
                     count++
                     it.syncedLyrics.let(callback)
                 } else {
-                    if (it.syncedLyrics != null && abs(it.duration - duration) <= 2) {
+                    if (it.syncedLyrics != null && it.duration != null && abs(it.duration - duration) <= 2) {
                         count++
                         it.syncedLyrics.let(callback)
                     }
-                    if (it.plainLyrics != null && abs(it.duration - duration) <= 2 && plain == 0) {
+                    if (it.plainLyrics != null && it.duration != null && abs(it.duration - duration) <= 2 && plain == 0) {
                         count++
                         plain++
                         it.plainLyrics.let(callback)
