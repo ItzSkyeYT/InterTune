@@ -294,7 +294,6 @@
     <string name="loudness_repair_running">Controllo del brano %1$d di %2$d, sistemati %3$d finora. Tocca per fermare.</string>
     <string name="loudness_repair_stopped">Fermato. Sistemati %1$d brani, gli altri restano da fare. Tocca per continuare.</string>
     <string name="oobe_update_check_answered">Puoi cambiare questa scelta quando vuoi nelle Impostazioni, sotto Aggiornamenti.</string>
-    <string name="oobe_update_check_description">InterTune non è su uno store, quindi non può aggiornarsi da solo. Può controllare su GitHub quando apri l\'app e avvisarti se c\'è una nuova versione. Non installa mai nulla da solo, e puoi cambiare questa scelta più tardi nelle Impostazioni.</string>
     <string name="oobe_update_check_no">No, grazie</string>
     <string name="oobe_update_check_title">Vuoi essere avvisato degli aggiornamenti?</string>
     <string name="oobe_update_check_yes">Sì, controlla</string>
@@ -312,10 +311,8 @@
     <string name="swipe_to_dismiss_player">Scorri via il mini player</string>
     <string name="swipe_to_dismiss_player_description">Scorrendo il mini player verso il basso lo chiudi e fermi la musica. Disattivalo e resterà al suo posto, così il brano continua e non puoi chiuderlo per sbaglio.</string>
     <string name="update_available">La versione %1$s è disponibile</string>
-    <string name="update_available_description">Apre la pagina della nuova versione, così puoi leggere cosa è cambiato e scaricarla tu. InterTune non installa mai nulla da solo.</string>
     <string name="update_available_title">Disponibile</string>
     <string name="update_check">Avvisami degli aggiornamenti</string>
-    <string name="update_check_description">Controlla su GitHub se c\'è una versione più recente di InterTune quando apri l\'app, al massimo una volta ogni poche ore. Disattivato di default, e non installa mai nulla da solo.</string>
     <string name="update_installed_version">Versione installata</string>
     <string name="update_skip">Salta questa versione</string>
 </resources>

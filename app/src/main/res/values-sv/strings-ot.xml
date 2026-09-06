@@ -32,7 +32,6 @@
     <string name="loudness_repair_running">Kontrollerar låt %1$d av %2$d, %3$d fixade hittills. Tryck för att stoppa.</string>
     <string name="loudness_repair_stopped">Stoppad. Fixade %1$d låtar, resten återstår. Tryck för att fortsätta.</string>
     <string name="oobe_update_check_answered">Du kan ändra det här när som helst i Inställningar, under Uppdateringar.</string>
-    <string name="oobe_update_check_description">InterTune finns inte i någon appbutik och kan därför inte uppdatera sig själv. Appen kan titta på GitHub när du öppnar den och säga till när det finns en ny version. Den installerar aldrig något på egen hand, och du kan ändra det här senare i Inställningar.</string>
     <string name="oobe_update_check_no">Nej tack</string>
     <string name="oobe_update_check_title">Vill du få veta om uppdateringar?</string>
     <string name="oobe_update_check_yes">Ja, kolla</string>
@@ -50,10 +49,8 @@
     <string name="swipe_to_dismiss_player">Svep bort minispelaren</string>
     <string name="swipe_to_dismiss_player_description">Att svepa minispelaren nedåt stänger den och stoppar musiken. Stäng av det här så ligger den kvar i stället, så att låten fortsätter spelas och du inte kan stänga den av misstag.</string>
     <string name="update_available">Version %1$s finns tillgänglig</string>
-    <string name="update_available_description">Öppnar utgåvans sida så att du kan läsa vad som ändrats och ladda ner den själv. InterTune installerar aldrig något på egen hand.</string>
     <string name="update_available_title">Tillgänglig</string>
     <string name="update_check">Meddela mig om uppdateringar</string>
-    <string name="update_check_description">Kollar på GitHub om det finns en nyare version av InterTune när du öppnar appen, högst en gång med några timmars mellanrum. Avstängt som standard, och appen installerar aldrig något på egen hand.</string>
     <string name="update_installed_version">Installerad version</string>
     <string name="update_skip">Hoppa över den här versionen</string>
 </resources>

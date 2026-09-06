@@ -288,7 +288,6 @@
     <string name="loudness_repair_running">Memeriksa lagu %1$d dari %2$d, %3$d diperbaiki sejauh ini. Ketuk untuk berhenti.</string>
     <string name="loudness_repair_stopped">Dihentikan. %1$d lagu diperbaiki, sisanya belum. Ketuk untuk melanjutkan.</string>
     <string name="oobe_update_check_answered">Anda dapat mengubahnya kapan saja di Pengaturan, bagian Pembaruan.</string>
-    <string name="oobe_update_check_description">InterTune tidak ada di toko aplikasi, jadi tidak bisa memperbarui dirinya sendiri. Aplikasi bisa memeriksa GitHub saat Anda membukanya dan memberi tahu jika ada versi baru. InterTune tidak pernah memasang apa pun sendiri, dan Anda bisa mengubahnya nanti di Pengaturan.</string>
     <string name="oobe_update_check_no">Tidak, terima kasih</string>
     <string name="oobe_update_check_title">Beri tahu Anda soal pembaruan?</string>
     <string name="oobe_update_check_yes">Ya, periksa</string>
@@ -306,10 +305,8 @@
     <string name="swipe_to_dismiss_player">Geser pemutar mini untuk menutup</string>
     <string name="swipe_to_dismiss_player_description">Menggeser pemutar mini ke bawah akan menutupnya dan menghentikan musik. Matikan opsi ini agar pemutar tetap di tempatnya, sehingga lagu terus diputar dan tidak tertutup tanpa sengaja.</string>
     <string name="update_available">Versi %1$s tersedia</string>
-    <string name="update_available_description">Membuka halaman rilis agar Anda bisa membaca apa yang berubah dan mengunduhnya sendiri. InterTune tidak pernah memasang apa pun sendiri.</string>
     <string name="update_available_title">Tersedia</string>
     <string name="update_check">Beri tahu saya soal pembaruan</string>
-    <string name="update_check_description">Memeriksa GitHub untuk versi InterTune yang lebih baru saat Anda membuka aplikasi, paling sering sekali dalam beberapa jam. Nonaktif secara bawaan, dan tidak pernah memasang apa pun sendiri.</string>
     <string name="update_installed_version">Versi terpasang</string>
     <string name="update_skip">Lewati versi ini</string>
 </resources>

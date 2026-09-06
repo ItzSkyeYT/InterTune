@@ -294,7 +294,6 @@
     <string name="loudness_repair_running">Verificando a música %1$d de %2$d, %3$d corrigidas até agora. Toque para parar.</string>
     <string name="loudness_repair_stopped">Parado. %1$d músicas corrigidas, o resto ainda falta. Toque para continuar.</string>
     <string name="oobe_update_check_answered">Você pode mudar isso quando quiser nas Configurações, em Atualizações.</string>
-    <string name="oobe_update_check_description">O InterTune não está em uma loja de apps, então não consegue se atualizar sozinho. Ele pode conferir o GitHub ao abrir o app e avisar quando houver uma nova versão. Ele nunca instala nada sozinho, e você pode mudar isso depois nas Configurações.</string>
     <string name="oobe_update_check_no">Não, obrigado</string>
     <string name="oobe_update_check_title">Avisar sobre atualizações?</string>
     <string name="oobe_update_check_yes">Sim, conferir</string>
@@ -312,10 +311,8 @@
     <string name="swipe_to_dismiss_player">Deslizar para fechar o mini reprodutor</string>
     <string name="swipe_to_dismiss_player_description">Deslizar o mini reprodutor para baixo fecha ele e para a música. Desative isto e ele fica no lugar, então a música continua tocando e você não fecha sem querer.</string>
     <string name="update_available">A versão %1$s está disponível</string>
-    <string name="update_available_description">Abre a página da versão para você ver o que mudou e baixar você mesmo. O InterTune nunca instala nada sozinho.</string>
     <string name="update_available_title">Disponível</string>
     <string name="update_check">Avisar sobre atualizações</string>
-    <string name="update_check_description">Confere no GitHub se há uma versão mais nova do InterTune ao abrir o app, no máximo uma vez a cada poucas horas. Desativado por padrão, e nunca instala nada sozinho.</string>
     <string name="update_installed_version">Versão instalada</string>
     <string name="update_skip">Pular esta versão</string>
 </resources>

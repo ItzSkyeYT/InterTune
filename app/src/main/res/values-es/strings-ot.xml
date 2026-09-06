@@ -293,7 +293,6 @@
     <string name="loudness_repair_running">Comprobando la canción %1$d de %2$d, %3$d corregidas hasta ahora. Toca para detener.</string>
     <string name="loudness_repair_stopped">Detenido. %1$d canciones corregidas, faltan las demás. Toca para continuar.</string>
     <string name="oobe_update_check_answered">Puedes cambiarlo cuando quieras en Ajustes, dentro de Actualizaciones.</string>
-    <string name="oobe_update_check_description">InterTune no está en ninguna tienda de aplicaciones, así que no puede actualizarse solo. Puede consultar GitHub al abrir la aplicación y avisarte cuando haya una versión nueva. Nunca instala nada por su cuenta, y puedes cambiarlo más adelante en Ajustes.</string>
     <string name="oobe_update_check_no">No, gracias</string>
     <string name="oobe_update_check_title">¿Te avisamos de las actualizaciones?</string>
     <string name="oobe_update_check_yes">Sí, avísame</string>
@@ -311,10 +310,8 @@
     <string name="swipe_to_dismiss_player">Deslizar para cerrar el minirreproductor</string>
     <string name="swipe_to_dismiss_player_description">Deslizar el minirreproductor hacia abajo lo cierra y para la música. Desactívalo y se queda donde está, así la canción sigue sonando y no puedes cerrarlo sin querer.</string>
     <string name="update_available">La versión %1$s está disponible</string>
-    <string name="update_available_description">Abre la página de la versión para que veas qué ha cambiado y la descargues tú mismo. InterTune nunca instala nada por su cuenta.</string>
     <string name="update_available_title">Disponible</string>
     <string name="update_check">Avisarme de las actualizaciones</string>
-    <string name="update_check_description">Consulta en GitHub si hay una versión más nueva de InterTune al abrir la aplicación, como mucho una vez cada pocas horas. Desactivado por defecto, y nunca instala nada por su cuenta.</string>
     <string name="update_installed_version">Versión instalada</string>
     <string name="update_skip">Omitir esta versión</string>
 </resources>

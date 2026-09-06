@@ -138,7 +138,6 @@
     <string name="loudness_repair_running">正在檢查第 %1$d 首，共 %2$d 首，已修正 %3$d 首。點擊以停止。</string>
     <string name="loudness_repair_stopped">已停止。已修正 %1$d 首，其餘尚未處理。點擊以繼續。</string>
     <string name="oobe_update_check_answered">你隨時可以在設定的「更新」中變更此選項。</string>
-    <string name="oobe_update_check_description">InterTune 不在應用程式商店上架，因此無法自行更新。它可以在你開啟應用程式時檢查 GitHub，有新版本就通知你。它絕不會自行安裝任何東西，你之後也可以在設定中變更。</string>
     <string name="oobe_update_check_no">不用了，謝謝</string>
     <string name="oobe_update_check_title">要通知你有新版本嗎？</string>
     <string name="oobe_update_check_yes">好，請檢查</string>
@@ -156,10 +155,8 @@
     <string name="swipe_to_dismiss_player">滑動關閉迷你播放器</string>
     <string name="swipe_to_dismiss_player_description">向下滑動迷你播放器會關閉它並停止音樂。關閉此選項後，迷你播放器會留在原處，歌曲繼續播放，也不會不小心被關掉。</string>
     <string name="update_available">有新版本 %1$s 可用</string>
-    <string name="update_available_description">開啟發布頁面，讓你查看更新內容並自行下載。InterTune 絕不會自行安裝任何東西。</string>
     <string name="update_available_title">可用更新</string>
     <string name="update_check">通知我有新版本</string>
-    <string name="update_check_description">開啟應用程式時到 GitHub 檢查 InterTune 是否有新版本，每隔幾小時最多檢查一次。預設為關閉，而且絕不會自行安裝任何東西。</string>
     <string name="update_installed_version">已安裝的版本</string>
     <string name="update_skip">略過此版本</string>
 </resources>

@@ -262,7 +262,6 @@
     <string name="loudness_repair_running">%2$d곡 중 %1$d곡 확인 중, 지금까지 %3$d곡 바로잡음. 탭하여 중지.</string>
     <string name="loudness_repair_stopped">중지됨. %1$d곡을 바로잡았고 나머지는 아직 남아 있습니다. 탭하여 계속.</string>
     <string name="oobe_update_check_answered">설정 &gt; 업데이트에서 언제든지 바꿀 수 있습니다.</string>
-    <string name="oobe_update_check_description">InterTune은 앱 스토어에 없어서 스스로 업데이트할 수 없습니다. 대신 앱을 열 때 GitHub을 확인해 새 버전이 나오면 알려줄 수 있습니다. 무엇이든 혼자 설치하는 일은 없으며, 나중에 설정에서 바꿀 수 있습니다.</string>
     <string name="oobe_update_check_no">괜찮습니다</string>
     <string name="oobe_update_check_title">업데이트를 알려드릴까요?</string>
     <string name="oobe_update_check_yes">네, 확인할게요</string>
@@ -280,10 +279,8 @@
     <string name="swipe_to_dismiss_player">미니 플레이어 스와이프로 닫기</string>
     <string name="swipe_to_dismiss_player_description">미니 플레이어를 아래로 스와이프하면 닫히면서 음악이 멈춥니다. 이 설정을 끄면 그대로 남아 있어 노래가 계속 재생되고 실수로 닫히지 않습니다.</string>
     <string name="update_available">%1$s 버전을 사용할 수 있습니다</string>
-    <string name="update_available_description">릴리즈 페이지를 열어 변경 내용을 확인하고 직접 다운로드할 수 있습니다. InterTune은 무엇이든 혼자 설치하지 않습니다.</string>
     <string name="update_available_title">사용 가능</string>
     <string name="update_check">업데이트 알려주기</string>
-    <string name="update_check_description">앱을 열 때 GitHub에서 InterTune의 새 버전을 확인합니다. 몇 시간에 한 번만 확인하고, 기본값은 꺼짐이며, 무엇이든 혼자 설치하지 않습니다.</string>
     <string name="update_installed_version">설치된 버전</string>
     <string name="update_skip">이 버전 건너뛰기</string>
 </resources>

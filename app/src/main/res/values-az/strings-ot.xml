@@ -92,7 +92,6 @@
     <string name="loudness_repair_running">%2$d mahnıdan %1$d-i yoxlanılır, indiyədək %3$d düzəldilib. Dayandırmaq üçün klikləyin.</string>
     <string name="loudness_repair_stopped">Dayandırıldı. %1$d mahnı düzəldildi, qalanları hələ qalır. Davam etmək üçün klikləyin.</string>
     <string name="oobe_update_check_answered">Bunu istənilən vaxt Ayarlar → Yeniləmələr bölməsində dəyişə bilərsiniz.</string>
-    <string name="oobe_update_check_description">InterTune tətbiq mağazasında deyil, ona görə özünü yeniləyə bilmir. Tətbiqi açanda GitHub-ı yoxlayıb yeni versiya olduğunu sizə bildirə bilər. Heç vaxt öz-özünə heç nə quraşdırmır və bunu sonradan Ayarlarda dəyişə bilərsiniz.</string>
     <string name="oobe_update_check_no">Xeyr, təşəkkürlər</string>
     <string name="oobe_update_check_title">Yeniləmələrdən xəbər verilsin?</string>
     <string name="oobe_update_check_yes">Bəli, yoxla</string>
@@ -110,10 +109,8 @@
     <string name="swipe_to_dismiss_player">Mini səsləndiricini sürüşdürüb bağla</string>
     <string name="swipe_to_dismiss_player_description">Mini səsləndiricini aşağı sürüşdürəndə bağlanır və musiqi dayanır. Bunu söndürsəniz, yerində qalır — mahnı səslənməyə davam edir və onu təsadüfən bağlaya bilmirsiniz.</string>
     <string name="update_available">%1$s versiyası əlçatandır</string>
-    <string name="update_available_description">Buraxılış səhifəsini açır ki, nələrin dəyişdiyini oxuyub özünüz yükləyəsiniz. InterTune heç vaxt öz-özünə heç nə quraşdırmır.</string>
     <string name="update_available_title">Əlçatandır</string>
     <string name="update_check">Yeniləmələrdən xəbər ver</string>
-    <string name="update_check_description">Tətbiqi açanda GitHub-da InterTune-un yeni versiyasını yoxlayır, bir neçə saatda bir dəfədən çox olmayaraq. Standart olaraq söndürülüb və heç vaxt öz-özünə heç nə quraşdırmır.</string>
     <string name="update_installed_version">Quraşdırılmış versiya</string>
     <string name="update_skip">Bu versiyanı ötür</string>
 </resources>

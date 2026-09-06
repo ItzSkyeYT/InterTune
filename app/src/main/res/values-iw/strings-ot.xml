@@ -273,7 +273,6 @@
     <string name="loudness_repair_running">בודק שיר %1$d מתוך %2$d, תוקנו %3$d עד כה. הקש כדי לעצור.</string>
     <string name="loudness_repair_stopped">נעצר. תוקנו %1$d שירים, השאר עדיין ממתינים. הקש כדי להמשיך.</string>
     <string name="oobe_update_check_answered">אפשר לשנות זאת בכל עת בהגדרות, תחת עדכונים.</string>
-    <string name="oobe_update_check_description">InterTune לא נמצא בחנות אפליקציות, ולכן הוא לא יכול לעדכן את עצמו. הוא יכול לבדוק ב-GitHub כשאתה פותח את האפליקציה ולהודיע לך על גירסה חדשה. הוא לעולם לא מתקין דבר בעצמו, ואפשר לשנות זאת מאוחר יותר בהגדרות.</string>
     <string name="oobe_update_check_no">לא, תודה</string>
     <string name="oobe_update_check_title">להודיע לך על עדכונים?</string>
     <string name="oobe_update_check_yes">כן, בדוק</string>
@@ -291,10 +290,8 @@
     <string name="swipe_to_dismiss_player">החלק כדי לסגור את הנגן המוקטן</string>
     <string name="swipe_to_dismiss_player_description">החלקה של הנגן המוקטן כלפי מטה סוגרת אותו ועוצרת את המוזיקה. כבה את האפשרות והוא יישאר במקומו, כך שהשיר ימשיך להתנגן ולא תסגור אותו בטעות.</string>
     <string name="update_available">גירסה %1$s זמינה</string>
-    <string name="update_available_description">פותח את דף השחרור כדי שתוכל לקרוא מה השתנה ולהוריד בעצמך. InterTune לעולם לא מתקין דבר בעצמו.</string>
     <string name="update_available_title">זמין</string>
     <string name="update_check">הודע לי על עדכונים</string>
-    <string name="update_check_description">בודק ב-GitHub אם יש גירסה חדשה יותר של InterTune כשאתה פותח את האפליקציה, לכל היותר פעם בכמה שעות. כבוי כברירת מחדל, ולעולם לא מתקין דבר בעצמו.</string>
     <string name="update_installed_version">הגירסה המותקנת</string>
     <string name="update_skip">דלג על גירסה זו</string>
 </resources>

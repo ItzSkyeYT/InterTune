@@ -294,7 +294,6 @@
     <string name="loudness_repair_running">Vérification du titre %1$d sur %2$d, %3$d corrigés jusqu\'ici. Appuyez pour arrêter.</string>
     <string name="loudness_repair_stopped">Arrêté. %1$d titres corrigés, il reste les autres. Appuyez pour continuer.</string>
     <string name="oobe_update_check_answered">Vous pourrez changer cela à tout moment dans les Paramètres, sous Mises à jour.</string>
-    <string name="oobe_update_check_description">InterTune n\'est pas sur une boutique d\'applications, il ne peut donc pas se mettre à jour tout seul. Il peut consulter GitHub à l\'ouverture de l\'application et vous prévenir quand une nouvelle version existe. Il n\'installe jamais rien de lui-même, et vous pourrez changer cela plus tard dans les Paramètres.</string>
     <string name="oobe_update_check_no">Non merci</string>
     <string name="oobe_update_check_title">Vous prévenir des mises à jour ?</string>
     <string name="oobe_update_check_yes">Oui, vérifier</string>
@@ -312,10 +311,8 @@
     <string name="swipe_to_dismiss_player">Balayer le mini lecteur pour le fermer</string>
     <string name="swipe_to_dismiss_player_description">Balayer le mini lecteur vers le bas le ferme et arrête la musique. Désactivez cette option et il reste en place : le titre continue et vous ne pouvez pas le fermer par accident.</string>
     <string name="update_available">La version %1$s est disponible</string>
-    <string name="update_available_description">Ouvre la page de la version pour que vous puissiez lire les nouveautés et la télécharger vous-même. InterTune n\'installe jamais rien de lui-même.</string>
     <string name="update_available_title">Disponible</string>
     <string name="update_check">Me prévenir des mises à jour</string>
-    <string name="update_check_description">Vérifie sur GitHub s\'il existe une version plus récente d\'InterTune à l\'ouverture de l\'application, au maximum une fois toutes les quelques heures. Désactivé par défaut, et n\'installe jamais rien de lui-même.</string>
     <string name="update_installed_version">Version installée</string>
     <string name="update_skip">Ignorer cette version</string>
 </resources>
