@@ -34,7 +34,6 @@
     <string name="playlist_missing_note">प्लेलिस्ट गायब हैं? सेटिंग्स में सिंक रीड-राइट मोड सक्षम करने के लिए यहां क्लिक करें</string>
     <string name="sync_progress_active">YouTube खाते के साथ सिंक किया जा रहा है…</string>
     <string name="sync_progress_success">सिंक पूरा हुआ</string>
-    <string name="prefs_advanced">एडवांस्ड</string>
     <string name="settings_debug">डिबग</string>
     <string name="grp_account_sync">खाता और सिंक</string>
     <string name="grp_audio">Audio</string>

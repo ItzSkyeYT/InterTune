@@ -48,7 +48,6 @@
     <string name="settings_debug">Sazlama</string>
     <string name="grp_audio">Səs</string>
     <string name="grp_general">Ümumi</string>
-    <string name="prefs_advanced">Qabaqcıl</string>
     <string name="grp_lyrics_source">Lirik mənbələr</string>
     <string name="grp_manual_scanner">Əl ilə yoxlama</string>
     <string name="new_interface">Yeni görünüş tərtibatı</string>

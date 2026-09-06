@@ -20,7 +20,6 @@
     <string name="play_count">מספר הפעלות</string>
     <string name="sync_progress_active">מסנכרן עם חשבון YouTube…</string>
     <string name="sync_progress_success">סינכרון הושלם</string>
-    <string name="prefs_advanced">מתקדם</string>
     <string name="settings_debug">ניפוי באגים</string>
     <string name="grp_account_sync">חשבון וסנכרון</string>
     <string name="grp_audio">שמע</string>

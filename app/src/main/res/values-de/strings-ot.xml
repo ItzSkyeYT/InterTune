@@ -30,7 +30,6 @@
     <string name="missing_media_permission_warning">Speicherzugriff ist nötig für lokale Medien. Klicken, um Berechtigung zu erteilen.</string>
     <string name="more_settings">Weitere Einstellungen</string>
     <string name="create_sync_playlist">Synchronisiere Playlist</string>
-    <string name="prefs_advanced">Fortgeschritten</string>
     <string name="grp_account_sync">Konto und Synchronisation</string>
     <string name="grp_library_and_content">Bibliothek und Inhalt</string>
     <string name="tab_arrangement_home_required">Die Startseite ist notwendig.</string>

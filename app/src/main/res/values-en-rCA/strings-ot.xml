@@ -78,4 +78,48 @@
     <string name="update_check_description">Checks GitHub for a newer version of InterTune each time you open the app. Off by default. Nothing is ever installed without you confirming it.</string>
     <string name="update_installed_version">Installed version</string>
     <string name="update_skip">Skip this version</string>
+    <!-- Settings refactor: screen and group names -->
+    <string name="look_and_feel">Look and feel</string>
+    <string name="grp_privacy_and_history">Privacy and history</string>
+    <string name="grp_storage_and_downloads">Storage and downloads</string>
+    <string name="grp_listen_history">Listening history</string>
+    <string name="grp_search_history">Search history</string>
+
+    <!-- Settings index: one line per entry, so nobody has to open a screen to find out what is on it -->
+    <string name="settings_account_sync_description">Sign in to YouTube Music, and choose what gets synced.</string>
+    <string name="settings_library_description">Where recommendations come from, language and region, and what appears in your library.</string>
+    <string name="settings_local_description">Music files kept on this device, and how the app finds them.</string>
+    <string name="settings_look_and_feel_description">Theme and colours, the tabs along the bottom, and swipe gestures.</string>
+    <string name="settings_player_description">Sound quality, audio effects, and how playback behaves.</string>
+    <string name="settings_lyrics_description">Where lyrics are fetched from, and how they are shown.</string>
+    <string name="settings_storage_description">Downloads, how much space the cache may use, and backing up your library.</string>
+    <string name="settings_privacy_description">What the app records about you, and what it sends.</string>
+    <string name="settings_updates_description">Check for a new version, and install it.</string>
+    <string name="settings_advanced_description">Maintenance, and developer options.</string>
+    <string name="settings_about_description">Version, licences and credits.</string>
+
+    <!-- Rows that moved or were renamed -->
+    <string name="flush_image_cache_title">Clear cached artwork</string>
+    <string name="flush_image_cache_description">Frees the memory holding album art. It is fetched again as you need it.</string>
+    <string name="song_cache_max_size">Maximum song cache size</string>
+    <string name="image_cache_max_size">Maximum artwork cache size</string>
+    <string name="max_queues_description">How many queues the app keeps at once. The oldest is dropped when you go past this.</string>
+    <string name="enable_proxy_description">Send everything the app fetches through another server first. Leave this off unless you know you need it.</string>
+    <string name="show_liked_and_downloaded_playlist_description">Show Liked songs and Downloaded songs as playlists in your library.</string>
+
+    <!-- Descriptions for rows whose titles alone did not say what they do -->
+    <string name="pause_listen_history_description">Stop adding songs to your history. Nothing already in it is removed.</string>
+    <string name="pause_remote_listen_history_description">Stop telling YouTube Music what you play. Your history inside this app carries on either way.</string>
+    <string name="clear_listen_history_description">Delete everything the app has recorded about what you have played.</string>
+    <string name="pause_search_history_description">Stop saving what you search for.</string>
+    <string name="clear_search_history_description">Delete every search the app has saved.</string>
+    <string name="sync_params_description">Read only means the app never changes anything in your YouTube Music account. Conflict resolution decides what happens when a playlist is different here and there.</string>
+    <string name="enable_lrclib_description">Look for lyrics on LRCLIB, a free community lyrics database.</string>
+    <string name="enable_kugou_description">Look for lyrics on KuGou. Its collection is large, and strongest for Chinese music.</string>
+    <string name="audio_normalization_description">Even out the volume between songs, so one is not suddenly much louder than the last.</string>
+    <string name="skip_silence_description">Skip silent gaps at the start and end of a track.</string>
+    <string name="stop_music_on_task_clear_description">Stop the music when you swipe the app away from your recent apps.</string>
+    <string name="enable_dynamic_theme_description">Take the app\'s colours from your wallpaper.</string>
+    <string name="pure_black_description">Use true black instead of dark grey. On an OLED screen this also saves a little battery.</string>
+    <string name="min_playback_duration_short">How much of a song has to play before it counts as a play.</string>
 </resources>

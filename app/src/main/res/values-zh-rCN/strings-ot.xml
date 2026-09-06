@@ -28,7 +28,6 @@
     <string name="play_count">播放次数</string>
     <string name="sync_progress_active">正在与 YouTube 帐户同步…</string>
     <string name="sync_progress_success">同步完成</string>
-    <string name="prefs_advanced">高级</string>
     <string name="settings_debug">调试</string>
     <string name="grp_audio">音频</string>
     <string name="grp_extra_scanner_settings">其他扫描设置</string>

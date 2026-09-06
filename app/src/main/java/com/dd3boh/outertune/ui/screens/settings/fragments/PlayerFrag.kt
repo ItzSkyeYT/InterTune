@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Autorenew
@@ -48,7 +49,7 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 
 @Composable
-fun PlayerGeneralFrag() {
+fun ColumnScope.PlayerGeneralFrag() {
     val (autoLoadMore, onAutoLoadMoreChange) = rememberPreference(AutoLoadMoreKey, defaultValue = true)
 
     val context = LocalContext.current
@@ -76,12 +77,7 @@ fun PlayerGeneralFrag() {
 }
 
 @Composable
-fun PlayerServiceFrag() {
-
-}
-
-@Composable
-fun AudioQualityFrag() {
+fun ColumnScope.AudioQualityFrag() {
     val (audioQuality, onAudioQualityChange) = rememberEnumPreference(
         key = AudioQualityKey,
         defaultValue = AudioQuality.AUTO
@@ -104,7 +100,7 @@ fun AudioQualityFrag() {
 }
 
 @Composable
-fun AudioEffectsFrag() {
+fun ColumnScope.AudioEffectsFrag() {
     val (skipSilence, onSkipSilenceChange) = rememberPreference(key = SkipSilenceKey, defaultValue = false)
 
     val (audioNormalization, onAudioNormalizationChange) = rememberPreference(
@@ -114,12 +110,14 @@ fun AudioEffectsFrag() {
 
     SwitchPreference(
         title = { Text(stringResource(R.string.audio_normalization)) },
+        description = stringResource(R.string.audio_normalization_description),
         icon = { Icon(Icons.AutoMirrored.Rounded.VolumeUp, null) },
         checked = audioNormalization,
         onCheckedChange = onAudioNormalizationChange
     )
     SwitchPreference(
         title = { Text(stringResource(R.string.skip_silence)) },
+        description = stringResource(R.string.skip_silence_description),
         icon = { Icon(painterResource(R.drawable.skip_next), null) },
         checked = skipSilence,
         onCheckedChange = onSkipSilenceChange
@@ -181,9 +179,8 @@ fun LoudnessRepairEntry() {
 }
 
 @Composable
-fun PlaybackBehaviourFrag() {
+fun ColumnScope.PlaybackBehaviourFrag() {
     val keepAlive by rememberPreference(key = KeepAliveKey, defaultValue = false)
-    val (minPlaybackDur, onMinPlaybackDurChange) = rememberPreference(minPlaybackDurKey, defaultValue = 30)
     val (skipOnErrorKey, onSkipOnErrorChange) = rememberPreference(key = SkipOnErrorKey, defaultValue = false)
     val (stopMusicOnTaskClear, onStopMusicOnTaskClearChange) = rememberPreference(
         key = StopMusicOnTaskClearKey,
@@ -199,18 +196,10 @@ fun PlaybackBehaviourFrag() {
         defaultValue = SleepTimerDefaults.FADE_DURATION_SECONDS
     )
 
-    var showMinPlaybackDur by remember {
-        mutableStateOf(false)
-    }
     var showSleepTimerFadeDur by remember {
         mutableStateOf(false)
     }
 
-    PreferenceEntry(
-        title = { Text(stringResource(R.string.min_playback_duration)) },
-        icon = { Icon(Icons.Rounded.Sync, null) },
-        onClick = { showMinPlaybackDur = true }
-    )
     SwitchPreference(
         title = { Text(stringResource(R.string.auto_skip_next_on_error)) },
         description = stringResource(R.string.auto_skip_next_on_error_desc),
@@ -220,6 +209,7 @@ fun PlaybackBehaviourFrag() {
     )
     SwitchPreference(
         title = { Text(stringResource(R.string.stop_music_on_task_clear)) },
+        description = stringResource(R.string.stop_music_on_task_clear_description),
         icon = { Icon(Icons.Rounded.ClearAll, null) },
         isEnabled = !keepAlive,
         checked = stopMusicOnTaskClear,
@@ -246,25 +236,6 @@ fun PlaybackBehaviourFrag() {
      * ---------------------------
      */
 
-
-    if (showMinPlaybackDur) {
-        CounterDialog(
-            title = stringResource(R.string.min_playback_duration),
-            description = stringResource(R.string.min_playback_duration_description),
-            initialValue = minPlaybackDur,
-            upperBound = 100,
-            lowerBound = 0,
-            unitDisplay = "%",
-            onDismiss = { showMinPlaybackDur = false },
-            onConfirm = {
-                showMinPlaybackDur = false
-                onMinPlaybackDurChange(it)
-            },
-            onCancel = {
-                showMinPlaybackDur = false
-            }
-        )
-    }
 
     if (showSleepTimerFadeDur) {
         CounterDialog(

@@ -44,7 +44,6 @@
     <string name="playlist_missing_note">As suas playlists desapareceram? Clique aqui para ativar a sincronização no modo de ler/gravar nas configurações</string>
     <string name="sync_progress_active">A sincronizar com a conta do YouTube…</string>
     <string name="sync_progress_success">A sincronização foi concluída</string>
-    <string name="prefs_advanced">Avançado</string>
     <string name="settings_debug">Depuração</string>
     <string name="grp_account_sync">Conta e sincronização</string>
     <string name="grp_audio">Áudio</string>

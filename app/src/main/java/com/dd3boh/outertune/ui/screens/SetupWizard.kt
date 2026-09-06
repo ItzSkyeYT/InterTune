@@ -192,7 +192,7 @@ fun SetupWizard(
     // the bar's own gate now fails. You are stuck there until the app is restarted.
     //
     // Waiting for the write before navigating removes the window entirely. Same fault, and the
-    // same fix, as the polls opt-in in PollSettings.
+    // same fix, as the polls opt-in.
     val finishSetup: () -> Unit = {
         coroutineScope.launch {
             context.dataStore.edit { it[OobeStatusKey] = OOBE_VERSION }
@@ -520,7 +520,7 @@ fun SetupWizard(
                                 ) {
                                     TextButton(
                                         onClick = {
-                                            navController.navigate("settings/backup_restore")
+                                            navController.navigate("settings/storage")
                                         }
                                     ) {
                                         Text(
@@ -695,7 +695,7 @@ fun SetupWizard(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     ListPreference(
-                                        title = { Text(stringResource(R.string.max_cache_size)) },
+                                        title = { Text(stringResource(R.string.song_cache_max_size)) },
                                         selectedValue = maxSongCacheSize,
                                         values = listOf(0, 128, 256, 512, 1024, 2048, 4096, 8192, -1),
                                         valueText = {

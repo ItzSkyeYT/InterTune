@@ -9,7 +9,6 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
-import android.util.Log
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,75 +19,60 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Interests
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.SdCard
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material.icons.rounded.Poll
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Update
-import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.dd3boh.outertune.LocalSnackbarHostState
+import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.constants.LastVersionKey
 import com.dd3boh.outertune.constants.TopBarInsets
-import com.dd3boh.outertune.constants.UpdateAvailableKey
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.utils.backToMain
-import com.dd3boh.outertune.utils.compareVersion
-import com.dd3boh.outertune.utils.rememberPreference
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import com.dd3boh.outertune.LocalUpdateChecker
-import androidx.compose.runtime.collectAsState
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 
 val SETTINGS_TAG = "Settings"
 
+/**
+ * The way in to everything else.
+ *
+ * Eleven entries in four cards, and every one carries a line saying what is behind it, because a
+ * list of bare nouns makes you open three screens to find one switch. The cards group by what you
+ * came here to change: your music, how the app presents it, what it keeps on the device, and the
+ * app itself.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
-    val context = LocalContext.current
-    val snackbarHostState = LocalSnackbarHostState.current
-    val uriHandler = LocalUriHandler.current
-
     // Sourced from the checker rather than the persisted flag. The flag says "an update existed
     // once"; this says "there is one now, and here it is", which is what the row needs to show.
     val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
     val updateBadgeLabel = stringResource(R.string.update_available_title)
 
-    val lastVer by rememberPreference(LastVersionKey, defaultValue = "0.0.0")
-    val (updateAvailable, onUpdateAvailableChange) = rememberPreference(UpdateAvailableKey, defaultValue = false)
-
-    var newVersion by remember { mutableStateOf("") }
     ColumnWithContentPadding(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier
@@ -99,16 +83,19 @@ fun SettingsScreen(
         ) {
             PreferenceEntry(
                 title = { Text(stringResource(R.string.grp_account_sync)) },
+                description = stringResource(R.string.settings_account_sync_description),
                 icon = { Icon(Icons.Rounded.AccountCircle, null) },
                 onClick = { navController.navigate("settings/account_sync") }
             )
             PreferenceEntry(
                 title = { Text(stringResource(R.string.grp_library_and_content)) },
+                description = stringResource(R.string.settings_library_description),
                 icon = { Icon(Icons.AutoMirrored.Rounded.LibraryBooks, null) },
                 onClick = { navController.navigate("settings/library") }
             )
             PreferenceEntry(
                 title = { Text(stringResource(R.string.local_player_settings_title)) },
+                description = stringResource(R.string.settings_local_description),
                 icon = { Icon(Icons.Rounded.SdCard, null) },
                 onClick = { navController.navigate("settings/local") }
             )
@@ -119,26 +106,25 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             PreferenceEntry(
-                title = { Text(stringResource(R.string.appearance)) },
+                title = { Text(stringResource(R.string.look_and_feel)) },
+                description = stringResource(R.string.settings_look_and_feel_description),
                 icon = { Icon(Icons.Rounded.Palette, null) },
                 onClick = { navController.navigate("settings/appearance") }
             )
             PreferenceEntry(
-                title = { Text(stringResource(R.string.grp_interface)) },
-                icon = { Icon(Icons.Rounded.Interests, null) },
-                onClick = { navController.navigate("settings/interface") }
-            )
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            PreferenceEntry(
                 title = { Text(stringResource(R.string.player_and_audio)) },
+                description = stringResource(R.string.settings_player_description),
                 icon = { Icon(Icons.Rounded.PlayArrow, null) },
                 onClick = { navController.navigate("settings/player") }
             )
+            // Promoted from a link buried on Library and content. Lyrics are a whole screen of
+            // settings that people go looking for by name.
+            PreferenceEntry(
+                title = { Text(stringResource(R.string.lyrics_settings_title)) },
+                description = stringResource(R.string.settings_lyrics_description),
+                icon = { Icon(Icons.Rounded.Lyrics, null) },
+                onClick = { navController.navigate("settings/library/lyrics") }
+            )
         }
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -146,25 +132,16 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             PreferenceEntry(
-                title = { Text(stringResource(R.string.backup_restore)) },
-                icon = { Icon(Icons.Rounded.Restore, null) },
-                onClick = { navController.navigate("settings/backup_restore") }
-            )
-            PreferenceEntry(
-                title = { Text(stringResource(R.string.storage)) },
+                title = { Text(stringResource(R.string.grp_storage_and_downloads)) },
+                description = stringResource(R.string.settings_storage_description),
                 icon = { Icon(Icons.Rounded.Storage, null) },
                 onClick = { navController.navigate("settings/storage") }
             )
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
-        ) {
             PreferenceEntry(
-                title = { Text(stringResource(R.string.experimental_settings_title)) },
-                icon = { Icon(Icons.Rounded.WarningAmber, null) },
-                onClick = { navController.navigate("settings/experimental") }
+                title = { Text(stringResource(R.string.grp_privacy_and_history)) },
+                description = stringResource(R.string.settings_privacy_description),
+                icon = { Icon(Icons.Rounded.Shield, null) },
+                onClick = { navController.navigate("settings/privacy") }
             )
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -174,9 +151,7 @@ fun SettingsScreen(
         ) {
             PreferenceEntry(
                 title = { Text(stringResource(R.string.grp_updates)) },
-                // The one place the app tells you an update exists without being asked. The Badge
-                // and BadgedBox imports have been sitting here unused since upstream deleted its
-                // own checker, so this finally connects them to something.
+                // The one place the app tells you an update exists without being asked.
                 icon = {
                     BadgedBox(
                         badge = {
@@ -192,16 +167,18 @@ fun SettingsScreen(
                 },
                 description = pendingUpdate?.let {
                     stringResource(R.string.update_available, it.versionName)
-                },
+                } ?: stringResource(R.string.settings_updates_description),
                 onClick = { navController.navigate("settings/updates") }
             )
             PreferenceEntry(
-                title = { Text(stringResource(R.string.grp_polls)) },
-                icon = { Icon(Icons.Rounded.Poll, null) },
-                onClick = { navController.navigate("settings/polls") }
+                title = { Text(stringResource(R.string.advanced)) },
+                description = stringResource(R.string.settings_advanced_description),
+                icon = { Icon(Icons.Rounded.Tune, null) },
+                onClick = { navController.navigate("settings/advanced") }
             )
             PreferenceEntry(
                 title = { Text(stringResource(R.string.about)) },
+                description = stringResource(R.string.settings_about_description),
                 icon = { Icon(Icons.Rounded.Info, null) },
                 onClick = { navController.navigate("settings/about") }
             )

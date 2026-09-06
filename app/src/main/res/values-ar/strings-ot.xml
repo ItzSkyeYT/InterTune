@@ -59,7 +59,6 @@
     <string name="playlist_add_local_to_synced_note">ملاحظة: إضافة الأغاني المحلية إلى قوائم التشغيل المتزامنة/البعيدة غير مدعومة. أي مجموعة أخرى صالحة</string>
     <string name="playlist_missing_note">قوائم التشغيل مفقودة؟ انقر هنا لتمكين وضع القراءة والكتابة المتزامن في الإعدادات</string>
     <string name="sync_progress_active">جارٍ المزامنة مع حساب YouTube…</string>
-    <string name="prefs_advanced">متقدم</string>
     <string name="settings_debug">تصحيح الأخطاء</string>
     <string name="grp_account_sync">الحساب والمزامنة</string>
     <string name="grp_behavior">السلوك</string>

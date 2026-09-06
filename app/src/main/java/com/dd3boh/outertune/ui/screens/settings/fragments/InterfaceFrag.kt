@@ -46,8 +46,6 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ContentCountryKey
 import com.dd3boh.outertune.constants.ContentLanguageKey
 import com.dd3boh.outertune.constants.CountryCodeToName
-import com.dd3boh.outertune.constants.RecommendationSource
-import com.dd3boh.outertune.constants.RecommendationSourceKey
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_FILTERS
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
 import com.dd3boh.outertune.constants.DefaultOpenTabKey
@@ -383,8 +381,6 @@ fun ColumnScope.TabArrangementFrag() {
 fun ColumnScope.TabExtrasFrag() {
     val enabledTabs by rememberPreference(EnabledTabsKey, defaultValue = DEFAULT_ENABLED_TABS)
     val (defaultOpenTab, onDefaultOpenTabChange) = rememberPreference(DefaultOpenTabKey, defaultValue = "home")
-    val (recommendationSource, onRecommendationSourceChange) =
-        rememberEnumPreference(RecommendationSourceKey, defaultValue = RecommendationSource.YOUTUBE)
 
     ListPreference(
         title = { Text(stringResource(R.string.default_open_tab)) },
@@ -396,20 +392,6 @@ fun ColumnScope.TabExtrasFrag() {
         values = Screens.getAllScreens().filter { Screens.getScreens(enabledTabs).contains(it) },
         valueText = { stringResource(it.titleId) }
     )
-
-    EnumListPreference(
-        title = { Text(stringResource(R.string.recommendation_source)) },
-        icon = { Icon(Icons.Rounded.AutoAwesome, null) },
-        selectedValue = recommendationSource,
-        onValueSelected = onRecommendationSourceChange,
-        valueText = {
-            when (it) {
-                RecommendationSource.YOUTUBE -> stringResource(R.string.recommendation_source_youtube)
-                RecommendationSource.LIBRARY -> stringResource(R.string.recommendation_source_library)
-            }
-        }
-    )
-    InfoLabel(stringResource(R.string.recommendation_source_description))
 }
 
 @Composable

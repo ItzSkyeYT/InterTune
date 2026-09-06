@@ -8,7 +8,6 @@
     <string name="recent_activity">Ostatnia aktywność</string>
     <string name="queue_remote_history">Historia (zdalne)</string>
     <string name="remote_history">Zdalne</string>
-    <string name="prefs_advanced">Zaawansowane</string>
     <string name="android_auto">Android Auto</string>
     <string name="queues_empty">Brak kolejek</string>
     <string name="create_sync_playlist">Synchronizuj playlistę</string>

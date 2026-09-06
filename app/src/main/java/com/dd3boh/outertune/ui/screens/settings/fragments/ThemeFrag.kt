@@ -58,6 +58,7 @@ fun ColumnScope.ThemeAppFrag() {
 
     SwitchPreference(
         title = { Text(stringResource(R.string.enable_dynamic_theme)) },
+        description = stringResource(R.string.enable_dynamic_theme_description),
         icon = { Icon(Icons.Rounded.Palette, null) },
         checked = dynamicTheme,
         onCheckedChange = onDynamicThemeChange
@@ -86,6 +87,7 @@ fun ColumnScope.ThemeAppFrag() {
     )
     SwitchPreference(
         title = { Text(stringResource(R.string.pure_black)) },
+        description = stringResource(R.string.pure_black_description),
         icon = { Icon(Icons.Rounded.Contrast, null) },
         checked = pureBlack,
         onCheckedChange = onPureBlackChange
