@@ -27,7 +27,6 @@
     <string name="loudness_repair_running">Sinusuri ang kanta %1$d sa %2$d, %3$d ang naayos. I-tap para ihinto.</string>
     <string name="loudness_repair_stopped">Huminto. Naayos ang %1$d na kanta, may natitira pa. I-tap para magpatuloy.</string>
     <string name="oobe_update_check_answered">Puwede mo itong baguhin anumang oras sa Mga Setting, sa ilalim ng Mga update.</string>
-    <string name="oobe_update_check_description">Wala ang InterTune sa app store, kaya hindi ito makapag-a-update nang mag-isa. Puwede nitong tingnan ang GitHub kapag binuksan mo ang app at sabihin sa iyo kung may bagong bersyon. Hindi ito kailanman nag-i-install ng kahit ano nang mag-isa, at puwede mo itong baguhin mamaya sa Mga Setting.</string>
     <string name="oobe_update_check_no">Huwag na</string>
     <string name="oobe_update_check_title">Sabihan ka tungkol sa mga update?</string>
     <string name="oobe_update_check_yes">Oo, tingnan</string>
@@ -45,10 +44,8 @@
     <string name="swipe_to_dismiss_player">I-swipe palayo ang mini player</string>
     <string name="swipe_to_dismiss_player_description">Ang pag-swipe pababa sa mini player ay nagsasara nito at humihinto ang musika. I-off ito para manatili ito sa lugar, kaya tuloy ang kanta at hindi mo ito maisasara nang aksidente.</string>
     <string name="update_available">Available ang bersyon %1$s</string>
-    <string name="update_available_description">Binubuksan ang release page para mabasa mo ang mga pagbabago at ikaw mismo ang mag-download. Hindi kailanman nag-i-install ang InterTune ng kahit ano nang mag-isa.</string>
     <string name="update_available_title">Available</string>
     <string name="update_check">Sabihan ako tungkol sa mga update</string>
-    <string name="update_check_description">Tinitingnan ang GitHub para sa mas bagong bersyon ng InterTune kapag binuksan mo ang app, hindi hihigit sa isang beses kada ilang oras. Naka-off bilang default, at hindi ito nag-i-install ng kahit ano nang mag-isa.</string>
     <string name="update_installed_version">Naka-install na bersyon</string>
     <string name="update_skip">Laktawan ang bersyong ito</string>
 </resources>

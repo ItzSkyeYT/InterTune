@@ -291,7 +291,6 @@
     <string name="loudness_repair_running">Проверява се песен %1$d от %2$d, поправени досега: %3$d. Докоснете, за да спрете.</string>
     <string name="loudness_repair_stopped">Спряно. Поправени са %1$d песни, останалите предстоят. Докоснете, за да продължите.</string>
     <string name="oobe_update_check_answered">Можете да промените това по всяко време в „Настройки“, раздел „Актуализации“.</string>
-    <string name="oobe_update_check_description">InterTune не е в магазин за приложения, затова не може да се актуализира сам. Може да проверява в GitHub, когато отворите приложението, и да ви казва, когато има нова версия. Никога не инсталира нищо самостоятелно, а можете да промените това по-късно в „Настройки“.</string>
     <string name="oobe_update_check_no">Не, благодаря</string>
     <string name="oobe_update_check_title">Да ви съобщаваме ли за актуализации?</string>
     <string name="oobe_update_check_yes">Да, проверявай</string>
@@ -309,10 +308,8 @@
     <string name="swipe_to_dismiss_player">Плъзгане за скриване на мини плейъра</string>
     <string name="swipe_to_dismiss_player_description">Плъзгането на мини плейъра надолу го затваря и спира музиката. Изключете го и той остава на място, така че песента продължава и не можете да го затворите по погрешка.</string>
     <string name="update_available">Налична е версия %1$s</string>
-    <string name="update_available_description">Отваря страницата на изданието, за да прочетете какво е променено и да го изтеглите сами. InterTune никога не инсталира нищо самостоятелно.</string>
     <string name="update_available_title">Налична</string>
     <string name="update_check">Съобщавай ми за актуализации</string>
-    <string name="update_check_description">Проверява в GitHub за по-нова версия на InterTune, когато отворите приложението, най-много веднъж на няколко часа. По подразбиране е изключено и никога не инсталира нищо самостоятелно.</string>
     <string name="update_installed_version">Инсталирана версия</string>
     <string name="update_skip">Пропусни тази версия</string>
 </resources>

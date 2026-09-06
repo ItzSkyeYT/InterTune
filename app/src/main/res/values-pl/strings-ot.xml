@@ -292,7 +292,6 @@
     <string name="loudness_repair_running">Sprawdzanie utworu %1$d z %2$d, naprawiono %3$d. Kliknij, aby zatrzymać.</string>
     <string name="loudness_repair_stopped">Zatrzymano. Naprawiono %1$d utworów, reszta czeka. Kliknij, aby kontynuować.</string>
     <string name="oobe_update_check_answered">Możesz to zmienić w każdej chwili w Ustawieniach, w sekcji Aktualizacje.</string>
-    <string name="oobe_update_check_description">InterTune nie jest w sklepie z aplikacjami, więc nie potrafi zaktualizować się sam. Może sprawdzać w serwisie GitHub przy uruchomieniu aplikacji i informować cię o nowej wersji. Nigdy nic sam nie instaluje, a ustawienie zmienisz później w Ustawieniach.</string>
     <string name="oobe_update_check_no">Nie, dziękuję</string>
     <string name="oobe_update_check_title">Informować cię o aktualizacjach?</string>
     <string name="oobe_update_check_yes">Tak, sprawdzaj</string>
@@ -310,10 +309,8 @@
     <string name="swipe_to_dismiss_player">Zamykaj mini odtwarzacz przeciągnięciem</string>
     <string name="swipe_to_dismiss_player_description">Przeciągnięcie mini odtwarzacza w dół zamyka go i zatrzymuje muzykę. Wyłącz tę opcję, a zostanie na miejscu, więc utwór gra dalej i nie zamkniesz go przez przypadek.</string>
     <string name="update_available">Dostępna jest wersja %1$s</string>
-    <string name="update_available_description">Otwiera stronę wydania, gdzie przeczytasz, co się zmieniło, i pobierzesz aktualizację samodzielnie. InterTune nigdy nic sam nie instaluje.</string>
     <string name="update_available_title">Dostępna</string>
     <string name="update_check">Informuj mnie o aktualizacjach</string>
-    <string name="update_check_description">Sprawdza w serwisie GitHub, czy jest nowsza wersja InterTune, przy uruchomieniu aplikacji, najwyżej raz na kilka godzin. Domyślnie wyłączone i nigdy nic samo nie instaluje.</string>
     <string name="update_installed_version">Zainstalowana wersja</string>
     <string name="update_skip">Pomiń tę wersję</string>
 </resources>

@@ -282,7 +282,6 @@
     <string name="loudness_repair_running">%2$d 曲中 %1$d 曲目を確認中、これまでに %3$d 曲を調整。タップで停止。</string>
     <string name="loudness_repair_stopped">停止しました。%1$d 曲を調整済み、残りは未処理です。タップで再開。</string>
     <string name="oobe_update_check_answered">設定の「アップデート」でいつでも変更できます。</string>
-    <string name="oobe_update_check_description">InterTune はアプリストアで配信していないため、自分で更新できません。アプリを開いたときに GitHub を確認し、新しいバージョンがあればお知らせできます。勝手にインストールすることはなく、あとから設定で変更できます。</string>
     <string name="oobe_update_check_no">今はしない</string>
     <string name="oobe_update_check_title">アップデートをお知らせしますか？</string>
     <string name="oobe_update_check_yes">確認する</string>
@@ -300,10 +299,8 @@
     <string name="swipe_to_dismiss_player">スワイプでミニプレーヤーを閉じる</string>
     <string name="swipe_to_dismiss_player_description">ミニプレーヤーを下にスワイプすると閉じて音楽が止まります。オフにするとその場に残るので、再生が続き、誤って閉じてしまうこともありません。</string>
     <string name="update_available">バージョン %1$s が利用可能です</string>
-    <string name="update_available_description">リリースページを開き、変更点を確認して自分でダウンロードできます。InterTune が勝手にインストールすることはありません。</string>
     <string name="update_available_title">利用可能</string>
     <string name="update_check">アップデートをお知らせ</string>
-    <string name="update_check_description">アプリを開いたときに、GitHub で InterTune の新しいバージョンを確認します。確認は数時間に1回までです。初期設定はオフで、勝手にインストールすることはありません。</string>
     <string name="update_installed_version">インストール済みのバージョン</string>
     <string name="update_skip">このバージョンをスキップ</string>
 </resources>

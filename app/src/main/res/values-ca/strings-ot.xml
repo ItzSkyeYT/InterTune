@@ -82,7 +82,6 @@
     <string name="loudness_repair_running">S\'està comprovant la cançó %1$d de %2$d; %3$d arreglades. Clica per aturar.</string>
     <string name="loudness_repair_stopped">Aturat. %1$d cançons arreglades, la resta encara falten. Clica per continuar.</string>
     <string name="oobe_update_check_answered">Pots canviar-ho quan vulguis als Paràmetres, a Actualitzacions.</string>
-    <string name="oobe_update_check_description">InterTune no és a cap botiga d\'aplicacions, així que no es pot actualitzar sol. Pot mirar a GitHub quan obres l\'aplicació i avisar-te quan hi hagi una versió nova. No instal·la mai res pel seu compte, i això ho pots canviar més tard als Paràmetres.</string>
     <string name="oobe_update_check_no">No, gràcies</string>
     <string name="oobe_update_check_title">Vols que t\'avisem de les actualitzacions?</string>
     <string name="oobe_update_check_yes">Sí, mira-ho</string>
@@ -100,10 +99,8 @@
     <string name="swipe_to_dismiss_player">Llisca per tancar el mini reproductor</string>
     <string name="swipe_to_dismiss_player_description">Si llisques el mini reproductor cap avall, es tanca i s\'atura la música. Si ho desactives, es queda al seu lloc: la cançó continua i no el pots tancar sense voler.</string>
     <string name="update_available">La versió %1$s ja està disponible</string>
-    <string name="update_available_description">Obre la pàgina de la versió perquè puguis llegir què ha canviat i baixar-la tu mateix. InterTune no instal·la mai res pel seu compte.</string>
     <string name="update_available_title">Disponible</string>
     <string name="update_check">Avisa\'m de les actualitzacions</string>
-    <string name="update_check_description">Mira a GitHub si hi ha una versió nova d\'InterTune quan obres l\'aplicació, com a molt cada poques hores. Desactivat per defecte, i no instal·la mai res pel seu compte.</string>
     <string name="update_installed_version">Versió instal·lada</string>
     <string name="update_skip">Omet aquesta versió</string>
 </resources>

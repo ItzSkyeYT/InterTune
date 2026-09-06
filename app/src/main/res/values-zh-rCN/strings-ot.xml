@@ -287,7 +287,6 @@
     <string name="loudness_repair_running">正在检查第 %1$d / %2$d 首，已修正 %3$d 首。点击停止。</string>
     <string name="loudness_repair_stopped">已停止。已修正 %1$d 首歌曲，其余尚未处理。点击继续。</string>
     <string name="oobe_update_check_answered">您随时可以在“设置”的“更新”中更改此项。</string>
-    <string name="oobe_update_check_description">InterTune 不在应用商店上架，无法自行更新。它可以在您打开应用时检查 GitHub，有新版本时通知您。它绝不会自行安装任何内容，之后您也可以在设置中更改。</string>
     <string name="oobe_update_check_no">不用了</string>
     <string name="oobe_update_check_title">需要通知您有新版本吗？</string>
     <string name="oobe_update_check_yes">好，检查更新</string>
@@ -305,10 +304,8 @@
     <string name="swipe_to_dismiss_player">滑动关闭迷你播放器</string>
     <string name="swipe_to_dismiss_player_description">向下滑动迷你播放器会关闭它并停止音乐。关闭此选项后它将保持不动，歌曲继续播放，也不会被误关。</string>
     <string name="update_available">有新版本 %1$s</string>
-    <string name="update_available_description">打开发布页面，您可以查看更新内容并自行下载。InterTune 绝不会自行安装任何内容。</string>
     <string name="update_available_title">可用更新</string>
     <string name="update_check">通知我有新版本</string>
-    <string name="update_check_description">在您打开应用时到 GitHub 检查 InterTune 是否有新版本，每隔几小时最多检查一次。默认关闭，且绝不会自行安装任何内容。</string>
     <string name="update_installed_version">已安装版本</string>
     <string name="update_skip">跳过此版本</string>
 </resources>

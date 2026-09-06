@@ -173,7 +173,6 @@
     <string name="loudness_repair_running">Kontrollin lugu %1$d / %2$d, seni parandatud %3$d. Peatamiseks klõpsa.</string>
     <string name="loudness_repair_stopped">Peatatud. Parandatud %1$d lugu, ülejäänud on veel ees. Jätkamiseks klõpsa.</string>
     <string name="oobe_update_check_answered">Saad seda igal ajal muuta seadistustes jaotises Uuendused.</string>
-    <string name="oobe_update_check_description">InterTune ei ole rakendusepoes, seega ei saa see end ise uuendada. Rakenduse avamisel võib ta GitHubist kontrollida ja anda sulle teada, kui on uus versioon. Ta ei paigalda kunagi midagi ise ja saad seda hiljem seadistustes muuta.</string>
     <string name="oobe_update_check_no">Tänan, ei</string>
     <string name="oobe_update_check_title">Kas anname uuendustest teada?</string>
     <string name="oobe_update_check_yes">Jah, kontrolli</string>
@@ -191,10 +190,8 @@
     <string name="swipe_to_dismiss_player">Pühi minimängija eemale</string>
     <string name="swipe_to_dismiss_player_description">Minimängija allapoole pühkimine sulgeb selle ja peatab muusika. Kui selle välja lülitad, jääb ta hoopis paigale, lugu mängib edasi ja sa ei saa seda kogemata sulgeda.</string>
     <string name="update_available">Saadaval on versioon %1$s</string>
-    <string name="update_available_description">Avab väljalaskelehe, kus saad lugeda, mis muutus, ja selle ise alla laadida. InterTune ei paigalda kunagi midagi ise.</string>
     <string name="update_available_title">Saadaval</string>
     <string name="update_check">Anna uuendustest teada</string>
-    <string name="update_check_description">Kontrollib rakenduse avamisel GitHubist, kas InterTune\'ist on uuem versioon, kõige rohkem kord mõne tunni tagant. Vaikimisi väljas ja ei paigalda kunagi midagi ise.</string>
     <string name="update_installed_version">Paigaldatud versioon</string>
     <string name="update_skip">Jäta see versioon vahele</string>
 </resources>

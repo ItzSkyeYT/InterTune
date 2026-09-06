@@ -62,7 +62,6 @@
     <string name="loudness_repair_running">กำลังตรวจเพลงที่ %1$d จาก %2$d แก้ไปแล้ว %3$d เพลง แตะเพื่อหยุด</string>
     <string name="loudness_repair_stopped">หยุดแล้ว แก้ไป %1$d เพลง ที่เหลือยังไม่ได้ทำ แตะเพื่อทำต่อ</string>
     <string name="oobe_update_check_answered">เปลี่ยนได้ทุกเมื่อในการตั้งค่า หัวข้ออัปเดต</string>
-    <string name="oobe_update_check_description">InterTune ไม่ได้อยู่บนสโตร์แอพ จึงอัปเดตตัวเองไม่ได้ แต่สามารถตรวจสอบบน GitHub ตอนที่คุณเปิดแอพ แล้วแจ้งให้ทราบเมื่อมีเวอร์ชันใหม่ แอพจะไม่ติดตั้งอะไรเองเลย และคุณเปลี่ยนการตั้งค่านี้ทีหลังได้</string>
     <string name="oobe_update_check_no">ไม่ ขอบคุณ</string>
     <string name="oobe_update_check_title">แจ้งเตือนเมื่อมีอัปเดตไหม</string>
     <string name="oobe_update_check_yes">ใช่ ตรวจสอบให้</string>
@@ -80,10 +79,8 @@
     <string name="swipe_to_dismiss_player">ปัดเครื่องเล่นขนาดเล็กออก</string>
     <string name="swipe_to_dismiss_player_description">ปัดเครื่องเล่นขนาดเล็กลงเพื่อปิดและหยุดเพลง ปิดตัวเลือกนี้แล้วเครื่องเล่นจะอยู่กับที่ เพลงเล่นต่อไปและคุณจะไม่เผลอปิดโดยไม่ตั้งใจ</string>
     <string name="update_available">มีเวอร์ชัน %1$s ให้อัปเดต</string>
-    <string name="update_available_description">เปิดหน้ารุ่นเผยแพร่เพื่อให้คุณอ่านสิ่งที่เปลี่ยนไปและดาวน์โหลดเอง InterTune จะไม่ติดตั้งอะไรเองเลย</string>
     <string name="update_available_title">มีอัปเดตใหม่</string>
     <string name="update_check">แจ้งเตือนเมื่อมีอัปเดต</string>
-    <string name="update_check_description">ตรวจสอบเวอร์ชันใหม่ของ InterTune บน GitHub ตอนเปิดแอพ อย่างมากทุกไม่กี่ชั่วโมง ปิดไว้เป็นค่าเริ่มต้น และจะไม่ติดตั้งอะไรเองเลย</string>
     <string name="update_installed_version">เวอร์ชันที่ติดตั้ง</string>
     <string name="update_skip">ข้ามเวอร์ชันนี้</string>
 </resources>

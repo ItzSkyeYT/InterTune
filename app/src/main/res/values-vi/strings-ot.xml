@@ -143,7 +143,6 @@
     <string name="loudness_repair_running">Đang kiểm tra bài %1$d trong %2$d, đã sửa %3$d bài. Chạm để dừng.</string>
     <string name="loudness_repair_stopped">Đã dừng. Đã sửa %1$d bài, số còn lại vẫn chờ. Chạm để tiếp tục.</string>
     <string name="oobe_update_check_answered">Bạn có thể đổi lựa chọn này bất cứ lúc nào trong Cài đặt, mục Cập nhật.</string>
-    <string name="oobe_update_check_description">InterTune không có trên cửa hàng ứng dụng nên không thể tự cập nhật. Ứng dụng có thể kiểm tra GitHub khi bạn mở lên và báo cho bạn khi có phiên bản mới. Ứng dụng không bao giờ tự cài đặt bất cứ thứ gì, và bạn có thể đổi lựa chọn này sau trong Cài đặt.</string>
     <string name="oobe_update_check_no">Không, cảm ơn</string>
     <string name="oobe_update_check_title">Thông báo cho bạn khi có bản cập nhật?</string>
     <string name="oobe_update_check_yes">Có, hãy kiểm tra</string>
@@ -161,10 +160,8 @@
     <string name="swipe_to_dismiss_player">Vuốt để đóng trình phát thu nhỏ</string>
     <string name="swipe_to_dismiss_player_description">Vuốt trình phát thu nhỏ xuống dưới sẽ đóng nó và dừng nhạc. Tắt tùy chọn này thì nó ở nguyên chỗ cũ, nhạc vẫn phát và bạn không thể vô tình đóng nó.</string>
     <string name="update_available">Đã có phiên bản %1$s</string>
-    <string name="update_available_description">Mở trang phát hành để bạn xem có gì thay đổi và tự tải về. InterTune không bao giờ tự cài đặt bất cứ thứ gì.</string>
     <string name="update_available_title">Có bản mới</string>
     <string name="update_check">Thông báo cho tôi về bản cập nhật</string>
-    <string name="update_check_description">Kiểm tra GitHub xem InterTune có phiên bản mới hơn không mỗi khi bạn mở ứng dụng, nhiều nhất vài giờ một lần. Mặc định tắt, và không bao giờ tự cài đặt bất cứ thứ gì.</string>
     <string name="update_installed_version">Phiên bản đã cài</string>
     <string name="update_skip">Bỏ qua phiên bản này</string>
 </resources>

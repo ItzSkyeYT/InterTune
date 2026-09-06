@@ -297,7 +297,6 @@
     <string name="loudness_repair_running">Перевірка пісні %1$d з %2$d, виправлено %3$d. Натисніть, щоб зупинити.</string>
     <string name="loudness_repair_stopped">Зупинено. Виправлено пісень: %1$d, решта ще попереду. Натисніть, щоб продовжити.</string>
     <string name="oobe_update_check_answered">Це можна змінити будь-коли в налаштуваннях, у розділі «Оновлення».</string>
-    <string name="oobe_update_check_description">InterTune немає в магазині застосунків, тож він не може оновлюватися сам. Він може перевіряти GitHub під час відкриття застосунку й повідомляти вам про нову версію. Він ніколи нічого не встановлює самостійно, і це можна змінити пізніше в налаштуваннях.</string>
     <string name="oobe_update_check_no">Ні, дякую</string>
     <string name="oobe_update_check_title">Повідомляти про оновлення?</string>
     <string name="oobe_update_check_yes">Так, перевіряти</string>
@@ -315,10 +314,8 @@
     <string name="swipe_to_dismiss_player">Проведіть, щоб закрити мініплеєр</string>
     <string name="swipe_to_dismiss_player_description">Якщо провести по мініплеєру вниз, він закриється й музика зупиниться. Вимкніть це — і він залишиться на місці, пісня гратиме далі, а випадково закрити його не вийде.</string>
     <string name="update_available">Доступна версія %1$s</string>
-    <string name="update_available_description">Відкриває сторінку випуску, щоб ви побачили, що змінилося, і завантажили оновлення самі. InterTune ніколи нічого не встановлює самостійно.</string>
     <string name="update_available_title">Доступно</string>
     <string name="update_check">Повідомляти про оновлення</string>
-    <string name="update_check_description">Перевіряє на GitHub, чи є новіша версія InterTune, під час відкриття застосунку — не частіше ніж раз на кілька годин. Типово вимкнено; нічого не встановлюється самостійно.</string>
     <string name="update_installed_version">Встановлена версія</string>
     <string name="update_skip">Пропустити цю версію</string>
 </resources>

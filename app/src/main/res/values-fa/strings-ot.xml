@@ -272,7 +272,6 @@
     <string name="loudness_repair_running">در حال بررسی آهنگ %1$d از %2$d، تا اینجا %3$d آهنگ اصلاح شد. برای توقف ضربه بزنید.</string>
     <string name="loudness_repair_stopped">متوقف شد. %1$d آهنگ اصلاح شد، بقیه باقی مانده‌اند. برای ادامه ضربه بزنید.</string>
     <string name="oobe_update_check_answered">هر زمان می‌توانید این گزینه را در تنظیمات، بخش به‌روزرسانی‌ها، تغییر دهید.</string>
-    <string name="oobe_update_check_description">InterTune در هیچ فروشگاه برنامه‌ای نیست، پس نمی‌تواند خودش را به‌روز کند. می‌تواند هنگام باز کردن برنامه GitHub را بررسی کند و نسخه جدید را به شما خبر دهد. هرگز چیزی را خودش نصب نمی‌کند و می‌توانید بعداً این گزینه را در تنظیمات تغییر دهید.</string>
     <string name="oobe_update_check_no">نه، ممنون</string>
     <string name="oobe_update_check_title">درباره به‌روزرسانی‌ها به شما اطلاع دهیم؟</string>
     <string name="oobe_update_check_yes">بله، بررسی کن</string>
@@ -290,10 +289,8 @@
     <string name="swipe_to_dismiss_player">کشیدن انگشت برای بستن پخش‌کننده کوچک</string>
     <string name="swipe_to_dismiss_player_description">کشیدن پخش‌کننده کوچک به پایین آن را می‌بندد و موسیقی را متوقف می‌کند. با خاموش کردن این گزینه، پخش‌کننده سر جایش می‌ماند، آهنگ ادامه پیدا می‌کند و به‌طور اتفاقی بسته نمی‌شود.</string>
     <string name="update_available">نسخه %1$s در دسترس است</string>
-    <string name="update_available_description">صفحه انتشار را باز می‌کند تا تغییرات را بخوانید و خودتان دانلود کنید. InterTune هرگز چیزی را خودش نصب نمی‌کند.</string>
     <string name="update_available_title">در دسترس</string>
     <string name="update_check">درباره به‌روزرسانی‌ها به من اطلاع بده</string>
-    <string name="update_check_description">هنگام باز کردن برنامه، حداکثر هر چند ساعت یک‌بار، GitHub را برای نسخه جدیدتر InterTune بررسی می‌کند. به‌طور پیش‌فرض خاموش است و هرگز چیزی را خودش نصب نمی‌کند.</string>
     <string name="update_installed_version">نسخه نصب‌شده</string>
     <string name="update_skip">رد کردن این نسخه</string>
 </resources>

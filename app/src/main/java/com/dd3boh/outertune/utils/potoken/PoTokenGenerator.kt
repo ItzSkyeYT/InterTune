@@ -5,6 +5,7 @@ import android.webkit.CookieManager
 import com.dd3boh.outertune.App
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -16,6 +17,14 @@ class PoTokenGenerator {
     private var webViewBadImpl = false // whether the system has a bad WebView implementation
 
     private val webPoTokenGenLock = Mutex()
+
+    /**
+     * How long the whole token generation may take before the song gives up on it.
+     *
+     * Generous: it covers loading the page, two POSTs to youtube.com and the BotGuard run, all on
+     * whatever connection the phone has. The point is only that it ends.
+     */
+    private val POTOKEN_TIMEOUT_MS = 20_000L
     private var webPoTokenSessionId: String? = null
     private var webPoTokenStreamingPot: String? = null
     private var webPoTokenGenerator: PoTokenWebView? = null
@@ -26,7 +35,22 @@ class PoTokenGenerator {
         }
 
         return try {
-            runBlocking { getWebClientPoToken(videoId, sessionId, forceRecreate = false) }
+            // Bounded, because the WebView's JavaScript callbacks are awaited in
+            // suspendCancellableCoroutine with no timeout of their own, and this runs inside
+            // runBlocking on the thread resolving the stream. A page that loads but never calls
+            // back therefore parks that thread forever while holding webPoTokenGenLock, so every
+            // later song queues behind it and the player sits at "buffering" on 0:00 with nothing
+            // logged. On his phone in 0.10.5 that state was only recoverable by force stopping the
+            // app. Nothing at HEAD asks for a token, so this is a guard for whenever a client needs
+            // one again: a stalled page costs one song, not the player.
+            runBlocking {
+                withTimeoutOrNull(POTOKEN_TIMEOUT_MS) {
+                    getWebClientPoToken(videoId, sessionId, forceRecreate = false)
+                } ?: run {
+                    Log.e(TAG, "[$videoId] poToken timed out after ${POTOKEN_TIMEOUT_MS}ms, continuing without one")
+                    null
+                }
+            }
         } catch (e: Exception) {
             when (e) {
                 is BadWebViewException -> {

@@ -208,7 +208,6 @@
     <string name="loudness_repair_running">%2$d में से %1$d गाना जांचा जा रहा है, अब तक %3$d ठीक हुए। रोकने के लिए टैप करें।</string>
     <string name="loudness_repair_stopped">रुक गया। %1$d गाने ठीक हुए, बाकी अभी बचे हैं। जारी रखने के लिए टैप करें।</string>
     <string name="oobe_update_check_answered">इसे आप कभी भी सेटिंग्स में अपडेट के अंदर बदल सकते हैं।</string>
-    <string name="oobe_update_check_description">InterTune किसी ऐप स्टोर पर नहीं है, इसलिए यह खुद को अपडेट नहीं कर सकता। ऐप खोलने पर यह GitHub पर देख सकता है और नया संस्करण आने पर आपको बता सकता है। यह अपने आप कुछ भी इंस्टॉल नहीं करता, और इसे आप बाद में सेटिंग्स में बदल सकते हैं।</string>
     <string name="oobe_update_check_no">नहीं, धन्यवाद</string>
     <string name="oobe_update_check_title">अपडेट के बारे में बताएं?</string>
     <string name="oobe_update_check_yes">हां, जांचें</string>
@@ -226,10 +225,8 @@
     <string name="swipe_to_dismiss_player">मिनी प्लेयर को स्वाइप करके हटाएं</string>
     <string name="swipe_to_dismiss_player_description">मिनी प्लेयर को नीचे की ओर स्वाइप करने पर वह बंद हो जाता है और संगीत रुक जाता है। इसे बंद कर दें तो वह अपनी जगह बना रहता है, गाना चलता रहता है और गलती से बंद नहीं होता।</string>
     <string name="update_available">संस्करण %1$s उपलब्ध है</string>
-    <string name="update_available_description">रिलीज़ पेज खोलता है ताकि आप देख सकें कि क्या बदला है और खुद डाउनलोड कर सकें। InterTune अपने आप कुछ भी इंस्टॉल नहीं करता।</string>
     <string name="update_available_title">उपलब्ध</string>
     <string name="update_check">अपडेट के बारे में बताएं</string>
-    <string name="update_check_description">ऐप खोलने पर GitHub पर InterTune का नया संस्करण देखता है, ज़्यादा से ज़्यादा हर कुछ घंटों में एक बार। डिफ़ॉल्ट रूप से बंद है, और यह अपने आप कुछ भी इंस्टॉल नहीं करता।</string>
     <string name="update_installed_version">इंस्टॉल किया गया संस्करण</string>
     <string name="update_skip">यह संस्करण छोड़ें</string>
 </resources>

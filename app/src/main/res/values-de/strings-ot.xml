@@ -282,7 +282,6 @@
     <string name="loudness_repair_running">Song %1$d von %2$d wird geprüft, %3$d bisher korrigiert. Zum Stoppen tippen.</string>
     <string name="loudness_repair_stopped">Gestoppt. %1$d Songs korrigiert, der Rest fehlt noch. Zum Fortsetzen tippen.</string>
     <string name="oobe_update_check_answered">Du kannst das jederzeit in den Einstellungen unter „Updates“ ändern.</string>
-    <string name="oobe_update_check_description">InterTune ist in keinem App-Store, kann sich also nicht selbst aktualisieren. Es kann beim Öffnen der App auf GitHub nachsehen und dir Bescheid geben, wenn es eine neue Version gibt. Es installiert nie etwas von allein, und du kannst das später in den Einstellungen ändern.</string>
     <string name="oobe_update_check_no">Nein, danke</string>
     <string name="oobe_update_check_title">Über Updates informieren?</string>
     <string name="oobe_update_check_yes">Ja, nachsehen</string>
@@ -300,10 +299,8 @@
     <string name="swipe_to_dismiss_player">Mini-Player wegwischen</string>
     <string name="swipe_to_dismiss_player_description">Wischst du den Mini-Player nach unten, schließt er sich und die Musik stoppt. Aus: Er bleibt liegen, der Song läuft weiter und du kannst ihn nicht versehentlich schließen.</string>
     <string name="update_available">Version %1$s ist verfügbar</string>
-    <string name="update_available_description">Öffnet die Release-Seite, damit du nachlesen kannst, was sich geändert hat, und sie selbst herunterlädst. InterTune installiert nie etwas von allein.</string>
     <string name="update_available_title">Verfügbar</string>
     <string name="update_check">Über Updates informieren</string>
-    <string name="update_check_description">Sieht beim Öffnen der App auf GitHub nach einer neueren Version von InterTune, höchstens alle paar Stunden. Standardmäßig aus, und es installiert nie etwas von allein.</string>
     <string name="update_installed_version">Installierte Version</string>
     <string name="update_skip">Diese Version überspringen</string>
 </resources>

@@ -244,7 +244,6 @@
     <string name="loudness_repair_running">جارٍ فحص الأغنية %1$d من %2$d، وأُصلحت %3$d حتى الآن. انقر للإيقاف.</string>
     <string name="loudness_repair_stopped">توقف. أُصلحت %1$d أغنية، والباقي لم يُنجز بعد. انقر للمتابعة.</string>
     <string name="oobe_update_check_answered">يمكنك تغيير هذا في أي وقت من الإعدادات، ضمن التحديثات.</string>
-    <string name="oobe_update_check_description">InterTune ليس على متجر تطبيقات، لذا لا يمكنه تحديث نفسه. يمكنه التحقق من GitHub عند فتح التطبيق وإخبارك بوجود إصدار جديد. لا يثبّت أي شيء من تلقاء نفسه أبدًا، ويمكنك تغيير هذا لاحقًا من الإعدادات.</string>
     <string name="oobe_update_check_no">لا، شكرًا</string>
     <string name="oobe_update_check_title">هل نخبرك بالتحديثات؟</string>
     <string name="oobe_update_check_yes">نعم، تحقق</string>
@@ -262,10 +261,8 @@
     <string name="swipe_to_dismiss_player">سحب المشغل المصغر للإغلاق</string>
     <string name="swipe_to_dismiss_player_description">سحب المشغل المصغر للأسفل يغلقه ويوقف الموسيقى. عطّل هذا ليبقى مكانه، فتستمر الأغنية ولا تغلقه بالخطأ.</string>
     <string name="update_available">الإصدار %1$s متاح</string>
-    <string name="update_available_description">يفتح صفحة الإصدار لتقرأ ما تغيّر وتنزّله بنفسك. InterTune لا يثبّت أي شيء من تلقاء نفسه أبدًا.</string>
     <string name="update_available_title">متاح</string>
     <string name="update_check">أخبرني بالتحديثات</string>
-    <string name="update_check_description">يتحقق من GitHub من وجود إصدار أحدث من InterTune عند فتح التطبيق، مرة كل بضع ساعات على الأكثر. معطّل افتراضيًا، ولا يثبّت أي شيء من تلقاء نفسه أبدًا.</string>
     <string name="update_installed_version">الإصدار المثبّت</string>
     <string name="update_skip">تخطي هذا الإصدار</string>
 </resources>
