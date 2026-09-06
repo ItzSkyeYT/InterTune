@@ -1132,9 +1132,17 @@ class MusicService : MediaLibraryService(),
                 minPlaybackDur = 0.01f // Still want "spam skipping" to not count as plays
             }
 
+            // A song tapped in search results reaches the player with duration -1, because the
+            // Songs rows of a search response carry no length. Dividing by -1 made the ratio
+            // negative, so a song played to the end was never counted, never got an event, and
+            // never reached YouTube's history. recoverSong has already written the real length to
+            // the database by the time playback ends, so ask there before giving up.
+            val durationSec = mediaItem.metadata?.duration?.takeIf { it > 0 }
+                ?: database.song(mediaItem.mediaId).first()?.song?.duration?.takeIf { it > 0 }
+                ?: -1
             val playRatio =
-                playbackStats.totalPlayTimeMs.toFloat() / ((mediaItem.metadata?.duration?.times(1000)) ?: -1)
-            Log.d(TAG, "Playback ratio: $playRatio Min threshold: $minPlaybackDur")
+                if (durationSec > 0) playbackStats.totalPlayTimeMs.toFloat() / (durationSec * 1000) else -1f
+            Log.d(TAG, "Playback ratio: $playRatio Min threshold: $minPlaybackDur (duration ${durationSec}s)")
             if (playRatio >= minPlaybackDur && !dataStore.get(PauseListenHistoryKey, false)) {
                 database.query {
                     incrementPlayCount(mediaItem.mediaId)
