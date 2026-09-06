@@ -74,6 +74,7 @@ import com.dd3boh.outertune.constants.AutoLoadMoreKey
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.KeepAliveKey
 import com.dd3boh.outertune.constants.MAX_PLAYER_CONSECUTIVE_ERR
+import com.dd3boh.outertune.constants.RELATED_RETRY_COOLDOWN_MS
 import com.dd3boh.outertune.constants.MaxQueuesKey
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleLike
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleRepeatMode
@@ -116,6 +117,7 @@ import com.dd3boh.outertune.utils.CoilBitmapLoader
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.SyncUtils
+import com.dd3boh.outertune.utils.FailureMemo
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.dataStore
@@ -485,6 +487,18 @@ class MusicService : MediaLibraryService(),
 
 // Library functions
 
+    /**
+     * Songs whose related lookup has failed, and when to allow another try.
+     *
+     * hasRelatedSongs is a COUNT over related_song_map, so a failed lookup writes nothing and
+     * leaves the song looking exactly like one that has never been tried. Under a block that meant
+     * two requests per play, on every play, forever, against the endpoint that is already
+     * refusing us. Remembering the failure for a while is what stops it. In memory on purpose:
+     * this is a "do not hammer it right now" note, not a fact about the song, and it should not
+     * outlive the process.
+     */
+    private val relatedLookupFailures = FailureMemo(RELATED_RETRY_COOLDOWN_MS)
+
     private suspend fun recoverSong(mediaId: String, playbackData: YTPlayerUtils.PlaybackData? = null) {
         val song = database.song(mediaId).first()
         val mediaMetadata = withContext(Dispatchers.Main) {
@@ -499,9 +513,11 @@ class MusicService : MediaLibraryService(),
             if (song == null) insert(mediaMetadata.copy(duration = duration))
             else if (song.song.duration == -1) update(song.song.copy(duration = duration))
         }
-        if (!database.hasRelatedSongs(mediaId)) {
-            val relatedEndpoint = YouTube.next(WatchEndpoint(videoId = mediaId)).getOrNull()?.relatedEndpoint ?: return
-            val relatedPage = YouTube.related(relatedEndpoint).getOrNull() ?: return
+        if (!database.hasRelatedSongs(mediaId) && relatedLookupFailures.none(mediaId)) {
+            val relatedEndpoint = YouTube.next(WatchEndpoint(videoId = mediaId)).getOrNull()?.relatedEndpoint
+                ?: return relatedLookupFailures.note(mediaId)
+            val relatedPage = YouTube.related(relatedEndpoint).getOrNull()
+                ?: return relatedLookupFailures.note(mediaId)
             database.query {
                 relatedPage.songs
                     .map(SongItem::toMediaMetadata)

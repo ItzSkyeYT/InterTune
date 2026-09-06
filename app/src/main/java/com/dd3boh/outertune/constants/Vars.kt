@@ -66,6 +66,14 @@ const val SCANNER_OWNER_M3U = 2
  */
 const val SYNC_CD = 30 * 60
 
+/**
+ * How long to leave a song's related-songs lookup alone after it has failed.
+ *
+ * Long enough that a block (which backs off for 5 to 30 minutes) expires first, so the retry has a
+ * chance of succeeding rather than adding to the pile.
+ */
+const val RELATED_RETRY_COOLDOWN_MS = 30 * 60 * 1000L
+
 const val MAX_PLAYER_CONSECUTIVE_ERR = 3
 
 /**
