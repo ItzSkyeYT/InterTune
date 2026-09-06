@@ -141,12 +141,14 @@ fun ColumnScope.LyricSourceFrag() {
 
     SwitchPreference(
         title = { Text(stringResource(R.string.enable_lrclib)) },
+        description = stringResource(R.string.enable_lrclib_description),
         icon = { Icon(Icons.Rounded.Lyrics, null) },
         checked = enableLrcLib,
         onCheckedChange = onEnableLrcLibChange
     )
     SwitchPreference(
         title = { Text(stringResource(R.string.enable_kugou)) },
+        description = stringResource(R.string.enable_kugou_description),
         icon = { Icon(Icons.Rounded.Lyrics, null) },
         checked = enableKugou,
         onCheckedChange = onEnableKugouChange

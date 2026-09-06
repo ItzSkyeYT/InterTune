@@ -17,7 +17,6 @@
     <string name="player_background_gradient">Gradiente</string>
     <string name="player_background_style">Stile sfondo del player</string>
     <string name="player_background_blur">Sfocatura</string>
-    <string name="prefs_advanced">Avanzate</string>
     <string name="create_sync_playlist_description">Nota: Questo consente la sincronizzazione con YouTube Music. Questo NON è modificabile in seguito. Non puoi aggiungere brani locali alle playlist sincronizzate.</string>
     <string name="sort_by_date_released">Data di pubblicazione</string>
     <string name="sort_by_play_count">Numero di riproduzioni</string>

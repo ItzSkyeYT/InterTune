@@ -5,7 +5,6 @@
     <string name="sort_by_date_released">Ngày phát hành</string>
     <string name="sync_progress_success">Đồng bộ hoàn tất</string>
     <string name="player_background_style">Kiểu nền của trình phát nhạc</string>
-    <string name="prefs_advanced">Nâng cao</string>
     <string name="sort_by_date_modified">Ngày chỉnh sửa</string>
     <string name="grp_audio">Âm thanh</string>
     <string name="create_sync_playlist">Đồng bộ danh sách phát</string>

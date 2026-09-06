@@ -27,7 +27,6 @@
     <string name="create_sync_playlist">Συγχρονισμός Playlist</string>
     <string name="play_count">Αναπαραγωγές</string>
     <string name="grp_manual_scanner">Χειροκίνητος σαρωτής</string>
-    <string name="prefs_advanced">Προχωρημένα</string>
     <string name="playlist_add_local_to_synced_note">Σημείωση: Η προσθήκη τοπικών τραγουδιών σε συγχρονισμένες/απομκαρυσμένες playlists δεν υποστηρίζεται. Κάθε άλλος συνδυασμός ισχύει</string>
     <string name="sync_progress_active">Συγχρονισμός με λογαριασμό YouTube…</string>
     <string name="sync_progress_success">Συγχρονισμός ολοκληρώθηκε</string>

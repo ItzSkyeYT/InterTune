@@ -36,7 +36,6 @@
     <string name="playlist_missing_note">لیست‌های پخش وجود ندارد؟ برای فعال کردن حالت خواندن و نوشتن همگام‌سازی در تنظیمات، اینجا را کلیک کنید</string>
     <string name="sync_progress_active">همگام سازی با اکانت یوتیوب…</string>
     <string name="sync_progress_success">همگام سازی تکمیل شد</string>
-    <string name="prefs_advanced">پیشرفته</string>
     <string name="settings_debug">اشکال زدایی</string>
     <string name="grp_account_sync">اکانت و همگام سازی</string>
     <string name="grp_audio">صدا</string>

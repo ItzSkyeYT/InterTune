@@ -17,7 +17,6 @@
     <string name="play_count">Количество воспроизведений</string>
     <string name="sync_progress_active">Синхронизация с аккаунтом YouTube …</string>
     <string name="sync_progress_success">Синхронизация завершена</string>
-    <string name="prefs_advanced">Расширенные</string>
     <string name="remote_history">Удаленная</string>
     <string name="err_stop_on_error">Произошла ошибка. Воспроизведение остановлено</string>
     <string name="sort_by_date_released">Дата выпуска</string>

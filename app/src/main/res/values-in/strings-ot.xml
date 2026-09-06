@@ -44,7 +44,6 @@
     <string name="playlist_missing_note">Playlist hilang? Klik di sini untuk mengaktifkan mode sinkronisasi baca &amp; tulis di pengaturan</string>
     <string name="sync_progress_active">Menyinkronkan dengan akun YouTube…</string>
     <string name="sync_progress_success">Sinkronisasi selesai</string>
-    <string name="prefs_advanced">Lanjutan</string>
     <string name="settings_debug">Diagnostik</string>
     <string name="grp_account_sync">Akun dan sinkronisasi</string>
     <string name="grp_audio">Audio</string>

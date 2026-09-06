@@ -858,7 +858,7 @@ fun ColumnScope.SongCacheFrag() {
     }
 
     ListPreference(
-        title = { Text(stringResource(R.string.max_cache_size)) },
+        title = { Text(stringResource(R.string.song_cache_max_size)) },
         selectedValue = maxSongCacheSize,
         values = listOf(0, 128, 256, 512, 1024, 2048, 4096, 8192, -1),
         valueText = {
@@ -975,7 +975,7 @@ fun ColumnScope.ImageCacheFrag() {
     }
 
     ListPreference(
-        title = { Text(stringResource(R.string.max_cache_size)) },
+        title = { Text(stringResource(R.string.image_cache_max_size)) },
         selectedValue = maxImageCacheSize,
         values = listOf(0, 128, 256, 512, 1024, 2048, 4096, 8192),
         valueText = {

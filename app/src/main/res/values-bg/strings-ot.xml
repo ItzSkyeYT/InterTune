@@ -73,7 +73,6 @@
     <string name="create_sync_playlist">Синхронизирай плейлиста</string>
     <string name="playlist_add_local_to_synced_note">Забележка: Добавянето на локални песни към синхронизирани/отдалечени плейлисти не се поддържа. Всяка друга комбинация е валидна</string>
     <string name="sync_progress_active">Синхронизиране с YouTube профил…</string>
-    <string name="prefs_advanced">Разширени</string>
     <string name="settings_debug">Отстраняване на грешки</string>
     <string name="grp_extra_scanner_settings">Допълнителни настройки на сканиране</string>
     <string name="grp_localization">Локализация</string>

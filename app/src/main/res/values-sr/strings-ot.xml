@@ -38,7 +38,6 @@
     <string name="playlist_missing_note">Nedostaju plejliste? Kliknite ovde za sinhronizaciju čitanja-pisanja režima u podešavanjima</string>
     <string name="sync_progress_active">Sinhronizacija sa YouTube nalogom…</string>
     <string name="sync_progress_success">Sinhronizacija završena</string>
-    <string name="prefs_advanced">Napredno</string>
     <string name="settings_debug">Otklanjanje grešaka</string>
     <string name="grp_account_sync">Nalog i sinhronizacija</string>
     <string name="grp_audio">Audio</string>

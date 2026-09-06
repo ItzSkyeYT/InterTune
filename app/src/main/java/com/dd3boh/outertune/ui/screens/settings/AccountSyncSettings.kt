@@ -36,7 +36,6 @@ import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.screens.settings.fragments.AccountExtrasFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.AccountFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SyncAutoFrag
-import com.dd3boh.outertune.ui.screens.settings.fragments.SyncExtrasFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SyncManualFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SyncParamsFrag
 import com.dd3boh.outertune.ui.utils.backToMain
@@ -94,14 +93,6 @@ fun AccountSyncSettings(
         ) {
             SyncParamsFrag()
         }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            SyncExtrasFrag()
-        }
-
     }
 
     TopAppBar(

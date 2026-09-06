@@ -84,7 +84,7 @@ fun LyricsSettings(
         }
         Spacer(modifier = Modifier.height(16.dp))
 
-        SettingsClickToReveal(stringResource(R.string.prefs_advanced)) {
+        SettingsClickToReveal(stringResource(R.string.advanced)) {
             LyricAdvancedFrag()
         }
     }

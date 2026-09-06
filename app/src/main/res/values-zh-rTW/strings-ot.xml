@@ -48,7 +48,6 @@
     <string name="playlist_add_local_to_synced_note">請注意：應用不支持增加本地音訊到同步或遠端的音樂清單。</string>
     <string name="playlist_missing_note">沒有你要的播放清單？按此以在設定開啟遠端讀寫模式</string>
     <string name="toggle_lyrics">開關歌詞</string>
-    <string name="prefs_advanced">進階設定</string>
     <string name="settings_debug">偵錯</string>
     <string name="grp_behavior">操作</string>
     <string name="grp_extra_scanner_settings">更多掃描設定</string>

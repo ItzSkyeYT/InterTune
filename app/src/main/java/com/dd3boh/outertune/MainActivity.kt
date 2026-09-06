@@ -177,11 +177,9 @@ import com.dd3boh.outertune.ui.screens.search.OnlineSearchResult
 import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
 import com.dd3boh.outertune.ui.screens.settings.AboutScreen
 import com.dd3boh.outertune.ui.screens.settings.AccountSyncSettings
-import com.dd3boh.outertune.ui.screens.settings.AppearanceSettings
+import com.dd3boh.outertune.ui.screens.settings.AdvancedSettings
 import com.dd3boh.outertune.ui.screens.settings.AttributionScreen
-import com.dd3boh.outertune.ui.screens.settings.BackupAndRestore
-import com.dd3boh.outertune.ui.screens.settings.ExperimentalSettings
-import com.dd3boh.outertune.ui.screens.settings.InterfaceSettings
+import com.dd3boh.outertune.ui.screens.settings.LookAndFeelSettings
 import com.dd3boh.outertune.ui.screens.settings.LibrariesScreen
 import com.dd3boh.outertune.ui.screens.settings.LibrarySettings
 import com.dd3boh.outertune.ui.screens.settings.LocalPlayerSettings
@@ -189,7 +187,7 @@ import com.dd3boh.outertune.ui.screens.settings.LyricsSettings
 import com.dd3boh.outertune.ui.screens.settings.PlayerSettings
 import com.dd3boh.outertune.ui.screens.settings.SettingsScreen
 import com.dd3boh.outertune.ui.screens.settings.StorageSettings
-import com.dd3boh.outertune.ui.screens.settings.PollSettings
+import com.dd3boh.outertune.ui.screens.settings.PrivacySettings
 import com.dd3boh.outertune.ui.screens.settings.UpdateSettings
 import com.dd3boh.outertune.ui.theme.ColorSaver
 import com.dd3boh.outertune.ui.theme.DefaultThemeColor
@@ -967,10 +965,7 @@ class MainActivity : ComponentActivity() {
                                         SettingsScreen(navController, scrollBehavior)
                                     }
                                     composable("settings/appearance") {
-                                        AppearanceSettings(navController, scrollBehavior)
-                                    }
-                                    composable("settings/interface") {
-                                        InterfaceSettings(navController, scrollBehavior)
+                                        LookAndFeelSettings(navController, scrollBehavior)
                                     }
                                     composable("settings/library") {
                                         LibrarySettings(navController, scrollBehavior)
@@ -987,20 +982,17 @@ class MainActivity : ComponentActivity() {
                                     composable("settings/storage") {
                                         StorageSettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/backup_restore") {
-                                        BackupAndRestore(navController, scrollBehavior)
-                                    }
                                     composable("settings/local") {
                                         LocalPlayerSettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/experimental") {
-                                        ExperimentalSettings(navController, scrollBehavior)
+                                    composable("settings/advanced") {
+                                        AdvancedSettings(navController, scrollBehavior)
+                                    }
+                                    composable("settings/privacy") {
+                                        PrivacySettings(navController, scrollBehavior)
                                     }
                                     composable("settings/updates") {
                                         UpdateSettings(navController, scrollBehavior)
-                                    }
-                                    composable("settings/polls") {
-                                        PollSettings(navController, scrollBehavior)
                                     }
                                     composable("settings/about") {
                                         AboutScreen(navController, scrollBehavior)

@@ -61,6 +61,7 @@ import com.dd3boh.outertune.constants.encodeSyncString
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
+import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -238,27 +239,6 @@ fun ColumnScope.SyncParamsFrag() {
             }
         },
     )
-}
-
-@Composable
-fun ColumnScope.SyncExtrasFrag() {
-    val (innerTubeCookie, onInnerTubeCookieChange) = rememberPreference(InnerTubeCookieKey, "")
-    val isLoggedIn = remember(innerTubeCookie) {
-        "SAPISID" in parseCookieString(innerTubeCookie)
-    }
-
-    val pauseListenHistory by rememberPreference(key = PauseListenHistoryKey, defaultValue = false)
-    val (pauseRemoteListenHistory, onPauseRemoteListenHistoryChange) = rememberPreference(
-        key = PauseRemoteListenHistoryKey,
-        defaultValue = false
-    )
-
-    SwitchPreference(
-        title = { Text(stringResource(R.string.pause_remote_listen_history)) },
-        icon = { Icon(Icons.Rounded.History, null) },
-        checked = pauseRemoteListenHistory,
-        onCheckedChange = onPauseRemoteListenHistoryChange,
-        isEnabled = !pauseListenHistory && isLoggedIn
-    )
+    InfoLabel(stringResource(R.string.sync_params_description))
 }
 

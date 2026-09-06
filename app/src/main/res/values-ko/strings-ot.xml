@@ -19,7 +19,6 @@
     <string name="sort_by_like_date">좋아요를 표시한 날짜</string>
     <string name="play_count">재생횟수</string>
     <string name="sync_progress_active">유튜브 계정과 동기화 중…</string>
-    <string name="prefs_advanced">고급</string>
     <string name="grp_general">일반</string>
     <string name="grp_lyrics_format">서식 지정</string>
     <string name="grp_lyrics_parser">구성 요소</string>

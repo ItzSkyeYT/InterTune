@@ -27,7 +27,6 @@
     <string name="play_count">Кількість відтворень</string>
     <string name="grp_interface">Інтерфейс</string>
     <string name="grp_layout">Макет</string>
-    <string name="prefs_advanced">Додаткові</string>
     <string name="create_sync_playlist">Синхронізувати плейлист</string>
     <string name="new_interface">Новий макет інтерфейсу</string>
     <string name="player_background_blur">Розмиття</string>

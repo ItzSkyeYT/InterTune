@@ -23,7 +23,6 @@
     <string name="play_count">再生回数</string>
     <string name="sync_progress_active">YouTube アカウントと同期中…</string>
     <string name="sync_progress_success">同期完了</string>
-    <string name="prefs_advanced">高度なオプション</string>
     <string name="settings_debug">デバッグ</string>
     <string name="grp_audio">音声</string>
     <string name="grp_layout">配置</string>
