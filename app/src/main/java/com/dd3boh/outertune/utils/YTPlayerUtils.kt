@@ -146,9 +146,25 @@ object YTPlayerUtils {
             }
         }
 
+        // A refusal from one client is not a refusal from YouTube. ANDROID_VR answers "Sign in to
+        // confirm you're not a bot" on nearly every song and VISIONOS then serves it 150 ms later,
+        // and reporting each of those to the throttle tripped the back off (which drops history
+        // pings, downloads, sync and Home loads for as long as it lasts) and counted a strike, so
+        // a genuine block later started at the top of the ladder. So: network failures are still
+        // reported as they happen, but a block is only reported once the whole chain has failed,
+        // and a working stream from any client clears it.
+        var blockedStatus: PlayerResponse.PlayabilityStatus? = null
+        fun PlayerResponse.rememberBlock() {
+            if (blockedStatus == null && Throttle.looksLikeBlock(playabilityStatus.reason)) {
+                blockedStatus = playabilityStatus
+            }
+        }
+
         val mainPlayerResponse =
-            YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestamp, webPlayerPot).noteThrottle()
+            YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestamp, webPlayerPot)
+                .onFailure { Throttle.noteFailure(it) }
                 .getOrThrow()
+        mainPlayerResponse.rememberBlock()
 
         val videoDetails = mainPlayerResponse.videoDetails
         val playbackTracking = mainPlayerResponse.playbackTracking
@@ -182,8 +198,10 @@ object YTPlayerUtils {
                 }
 
                 streamPlayerResponse =
-                    YouTube.player(videoId, playlistId, client, signatureTimestamp, webPlayerPot).noteThrottle()
+                    YouTube.player(videoId, playlistId, client, signatureTimestamp, webPlayerPot)
+                        .onFailure { Throttle.noteFailure(it) }
                         .getOrNull()
+                streamPlayerResponse?.rememberBlock()
             }
 
             Log.d(TAG, "[$videoId] stream client: ${client.clientName}, " +
@@ -219,6 +237,12 @@ object YTPlayerUtils {
                     Log.w(TAG, "[$videoId] [${client.clientName}] got bad http status code")
                 }
             }
+        }
+
+        if (streamUrl != null) {
+            Throttle.note("OK", null)
+        } else {
+            blockedStatus?.let { Throttle.note(it.status, it.reason) }
         }
 
         if (streamPlayerResponse == null) {
