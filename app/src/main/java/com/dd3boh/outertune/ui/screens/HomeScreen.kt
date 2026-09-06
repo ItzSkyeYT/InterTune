@@ -35,6 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -73,6 +74,8 @@ import com.dd3boh.outertune.constants.GridThumbnailHeight
 import com.dd3boh.outertune.constants.ListItemHeight
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.LocalLibraryEnableKey
+import com.dd3boh.outertune.constants.RecommendationSource
+import com.dd3boh.outertune.constants.RecommendationSourceKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.Artist
@@ -87,6 +90,7 @@ import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.PollBanner
 import com.dd3boh.outertune.ui.component.PollDialog
 import com.dd3boh.outertune.ui.component.ChipsRow
+import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.ui.component.HideOnScrollFAB
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.NavigationTile
@@ -111,6 +115,7 @@ import com.dd3boh.outertune.ui.menu.YouTubeArtistMenu
 import com.dd3boh.outertune.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
 import com.dd3boh.outertune.ui.utils.SnapLayoutInfoProvider
+import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.HomeViewModel
 import com.zionhuang.innertube.models.AlbumItem
@@ -169,6 +174,9 @@ fun HomeScreen(
     val forgottenFavoritesLazyGridState = rememberLazyGridState()
 
     val localLibEnable by rememberPreference(LocalLibraryEnableKey, defaultValue = true)
+    val recommendationSource by rememberEnumPreference(
+        RecommendationSourceKey, defaultValue = RecommendationSource.YOUTUBE
+    )
 
     val scope = rememberCoroutineScope()
     val lazylistState = rememberLazyListState()
@@ -576,6 +584,25 @@ fun HomeScreen(
                             }
                         }
                     }
+                }
+            }
+
+            // On the library source there is no YouTube feed underneath to carry the page, so
+            // somebody who has not played anything yet gets nothing but the navigation tiles and
+            // no idea why. Say what fills it. The string has shipped and been translated into 43
+            // languages since upstream, and until now was rendered nowhere.
+            if (recommendationSource == RecommendationSource.LIBRARY &&
+                !quickPicksLoading &&
+                localPicks.isEmpty() &&
+                forgottenFavorites.isNullOrEmpty() &&
+                keepListening.isNullOrEmpty()
+            ) {
+                item {
+                    EmptyPlaceholder(
+                        icon = Icons.Rounded.MusicNote,
+                        text = stringResource(R.string.quick_picks_empty),
+                        modifier = Modifier.animateItem()
+                    )
                 }
             }
 

@@ -46,8 +46,8 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ContentCountryKey
 import com.dd3boh.outertune.constants.ContentLanguageKey
 import com.dd3boh.outertune.constants.CountryCodeToName
-import com.dd3boh.outertune.constants.QuickPicksSource
-import com.dd3boh.outertune.constants.QuickPicksSourceKey
+import com.dd3boh.outertune.constants.RecommendationSource
+import com.dd3boh.outertune.constants.RecommendationSourceKey
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_FILTERS
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
 import com.dd3boh.outertune.constants.DefaultOpenTabKey
@@ -383,8 +383,8 @@ fun ColumnScope.TabArrangementFrag() {
 fun ColumnScope.TabExtrasFrag() {
     val enabledTabs by rememberPreference(EnabledTabsKey, defaultValue = DEFAULT_ENABLED_TABS)
     val (defaultOpenTab, onDefaultOpenTabChange) = rememberPreference(DefaultOpenTabKey, defaultValue = "home")
-    val (quickPicksSource, onQuickPicksSourceChange) =
-        rememberEnumPreference(QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE)
+    val (recommendationSource, onRecommendationSourceChange) =
+        rememberEnumPreference(RecommendationSourceKey, defaultValue = RecommendationSource.YOUTUBE)
 
     ListPreference(
         title = { Text(stringResource(R.string.default_open_tab)) },
@@ -398,18 +398,18 @@ fun ColumnScope.TabExtrasFrag() {
     )
 
     EnumListPreference(
-        title = { Text(stringResource(R.string.quick_picks_source)) },
+        title = { Text(stringResource(R.string.recommendation_source)) },
         icon = { Icon(Icons.Rounded.AutoAwesome, null) },
-        selectedValue = quickPicksSource,
-        onValueSelected = onQuickPicksSourceChange,
+        selectedValue = recommendationSource,
+        onValueSelected = onRecommendationSourceChange,
         valueText = {
             when (it) {
-                QuickPicksSource.YOUTUBE -> stringResource(R.string.quick_picks_source_youtube)
-                QuickPicksSource.LIBRARY -> stringResource(R.string.quick_picks_source_library)
+                RecommendationSource.YOUTUBE -> stringResource(R.string.recommendation_source_youtube)
+                RecommendationSource.LIBRARY -> stringResource(R.string.recommendation_source_library)
             }
         }
     )
-    InfoLabel(stringResource(R.string.quick_picks_source_description))
+    InfoLabel(stringResource(R.string.recommendation_source_description))
 }
 
 @Composable
