@@ -496,4 +496,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="enable_dynamic_theme_description">Take the app\'s colours from your wallpaper.</string>
     <string name="pure_black_description">Use true black instead of dark grey. On an OLED screen this also saves a little battery.</string>
     <string name="min_playback_duration_short">How much of a song has to play before it counts as a play.</string>
+    <string name="throttle_banner_title">YouTube has paused this connection</string>
+    <plurals name="throttle_banner_body">
+        <item quantity="one">Recommendations, downloads and sync are on hold for about a minute. Playback still works.</item>
+        <item quantity="other">Recommendations, downloads and sync are on hold for about %1$d minutes. Playback still works.</item>
+    </plurals>
 </resources>

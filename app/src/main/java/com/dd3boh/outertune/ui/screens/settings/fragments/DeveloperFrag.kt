@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.navigation.NavController
 import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.ConfirmationNumber
 import androidx.compose.material.icons.rounded.Coronavirus
@@ -63,6 +64,7 @@ import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.settings.SETTINGS_TAG
+import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.rememberPreference
@@ -132,6 +134,12 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                     }
                 }
             }
+        )
+
+        PreferenceEntry(
+            title = { Text("DEBUG: Trip the YouTube back off NOW") },
+            icon = { Icon(Icons.Rounded.CloudOff, null) },
+            onClick = { Throttle.trip("tripped by hand from developer settings") }
         )
 
         PreferenceEntry(
