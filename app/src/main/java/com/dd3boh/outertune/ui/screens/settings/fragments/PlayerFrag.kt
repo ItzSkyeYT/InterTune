@@ -7,6 +7,7 @@ import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.ClearAll
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Timer
@@ -38,6 +39,7 @@ import com.dd3boh.outertune.constants.SkipSilenceKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.SleepTimerDefaults
 import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
+import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SleepTimerFadeKey
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -185,6 +187,10 @@ fun ColumnScope.PlaybackBehaviourFrag() {
         defaultValue = true
     )
 
+    val (shareAudioFocus, onShareAudioFocusChange) = rememberPreference(
+        key = ShareAudioFocusKey,
+        defaultValue = false
+    )
     val (sleepTimerFade, onSleepTimerFadeChange) = rememberPreference(
         key = SleepTimerFadeKey,
         defaultValue = SleepTimerDefaults.FADE_ENABLED
@@ -212,6 +218,13 @@ fun ColumnScope.PlaybackBehaviourFrag() {
         isEnabled = !keepAlive,
         checked = stopMusicOnTaskClear,
         onCheckedChange = onStopMusicOnTaskClearChange,
+    )
+    SwitchPreference(
+        title = { Text(stringResource(R.string.share_audio_focus)) },
+        description = stringResource(R.string.share_audio_focus_description),
+        icon = { Icon(Icons.Rounded.Hearing, null) },
+        checked = shareAudioFocus,
+        onCheckedChange = onShareAudioFocusChange,
     )
     SwitchPreference(
         title = { Text(stringResource(R.string.sleep_timer_fade)) },

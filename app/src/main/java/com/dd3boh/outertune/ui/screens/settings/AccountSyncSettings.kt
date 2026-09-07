@@ -35,6 +35,7 @@ import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.screens.settings.fragments.AccountExtrasFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.AccountFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.LastFmFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SyncAutoFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SyncManualFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SyncParamsFrag
@@ -67,6 +68,16 @@ fun AccountSyncSettings(
             modifier = Modifier.fillMaxWidth()
         ) {
             AccountExtrasFrag()
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        PreferenceGroupTitle(
+            title = stringResource(R.string.grp_lastfm)
+        )
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            LastFmFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))
 

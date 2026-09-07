@@ -501,4 +501,23 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">Recommendations, downloads and sync are on hold for about a minute. Playback still works.</item>
         <item quantity="other">Recommendations, downloads and sync are on hold for about %1$d minutes. Playback still works.</item>
     </plurals>
+    <string name="share_audio_focus">Let other apps play at the same time</string>
+    <string name="share_audio_focus_description">Normally starting music here stops whatever else was playing, and something else starting stops InterTune. Turn this on and both apps can sound together, which is the point if you want music over a lecture or a video. The cost is real: InterTune will no longer pause for a phone call, duck for a navigation prompt, or stop for an alarm. Applies the next time playback starts.</string>
+    <string name="sleep_timer_notif_end_of_song">The music stops at the end of this song</string>
+    <string name="sleep_timer_notif_chip">%1$d min</string>
+    <plurals name="sleep_timer_notif_minutes">
+        <item quantity="one">The music stops in %1$d minute</item>
+        <item quantity="other">The music stops in %1$d minutes</item>
+    </plurals>
+    <string name="grp_lastfm">Last.fm</string>
+    <string name="lastfm_connect">Connect a Last.fm account</string>
+    <string name="lastfm_connect_description">Opens last.fm so you can approve InterTune. Your password is never typed into this app, and never seen by it. Come back here afterwards to finish.</string>
+    <string name="lastfm_connect_failed">Could not reach Last.fm. Check your connection and try again.</string>
+    <string name="lastfm_finish">Finish connecting</string>
+    <string name="lastfm_finish_description">Tap once you have approved InterTune on the last.fm page.</string>
+    <string name="lastfm_not_approved">Last.fm has not approved this yet. Open the page again and allow access, then come back.</string>
+    <string name="lastfm_connected_as">Connected as %1$s</string>
+    <string name="lastfm_disconnect_description">Tap to disconnect. Nothing already scrobbled is removed.</string>
+    <string name="lastfm_scrobble">Scrobble what I play</string>
+    <string name="lastfm_scrobble_description">Sends finished songs to your Last.fm history. Last.fm counts a song once half of it, or four minutes, has played. Turn this off to stay connected without recording anything.</string>
 </resources>

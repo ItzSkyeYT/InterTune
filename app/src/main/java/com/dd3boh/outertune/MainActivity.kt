@@ -198,6 +198,7 @@ import com.dd3boh.outertune.utils.ActivityLauncherHelper
 import com.dd3boh.outertune.utils.LocalArtworkPath
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.LoudnessRepair
+import com.dd3boh.outertune.utils.Scrobbler
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.UpdateChecker
@@ -247,6 +248,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var syncUtils: SyncUtils
+
+    @Inject
+    lateinit var scrobbler: Scrobbler
 
     @Inject
     lateinit var loudnessRepair: LoudnessRepair
@@ -701,6 +705,7 @@ class MainActivity : ComponentActivity() {
                         LocalDownloadUtil provides downloadUtil,
                         LocalShimmerTheme provides ShimmerTheme,
                         LocalSyncUtils provides syncUtils,
+                        LocalScrobbler provides scrobbler,
                         LocalLoudnessRepair provides loudnessRepair,
                         LocalUpdateChecker provides updateChecker,
                         LocalUpdateInstaller provides updateInstaller,
@@ -1407,6 +1412,7 @@ val LocalPlayerConnection = staticCompositionLocalOf<PlayerConnection?> { error(
 val LocalPlayerAwareWindowInsets = compositionLocalOf<WindowInsets> { error("No player WindowInsets provided") }
 val LocalDownloadUtil = staticCompositionLocalOf<DownloadUtil> { error("No DownloadUtil provided") }
 val LocalSyncUtils = staticCompositionLocalOf<SyncUtils> { error("No SyncUtils provided") }
+val LocalScrobbler = staticCompositionLocalOf<Scrobbler> { error("No Scrobbler provided") }
 val LocalLoudnessRepair = staticCompositionLocalOf<LoudnessRepair> { error("No LoudnessRepair provided") }
 val LocalUpdateChecker = staticCompositionLocalOf<UpdateChecker> { error("No UpdateChecker provided") }
 val LocalUpdateInstaller = staticCompositionLocalOf<UpdateInstaller> { error("No UpdateInstaller provided") }

@@ -89,6 +89,7 @@ import com.dd3boh.outertune.constants.SkipOnErrorKey
 import com.dd3boh.outertune.constants.SleepTimerDefaults
 import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
 import com.dd3boh.outertune.constants.SleepTimerFadeKey
+import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.minPlaybackDurKey
@@ -116,6 +117,7 @@ import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.utils.CoilBitmapLoader
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
+import com.dd3boh.outertune.utils.Scrobbler
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.FailureMemo
 import com.dd3boh.outertune.utils.Throttle
@@ -136,6 +138,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -208,11 +211,16 @@ class MusicService : MediaLibraryService(),
     @Inject
     lateinit var syncUtils: SyncUtils
 
+    @Inject
+    lateinit var scrobbler: Scrobbler
+
     lateinit var connectivityObserver: NetworkConnectivityObserver
     val waitingForNetworkConnection = MutableStateFlow(false)
     private val isNetworkConnected = MutableStateFlow(true)
 
     lateinit var sleepTimer: SleepTimer
+
+    private val sleepTimerNotification by lazy { SleepTimerNotification(this) }
 
     /**
      * Applies gain on the PCM stream, which is the only way to exceed unity: player.volume is
@@ -280,7 +288,14 @@ class MusicService : MediaLibraryService(),
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .build(), true
+                    .build(),
+                // handleAudioFocus. On, InterTune claims audio focus, which is what silences
+                // whatever else was playing, and it also pauses InterTune when something else
+                // claims it. Off does both halves of what upstream #1255 asks for: it stops
+                // interrupting others and stops being interrupted. Read once here because audio
+                // attributes are fixed when the player is built, so a change applies at the next
+                // start rather than mid-song.
+                !dataStore.get(ShareAudioFocusKey, false)
             )
             .setSeekBackIncrementMs(5000)
             .setSeekForwardIncrementMs(5000)
@@ -393,6 +408,30 @@ class MusicService : MediaLibraryService(),
                         player.skipSilenceEnabled = it
                     }
                 }
+
+            // The sleep timer's own notification, and the only thing in this app that can be a
+            // Live Update: the media notification draws a custom view, which the platform refuses
+            // to promote. Polled rather than observed because triggerTime is Compose state and the
+            // thing being shown is a countdown, which has to be redrawn as it counts anyway. A
+            // minute is the resolution the text shows, so it is also the resolution it needs.
+            scope.launch {
+                var shown = false
+                while (isActive) {
+                    val armed = sleepTimer.isActive
+                    if (armed) {
+                        val trigger = sleepTimer.triggerTime
+                        sleepTimerNotification.show(
+                            if (trigger == -1L) null
+                            else (trigger - System.currentTimeMillis()).coerceAtLeast(0L)
+                        )
+                        shown = true
+                    } else if (shown) {
+                        sleepTimerNotification.hide()
+                        shown = false
+                    }
+                    delay(if (armed) SLEEP_TIMER_NOTIF_TICK_MS else SLEEP_TIMER_NOTIF_IDLE_MS)
+                }
+            }
 
             combine(
                 dataStore.data
@@ -1061,6 +1100,8 @@ class MusicService : MediaLibraryService(),
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
+        // "Listening now" on Last.fm. Not a scrobble, not stored, and allowed to fail quietly.
+        mediaItem?.metadata?.let { meta -> scope.launch { scrobbler.nowPlaying(meta) } }
         // +2 when and error happens, and -1 when transition. Thus when error, number increments by 1, else doesn't change
         if (consecutivePlaybackErr > 0) {
             consecutivePlaybackErr--
@@ -1171,6 +1212,22 @@ class MusicService : MediaLibraryService(),
                             )
                         )
                     } catch (_: SQLException) {
+                    }
+                }
+
+                // Last.fm, on the same condition the app uses for its own play count, and with
+                // Last.fm's own rule applied inside the scrobbler on top. Fired after the local
+                // write so a network stall can never delay the thing the user can actually see.
+                mediaItem.metadata?.let { meta ->
+                    scope.launch {
+                        scrobbler.scrobble(
+                            metadata = meta,
+                            playedMs = playbackStats.totalPlayTimeMs,
+                            // When it STARTED, which is what Last.fm orders history by. Using the
+                            // finish time would shift every entry by the length of the song.
+                            startedAtSeconds = (System.currentTimeMillis() -
+                                    playbackStats.totalPlayTimeMs) / 1000,
+                        )
                     }
                 }
 
@@ -1322,6 +1379,12 @@ class MusicService : MediaLibraryService(),
         const val ALBUM = "album"
         const val PLAYLIST = "playlist"
         const val SEARCH = "search"
+
+        /** How often the sleep timer countdown is redrawn while a timer is running. */
+        private const val SLEEP_TIMER_NOTIF_TICK_MS = 30_000L
+
+        /** How often to look for a newly armed timer. Cheap: it is one boolean read. */
+        private const val SLEEP_TIMER_NOTIF_IDLE_MS = 5_000L
 
         const val CHANNEL_ID = "music_channel_01"
         const val CHANNEL_NAME = "fgs_workaround"

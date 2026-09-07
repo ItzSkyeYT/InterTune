@@ -21,6 +21,19 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+/**
+ * Last.fm credentials, from last.fm/api/account/create.
+ *
+ * Kept in local.properties, which is gitignored, so the fork's key never lands in a public repo.
+ * Absent is a supported state: the build works, and the Last.fm setting hides itself rather than
+ * offering a login that cannot succeed.
+ */
+val localPropertiesFile = rootProject.file("local.properties")
+val localProperties = Properties()
+if (localPropertiesFile.exists()) {
+    localProperties.load(FileInputStream(localPropertiesFile))
+}
+
 android {
     namespace = "com.dd3boh.outertune"
     compileSdk = 36
@@ -32,6 +45,17 @@ android {
         versionCode = 82
         versionName = "0.10.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "LASTFM_API_KEY",
+            "\"${localProperties.getProperty("lastfm.apiKey", "")}\""
+        )
+        buildConfigField(
+            "String",
+            "LASTFM_API_SECRET",
+            "\"${localProperties.getProperty("lastfm.apiSecret", "")}\""
+        )
     }
 
     signingConfigs {
@@ -256,6 +280,7 @@ dependencies {
     implementation(project(":innertube"))
     implementation(project(":kugou"))
     implementation(project(":lrclib"))
+    implementation(project(":lastfm"))
     implementation(project(":material-color-utilities"))
     implementation(project(":taglib"))
 

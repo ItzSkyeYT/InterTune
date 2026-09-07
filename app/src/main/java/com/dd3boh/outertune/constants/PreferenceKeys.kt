@@ -64,6 +64,29 @@ val LastRecentActivitySyncKey = longPreferencesKey("lastRecentActivitySync")
 val AudioDecoderKey = intPreferencesKey("audioDecoder")
 val AudioQualityKey = stringPreferencesKey("audioQuality")
 val AudioOffloadKey = booleanPreferencesKey("enableOffload")
+
+/**
+ * Whether InterTune gives up audio focus, so another app's sound can play at the same time.
+ *
+ * Off by default, and it has to stay that way. Audio focus is also what pauses the music for a
+ * phone call, ducks it for a navigation prompt and stops it for an alarm. Turning this on trades
+ * all of that away, which is why the description says so in as many words.
+ */
+val ShareAudioFocusKey = booleanPreferencesKey("shareAudioFocus")
+
+/**
+ * Last.fm.
+ *
+ * The session key does not expire, so it is the whole of the login: present means connected,
+ * absent means not. There is no password here and never will be; the browser flow is what
+ * produces this value. [LastFmUsernameKey] exists only so the settings screen can say whose
+ * account it is without a round trip.
+ */
+val LastFmSessionKey = stringPreferencesKey("lastFmSession")
+val LastFmUsernameKey = stringPreferencesKey("lastFmUsername")
+
+/** Scrobbling can be paused without disconnecting the account. */
+val LastFmScrobbleKey = booleanPreferencesKey("lastFmScrobble")
 val AudioGaplessOffloadKey = booleanPreferencesKey("enableGaplessOffload")
 
 val MaxQueuesKey = intPreferencesKey("maxQueues")
