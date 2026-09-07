@@ -224,8 +224,20 @@ class PollChecker @Inject constructor(
                 .put("name", Polls.UMAMI_EVENT)
                 .put(
                     "data", JSONObject()
-                        .put("poll", poll.id)
-                        .put("answer", optionIds.sorted().joinToString(","))
+                        // Readable first, because this is what the dashboard shows in a column and
+                        // "widget-2026-09" tells you nothing months later. The ids are sent too:
+                        // they are the stable key, they survive rewording a question, and grouping
+                        // on the text would split the moment a typo is fixed.
+                        .put("poll", poll.question.take(MAX_PROPERTY_CHARS))
+                        .put("poll_id", poll.id)
+                        .put(
+                            "answer",
+                            optionIds.mapNotNull { id -> poll.options.firstOrNull { it.id == id }?.label }
+                                .sorted()
+                                .joinToString(", ")
+                                .take(MAX_PROPERTY_CHARS)
+                        )
+                        .put("answer_id", optionIds.sorted().joinToString(","))
                         .put("version", BuildConfig.VERSION_NAME)
                 )
             val envelope = JSONObject().put("payload", payload).put("type", "event")
@@ -239,9 +251,25 @@ class PollChecker @Inject constructor(
                     .header("User-Agent", USER_AGENT)
                     .post(envelope.toString().toRequestBody(JSON))
                     .build()
-            ).execute().use { it.isSuccessful }
+            ).execute().use { response ->
+                // Check the code, not just whether the call threw. Umami answers a rejected event
+                // with a normal HTTP error and no exception, so without this an answer that was
+                // refused looked exactly like one that landed, and the only symptom was an empty
+                // dashboard.
+                if (!response.isSuccessful) {
+                    Log.w(
+                        TAG,
+                        "Umami refused the answer: HTTP ${response.code} ${
+                            response.body?.string()?.take(200)
+                        }"
+                    )
+                } else {
+                    Log.i(TAG, "Poll answer accepted by Umami")
+                }
+                response.isSuccessful
+            }
         }.onFailure {
-            Log.i(TAG, "Poll answer could not be sent, recorded locally anyway")
+            Log.w(TAG, "Poll answer could not be sent, recorded locally anyway: $it")
         }
         Unit
     }
@@ -284,6 +312,21 @@ class PollChecker @Inject constructor(
         private val JSON = "application/json; charset=utf-8".toMediaType()
 
         /** Fixed on purpose. See the note where it is used. */
-        private const val USER_AGENT = "InterTune"
+        /**
+         * Umami runs bot detection over this and silently discards anything that does not look
+         * like a browser, while still answering 200. "InterTune" was dropped every time: the app
+         * reported success, the answer was recorded locally, and nothing ever reached the
+         * dashboard. It has to read as a browser to be counted.
+         *
+         * Fixed on purpose, and deliberately not built from the real device. Umami derives its
+         * visitor figure from a hash of this and the address, so a constant means every install
+         * looks identical here and nothing in it identifies anybody.
+         */
+        /** Umami truncates long property values; keep well inside it rather than find out. */
+        private const val MAX_PROPERTY_CHARS = 400
+
+        private const val USER_AGENT =
+            "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) " +
+                    "Chrome/120.0.0.0 Mobile Safari/537.36"
     }
 }
