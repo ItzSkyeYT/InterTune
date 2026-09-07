@@ -42,19 +42,35 @@ android {
         applicationId = "dev.skye.intertune"
         minSdk = 24
         targetSdk = 36
-        versionCode = 82
-        versionName = "0.10.5"
+        versionCode = 83
+        versionName = "0.10.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        // Obfuscated, not encrypted, and the difference matters. Anything the app can read, so
+        // can anyone holding the apk. What this does buy is that `strings app.apk | grep` no
+        // longer finds the credentials lying in plain sight, which is how they are actually
+        // harvested in bulk. Someone reading the code still gets them in a minute.
+        //
+        // The only real fix is a server relaying the calls, which this app does not have. A leaked
+        // Last.fm key costs a rate limit, not an account, and is revocable, so this is the right
+        // amount of effort for what is at stake.
+        fun obfuscated(value: String): String {
+            if (value.isEmpty()) return "\"\""
+            val mask = "InterTune".toByteArray()
+            val out = value.toByteArray().mapIndexed { i, b ->
+                (b.toInt() xor mask[i % mask.size].toInt()) and 0xff
+            }
+            return out.joinToString(prefix = "new int[]{", postfix = "}")
+        }
         buildConfigField(
-            "String",
+            "int[]",
             "LASTFM_API_KEY",
-            "\"${localProperties.getProperty("lastfm.apiKey", "")}\""
+            obfuscated(localProperties.getProperty("lastfm.apiKey", ""))
         )
         buildConfigField(
-            "String",
+            "int[]",
             "LASTFM_API_SECRET",
-            "\"${localProperties.getProperty("lastfm.apiSecret", "")}\""
+            obfuscated(localProperties.getProperty("lastfm.apiSecret", ""))
         )
     }
 
