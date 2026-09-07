@@ -511,7 +511,7 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="grp_lastfm">Last.fm</string>
     <string name="lastfm_connect">Connect a Last.fm account</string>
-    <string name="lastfm_connect_description">Opens last.fm so you can approve InterTune. Your password is never typed into this app, and never seen by it. Come back here afterwards to finish.</string>
+    <string name="lastfm_connect_description">Sign in to Last.fm and approve InterTune. The page is Last.fm&#8217;s own, so your password is never typed into this app or seen by it.</string>
     <string name="lastfm_connect_failed">Could not reach Last.fm. Check your connection and try again.</string>
     <string name="lastfm_finish">Finish connecting</string>
     <string name="lastfm_finish_description">Tap once you have approved InterTune on the last.fm page.</string>
@@ -522,4 +522,5 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lastfm_scrobble_description">Sends finished songs to your Last.fm history. Last.fm counts a song once half of it, or four minutes, has played. Turn this off to stay connected without recording anything.</string>
     <string name="lastfm_unavailable">Not available in this build</string>
     <string name="lastfm_unavailable_description">Scrobbling needs a Last.fm API key, and this copy of InterTune was built without one. Official releases include it.</string>
+    <string name="lastfm_login_failed">Last.fm would not start the login: %1$s</string>
 </resources>

@@ -153,6 +153,7 @@ import com.dd3boh.outertune.ui.screens.AlbumScreen
 import com.dd3boh.outertune.ui.screens.BrowseScreen
 import com.dd3boh.outertune.ui.screens.HistoryScreen
 import com.dd3boh.outertune.ui.screens.HomeScreen
+import com.dd3boh.outertune.ui.screens.LastFmLoginScreen
 import com.dd3boh.outertune.ui.screens.LoginScreen
 import com.dd3boh.outertune.ui.screens.MoodAndGenresScreen
 import com.dd3boh.outertune.ui.screens.Screens
@@ -1007,6 +1008,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                     composable("settings/about/oss_licenses") {
                                         LibrariesScreen(navController, scrollBehavior)
+                                    }
+                                    composable("lastfm_login") {
+                                        LastFmLoginScreen(navController)
                                     }
                                     composable("login") {
                                         LoginScreen(navController)

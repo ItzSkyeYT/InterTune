@@ -2,11 +2,23 @@ package com.dd3boh.lastfm
 
 import kotlinx.serialization.Serializable
 
+/**
+ * Both of these carry either the payload or an error, never both, because Last.fm reports failure
+ * with HTTP 200 and an error body. Everything is therefore nullable and the caller checks.
+ */
 @Serializable
-data class TokenResponse(val token: String)
+data class TokenResponse(
+    val token: String? = null,
+    val error: Int? = null,
+    val message: String? = null,
+)
 
 @Serializable
-data class SessionResponse(val session: Session)
+data class SessionResponse(
+    val session: Session? = null,
+    val error: Int? = null,
+    val message: String? = null,
+)
 
 @Serializable
 data class Session(
