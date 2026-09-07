@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.constants
 
+import com.dd3boh.outertune.BuildConfig
+
 /**
  * Where polls come from and where answers go.
  *
@@ -27,13 +29,25 @@ object Polls {
      * Use the revision-less raw URL (gist.githubusercontent.com/<user>/<id>/raw/polls.json) so that
      * editing the gist is picked up without changing anything here.
      */
-    const val POLLS_URL = "https://gist.githubusercontent.com/ItzSkyeYT/REPLACE_WITH_GIST_ID/raw/polls.json"
+    val POLLS_URL: String by lazy { reveal(BuildConfig.POLLS_URL) }
 
-    /** Umami base, no trailing slash. Must be the tunnel hostname, not the machine behind it. */
-    const val UMAMI_URL = "https://REPLACE_WITH_TUNNEL_HOSTNAME"
+    /**
+     * Umami base, no trailing slash.
+     *
+     * Umami Cloud, which sidesteps the problem this comment used to warn about: nothing here
+     * resolves to the maintainer's own machine, so the address in the apk gives nobody anything.
+     * If this ever moves to a self-hosted instance it must point at a tunnel, never a home
+     * connection.
+     *
+     * Note the region. Umami Cloud's dashboard lives at cloud.umami.is for every account, but the
+     * ingest endpoint is regional, and an EU account only accepts events at eu.umami.is. Posting
+     * to cloud.umami.is does not fail loudly, it fails to connect at all, so taking the dashboard
+     * address at face value would have meant answers silently going nowhere forever.
+     */
+    val UMAMI_URL: String by lazy { reveal(BuildConfig.POLLS_UMAMI_URL) }
 
     /** Umami website id that poll answers are recorded against. */
-    const val UMAMI_WEBSITE_ID = "REPLACE_WITH_WEBSITE_ID"
+    val UMAMI_WEBSITE_ID: String by lazy { reveal(BuildConfig.POLLS_UMAMI_WEBSITE_ID) }
 
     /**
      * Sent as the Umami `hostname`, which is a required field.
@@ -47,8 +61,19 @@ object Polls {
     const val UMAMI_EVENT = "poll_answer"
 
     /** True once the placeholders above have been filled in. Nothing runs until they are. */
+    /**
+     * Undoes the build-time obfuscation. Same scheme and the same caveat as the Last.fm
+     * credentials: this defeats a plain strings sweep of the apk and nothing more.
+     */
+    private fun reveal(masked: IntArray): String {
+        if (masked.isEmpty()) return ""
+        val mask = "InterTune".toByteArray()
+        return String(
+            ByteArray(masked.size) { i -> (masked[i] xor mask[i % mask.size].toInt()).toByte() }
+        )
+    }
+
+    /** True once local.properties supplied all three. Nothing runs until it has. */
     val isConfigured: Boolean
-        get() = !POLLS_URL.contains("REPLACE_WITH") &&
-                !UMAMI_URL.contains("REPLACE_WITH") &&
-                !UMAMI_WEBSITE_ID.contains("REPLACE_WITH")
+        get() = POLLS_URL.isNotEmpty() && UMAMI_URL.isNotEmpty() && UMAMI_WEBSITE_ID.isNotEmpty()
 }

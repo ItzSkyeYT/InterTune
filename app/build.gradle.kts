@@ -72,6 +72,25 @@ android {
             "LASTFM_API_SECRET",
             obfuscated(localProperties.getProperty("lastfm.apiSecret", ""))
         )
+
+        // Polls, same treatment and the same honesty about it. None of these is a secret, but the
+        // Umami website id lets anyone post events to that site, and the gist url is a maintainer
+        // address that does not need to be handed out in a grep.
+        buildConfigField(
+            "int[]",
+            "POLLS_URL",
+            obfuscated(localProperties.getProperty("polls.gistUrl", ""))
+        )
+        buildConfigField(
+            "int[]",
+            "POLLS_UMAMI_URL",
+            obfuscated(localProperties.getProperty("polls.umamiUrl", ""))
+        )
+        buildConfigField(
+            "int[]",
+            "POLLS_UMAMI_WEBSITE_ID",
+            obfuscated(localProperties.getProperty("polls.umamiWebsiteId", ""))
+        )
     }
 
     signingConfigs {
