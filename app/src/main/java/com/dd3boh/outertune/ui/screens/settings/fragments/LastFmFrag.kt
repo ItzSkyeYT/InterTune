@@ -45,7 +45,18 @@ fun ColumnScope.LastFmFrag() {
     val scrobbler = LocalScrobbler.current
     val snackbar = LocalSnackbarHostState.current
 
-    if (!scrobbler.isAvailable) return
+    // A build with no Last.fm key cannot log anyone in, but saying nothing leaves the section
+    // heading sitting above an empty card, which reads as broken rather than as unavailable.
+    if (!scrobbler.isAvailable) {
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.lastfm_unavailable)) },
+            description = stringResource(R.string.lastfm_unavailable_description),
+            icon = { Icon(Icons.Rounded.LinkOff, null) },
+            isEnabled = false,
+            onClick = null,
+        )
+        return
+    }
 
     val (username, onUsernameChange) = rememberPreference(LastFmUsernameKey, "")
     val (scrobbling, onScrobblingChange) = rememberPreference(LastFmScrobbleKey, true)

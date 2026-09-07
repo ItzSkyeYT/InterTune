@@ -520,4 +520,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lastfm_disconnect_description">Tap to disconnect. Nothing already scrobbled is removed.</string>
     <string name="lastfm_scrobble">Scrobble what I play</string>
     <string name="lastfm_scrobble_description">Sends finished songs to your Last.fm history. Last.fm counts a song once half of it, or four minutes, has played. Turn this off to stay connected without recording anything.</string>
+    <string name="lastfm_unavailable">Not available in this build</string>
+    <string name="lastfm_unavailable_description">Scrobbling needs a Last.fm API key, and this copy of InterTune was built without one. Official releases include it.</string>
 </resources>
