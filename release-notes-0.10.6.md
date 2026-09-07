@@ -32,6 +32,14 @@ Connect a Last.fm account and InterTune will keep your listening history there, 
 
 Scrobbling can be switched off without disconnecting.
 
+## New: the occasional question
+
+**Settings → Privacy and history → Questions**
+
+Every so often InterTune can show a short question at the top of Home, about what to build or change next. Off by default, and nothing is fetched at all while it is off.
+
+Answering is optional and anonymous. All that is sent is which question it was, what you picked, and the app version. No account, no device details, nothing about your library. You can turn it off at any time, and there is a button to clear what you have answered so past questions can come back.
+
 ## New: let other apps play at the same time
 
 **Settings → Player and audio**
