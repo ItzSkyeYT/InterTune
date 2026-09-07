@@ -29,14 +29,27 @@ import javax.inject.Singleton
 class Scrobbler @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
+    /**
+     * Undoes the obfuscation applied at build time. See the note in app/build.gradle.kts: this
+     * hides the credentials from a plain `strings` sweep of the apk and from nothing else.
+     */
+    private fun reveal(masked: IntArray): String {
+        if (masked.isEmpty()) return ""
+        val mask = "InterTune".toByteArray()
+        return String(
+            ByteArray(masked.size) { i -> (masked[i] xor mask[i % mask.size].toInt()).toByte() }
+        )
+    }
+
+    private val apiKey by lazy { reveal(BuildConfig.LASTFM_API_KEY) }
+    private val apiSecret by lazy { reveal(BuildConfig.LASTFM_API_SECRET) }
+
     private val configured =
-        BuildConfig.LASTFM_API_KEY.isNotBlank() && BuildConfig.LASTFM_API_SECRET.isNotBlank()
+        BuildConfig.LASTFM_API_KEY.isNotEmpty() && BuildConfig.LASTFM_API_SECRET.isNotEmpty()
 
     val isAvailable get() = configured
 
-    private val api by lazy {
-        LastFm(BuildConfig.LASTFM_API_KEY, BuildConfig.LASTFM_API_SECRET)
-    }
+    private val api by lazy { LastFm(apiKey, apiSecret) }
 
     private fun sessionOrNull(): String? {
         if (!configured) return null
