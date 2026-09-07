@@ -77,7 +77,7 @@ fun AccountSyncSettings(
         ElevatedCard(
             modifier = Modifier.fillMaxWidth()
         ) {
-            LastFmFrag()
+            LastFmFrag(navController)
         }
         Spacer(modifier = Modifier.height(16.dp))
 

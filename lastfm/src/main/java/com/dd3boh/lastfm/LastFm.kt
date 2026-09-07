@@ -31,11 +31,16 @@ class LastFm(
 
     /** Step one of login: a token to be approved. */
     suspend fun requestToken(): Result<String> = runCatching {
-        client.get(ROOT) {
+        val body = client.get(ROOT) {
             parameter("method", "auth.getToken")
             parameter("api_key", apiKey)
             parameter("format", "json")
-        }.body<TokenResponse>().token
+        }.body<TokenResponse>()
+        // Last.fm answers a rejected key with HTTP 200 and an error body. Read it, or the caller
+        // gets "Field 'token' is required", which points at our parser rather than at the real
+        // cause, which is usually a missing or wrong API key.
+        body.error?.let { throw LastFmException(it, body.message ?: "no message") }
+        body.token ?: throw LastFmException(0, "Last.fm returned neither a token nor an error")
     }
 
     /** Step two: where to send the user so they can approve that token. */
@@ -47,11 +52,13 @@ class LastFm(
      */
     suspend fun session(token: String): Result<Session> = runCatching {
         val params = mapOf("api_key" to apiKey, "method" to "auth.getSession", "token" to token)
-        client.get(ROOT) {
+        val body = client.get(ROOT) {
             params.forEach { (k, v) -> parameter(k, v) }
             parameter("api_sig", sign(params))
             parameter("format", "json")
-        }.body<SessionResponse>().session
+        }.body<SessionResponse>()
+        body.error?.let { throw LastFmException(it, body.message ?: "no message") }
+        body.session ?: throw LastFmException(0, "Last.fm returned neither a session nor an error")
     }
 
     /**
