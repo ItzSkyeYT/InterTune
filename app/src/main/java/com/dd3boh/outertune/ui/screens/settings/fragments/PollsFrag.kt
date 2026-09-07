@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.LocalPollChecker
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Polls
 import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -41,6 +42,21 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun ColumnScope.PollsFrag() {
+    // Same reasoning as the Last.fm section: a build with no gist and no Umami endpoint cannot
+    // ever ask a question, and PollChecker returns early on exactly this check. Offering the
+    // switch anyway asks somebody to consent to answers being sent, and then does nothing with
+    // that consent forever. Say so rather than leaving a live-looking control.
+    if (!Polls.isConfigured) {
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.polls_unavailable)) },
+            description = stringResource(R.string.polls_unavailable_description),
+            icon = { Icon(Icons.Rounded.Poll, null) },
+            isEnabled = false,
+            onClick = null,
+        )
+        return
+    }
+
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val pollChecker = LocalPollChecker.current

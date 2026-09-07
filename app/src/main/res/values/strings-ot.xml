@@ -523,4 +523,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lastfm_unavailable">Not available in this build</string>
     <string name="lastfm_unavailable_description">Scrobbling needs a Last.fm API key, and this copy of InterTune was built without one. Official releases include it.</string>
     <string name="lastfm_login_failed">Last.fm would not start the login: %1$s</string>
+    <string name="polls_unavailable">Not available in this build</string>
+    <string name="polls_unavailable_description">Questions need a source to fetch them from, and this copy of InterTune was built without one.</string>
 </resources>
