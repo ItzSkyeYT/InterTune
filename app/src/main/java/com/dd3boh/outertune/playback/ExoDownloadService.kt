@@ -72,7 +72,7 @@ class ExoDownloadService : DownloadService(
                         PendingIntent.FLAG_IMMUTABLE
                     )
                 ).build()
-            ).let(::asLiveUpdate).build()
+            ).let(::liveUpdate).build()
         }
 
     /**
@@ -88,15 +88,31 @@ class ExoDownloadService : DownloadService(
      * needs API 36.1 to compile against while this builds on 36. Setting an extra the platform does
      * not know is harmless, so no version check is needed for that half.
      */
-    private fun asLiveUpdate(builder: Notification.Builder): Notification.Builder {
+    /**
+     * Opts the download notification into Android 16's Live Updates.
+     *
+     * This is the AOSP feature only: the platform grants PROMOTED_ONGOING, which is real and shows
+     * on stock Android 16. It does NOT put the notification in Samsung's Now Bar. That is a
+     * separate, closed thing, gated by an app list inside NotificationManagerService
+     * (isOngoingActivityAllowed, loadDefaultOngoingActivitySupportAppList), which InterTune is not
+     * on and cannot join: the manifest opt-in Maps and Perplexity declare changes nothing, and the
+     * ONGOING_ACTIVITY_PACKAGE_ADD broadcast has no receiver for us. Checked on One UI 8.5.
+     *
+     * Deliberately does NOT set Notification.ProgressStyle. It qualifies for promotion and reads
+     * like the right thing, but One UI 8.5 does not render it, so the download progress bar
+     * disappeared entirely where media3's ordinary one had drawn. media3's bar stays.
+     *
+     * The promotion is requested through the extra rather than setRequestPromotedOngoing, which
+     * needs API 36.1 to compile against while this builds on 36.
+     */
+    private fun liveUpdate(builder: Notification.Builder): Notification.Builder {
         builder.extras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true)
         if (Build.VERSION.SDK_INT >= 36) {
-            // The status bar chip, roughly seven characters. Anything longer is cut without asking.
+            // The status bar chip. About seven characters, cut without asking if longer.
             builder.setShortCriticalText(getString(R.string.action_download))
         }
         return builder
     }
-
 
     /**
      * `Notification.EXTRA_REQUEST_PROMOTED_ONGOING`, spelled out because the constant needs API
