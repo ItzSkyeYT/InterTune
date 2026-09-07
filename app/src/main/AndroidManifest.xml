@@ -11,6 +11,7 @@
     <!-- Live Updates: lets the download notification be promoted to the status bar chip and,
          on Samsung, the Now Bar. Not a runtime permission, there is nothing to prompt for. -->
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -170,6 +171,7 @@
         <meta-data
             android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc" />
-    </application>
+    
+</application>
 
 </manifest>
