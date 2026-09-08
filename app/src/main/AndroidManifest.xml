@@ -20,6 +20,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+
+    <!--
+      Song recognition only. Requested when the user starts listening, never at launch, and the
+      recording is fingerprinted in memory and discarded: no audio is written to disk or sent
+      anywhere. What leaves the device is the signature, which is a few hundred numbers describing
+      peaks and cannot be turned back into sound.
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
