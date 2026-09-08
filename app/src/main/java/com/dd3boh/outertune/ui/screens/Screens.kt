@@ -37,7 +37,7 @@ sealed class Screens(
     data object Library : Screens(R.string.library, Icons.Rounded.LibraryMusic, "library")
 
     enum class LibraryFilter {
-        ALL, ALBUMS, ARTISTS, PLAYLISTS, SONGS, FOLDERS
+        ALL, ALBUMS, ARTISTS, PLAYLISTS, SONGS, FOLDERS, CACHED
     }
 
     companion object {
@@ -103,6 +103,9 @@ sealed class Screens(
             LibraryFilter.PLAYLISTS to 'P',
             LibraryFilter.SONGS to 'S',
             LibraryFilter.FOLDERS to 'F',
+            // 'C' for cached. Off by default like Folders: a tab for a cache is useful to the
+            // people who want it and noise to everybody else.
+            LibraryFilter.CACHED to 'C',
             LibraryFilter.ALL to 'L'
         )
 
