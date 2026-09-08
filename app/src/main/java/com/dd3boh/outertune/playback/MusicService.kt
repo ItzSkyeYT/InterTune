@@ -83,6 +83,7 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRa
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.PersistentQueueKey
+import com.dd3boh.outertune.constants.ResumePlaybackOnLaunchKey
 import com.dd3boh.outertune.constants.PlayerVolumeKey
 import com.dd3boh.outertune.constants.RepeatModeKey
 import com.dd3boh.outertune.constants.SkipOnErrorKey
@@ -361,6 +362,7 @@ class MusicService : MediaLibraryService(),
             Log.i(TAG, "Launching MusicService offloadScope tasks")
             if (!qbInit.value) {
                 initQueue()
+                resumeOnLaunchIfAsked()
             }
 
             combine(
@@ -748,6 +750,50 @@ class MusicService : MediaLibraryService(),
         Log.d(TAG, "Queue with $maxQueues queue limit. Persist queue = $persistQueue. Queues loaded = ${queueBoard.masterQueues.size}")
         qbInit.value = true
         Log.i(TAG, "-initQueue()")
+    }
+
+    /**
+     * Plays the restored queue on startup, when the user has asked for that.
+     *
+     * Upstream #1132: the reporter runs this on a car head unit with the app in autostart and has
+     * to reach over and press play every time the device wakes. Everything needed already existed,
+     * persistent queue restores it and initQueue has just finished, so all that was missing was the
+     * decision to start.
+     *
+     * Audio focus is not bypassed. play() goes through the same request as any other start, so if
+     * something else already holds focus this loses, which in a car is the right way round. It also
+     * does nothing when the restored queue is empty, rather than starting silence.
+     */
+    private suspend fun resumeOnLaunchIfAsked() {
+        if (!dataStore.get(ResumePlaybackOnLaunchKey, false)) return
+        // All of it on the main thread, not just play(). initQueue runs on the offload scope and
+        // ExoPlayer throws on any access from another thread, including reading mediaItemCount,
+        // which took the whole service down on the first run of this.
+        // All of it on the main thread. ExoPlayer means that about every access, not only the
+        // mutating ones, and reading mediaItemCount from the offload scope took the whole service
+        // down on the first attempt at this.
+        withContext(Dispatchers.Main) {
+            // initQueue restores QueueBoard and stops there. Nothing pushes the songs into the
+            // player on a cold start, so waiting for them was the second wrong guess: fifteen
+            // seconds passed and the player was still empty, because normally it is the UI that
+            // asks for the queue when somebody presses play. Load it here instead.
+            if (player.mediaItemCount == 0) {
+                val loaded = queueBoard.setCurrQueue(shouldResume = true)
+                if (loaded == null || player.mediaItemCount == 0) {
+                    Log.i(TAG, "Resume on launch asked for, but there is no queue to restore")
+                    return@withContext
+                }
+                Log.i(TAG, "Restored '${loaded.title}' for resume on launch")
+            }
+
+            // prepare() before play(). setMediaItems leaves ExoPlayer in IDLE and play() only
+            // sets playWhenReady, so on its own it produced a player that looked like it was
+            // playing, pause button and all, while never resolving a stream or opening an audio
+            // track. Normally the UI's own play path does this, which is why nothing else needed it.
+            Log.i(TAG, "Resuming playback on launch")
+            player.prepare()
+            player.play()
+        }
     }
 
     fun deInitQueue() {

@@ -92,6 +92,15 @@ val AudioGaplessOffloadKey = booleanPreferencesKey("enableGaplessOffload")
 val MaxQueuesKey = intPreferencesKey("maxQueues")
 val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
 
+/**
+ * Start playing the restored queue as soon as the app opens, rather than waiting to be told.
+ *
+ * Off by default and it must stay that way. This is sound without anybody pressing anything, and
+ * upstream #1132 asks for it from a car head unit, which is exactly where taking audio focus off a
+ * navigation prompt would be worst.
+ */
+val ResumePlaybackOnLaunchKey = booleanPreferencesKey("resumePlaybackOnLaunch")
+
 val SeekIncrementKey = stringPreferencesKey("seekIncrement")
 val SkipSilenceKey = booleanPreferencesKey("skipSilence")
 val SkipOnErrorKey = booleanPreferencesKey("skipOnError")

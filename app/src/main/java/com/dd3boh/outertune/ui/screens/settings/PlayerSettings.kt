@@ -43,6 +43,8 @@ import com.dd3boh.outertune.constants.AudioDecoderKey
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.KeepAliveKey
 import com.dd3boh.outertune.constants.MaxQueuesKey
+import androidx.compose.material.icons.rounded.PlayArrow
+import com.dd3boh.outertune.constants.ResumePlaybackOnLaunchKey
 import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.TopBarInsets
@@ -84,6 +86,8 @@ fun PlayerSettings(
     )
     val (keepAlive, onKeepAliveChange) = rememberPreference(key = KeepAliveKey, defaultValue = false)
     val (persistentQueue, onPersistentQueueChange) = rememberPreference(key = PersistentQueueKey, defaultValue = true)
+    val (resumeOnLaunch, onResumeOnLaunchChange) =
+        rememberPreference(key = ResumePlaybackOnLaunchKey, defaultValue = false)
     val (stopMusicOnTaskClear, onStopMusicOnTaskClearChange) = rememberPreference(
         key = StopMusicOnTaskClearKey,
         defaultValue = true
@@ -141,6 +145,16 @@ fun PlayerSettings(
                     icon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
                     checked = persistentQueue,
                     onCheckedChange = onPersistentQueueChange
+                )
+                // Only meaningful when there is a restored queue to start, so it follows the
+                // setting that produces one and is disabled without it.
+                SwitchPreference(
+                    title = { Text(stringResource(R.string.resume_on_launch)) },
+                    description = stringResource(R.string.resume_on_launch_desc),
+                    icon = { Icon(Icons.Rounded.PlayArrow, null) },
+                    checked = resumeOnLaunch,
+                    onCheckedChange = onResumeOnLaunchChange,
+                    isEnabled = persistentQueue,
                 )
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.max_queues_title)) },
