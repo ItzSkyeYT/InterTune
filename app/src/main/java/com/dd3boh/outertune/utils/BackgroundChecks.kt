@@ -87,6 +87,7 @@ class BackgroundCheckWorker(
                             POLL_NOTIFICATION_ID,
                             context.getString(R.string.background_poll_title),
                             poll.banner,
+                            openPoll = true,
                         )
                     }
                 }
@@ -96,7 +97,13 @@ class BackgroundCheckWorker(
         return Result.success()
     }
 
-    private fun notify(context: Context, id: Int, title: String, text: String) {
+    private fun notify(
+        context: Context,
+        id: Int,
+        title: String,
+        text: String,
+        openPoll: Boolean = false,
+    ) {
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
             != PackageManager.PERMISSION_GRANTED
         ) {
@@ -118,7 +125,11 @@ class BackgroundCheckWorker(
 
         val open = PendingIntent.getActivity(
             context, id,
-            Intent(context, MainActivity::class.java),
+            Intent(context, MainActivity::class.java).apply {
+                // Tapping a notification about a question should land on the question, not on the
+                // home screen with the banner somewhere below the fold.
+                if (openPoll) putExtra(EXTRA_OPEN_POLL, true)
+            },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
@@ -140,6 +151,8 @@ class BackgroundCheckWorker(
         private const val TAG = "BackgroundCheck"
         private const val CHANNEL_ID = "background_checks"
         private const val WORK_NAME = "background_checks"
+        /** Read by MainActivity to open the question rather than merely the app. */
+        const val EXTRA_OPEN_POLL = "com.dd3boh.outertune.OPEN_POLL"
         private const val UPDATE_NOTIFICATION_ID = 4244
         private const val POLL_NOTIFICATION_ID = 4245
 

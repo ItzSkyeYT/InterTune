@@ -154,6 +154,16 @@ fun HomeScreen(
     val pollChecker = LocalPollChecker.current
     val pendingPoll by pollChecker.current.collectAsState()
     var showPoll by rememberSaveable { mutableStateOf(false) }
+
+    // Opened from its own notification. Waits for the question to have loaded, since the tap can
+    // arrive before the cached document has been read back on a cold start.
+    val openPollRequested by pollChecker.openRequested.collectAsState()
+    LaunchedEffect(openPollRequested, pendingPoll) {
+        if (openPollRequested && pendingPoll != null) {
+            showPoll = true
+            pollChecker.consumeOpenRequest()
+        }
+    }
     val ytQuickPicks by viewModel.ytQuickPicks.collectAsState()
     val quickPicksLoading by viewModel.quickPicksLoading.collectAsState()
     val forgottenFavorites by viewModel.forgottenFavorites.collectAsState()
