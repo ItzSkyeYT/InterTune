@@ -99,6 +99,11 @@ import com.dd3boh.outertune.LocalSyncUtils
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AlbumCornerRadius
 import com.dd3boh.outertune.constants.AlbumThumbnailSize
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
+import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.constants.CONTENT_TYPE_HEADER
 import com.dd3boh.outertune.constants.CONTENT_TYPE_SONG
 import com.dd3boh.outertune.constants.ListThumbnailSize
@@ -162,6 +167,22 @@ fun LocalPlaylistScreen(
     val snackbarHostState = LocalSnackbarHostState.current
 
     val playlistWithSongs by viewModel.playlistWithSongs.collectAsState()
+    val addQuery by viewModel.addQuery.collectAsState()
+    val addResults by viewModel.addResults.collectAsState()
+    val addSearching by viewModel.addSearching.collectAsState()
+    val justAdded by viewModel.justAdded.collectAsState()
+
+    /**
+     * Whether the screen is currently the add-songs screen rather than the playlist.
+     *
+     * Latched on rather than derived from the song count. Deriving it meant the search closed the
+     * instant the first song landed, which is the one moment somebody is most likely to want a
+     * second one. It stays until Done, or until the screen is left.
+     */
+    var addMode by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(playlistWithSongs.first?.songCount) {
+        if (playlistWithSongs.first?.songCount == 0) addMode = true
+    }
 
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
@@ -442,13 +463,111 @@ fun LocalPlaylistScreen(
         ) {
             Log.v("LocalPlaylistScreen", "P_RC-2.2")
             playlistWithSongs.first?.let { playlist ->
-                if (playlist.songCount == 0) {
-                    item {
-                        EmptyPlaceholder(
-                            icon = Icons.Rounded.MusicNote,
-                            text = stringResource(R.string.playlist_is_empty),
-                            modifier = Modifier.animateItem()
+                if (playlist.songCount == 0 || addMode) {
+                    // An empty playlist used to be one line of text over nothing, with the header
+                    // not even drawn, so it did not say which playlist you had just made and
+                    // offered no way to put anything in it. The header stays, and the rest of the
+                    // screen becomes the search for the first song.
+                    item(
+                        key = "playlist header",
+                        contentType = CONTENT_TYPE_HEADER
+                    ) {
+                        LocalPlaylistHeader(
+                            playlist = playlist,
+                            songs = playlistWithSongs.second,
+                            onShowEditDialog = { showEditDialog = true },
+                            onShowRemoveDownloadDialog = { showRemoveDownloadDialog = true },
+                            snackbarHostState = snackbarHostState,
+                            modifier = Modifier,
                         )
+                    }
+
+                    item(key = "add songs field", contentType = CONTENT_TYPE_HEADER) {
+                        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp, bottom = 12.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.playlist_empty_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (playlist.songCount > 0) {
+                                    TextButton(onClick = {
+                                        addMode = false
+                                        viewModel.addQuery.value = ""
+                                    }) {
+                                        Text(stringResource(R.string.playlist_empty_done))
+                                    }
+                                }
+                            }
+                            TextField(
+                                value = addQuery,
+                                onValueChange = { viewModel.addQuery.value = it },
+                                placeholder = { Text(stringResource(R.string.playlist_empty_search_hint)) },
+                                leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                                singleLine = true,
+                                shape = RoundedCornerShape(28.dp),
+                                colors = TextFieldDefaults.colors(
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                    disabledIndicatorColor = Color.Transparent,
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+
+                    if (addSearching) {
+                        item(key = "add searching") {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(32.dp)
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
+                    }
+
+                    items(items = addResults, key = { "add_" + it.id }) { song ->
+                        val added = song.id in justAdded
+                        YouTubeListItem(
+                            item = song,
+                            isActive = false,
+                            isPlaying = false,
+                            trailingContent = {
+                                // Stays as a tick rather than disappearing. A row that vanishes
+                                // under the finger loses your place in the results.
+                                IconButton(
+                                    enabled = !added,
+                                    onClick = { viewModel.addSong(playlist, song) }
+                                ) {
+                                    Icon(
+                                        imageVector = if (added) Icons.Rounded.Check else Icons.Rounded.Add,
+                                        contentDescription = null,
+                                    )
+                                }
+                            },
+                            modifier = Modifier.clickable { if (!added) viewModel.addSong(playlist, song) }
+                        )
+                    }
+
+                    if (!addSearching && addResults.isEmpty()) {
+                        item(key = "add empty hint") {
+                            EmptyPlaceholder(
+                                icon = Icons.Rounded.MusicNote,
+                                text = stringResource(
+                                    if (addQuery.isBlank()) R.string.playlist_empty_hint
+                                    else R.string.playlist_empty_no_results
+                                ),
+                            )
+                        }
                     }
                 } else {
                     // playlist header
