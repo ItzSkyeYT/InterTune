@@ -335,6 +335,9 @@
     <string name="polls_one_waiting">Hay una pregunta esperando</string>
     <string name="polls_forget">Permitir que me vuelvan a preguntar</string>
     <string name="polls_forget_description">Borra el registro de lo que has respondido y descartado, para que las preguntas anteriores puedan volver.</string>
+    <string name="catch_up_title">Dos preguntas rápidas</string>
+    <string name="catch_up_body">Estos ajustes necesitan tu consentimiento y nunca se ha preguntado en esta instalación. Aparece después de una actualización o al restaurar una copia de seguridad que no incluía tus respuestas.</string>
+    <string name="catch_up_done">Hecho</string>
     <string name="polls_opt_in_title">¿Hacerte alguna pregunta de vez en cuando?</string>
     <string name="polls_opt_in_body">De vez en cuando InterTune puede mostrar una pregunta breve arriba en Inicio, sobre qué construir o cambiar. Responder es opcional y anónimo, y puedes desactivarlo cuando quieras en los ajustes. Mientras esté desactivado no se descarga ni se envía nada.</string>
     <string name="polls_opt_in_yes">Sí, pregúntame</string>

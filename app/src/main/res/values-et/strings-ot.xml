@@ -215,6 +215,9 @@
     <string name="polls_one_waiting">Üks küsimus ootab</string>
     <string name="polls_forget">Luba minult uuesti küsida</string>
     <string name="polls_forget_description">Kustutab märke sellest, millele oled vastanud ja mille kõrvale jätnud, et varasemad küsimused saaksid tagasi tulla.</string>
+    <string name="catch_up_title">Kaks kiiret küsimust</string>
+    <string name="catch_up_body">Need seaded vajavad sinu nõusolekut ja seda paigaldust pole kunagi küsitud. See ilmub pärast uuendust või pärast varukoopia taastamist, mis sinu vastuseid ei sisaldanud.</string>
+    <string name="catch_up_done">Valmis</string>
     <string name="polls_opt_in_title">Kas küsime sinult aeg-ajalt midagi?</string>
     <string name="polls_opt_in_body">Aeg-ajalt võib InterTune näidata avakuva ülaosas lühikest küsimust selle kohta, mida ehitada või muuta. Vastamine on vabatahtlik ja anonüümne ning saad selle igal ajal seadetes välja lülitada. Kuni see on väljas, ei laadita ega saadeta midagi.</string>
     <string name="polls_opt_in_yes">Jah, küsi minult</string>

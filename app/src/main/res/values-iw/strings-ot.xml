@@ -315,6 +315,9 @@
     <string name="polls_one_waiting">יש שאלה שמחכה</string>
     <string name="polls_forget">אפשר לשאול אותי שוב</string>
     <string name="polls_forget_description">מוחק את הרישום של מה שענית ומה שדחית, כדי ששאלות קודמות יוכלו לחזור.</string>
+    <string name="catch_up_title">שתי שאלות קצרות</string>
+    <string name="catch_up_body">ההגדרות האלה דורשות את אישורך, וההתקנה הזאת מעולם לא נשאלה. זה מופיע אחרי עדכון, או אחרי שחזור גיבוי שלא הכיל את התשובות שלך.</string>
+    <string name="catch_up_done">סיום</string>
     <string name="polls_opt_in_title">לשאול אותך שאלה מדי פעם?</string>
     <string name="polls_opt_in_body">מדי פעם InterTune יכול להציג שאלה קצרה בראש מסך הבית, על מה כדאי לבנות או לשנות. המענה אופציונלי ואנונימי, ואפשר לכבות את זה בכל רגע בהגדרות. כל עוד זה כבוי, שום דבר לא נטען ושום דבר לא נשלח.</string>
     <string name="polls_opt_in_yes">כן, תשאלו אותי</string>

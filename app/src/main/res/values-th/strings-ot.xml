@@ -104,6 +104,9 @@
     <string name="polls_one_waiting">มีคำถามรออยู่</string>
     <string name="polls_forget">ให้ถามฉันได้อีก</string>
     <string name="polls_forget_description">ล้างบันทึกว่าคุณตอบอะไรและปิดอะไรไป เพื่อให้คำถามเดิมกลับมาได้</string>
+    <string name="catch_up_title">คำถามสั้น ๆ สองข้อ</string>
+    <string name="catch_up_body">การตั้งค่าเหล่านี้ต้องได้รับความยินยอมจากคุณ และการติดตั้งนี้ยังไม่เคยถูกถาม จะปรากฏหลังการอัปเดต หรือหลังการกู้คืนข้อมูลสำรองที่ไม่มีคำตอบของคุณ</string>
+    <string name="catch_up_done">เสร็จสิ้น</string>
     <string name="polls_opt_in_title">ขอถามคุณสักคำถามเป็นครั้งคราวไหม</string>
     <string name="polls_opt_in_body">เป็นครั้งคราว InterTune อาจแสดงคำถามสั้น ๆ ที่ด้านบนของหน้าแรก เกี่ยวกับสิ่งที่ควรสร้างหรือเปลี่ยน การตอบเป็นทางเลือกและไม่ระบุตัวตน และคุณปิดได้ทุกเมื่อในการตั้งค่า ขณะที่ปิดอยู่จะไม่มีการดึงและไม่มีการส่งข้อมูลใด</string>
     <string name="polls_opt_in_yes">ได้ ถามมาเลย</string>

@@ -185,6 +185,9 @@
     <string name="polls_one_waiting">Có một câu hỏi đang chờ</string>
     <string name="polls_forget">Cho phép hỏi tôi lại</string>
     <string name="polls_forget_description">Xóa ghi nhận về những gì bạn đã trả lời và đã bỏ qua, để các câu hỏi cũ có thể quay lại.</string>
+    <string name="catch_up_title">Hai câu hỏi nhanh</string>
+    <string name="catch_up_body">Các cài đặt này cần bạn đồng ý, và bản cài đặt này chưa từng được hỏi. Nó xuất hiện sau khi cập nhật, hoặc sau khi khôi phục bản sao lưu không mang theo câu trả lời của bạn.</string>
+    <string name="catch_up_done">Xong</string>
     <string name="polls_opt_in_title">Thỉnh thoảng hỏi bạn một câu nhé?</string>
     <string name="polls_opt_in_body">Thỉnh thoảng InterTune có thể hiện một câu hỏi ngắn ở đầu màn hình chính, về việc nên làm gì hoặc đổi gì. Trả lời là tùy ý và ẩn danh, và bạn có thể tắt bất cứ lúc nào trong cài đặt. Khi tắt thì không tải về và không gửi đi gì cả.</string>
     <string name="polls_opt_in_yes">Được, cứ hỏi tôi</string>

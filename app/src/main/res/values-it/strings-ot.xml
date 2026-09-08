@@ -336,6 +336,9 @@
     <string name="polls_one_waiting">C\'è una domanda in attesa</string>
     <string name="polls_forget">Fammi chiedere di nuovo</string>
     <string name="polls_forget_description">Cancella la memoria di ciò che hai risposto e ignorato, così le domande passate possono tornare.</string>
+    <string name="catch_up_title">Due domande veloci</string>
+    <string name="catch_up_body">Queste impostazioni richiedono il tuo consenso e a questa installazione non è mai stato chiesto. Compare dopo un aggiornamento o dopo il ripristino di un backup che non conteneva le tue risposte.</string>
+    <string name="catch_up_done">Fatto</string>
     <string name="polls_opt_in_title">Farti qualche domanda ogni tanto?</string>
     <string name="polls_opt_in_body">Di tanto in tanto InterTune può mostrare una breve domanda in cima alla schermata iniziale, su cosa costruire o cambiare. Rispondere è facoltativo e anonimo, e puoi disattivarlo quando vuoi dalle impostazioni. Finché è disattivato non viene scaricato né inviato nulla.</string>
     <string name="polls_opt_in_yes">Sì, chiedimelo</string>

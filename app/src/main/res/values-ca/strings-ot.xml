@@ -124,6 +124,9 @@
     <string name="polls_one_waiting">Hi ha una pregunta esperant</string>
     <string name="polls_forget">Permet que em tornin a preguntar</string>
     <string name="polls_forget_description">Esborra el registre del que has respost i descartat, perquè les preguntes anteriors puguin tornar.</string>
+    <string name="catch_up_title">Dues preguntes ràpides</string>
+    <string name="catch_up_body">Aquests paràmetres necessiten el vostre consentiment i mai no s\'ha preguntat en aquesta instal·lació. Apareix després d\'una actualització o després de restaurar una còpia de seguretat que no incloïa les vostres respostes.</string>
+    <string name="catch_up_done">Fet</string>
     <string name="polls_opt_in_title">Et fem alguna pregunta de tant en tant?</string>
     <string name="polls_opt_in_body">De tant en tant InterTune pot mostrar una pregunta curta a dalt de l’inici, sobre què construir o canviar. Respondre és opcional i anònim, i pots desactivar-ho quan vulguis a la configuració. Mentre estigui desactivat no es baixa res ni s’envia res.</string>
     <string name="polls_opt_in_yes">Sí, pregunta’m</string>

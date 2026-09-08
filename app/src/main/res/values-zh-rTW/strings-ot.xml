@@ -180,6 +180,9 @@
     <string name="polls_one_waiting">有一個問題在等你</string>
     <string name="polls_forget">讓我可以再次被詢問</string>
     <string name="polls_forget_description">清除你已回答與已略過的紀錄，讓過去的問題可以再次出現。</string>
+    <string name="catch_up_title">兩個簡短的問題</string>
+    <string name="catch_up_body">這些設定需要你同意，而這次安裝從未詢問過。它會在更新之後出現，或是在還原了不含你的答案的備份之後出現。</string>
+    <string name="catch_up_done">完成</string>
     <string name="polls_opt_in_title">偶爾問你一個問題？</string>
     <string name="polls_opt_in_body">InterTune 有時會在首頁頂端顯示一個簡短的問題，關於該做什麼或改什麼。回答是自願且匿名的，你隨時可以在設定中關閉。關閉期間不會擷取也不會送出任何內容。</string>
     <string name="polls_opt_in_yes">好，問我吧</string>

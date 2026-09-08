@@ -74,6 +74,9 @@
     <string name="polls_one_waiting">Det väntar en fråga</string>
     <string name="polls_forget">Låt mig tillfrågas igen</string>
     <string name="polls_forget_description">Rensar noteringen om vad du har svarat på och avfärdat, så att tidigare frågor kan komma tillbaka.</string>
+    <string name="catch_up_title">Två snabba frågor</string>
+    <string name="catch_up_body">De här inställningarna behöver ditt godkännande, och den här installationen har aldrig blivit tillfrågad. Det dyker upp efter en uppdatering, eller efter att du återställt en säkerhetskopia som inte innehöll dina svar.</string>
+    <string name="catch_up_done">Klar</string>
     <string name="polls_opt_in_title">Ställa en fråga till dig då och då?</string>
     <string name="polls_opt_in_body">Då och då kan InterTune visa en kort fråga högst upp på startskärmen, om vad som borde byggas eller ändras. Att svara är frivilligt och anonymt, och du kan stänga av det när som helst i inställningarna. Så länge det är av hämtas ingenting och skickas ingenting.</string>
     <string name="polls_opt_in_yes">Ja, fråga mig</string>
