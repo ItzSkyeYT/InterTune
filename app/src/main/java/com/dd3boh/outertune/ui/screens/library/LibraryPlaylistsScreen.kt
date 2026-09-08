@@ -74,6 +74,7 @@ import com.dd3boh.outertune.constants.PlaylistSortTypeKey
 import com.dd3boh.outertune.constants.PlaylistViewTypeKey
 import com.dd3boh.outertune.constants.ShowLikedAndDownloadedPlaylist
 import com.dd3boh.outertune.db.entities.PlaylistEntity
+import com.dd3boh.outertune.ui.component.HideOnScrollFAB
 import com.dd3boh.outertune.ui.component.ChipsRow
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
@@ -444,6 +445,22 @@ fun LibraryPlaylistsScreen(
             ImportM3uDialog(
                 navController = navController,
                 onDismiss = { showImportM3uDialog = false }
+            )
+        }
+
+        // The same plus as the combined library view. It used to live only in the overflow menu,
+        // which is two taps and a read behind a button that does not look like it makes anything.
+        when (viewType) {
+            LibraryViewType.LIST -> HideOnScrollFAB(
+                lazyListState = lazyListState,
+                icon = Icons.Rounded.Add,
+                onClick = { showCreatePlaylistDialog = true },
+            )
+
+            LibraryViewType.GRID -> HideOnScrollFAB(
+                lazyListState = lazyGridState,
+                icon = Icons.Rounded.Add,
+                onClick = { showCreatePlaylistDialog = true },
             )
         }
 
