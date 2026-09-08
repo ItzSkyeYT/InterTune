@@ -44,6 +44,32 @@ interface PlaylistsDao {
     """)
     fun playlist(playlistId: String): Flow<Playlist?>
 
+    /**
+     * The playlists a song sits in, for offering to take it back out again.
+     *
+     * Only ones the app can actually edit. A synced playlist that is read only would offer a
+     * remove that then failed, and an auto playlist has no map rows to delete in the first place.
+     */
+    @Transaction
+    @Query("""
+        SELECT 
+            p.*, 
+            COUNT(psm2.playlistId) AS songCount,
+            SUM(CASE WHEN s.dateDownload IS NOT NULL THEN 1 ELSE 0 END) AS downloadCount
+        FROM playlist p
+            JOIN playlist_song_map psm ON p.id = psm.playlistId AND psm.songId = :songId
+            LEFT JOIN playlist_song_map psm2 ON p.id = psm2.playlistId
+            LEFT JOIN song s ON psm2.songId = s.id
+        GROUP BY p.id
+        ORDER BY p.name
+    """)
+    fun playlistsContaining(songId: String): Flow<List<Playlist>>
+
+    /** The map row joining one song to one playlist, which is what a removal deletes. */
+    @Transaction
+    @Query("SELECT * FROM playlist_song_map WHERE playlistId = :playlistId AND songId = :songId LIMIT 1")
+    fun playlistSongMap(playlistId: String, songId: String): Flow<PlaylistSongMap?>
+
     @Transaction
     @Query("""
         SELECT 
