@@ -544,4 +544,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="background_check_hours">Every %1$d hours</string>
     <string name="background_check_hour">Every hour</string>
     <string name="background_check_daily">Once a day</string>
+    <string name="resume_on_launch">Start playing when the app opens</string>
+    <string name="resume_on_launch_desc">Picks up your last queue automatically instead of waiting for you to press play. Off by default, since this makes sound without you asking. If something else is already playing, that keeps priority.</string>
 </resources>
