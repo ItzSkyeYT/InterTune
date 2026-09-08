@@ -160,4 +160,18 @@
     <string name="playlist_empty_no_results">Nothing found for that.</string>
     <string name="playlist_empty_done">Done</string>
     <string name="youtube_picks">YouTube Music picks</string>
+    <string name="recognition_listening">Listening</string>
+    <string name="recognition_identifying">Working out what that is</string>
+    <string name="recognition_found">Here is what it heard</string>
+    <string name="recognition_pick_version">Pick the version to add. Searching by name can turn up live takes and covers.</string>
+    <string name="recognition_not_on_youtube">Nothing on YouTube matched that name.</string>
+    <string name="recognition_no_match">Shazam did not recognise that.</string>
+    <string name="recognition_heard_nothing">The microphone heard nothing. Try holding the phone closer to the speaker.</string>
+    <string name="recognition_failed">That did not work. Check your connection and try again.</string>
+    <string name="recognition_seconds">%1$d s</string>
+    <string name="recognition_stop">Stop and identify</string>
+    <string name="recognition_try_again">Try again</string>
+    <string name="recognition_listen_again">Listen again</string>
+    <string name="recognition_add">Add</string>
+    <string name="recognition_identify_song">Identify a song</string>
 </resources>

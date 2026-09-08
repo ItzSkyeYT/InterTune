@@ -78,10 +78,14 @@ class ShazamClient @Inject constructor() {
         }
 
         val peaks = signature.peaksByBand.sumOf { it.size }
-        if (peaks == 0) {
-            // Silence, or something with no tonal content at all. Worth separating from a genuine
+        if (peaks < MIN_USEFUL_PEAKS) {
+            // Silence, or a room too far from the speaker. Worth separating from a genuine
             // no-match, since the fix is "hold it closer" rather than "Shazam does not have it".
-            Log.i(TAG, "No peaks in the recording, not asking")
+            //
+            // Not zero. A silent emulator microphone produced exactly one peak over twelve
+            // seconds and sailed past a zero check, so the sheet blamed Shazam for a room that had
+            // nothing in it. A real match off a speaker gave 920, so anything down here is noise.
+            Log.i(TAG, "Only $peaks peaks in the recording, not asking")
             return@withContext RecognitionOutcome.Failed("silence")
         }
         Log.i(TAG, "Fingerprinted ${samples.size} samples into $peaks peaks")
@@ -154,6 +158,8 @@ class ShazamClient @Inject constructor() {
 
     companion object {
         private const val TAG = "ShazamClient"
+        /** Below this a recording has nothing in it; a real match produced 920. */
+        private const val MIN_USEFUL_PEAKS = 30
         private const val ENDPOINT = "https://amp.shazam.com/discovery/v5/en/US/android/-/tag/"
         private const val USER_AGENT =
             "Dalvik/2.1.0 (Linux; U; Android 13; Pixel 7 Build/TQ3A.230805.001)"
