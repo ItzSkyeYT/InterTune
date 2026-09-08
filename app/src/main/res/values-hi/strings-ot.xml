@@ -250,6 +250,9 @@
     <string name="polls_one_waiting">एक प्रश्न प्रतीक्षा में है</string>
     <string name="polls_forget">मुझसे दोबारा पूछा जा सकता है</string>
     <string name="polls_forget_description">आपने क्या जवाब दिया और क्या हटाया, उसका रिकॉर्ड मिटा देता है, ताकि पुराने प्रश्न फिर आ सकें।</string>
+    <string name="catch_up_title">दो छोटे सवाल</string>
+    <string name="catch_up_body">इन सेटिंग्स के लिए आपकी सहमति चाहिए, और इस इंस्टॉल से कभी नहीं पूछा गया। यह अपडेट के बाद, या ऐसा बैकअप बहाल करने के बाद दिखता है जिसमें आपके जवाब नहीं थे।</string>
+    <string name="catch_up_done">हो गया</string>
     <string name="polls_opt_in_title">आपसे कभी-कभी एक प्रश्न पूछें?</string>
     <string name="polls_opt_in_body">कभी-कभी InterTune होम के ऊपर एक छोटा प्रश्न दिखा सकता है, कि क्या बनाया या बदला जाए। जवाब देना वैकल्पिक और गुमनाम है, और आप इसे कभी भी सेटिंग में बंद कर सकते हैं। जब यह बंद है, न कुछ लाया जाता है और न कुछ भेजा जाता है।</string>
     <string name="polls_opt_in_yes">हाँ, पूछिए</string>

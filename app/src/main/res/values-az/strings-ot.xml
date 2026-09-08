@@ -134,6 +134,9 @@
     <string name="polls_one_waiting">Sizi bir sual gözləyir</string>
     <string name="polls_forget">Yenidən soruşulmağa icazə ver</string>
     <string name="polls_forget_description">Nəyi cavabladığınız və nəyi ləğv etdiyiniz barədə qeydi təmizləyir ki, keçmiş suallar geri qayıda bilsin.</string>
+    <string name="catch_up_title">İki qısa sual</string>
+    <string name="catch_up_body">Bu parametrlər sizin razılığınızı tələb edir və bu quraşdırma heç vaxt soruşulmayıb. Yeniləmədən sonra və ya cavablarınızı daşımayan ehtiyat nüsxəni bərpa etdikdən sonra görünür.</string>
+    <string name="catch_up_done">Hazırdır</string>
     <string name="polls_opt_in_title">Ara-sıra sizə bir sual verək?</string>
     <string name="polls_opt_in_body">Zaman-zaman InterTune ana ekranın yuxarısında nə qurulmalı və ya nə dəyişdirilməli olduğu barədə qısa bir sual göstərə bilər. Cavablamaq könüllüdür və anonimdir, istənilən vaxt ayarlardan söndürə bilərsiniz. Sönülü olduqca heç nə endirilmir və heç nə göndərilmir.</string>
     <string name="polls_opt_in_yes">Bəli, soruşun</string>

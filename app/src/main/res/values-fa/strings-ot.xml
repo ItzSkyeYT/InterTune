@@ -314,6 +314,9 @@
     <string name="polls_one_waiting">پرسشی در انتظار شماست</string>
     <string name="polls_forget">بگذار دوباره از من بپرسند</string>
     <string name="polls_forget_description">سابقهٔ آنچه پاسخ داده‌اید و نادیده گرفته‌اید را پاک می‌کند تا پرسش‌های گذشته بتوانند برگردند.</string>
+    <string name="catch_up_title">دو پرسش کوتاه</string>
+    <string name="catch_up_body">این تنظیمات به تأیید شما نیاز دارند و تا کنون از این نصب پرسیده نشده است. پس از به‌روزرسانی، یا پس از بازیابی پشتیبانی که پاسخ‌های شما را نداشت، نمایش داده می‌شود.</string>
+    <string name="catch_up_done">انجام شد</string>
     <string name="polls_opt_in_title">گاهی پرسشی از شما بپرسیم؟</string>
     <string name="polls_opt_in_body">هرازگاهی InterTune می‌تواند پرسشی کوتاه بالای صفحهٔ خانه نشان دهد، دربارهٔ اینکه چه چیزی ساخته یا عوض شود. پاسخ دادن اختیاری و ناشناس است و هر وقت بخواهید می‌توانید در تنظیمات خاموشش کنید. تا وقتی خاموش است، نه چیزی دریافت می‌شود و نه چیزی فرستاده.</string>
     <string name="polls_opt_in_yes">بله، بپرسید</string>

@@ -63,11 +63,9 @@ import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.AlertDialog
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.utils.dataStore
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.contentColorFor
@@ -136,6 +134,7 @@ import com.dd3boh.outertune.constants.NavigationBarAnimationSpec
 import com.dd3boh.outertune.constants.NavigationBarHeight
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
+import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.SlimNavBarKey
 import com.dd3boh.outertune.db.MusicDatabase
@@ -155,6 +154,7 @@ import com.dd3boh.outertune.ui.screens.HistoryScreen
 import com.dd3boh.outertune.ui.screens.HomeScreen
 import com.dd3boh.outertune.ui.screens.LastFmLoginScreen
 import com.dd3boh.outertune.ui.screens.LoginScreen
+import com.dd3boh.outertune.ui.screens.OptInCatchUp
 import com.dd3boh.outertune.ui.screens.MoodAndGenresScreen
 import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.SetupWizard
@@ -436,52 +436,6 @@ class MainActivity : ComponentActivity() {
                 Log.v(MAIN_TAG, "RC-2.1")
 
                 /**
-                 * Ask about update checks if the question has never been answered.
-                 *
-                 * Derived from the two preferences rather than snapshotted at launch, so it becomes
-                 * true the moment onboarding completes with the question still open. That is what
-                 * makes the ask unconditional: the wizard's card is the pleasant place to answer,
-                 * this is the guarantee. Skipping on the welcome page, or walking past the card and
-                 * tapping finish, both land here rather than leaving the user never asked.
-                 *
-                 * The rememberSaveable this replaces could not do that. With no keys its initialiser
-                 * ran once, at launch, when a fresh install still had OobeStatusKey at 0, so it
-                 * latched false for the whole first session, and being saveable it survived process
-                 * death too. Nothing re-evaluated it when the wizard wrote OOBE_VERSION seconds
-                 * later.
-                 *
-                 * Unset genuinely means "never asked" rather than "said no", because every path that
-                 * answers writes a value, so this cannot pester anyone who already declined.
-                 *
-                 * Inside the theme on purpose: at the top of setContent it drew in baseline Material
-                 * purple, because OuterTuneTheme had not opened yet.
-                 */
-                val updateChoice by rememberNullablePreference(UpdateCheckEnabledKey)
-
-                if (updateChoice == null && oobeStatus >= OOBE_VERSION) {
-                    AlertDialog(
-                        onDismissRequest = { },
-                        title = { Text(stringResource(R.string.oobe_update_check_title)) },
-                        text = { Text(stringResource(R.string.oobe_update_check_description)) },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                coroutineScope.launch {
-                                    dataStore.edit { it[UpdateCheckEnabledKey] = true }
-                                    updateChecker.check(force = true)
-                                }
-                            }) { Text(stringResource(R.string.oobe_update_check_yes)) }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = {
-                                coroutineScope.launch {
-                                    dataStore.edit { it[UpdateCheckEnabledKey] = false }
-                                }
-                            }) { Text(stringResource(R.string.oobe_update_check_no)) }
-                        }
-                    )
-                }
-
-                /**
                  * Offer the update, and let the answer stick.
                  *
                  * Shown regardless of the automatic setting, because Android never installs without
@@ -715,6 +669,57 @@ class MainActivity : ComponentActivity() {
                         LocalSnackbarHostState provides snackbarHostState,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
                     ) {
+                        /**
+                         * Ask for the answers this install never gave.
+                         *
+                         * Derived from the preferences rather than snapshotted at launch, so it becomes true
+                         * the moment onboarding completes with a question still open. That is what makes the
+                         * ask unconditional: skipping on the welcome page, walking past the cards and
+                         * tapping finish, updating from a build whose wizard never had the card, or
+                         * restoring a backup that carried no answer all land here rather than leaving
+                         * somebody never asked.
+                         *
+                         * The rememberSaveable this replaces could not do that. With no keys its initialiser
+                         * ran once, at launch, when a fresh install still had OobeStatusKey at 0, so it
+                         * latched false for the whole first session, and being saveable it survived process
+                         * death too. Nothing re-evaluated it when the wizard wrote OOBE_VERSION seconds
+                         * later.
+                         *
+                         * Unset genuinely means "never asked" rather than "said no", because every path that
+                         * answers writes a value, so this cannot pester anyone who already declined.
+                         *
+                         * Latched open rather than driven straight off the gate: answering the last card
+                         * makes the gate false, and a screen that vanishes under the finger that just
+                         * answered it reads as a crash. [OptInCatchUp] carries its own finish button.
+                         *
+                         * Inside the theme on purpose: at the top of setContent it drew in baseline Material
+                         * purple, because OuterTuneTheme had not opened yet. Inside the providers for a
+                         * harder reason: [OptInCatchUp] shows the wizard's own cards, and those read
+                         * LocalUpdateChecker and LocalPollChecker, so above this block they throw rather
+                         * than render. The dialog it replaced never noticed, having reached the checker
+                         * through the activity field instead.
+                         */
+                        val updateChoice by rememberNullablePreference(UpdateCheckEnabledKey)
+                        val pollChoice by rememberNullablePreference(PollsEnabledKey)
+
+                        var catchUpOpen by rememberSaveable { mutableStateOf(false) }
+                        var catchUpDone by rememberSaveable { mutableStateOf(false) }
+
+                        LaunchedEffect(updateChoice, pollChoice, oobeStatus) {
+                            if (!catchUpDone && oobeStatus >= OOBE_VERSION &&
+                                (updateChoice == null || pollChoice == null)
+                            ) {
+                                catchUpOpen = true
+                            }
+                        }
+
+                        if (catchUpOpen) {
+                            OptInCatchUp(onDone = {
+                                catchUpOpen = false
+                                catchUpDone = true
+                            })
+                        }
+
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()

@@ -330,6 +330,9 @@
     <string name="polls_one_waiting">Ada pertanyaan yang menunggu</string>
     <string name="polls_forget">Izinkan saya ditanya lagi</string>
     <string name="polls_forget_description">Menghapus catatan tentang apa yang sudah Anda jawab dan abaikan, sehingga pertanyaan lama bisa muncul lagi.</string>
+    <string name="catch_up_title">Dua pertanyaan singkat</string>
+    <string name="catch_up_body">Pengaturan ini memerlukan persetujuan Anda, dan pemasangan ini belum pernah ditanya. Ini muncul setelah pembaruan, atau setelah memulihkan cadangan yang tidak memuat jawaban Anda.</string>
+    <string name="catch_up_done">Selesai</string>
     <string name="polls_opt_in_title">Sesekali menanyakan sesuatu kepada Anda?</string>
     <string name="polls_opt_in_body">Sesekali InterTune dapat menampilkan pertanyaan singkat di bagian atas layar utama, tentang apa yang sebaiknya dibuat atau diubah. Menjawab bersifat opsional dan anonim, dan Anda bisa mematikannya kapan saja di setelan. Selama mati, tidak ada yang diambil dan tidak ada yang dikirim.</string>
     <string name="polls_opt_in_yes">Ya, tanya saja</string>

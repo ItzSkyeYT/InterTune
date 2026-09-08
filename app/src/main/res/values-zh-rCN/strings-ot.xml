@@ -329,6 +329,9 @@
     <string name="polls_one_waiting">有一个问题在等你</string>
     <string name="polls_forget">让我可以再次被询问</string>
     <string name="polls_forget_description">清除你已回答和已忽略的记录，让过去的问题可以再次出现。</string>
+    <string name="catch_up_title">两个简短的问题</string>
+    <string name="catch_up_body">这些设置需要你同意，而这次安装从未询问过。它会在更新之后出现，或者在恢复了不含你的答案的备份之后出现。</string>
+    <string name="catch_up_done">完成</string>
     <string name="polls_opt_in_title">偶尔问你一个问题？</string>
     <string name="polls_opt_in_body">InterTune 有时会在主页顶部显示一个简短的问题，关于该做什么或改什么。回答是自愿且匿名的，你随时可以在设置中关闭。关闭期间不会获取也不会发送任何内容。</string>
     <string name="polls_opt_in_yes">好，问我吧</string>

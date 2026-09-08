@@ -69,6 +69,9 @@
     <string name="polls_one_waiting">May tanong na naghihintay</string>
     <string name="polls_forget">Payagang tanungin ako ulit</string>
     <string name="polls_forget_description">Binubura ang tala ng sinagot at ni-dismiss mo, para makabalik ang mga dating tanong.</string>
+    <string name="catch_up_title">Dalawang mabilis na tanong</string>
+    <string name="catch_up_body">Kailangan ng pahintulot mo para sa mga setting na ito, at hindi pa natatanong ang pag-install na ito. Lumalabas ito pagkatapos ng update, o pagkatapos mag-restore ng backup na walang dalang mga sagot mo.</string>
+    <string name="catch_up_done">Tapos na</string>
     <string name="polls_opt_in_title">Tatanungin ka namin paminsan-minsan?</string>
     <string name="polls_opt_in_body">Paminsan-minsan, maaaring magpakita ang InterTune ng maikling tanong sa itaas ng home, tungkol sa kung ano ang dapat gawin o baguhin. Opsyonal at anonymous ang pagsagot, at puwede mo itong i-off anumang oras sa mga setting. Habang naka-off, walang kinukuha at walang ipinapadala.</string>
     <string name="polls_opt_in_yes">Oo, tanungin ninyo ako</string>

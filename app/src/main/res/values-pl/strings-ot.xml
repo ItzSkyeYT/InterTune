@@ -334,6 +334,9 @@
     <string name="polls_one_waiting">Czeka na Ciebie pytanie</string>
     <string name="polls_forget">Pozwól pytać mnie ponownie</string>
     <string name="polls_forget_description">Czyści zapis tego, na co odpowiedziałeś i co odrzuciłeś, aby dawne pytania mogły wrócić.</string>
+    <string name="catch_up_title">Dwa krótkie pytania</string>
+    <string name="catch_up_body">Te ustawienia wymagają twojej zgody, a ta instalacja nigdy nie została o nią zapytana. Pojawia się po aktualizacji albo po przywróceniu kopii zapasowej, która nie zawierała twoich odpowiedzi.</string>
+    <string name="catch_up_done">Gotowe</string>
     <string name="polls_opt_in_title">Zadawać Ci od czasu do czasu pytanie?</string>
     <string name="polls_opt_in_body">Co pewien czas InterTune może pokazać krótkie pytanie na górze ekranu głównego, o to co zbudować lub zmienić. Odpowiadanie jest opcjonalne i anonimowe, a wyłączyć to możesz w każdej chwili w ustawieniach. Gdy jest wyłączone, nic nie jest pobierane ani wysyłane.</string>
     <string name="polls_opt_in_yes">Tak, pytaj mnie</string>

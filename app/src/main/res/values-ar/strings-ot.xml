@@ -286,6 +286,9 @@
     <string name="polls_one_waiting">هناك سؤال في انتظارك</string>
     <string name="polls_forget">اسمح بسؤالي مجدداً</string>
     <string name="polls_forget_description">يمسح سجل ما أجبت عنه وما تجاهلته، حتى تعود الأسئلة السابقة.</string>
+    <string name="catch_up_title">سؤالان سريعان</string>
+    <string name="catch_up_body">تحتاج هذه الإعدادات إلى موافقتك، ولم يُسأل هذا التثبيت من قبل. يظهر هذا بعد التحديث، أو بعد استعادة نسخة احتياطية لا تحمل إجاباتك.</string>
+    <string name="catch_up_done">تم</string>
     <string name="polls_opt_in_title">أن نسألك سؤالاً بين الحين والآخر؟</string>
     <string name="polls_opt_in_body">من وقت لآخر قد يعرض InterTune سؤالاً قصيراً أعلى الشاشة الرئيسية، عمّا ينبغي بناؤه أو تغييره. الإجابة اختيارية ومجهولة المصدر، ويمكنك تعطيل هذا في أي وقت من الإعدادات. وما دام معطلاً فلا يُجلب شيء ولا يُرسل شيء.</string>
     <string name="polls_opt_in_yes">نعم، اسألني</string>

@@ -324,6 +324,9 @@
     <string name="polls_one_waiting">質問があります</string>
     <string name="polls_forget">もう一度質問できるようにする</string>
     <string name="polls_forget_description">回答済み・非表示にした記録を消去し、過去の質問がもう一度表示されるようにします。</string>
+    <string name="catch_up_title">簡単な質問が2つ</string>
+    <string name="catch_up_body">これらの設定にはあなたの同意が必要ですが、このインストールでは一度も尋ねていません。アップデート後、または回答が含まれていないバックアップを復元した後に表示されます。</string>
+    <string name="catch_up_done">完了</string>
     <string name="polls_opt_in_title">ときどき質問してもよいですか？</string>
     <string name="polls_opt_in_body">InterTune はときどき、何を作るべきか何を変えるべきかについて、短い質問をホームの上部に表示することがあります。回答は任意で匿名です。設定からいつでもオフにできます。オフの間は何も取得せず、何も送信しません。</string>
     <string name="polls_opt_in_yes">はい、質問してください</string>

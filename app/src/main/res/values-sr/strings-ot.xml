@@ -304,6 +304,9 @@
     <string name="polls_one_waiting">Чека вас питање</string>
     <string name="polls_forget">Дозволи да ме поново питају</string>
     <string name="polls_forget_description">Брише запис о томе шта сте одговорили и одбацили, да би се ранија питања могла вратити.</string>
+    <string name="catch_up_title">Два кратка питања</string>
+    <string name="catch_up_body">Ова подешавања захтевају вашу сагласност, а ова инсталација никада није упитана. Појављује се после ажурирања или после враћања резервне копије која није садржала ваше одговоре.</string>
+    <string name="catch_up_done">Готово</string>
     <string name="polls_opt_in_title">Да вас понекад питамо?</string>
     <string name="polls_opt_in_body">С времена на време InterTune може приказати кратко питање на врху почетног екрана, о томе шта направити или променити. Одговарање је опционо и анонимно, и можете га искључити било када у подешавањима. Док је искључено, ништа се не преузима и ништа се не шаље.</string>
     <string name="polls_opt_in_yes">Да, питајте ме</string>

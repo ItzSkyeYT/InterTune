@@ -194,6 +194,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="polls_one_waiting">There is a question waiting</string>
     <string name="polls_forget">Let me be asked again</string>
     <string name="polls_forget_description">Clears the record of what you have answered and dismissed, so past questions can come back.</string>
+    <string name="catch_up_title">Two quick questions</string>
+    <string name="catch_up_body">These settings need your say-so, and this install has never been asked. It shows up after an update, or after restoring a backup that did not carry your answers.</string>
+    <string name="catch_up_done">Done</string>
     <string name="polls_opt_in_title">Ask you the occasional question?</string>
     <string name="polls_opt_in_body">Every so often InterTune can show a short question at the top of Home, about what to build or change. Answering is optional and anonymous, and you can turn this off at any time in Settings. While it is off, nothing is fetched and nothing is sent.</string>
     <string name="polls_opt_in_yes">Yes, ask me</string>
