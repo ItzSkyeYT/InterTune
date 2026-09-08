@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.CloudDownload
@@ -40,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
@@ -76,6 +78,8 @@ import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.ui.component.ChipsLazyRow
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
+import com.dd3boh.outertune.ui.component.HideOnScrollFAB
+import com.dd3boh.outertune.ui.dialog.CreatePlaylistDialog
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.LazyVerticalGridScrollbar
 import com.dd3boh.outertune.ui.component.LibraryAlbumGridItem
@@ -134,6 +138,11 @@ fun LibraryScreen(
     val downloadedPlaylist = PlaylistEntity(id = "downloaded", name = stringResource(id = R.string.downloaded_songs))
 
     val lazyListState = rememberLazyListState()
+    var showCreatePlaylistDialog by rememberSaveable { mutableStateOf(false) }
+
+    if (showCreatePlaylistDialog) {
+        CreatePlaylistDialog(onDismiss = { showCreatePlaylistDialog = false })
+    }
     val lazyGridState = rememberLazyGridState()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val scrollToTop = backStackEntry?.savedStateHandle?.getStateFlow("scrollToTop", false)?.collectAsState()
@@ -560,6 +569,24 @@ fun LibraryScreen(
                         )
                     }
                 }
+            }
+        }
+
+        // Only on the combined view. The Playlists filter draws its own, and the other filters
+        // are lists of things a plus button cannot make: a new artist is not a thing to create.
+        if (filter == LibraryFilter.ALL) {
+            when (viewType) {
+                LibraryViewType.LIST -> HideOnScrollFAB(
+                    lazyListState = lazyListState,
+                    icon = Icons.Rounded.Add,
+                    onClick = { showCreatePlaylistDialog = true },
+                )
+
+                LibraryViewType.GRID -> HideOnScrollFAB(
+                    lazyListState = lazyGridState,
+                    icon = Icons.Rounded.Add,
+                    onClick = { showCreatePlaylistDialog = true },
+                )
             }
         }
 
