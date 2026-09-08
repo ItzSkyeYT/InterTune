@@ -32,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -67,9 +68,16 @@ import com.zionhuang.innertube.models.SongItem
 fun RecognitionSheet(
     onAdd: (SongItem) -> Unit,
     onDismiss: () -> Unit,
+    existingSongIds: Set<String> = emptySet(),
     viewModel: RecognitionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsState()
+    val continuous by viewModel.continuous.collectAsState()
+    val added by viewModel.added.collectAsState()
+
+    LaunchedEffect(existingSongIds) {
+        viewModel.configure(existingSongIds) { onAdd(it) }
+    }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val permission = rememberLauncherForActivityResult(
@@ -119,9 +127,26 @@ fun RecognitionSheet(
                     artist = s.track.artist,
                     artwork = s.track.artworkUrl,
                     candidates = s.candidates,
-                    onAdd = { onAdd(it); onDismiss() },
+                    onAdd = { song ->
+                        onAdd(song)
+                        viewModel.accept(song)
+                        if (!continuous) onDismiss()
+                    },
                     onRetry = viewModel::start,
                 )
+
+                is RecognitionViewModel.State.Waiting -> {
+                    Title(stringResource(R.string.recognition_waiting))
+                    Spacer24()
+                    Text(
+                        text = stringResource(R.string.recognition_seconds, s.secondsLeft),
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
+                    Spacer24()
+                    OutlinedButton(onClick = viewModel::stopContinuous) {
+                        Text(stringResource(R.string.recognition_stop_continuous))
+                    }
+                }
 
                 RecognitionViewModel.State.NoMatch -> Problem(
                     text = stringResource(R.string.recognition_no_match),
@@ -135,6 +160,53 @@ fun RecognitionSheet(
                     ),
                     onRetry = viewModel::start,
                 )
+            }
+
+            // Off by default. Continuous listening keeps the microphone open and makes a request
+            // every few seconds, which is not something to switch on for somebody.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 24.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.recognition_keep_listening),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        text = stringResource(R.string.recognition_keep_listening_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = continuous,
+                    onCheckedChange = { viewModel.continuous.value = it },
+                )
+            }
+
+            if (added.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.recognition_added_count, added.size),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
+                )
+                for (entry in added.asReversed().take(4)) {
+                    Text(
+                        text = "${entry.title} - ${entry.artist}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
+                    )
+                }
             }
         }
     }

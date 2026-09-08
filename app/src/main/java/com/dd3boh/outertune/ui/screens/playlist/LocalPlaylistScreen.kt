@@ -273,6 +273,9 @@ fun LocalPlaylistScreen(
         RecognitionSheet(
             onAdd = { song -> viewModel.addSong(currentPlaylist, song) },
             onDismiss = { showRecognition = false },
+            // So continuous mode does not re-add what the playlist already holds; a song plays for
+            // minutes and a listening pass is twelve seconds.
+            existingSongIds = playlistWithSongs.second.map { it.song.song.id }.toSet(),
         )
     }
 

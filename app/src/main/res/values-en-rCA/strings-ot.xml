@@ -174,4 +174,9 @@
     <string name="recognition_listen_again">Listen again</string>
     <string name="recognition_add">Add</string>
     <string name="recognition_identify_song">Identify a song</string>
+    <string name="recognition_waiting">Listening again in</string>
+    <string name="recognition_stop_continuous">Stop listening</string>
+    <string name="recognition_keep_listening">Keep listening</string>
+    <string name="recognition_keep_listening_desc">Carry on adding songs until you stop it. Only adds a song when the match is unambiguous.</string>
+    <string name="recognition_added_count">Added %1$d so far</string>
 </resources>

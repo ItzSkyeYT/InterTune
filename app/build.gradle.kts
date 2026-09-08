@@ -317,6 +317,8 @@ dependencies {
     implementation(project(":lrclib"))
     implementation(project(":lastfm"))
     implementation(project(":fingerprint"))
+
+    testImplementation(libs.junit)
     implementation(project(":material-color-utilities"))
     implementation(project(":taglib"))
 
