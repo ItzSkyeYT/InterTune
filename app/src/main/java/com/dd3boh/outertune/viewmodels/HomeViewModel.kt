@@ -79,6 +79,14 @@ class HomeViewModel @Inject constructor(
     val selectedChip = MutableStateFlow<HomePage.Chip?>(null)
 
     // A reload asked for while one was already running, and whether it asked to bypass the back-off.
+    /**
+     * The Quick picks source the last load ran under, and whether that load found YouTube's shelf.
+     *
+     * Both exist so a refresh can leave the row alone. See [load].
+     */
+    private var lastQuickPicksSource: QuickPicksSource? = null
+    private var foundQuickPicksThisLoad = false
+
     private var pendingRefresh = false
     private var pendingRefreshForce = false
     private val previousHomePage = MutableStateFlow<HomePage?>(null)
@@ -93,17 +101,28 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun load(force: Boolean) {
         isLoading.value = true
-        // Only the YouTube source has anything to wait for. On the library source the row is a
-        // Room query, so a shimmer would flash over an answer that is already in hand, which is
-        // also a thing v0.10.5 never did.
-        quickPicksLoading.value = quickPicksSource() == QuickPicksSource.YOUTUBE
+        val source = quickPicksSource()
+        foundQuickPicksThisLoad = false
 
-        // Cleared here, at the top, rather than deep in the remote half below. It used to be
-        // cleared just before the home() call, which is after the account playlists request and up
-        // to seven recommendation round trips. Switching from YouTube to Your library therefore
-        // left YouTube's shelf sitting in the row, under the Quick picks heading, for as long as
-        // all that took. The screen has no way to know better: it draws whatever this flow holds.
-        ytQuickPicks.value = null
+        // Blanked only when the source changed, not on every load.
+        //
+        // Clearing unconditionally is what made a refresh feel slow: the row emptied to a shimmer
+        // the instant you pulled, and stayed empty for the second or so the home request takes,
+        // even though the songs that came back were usually the same ones. YouTube returns the
+        // same Quick picks shelf for the whole session, so that was a second of blank screen to
+        // arrive back where it started.
+        //
+        // It does still have to blank when the source changes. Switching from YouTube to Your
+        // library used to leave YouTube's shelf sitting under the heading for the whole load,
+        // because the screen draws whatever this flow holds and has no way to know better.
+        if (source != lastQuickPicksSource) {
+            ytQuickPicks.value = null
+        }
+        lastQuickPicksSource = source
+
+        // Only the YouTube source has anything to wait for, and only when there is nothing to
+        // show. A shimmer over a row that already has songs in it is the same lie as blanking it.
+        quickPicksLoading.value = source == QuickPicksSource.YOUTUBE && ytQuickPicks.value == null
 
         // The query already ranks by how many of your seed songs point at each result, strongest
         // first. Shuffling all 100 of them threw that away and gave the 100th the same odds as the
@@ -248,6 +267,12 @@ class HomeViewModel @Inject constructor(
         }.onFailure {
             reportException(it)
         }
+        // The row is kept across loads now, so a shelf that has actually disappeared has to be
+        // cleared here or last load's songs would sit there indefinitely.
+        if (source == QuickPicksSource.YOUTUBE && !foundQuickPicksThisLoad) {
+            ytQuickPicks.value = null
+        }
+
         // Settled either way: found, or looked for and not there. Leaving it true on failure would
         // leave a skeleton shimmering over a row that is never going to fill.
         quickPicksLoading.value = false
@@ -289,6 +314,7 @@ class HomeViewModel @Inject constructor(
                     section.items.isNotEmpty() &&
                     section.items.all { it is SongItem }
         } ?: return page
+        foundQuickPicksThisLoad = true
         ytQuickPicks.value = shelf.items.filterIsInstance<SongItem>()
         return page.copy(sections = page.sections - shelf)
     }
