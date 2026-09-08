@@ -209,24 +209,41 @@ class HomeViewModel @Inject constructor(
         YouTube.home().onSuccess { page ->
             var merged = takeQuickPicks(page)
 
-            // YouTube does not put Quick picks in the first response. Measured against the live API
-            // on 5 Sep: the first response is three card carousels, and Quick picks is index 0 of
-            // the FIRST continuation, numItemsPerColumn 4. So fetch that one batch now, or the row
-            // would only appear once the user happened to scroll far enough to trigger it.
+            // Read past the first response, because on its own it is not a home feed.
             //
-            // One extra request per home load, which is affordable now that the sync cooldown no
-            // longer runs a full library sync on every app open.
-            if (ytQuickPicks.value == null && quickPicksSource() == QuickPicksSource.YOUTUBE) {
-                merged.continuation?.let { next ->
-                    YouTube.home(next).getOrNull()?.let { page2 ->
-                        val cleaned = takeQuickPicks(page2)
-                        merged = merged.copy(
-                            sections = merged.sections + cleaned.sections,
-                            continuation = cleaned.continuation,
-                        )
-                    }
-                }
+            // Measured against the live API on 8 Sep, signed out: the first response is 3 sections
+            // and 25 items, and that is the whole of what a refresh used to show. Two refreshes back
+            // to back share about half their items, so pulling to refresh mostly reprinted what was
+            // already there, in a different order, and the rest of the feed was only reachable by
+            // scrolling far enough to trigger loadMoreYouTubeItems. Walking the continuations
+            // instead: batch 1 adds 22 items that were not in batch 0, batch 2 adds 24 more, and
+            // then the continuation goes null. 71 unique items rather than 25, so a refresh draws
+            // from a pool nearly three times the size and genuinely lands on new songs.
+            //
+            // Capped rather than exhaustive. That feed ended on its own after two continuations,
+            // but a signed-in feed is longer and there is no reason to let one refresh walk it to
+            // the end; HOME_REFRESH_BATCHES is the ceiling and scrolling picks up from wherever
+            // this left off, since the surviving continuation is carried into merged.
+            //
+            // Quick picks used to be the only reason to fetch a continuation at all, since YouTube
+            // puts that shelf at index 0 of the first one rather than in the first response. It is
+            // still lifted out on the way past, by takeQuickPicks on each batch.
+            var batches = 0
+            while (batches < HOME_REFRESH_BATCHES) {
+                val next = merged.continuation ?: break
+                val page2 = YouTube.home(next).getOrNull() ?: break
+                val cleaned = takeQuickPicks(page2)
+                merged = merged.copy(
+                    sections = merged.sections + cleaned.sections,
+                    continuation = cleaned.continuation,
+                )
+                batches++
             }
+            Log.d(
+                "HomeViewModel",
+                "Home loaded: ${merged.sections.size} sections, " +
+                        "${merged.sections.sumOf { it.items.size }} items, $batches continuations"
+            )
             homePage.value = merged
         }.onFailure {
             reportException(it)
@@ -377,3 +394,13 @@ class HomeViewModel @Inject constructor(
         }
     }
 }
+
+/**
+ * How many home continuations one load is allowed to read past the first response.
+ *
+ * Three is the measured shape of the signed-out feed plus headroom: batches 0 to 2 hold the whole
+ * of it, and the fourth request is the one that discovers the continuation has gone null. A
+ * signed-in feed runs longer, and this is the point at which a refresh stops walking it and leaves
+ * the rest to scrolling.
+ */
+private const val HOME_REFRESH_BATCHES = 3
