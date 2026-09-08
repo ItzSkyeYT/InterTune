@@ -534,4 +534,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="playlist_empty_no_results">Nothing found for that.</string>
     <string name="playlist_empty_done">Done</string>
     <string name="youtube_picks">YouTube Music picks</string>
+    <string name="background_channel">Background checks</string>
+    <string name="background_update_title">A new version is available</string>
+    <string name="background_update_text">InterTune %1$s is ready to install.</string>
+    <string name="background_poll_title">A new question</string>
+    <string name="background_check_interval">Check in the background</string>
+    <string name="background_check_interval_desc">How often to look for updates and questions while the app is closed. Each is only checked if you have it turned on, and you are told once when there is something.</string>
+    <string name="background_check_off">Only when the app opens</string>
+    <string name="background_check_hours">Every %1$d hours</string>
+    <string name="background_check_hour">Every hour</string>
+    <string name="background_check_daily">Once a day</string>
 </resources>
