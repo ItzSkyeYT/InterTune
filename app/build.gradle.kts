@@ -316,6 +316,7 @@ dependencies {
     implementation(project(":kugou"))
     implementation(project(":lrclib"))
     implementation(project(":lastfm"))
+    implementation(libs.work)
     implementation(project(":material-color-utilities"))
     implementation(project(":taglib"))
 

@@ -35,6 +35,12 @@ import androidx.core.net.toUri
 import androidx.navigation.NavController
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.LocalUpdateChecker
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AutoInstallUpdatesKey
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
@@ -45,6 +51,11 @@ import com.dd3boh.outertune.ui.utils.backToMain
 import androidx.compose.material3.TopAppBar
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.PreferenceEntry
+import androidx.compose.material.icons.rounded.Schedule
+import com.dd3boh.outertune.constants.BackgroundCheckHoursKey
+import com.dd3boh.outertune.ui.dialog.InfoLabel
+import com.dd3boh.outertune.ui.component.ListPreference
+import com.dd3boh.outertune.utils.BackgroundCheckWorker
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.UpdateChecker
@@ -69,6 +80,15 @@ fun UpdateSettings(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val (backgroundHours, onBackgroundHoursChange) =
+        rememberPreference(BackgroundCheckHoursKey, defaultValue = 0)
+
+    // Asked for when background checking is switched on, not at launch. Without it the worker runs,
+    // finds the update or the question, and then silently cannot say so, which is indistinguishable
+    // from the setting not working. Only Android 13 and up has the runtime permission.
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
     val updateChecker = LocalUpdateChecker.current
 
     val (enabled, onEnabledChange) = rememberPreference(UpdateCheckEnabledKey, defaultValue = false)
@@ -118,6 +138,37 @@ fun UpdateSettings(
                 onCheckedChange = onAutoInstallChange,
                 isEnabled = enabled,
             )
+
+            // Governs questions too, which is why the copy says so. Two separate schedules for
+            // two small requests would wake the device twice to answer one question.
+            ListPreference(
+                title = { Text(stringResource(R.string.background_check_interval)) },
+                icon = { Icon(Icons.Rounded.Schedule, null) },
+                selectedValue = backgroundHours,
+                values = BackgroundCheckWorker.INTERVAL_CHOICES,
+                valueText = {
+                    when (it) {
+                        0 -> stringResource(R.string.background_check_off)
+                        1 -> stringResource(R.string.background_check_hour)
+                        24 -> stringResource(R.string.background_check_daily)
+                        else -> stringResource(R.string.background_check_hours, it)
+                    }
+                },
+                onValueSelected = {
+                    onBackgroundHoursChange(it)
+                    // Applied immediately rather than at next launch, and handed the chosen value
+                    // rather than left to re-read a preference that has not landed yet.
+                    BackgroundCheckWorker.schedule(context, it)
+                    if (it > 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.POST_NOTIFICATIONS
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                },
+            )
+            InfoLabel(stringResource(R.string.background_check_interval_desc))
 
             PreferenceEntry(
                 title = { Text(stringResource(R.string.check_for_update)) },
