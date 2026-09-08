@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.PlaylistFilter
 import com.dd3boh.outertune.constants.PlaylistSortType
 import com.dd3boh.outertune.db.MusicDatabase
@@ -303,11 +304,27 @@ class HomeViewModel @Inject constructor(
             .toEnum(QuickPicksSource.YOUTUBE)
 
     private fun takeQuickPicks(page: HomePage): HomePage {
-        // Set to Your library and YouTube's shelf is left exactly where it is, rendering as an
-        // ordinary section of the feed rather than being lifted into the row. The row on that
-        // setting is the app's own recommendations and nothing else, so there is nothing to lift
-        // it for, and taking it out would just lose a section of the feed.
-        if (quickPicksSource() != QuickPicksSource.YOUTUBE) return page
+        // Set to Your library and YouTube's shelf is left where it is, rendering as an ordinary
+        // section of the feed rather than being lifted into the row. The row on that setting is the
+        // app's own recommendations, so there is nothing to lift it for, and removing it would just
+        // lose a section of the feed.
+        //
+        // It does get renamed. YouTube calls that shelf "Quick picks" too, so leaving its title
+        // alone put two rows with the same heading on the same screen, one of them the library row
+        // and one of them the thing that row exists instead of. That reads as a bug even though
+        // both rows are correct.
+        if (quickPicksSource() != QuickPicksSource.YOUTUBE) {
+            val theirs = page.sections.firstOrNull { section ->
+                section.itemsPerColumn != null &&
+                        section.items.isNotEmpty() &&
+                        section.items.all { it is SongItem }
+            } ?: return page
+            return page.copy(
+                sections = page.sections.map {
+                    if (it === theirs) it.copy(title = context.getString(R.string.youtube_picks)) else it
+                }
+            )
+        }
 
         val shelf = page.sections.firstOrNull { section ->
             section.itemsPerColumn != null &&

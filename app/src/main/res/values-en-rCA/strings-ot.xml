@@ -159,4 +159,5 @@
     <string name="playlist_empty_hint">Search above to add your first song.</string>
     <string name="playlist_empty_no_results">Nothing found for that.</string>
     <string name="playlist_empty_done">Done</string>
+    <string name="youtube_picks">YouTube Music picks</string>
 </resources>
