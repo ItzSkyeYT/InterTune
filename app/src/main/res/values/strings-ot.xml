@@ -553,4 +553,29 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recognition_keep_listening">Keep listening</string>
     <string name="recognition_keep_listening_desc">Carry on adding songs until you stop it. Only adds a song when the match is unambiguous.</string>
     <string name="recognition_added_count">Added %1$d so far</string>
+    <string name="recognition_service_channel">Song recognition</string>
+    <string name="recognition_service_title">Listening for songs</string>
+    <string name="recognition_service_none">Nothing added yet</string>
+    <string name="recognition_service_stop">Stop</string>
+    <plurals name="recognition_service_added">
+        <item quantity="one">Added %1$d song</item>
+        <item quantity="other">Added %1$d songs</item>
+    </plurals>
+    <string name="recognition_listening_hint">Leave this running and it will keep adding what it hears.</string>
+    <string name="recognition_skipped_count">Heard but not added: %1$d</string>
+    <string name="recognition_confirming">Heard %1$s, listening again to be sure</string>
+    <string name="recognition_msg_ears_open">Ears open</string>
+    <string name="recognition_msg_waiting_chorus">Waiting for a bit it recognises</string>
+    <string name="recognition_msg_leave_running">Lock the screen, it does not mind</string>
+    <string name="recognition_msg_closer_helps">Closer to the speaker helps</string>
+    <string name="recognition_msg_matching">Matching what it heard</string>
+    <string name="recognition_msg_asking">Consulting a very large record collection</string>
+    <string name="recognition_msg_narrowing">Working out which version</string>
+    <string name="recognition_msg_nodding">Nodding along</string>
+    <string name="recognition_msg_eavesdrop">Politely eavesdropping</string>
+    <string name="recognition_msg_hum">Humming to itself</string>
+    <string name="recognition_msg_squiggles">Comparing squiggles</string>
+    <string name="recognition_msg_california">Asking a computer in California</string>
+    <string name="recognition_msg_thinking_hard">Thinking about it properly</string>
+    <string name="recognition_msg_secret">Somewhere in here a Fourier transform is having the time of its life</string>
 </resources>

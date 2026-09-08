@@ -28,6 +28,7 @@
       peaks and cannot be turned back into sound.
     -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -166,6 +167,16 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>
+
+        <!--
+          Listening continues with the screen off, which Android only allows a foreground service
+          holding the microphone type. The notification it must show is the point rather than a
+          nuisance: an app recording a room should always be visible and stoppable.
+        -->
+        <service
+            android:name=".recognition.RecognitionService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
 
         <service
             android:name=".playback.ExoDownloadService"

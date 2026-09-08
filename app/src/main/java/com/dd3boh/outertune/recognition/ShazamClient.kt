@@ -42,6 +42,19 @@ data class Recognised(
     val isrc: String?,
     /** Shazam's own id for the track, useful if this ever needs deduplicating. */
     val shazamKey: String?,
+    /**
+     * Where in the reference recording this sample matched, in seconds.
+     *
+     * The useful part of a second listen. Two recognitions of the same track, taken a known number
+     * of seconds apart, should advance this by that many seconds. If it advances faster the room is
+     * playing a sped-up edit, slower and it is a slowed one, and that is measurable rather than
+     * guessed from a title.
+     */
+    val offsetSeconds: Double = 0.0,
+    /** Shazam's own estimate of the playback rate deviation, near zero for an unaltered copy. */
+    val timeSkew: Double = 0.0,
+    /** And of the pitch deviation, which a slowed or nightcore edit moves along with the rate. */
+    val frequencySkew: Double = 0.0,
 ) {
     /** What to hand a YouTube search. */
     val searchQuery: String get() = listOfNotNull(title, artist).joinToString(" ")
@@ -141,6 +154,7 @@ class ShazamClient @Inject constructor() {
             return@runCatching RecognitionOutcome.NoMatch
         }
         val images = track.optJSONObject("images")
+        val match = root.optJSONArray("matches")?.optJSONObject(0)
         RecognitionOutcome.Match(
             Recognised(
                 title = title,
@@ -149,6 +163,9 @@ class ShazamClient @Inject constructor() {
                     ?: images?.optString("coverart")?.ifEmpty { null },
                 isrc = track.optString("isrc").ifEmpty { null },
                 shazamKey = track.optString("key").ifEmpty { null },
+                offsetSeconds = match?.optDouble("offset", 0.0) ?: 0.0,
+                timeSkew = match?.optDouble("timeskew", 0.0) ?: 0.0,
+                frequencySkew = match?.optDouble("frequencyskew", 0.0) ?: 0.0,
             )
         )
     }.getOrElse {

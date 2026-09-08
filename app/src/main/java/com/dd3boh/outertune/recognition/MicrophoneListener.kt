@@ -16,6 +16,9 @@ import androidx.annotation.RequiresPermission
 import com.dd3boh.outertune.fingerprint.SIGNATURE_SAMPLE_RATE_HZ
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -115,6 +118,60 @@ class MicrophoneListener @Inject constructor() {
         }
         return null
     }
+
+    /**
+     * Listens without ever stopping, emitting one window of audio after another.
+     *
+     * [record] opens the microphone, takes its twelve seconds and closes it, and the caller then
+     * spends a second or two fingerprinting and asking Shazam before opening it again. Every one of
+     * those seconds is deaf, and a track that changes during one is missed until the pass after. For
+     * a device left listening on a table that is the entire job, so the recorder is opened once here
+     * and windows are cut from the running stream instead.
+     *
+     * The collector's work overlaps the next window, because AudioRecord keeps filling its buffer
+     * whether anyone reads it or not. A slow collector costs freshness, never coverage.
+     */
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    @SuppressLint("MissingPermission")
+    fun stream(
+        seconds: Int = DEFAULT_SECONDS,
+        onProgress: (level: Float) -> Unit = {},
+    ): Flow<ShortArray> = flow {
+        val minBuffer = AudioRecord.getMinBufferSize(
+            SIGNATURE_SAMPLE_RATE_HZ,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+        )
+        require(minBuffer > 0) { "16 kHz mono capture is unavailable on this device" }
+        val recorder = open(minBuffer) ?: throw IllegalStateException("Could not open the microphone")
+
+        val windowSize = SIGNATURE_SAMPLE_RATE_HZ * seconds
+        try {
+            recorder.startRecording()
+            val chunk = ShortArray(CHUNK_SAMPLES)
+            while (currentCoroutineContext().isActive) {
+                val window = ShortArray(windowSize)
+                var written = 0
+                while (written < windowSize && currentCoroutineContext().isActive) {
+                    val read = recorder.read(chunk, 0, minOf(chunk.size, windowSize - written))
+                    if (read <= 0) {
+                        Log.w(TAG, "AudioRecord.read returned $read, ending the stream")
+                        return@flow
+                    }
+                    chunk.copyInto(window, written, 0, read)
+                    written += read
+                    var peak = 0
+                    for (i in 0 until read) peak = maxOf(peak, abs(chunk[i].toInt()))
+                    onProgress(peak / 32768f)
+                }
+                if (written == windowSize) emit(window)
+            }
+        } finally {
+            runCatching { recorder.stop() }
+            recorder.release()
+            Log.i(TAG, "Microphone stream closed")
+        }
+    }.flowOn(Dispatchers.IO)
 
     companion object {
         private const val TAG = "MicrophoneListener"

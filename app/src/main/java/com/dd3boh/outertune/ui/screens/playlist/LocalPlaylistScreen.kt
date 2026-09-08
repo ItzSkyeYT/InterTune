@@ -271,11 +271,8 @@ fun LocalPlaylistScreen(
 
     if (showRecognition && currentPlaylist != null) {
         RecognitionSheet(
-            onAdd = { song -> viewModel.addSong(currentPlaylist, song) },
+            playlist = currentPlaylist,
             onDismiss = { showRecognition = false },
-            // So continuous mode does not re-add what the playlist already holds; a song plays for
-            // minutes and a listening pass is twelve seconds.
-            existingSongIds = playlistWithSongs.second.map { it.song.song.id }.toSet(),
         )
     }
 
@@ -587,15 +584,24 @@ fun LocalPlaylistScreen(
                         )
                     }
 
+                    // The prompt to add a first song only belongs above an empty playlist. The
+                    // songs already in it are listed below this panel, so showing "add your first
+                    // song" over two of them read as the app having lost them.
                     if (!addSearching && addResults.isEmpty()) {
-                        item(key = "add empty hint") {
-                            EmptyPlaceholder(
-                                icon = Icons.Rounded.MusicNote,
-                                text = stringResource(
-                                    if (addQuery.isBlank()) R.string.playlist_empty_hint
-                                    else R.string.playlist_empty_no_results
-                                ),
-                            )
+                        if (addQuery.isNotBlank()) {
+                            item(key = "add no results") {
+                                EmptyPlaceholder(
+                                    icon = Icons.Rounded.MusicNote,
+                                    text = stringResource(R.string.playlist_empty_no_results),
+                                )
+                            }
+                        } else if (playlist.songCount == 0) {
+                            item(key = "add empty hint") {
+                                EmptyPlaceholder(
+                                    icon = Icons.Rounded.MusicNote,
+                                    text = stringResource(R.string.playlist_empty_hint),
+                                )
+                            }
                         }
                     }
                 } else {

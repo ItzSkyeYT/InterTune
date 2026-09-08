@@ -69,9 +69,31 @@ class CorrespondenceTest {
         assertFalse("a different song entirely", corresponds(track, youtube("Get Lucky", "Daft Punk")))
     }
 
-    /** A title that merely contains the other is not the other. */
+    /**
+     * A longer YouTube title for the same recording still corresponds.
+     *
+     * This is the case that cost a real listening test. Shazam names it "Children"; YouTube lists
+     * "Children (Dream Version)". Requiring the titles to be equal rejected it on every pass, and
+     * continuous mode then discarded a correct match in silence.
+     */
     @Test
-    fun partialTitlesDoNotCorrespond() {
+    fun aLongerTitleForTheSameRecordingCorresponds() {
+        val track = shazam("Children", "Robert Miles")
+        assertTrue(corresponds(track, youtube("Children (Dream Version)", "Robert Miles")))
+        assertTrue(corresponds(track, youtube("Children - Original Mix", "Robert Miles")))
+    }
+
+    /** But a longer title that is a different song does not, which is what the artist is for. */
+    @Test
+    fun aDifferentSongSharingAPrefixDoesNotCorrespond() {
+        assertFalse(
+            corresponds(shazam("Children", "Robert Miles"), youtube("Children of the Grave", "Black Sabbath"))
+        )
+    }
+
+    /** A title that merely contains the other, mid-phrase, is not the other. */
+    @Test
+    fun midPhraseMatchesDoNotCorrespond() {
         val track = shazam("Crush", "Yuna")
         assertFalse(corresponds(track, youtube("Instant Crush", "Yuna")))
     }

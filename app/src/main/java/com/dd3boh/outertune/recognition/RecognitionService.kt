@@ -1,0 +1,182 @@
+/*
+ * Copyright (C) 2026 InterTune
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+package com.dd3boh.outertune.recognition
+
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
+import android.content.Context
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
+import android.os.IBinder
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import com.dd3boh.outertune.MainActivity
+import com.dd3boh.outertune.R
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+/**
+ * Keeps the microphone alive while the screen is off.
+ *
+ * The point of continuous recognition is a device left face down on a table filling a playlist by
+ * itself, and none of that works from an Activity. Android stops a background process recording the
+ * moment it loses foreground importance, so listening has to be a foreground service with the
+ * microphone type, which in turn means a notification the user can see and stop. That notification
+ * is not decoration; it is the price of the permission, and it is right that somebody can always
+ * tell when an app is listening to a room.
+ *
+ * The service owns nothing but the lifetime. [RecognitionEngine] holds the loop and the state, so
+ * the sheet can come and go without interrupting a run.
+ */
+@AndroidEntryPoint
+class RecognitionService : Service() {
+
+    @Inject lateinit var engine: RecognitionEngine
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        createChannel()
+
+        // Redrawn on a timer rather than only on events, because the progress bar has to move
+        // between recognitions. The position is arithmetic on the last match, not a new request,
+        // so this costs nothing but the redraw.
+        scope.launch {
+            while (true) {
+                if (!engine.running.value) {
+                    stopSelf()
+                    return@launch
+                }
+                NotificationManagerCompat.from(this@RecognitionService)
+                    .notify(NOTIFICATION_ID, build(engine.added.value.size))
+                delay(1000)
+            }
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            Log.i(TAG, "Stopped from the notification")
+            engine.stop()
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        val notification = build(engine.added.value.size)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+        // Not sticky on purpose. If the system kills this, silently reopening the microphone later
+        // without the user asking is exactly the behaviour nobody wants from a listening feature.
+        return START_NOT_STICKY
+    }
+
+    private fun build(added: Int): android.app.Notification {
+        val playing = engine.nowPlaying.value
+        val open = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val stop = PendingIntent.getService(
+            this, 1,
+            Intent(this, RecognitionService::class.java).setAction(ACTION_STOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+
+        val counted =
+            if (added == 0) getString(R.string.recognition_service_none)
+            else resources.getQuantityString(R.plurals.recognition_service_added, added, added)
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.small_icon)
+            .setContentIntent(open)
+            .addAction(0, getString(R.string.recognition_service_stop), stop)
+            .setOngoing(true)
+            .setSilent(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+
+        if (playing == null) {
+            return builder
+                .setContentTitle(getString(R.string.recognition_service_title))
+                .setContentText(counted)
+                .build()
+        }
+
+        val position = playing.positionSeconds()
+        builder
+            .setContentTitle(listOfNotNull(playing.title, playing.artist).joinToString(" - "))
+            .setSubText(counted)
+
+        val duration = playing.durationSeconds
+        if (duration != null && duration > 0) {
+            // Where the room is in the song, not where this app is: nothing here is playing it.
+            builder
+                .setContentText("${time(position)} / ${time(duration)}")
+                .setProgress(duration, position.coerceAtMost(duration), false)
+        } else {
+            builder.setContentText(getString(R.string.recognition_service_title))
+        }
+        return builder.build()
+    }
+
+    private fun time(seconds: Int) = "%d:%02d".format(seconds / 60, seconds % 60)
+
+    private fun createChannel() {
+        val manager = getSystemService(NotificationManager::class.java)
+        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                getString(R.string.recognition_service_channel),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply { setShowBadge(false) }
+        )
+    }
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
+    }
+
+    companion object {
+        private const val TAG = "RecognitionService"
+        private const val CHANNEL_ID = "song_recognition"
+        private const val NOTIFICATION_ID = 4243
+        const val ACTION_STOP = "com.dd3boh.outertune.recognition.STOP"
+
+        fun start(context: Context) {
+            val intent = Intent(context, RecognitionService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        fun stop(context: Context) {
+            context.startService(
+                Intent(context, RecognitionService::class.java).setAction(ACTION_STOP)
+            )
+        }
+    }
+}
