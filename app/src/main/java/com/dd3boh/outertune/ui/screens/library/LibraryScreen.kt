@@ -153,6 +153,7 @@ fun LibraryScreen(
         LibraryFilter.PLAYLISTS -> stringResource(R.string.playlists)
         LibraryFilter.SONGS -> stringResource(R.string.songs)
         LibraryFilter.FOLDERS -> stringResource(R.string.folders)
+        LibraryFilter.CACHED -> stringResource(R.string.filter_cached)
         LibraryFilter.ALL -> ""
     }
 
@@ -162,6 +163,7 @@ fun LibraryScreen(
             LibraryFilter.ARTISTS -> LibraryFilter.ARTISTS to stringResource(R.string.artists)
             LibraryFilter.PLAYLISTS -> LibraryFilter.PLAYLISTS to stringResource(R.string.playlists)
             LibraryFilter.SONGS -> LibraryFilter.SONGS to stringResource(R.string.songs)
+            LibraryFilter.CACHED -> LibraryFilter.CACHED to stringResource(R.string.filter_cached)
             LibraryFilter.FOLDERS -> LibraryFilter.FOLDERS to stringResource(R.string.folders)
             else -> LibraryFilter.ALL to stringResource(R.string.home) // there is no all filter, use as null value
         }
@@ -327,6 +329,18 @@ fun LibraryScreen(
 
             LibraryFilter.SONGS ->
                 LibrarySongsScreen(
+                    navController,
+                    libraryFilterContent = filterContent
+                )
+
+            LibraryFilter.CACHED ->
+                LibraryCachedScreen(
+                    navController,
+                    libraryFilterContent = filterContent
+                )
+
+            LibraryFilter.CACHED ->
+                LibraryCachedScreen(
                     navController,
                     libraryFilterContent = filterContent
                 )

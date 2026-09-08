@@ -352,6 +352,7 @@ fun ColumnScope.TabArrangementFrag() {
                                             LibraryFilter.PLAYLISTS -> stringResource(R.string.playlists)
                                             LibraryFilter.SONGS -> stringResource(R.string.songs)
                                             LibraryFilter.FOLDERS -> stringResource(R.string.folders)
+                                            LibraryFilter.CACHED -> stringResource(R.string.filter_cached)
                                             else -> {
                                                 // TODO: Do we even need this?
                                                 stringResource(R.string.tab_arrangement_disable_tip)

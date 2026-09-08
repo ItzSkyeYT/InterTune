@@ -112,6 +112,16 @@ interface SongsDao {
     @Query("SELECT * FROM song WHERE inLibrary IS NOT NULL ORDER BY inLibrary")
     fun songsByCreateDateAsc(): Flow<List<Song>>
 
+    /**
+     * The library rows for a set of ids, in the order the ids are given.
+     *
+     * Room cannot sort by an IN list, so the caller reorders. Used by the cached tab, where the
+     * order that matters is the cache's, not the library's.
+     */
+    @Transaction
+    @Query("SELECT * FROM song WHERE id IN (:songIds)")
+    fun songsByIds(songIds: List<String>): Flow<List<Song>>
+
     @Transaction
     @Query("SELECT * FROM song WHERE inLibrary IS NOT NULL ORDER BY date")
     fun songsByReleaseDateAsc(): Flow<List<Song>>
