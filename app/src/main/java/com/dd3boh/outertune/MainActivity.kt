@@ -283,6 +283,19 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    private fun handleOpenPoll(intent: Intent?) {
+        if (intent?.getBooleanExtra(BackgroundCheckWorker.EXTRA_OPEN_POLL, false) != true) return
+        Log.i(MAIN_TAG, "Opening the question from its notification")
+        intent.removeExtra(BackgroundCheckWorker.EXTRA_OPEN_POLL)
+        pollChecker.requestOpen()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleOpenPoll(intent)
+    }
+
     override fun onDestroy() {
         Log.i(MAIN_TAG, "onDestroy() called. isFinishing = $isFinishing")
         try {
@@ -364,6 +377,11 @@ class MainActivity : ComponentActivity() {
                 // rather than stacked. This is also what puts the schedule back after a reboot,
                 // since WorkManager needs the app to run once before it will restore its own.
                 BackgroundCheckWorker.schedule(this@MainActivity)
+
+                // A notification about a question opens the question. handleOpenPoll is called for
+                // the intent that started this, and again from onNewIntent when the app was already
+                // running, since Android delivers that to the existing instance instead.
+                handleOpenPoll(intent)
 
                 // Receives the outcome of an in-app install. Registered here rather than in the
                 // manifest because it is only meaningful while the app is alive to show it.

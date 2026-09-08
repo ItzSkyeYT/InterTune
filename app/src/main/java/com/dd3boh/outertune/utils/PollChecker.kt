@@ -82,6 +82,24 @@ class PollChecker @Inject constructor(
     /** The question worth asking right now, or null when there is nothing to ask. */
     val current: StateFlow<Poll?> = _current.asStateFlow()
 
+    /**
+     * Set when something outside the screen asks for the question to be opened, which today means
+     * the background notification being tapped.
+     *
+     * A flag rather than navigation because the question is a dialog over Home, not a destination,
+     * so there is no route to send anybody to. Home consumes it and clears it.
+     */
+    private val _openRequested = MutableStateFlow(false)
+    val openRequested: StateFlow<Boolean> = _openRequested.asStateFlow()
+
+    fun requestOpen() {
+        _openRequested.value = true
+    }
+
+    fun consumeOpenRequest() {
+        _openRequested.value = false
+    }
+
     private val client by lazy {
         OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
