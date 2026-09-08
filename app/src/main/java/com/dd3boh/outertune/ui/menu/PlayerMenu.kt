@@ -85,6 +85,17 @@ import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
+import androidx.compose.foundation.lazy.items
+import com.dd3boh.outertune.ui.dialog.ListDialog
+import com.dd3boh.outertune.ui.component.items.ListItem
+import com.dd3boh.outertune.constants.ListThumbnailSize
+import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.db.entities.Playlist
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
+import androidx.compose.material.icons.rounded.PlaylistRemove
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.ColorFilter
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
@@ -101,6 +112,7 @@ import com.dd3boh.outertune.ui.dialog.DetailsDialog
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
@@ -140,6 +152,12 @@ fun PlayerMenu(
     val coroutineScope = rememberCoroutineScope()
 
     val download by LocalDownloadUtil.current.getDownload(mediaMetadata.id).collectAsState(initial = null)
+
+    // Which editable playlists this song sits in, so it can be taken out from here. Removing was
+    // only ever offered from the song list, so getting a track out of the playlist you were
+    // listening to meant leaving the player, finding it again and opening a second menu.
+    val inPlaylists by database.playlistsContaining(mediaMetadata.id).collectAsState(initial = emptyList())
+    var showRemoveFromPlaylist by rememberSaveable { mutableStateOf(false) }
 
     val activityResultLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
 
@@ -442,6 +460,22 @@ fun PlayerMenu(
         ) {
             showChoosePlaylistDialog = true
         }
+        // Only when there is somewhere to remove it from. With one playlist it acts straight away;
+        // with several it has to ask, because guessing which one somebody meant would be a silent
+        // edit to a playlist they were not looking at.
+        if (inPlaylists.isNotEmpty()) {
+            GridMenuItem(
+                icon = Icons.Rounded.PlaylistRemove,
+                title = R.string.remove_from_playlist
+            ) {
+                if (inPlaylists.size == 1) {
+                    removeFromPlaylist(database, coroutineScope, inPlaylists.first(), mediaMetadata.id)
+                    onDismiss()
+                } else {
+                    showRemoveFromPlaylist = true
+                }
+            }
+        }
         if (!mediaMetadata.isLocal)
             DownloadGridMenu(
                 localDateTime = download,
@@ -582,6 +616,29 @@ fun PlayerMenu(
                 onDismiss() // here we dismiss since we switch to the queue anyways
             }
         )
+    }
+
+    if (showRemoveFromPlaylist) {
+        ListDialog(onDismiss = { showRemoveFromPlaylist = false }) {
+            items(inPlaylists) { playlist ->
+                ListItem(
+                    title = playlist.playlist.name,
+                    thumbnailContent = {
+                        Image(
+                            imageVector = Icons.Rounded.PlaylistRemove,
+                            contentDescription = null,
+                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onBackground),
+                            modifier = Modifier.size(ListThumbnailSize)
+                        )
+                    },
+                    modifier = Modifier.clickable {
+                        showRemoveFromPlaylist = false
+                        removeFromPlaylist(database, coroutineScope, playlist, mediaMetadata.id)
+                        onDismiss()
+                    }
+                )
+            }
+        }
     }
 
     if (showChoosePlaylistDialog) {
@@ -768,4 +825,31 @@ fun getNextInterval(targetMin: Long): Pair<String, Float> {
     val minutesBetween = ChronoUnit.MINUTES.between(now, targetTime).toFloat()
 
     return Pair(timeString, minutesBetween)
+}
+
+/**
+ * Takes one song out of one playlist, locally and remotely.
+ *
+ * The move to the end before deleting is what SongMenu does and is not decoration: positions are
+ * dense and the reorder query shifts everything after the removed row, so deleting in place leaves
+ * a gap that later sorts trip over.
+ */
+private fun removeFromPlaylist(
+    database: MusicDatabase,
+    scope: CoroutineScope,
+    playlist: Playlist,
+    songId: String,
+) {
+    scope.launch(Dispatchers.IO) {
+        val map = database.playlistSongMap(playlist.id, songId).first() ?: return@launch
+        database.transaction {
+            move(map.playlistId, map.position, Int.MAX_VALUE)
+            delete(map.copy(position = Int.MAX_VALUE))
+        }
+        playlist.playlist.browseId?.let { browseId ->
+            map.setVideoId?.let { setVideoId ->
+                runCatching { YouTube.removeFromPlaylist(browseId, songId, setVideoId) }
+            }
+        }
+    }
 }
