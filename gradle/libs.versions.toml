@@ -57,6 +57,7 @@ viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-
 media3 = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 media3-okhttp = { group = "androidx.media3", name = "media3-datasource-okhttp", version.ref = "media3" }
 media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
+work = { group = "androidx.work", name = "work-runtime-ktx", version = "2.8.1" }
 media3-workmanager = { group = "androidx.media3", name = "media3-exoplayer-workmanager", version.ref = "media3" }
 
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }

@@ -274,6 +274,14 @@ val DismissedUpdateCodeKey = intPreferencesKey("dismissedUpdateCode")
  * distinguishable from "said no". Nothing is fetched and nothing is sent until this is true, which
  * is the whole basis on which the feature can honestly be described to people.
  */
+/**
+ * How often, in hours, to look for updates and questions while the app is closed. 0 is off.
+ *
+ * Governs both because they are the same promise to the user: check quietly, tell me when there is
+ * something. Two separate schedules would mean two background wakes for one answer.
+ */
+val BackgroundCheckHoursKey = intPreferencesKey("backgroundCheckHours")
+
 val PollsEnabledKey = booleanPreferencesKey("pollsEnabled")
 
 /** Poll ids already answered. Never asked again, on any device that shares this datastore. */
