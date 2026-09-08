@@ -528,4 +528,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lastfm_login_failed">Last.fm would not start the login: %1$s</string>
     <string name="polls_unavailable">Not available in this build</string>
     <string name="polls_unavailable_description">Questions need a source to fetch them from, and this copy of InterTune was built without one.</string>
+    <string name="playlist_empty_title">Let\'s find something for this playlist</string>
+    <string name="playlist_empty_search_hint">Search for songs</string>
+    <string name="playlist_empty_hint">Search above to add your first song.</string>
+    <string name="playlist_empty_no_results">Nothing found for that.</string>
+    <string name="playlist_empty_done">Done</string>
 </resources>
