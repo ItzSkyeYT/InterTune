@@ -37,6 +37,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
+import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.CONTENT_TYPE_HEADER
 import com.dd3boh.outertune.constants.CONTENT_TYPE_SONG
@@ -72,6 +74,13 @@ fun LibraryCachedScreen(
     val context = LocalContext.current
     val density = LocalDensity.current
     val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
+
+    // With the song cache set to Off, AppModule builds a LeastRecentlyUsedCacheEvictor sized zero,
+    // so every byte is dropped as soon as it lands and nothing can ever appear here. Found by
+    // testing this tab: the cache climbed to 2 MB, fell to 40 K, climbed again, and the empty state
+    // meanwhile promised songs would show up after playing them, which was untrue.
+    val (maxCacheSize) = rememberPreference(MaxSongCacheSizeKey, defaultValue = 0)
+    val cachingOff = maxCacheSize == 0
 
     // Re-read on every entry. The cache changes underneath this screen constantly, as songs finish
     // downloading into it and as the evictor drops the oldest, and a list loaded once in the view
@@ -146,7 +155,10 @@ fun LibraryCachedScreen(
                 item(key = "empty") {
                     EmptyPlaceholder(
                         icon = Icons.Rounded.CloudDone,
-                        text = stringResource(R.string.cached_songs_empty),
+                        text = stringResource(
+                            if (cachingOff) R.string.cached_songs_disabled
+                            else R.string.cached_songs_empty
+                        ),
                     )
                 }
             }

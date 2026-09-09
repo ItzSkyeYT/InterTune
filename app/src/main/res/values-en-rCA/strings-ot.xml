@@ -175,4 +175,5 @@
     <string name="filter_cached">Offline</string>
     <string name="cached_songs_note">Kept because you played them, so they work with no connection. The app clears the oldest as the cache fills; download a song to keep it for good.</string>
     <string name="cached_songs_empty">Nothing is cached yet. Songs appear here after you play them.</string>
+    <string name="cached_songs_disabled">The song cache is turned off, so nothing is being kept. Set a size under Storage and downloads to use this.</string>
 </resources>
