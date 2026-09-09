@@ -100,22 +100,46 @@ fun AttributionScreen(
     )
 }
 
+/**
+ * Who maintains InterTune.
+ *
+ * This card said Davide Garberi and Michael Zh, inherited from OuterTune, so the app presented
+ * OuterTune's people as the maintainers of a fork they have nothing to do with. Michael asked for
+ * it to be corrected by email on 8 Sep, entirely reasonably, and their fork policy is the same:
+ * anything goes, credit us, change the package id, name and logo.
+ *
+ * They are still credited, immediately below, under the project they actually maintain.
+ */
 val maintainers = mutableListOf(
     ContributorInfo(
-        name = "Davide Garberi",
-        alias = "DD3Boh",
-        type = listOf(LEAD_DEVELOPER),
-        url = "https://github.com/DD3Boh"
-    ),
-    ContributorInfo(
-        name = "Michael Zh",
-        alias = "mikooomich",
+        name = "Mel Boro",
+        alias = "ItzSkyeYT",
         type = listOf(LEAD_DEVELOPER, MAINTAINER),
-        url = "https://github.com/mikooomich"
+        url = "https://github.com/ItzSkyeYT"
     ),
 )
 
+/**
+ * Upstream, in the order the code came down: OuterTune from InnerTune, InterTune from OuterTune.
+ *
+ * Described by what they built rather than by a role in this project, which is the whole point of
+ * the correction.
+ */
 val contributors = mutableListOf(
+    ContributorInfo(
+        name = "Michael Zh",
+        alias = "mikooomich",
+        type = listOf(CUSTOM),
+        description = "OuterTune lead developer and maintainer",
+        url = "https://github.com/mikooomich"
+    ),
+    ContributorInfo(
+        name = "Davide Garberi",
+        alias = "DD3Boh",
+        type = listOf(CUSTOM),
+        description = "OuterTune lead developer",
+        url = "https://github.com/DD3Boh"
+    ),
     ContributorInfo(
         name = "Zion Huang",
         alias = "z-huang",
