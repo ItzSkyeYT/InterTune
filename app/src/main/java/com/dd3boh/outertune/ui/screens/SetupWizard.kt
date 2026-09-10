@@ -125,6 +125,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.BuildConfig
+import com.dd3boh.outertune.utils.InstallSource
+import com.dd3boh.outertune.utils.installSource
 import com.dd3boh.outertune.LocalPollChecker
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalUpdateChecker
@@ -1098,7 +1100,15 @@ fun UpdateOptInCard() {
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = stringResource(R.string.oobe_update_check_description),
+                    // The default copy opens with "InterTune is not on an app store", which stops
+                    // being true the moment somebody installs it from one. Asking an F-Droid user
+                    // to accept a GitHub updater on that reasoning is asking them to agree to
+                    // something false.
+                    text = stringResource(
+                        if (LocalContext.current.installSource() == InstallSource.F_DROID)
+                            R.string.oobe_update_check_description_fdroid
+                        else R.string.oobe_update_check_description
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)

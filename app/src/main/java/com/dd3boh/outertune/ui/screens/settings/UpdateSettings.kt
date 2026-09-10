@@ -64,6 +64,9 @@ import kotlinx.coroutines.launch
 import android.provider.Settings
 import androidx.compose.runtime.DisposableEffect
 import com.dd3boh.outertune.LocalUpdateInstaller
+import com.dd3boh.outertune.utils.InstallSource
+import com.dd3boh.outertune.utils.installSource
+import com.dd3boh.outertune.utils.fdroidPageUrl
 import com.dd3boh.outertune.utils.UpdateInstaller
 
 /**
@@ -79,6 +82,7 @@ fun UpdateSettings(
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
     val context = LocalContext.current
+    val fromFdroid = remember { context.installSource() == InstallSource.F_DROID }
     val coroutineScope = rememberCoroutineScope()
     val (backgroundHours, onBackgroundHoursChange) =
         rememberPreference(BackgroundCheckHoursKey, defaultValue = 0)
@@ -115,9 +119,26 @@ fun UpdateSettings(
         PreferenceGroupTitle(title = stringResource(R.string.grp_updates))
 
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            // A copy that came from F-Droid gets updated by F-Droid. Checking GitHub is still
+            // allowed, because knowing a release exists before F-Droid has built it is worth
+            // something, but the description has to stop claiming this is how it gets installed.
+            if (fromFdroid) PreferenceEntry(
+                title = { Text(stringResource(R.string.update_fdroid_source)) },
+                description = stringResource(R.string.update_fdroid_note),
+                icon = { Icon(Icons.Rounded.Update, null) },
+                onClick = {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, fdroidPageUrl(context.packageName).toUri())
+                    )
+                }
+            )
+
             SwitchPreference(
                 title = { Text(stringResource(R.string.update_check)) },
-                description = stringResource(R.string.update_check_description),
+                description = stringResource(
+                    if (fromFdroid) R.string.update_check_description_fdroid
+                    else R.string.update_check_description
+                ),
                 icon = { Icon(Icons.Rounded.Update, null) },
                 checked = enabled,
                 onCheckedChange = {
@@ -130,7 +151,10 @@ fun UpdateSettings(
 
             // Off by default. It cannot make installing silent, because Android will not allow
             // that, so it is worded as what it actually does: fetch it ahead of time.
-            SwitchPreference(
+            // Hidden entirely on F-Droid rather than merely disabled. Fetching an apk ahead of
+            // time is useless there: F-Droid signs its own builds, so Android refuses to install
+            // the GitHub one over it, and the download would be ten megabytes spent on a failure.
+            if (!fromFdroid) SwitchPreference(
                 title = { Text(stringResource(R.string.update_auto)) },
                 description = stringResource(R.string.update_auto_description),
                 icon = { Icon(Icons.Rounded.Download, null) },
@@ -199,7 +223,19 @@ fun UpdateSettings(
                 // Download and install, matching the progress-row idiom used by the loudness
                 // repair and the liked-songs catch up: the description carries the state and a tap
                 // stops it while it runs.
-                PreferenceEntry(
+                // An F-Droid install is F-Droid's to update. Downloading a differently signed
+                // apk over it is not merely redundant, Android refuses it, so this row becomes a
+                // way out to the store instead of a way to fail.
+                if (fromFdroid) PreferenceEntry(
+                    title = { Text(stringResource(R.string.update_prompt_fdroid)) },
+                    description = stringResource(R.string.update_fdroid_note),
+                    icon = { Icon(Icons.Rounded.Download, null) },
+                    onClick = {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, fdroidPageUrl(context.packageName).toUri())
+                        )
+                    }
+                ) else PreferenceEntry(
                     title = { Text(stringResource(R.string.update_install)) },
                     description = when (val st = installState) {
                         is UpdateInstaller.State.Downloading ->
