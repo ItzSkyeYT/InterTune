@@ -28,6 +28,8 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.palette.graphics.Palette
+import com.dd3boh.outertune.constants.ExpressiveThemeKey
+import com.dd3boh.outertune.utils.rememberPreference
 import com.google.material.color.dynamiccolor.DynamicScheme
 import com.google.material.color.hct.Hct
 import com.google.material.color.scheme.SchemeTonalSpot
@@ -72,12 +74,27 @@ fun OuterTuneTheme(
         }
     }
 
-    MaterialExpressiveTheme(
-        colorScheme = colorScheme,
-        motionScheme = MotionScheme.expressive(),
-        typography = MaterialTheme.typography,
-        content = content
-    )
+    // Off by default, and a choice rather than a rollout. Expressive is a preview library: the
+    // motion it applies is the whole point of turning it on, and it is also the sort of change
+    // that people either like at once or find fidgety. Nobody is excluded by it, since the library
+    // is compiled into every copy of the app and minSdk does not move, so there is nothing to
+    // apologise to anyone for. There is only a switch.
+    val (expressive) = rememberPreference(ExpressiveThemeKey, defaultValue = false)
+
+    if (expressive) {
+        MaterialExpressiveTheme(
+            colorScheme = colorScheme,
+            motionScheme = MotionScheme.expressive(),
+            typography = MaterialTheme.typography,
+            content = content
+        )
+    } else {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = MaterialTheme.typography,
+            content = content
+        )
+    }
 }
 
 fun Bitmap.extractThemeColor(): Color {
