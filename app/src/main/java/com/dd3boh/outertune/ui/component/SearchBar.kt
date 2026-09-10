@@ -12,6 +12,7 @@
 package com.dd3boh.outertune.ui.component
 
 import android.annotation.SuppressLint
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
@@ -90,6 +91,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.util.lerp
 import com.dd3boh.outertune.constants.AppBarHeight
+import com.dd3boh.outertune.constants.BackAnimationsKey
+import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.max
@@ -251,7 +254,11 @@ fun SearchBar(
         }
     }
 
-    PredictiveBackHandler(enabled = active) { progress ->
+    val (backAnimations) = rememberPreference(BackAnimationsKey, defaultValue = true)
+
+    if (!backAnimations) {
+        BackHandler(enabled = active) { onActiveChange(false) }
+    } else PredictiveBackHandler(enabled = active) { progress ->
         try {
             progress.collect { event ->
                 // Same decelerating curve as the player sheet, so the two gestures that close a

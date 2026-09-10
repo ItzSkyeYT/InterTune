@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.SwipeLeft
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.ViewAgenda
@@ -38,6 +39,7 @@ import com.dd3boh.outertune.constants.HighContrastKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
+import com.dd3boh.outertune.constants.BackAnimationsKey
 import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.constants.GroupedPlayerControlsKey
@@ -55,6 +57,15 @@ fun ColumnScope.ThemeAppFrag() {
     val (highContrastCompat, onHccChange) = rememberPreference(HighContrastKey, defaultValue = false)
 
     val (pureBlack, onPureBlackChange) = rememberPreference(PureBlackKey, defaultValue = false)
+    val (backAnimations, onBackAnimationsChange) = rememberPreference(BackAnimationsKey, defaultValue = true)
+
+    SwitchPreference(
+        title = { Text(stringResource(R.string.back_animations)) },
+        description = stringResource(R.string.back_animations_description),
+        icon = { Icon(Icons.Rounded.SwipeLeft, null) },
+        checked = backAnimations,
+        onCheckedChange = onBackAnimationsChange
+    )
 
     SwitchPreference(
         title = { Text(stringResource(R.string.enable_dynamic_theme)) },
