@@ -7,6 +7,7 @@ import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.ClearAll
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.Bedtime
@@ -15,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalLoudnessRepair
 import com.dd3boh.outertune.utils.LoudnessRepair
 import androidx.compose.runtime.DisposableEffect
@@ -45,6 +47,8 @@ import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.dialog.CounterDialog
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 
@@ -90,6 +94,7 @@ fun ColumnScope.AudioQualityFrag() {
         onValueSelected = onAudioQualityChange,
         valueText = {
             when (it) {
+                AudioQuality.MAX -> stringResource(R.string.audio_quality_max)
                 AudioQuality.AUTO -> stringResource(R.string.audio_quality_auto)
                 AudioQuality.HIGH -> stringResource(R.string.audio_quality_high)
                 AudioQuality.LOW -> stringResource(R.string.audio_quality_low)
@@ -97,6 +102,61 @@ fun ColumnScope.AudioQualityFrag() {
         }
     )
 
+    // What the control above actually produced. Bitrate and sample rate have always been recorded
+    // for every track and have always been on display, but only in the details dialog three taps
+    // into a menu and written as "48000 Hz", which is a developer's answer to a listener's
+    // question. Under the tier that decides it, you can change the setting and watch the number
+    // change, which is the only way to tell that any of this is doing anything.
+    val database = LocalDatabase.current
+    val playerConnection = LocalPlayerConnection.current
+    val mediaMetadata by (playerConnection?.mediaMetadata ?: remember { MutableStateFlow(null) })
+        .collectAsState()
+    val currentId = mediaMetadata?.id
+    val format by remember(currentId) {
+        if (currentId == null) flowOf(null) else database.format(currentId)
+    }.collectAsState(initial = null)
+
+    val resolved = format?.let {
+        listOfNotNull(
+            readableCodec(it.codecs),
+            it.bitrate.takeIf { rate -> rate > 0 }?.let { rate -> "${rate / 1000} kbps" },
+            readableSampleRate(it.sampleRate),
+        ).joinToString(", ").ifBlank { null }
+    }
+
+    // Value stacked under the label rather than set against it on the right. A trailing slot was
+    // the first arrangement and it read badly: the note wraps to four lines beside a value that is
+    // the actual answer, so the eye lands on the caveat first and the number gets squeezed into
+    // the margin.
+    val lossless = stringResource(R.string.audio_quality_no_lossless)
+    val quality = resolved ?: stringResource(R.string.audio_quality_now_nothing)
+
+    PreferenceEntry(
+        title = { Text(stringResource(R.string.audio_quality_now)) },
+        description = if (audioQuality == AudioQuality.MAX) "$quality\n$lossless" else quality,
+        icon = { Icon(Icons.Rounded.Speed, null) },
+        onClick = null,
+    )
+}
+
+/** The codec string YouTube returns, as a name somebody would recognise. */
+private fun readableCodec(codecs: String?): String? = when {
+    codecs.isNullOrBlank() -> null
+    codecs.startsWith("opus") -> "Opus"
+    codecs.startsWith("mp4a") -> "AAC"
+    codecs.startsWith("vorbis") -> "Vorbis"
+    codecs.startsWith("flac") -> "FLAC"
+    codecs.startsWith("ec-3") -> "E-AC-3"
+    codecs.startsWith("ac-3") -> "AC-3"
+    else -> codecs.substringBefore('.').uppercase()
+}
+
+/** 48000 reads as 48 kHz, 44100 as 44.1 kHz. Nobody thinks in hertz about a song. */
+private fun readableSampleRate(sampleRate: Int?): String? {
+    if (sampleRate == null || sampleRate <= 0) return null
+    val kilohertz = sampleRate / 1000.0
+    return if (kilohertz % 1.0 == 0.0) "${kilohertz.toInt()} kHz"
+    else "%.1f kHz".format(kilohertz)
 }
 
 @Composable

@@ -359,16 +359,31 @@ object YTPlayerUtils {
         playerResponse: PlayerResponse,
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
-    ): PlayerResponse.StreamingData.Format? =
-        playerResponse.streamingData?.adaptiveFormats
-            ?.filter { it.isAudio }
-            ?.maxByOrNull {
-                it.bitrate * when (audioQuality) {
-                    AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
-                    AudioQuality.HIGH -> 1
-                    AudioQuality.LOW -> -1
-                } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
-            }
+    ): PlayerResponse.StreamingData.Format? {
+        val audioFormats = playerResponse.streamingData?.adaptiveFormats?.filter { it.isAudio }
+        if (audioFormats.isNullOrEmpty()) return null
+
+        // MAX takes the largest stream and nothing else is allowed a say. In particular it skips
+        // the codec bonus below, which is there to break ties between streams of similar size and
+        // would otherwise hand a 160 kbps Opus the win over a 256 kbps AAC, and it ignores whether
+        // the connection is metered, because a tier called highest that quietly drops on mobile
+        // data would be lying about what it does. Sample rate breaks genuine ties.
+        if (audioQuality == AudioQuality.MAX) {
+            return audioFormats.maxWithOrNull(
+                compareBy<PlayerResponse.StreamingData.Format> { it.bitrate }
+                    .thenBy { it.audioSampleRate ?: 0 }
+            )
+        }
+
+        return audioFormats.maxByOrNull {
+            it.bitrate * when (audioQuality) {
+                AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
+                AudioQuality.HIGH -> 1
+                AudioQuality.LOW -> -1
+                AudioQuality.MAX -> 1 // returned above
+            } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
+        }
+    }
 
     /**
      * Checks if the stream url returns a successful status.
