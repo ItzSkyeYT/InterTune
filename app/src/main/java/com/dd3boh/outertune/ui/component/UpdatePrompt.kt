@@ -13,6 +13,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import android.content.Intent
+import androidx.core.net.toUri
+import androidx.compose.ui.platform.LocalContext
+import com.dd3boh.outertune.utils.InstallSource
+import com.dd3boh.outertune.utils.installSource
+import com.dd3boh.outertune.utils.fdroidPageUrl
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -50,6 +56,12 @@ fun UpdatePrompt(
     onRemindLater: () -> Unit,
     onCancel: () -> Unit,
 ) {
+    // Where this copy came from decides what the primary button should do. Offering to sideload an
+    // apk over an F-Droid install is worse than useless: F-Droid signs its own builds, so Android
+    // refuses the install outright, and the store was going to update the app anyway.
+    val context = LocalContext.current
+    val fromFdroid = remember { context.installSource() == InstallSource.F_DROID }
+
     AlertDialog(
         onDismissRequest = onRemindLater,
         title = { Text(stringResource(R.string.update_prompt_title, update.versionName)) },
@@ -70,6 +82,18 @@ fun UpdatePrompt(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+
+                if (fromFdroid) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        // Deliberately does not promise the version is there yet. F-Droid builds
+                        // each release itself and usually lands a while after the tag, so telling
+                        // someone it is waiting for them would often be untrue.
+                        text = stringResource(R.string.update_fdroid_note),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
 
                 if (update.changelog.isNotBlank()) {
                     Spacer(Modifier.height(12.dp))
@@ -94,13 +118,29 @@ fun UpdatePrompt(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Button(
-                    onClick = onInstall,
+                    onClick = {
+                        if (fromFdroid) {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, fdroidPageUrl(context.packageName).toUri())
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                            // Later rather than cancel. They have been sent to F-Droid, not told
+                            // this version is unwanted, and if F-Droid has not built it yet they
+                            // should be asked again.
+                            onRemindLater()
+                        } else {
+                            onInstall()
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
                         stringResource(
-                            if (needsPermission) R.string.update_prompt_allow
-                            else R.string.update_prompt_install
+                            when {
+                                fromFdroid -> R.string.update_prompt_fdroid
+                                needsPermission -> R.string.update_prompt_allow
+                                else -> R.string.update_prompt_install
+                            }
                         )
                     )
                 }
