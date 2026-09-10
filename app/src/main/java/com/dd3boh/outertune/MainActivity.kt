@@ -21,6 +21,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -237,6 +238,16 @@ import android.provider.Settings
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+
+/**
+ * How long a back takes when it is not being dragged.
+ *
+ * A predictive back gesture seeks the pop transition by hand and never consults this, but a back
+ * from the button, from a keyboard, or a gesture released early still has to travel the rest of the
+ * way on its own. The screen now covers a full width rather than an eighth, so the old 200 ms read
+ * as a flick; this is slow enough to follow and short enough not to be in the way.
+ */
+private val NavPopSpec = tween<IntOffset>(300, easing = FastOutSlowInEasing)
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -782,6 +793,17 @@ class MainActivity : ComponentActivity() {
                                         else
                                             slideOutHorizontally { it / 8 } + fadeOut(tween(200))
                                     },
+                                    // Back reveals rather than cross fades. Both pop transitions used to
+                                    // fade a whole screen in while fading another whole screen out, over the
+                                    // same eighth-width slide, so halfway through a back you were looking at
+                                    // two half transparent screens stacked on top of each other. Under a
+                                    // predictive back gesture, which seeks these transitions frame by frame,
+                                    // you sat in that ghosted middle for as long as your finger was down.
+                                    //
+                                    // Now the screen being left slides off in one piece and stays opaque,
+                                    // and the one underneath comes back at full opacity from a small
+                                    // parallax offset. Navigation gives the popping screen the higher z
+                                    // index, so it passes over the top rather than under.
                                     popEnterTransition = {
                                         val currentRouteIndex = navigationItems.indexOfFirst {
                                             it.route == targetState.destination.route
@@ -791,9 +813,9 @@ class MainActivity : ComponentActivity() {
                                         }
 
                                         if (previousRouteIndex != -1 && previousRouteIndex < currentRouteIndex)
-                                            slideInHorizontally { it / 8 } + fadeIn(tween(200))
+                                            slideInHorizontally(NavPopSpec) { it / 5 }
                                         else
-                                            slideInHorizontally { -it / 8 } + fadeIn(tween(200))
+                                            slideInHorizontally(NavPopSpec) { -it / 5 }
                                     },
                                     popExitTransition = {
                                         val currentRouteIndex = navigationItems.indexOfFirst {
@@ -804,9 +826,9 @@ class MainActivity : ComponentActivity() {
                                         }
 
                                         if (currentRouteIndex != -1 && currentRouteIndex < targetRouteIndex)
-                                            slideOutHorizontally { -it / 8 } + fadeOut(tween(200))
+                                            slideOutHorizontally(NavPopSpec) { -it }
                                         else
-                                            slideOutHorizontally { it / 8 } + fadeOut(tween(200))
+                                            slideOutHorizontally(NavPopSpec) { it }
                                     },
                                     modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
                                 )
