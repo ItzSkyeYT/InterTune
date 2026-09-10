@@ -168,6 +168,15 @@ enum class SeekIncrement(val millisec: Int, val second: Int) {
     }
 }
 enum class AudioQuality {
+    /**
+     * The largest stream on offer, whatever it costs.
+     *
+     * Not lossless, and deliberately not named as though it were. YouTube Music serves no lossless
+     * audio at all: the ceiling is 256 kbps AAC on a premium account and about 160 kbps Opus
+     * otherwise. This tier takes that ceiling rather than promising something the source does not
+     * have.
+     */
+    MAX,
     AUTO, HIGH, LOW
 }
 

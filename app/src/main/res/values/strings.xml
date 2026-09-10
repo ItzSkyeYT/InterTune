@@ -274,6 +274,10 @@ We recycle translations from upstream, they are pulled periodically. -->
     <string name="audio_quality_auto">Auto</string>
     <string name="audio_quality_high">High</string>
     <string name="audio_quality_low">Low</string>
+    <string name="audio_quality_max">Highest available</string>
+    <string name="audio_quality_now">Playing now at</string>
+    <string name="audio_quality_no_lossless">No lossless is offered here, so this takes the largest stream available.</string>
+    <string name="audio_quality_now_nothing">Not known yet</string>
     <string name="queue">Queue</string>
     <string name="persistent_queue">Persistent queue</string>
     <string name="persistent_queue_desc">Restore your last queue when the app starts</string>
