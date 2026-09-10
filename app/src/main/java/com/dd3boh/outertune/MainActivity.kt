@@ -121,6 +121,7 @@ import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
 import com.dd3boh.outertune.constants.AppBarHeight
+import com.dd3boh.outertune.constants.BackAnimationsKey
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
 import com.dd3boh.outertune.constants.DarkMode
 import com.dd3boh.outertune.constants.DarkModeKey
@@ -761,6 +762,7 @@ class MainActivity : ComponentActivity() {
                             Log.v(MAIN_TAG, "RC-3")
 
 
+                            val (backAnimations) = rememberPreference(BackAnimationsKey, defaultValue = true)
                             val navHost: @Composable() (() -> Unit) = @Composable {
                                 NavHost(
                                     navController = navController,
@@ -812,7 +814,12 @@ class MainActivity : ComponentActivity() {
                                             it.route == initialState.destination.route
                                         }
 
-                                        if (previousRouteIndex != -1 && previousRouteIndex < currentRouteIndex)
+                                        val forward = previousRouteIndex != -1 && previousRouteIndex < currentRouteIndex
+                                        if (!backAnimations) {
+                                            // The cross fade this replaced, kept for anyone who wants it back.
+                                            if (forward) slideInHorizontally { it / 8 } + fadeIn(tween(200))
+                                            else slideInHorizontally { -it / 8 } + fadeIn(tween(200))
+                                        } else if (forward)
                                             slideInHorizontally(NavPopSpec) { it / 5 }
                                         else
                                             slideInHorizontally(NavPopSpec) { -it / 5 }
@@ -825,7 +832,11 @@ class MainActivity : ComponentActivity() {
                                             it.route == targetState.destination.route
                                         }
 
-                                        if (currentRouteIndex != -1 && currentRouteIndex < targetRouteIndex)
+                                        val leftwards = currentRouteIndex != -1 && currentRouteIndex < targetRouteIndex
+                                        if (!backAnimations) {
+                                            if (leftwards) slideOutHorizontally { -it / 8 } + fadeOut(tween(200))
+                                            else slideOutHorizontally { it / 8 } + fadeOut(tween(200))
+                                        } else if (leftwards)
                                             slideOutHorizontally(NavPopSpec) { -it }
                                         else
                                             slideOutHorizontally(NavPopSpec) { it }

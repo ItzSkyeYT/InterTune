@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.ui.component
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
@@ -57,6 +58,8 @@ import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.min
 import com.dd3boh.outertune.constants.BottomSheetAnimationSpec
 import com.dd3boh.outertune.constants.BottomSheetSoftAnimationSpec
+import com.dd3boh.outertune.constants.BackAnimationsKey
+import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.constants.MinMiniPlayerHeight
 import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.NavigationBarAnimationSpec
@@ -163,7 +166,14 @@ fun BottomSheet(
         // left the glass. That is the back gesture people make most often in a music app, and it
         // was the one place the app gave no sign it had understood you. Now the sheet follows the
         // drag, and springs back to where it was if you change your mind.
-        PredictiveBackHandler(enabled = !state.isCollapsed && !state.isDismissed) { progress ->
+        val (backAnimations) = rememberPreference(BackAnimationsKey, defaultValue = true)
+
+        if (!backAnimations) {
+            // What it did before: no preview, the sheet shuts when the finger leaves the glass.
+            if (!state.isCollapsed && !state.isDismissed) {
+                BackHandler(onBack = state::collapseSoft)
+            }
+        } else PredictiveBackHandler(enabled = !state.isCollapsed && !state.isDismissed) { progress ->
             val from = state.value
             try {
                 progress.collect { event ->
