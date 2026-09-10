@@ -1,0 +1,10 @@
+Version 0.10.7
+
+=== Changes and improvements ===
+• Both opt-ins, updates and questions, are now asked once after an update or after restoring a backup, so they are no longer invisible to anyone who skipped setup
+• Refreshing Home reads past the first response and genuinely finds new songs, roughly four times as much to draw from
+• A + button on the library screen for creating a playlist
+• An empty playlist now turns into a search for its first song instead of being a dead end
+• Tapping a question notification opens the question rather than just the app
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.10.7

@@ -1,21 +1,25 @@
-<p><i>OuterTune</i> is a supercharged fork of <a href="https://github.com/z-huang/InnerTune" target="_blank" rel="nofollow noopener">InnerTune</a>. This app is both a local media player, and a YouTube Music client.</p>
+<p><i>InterTune</i> is a fork of <a href="https://github.com/OuterTune/OuterTune" target="_blank" rel="nofollow noopener">OuterTune</a>, which is itself a fork of <a href="https://github.com/z-huang/InnerTune" target="_blank" rel="nofollow noopener">InnerTune</a>. It is both a local media player and a YouTube Music client.</p>
 
 <p><br><b>Features:</b></p>
 <ul>
-<li>YouTube Music client with song downloading (offline playback), background playback, no ADs, and account synchronization</li>
-<li>Local audio file playback (MP3, OGG, FLAC, etc.)</li>
-<li>Uses a custom tag extractor instead of MediaStore's broken metadata extractor! (e.g tags delimited with backslash now show up properly)</li>
-<li>Play local and Youtube Music songs at the same time</li>
-<li>New integrated library screen design</li>
+<li>YouTube Music client with song downloading for offline playback, background playback, no ads, and account synchronization</li>
+<li>Local audio file playback (MP3, OGG, FLAC, and more)</li>
+<li>A custom tag extractor rather than MediaStore's metadata extractor, so tags delimited with a backslash show up properly</li>
+<li>Play local files and YouTube Music songs in the same queue</li>
+<li>An offline tab listing the songs already cached on the device, so you can see what will play with no connection</li>
+<li>Integrated library screen design</li>
 <li>Multiple queues</li>
-<li>Synchronized lyrics, and support for word by word/Karaoke lyrics (e.g LRC, TTML)</li>
-<li>Audio normalization, tempo/pitch adjustment, and various other audio effects</li>
+<li>Synchronized lyrics, including word by word and karaoke lyrics (LRC, TTML)</li>
+<li>Audio normalization, tempo and pitch adjustment, and other audio effects</li>
+<li>Choose whether Quick picks comes from YouTube Music or is built from what you have already played</li>
 <li>Android Auto support</li>
 </ul>
 
 <p><br><b>Notice:</b></p>
 <ul>
-<li>Android 8 (Oreo) and higher is supported. While the app may work on Android 7.x, we do not officially support this version</li>
-<li>OuterTune is in a "stable beta" phase. While this app can certainly be used as your main music player, be aware there is a possibility of bugs, incomplete features, or any other unexpected behaviour. Please report issues on our GitHub page!</li>
-<li>Please visit our wiki for more information including FAQs, guides, and manuals: <a href="https://github.com/OuterTune/OuterTune/wiki/Frequently-Asked-Questions-(FAQ)">https://github.com/OuterTune/OuterTune/wiki/Frequently-Asked-Questions-(FAQ)</a></li>
+<li>Android 8 (Oreo) and higher is supported. The app may work on Android 7.x, but that is not officially supported.</li>
+<li>InterTune is in a stable beta phase. It can certainly be used as your main music player, but expect the occasional bug, incomplete feature, or unexpected behaviour. Please report anything you find.</li>
+<li>Issues and questions: <a href="https://github.com/ItzSkyeYT/InterTune/issues">https://github.com/ItzSkyeYT/InterTune/issues</a></li>
 </ul>
+
+<p><br>InterTune is not affiliated with, sponsored by, or endorsed by Google or YouTube.</p>
