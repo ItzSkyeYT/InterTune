@@ -12,9 +12,8 @@
 package com.dd3boh.outertune.ui.component
 
 import android.annotation.SuppressLint
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -59,8 +58,11 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -88,7 +90,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.util.lerp
 import com.dd3boh.outertune.constants.AppBarHeight
+import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.max
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
 // MotionTokens.EasingLegacyCubicBezier
@@ -129,14 +134,24 @@ fun SearchBar(
         }
     }
 
-    val animationProgress: Float by animateFloatAsState(
-        targetValue = if (active) 1f else 0f,
-        animationSpec = tween(
-            durationMillis = AnimationDurationMillis,
-            easing = easingLegacyCubicBezier,
-        ),
-        label = ""
-    )
+    // How open the bar is, 0 shut and 1 full screen. This was an animateFloatAsState driven only
+    // by [active], which cannot serve predictive back: that gesture has to move the value by hand,
+    // frame by frame, and then hand it back to the animation from wherever the finger let go. A
+    // state that only ever animates towards a target would snap the bar back open on commit and
+    // then play the closing animation a second time.
+    val openness = remember { Animatable(if (active) 1f else 0f) }
+    val animationProgress: Float = openness.value
+    val searchBarScope = rememberCoroutineScope()
+
+    LaunchedEffect(active) {
+        openness.animateTo(
+            targetValue = if (active) 1f else 0f,
+            animationSpec = tween(
+                durationMillis = AnimationDurationMillis,
+                easing = easingLegacyCubicBezier,
+            ),
+        )
+    }
 
     val defaultInputFieldShape = SearchBarDefaults.inputFieldShape
     val defaultFullScreenShape = SearchBarDefaults.fullScreenShape
@@ -236,8 +251,31 @@ fun SearchBar(
         }
     }
 
-    BackHandler(enabled = active) {
-        onActiveChange(false)
+    PredictiveBackHandler(enabled = active) { progress ->
+        try {
+            progress.collect { event ->
+                // Same decelerating curve as the player sheet, so the two gestures that close a
+                // full screen surface answer the finger at the same rate.
+                val eased = 1f - (1f - event.progress).pow(2)
+                openness.snapTo(1f - eased)
+            }
+            // LaunchedEffect(active) picks the value up from here and carries it the rest of the
+            // way, so the bar never jumps back open to replay the close.
+            onActiveChange(false)
+        } catch (cancelled: CancellationException) {
+            // Launched rather than awaited. Whether the gesture's own coroutine is still live
+            // after a cancellation is an implementation detail of PredictiveBackHandler, and the
+            // bar must return home either way.
+            searchBarScope.launch {
+                openness.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(
+                        durationMillis = AnimationDurationMillis,
+                        easing = easingLegacyCubicBezier,
+                    ),
+                )
+            }
+        }
     }
 }
 

@@ -9,7 +9,7 @@
 
 package com.dd3boh.outertune.ui.component
 
-import androidx.activity.compose.BackHandler
+import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.AnimationVector1D
@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.min
 import com.dd3boh.outertune.constants.BottomSheetAnimationSpec
 import com.dd3boh.outertune.constants.BottomSheetSoftAnimationSpec
@@ -61,6 +62,7 @@ import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.NavigationBarAnimationSpec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.pow
 
 /**
@@ -156,8 +158,28 @@ fun BottomSheet(
                 )
             )
     ) {
-        if (!state.isCollapsed && !state.isDismissed) {
-            BackHandler(onBack = state::collapseSoft)
+        // Predictive back, because a plain BackHandler made this gesture invisible. You swiped
+        // from the edge, nothing on screen moved, and the sheet blinked shut only once your finger
+        // left the glass. That is the back gesture people make most often in a music app, and it
+        // was the one place the app gave no sign it had understood you. Now the sheet follows the
+        // drag, and springs back to where it was if you change your mind.
+        PredictiveBackHandler(enabled = !state.isCollapsed && !state.isDismissed) { progress ->
+            val from = state.value
+            try {
+                progress.collect { event ->
+                    // The system hands over a linear 0..1. Used raw it feels dead to start with,
+                    // since the first millimetres of the swipe move a full height sheet by almost
+                    // nothing. Decelerating gives the sheet an immediate answer to the finger.
+                    val eased = 1f - (1f - event.progress).pow(2)
+                    state.seekTo(lerp(from, state.collapsedBound, eased))
+                }
+                state.collapseSoft()
+            } catch (cancelled: CancellationException) {
+                // Not rethrown, following the platform's own sample: this is the gesture being
+                // abandoned rather than a failure, and expandSoft launches on the sheet's scope
+                // rather than this one, so the sheet still animates home after the cancellation.
+                state.expandSoft()
+            }
         }
 
         // main
@@ -276,6 +298,18 @@ class BottomSheetState(
         coroutineScope.launch {
             animatable.snapTo(value)
         }
+    }
+
+    /**
+     * Drives the sheet straight to a position, for a gesture that owns the frame.
+     *
+     * [snapTo] launches into the sheet's own scope, which is right for a fire and forget jump and
+     * wrong here. Predictive back emits a position every frame and needs each one applied in
+     * order, on the caller's coroutine, so that abandoning the gesture stops the updates with it
+     * rather than leaving a queue of launched snaps to land afterwards.
+     */
+    suspend fun seekTo(target: Dp) {
+        animatable.snapTo(target.coerceIn(dismissedBound, expandedBound))
     }
 
     fun performFling(velocity: Float, onDismiss: (() -> Unit)?) {
