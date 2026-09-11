@@ -21,7 +21,7 @@ import javax.inject.Inject
 @HiltViewModel
 class RecommendationsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    database: MusicDatabase,
+    private val database: MusicDatabase,
 ) : ViewModel() {
     val listens = database.listenCount()
     val counted = database.countedListenCount()
@@ -36,9 +36,39 @@ class RecommendationsViewModel @Inject constructor(
     val gradedByTeam = database.gradedByTeam()
     val calibration = database.engineCalibration()
     val weights = database.engineWeightsFlow()
+    val buildScores = database.buildScores()
     private val learning by lazy { EngineLearning(context, database) }
 
     fun resetWeights() = viewModelScope.launch(Dispatchers.IO) { runCatching { learning.reset() } }
+
+    /** The latest session stops teaching: its listens are marked, its examples skipped, the weights rebuilt without them. */
+    fun forgetLastSession() = viewModelScope.launch(Dispatchers.IO) {
+        runCatching {
+            val session = database.openListens().firstOrNull()?.sessionId ?: database.lastListen()?.sessionId ?: return@launch
+            database.transactionNow { forgetSession(session); dropForgottenExamples() }
+            learning.rebuild()
+        }
+    }
+
+    /** Everything since local midnight stops teaching. */
+    fun forgetToday() = viewModelScope.launch(Dispatchers.IO) {
+        runCatching {
+            val now = System.currentTimeMillis()
+            val off = java.util.TimeZone.getDefault().getOffset(now)
+            val midnight = Math.floorDiv(now + off, 86_400_000L) * 86_400_000L - off
+            database.transactionNow { forgetBetween(midnight, now + 1); dropForgottenExamples() }
+            learning.rebuild()
+        }
+    }
+
+    /** Everything the engine has learned, as JSON, handed to the share sheet as text. */
+    fun exportJson(): String {
+        val weights = database.engineWeights()
+        val counts = database.engineWeights().maxOfOrNull { it.updates } ?: 0
+        fun q(s: String) = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        val w = weights.joinToString(",") { "${q(it.name)}:{\"value\":${it.value},\"prior\":${it.prior},\"lo\":${it.lo},\"hi\":${it.hi}}" }
+        return "{\"exportedAt\":${System.currentTimeMillis()},\"updates\":$counts,\"weights\":{$w},\"params\":${q(com.dd3boh.outertune.engine.EngineParams.DEFAULT.toString())}}"
+    }
     fun rebuildWeights() = viewModelScope.launch(Dispatchers.IO) { runCatching { learning.rebuild() } }
     val recent = database.recentListenRows(30)
 }

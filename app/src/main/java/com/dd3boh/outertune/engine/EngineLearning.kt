@@ -39,7 +39,56 @@ class EngineLearning(private val context: Context, private val database: MusicDa
     suspend fun run(now: Long = System.currentTimeMillis()): Int {
         if (!context.dataStore.get(LearnFromListeningKey, true)) return 0
         grade(now)
+        runCatching { scoreBuilds(now) }.onFailure { Log.w(TAG, "Could not score builds", it) }
         return apply(now)
+    }
+
+    /**
+     * A day after a row was built (shown or shadow), how many of the listener's picks in its time
+     * it held: picks are plays at depth 0 heard well, from the build until the next build of the
+     * same kind or a day, whichever comes first, by version group. For an engine row the picks from
+     * its pool but not its row become pool-pick examples, applied pairwise against the mean of the
+     * row's unplayed cards.
+     */
+    private suspend fun scoreBuilds(now: Long) {
+        val builds = database.buildsToScore(now - 86_400_000L)
+        if (builds.isEmpty()) return
+        val listens = database.engineListens().filter { it.learn && it.autoplayDepth == 0 && it.endReason != EndReason.OPEN }
+        for (b in builds) {
+            val cards = RowBuildCodec.decode(b.cards)
+            val pool = RowBuildCodec.decode(b.pool)
+            val end = minOf(database.nextBuildAt(b.rowKey, b.builtAt) ?: Long.MAX_VALUE, b.builtAt + 86_400_000L)
+            val window = listens.filter { it.startedAt > b.builtAt && it.startedAt <= end }
+            val ids = (cards.map { it.songId } + pool.map { it.songId } + window.map { it.songId }).toSet().toList()
+            val songs = ids.chunked(900).flatMap { chunk -> database.songsByIds(chunk).first() }
+                .associate { it.id to SongRow(it.id, it.song.title, it.artists.firstOrNull()?.id, it.artists.firstOrNull()?.name, it.song.liked, it.song.likedDate?.let { d -> storedLocalToInstant(Converters().dateToTimestamp(d)!!) }?.takeIf { _ -> it.song.liked }) }
+            val groups = VersionGroups(songs.values, database.engineVersionLinks().map { VersionLink(it.songId, it.versionId) })
+            val picks = window.filter { Signals.engagement(it, songs[it.songId]?.likedAt) >= EngineParams.DEFAULT.justPlayedEngagement }
+                .groupBy { groups.groupOf(it.songId) }
+            val rowGroups = cards.map { groups.groupOf(it.songId) }.toSet()
+            val hits = picks.keys.count { it in rowGroups }
+            database.transactionNow { scoreBuild(b.id, picks.size, hits, now) }
+            if (b.rowKey != 1 || pool.isEmpty() || database.poolPicksOf(b.id) > 0) continue
+            // Pool picks: at most three, against the row's cards that were not played.
+            val playedGroups = picks.keys
+            val reference = cards.filter { groups.groupOf(it.songId) !in playedGroups }.map { it.features }
+            if (reference.isEmpty()) continue
+            val mean = DoubleArray(Features.COUNT) { i -> reference.sumOf { it[i] } / reference.size }
+            val poolPicks = pool.filter { c -> groups.groupOf(c.songId) in playedGroups && groups.groupOf(c.songId) !in rowGroups }.take(3)
+            if (poolPicks.isEmpty()) continue
+            database.transactionNow {
+                poolPicks.forEach { c ->
+                    val g = picks[groups.groupOf(c.songId)]!!.maxOf { Signals.engagement(it, songs[it.songId]?.likedAt) }
+                    val diff = DoubleArray(Features.COUNT) { i -> c.features[i] - mean[i] }
+                    insertImpressions(listOf(Impression(
+                        buildId = b.id, songId = c.songId, slot = -1, lane = c.lane.ordinal + 1, team = 1, sampled = false, p = null,
+                        features = diff.joinToString(",") { String.format(java.util.Locale.ROOT, "%.4f", it) }, reasons = c.reasons.joinToString(","),
+                        visibleAt = b.builtAt, outcome = Outcome.PLAYED, y = g.toFloat(), u = 0.5f, gradedAt = now,
+                    )))
+                }
+            }
+            Log.d(TAG, "build ${b.id}: $hits of ${picks.size} picks in the row, ${poolPicks.size} pool picks")
+        }
     }
 
     private suspend fun grade(now: Long) {
