@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.constants.RelatedRefreshCountKey
+import com.dd3boh.outertune.constants.RelatedRefreshDayKey
 import com.dd3boh.outertune.engine.DatabaseBackfillIo
 import com.dd3boh.outertune.engine.LegacyBackfill
 import android.app.PendingIntent
@@ -179,6 +181,9 @@ private const val CHECKPOINT_MS = 60_000L
 /** A resume within this of where a stop left off, inside this window, continues that listen. */
 private const val RESUME_TOLERANCE_MS = 5_000L
 private const val RESUME_WINDOW_MS = 24L * 60 * 60 * 1000
+/** A related list older than this is fetched again, within the daily budget. */
+private const val RELATED_STALE_MS = 90L * 24 * 60 * 60 * 1000
+private const val RELATED_REFRESH_PER_DAY = 10
 
 @AndroidEntryPoint
 class MusicService : MediaLibraryService(),
@@ -639,7 +644,12 @@ class MusicService : MediaLibraryService(),
             if (existing == null) insert(mediaMetadata.copy(duration = duration))
             else if (existing == -1 && duration != -1) setSongDuration(mediaId, duration)
         }
-        if (!database.hasRelatedSongs(mediaId) && relatedLookupFailures.none(mediaId) &&
+        // A list is fetched once, and fetched again after 90 days for at most ten seeds a day,
+        // never while YouTube is throttling us. A legacy list of unknown age (fetchedAt 0) stays.
+        val fetchedAt = database.relatedFetchedAt(mediaId)
+        val refresh = fetchedAt != null && fetchedAt > 0 &&
+            System.currentTimeMillis() - fetchedAt > RELATED_STALE_MS && !Throttle.isBlocked && takeRelatedRefreshBudget()
+        if ((fetchedAt == null || refresh) && relatedLookupFailures.none(mediaId) &&
             relatedInFlight.add(mediaId)
         ) try {
             val relatedEndpoint = YouTube.next(WatchEndpoint(videoId = mediaId)).getOrNull()?.relatedEndpoint
@@ -659,7 +669,7 @@ class MusicService : MediaLibraryService(),
                 // Checked again here, on the serial transaction executor, so two lookups that
                 // raced past the check above still write the list once. The in-flight set stops
                 // most of them fetching at all; this is what makes it exact.
-                if (hasRelatedSongs(mediaId)) return@transaction
+                if (refresh) deleteRelated(mediaId) else if (hasRelatedSongs(mediaId)) return@transaction
                 related
                     .map(SongItem::toMediaMetadata)
                     .onEach(::insert)
@@ -1419,6 +1429,21 @@ class MusicService : MediaLibraryService(),
                 checkpointListen(info, pos)
             }
         }
+    }
+
+    /** One of the day's ten related refreshes, if any are left; the count starts over each day. */
+    private suspend fun takeRelatedRefreshBudget(): Boolean {
+        val today = System.currentTimeMillis() / 86_400_000L
+        var taken = false
+        dataStore.edit { prefs ->
+            val used = if (prefs[RelatedRefreshDayKey] == today) prefs[RelatedRefreshCountKey] ?: 0 else 0
+            if (used < RELATED_REFRESH_PER_DAY) {
+                prefs[RelatedRefreshDayKey] = today
+                prefs[RelatedRefreshCountKey] = used + 1
+                taken = true
+            }
+        }
+        return taken
     }
 
     /**

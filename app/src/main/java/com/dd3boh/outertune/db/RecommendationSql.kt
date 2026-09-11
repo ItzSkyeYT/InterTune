@@ -33,7 +33,7 @@ object RecommendationSql {
         SELECT song.*
         FROM (SELECT relatedSongId, COUNT(DISTINCT songId) AS referredCount
               FROM related_song_map
-              WHERE songId IN (SELECT songId
+              WHERE source = 0 AND songId IN (SELECT songId
                                FROM (SELECT songId
                                      FROM event
                                      ORDER BY ROWID DESC

@@ -288,6 +288,9 @@ We recycle translations from upstream, they are pulled periodically. -->
     <string name="recommendations_where_from">Where they were started from</string>
     <string name="recommendations_impressions">%1$d cards shown, across %2$d rows</string>
     <string name="recommendations_impressions_description">Quick picks cards that were on screen long enough to be seen. What you passed over teaches it as much as what you played.</string>
+    <string name="recommendations_home_title">Home</string>
+    <string name="tidy_home_rows">Tidy Home rows</string>
+    <string name="tidy_home_rows_description">No song twice on Home, no live or remixed version beside its original, and nothing you have just heard in Quick picks.</string>
     <string name="recommendations_signals">%1$d things you did about songs, %2$d cards tapped</string>
     <string name="recommendations_signals_description">Seeking back, turning it up, repeat one, adding to a playlist, downloading, sharing, opening lyrics or the artist, taking a song out of the queue. Each says more than a play does.</string>
     <string name="recommendations_recent_title">Recent listens</string>

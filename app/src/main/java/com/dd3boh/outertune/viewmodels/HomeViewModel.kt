@@ -1,5 +1,8 @@
 package com.dd3boh.outertune.viewmodels
 
+import kotlinx.coroutines.withContext
+import com.dd3boh.outertune.constants.TidyHomeRowsKey
+import com.dd3boh.outertune.engine.TidyPass
 import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -48,6 +51,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** The live log's session boundary, so "this session" here means what it means there. */
+private const val SESSION_GAP_MS = 30L * 60 * 1000
+
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     @ApplicationContext val context: Context,
@@ -60,6 +66,55 @@ class HomeViewModel @Inject constructor(
     // build that has not been inserted yet, and the slot bookkeeping needs no locking. Every write
     // is also caught: a failure here is a lost data point, never a dead app. The first version
     // crashed on the YouTube row, whose songs exist only in the feed until they are inserted.
+    // ---- Tidy Home rows. Every row is loaded into a pool and shown through one pass in screen
+    // order (engine/Tidy.kt): nothing just played in Quick picks, no song twice, no version beside
+    // its original. The pass runs again when Home comes back into view, never under the finger.
+    private var quickPicksPool: List<Song> = emptyList()
+    private var ytQuickPicksPool: List<SongItem>? = null
+    private var forgottenPool: List<Song> = emptyList()
+    private var keepListeningPool: List<LocalItem> = emptyList()
+    private var similarPool: List<SimilarRecommendation>? = null
+    private var homePagePool: HomePage? = null
+
+    fun applyTidy() { viewModelScope.launch(Dispatchers.IO) { tidyRows() } }
+
+    private suspend fun tidyRows() = withContext(Dispatchers.IO) {
+        val tidy = context.dataStore.get(TidyHomeRowsKey, true)
+        if (!tidy) {
+            quickPicks.value = quickPicksPool.take(20)
+            ytQuickPicks.value = ytQuickPicksPool
+            forgottenFavorites.value = forgottenPool
+            keepListening.value = keepListeningPool
+            similarRecommendations.value = similarPool
+            homePage.value = homePagePool
+            return@withContext
+        }
+        val now = System.currentTimeMillis()
+        val session = runCatching {
+            database.openListens().firstOrNull()?.sessionId
+                ?: database.lastListen()?.takeIf { now - it.endedAt <= SESSION_GAP_MS }?.sessionId
+        }.getOrNull() ?: -1L
+        val played = runCatching { database.justPlayed(now - 86_400_000L, session) }.getOrDefault(emptyList())
+        val pass = TidyPass(played)
+        fun songs(items: List<Song>, fresh: Boolean = false) = pass.row(items, fresh, { it.song.id }, { it.song.title }, { it.artists.firstOrNull()?.name })
+        fun local(items: List<LocalItem>) = pass.row(items, false, { (it as? Song)?.song?.id }, { (it as? Song)?.song?.title }, { (it as? Song)?.artists?.firstOrNull()?.name })
+        fun yt(items: List<YTItem>, fresh: Boolean = false) = pass.row(items, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name })
+        // Whichever Quick picks row is on screen goes first; the other is not shown and must not
+        // claim songs from the rows below it.
+        val ytShown = quickPicksSource() == QuickPicksSource.YOUTUBE && !ytQuickPicksPool.isNullOrEmpty()
+        if (ytShown) {
+            ytQuickPicks.value = ytQuickPicksPool?.let { yt(it, fresh = true).filterIsInstance<SongItem>() }
+            quickPicks.value = quickPicksPool.take(20)
+        } else {
+            quickPicks.value = songs(quickPicksPool, fresh = true).take(20)
+            ytQuickPicks.value = ytQuickPicksPool
+        }
+        forgottenFavorites.value = songs(forgottenPool)
+        keepListening.value = local(keepListeningPool)
+        similarRecommendations.value = similarPool?.map { it.copy(items = yt(it.items)) }?.filter { it.items.isNotEmpty() }
+        homePage.value = homePagePool?.let { page -> page.copy(sections = page.sections.map { it.copy(items = yt(it.items)) }.filter { it.items.isNotEmpty() }) }
+    }
+
     private var shownBuildIds: List<String> = emptyList()
     private var currentBuildId = 0L
     private var currentBuildSongs: List<String> = emptyList()
@@ -200,6 +255,7 @@ class HomeViewModel @Inject constructor(
         // library used to leave YouTube's shelf sitting under the heading for the whole load,
         // because the screen draws whatever this flow holds and has no way to know better.
         if (source != lastQuickPicksSource) {
+            ytQuickPicksPool = null
             ytQuickPicks.value = null
         }
         lastQuickPicksSource = source
@@ -212,10 +268,10 @@ class HomeViewModel @Inject constructor(
         // first. Shuffling all 100 of them threw that away and gave the 100th the same odds as the
         // 1st. Shuffle inside the strongest 40 instead: still different on each refresh, but drawn
         // from the good end.
-        quickPicks.value = database.quickPicks()
-            .first().take(40).shuffled().take(20)
+        quickPicksPool = database.quickPicks()
+            .first().take(40).shuffled()
 
-        forgottenFavorites.value = database.forgottenFavorites()
+        forgottenPool = database.forgottenFavorites()
             .first().shuffled().take(20)
 
         val fromTimeStamp = System.currentTimeMillis() - 86400000 * 7 * 2
@@ -225,7 +281,8 @@ class HomeViewModel @Inject constructor(
             .first().filter { it.album.thumbnailUrl != null }.shuffled().take(5)
         val keepListeningArtists = database.mostPlayedArtists(0, 1)
             .first().filter { it.artist.isYouTubeArtist && it.artist.thumbnailUrl != null }.shuffled().take(5)
-        keepListening.value = (keepListeningSongs + keepListeningAlbums + keepListeningArtists).shuffled()
+        keepListeningPool = (keepListeningSongs + keepListeningAlbums + keepListeningArtists).shuffled()
+        tidyRows()
 
         allLocalItems.value =
             (quickPicks.value.orEmpty() + forgottenFavorites.value.orEmpty() + keepListening.value.orEmpty())
@@ -312,7 +369,8 @@ class HomeViewModel @Inject constructor(
                             .ifEmpty { return@mapNotNull null }
                     )
                 }
-        similarRecommendations.value = (artistRecommendations + songRecommendations).shuffled()
+        similarPool = (artistRecommendations + songRecommendations).shuffled()
+        tidyRows()
 
         YouTube.home().onSuccess { page ->
             var merged = takeQuickPicks(page)
@@ -352,15 +410,17 @@ class HomeViewModel @Inject constructor(
                 "Home loaded: ${merged.sections.size} sections, " +
                         "${merged.sections.sumOf { it.items.size }} items, $batches continuations"
             )
-            homePage.value = merged
+            homePagePool = merged
         }.onFailure {
             reportException(it)
         }
         // The row is kept across loads now, so a shelf that has actually disappeared has to be
         // cleared here or last load's songs would sit there indefinitely.
         if (source == QuickPicksSource.YOUTUBE && !foundQuickPicksThisLoad) {
+            ytQuickPicksPool = null
             ytQuickPicks.value = null
         }
+        tidyRows()
 
         // Settled either way: found, or looked for and not there. Leaving it true on failure would
         // leave a skeleton shimmering over a row that is never going to fill.
@@ -374,8 +434,8 @@ class HomeViewModel @Inject constructor(
 
         syncUtils.syncRecentActivity()
 
-        allYtItems.value = similarRecommendations.value?.flatMap { it.items }.orEmpty() +
-                homePage.value?.sections?.flatMap { it.items }.orEmpty()
+        allYtItems.value = similarPool?.flatMap { it.items }.orEmpty() +
+                homePagePool?.sections?.flatMap { it.items }.orEmpty()
 
         isLoading.value = false
     }
@@ -420,7 +480,7 @@ class HomeViewModel @Inject constructor(
                     section.items.all { it is SongItem }
         } ?: return page
         foundQuickPicksThisLoad = true
-        ytQuickPicks.value = shelf.items.filterIsInstance<SongItem>()
+        ytQuickPicksPool = shelf.items.filterIsInstance<SongItem>()
         return page.copy(sections = page.sections - shelf)
     }
 
@@ -435,33 +495,36 @@ class HomeViewModel @Inject constructor(
                 return@launch
             }
             val cleaned = takeQuickPicks(nextSections)
-            homePage.value = cleaned.copy(
-                chips = homePage.value?.chips,
-                sections = homePage.value?.sections.orEmpty() + cleaned.sections
+            homePagePool = cleaned.copy(
+                chips = homePagePool?.chips,
+                sections = homePagePool?.sections.orEmpty() + cleaned.sections
             )
+            tidyRows()
             _isLoadingMore.value = false
         }
     }
 
     fun toggleChip(chip: HomePage.Chip?) {
         if (chip == null || chip == selectedChip.value && previousHomePage.value != null) {
-            homePage.value = previousHomePage.value
+            homePagePool = previousHomePage.value
             previousHomePage.value = null
             selectedChip.value = null
+            applyTidy()
             return
         }
 
         if (selectedChip.value == null) {
             // store the actual homepage for deselecting chips
-            previousHomePage.value = homePage.value
+            previousHomePage.value = homePagePool
         }
         viewModelScope.launch(Dispatchers.IO) {
             val nextSections = YouTube.home(params = chip?.endpoint?.params).getOrNull() ?: return@launch
-            homePage.value = nextSections.copy(
-                chips = homePage.value?.chips,
+            homePagePool = nextSections.copy(
+                chips = homePagePool?.chips,
                 sections = nextSections.sections,
                 continuation = nextSections.continuation
             )
+            tidyRows()
             selectedChip.value = chip
         }
     }

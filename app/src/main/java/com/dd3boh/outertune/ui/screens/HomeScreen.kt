@@ -387,6 +387,10 @@ fun HomeScreen(
     val shownSource = if (ytQuickPicks?.isNotEmpty() == true && quickPicksSource == QuickPicksSource.YOUTUBE) 1 else 0
     LaunchedEffect(shownPicks) { viewModel.quickPicksShown(shownSource, shownPicks) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    // What was just played leaves Quick picks when Home comes back into view, not under the finger.
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) { viewModel.applyTidy() }
+    }
     LaunchedEffect(shownPicks, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             snapshotFlow {

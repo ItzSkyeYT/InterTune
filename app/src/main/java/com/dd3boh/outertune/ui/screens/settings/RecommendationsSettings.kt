@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.ui.component.SwitchPreference
+import com.dd3boh.outertune.constants.TidyHomeRowsKey
 import androidx.compose.foundation.layout.Column
 import com.dd3boh.outertune.ui.component.button.IconButton
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -66,6 +69,7 @@ fun RecommendationsSettings(
     val signals by viewModel.signals.collectAsState(initial = 0)
     val taps by viewModel.taps.collectAsState(initial = 0)
     val recent by viewModel.recent.collectAsState(initial = emptyList())
+    val (tidyHomeRows, onTidyHomeRowsChange) = rememberPreference(TidyHomeRowsKey, defaultValue = true)
     val endReasonLabels = mapOf(
         EndReason.ENDED to stringResource(R.string.recommendations_ended),
         EndReason.SKIPPED to stringResource(R.string.recommendations_skipped),
@@ -79,6 +83,15 @@ fun RecommendationsSettings(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier.padding(horizontal = 16.dp)
     ) {
+        PreferenceGroupTitle(title = stringResource(R.string.recommendations_home_title))
+        SwitchPreference(
+            title = { Text(stringResource(R.string.tidy_home_rows)) },
+            description = stringResource(R.string.tidy_home_rows_description),
+            checked = tidyHomeRows,
+            onCheckedChange = onTidyHomeRowsChange,
+        )
+        Spacer(Modifier.height(16.dp))
+
         PreferenceGroupTitle(title = stringResource(R.string.recommendations_learned_title))
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             PreferenceEntry(
