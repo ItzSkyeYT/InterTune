@@ -29,6 +29,7 @@ Quick picks learns how you listen. Everything below is a switch or a choice; not
 - Resume playback when the app opens, as a setting.
 - The Quick picks row no longer blanks on every refresh, and Home no longer shows two rows both called Quick picks.
 - On the YouTube Music source the row is YouTube's own Quick picks shelf. A feed that also carries a shelf of hour-long mixes no longer puts those under the heading.
+- Pull to refresh brings new songs to Quick picks, Forgotten favourites and Keep listening, not the same ones in a new order. On the YouTube Music source each pull reaches past the shelf into the feed's other song shelves and into what YouTube lists as related to them.
 - The app says so when the song cache is turned off.
 - Screen shots and the store listing were redone.
 

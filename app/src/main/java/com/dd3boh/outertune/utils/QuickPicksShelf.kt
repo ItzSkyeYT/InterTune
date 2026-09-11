@@ -18,10 +18,8 @@ import com.zionhuang.innertube.pages.HomePage
  * picks heading. The shelf whose title is the app's own word for Quick picks wins outright; the word
  * is localised, so it matches YouTube's in the same language. Failing that, the first song shelf
  * whose items are mostly under ten minutes, which is what a row of songs looks like and a row of
- * mixes does not.
- *
- * The feed arrives in batches and each batch is searched on its own, so a choice made in one batch
- * has to be defended against the next: see [replaces].
+ * mixes does not. The feed arrives in batches, so the choice is made over all of them at once, not
+ * batch by batch.
  */
 object QuickPicksShelf {
     /** An item this long or shorter is a song rather than a mix, in seconds. */
@@ -56,10 +54,6 @@ object QuickPicksShelf {
         return candidates.firstOrNull { songShare(it) >= SONG_SHARE }?.let { Lift(it, titled = false) }
     }
 
-    /**
-     * Whether [next], found in a later batch, takes the row from [current]. A shelf found by name is
-     * never displaced and displaces one found by content. Between two found by content the first
-     * stays, so the row does not change under the reader as the rest of the feed scrolls in.
-     */
-    fun replaces(current: Lift?, next: Lift): Boolean = current == null || (next.titled && !current.titled)
+    /** Whether [section] is a song shelf that is mostly songs: what the row's pool is widened with. */
+    fun lendsSongs(section: HomePage.Section): Boolean = isSongShelf(section) && songShare(section) >= SONG_SHARE
 }
