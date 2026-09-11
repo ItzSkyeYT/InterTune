@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 21,
-    "identityHash": "e0cdab7533c1b248db71c3454b9a217f",
+    "identityHash": "3b2214a0ada29030ed515333223cf459",
     "entities": [
       {
         "tableName": "song",
@@ -1540,7 +1540,7 @@
       },
       {
         "tableName": "row_build",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `builtAt` INTEGER NOT NULL, `rowKey` INTEGER NOT NULL, `sessionId` INTEGER NOT NULL, `bucket` INTEGER NOT NULL, `contextChip` INTEGER NOT NULL, `dial` INTEGER NOT NULL, `engineVersion` INTEGER NOT NULL, `seeds` TEXT NOT NULL, `weights` TEXT NOT NULL, `pool` TEXT)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `builtAt` INTEGER NOT NULL, `rowKey` INTEGER NOT NULL, `sessionId` INTEGER NOT NULL, `bucket` INTEGER NOT NULL, `contextChip` INTEGER NOT NULL, `dial` INTEGER NOT NULL, `engineVersion` INTEGER NOT NULL, `seeds` TEXT NOT NULL, `weights` TEXT NOT NULL, `pool` TEXT, `cards` TEXT, `plays` INTEGER, `hits` INTEGER, `gradedAt` INTEGER)",
         "fields": [
           {
             "fieldPath": "id",
@@ -1606,6 +1606,26 @@
             "fieldPath": "pool",
             "columnName": "pool",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "cards",
+            "columnName": "cards",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "plays",
+            "columnName": "plays",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "hits",
+            "columnName": "hits",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "gradedAt",
+            "columnName": "gradedAt",
+            "affinity": "INTEGER"
           }
         ],
         "primaryKey": {
@@ -2032,7 +2052,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e0cdab7533c1b248db71c3454b9a217f')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3b2214a0ada29030ed515333223cf459')"
     ]
   }
 }
