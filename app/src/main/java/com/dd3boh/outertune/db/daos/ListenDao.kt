@@ -6,6 +6,11 @@
 
 package com.dd3boh.outertune.db.daos
 
+import com.dd3boh.outertune.engine.EngineSeedsRow
+import com.dd3boh.outertune.engine.EngineExclusionRow
+import com.dd3boh.outertune.engine.EngineSeenRow
+import com.dd3boh.outertune.engine.EngineEdgeRow
+import com.dd3boh.outertune.engine.EngineSongRow
 import com.dd3boh.outertune.engine.PlayedSong
 import com.dd3boh.outertune.engine.LegacyEventRow
 import androidx.room.Transaction
@@ -107,6 +112,31 @@ interface ListenDao {
 
     @Query("DELETE FROM related_song_map WHERE songId = :songId")
     fun deleteRelated(songId: String)
+
+    // ---- The engine's input, see engine/EngineLoader.kt. Plain rows, no entities.
+    @Query("""SELECT s.id, s.title, s.liked, s.likedDate, s.inLibrary, s.isLocal, s.localPath,
+        (SELECT m.artistId FROM song_artist_map m WHERE m.songId = s.id ORDER BY m.position LIMIT 1) AS artistId,
+        (SELECT a.name FROM song_artist_map m JOIN artist a ON a.id = m.artistId WHERE m.songId = s.id ORDER BY m.position LIMIT 1) AS artistName
+        FROM song s""")
+    fun engineSongs(): List<EngineSongRow>
+
+    @Query("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId FROM listen")
+    fun engineListens(): List<com.dd3boh.outertune.engine.ListenRow>
+
+    @Query("SELECT songId, relatedSongId FROM related_song_map")
+    fun engineEdges(): List<EngineEdgeRow>
+
+    @Query("SELECT songId, versionId, fetchedAt FROM song_version_map")
+    fun engineVersionLinks(): List<SongVersionMap>
+
+    @Query("SELECT songId, visibleAt FROM impression WHERE visibleAt >= :since AND tappedAt IS NULL AND visibleAt > 0")
+    fun engineSeen(since: Long): List<EngineSeenRow>
+
+    @Query("SELECT kind, targetId FROM recommendation_exclusion WHERE expiresAt IS NULL OR expiresAt > :now")
+    fun engineExclusions(now: Long): List<EngineExclusionRow>
+
+    @Query("SELECT builtAt, seeds FROM row_build WHERE rowKey IN (1, 4) AND builtAt >= :since")
+    fun engineRecentSeeds(since: Long): List<EngineSeedsRow>
 
     @Query("SELECT COUNT(*) FROM listen_signal")
     fun signalCount(): Flow<Int>

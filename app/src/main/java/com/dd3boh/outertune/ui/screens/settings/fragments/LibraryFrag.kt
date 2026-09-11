@@ -240,6 +240,7 @@ fun ColumnScope.QuickPicksSourceFrag() {
             when (it) {
                 QuickPicksSource.YOUTUBE -> stringResource(R.string.quick_picks_source_youtube)
                 QuickPicksSource.LIBRARY -> stringResource(R.string.quick_picks_source_library)
+                QuickPicksSource.ENGINE -> stringResource(R.string.quick_picks_source_engine)
             }
         }
     )

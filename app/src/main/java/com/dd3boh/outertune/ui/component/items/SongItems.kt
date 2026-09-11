@@ -99,6 +99,8 @@ fun SongListItem(
     onPlay: () -> Unit,
     dragHandleModifier: Modifier? = null,
     modifier: Modifier = Modifier,
+    /** Why a recommendation row holds this card; shown in place of the length, which matters least there. */
+    caption: String? = null,
 ) {
     val menuState = LocalMenuState.current
     val haptic = LocalHapticFeedback.current
@@ -110,7 +112,7 @@ fun SongListItem(
             subtitle = joinByBullet(
                 (if (BuildConfig.DEBUG) song.song.id else ""),
                 song.artists.joinToString { it.name },
-                makeTimeString(song.song.duration * 1000L)
+                caption ?: makeTimeString(song.song.duration * 1000L)
             ),
             badges = {
                 if (showLikedIcon && song.song.liked) {

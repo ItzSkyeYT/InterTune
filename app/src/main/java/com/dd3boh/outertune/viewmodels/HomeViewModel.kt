@@ -1,5 +1,14 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.constants.RankWithListeningKey
+import com.dd3boh.outertune.constants.AdventurousnessKey
+import com.dd3boh.outertune.engine.Weights
+import com.dd3boh.outertune.engine.EngineRow
+import com.dd3boh.outertune.engine.EngineParams
+import com.dd3boh.outertune.engine.EngineLoader
+import com.dd3boh.outertune.engine.EngineInput
+import com.dd3boh.outertune.engine.Card
+import com.dd3boh.outertune.engine.BuiltRow
 import kotlinx.coroutines.withContext
 import com.dd3boh.outertune.constants.TidyHomeRowsKey
 import com.dd3boh.outertune.engine.TidyPass
@@ -54,6 +63,9 @@ import javax.inject.Inject
 /** The live log's session boundary, so "this session" here means what it means there. */
 private const val SESSION_GAP_MS = 30L * 60 * 1000
 
+/** One line under a card: a feature name and, for the seed and artist reasons, what it names. */
+data class CardReason(val key: String, val arg: String?)
+
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     @ApplicationContext val context: Context,
@@ -78,6 +90,63 @@ class HomeViewModel @Inject constructor(
 
     fun applyTidy() { viewModelScope.launch(Dispatchers.IO) { tidyRows() } }
 
+    // ---- Best recommendations: the engine's own row, and its score over the other sources.
+    private var lastEngineRow: BuiltRow? = null
+    private var lastEngineBuildAt = 0L
+    private var lastEngineSession = -1L
+    private var lastEngineBucket = -1
+    private var engineInputCache: Pair<Long, EngineInput>? = null
+    /** Why each card of the current engine row (and its pool) is there, for the captions. */
+    val engineReasons = MutableStateFlow<Map<String, List<CardReason>>>(emptyMap())
+    /** With the engine chosen: 0 its row is showing, 1 the library's row stands in, 2 YouTube's. */
+    val engineFallback = MutableStateFlow(0)
+
+    /** The engine's input, read once per minute at most: the biggest read on Home is the song table. */
+    private suspend fun engineInput(now: Long): EngineInput = withContext(Dispatchers.IO) {
+        engineInputCache?.takeIf { now - it.first < 60_000L }?.second
+            ?: EngineLoader.load(database, now).also { engineInputCache = now to it }
+    }
+
+    private fun reasonOf(key: String, card: Card, input: EngineInput): CardReason = when (key) {
+        "x_seed" -> CardReason(key, card.seedId?.let { input.songs[it]?.title })
+        "x_art" -> CardReason(key, input.songs[card.songId]?.artistName)
+        else -> CardReason(key, null)
+    }
+
+    /**
+     * The engine row, rebuilt when Home appears after a new session, in a new day part, three
+     * hours after the last build, or on pull to refresh; otherwise the last build stands and only
+     * the tidy pass moves it. Returns the row followed by its pool, as songs, or nothing when
+     * there was not enough to build from.
+     */
+    private suspend fun buildEngineRow(force: Boolean): List<Song> = withContext(Dispatchers.Default) {
+        val now = System.currentTimeMillis()
+        val input = engineInput(now)
+        val session = input.listens.maxByOrNull { it.endedAt }?.sessionId ?: -1L
+        val standing = lastEngineRow
+        val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket) standing
+        else EngineRow.build(input, dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0).also {
+            lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket
+            Log.d("HomeViewModel", "engine row: ${it.cards.size} cards, ${it.pool.size} in the pool, ${it.seeds.size} seeds, from ${input.songs.size} songs, ${input.listens.size} listens, ${input.edges.size} edges in ${System.currentTimeMillis() - now} ms")
+        }
+        engineReasons.value = (row.cards + row.pool).associate { c -> c.songId to c.reasons.map { reasonOf(it, c, input) } }
+        if (row.cards.size < EngineParams.DEFAULT.minCards) return@withContext emptyList()
+        val wanted = (row.cards + row.pool).map { it.songId }
+        val byId = database.songsByIds(wanted).first().associateBy { it.id }
+        wanted.mapNotNull { byId[it] }
+    }
+
+    /** Rank with your listening: the chosen source's pool in the engine's order, ties keeping the source's own. */
+    private suspend fun rankPools() {
+        if (quickPicksSource() == QuickPicksSource.ENGINE || !context.dataStore.get(RankWithListeningKey, true)) return
+        val ids = quickPicksPool.map { it.id } + ytQuickPicksPool.orEmpty().map { it.id }
+        if (ids.isEmpty()) return
+        val z = runCatching { withContext(Dispatchers.Default) { EngineRow.rank(engineInput(System.currentTimeMillis()), ids) } }
+            .onFailure { reportException(it) }.getOrNull() ?: return
+        quickPicksPool = quickPicksPool.sortedByDescending { z[it.id] ?: Double.NEGATIVE_INFINITY }
+        ytQuickPicksPool = ytQuickPicksPool?.sortedByDescending { z[it.id] ?: Double.NEGATIVE_INFINITY }
+    }
+
     private suspend fun tidyRows() = withContext(Dispatchers.IO) {
         val tidy = context.dataStore.get(TidyHomeRowsKey, true)
         if (!tidy) {
@@ -101,7 +170,7 @@ class HomeViewModel @Inject constructor(
         fun yt(items: List<YTItem>, fresh: Boolean = false) = pass.row(items, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name })
         // Whichever Quick picks row is on screen goes first; the other is not shown and must not
         // claim songs from the rows below it.
-        val ytShown = quickPicksSource() == QuickPicksSource.YOUTUBE && !ytQuickPicksPool.isNullOrEmpty()
+        val ytShown = ytShelfWanted() && !ytQuickPicksPool.isNullOrEmpty()
         if (ytShown) {
             ytQuickPicks.value = ytQuickPicksPool?.let { yt(it, fresh = true).filterIsInstance<SongItem>() }
             quickPicks.value = quickPicksPool.take(20)
@@ -135,9 +204,17 @@ class HomeViewModel @Inject constructor(
                 // song, and YouTube's row arrives from the feed, not from the table.
                 songs.forEach { if (!songExists(it.id)) insert(it) }
                 val sessionId = lastListen()?.sessionId ?: now
-                currentBuildId = insert(RowBuild(builtAt = now, rowKey = if (source == 1) 3 else 2, sessionId = sessionId, bucket = dayPartBucket(now)))
+                val rowKey = when (source) { 1 -> 3; 2 -> 1; else -> 2 }
+                val engineRow = lastEngineRow?.takeIf { source == 2 }
+                currentBuildId = insert(RowBuild(
+                    builtAt = now, rowKey = rowKey, sessionId = sessionId, bucket = dayPartBucket(now),
+                    dial = context.dataStore.get(AdventurousnessKey, 15),
+                    seeds = EngineLoader.seedsJson(engineRow?.seeds.orEmpty()),
+                    weights = if (engineRow != null) Weights.PRIORS.asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" } else "{}",
+                    pool = engineRow?.pool?.joinToString(",", "[", "]") { "\"${it.songId}\"" },
+                ))
                 currentBuildSongs = ids
-                currentTeam = if (source == 1) 3 else 2
+                currentTeam = rowKey
                 loggedSlots.clear()
                 impressionIds.clear()
             }.onFailure { Log.w("HomeViewModel", "Could not record the Quick picks build", it) }
@@ -152,6 +229,17 @@ class HomeViewModel @Inject constructor(
         return (if (weekend) 4 else 0) + part
     }
 
+    /** An impression, with the engine's record of the card when the engine placed it. */
+    private fun impression(songId: String, slot: Int, at: Long): Impression {
+        val card = lastEngineRow?.takeIf { currentTeam == 1 }?.let { r -> (r.cards + r.pool).firstOrNull { it.songId == songId } }
+        return Impression(
+            buildId = currentBuildId, songId = songId, slot = slot, team = currentTeam, visibleAt = at,
+            lane = card?.lane?.ordinal?.plus(1) ?: 0, sampled = card?.sampled ?: false, p = card?.p?.toFloat(),
+            features = card?.features?.joinToString(",") { String.format(java.util.Locale.ROOT, "%.4f", it) },
+            reasons = card?.reasons?.joinToString(","),
+        )
+    }
+
     /** A card has been at least half visible for long enough to count as seen. */
     fun quickPickSeen(slot: Int) {
         if (context.dataStore.get(PauseListenHistoryKey, false)) return
@@ -160,8 +248,7 @@ class HomeViewModel @Inject constructor(
             runCatching {
                 val songId = currentBuildSongs.getOrNull(slot) ?: return@transaction
                 if (currentBuildId == 0L || !loggedSlots.add(slot)) return@transaction
-                val ids: List<Long> = insertImpressions(listOf(Impression(buildId = currentBuildId, songId = songId, slot = slot, team = currentTeam, visibleAt = now)))
-                ids.firstOrNull()?.let { impressionIds[slot] = it }
+                insertImpressions(listOf(impression(songId, slot, now))).firstOrNull()?.let { impressionIds[slot] = it }
             }.onFailure { Log.w("HomeViewModel", "Could not record an impression", it) }
         }
     }
@@ -179,8 +266,7 @@ class HomeViewModel @Inject constructor(
                 if (currentBuildId == 0L) return@transaction
                 val id = impressionIds[slot] ?: run {
                     loggedSlots.add(slot)
-                    insertImpressions(listOf(Impression(buildId = currentBuildId, songId = songId, slot = slot, team = currentTeam, visibleAt = tappedAt)))
-                        .first().also { impressionIds[slot] = it }
+                    insertImpressions(listOf(impression(songId, slot, tappedAt))).first().also { impressionIds[slot] = it }
                 }
                 markImpressionTapped(id, tappedAt)
             }.onFailure { Log.w("HomeViewModel", "Could not record a tap", it) }
@@ -270,6 +356,17 @@ class HomeViewModel @Inject constructor(
         // from the good end.
         quickPicksPool = database.quickPicks()
             .first().take(40).shuffled()
+        if (source == QuickPicksSource.ENGINE) {
+            val engine = runCatching { buildEngineRow(force) }.onFailure { reportException(it) }.getOrDefault(emptyList())
+            engineFallback.value = when {
+                engine.isNotEmpty() -> { quickPicksPool = engine; 0 }
+                quickPicksPool.size >= EngineParams.DEFAULT.minCards -> 1
+                else -> 2
+            }
+        } else {
+            engineFallback.value = 0
+        }
+        rankPools()
 
         forgottenPool = database.forgottenFavorites()
             .first().shuffled().take(20)
@@ -416,10 +513,11 @@ class HomeViewModel @Inject constructor(
         }
         // The row is kept across loads now, so a shelf that has actually disappeared has to be
         // cleared here or last load's songs would sit there indefinitely.
-        if (source == QuickPicksSource.YOUTUBE && !foundQuickPicksThisLoad) {
+        if (ytShelfWanted() && !foundQuickPicksThisLoad) {
             ytQuickPicksPool = null
             ytQuickPicks.value = null
         }
+        if (foundQuickPicksThisLoad) rankPools()
         tidyRows()
 
         // Settled either way: found, or looked for and not there. Leaving it true on failure would
@@ -451,6 +549,12 @@ class HomeViewModel @Inject constructor(
         context.dataStore.get(QuickPicksSourceKey, QuickPicksSource.YOUTUBE.name)
             .toEnum(QuickPicksSource.YOUTUBE)
 
+    /** Whether YouTube's shelf is the Quick picks row: chosen as the source, or standing in for the engine. */
+    private fun ytShelfWanted(): Boolean {
+        val source = quickPicksSource()
+        return source == QuickPicksSource.YOUTUBE || (source == QuickPicksSource.ENGINE && engineFallback.value == 2)
+    }
+
     private fun takeQuickPicks(page: HomePage): HomePage {
         // Set to Your library and YouTube's shelf is left where it is, rendering as an ordinary
         // section of the feed rather than being lifted into the row. The row on that setting is the
@@ -461,7 +565,7 @@ class HomeViewModel @Inject constructor(
         // alone put two rows with the same heading on the same screen, one of them the library row
         // and one of them the thing that row exists instead of. That reads as a bug even though
         // both rows are correct.
-        if (quickPicksSource() != QuickPicksSource.YOUTUBE) {
+        if (!ytShelfWanted()) {
             val theirs = page.sections.firstOrNull { section ->
                 section.itemsPerColumn != null &&
                         section.items.isNotEmpty() &&
