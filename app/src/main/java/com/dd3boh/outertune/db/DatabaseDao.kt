@@ -49,35 +49,7 @@ import kotlinx.coroutines.flow.Flow
 interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao {
 
     @Transaction
-    @Query("""
-        SELECT song.*
-        FROM (SELECT *, COUNT(1) AS referredCount
-              FROM related_song_map
-              GROUP BY relatedSongId) map
-                 JOIN song ON song.id = map.relatedSongId
-        WHERE songId IN (SELECT songId
-                         FROM (SELECT songId
-                               FROM event
-                               ORDER BY ROWID DESC
-                               LIMIT 5)
-                         UNION
-                         SELECT songId
-                         FROM (SELECT songId
-                               FROM event
-                               WHERE timestamp > :now - 86400000 * 7
-                               GROUP BY songId
-                               ORDER BY SUM(playTime) DESC
-                               LIMIT 5)
-                         UNION
-                         SELECT id
-                         FROM (SELECT id
-                               FROM song
-                               WHERE liked
-                               ORDER BY likedDate DESC
-                               LIMIT 10))
-        ORDER BY referredCount DESC
-        LIMIT 100
-    """)
+    @Query(RecommendationSql.QUICK_PICKS)
     fun quickPicks(now: Long = System.currentTimeMillis()): Flow<List<Song>>
 
     @Query("SELECT * FROM format WHERE id = :id")

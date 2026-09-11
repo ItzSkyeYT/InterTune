@@ -311,6 +311,11 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.serialization.json)
 
+    // Runs the recommendation SQL against the real exported Room schema on the JVM, with no
+    // emulator. See RecommendationSqlTest.
+    testImplementation(libs.junit)
+    testImplementation(libs.sqlite.jdbc)
+
     // modules
     implementation(project(":innertube"))
     implementation(project(":kugou"))

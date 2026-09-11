@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.db.daos
 
+import com.dd3boh.outertune.db.RecommendationSql
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
@@ -175,28 +176,7 @@ interface AlbumsDao : ArtistsDao {
     fun albumsByName(name: String): AlbumEntity?
 
     @Transaction
-    @Query(
-        """
-        SELECT song.*
-        FROM (SELECT n.songId      AS eid,
-                     SUM(playTime) AS oldPlayTime,
-                     newPlayTime
-              FROM event
-                       JOIN
-                   (SELECT songId, SUM(playTime) AS newPlayTime
-                    FROM event
-                    WHERE timestamp > (:now - 86400000 * 30 * 1)
-                    GROUP BY songId
-                    ORDER BY newPlayTime) as n
-                   ON event.songId = n.songId
-              WHERE timestamp < (:now - 86400000 * 30 * 1)
-              GROUP BY n.songId
-              ORDER BY oldPlayTime) AS t
-                 JOIN song on song.id = t.eid
-        WHERE 0.2 * t.oldPlayTime > t.newPlayTime
-        LIMIT 100
-    """
-    )
+    @Query(RecommendationSql.FORGOTTEN_FAVORITES)
     fun forgottenFavorites(now: Long = System.currentTimeMillis()): Flow<List<Song>>
     @Transaction
     @Query(
