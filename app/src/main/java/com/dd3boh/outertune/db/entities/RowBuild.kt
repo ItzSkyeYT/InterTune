@@ -34,4 +34,10 @@ data class RowBuild(
     val seeds: String = "[]",
     val weights: String = "{}",
     val pool: String? = null,
+    /** The row's cards as RowBuildCodec text, so Home can show the last build at once and a shadow build can be judged. */
+    val cards: String? = null,
+    /** After the build's day: the listener's picks in that time, and how many the row held. */
+    val plays: Int? = null,
+    val hits: Int? = null,
+    val gradedAt: Long? = null,
 )

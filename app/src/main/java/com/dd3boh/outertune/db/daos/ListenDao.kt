@@ -169,7 +169,7 @@ interface ListenDao {
     @Query("SELECT songId, visibleAt FROM impression WHERE visibleAt >= :since AND tappedAt IS NULL AND visibleAt > 0")
     fun engineSeen(since: Long): List<EngineSeenRow>
 
-    @Query("SELECT kind, targetId, label FROM recommendation_exclusion WHERE expiresAt IS NULL OR expiresAt > :now")
+    @Query("SELECT kind, targetId, label, reason FROM recommendation_exclusion WHERE expiresAt IS NULL OR expiresAt > :now")
     fun engineExclusions(now: Long): List<EngineExclusionRow>
 
     @Query("SELECT builtAt, seeds FROM row_build WHERE rowKey IN (1, 4) AND builtAt >= :since")
@@ -192,8 +192,24 @@ interface ListenDao {
     fun activeExclusionCount(now: Long): Flow<Int>
 
     /** An exclusion in force, with its target's version group left to the caller. */
-    @Query("SELECT kind, targetId, label FROM recommendation_exclusion WHERE expiresAt IS NULL OR expiresAt > :now")
+    @Query("SELECT kind, targetId, label, reason FROM recommendation_exclusion WHERE expiresAt IS NULL OR expiresAt > :now")
     fun activeExclusions(now: Long): Flow<List<EngineExclusionRow>>
+
+    // ---- Forget this listening: a session or a day stops teaching, and what it taught is skipped.
+    @Query("UPDATE listen SET learn = 0 WHERE sessionId = :sessionId")
+    fun forgetSession(sessionId: Long)
+
+    @Query("UPDATE listen SET learn = 0 WHERE startedAt >= :from AND startedAt < :to")
+    fun forgetBetween(from: Long, to: Long)
+
+    @Query("UPDATE impression SET u = 0, outcome = 6 WHERE id IN (SELECT impressionId FROM listen WHERE learn = 0 AND impressionId IS NOT NULL)")
+    fun dropForgottenExamples()
+
+    @Query("SELECT COUNT(*) FROM event WHERE songId = :songId")
+    fun playCountOf(songId: String): Int
+
+    @Query("SELECT liked FROM song WHERE id = :id")
+    fun isLiked(id: String): Boolean?
 
     @Query("SELECT COUNT(*) FROM listen_signal")
     fun signalCount(): Flow<Int>
@@ -253,6 +269,25 @@ interface ListenDao {
     @Query("SELECT COUNT(*) FROM row_build")
     fun rowBuildCount(): Flow<Int>
 
+    @Query("SELECT * FROM row_build WHERE rowKey = :rowKey ORDER BY builtAt DESC LIMIT 1")
+    fun lastBuild(rowKey: Int): RowBuild?
+
+    /** Builds whose day is over and not yet scored, oldest first. */
+    @Query("SELECT * FROM row_build WHERE gradedAt IS NULL AND cards IS NOT NULL AND builtAt < :before ORDER BY builtAt")
+    fun buildsToScore(before: Long): List<RowBuild>
+
+    @Query("SELECT MIN(builtAt) FROM row_build WHERE rowKey = :rowKey AND builtAt > :after")
+    fun nextBuildAt(rowKey: Int, after: Long): Long?
+
+    @Query("UPDATE row_build SET plays = :plays, hits = :hits, gradedAt = :at WHERE id = :id")
+    fun scoreBuild(id: Long, plays: Int, hits: Int, at: Long)
+
+    @Query("SELECT rowKey AS rowKey, COUNT(*) AS builds, SUM(plays) AS plays, SUM(hits) AS hits FROM row_build WHERE gradedAt IS NOT NULL GROUP BY rowKey")
+    fun buildScores(): Flow<List<BuildScore>>
+
+    @Query("SELECT COUNT(*) FROM impression WHERE buildId = :buildId AND slot < 0")
+    fun poolPicksOf(buildId: Long): Int
+
     data class CodeCount(val code: Int, val n: Int)
 
     /** One listen with its title, for the report; nothing else needs the join. */
@@ -264,3 +299,4 @@ interface ListenDao {
 
 data class TeamOutcome(val team: Int, val outcome: Int, val n: Int, val wins: Int)
 data class PredictionGrade(val p: Float, val y: Float)
+data class BuildScore(val rowKey: Int, val builds: Int, val plays: Int, val hits: Int)

@@ -6,6 +6,10 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import androidx.compose.ui.platform.LocalContext
+import com.dd3boh.outertune.constants.RestsEverywhereKey
+import com.dd3boh.outertune.constants.RestSongsISkipKey
+import com.dd3boh.outertune.constants.ShadowComparisonKey
 import com.dd3boh.outertune.engine.EngineParams
 import com.dd3boh.outertune.constants.FamiliarityKey
 import com.dd3boh.outertune.engine.Features
@@ -92,6 +96,11 @@ fun RecommendationsSettings(
     val calibration by viewModel.calibration.collectAsState(initial = emptyList())
     val weights by viewModel.weights.collectAsState(initial = emptyList())
     val (learnFromListening, onLearnFromListeningChange) = rememberPreference(LearnFromListeningKey, defaultValue = true)
+    val (shadowComparison, onShadowComparisonChange) = rememberPreference(ShadowComparisonKey, defaultValue = true)
+    val (restSongsISkip, onRestSongsISkipChange) = rememberPreference(RestSongsISkipKey, defaultValue = false)
+    val (restsEverywhere, onRestsEverywhereChange) = rememberPreference(RestsEverywhereKey, defaultValue = false)
+    val context = LocalContext.current
+    val buildScores by viewModel.buildScores.collectAsState(initial = emptyList())
     val endReasonLabels = mapOf(
         EndReason.ENDED to stringResource(R.string.recommendations_ended),
         EndReason.SKIPPED to stringResource(R.string.recommendations_skipped),
@@ -161,6 +170,19 @@ fun RecommendationsSettings(
             description = stringResource(R.string.exclusions_count, activeExclusions),
             onClick = { navController.navigate("settings/recommendations/exclusions") },
         )
+        SwitchPreference(
+            title = { Text(stringResource(R.string.rest_songs_i_skip)) },
+            description = stringResource(R.string.rest_songs_i_skip_description),
+            checked = restSongsISkip,
+            onCheckedChange = onRestSongsISkipChange,
+        )
+        SwitchPreference(
+            title = { Text(stringResource(R.string.rests_everywhere)) },
+            description = stringResource(R.string.rests_everywhere_description),
+            checked = restsEverywhere,
+            onCheckedChange = onRestsEverywhereChange,
+            isEnabled = restSongsISkip,
+        )
         Spacer(Modifier.height(16.dp))
 
         // How it's doing: what was shown, what was played, how well the predictions matched, and
@@ -180,6 +202,21 @@ fun RecommendationsSettings(
             description = scored.entries.sortedBy { it.key }.joinToString("\n") { (team, rows) ->
                 val seen = rows.sumOf { it.n }; val wins = rows.sumOf { it.wins }
                 String.format(winsLine, teamNames[team] ?: team.toString(), wins, seen, if (seen > 0) 100.0 * wins / seen else 0.0)
+            }.ifBlank { stringResource(R.string.recommendations_nothing_yet) },
+            onClick = null,
+        )
+        SwitchPreference(
+            title = { Text(stringResource(R.string.shadow_comparison)) },
+            description = stringResource(R.string.shadow_comparison_description),
+            checked = shadowComparison,
+            onCheckedChange = onShadowComparisonChange,
+        )
+        val rowNames = mapOf(1 to stringResource(R.string.recommendations_team_engine), 2 to stringResource(R.string.recommendations_team_library), 3 to stringResource(R.string.recommendations_team_youtube), 4 to stringResource(R.string.recommendations_row_shadow))
+        val heldLine = stringResource(R.string.recommendations_held_line)
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.recommendations_held)) },
+            description = buildScores.sortedBy { it.rowKey }.joinToString("\n") { b ->
+                String.format(heldLine, rowNames[b.rowKey] ?: b.rowKey.toString(), b.hits, b.plays, if (b.plays > 0) 100.0 * b.hits / b.plays else 0.0, b.builds)
             }.ifBlank { stringResource(R.string.recommendations_nothing_yet) },
             onClick = null,
         )
@@ -219,6 +256,27 @@ fun RecommendationsSettings(
             title = { Text(stringResource(R.string.recommendations_rebuild_weights)) },
             description = stringResource(R.string.recommendations_rebuild_weights_description),
             onClick = { viewModel.rebuildWeights() },
+        )
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.forget_last_session)) },
+            description = stringResource(R.string.forget_last_session_description),
+            onClick = { viewModel.forgetLastSession() },
+        )
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.forget_today)) },
+            description = stringResource(R.string.forget_today_description),
+            onClick = { viewModel.forgetToday() },
+        )
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.export_engine_data)) },
+            description = stringResource(R.string.export_engine_data_description),
+            onClick = {
+                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "application/json"
+                    putExtra(android.content.Intent.EXTRA_TEXT, viewModel.exportJson())
+                }
+                context.startActivity(android.content.Intent.createChooser(intent, null))
+            },
         )
         Spacer(Modifier.height(16.dp))
 

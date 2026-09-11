@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.db.entities.RecommendationExclusion
+import com.dd3boh.outertune.constants.RestSongsISkipKey
 import com.dd3boh.outertune.constants.RelatedRefreshCountKey
 import com.dd3boh.outertune.constants.RelatedRefreshDayKey
 import com.dd3boh.outertune.engine.DatabaseBackfillIo
@@ -614,6 +616,8 @@ class MusicService : MediaLibraryService(),
 
     /** How the previous song ended, by media id, written at the transition that ended it. */
     private val pendingEndReasons = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    /** The end reason the last closed listen of each song was given, for the rest rule. */
+    private val pendingEndReasonsSeen = java.util.concurrent.ConcurrentHashMap<String, Int>()
     private var lastMediaId: String? = null
     private var autoplayRun = 0
 
@@ -1605,6 +1609,7 @@ class MusicService : MediaLibraryService(),
                 pendingEndReasons.remove(mediaId)
             } ?: EndReason.STOPPED
         }
+        pendingEndReasonsSeen[mediaId] = endReason
         val startedAt = info?.startedAt
             ?: (endedAt - playbackStats.totalPlayTimeMs - playbackStats.totalPausedTimeMs)
         val offsetMin = java.util.TimeZone.getDefault().getOffset(endedAt) / 60_000
@@ -1693,6 +1698,22 @@ class MusicService : MediaLibraryService(),
             } else {
                 takeOldestStart(mediaItem.mediaId)?.let(::discardListen)
                 pendingEndReasons.remove(mediaItem.mediaId); lastKnownPosition.remove(mediaItem.mediaId)
+            }
+            // Rest songs I skip: a skip before the middle of a liked or often-played song rests it
+            // from the engine row for a week, so a mood does not become a verdict.
+            if (!historyPaused && playRatio in 0f..0.5f && playbackStats.totalPlayTimeMs >= 30_000 &&
+                pendingEndReasonsSeen[mediaItem.mediaId] == EndReason.SKIPPED && dataStore.get(RestSongsISkipKey, false)
+            ) {
+                val title = mediaItem.metadata?.title ?: mediaItem.mediaId
+                database.query {
+                    runCatching {
+                        val liked = isLiked(mediaItem.mediaId)
+                        if (liked != null && (liked || playCountOf(mediaItem.mediaId) >= 3) && exclusion(1, mediaItem.mediaId) == null) {
+                            val at = System.currentTimeMillis()
+                            insertExclusion(RecommendationExclusion(kind = 1, targetId = mediaItem.mediaId, label = title, reason = 3, createdAt = at, expiresAt = at + 7L * 86_400_000))
+                        }
+                    }.onFailure { Log.w(TAG, "Could not rest a skipped song", it) }
+                }
             }
             if (counted && !historyPaused) {
                 database.query {

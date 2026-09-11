@@ -27,7 +27,7 @@ data class EngineSongRow(
 
 data class EngineEdgeRow(val songId: String, val relatedSongId: String)
 data class EngineSeenRow(val songId: String, val visibleAt: Long)
-data class EngineExclusionRow(val kind: Int, val targetId: String, val label: String)
+data class EngineExclusionRow(val kind: Int, val targetId: String, val label: String, val reason: Int = 1)
 data class EngineSeedsRow(val builtAt: Long, val seeds: String)
 
 /**

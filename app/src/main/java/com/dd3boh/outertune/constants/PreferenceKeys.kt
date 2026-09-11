@@ -158,6 +158,12 @@ val AdventurousnessKey = intPreferencesKey("adventurousness")
 val NewSongsOnlyKey = booleanPreferencesKey("newSongsOnly")
 /** Familiarity 0 to 60: the share of the engine row given to songs heard well lately. */
 val FamiliarityKey = intPreferencesKey("familiarity")
+/** Build the engine row in the background while another source is showing, to compare a day later. */
+val ShadowComparisonKey = booleanPreferencesKey("shadowComparison")
+/** A skip before the middle of a liked or often-played song rests it from the engine row for a week. */
+val RestSongsISkipKey = booleanPreferencesKey("restSongsISkip")
+/** Rests filter the YouTube and library rows too, not only the engine's. */
+val RestsEverywhereKey = booleanPreferencesKey("restsEverywhere")
 /** Off freezes the engine's weights and stops impressions; the listen log continues. */
 val LearnFromListeningKey = booleanPreferencesKey("learnFromListening")
 /** The local day (days since the epoch) and how much of the day's update budget is spent. */

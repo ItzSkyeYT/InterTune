@@ -1,5 +1,11 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.constants.RestsEverywhereKey
+import kotlinx.coroutines.sync.withLock
+import com.dd3boh.outertune.constants.ShadowComparisonKey
+import com.dd3boh.outertune.engine.dayPartBucket
+import com.dd3boh.outertune.engine.quotas
+import com.dd3boh.outertune.engine.RowBuildCodec
 import com.dd3boh.outertune.constants.FamiliarityKey
 import com.dd3boh.outertune.constants.LearnFromListeningKey
 import com.dd3boh.outertune.engine.EngineLearning
@@ -69,6 +75,8 @@ import javax.inject.Inject
 
 /** The live log's session boundary, so "this session" here means what it means there. */
 private const val SESSION_GAP_MS = 30L * 60 * 1000
+/** How long the engine's input is kept before being read again. */
+private const val ENGINE_INPUT_TTL_MS = 5L * 60 * 1000
 
 /** One line under a card: a feature name and, for the seed and artist reasons, what it names. */
 data class CardReason(val key: String, val arg: String?)
@@ -151,10 +159,68 @@ class HomeViewModel @Inject constructor(
         else song.artists.firstOrNull()?.let { a -> a.id?.let { exclude(kind, it, a.name, reason) } }
     }
 
-    /** The engine's input, read once per minute at most: the biggest read on Home is the song table. */
+    private val engineInputLock = kotlinx.coroutines.sync.Mutex()
+
+    /** The engine's input, read at most every few minutes: the biggest read on Home is the song table. */
     private suspend fun engineInput(now: Long): EngineInput = withContext(Dispatchers.IO) {
-        engineInputCache?.takeIf { now - it.first < 60_000L }?.second
-            ?: EngineLoader.load(database, now).also { engineInputCache = now to it }
+        engineInputLock.withLock {
+            engineInputCache?.takeIf { now - it.first < ENGINE_INPUT_TTL_MS }?.second
+                ?: EngineLoader.load(database, now).also { engineInputCache = now to it }
+        }
+    }
+
+    init {
+        // Warmed up in the background as the app opens, so the first build or ranking does not wait for the read.
+        viewModelScope.launch(Dispatchers.IO) { runCatching { engineInput(System.currentTimeMillis()) } }
+    }
+
+    private fun currentSessionOf(now: Long): Long = runCatching {
+        database.openListens().firstOrNull()?.sessionId ?: database.lastListen()?.takeIf { now - it.endedAt <= SESSION_GAP_MS }?.sessionId
+    }.getOrNull() ?: -1L
+
+    private fun rowIsFresh(builtAt: Long, session: Long, bucket: Int, now: Long): Boolean =
+        now - builtAt < 3 * 3_600_000L && session == currentSessionOf(now) && bucket == dayPartBucket(now, java.util.TimeZone.getDefault().getOffset(now) / 60_000)
+
+    /** The last engine build from the database, when it is still fresh: shown at once, no seconds of building. */
+    private suspend fun restoreEngineRow(now: Long): BuiltRow? = withContext(Dispatchers.IO) {
+        val last = database.lastBuild(1) ?: return@withContext null
+        if (!rowIsFresh(last.builtAt, last.sessionId, last.bucket, now)) return@withContext null
+        val cards = RowBuildCodec.decode(last.cards)
+        if (cards.size < EngineParams.DEFAULT.minCards) return@withContext null
+        BuiltRow(cards, EngineLoader.parseSeeds(last.seeds), RowBuildCodec.decode(last.pool), quotas(20, last.dial / 100.0, false)).also {
+            lastEngineRow = it; lastEngineBuildAt = last.builtAt; lastEngineSession = last.sessionId; lastEngineBucket = last.bucket
+            lastEngineNewOnly = context.dataStore.get(NewSongsOnlyKey, false); lastEngineFamiliarity = context.dataStore.get(FamiliarityKey, 25)
+        }
+    }
+
+    /**
+     * With another source showing, the engine still builds its row in the background and keeps
+     * it, unseen, so a day later How it's doing can say whether it would have held what was
+     * played. Skipped while the last one is fresh, and on battery saver.
+     */
+    private fun shadowBuild() {
+        if (!context.dataStore.get(ShadowComparisonKey, true)) return
+        val power = context.getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
+        if (power?.isPowerSaveMode == true) return
+        viewModelScope.launch(Dispatchers.Default) {
+            runCatching {
+                val now = System.currentTimeMillis()
+                val last = database.lastBuild(4)
+                if (last != null && rowIsFresh(last.builtAt, last.sessionId, last.bucket, now)) return@launch
+                val input = engineInput(now)
+                val weights = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS)
+                val familiarity = context.dataStore.get(FamiliarityKey, 25)
+                val row = EngineRow.build(input, weights = weights, p = EngineParams.DEFAULT.withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0)
+                if (row.cards.isEmpty()) return@launch
+                database.transactionNow {
+                    insert(RowBuild(
+                        builtAt = now, rowKey = 4, sessionId = currentSessionOf(now), bucket = input.bucket, dial = context.dataStore.get(AdventurousnessKey, 15),
+                        seeds = EngineLoader.seedsJson(row.seeds), weights = weights.asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" },
+                        pool = RowBuildCodec.encode(row.pool), cards = RowBuildCodec.encode(row.cards),
+                    ))
+                }
+            }.onFailure { Log.w("HomeViewModel", "Shadow build failed", it) }
+        }
     }
 
     private fun reasonOf(key: String, card: Card, input: EngineInput): CardReason = when (key) {
@@ -171,10 +237,25 @@ class HomeViewModel @Inject constructor(
      */
     private suspend fun buildEngineRow(force: Boolean): List<Song> = withContext(Dispatchers.Default) {
         val now = System.currentTimeMillis()
-        val input = engineInput(now)
         runCatching { learning.run(now) }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }
         weightsInUse = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS)
-        val session = input.listens.maxByOrNull { it.endedAt }?.sessionId ?: -1L
+        if (lastEngineRow == null && !force) restoreEngineRow(now)
+        val restored = lastEngineRow
+        val session = currentSessionOf(now)
+        val newOnlyNow = context.dataStore.get(NewSongsOnlyKey, false)
+        val familiarityNow = context.dataStore.get(FamiliarityKey, 25)
+        if (restored != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && newOnlyNow == lastEngineNewOnly && familiarityNow == lastEngineFamiliarity &&
+            lastEngineBucket == dayPartBucket(now, java.util.TimeZone.getDefault().getOffset(now) / 60_000) && engineInputCache == null) {
+            // Fresh and restored from the database: shown as it was, without reading the library first.
+            engineReasons.value = (restored.cards + restored.pool).associate { c -> c.songId to c.reasons.map { CardReason(it, null) } }
+            engineSeeds.value = restored.seeds.map { it to it }; engineQuotas.value = restored.quotas
+            val wanted = (restored.cards + restored.pool).map { it.songId }
+            val byId = database.songsByIds(wanted).first().associateBy { it.id }
+            engineSeeds.value = restored.seeds.map { id -> id to (byId[id]?.song?.title ?: id) }
+            engineReasons.value = (restored.cards + restored.pool).associate { c -> c.songId to c.reasons.map { key -> when (key) { "x_seed" -> CardReason(key, c.seedId?.let { byId[it]?.song?.title }); "x_art" -> CardReason(key, byId[c.songId]?.artists?.firstOrNull()?.name); else -> CardReason(key, null) } } }
+            return@withContext wanted.mapNotNull { byId[it] }
+        }
+        val input = engineInput(now)
         val standing = lastEngineRow
         val newOnly = context.dataStore.get(NewSongsOnlyKey, false)
         val familiarity = context.dataStore.get(FamiliarityKey, 25)
@@ -226,7 +307,8 @@ class HomeViewModel @Inject constructor(
         }.getOrNull() ?: -1L
         val played = runCatching { database.justPlayed(now - 86_400_000L, session) }.getOrDefault(emptyList())
         // Manual bans and snoozes filter every recommendation row, whatever the source.
-        val exclusions = runCatching { database.engineExclusions(now) }.getOrDefault(emptyList())
+        val restsHere = quickPicksSource() == QuickPicksSource.ENGINE || context.dataStore.get(RestsEverywhereKey, false)
+        val exclusions = runCatching { database.engineExclusions(now) }.getOrDefault(emptyList()).filter { it.reason != ExclusionsViewModel.REASON_REST || restsHere }
         val bannedSongs = exclusions.filter { it.kind == ExclusionsViewModel.KIND_SONG }.map { it.targetId }
             .takeIf { it.isNotEmpty() }?.let { ids -> runCatching { database.songsByIds(ids).first() }.getOrDefault(emptyList()) }
             ?.map { PlayedSong(it.id, it.song.title, it.artists.firstOrNull()?.name) }.orEmpty()
@@ -278,7 +360,8 @@ class HomeViewModel @Inject constructor(
                     dial = context.dataStore.get(AdventurousnessKey, 15),
                     seeds = EngineLoader.seedsJson(engineRow?.seeds.orEmpty()),
                     weights = if (engineRow != null) weightsInUse.asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" } else "{}",
-                    pool = engineRow?.pool?.joinToString(",", "[", "]") { "\"${it.songId}\"" },
+                    pool = engineRow?.let { RowBuildCodec.encode(it.pool) },
+                    cards = engineRow?.let { RowBuildCodec.encode(it.cards) },
                 ))
                 currentBuildSongs = ids
                 currentTeam = rowKey
@@ -432,6 +515,7 @@ class HomeViewModel @Inject constructor(
             }
         } else {
             engineFallback.value = 0
+            shadowBuild()
         }
         rankPools()
 
