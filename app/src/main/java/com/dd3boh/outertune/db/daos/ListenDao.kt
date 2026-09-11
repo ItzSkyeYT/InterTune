@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.db.daos
 
+import com.dd3boh.outertune.engine.LegacyEventRow
 import androidx.room.Transaction
 import androidx.room.Dao
 import androidx.room.Insert
@@ -62,6 +63,31 @@ interface ListenDao {
 
     @Query("SELECT id FROM impression WHERE tappedAt = :tappedAt ORDER BY id DESC LIMIT 1")
     fun impressionIdByTap(tappedAt: Long): Long?
+
+    // ---- Backfill of the legacy play log, see engine/LegacyBackfill.kt. The same SQL runs in its JVM test.
+    @Query("""SELECT e.id, e.songId, e.timestamp, e.playTime, s.duration FROM event e JOIN song s ON s.id = e.songId
+        WHERE e.id > :afterId AND NOT EXISTS (SELECT 1 FROM listen l WHERE l.sourceEventId = e.id) ORDER BY e.id LIMIT :limit""")
+    fun pendingLegacyEvents(afterId: Long, limit: Int): List<LegacyEventRow>
+
+    @Query("SELECT * FROM listen WHERE sourceEventId IS NOT NULL ORDER BY sourceEventId DESC LIMIT 1")
+    fun lastBackfilledListen(): Listen?
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertLegacyListens(rows: List<Listen>)
+
+    @Query("""UPDATE related_song_map SET fetchedAt = (SELECT MIN(l.startedAt) FROM listen l WHERE l.songId = related_song_map.songId)
+        WHERE fetchedAt = 0 AND EXISTS (SELECT 1 FROM listen l WHERE l.songId = related_song_map.songId)""")
+    fun dateLegacyRelatedEdges()
+
+    @Query("DELETE FROM related_song_map WHERE id NOT IN (SELECT MIN(id) FROM related_song_map GROUP BY songId, relatedSongId)")
+    fun dropDuplicateRelatedEdges()
+
+    /** A live listen that also wrote a legacy event row, so the backfill never doubles it. */
+    @Query("UPDATE listen SET sourceEventId = :eventId WHERE id = :id")
+    fun setListenSource(id: Long, eventId: Long)
+
+    @Query("SELECT COUNT(*) FROM impression WHERE tappedAt IS NOT NULL")
+    fun tapCount(): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM listen_signal")
     fun signalCount(): Flow<Int>

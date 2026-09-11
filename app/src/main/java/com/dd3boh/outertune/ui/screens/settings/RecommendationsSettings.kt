@@ -63,6 +63,8 @@ fun RecommendationsSettings(
     val byOrigin by viewModel.byOrigin.collectAsState(initial = emptyList())
     val impressions by viewModel.impressions.collectAsState(initial = 0)
     val rowBuilds by viewModel.rowBuilds.collectAsState(initial = 0)
+    val signals by viewModel.signals.collectAsState(initial = 0)
+    val taps by viewModel.taps.collectAsState(initial = 0)
     val recent by viewModel.recent.collectAsState(initial = emptyList())
     val endReasonLabels = mapOf(
         EndReason.ENDED to stringResource(R.string.recommendations_ended),
@@ -104,6 +106,11 @@ fun RecommendationsSettings(
             PreferenceEntry(
                 title = { Text(stringResource(R.string.recommendations_impressions, impressions, rowBuilds)) },
                 description = stringResource(R.string.recommendations_impressions_description),
+                onClick = null,
+            )
+            PreferenceEntry(
+                title = { Text(stringResource(R.string.recommendations_signals, signals, taps)) },
+                description = stringResource(R.string.recommendations_signals_description),
                 onClick = null,
             )
         }

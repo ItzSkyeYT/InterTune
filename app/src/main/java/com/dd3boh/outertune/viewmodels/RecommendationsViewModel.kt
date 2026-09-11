@@ -23,5 +23,7 @@ class RecommendationsViewModel @Inject constructor(
     val byOrigin = database.listensByOrigin()
     val impressions = database.impressionCount()
     val rowBuilds = database.rowBuildCount()
+    val signals = database.signalCount()
+    val taps = database.tapCount()
     val recent = database.recentListenRows(30)
 }

@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.engine.DatabaseBackfillIo
+import com.dd3boh.outertune.engine.LegacyBackfill
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
@@ -379,6 +381,9 @@ class MusicService : MediaLibraryService(),
                 initQueue()
                 resumeOnLaunchIfAsked()
             }
+            // The legacy play log becomes listens, once; nothing to do after the first run.
+            runCatching { LegacyBackfill(DatabaseBackfillIo(database)).run() }
+                .onFailure { Log.w(TAG, "Could not backfill the play log", it) }
 
             combine(
                 playerVolume,
@@ -1565,7 +1570,7 @@ class MusicService : MediaLibraryService(),
         durationSec: Int,
         ratio: Float,
         counted: Boolean,
-    ) {
+    ): Long {
         val endedAt = System.currentTimeMillis()
         val info = takeOldestStart(mediaId)
         val endReason = when {
@@ -1593,8 +1598,9 @@ class MusicService : MediaLibraryService(),
                     ))
                 }.onFailure { Log.w(TAG, "Could not close listen", it) }
             }
-            return
+            return openId
         }
+        val written = kotlinx.coroutines.CompletableDeferred<Long>()
         database.transaction {
             // A session is a run of listening with no gap over 30 minutes, measured from the end of
             // one play to the start of the next. The same boundary Flow and the ACT-R relistening
@@ -1603,7 +1609,7 @@ class MusicService : MediaLibraryService(),
             runCatching {
             val last = lastListen()
             val sessionId = if (last == null || startedAt - last.endedAt > SESSION_GAP_MS) startedAt else last.sessionId
-            insert(
+            val rowId = insert(
                 Listen(
                     songId = mediaId,
                     startedAt = startedAt,
@@ -1622,8 +1628,10 @@ class MusicService : MediaLibraryService(),
                     learn = info?.learn ?: true,
                 )
             )
-            }.onFailure { Log.w(TAG, "Could not log listen", it) }
+            written.complete(rowId)
+            }.onFailure { Log.w(TAG, "Could not log listen", it); written.complete(0L) }
         }
+        return kotlinx.coroutines.withTimeoutOrNull(2_000) { written.await() } ?: 0L
     }
 
     override fun onPlaybackStatsReady(eventTime: AnalyticsListener.EventTime, playbackStats: PlaybackStats) {
@@ -1650,12 +1658,13 @@ class MusicService : MediaLibraryService(),
             Log.d(TAG, "Playback ratio: $playRatio Min threshold: $minPlaybackDur (duration ${durationSec}s)")
             val historyPaused = dataStore.get(PauseListenHistoryKey, false)
             val counted = playRatio >= minPlaybackDur
+            var listenId = 0L
             // The complete record, under the same privacy switch as the counted play. Nothing that
             // lasted under two seconds: that is the player settling or a double tap, not a listen,
             // and it would otherwise be the most common row in the table.
             if (!historyPaused && playbackStats.totalPlayTimeMs >= 2_000) {
-                runCatching { logListen(mediaItem.mediaId, playbackStats, durationSec, playRatio, counted) }
-                    .onFailure { Log.w(TAG, "Could not log listen", it) }
+                listenId = runCatching { logListen(mediaItem.mediaId, playbackStats, durationSec, playRatio, counted) }
+                    .onFailure { Log.w(TAG, "Could not log listen", it) }.getOrDefault(0L)
             } else {
                 takeOldestStart(mediaItem.mediaId)?.let(::discardListen)
                 pendingEndReasons.remove(mediaItem.mediaId); lastKnownPosition.remove(mediaItem.mediaId)
@@ -1664,13 +1673,16 @@ class MusicService : MediaLibraryService(),
                 database.query {
                     incrementPlayCount(mediaItem.mediaId)
                     try {
-                        insert(
+                        val eventId = insert(
                             Event(
                                 songId = mediaItem.mediaId,
                                 timestamp = LocalDateTime.now(),
                                 playTime = playbackStats.totalPlayTimeMs
                             )
                         )
+                        // The listen and the legacy event are one play; the link keeps the
+                        // backfill of old events from ever writing this one a second time.
+                        if (listenId > 0L && eventId > 0L) setListenSource(listenId, eventId)
                     } catch (_: SQLException) {
                     }
                 }

@@ -36,7 +36,7 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("songId"), Index("endedAt"), Index("sessionId"), Index("queueId")]
+    indices = [Index("songId"), Index("endedAt"), Index("sessionId"), Index("queueId"), Index(value = ["sourceEventId"], unique = true)]
 )
 data class Listen(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -74,4 +74,6 @@ data class Listen(
     val impressionId: Long? = null,
     val tappedAt: Long? = null,
     @ColumnInfo(defaultValue = "0") val contextChip: Int = 0,
+    /** The legacy `event` row this listen was made from, or that this listen wrote; unique, so a backfill can run twice. */
+    val sourceEventId: Long? = null,
 )
