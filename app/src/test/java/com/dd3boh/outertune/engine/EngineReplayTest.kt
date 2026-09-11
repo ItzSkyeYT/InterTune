@@ -73,6 +73,18 @@ class EngineReplayTest {
             }
             data class Score(var picks: Int = 0, var hits: Int = 0, var repeatHits: Int = 0, var newHits: Int = 0, var engaged: Double = 0.0, var artists: Int = 0, var collisions: Int = 0, var sessions: Int = 0)
             val engine = Score(); val familiar = Score(); val fresh1 = Score(); val fresh1cap = Score(); val classic = Score(); val recent = Score(); val frequent = Score()
+            // Warm start: fit the weights on the first six tenths of the sessions, then judge the last four tenths with them against the priors.
+            val warmed = Score(); val priorsOnHeldOut = Score()
+            val split = (sessions.size * 0.6).toInt()
+            val trainListens = sessions.take(split).flatten().map(::toListen)
+            val trainInput = EngineInput(sessions[split].first().startedAt, songs, trainListens, edges, links, tzOffsetMin = sessions.first().first().tz)
+            val warm = WarmStart.run(trainInput, maxSessions = 60)
+            val warmWeights = Weights(warm.weights)
+            val warmPos = WarmStart.run(trainInput, maxSessions = 60, ignoredWeight = 0.0)
+            val warmPosWeights = Weights(warmPos.weights)
+            val warmedPositive = Score()
+            println("warm start, plays only: moved: " + warmPos.weights.filter { (n, v) -> Math.abs(v - Features.priors[n]!!.value) > 0.01 }.entries.joinToString { "%s %.2f".format(it.key, it.value) })
+            println("warm start: ${warm.sessions} sessions, ${warm.examples} examples; moved: " + warm.weights.filter { (n, v) -> Math.abs(v - Features.priors[n]!!.value) > 0.01 }.entries.joinToString { "%s %.2f".format(it.key, it.value) })
             // Variants, for information: half the rest of the row to Again; a one-hour freshness rule; that plus Again free of the artist cap.
             val familiarParams = EngineParams.DEFAULT.withFamiliarity(0.5)
             val fresh1Params = EngineParams.DEFAULT.withFamiliarity(0.5).copy(engineFreshHours = 1)
@@ -95,6 +107,10 @@ class EngineReplayTest {
                 val familiarRow = EngineRow.build(input, p = familiarParams, random = Random(i.toLong()))
                 val fresh1Row = EngineRow.build(input, p = fresh1Params, random = Random(i.toLong()))
                 val fresh1capRow = EngineRow.build(input, p = fresh1capParams, random = Random(i.toLong()))
+                val heldOut = i >= split
+                val warmRow = if (heldOut) EngineRow.build(input, weights = warmWeights, random = Random(i.toLong())) else null
+                val priorRow = if (heldOut) EngineRow.build(input, random = Random(i.toLong())) else null
+                val warmPosRow = if (heldOut) EngineRow.build(input, weights = warmPosWeights, random = Random(i.toLong())) else null
                 val classicIds = db.rows(RecommendationSql.QUICK_PICKS.replace(":now", t.toString())).map { it["id"] as String }.take(20)
                 val recentIds = before.sortedByDescending { it.endedAt }.map { it.songId }.distinct().take(20)
                 val frequentIds = before.groupingBy { it.songId }.eachCount().entries.sortedByDescending { it.value }.map { it.key }.take(20)
@@ -114,6 +130,11 @@ class EngineReplayTest {
                 score(familiar, familiarRow.cards.map { it.songId }, familiarRow.cards.map { groups.groupOf(it.songId) })
                 score(fresh1, fresh1Row.cards.map { it.songId }, fresh1Row.cards.map { groups.groupOf(it.songId) })
                 score(fresh1cap, fresh1capRow.cards.map { it.songId }, fresh1capRow.cards.map { groups.groupOf(it.songId) })
+                if (warmRow != null && priorRow != null) {
+                    score(warmed, warmRow.cards.map { it.songId }, warmRow.cards.map { groups.groupOf(it.songId) })
+                    score(priorsOnHeldOut, priorRow.cards.map { it.songId }, priorRow.cards.map { groups.groupOf(it.songId) })
+                    warmPosRow?.let { score(warmedPositive, it.cards.map { c -> c.songId }, it.cards.map { c -> groups.groupOf(c.songId) }) }
+                }
                 score(classic, classicIds, classicIds.map { groups.groupOf(it) })
                 score(recent, recentIds, recentIds.map { groups.groupOf(it) })
                 score(frequent, frequentIds, frequentIds.map { groups.groupOf(it) })
@@ -122,6 +143,7 @@ class EngineReplayTest {
                 name, s.hits.toDouble() / maxOf(1, s.picks), s.repeatHits, s.newHits, s.picks, s.engaged, s.artists.toDouble() / maxOf(1, s.sessions), s.collisions))
             println("engine replay: ${sessions.size} sessions, $considered scored, ${all.size} listens, ${songs.size} songs, ${edges.size} edges (legacy column: proxy picks, favours the classic query)")
             line("engine", engine); line("familiar", familiar); line("fresh1h", fresh1); line("fresh1h+cap", fresh1cap); line("classic", classic); line("recent", recent); line("frequent", frequent)
+            println("  held-out sessions (last 40%): priors vs warm start"); line("priors", priorsOnHeldOut); line("warmed", warmed); line("warmed+", warmedPositive)
             assertEquals(0, engine.collisions)
         }
     }
