@@ -130,8 +130,30 @@ class HomeViewModel @Inject constructor(
     private var similarPool: List<SimilarRecommendation>? = null
     private var homePagePool: HomePage? = null
 
-    /** Home came back into view: grade and learn from what has happened since, then tidy the rows. */
+    /**
+     * Home came back into view: grade and learn from what has happened since, then tidy the rows
+     * against the same just-played list as the last refresh used, so nothing moves. A card the
+     * listener has just played stays where it was, playing, until they pull to refresh; an
+     * exclusion written from the player's menu in the meantime is applied, since they asked for it.
+     */
     fun applyTidy() { viewModelScope.launch(Dispatchers.IO) { runCatching { learning.run() }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }; tidyRows() } }
+
+    /**
+     * What counts as just played, taken once per refresh. The pass used to read it afresh every
+     * time it ran, which was also every time Home came back into view, so the card just tapped
+     * had gone by the time the listener returned from the player and a pool song had slid into
+     * its place. The row is not allowed to change like that: only a refresh takes a new list.
+     */
+    private var justPlayedSnapshot: List<PlayedSong>? = null
+
+    private fun snapshotJustPlayed() {
+        val now = System.currentTimeMillis()
+        val session = runCatching {
+            database.openListens().firstOrNull()?.sessionId
+                ?: database.lastListen()?.takeIf { now - it.endedAt <= SESSION_GAP_MS }?.sessionId
+        }.getOrNull() ?: -1L
+        justPlayedSnapshot = runCatching { database.justPlayed(now - 86_400_000L, session) }.getOrDefault(emptyList())
+    }
 
     // ---- Best recommendations: the engine's own row, and its score over the other sources.
     private var lastEngineRow: BuiltRow? = null
@@ -420,11 +442,8 @@ class HomeViewModel @Inject constructor(
             return@withContext
         }
         val now = System.currentTimeMillis()
-        val session = runCatching {
-            database.openListens().firstOrNull()?.sessionId
-                ?: database.lastListen()?.takeIf { now - it.endedAt <= SESSION_GAP_MS }?.sessionId
-        }.getOrNull() ?: -1L
-        val played = runCatching { database.justPlayed(now - 86_400_000L, session) }.getOrDefault(emptyList())
+        if (justPlayedSnapshot == null) snapshotJustPlayed()
+        val played = justPlayedSnapshot.orEmpty()
         // Manual bans and snoozes filter every recommendation row, whatever the source.
         val restsHere = quickPicksSource() == QuickPicksSource.ENGINE || context.dataStore.get(RestsEverywhereKey, false)
         val exclusions = runCatching { database.engineExclusions(now) }.getOrDefault(emptyList()).filter { it.reason != ExclusionsViewModel.REASON_REST || restsHere }
@@ -661,6 +680,7 @@ class HomeViewModel @Inject constructor(
         val keepListeningArtists = database.mostPlayedArtists(0, 1)
             .first().filter { it.artist.isYouTubeArtist && it.artist.thumbnailUrl != null }.shuffled().take(5)
         keepListeningPool = (keepListeningSongs + keepListeningAlbums + keepListeningArtists).shuffled()
+        snapshotJustPlayed()
         tidyRows()
 
         allLocalItems.value =
