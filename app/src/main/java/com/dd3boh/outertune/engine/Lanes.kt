@@ -20,6 +20,7 @@ fun quotas(rowSize: Int, dial: Double, newOnly: Boolean, p: EngineParams = Engin
     val shares = mapOf(
         Lane.EXPLORE to e,
         Lane.RELATED to rest * p.relatedShare,
+        Lane.AGAIN to rest * p.againShare,
         Lane.ARTIST to rest * p.artistShare,
         Lane.REDISCOVER to rest * p.rediscoverShare,
     )
@@ -61,7 +62,7 @@ class Assembly(
     private fun allowed(c: Candidate, slot: Int): Boolean {
         if (c.group in takenGroups) return false
         val artist = c.artistId
-        if (artist != null) {
+        if (artist != null && !(p.againIgnoresArtistCap && c.lane == Lane.AGAIN)) {
             if ((perArtist[artist] ?: 0) >= p.maxPerArtist) return false
             if (artist in artistsInColumn(columnOf(slot))) return false
         }
@@ -94,21 +95,22 @@ class Assembly(
 
     fun run(): List<Pair<Candidate, Boolean>> {
         val rowSize = quotas.values.sum()
-        // A lane with nothing to give hands its quota to related, then to artist.
-        for (lane in listOf(Lane.EXPLORE, Lane.REDISCOVER, Lane.ARTIST, Lane.RELATED)) {
+        // A lane with nothing to give hands its quota to related, then again, then artist.
+        val laneOrder = listOf(Lane.RELATED, Lane.AGAIN, Lane.ARTIST, Lane.REDISCOVER, Lane.EXPLORE)
+        for (lane in laneOrder.reversed()) {
             val have = lanes[lane].orEmpty().size
             val want = effectiveQuotas[lane] ?: 0
             if (have < want) {
                 val spare = want - have
                 effectiveQuotas[lane] = have
-                val to = if (lane != Lane.RELATED && (lanes[Lane.RELATED].orEmpty().size > (effectiveQuotas[Lane.RELATED] ?: 0))) Lane.RELATED else Lane.ARTIST
-                if (to != lane) effectiveQuotas[to] = (effectiveQuotas[to] ?: 0) + spare
+                val to = listOf(Lane.RELATED, Lane.AGAIN, Lane.ARTIST).firstOrNull { it != lane && lanes[it].orEmpty().size > (effectiveQuotas[it] ?: 0) } ?: continue
+                effectiveQuotas[to] = (effectiveQuotas[to] ?: 0) + spare
             }
         }
-        // The first column: one card from each lane when all four have candidates.
-        val laneOrder = listOf(Lane.RELATED, Lane.ARTIST, Lane.REDISCOVER, Lane.EXPLORE)
-        if (laneOrder.all { lanes[it].orEmpty().isNotEmpty() && (effectiveQuotas[it] ?: 0) > 0 }) {
-            for (lane in laneOrder) { val c = pick(lane, placed.size) ?: continue; place(c.first, c.second) }
+        // The first column: one card each from related, again, artist and explore when they all have something.
+        val firstColumn = listOf(Lane.RELATED, Lane.AGAIN, Lane.ARTIST, Lane.EXPLORE)
+        if (firstColumn.all { lanes[it].orEmpty().isNotEmpty() && (effectiveQuotas[it] ?: 0) > 0 }) {
+            for (lane in firstColumn) { val c = pick(lane, placed.size) ?: continue; place(c.first, c.second) }
         }
         // Then the lane furthest behind its quota, as a fraction, takes the next slot.
         var guard = 0

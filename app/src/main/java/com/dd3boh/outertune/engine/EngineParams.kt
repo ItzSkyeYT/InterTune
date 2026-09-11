@@ -83,10 +83,22 @@ data class EngineParams(
     /** Explore share is [exploreBase] + [exploreSpan] times the dial in [0, 1]. */
     val exploreBase: Double = 0.05,
     val exploreSpan: Double = 0.30,
-    val relatedShare: Double = 0.50,
-    val artistShare: Double = 0.25,
-    val rediscoverShare: Double = 0.25,
+    /** The rest of the row after explore, split between the four other lanes. */
+    val relatedShare: Double = 0.40,
+    val againShare: Double = 0.25,
+    val artistShare: Double = 0.20,
+    val rediscoverShare: Double = 0.15,
+    /** Again: songs heard well inside this many days, but not inside [engineFreshHours]. */
+    val againWindowDays: Int = 14,
+    /**
+     * The engine row's own freshness rule: nothing heard well this recently, nor anything from the
+     * current session. One hour rather than four: on the maintainer's history the shorter rule
+     * lifted the familiar row's hits by a fifth, and the current session is excluded either way.
+     */
+    val engineFreshHours: Int = 1,
     val maxPerArtist: Int = 2,
+    /** Whether the Again lane may exceed the per-artist cap: a listener's favourites often share an artist. */
+    val againIgnoresArtistCap: Boolean = false,
     val maxPerSeed: Int = 3,
     val temperature: Double = 1.0,
     /** A lane samples from this many times its quota, after its best picks. */
@@ -119,6 +131,14 @@ data class EngineParams(
     val justPlayedEngagement: Double = 0.5,
     val sessionGapMs: Long = 30L * 60_000,
 ) {
+    /** The Again lane's share of the row after explore, the other three lanes scaled to the rest. */
+    fun withFamiliarity(share: Double): EngineParams {
+        val again = share.coerceIn(0.0, 0.6)
+        val others = relatedShare + artistShare + rediscoverShare
+        val scale = (1 - again) / others
+        return copy(againShare = again, relatedShare = relatedShare * scale, artistShare = artistShare * scale, rediscoverShare = rediscoverShare * scale)
+    }
+
     companion object {
         val DEFAULT = EngineParams()
     }

@@ -1134,6 +1134,7 @@ private fun WhyTheseDialog(viewModel: HomeViewModel, navController: NavControlle
                 Text(
                     listOf(
                         stringResource(R.string.why_these_lane_related, quotas[Lane.RELATED] ?: 0),
+                        stringResource(R.string.why_these_lane_again, quotas[Lane.AGAIN] ?: 0),
                         stringResource(R.string.why_these_lane_artist, quotas[Lane.ARTIST] ?: 0),
                         stringResource(R.string.why_these_lane_rediscover, quotas[Lane.REDISCOVER] ?: 0),
                         stringResource(R.string.why_these_lane_explore, quotas[Lane.EXPLORE] ?: 0),

@@ -60,10 +60,12 @@ object EngineRow {
         val seeds = SeedSampler(input, stats, ctxAll, p, random).sample()
         val seedSet = seeds.toHashSet()
 
-        // What no card may share a group with: a seed, anything started this session, anything heard well in the last day.
+        // What no card may share a group with: a seed, anything started this session, anything
+        // heard well in the last few hours. Beyond those hours a song heard well is what the
+        // Again lane is for: what the listener comes back to, with satiation as the brake.
         val excludedGroups = HashSet<String>()
         seeds.forEach { excludedGroups += groups.groupOf(it) }
-        val justPlayedCut = input.now - p.justPlayedHours * 3_600_000.0
+        val justPlayedCut = input.now - p.engineFreshHours * 3_600_000.0
         for (l in input.listens) {
             if (l.sessionId == stats.latestSessionId && input.now - l.endedAt <= p.sessionGapMs) { excludedGroups += groups.groupOf(l.songId); continue }
             if (l.startedAt >= justPlayedCut) {
@@ -119,6 +121,14 @@ object EngineRow {
             .mapNotNull { candidate(it.id, Lane.ARTIST) }
             .sortedWith(compareByDescending<Candidate> { it.z }.thenBy { artistRank[it.artistId] ?: Int.MAX_VALUE })
 
+        // Again: heard well inside the window but not inside the fresh hours, strongest first.
+        val againCut = input.now - p.againWindowDays * day
+        val again = stats.songs.entries
+            .filter { it.value.lastGoodAt in againCut.toLong()..(justPlayedCut.toLong()) }
+            .sortedByDescending { it.value.activation }.take(200)
+            .mapNotNull { candidate(it.key, Lane.AGAIN) }
+            .sortedByDescending { it.z }
+
         // Rediscover: dormant songs with something left in them, the strongest two hundred by old activation.
         val rediscover = stats.songs.entries.filter { it.value.oldActivation > 0 }
             .sortedByDescending { it.value.oldActivation }.take(200)
@@ -140,7 +150,7 @@ object EngineRow {
         }
 
         val lanes = if (newOnly) mapOf(Lane.EXPLORE to explore.filter { it.x[Features.NOVEL] >= 0.5 }, Lane.RELATED to related.filter { it.x[Features.NOVEL] >= 0.5 })
-        else mapOf(Lane.RELATED to related, Lane.ARTIST to artistLane, Lane.REDISCOVER to rediscover, Lane.EXPLORE to explore)
+        else mapOf(Lane.RELATED to related, Lane.AGAIN to again, Lane.ARTIST to artistLane, Lane.REDISCOVER to rediscover, Lane.EXPLORE to explore)
         val placed = Assembly(lanes, quotasNow, weights, p, random).run()
         val inRow = placed.mapTo(HashSet()) { it.first.songId }
         val cards = placed.mapIndexed { slot, (c, sampled) ->

@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import com.dd3boh.outertune.engine.EngineParams
+import com.dd3boh.outertune.constants.FamiliarityKey
 import com.dd3boh.outertune.engine.Features
 import com.dd3boh.outertune.engine.Calibration
 import com.dd3boh.outertune.constants.LearnFromListeningKey
@@ -84,6 +86,7 @@ fun RecommendationsSettings(
     val (showReasons, onShowReasonsChange) = rememberPreference(ShowReasonsKey, defaultValue = true)
     val (adventurousness, onAdventurousnessChange) = rememberPreference(AdventurousnessKey, defaultValue = 15)
     val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
+    val (familiarity, onFamiliarityChange) = rememberPreference(FamiliarityKey, defaultValue = 25)
     val activeExclusions by viewModel.activeExclusions.collectAsState(initial = 0)
     val gradedByTeam by viewModel.gradedByTeam.collectAsState(initial = emptyList())
     val calibration by viewModel.calibration.collectAsState(initial = emptyList())
@@ -134,6 +137,17 @@ fun RecommendationsSettings(
             value = adventurousness.toFloat(),
             onValueChange = { onAdventurousnessChange(it.toInt()) },
             valueRange = 0f..100f,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.familiarity)) },
+            description = stringResource(R.string.familiarity_description, quotas(20, adventurousness / 100.0, false, EngineParams.DEFAULT.withFamiliarity(familiarity / 100.0))[Lane.AGAIN] ?: 0),
+            onClick = null,
+        )
+        Slider(
+            value = familiarity.toFloat(),
+            onValueChange = { onFamiliarityChange(it.toInt()) },
+            valueRange = 0f..60f,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
         SwitchPreference(
