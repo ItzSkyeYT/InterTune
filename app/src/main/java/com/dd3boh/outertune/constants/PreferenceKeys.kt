@@ -156,6 +156,8 @@ val ShowReasonsKey = booleanPreferencesKey("showReasons")
 val AdventurousnessKey = intPreferencesKey("adventurousness")
 /** The engine row holds only songs new to the listener. */
 val NewSongsOnlyKey = booleanPreferencesKey("newSongsOnly")
+/** Familiarity 0 to 60: the share of the engine row given to songs heard well lately. */
+val FamiliarityKey = intPreferencesKey("familiarity")
 /** Off freezes the engine's weights and stops impressions; the listen log continues. */
 val LearnFromListeningKey = booleanPreferencesKey("learnFromListening")
 /** The local day (days since the epoch) and how much of the day's update budget is spent. */

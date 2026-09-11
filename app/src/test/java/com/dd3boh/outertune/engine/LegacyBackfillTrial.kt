@@ -73,5 +73,7 @@ class LegacyBackfillTrial {
             assertEquals(events, count("SELECT COUNT(*) FROM listen"))
             assertEquals(edgesBefore - duplicatePairs, count("SELECT COUNT(*) FROM related_song_map"))
         }
+        // BACKFILL_KEEP names where to leave the migrated, backfilled copy for the replay and the timing trials.
+        System.getenv("BACKFILL_KEEP")?.takeIf { it.isNotBlank() }?.let { keep -> copy.copyTo(File(keep), overwrite = true); println("  kept at $keep") }
     }
 }

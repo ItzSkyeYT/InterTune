@@ -53,6 +53,8 @@ class EngineRowTest {
         var sess = 1L
         for (d in 1..30) { sess++; for (a in 0 until 8) w.play("a${a}s${d % 4}", hoursAgo = d * 24.0 + a, session = sess) }
         for (d in 50..70) { sess++; for (a in 8..11) w.play("a${a}s${d % 8}", hoursAgo = d * 24.0 + a, session = sess) }
+        // Yesterday evening: three favourites heard well, for the Again lane.
+        w.play("a1s1", hoursAgo = 20.0, session = 998); w.play("a2s2", hoursAgo = 19.5, session = 998); w.play("a3s3", hoursAgo = 19.0, session = 998)
         // Right now: a session with two songs of artist 0.
         w.play("a0s1", hoursAgo = 0.5, session = 999); w.play("a0s2", hoursAgo = 0.2, session = 999)
         return w
@@ -82,14 +84,27 @@ class EngineRowTest {
             row.cards.forEach { c -> assertTrue("seed in row", c.songId !in row.seeds); assertTrue("just played", c.songId !in setOf("a0s1", "a0s2")) }
             // the first column spans four lanes when every lane has something
             if (row.quotas.values.all { it > 0 } && row.cards.size >= 4) assertEquals(4, row.cards.take(4).map { it.lane }.toSet().size)
+            // again cards were heard well between four hours and two weeks ago, never this session
+            row.cards.filter { it.lane == Lane.AGAIN }.forEach { c ->
+                val lastGood = w.listens.filter { it.songId == c.songId }.maxOf { it.startedAt }
+                assertTrue("again too fresh", now - lastGood >= 1 * hour); assertTrue("again too old", now - lastGood <= 14 * day)
+            }
             // probabilities are probabilities
             row.cards.forEach { assertTrue(it.p in 0.0..1.0) }
         }
     }
 
     @Test
+    fun `the again lane brings back what was heard well yesterday, not what is playing now`() {
+        val w = bigWorld()
+        val rows = (0 until 10).map { EngineRow.build(w.input(), random = Random(it.toLong())) }
+        assertTrue(rows.any { r -> r.cards.any { it.lane == Lane.AGAIN } })
+        rows.forEach { r -> r.cards.forEach { assertTrue(it.songId !in setOf("a0s1", "a0s2")) } }
+    }
+
+    @Test
     fun `the dial sets the explore share by largest remainder`() {
-        assertEquals(mapOf(Lane.EXPLORE to 2, Lane.RELATED to 9, Lane.ARTIST to 5, Lane.REDISCOVER to 4), quotas(20, 0.15, false))
+        assertEquals(mapOf(Lane.EXPLORE to 2, Lane.RELATED to 7, Lane.AGAIN to 4, Lane.ARTIST to 4, Lane.REDISCOVER to 3), quotas(20, 0.15, false))
         assertEquals(20, quotas(20, 1.0, false).values.sum())
         assertEquals(7, quotas(20, 1.0, false)[Lane.EXPLORE])
         assertEquals(1, quotas(20, 0.0, false)[Lane.EXPLORE])

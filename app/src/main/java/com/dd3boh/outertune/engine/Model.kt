@@ -79,8 +79,8 @@ data class EngineInput(
     val notSeeds: Set<String> = emptySet(),
 )
 
-/** How a card got into the row. */
-enum class Lane { RELATED, ARTIST, REDISCOVER, EXPLORE }
+/** How a card got into the row. Appended in order: the code stored on an impression is ordinal + 1. */
+enum class Lane { RELATED, ARTIST, REDISCOVER, EXPLORE, AGAIN }
 
 data class Card(
     val songId: String,

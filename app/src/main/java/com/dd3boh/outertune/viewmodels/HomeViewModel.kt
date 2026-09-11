@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.constants.FamiliarityKey
 import com.dd3boh.outertune.constants.LearnFromListeningKey
 import com.dd3boh.outertune.engine.EngineLearning
 import com.dd3boh.outertune.constants.NewSongsOnlyKey
@@ -116,6 +117,7 @@ class HomeViewModel @Inject constructor(
     val activeExclusions = database.activeExclusionCount(System.currentTimeMillis())
     private val rejectedSeeds = HashSet<String>()
     private var lastEngineNewOnly = false
+    private var lastEngineFamiliarity = -1
 
     /** Not this one: the seed is left out and the row built again. */
     fun rejectSeed(songId: String) {
@@ -175,9 +177,10 @@ class HomeViewModel @Inject constructor(
         val session = input.listens.maxByOrNull { it.endedAt }?.sessionId ?: -1L
         val standing = lastEngineRow
         val newOnly = context.dataStore.get(NewSongsOnlyKey, false)
-        val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly) standing
-        else EngineRow.build(input.copy(notSeeds = rejectedSeeds.toSet()), weights = weightsInUse, dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly).also {
-            lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket; lastEngineNewOnly = newOnly
+        val familiarity = context.dataStore.get(FamiliarityKey, 25)
+        val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly && familiarity == lastEngineFamiliarity) standing
+        else EngineRow.build(input.copy(notSeeds = rejectedSeeds.toSet()), weights = weightsInUse, p = EngineParams.DEFAULT.withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly).also {
+            lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket; lastEngineNewOnly = newOnly; lastEngineFamiliarity = familiarity
             Log.d("HomeViewModel", "engine row: ${it.cards.size} cards, ${it.pool.size} in the pool, ${it.seeds.size} seeds, from ${input.songs.size} songs, ${input.listens.size} listens, ${input.edges.size} edges in ${System.currentTimeMillis() - now} ms")
         }
         engineReasons.value = (row.cards + row.pool).associate { c -> c.songId to c.reasons.map { reasonOf(it, c, input) } }

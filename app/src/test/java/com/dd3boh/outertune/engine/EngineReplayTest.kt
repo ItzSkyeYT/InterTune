@@ -72,7 +72,11 @@ class EngineReplayTest {
                 if (i == 0) true else { val prev = session[i - 1]; r.startedAt - prev.endedAt > maxOf(prev.durationMs, 60_000L) }
             }
             data class Score(var picks: Int = 0, var hits: Int = 0, var repeatHits: Int = 0, var newHits: Int = 0, var engaged: Double = 0.0, var artists: Int = 0, var collisions: Int = 0, var sessions: Int = 0)
-            val engine = Score(); val classic = Score(); val recent = Score(); val frequent = Score()
+            val engine = Score(); val familiar = Score(); val fresh1 = Score(); val fresh1cap = Score(); val classic = Score(); val recent = Score(); val frequent = Score()
+            // Variants, for information: half the rest of the row to Again; a one-hour freshness rule; that plus Again free of the artist cap.
+            val familiarParams = EngineParams.DEFAULT.withFamiliarity(0.5)
+            val fresh1Params = EngineParams.DEFAULT.withFamiliarity(0.5).copy(engineFreshHours = 1)
+            val fresh1capParams = fresh1Params.copy(againIgnoresArtistCap = true)
             var considered = 0
             val random = Random(1)
             val skipFirst = 5   // nothing to learn from before a few sessions exist
@@ -88,6 +92,9 @@ class EngineReplayTest {
                 val input = EngineInput(t, songs, before.map(::toListen), edges, links, bucket = dayPartBucket(t, session.first().tz), tzOffsetMin = session.first().tz)
                 val row = EngineRow.build(input, random = random)
                 val engineGroups = row.cards.map { groups.groupOf(it.songId) }
+                val familiarRow = EngineRow.build(input, p = familiarParams, random = Random(i.toLong()))
+                val fresh1Row = EngineRow.build(input, p = fresh1Params, random = Random(i.toLong()))
+                val fresh1capRow = EngineRow.build(input, p = fresh1capParams, random = Random(i.toLong()))
                 val classicIds = db.rows(RecommendationSql.QUICK_PICKS.replace(":now", t.toString())).map { it["id"] as String }.take(20)
                 val recentIds = before.sortedByDescending { it.endedAt }.map { it.songId }.distinct().take(20)
                 val frequentIds = before.groupingBy { it.songId }.eachCount().entries.sortedByDescending { it.value }.map { it.key }.take(20)
@@ -104,6 +111,9 @@ class EngineReplayTest {
                     }
                 }
                 score(engine, row.cards.map { it.songId }, engineGroups)
+                score(familiar, familiarRow.cards.map { it.songId }, familiarRow.cards.map { groups.groupOf(it.songId) })
+                score(fresh1, fresh1Row.cards.map { it.songId }, fresh1Row.cards.map { groups.groupOf(it.songId) })
+                score(fresh1cap, fresh1capRow.cards.map { it.songId }, fresh1capRow.cards.map { groups.groupOf(it.songId) })
                 score(classic, classicIds, classicIds.map { groups.groupOf(it) })
                 score(recent, recentIds, recentIds.map { groups.groupOf(it) })
                 score(frequent, frequentIds, frequentIds.map { groups.groupOf(it) })
@@ -111,7 +121,7 @@ class EngineReplayTest {
             fun line(name: String, s: Score) = println("  %-10s hit@20 %.3f (repeat %d, new %d of %d picks), engaged %.1f, artists/row %.1f, collisions %d".format(
                 name, s.hits.toDouble() / maxOf(1, s.picks), s.repeatHits, s.newHits, s.picks, s.engaged, s.artists.toDouble() / maxOf(1, s.sessions), s.collisions))
             println("engine replay: ${sessions.size} sessions, $considered scored, ${all.size} listens, ${songs.size} songs, ${edges.size} edges (legacy column: proxy picks, favours the classic query)")
-            line("engine", engine); line("classic", classic); line("recent", recent); line("frequent", frequent)
+            line("engine", engine); line("familiar", familiar); line("fresh1h", fresh1); line("fresh1h+cap", fresh1cap); line("classic", classic); line("recent", recent); line("frequent", frequent)
             assertEquals(0, engine.collisions)
         }
     }

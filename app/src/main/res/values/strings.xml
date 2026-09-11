@@ -307,6 +307,9 @@ We recycle translations from upstream, they are pulled periodically. -->
     <string name="show_reasons_description">A line under each Best recommendations card saying what put it there.</string>
     <string name="adventurousness">Adventurousness</string>
     <string name="adventurousness_description">How much of the Best recommendations row goes to artists you have never played: %1$d of 20 cards.</string>
+    <string name="familiarity">Familiarity</string>
+    <string name="familiarity_description">How much of the Best recommendations row goes to songs you have heard well lately and are due to hear again: %1$d of 20 cards. Songs you have worn out step back on their own.</string>
+    <string name="why_these_lane_again">%1$d you come back to</string>
     <string name="new_songs_only">New songs only</string>
     <string name="new_songs_only_description">Every card in the Best recommendations row is a song you have never played.</string>
     <string name="exclusions">Exclusions</string>
