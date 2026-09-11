@@ -32,6 +32,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.compose.foundation.layout.asPaddingValues
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalPlayerConnection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -135,7 +136,8 @@ fun LibraryCachedScreen(
                                 title = context.getString(R.string.filter_cached),
                                 items = songs.map { it.toMediaMetadata() },
                                 startIndex = index,
-                            )
+                            ),
+                            origin = PlayOrigin.LIBRARY,
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),

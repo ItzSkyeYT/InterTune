@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalNetworkConnected
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
@@ -98,7 +99,8 @@ fun ArtistMenu(
                             title = artist.artist.name,
                             items = songs,
                             playlistId = playlistId
-                        )
+                        ),
+                        origin = PlayOrigin.ARTIST,
                     )
                 }
                 onDismiss()
@@ -123,7 +125,8 @@ fun ArtistMenu(
                             title = artist.artist.name,
                             items = songs,
                             playlistId = playlistId
-                        )
+                        ),
+                        origin = PlayOrigin.ARTIST,
                     )
                 }
                 onDismiss()

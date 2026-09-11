@@ -30,6 +30,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.db.entities.Song
@@ -145,7 +146,8 @@ fun FolderMenu(
                         ListQueue(
                             title = folder.getSquashedDir().substringAfterLast('/'),
                             items = allFolderSongs.map { it.toMediaMetadata() },
-                        )
+                        ),
+                        origin = PlayOrigin.LIBRARY,
                     )
                 }
             }
@@ -181,7 +183,8 @@ fun FolderMenu(
                             title = folder.currentDir.substringAfterLast('/'),
                             items = allFolderSongs.map { it.toMediaMetadata() },
                             startShuffled = true
-                        )
+                        ),
+                        origin = PlayOrigin.LIBRARY,
                     )
                 }
             }

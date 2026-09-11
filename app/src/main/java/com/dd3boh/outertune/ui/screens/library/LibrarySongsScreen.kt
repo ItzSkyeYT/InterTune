@@ -56,6 +56,7 @@ import androidx.compose.ui.util.fastForEachReversed
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSnackbarHostState
@@ -239,7 +240,8 @@ fun LibrarySongsScreen(
                                             title = context.getString(R.string.queue_all_songs),
                                             items = songs.map { it.toMediaMetadata() },
                                             startShuffled = false,
-                                        )
+                                        ),
+                                        origin = PlayOrigin.LIBRARY,
                                     )
                                 }
                             ),
@@ -252,7 +254,8 @@ fun LibrarySongsScreen(
                                             title = context.getString(R.string.queue_all_songs),
                                             items = songs.map { it.toMediaMetadata() },
                                             startShuffled = true,
-                                        )
+                                        ),
+                                        origin = PlayOrigin.LIBRARY,
                                     )
                                 }
                             ),
@@ -365,7 +368,8 @@ fun LibrarySongsScreen(
                                     title = context.getString(R.string.queue_all_songs),
                                     items = songs.map { it.toMediaMetadata() },
                                     startIndex = index
-                                )
+                                ),
+                                origin = PlayOrigin.LIBRARY,
                             )
                         },
                         modifier = Modifier

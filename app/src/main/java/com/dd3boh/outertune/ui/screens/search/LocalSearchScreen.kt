@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSnackbarHostState
 import com.dd3boh.outertune.R
@@ -201,12 +202,14 @@ fun LocalSearchScreen(
                                             ListQueue(
                                                 title = metadata.title,
                                                 items = listOf(metadata),
-                                            )
+                                            ),
+                                            origin = PlayOrigin.SEARCH,
                                         )
                                     } else {
                                         playerConnection.playQueue(
                                             YouTubeQueue.radio(metadata),
                                             isRadio = true,
+                                            origin = PlayOrigin.SEARCH,
                                         )
                                     }
                                 },

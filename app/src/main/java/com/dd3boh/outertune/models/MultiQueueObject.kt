@@ -24,6 +24,11 @@ data class MultiQueueObject(
      * Song id to start watch endpoint
      */
     var playlistId: String? = null,
+    /** A PlayOrigin code: how this queue was started. */
+    var origin: Int = 0,
+    var originSlot: Int = -1,
+    /** False when the listener has asked that this queue not teach the engine. */
+    var learn: Boolean = true,
 ) {
 
     /**

@@ -32,6 +32,7 @@ import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
@@ -132,7 +133,7 @@ fun YouTubeAlbumMenu(
             icon = Icons.Rounded.Radio,
             title = R.string.start_radio
         ) {
-            playerConnection.playQueue(YouTubeAlbumRadio(albumItem.playlistId))
+            playerConnection.playQueue(YouTubeAlbumRadio(albumItem.playlistId), origin = PlayOrigin.ALBUM)
             onDismiss()
         }
         GridMenuItem(

@@ -89,6 +89,7 @@ import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalNetworkConnected
@@ -670,7 +671,8 @@ fun LocalPlaylistScreen(
                                     items = mutableSongs.map { it.song.toMediaMetadata() },
                                     startIndex = index,
                                     playlistId =  playlistWithSongs.first?.playlist?.browseId
-                                )
+                                ),
+                                origin = PlayOrigin.PLAYLIST,
                             )
                         },
                         dragHandleModifier = if (sortType == PlaylistSongSortType.CUSTOM && !locked && !isSearching && editable) Modifier.draggableHandle() else null,
@@ -999,7 +1001,8 @@ fun LocalPlaylistHeader(
                         ListQueue(
                             title = playlist.playlist.name,
                             items = songs.map { it.song.toMediaMetadata() }.toList()
-                        )
+                        ),
+                        origin = PlayOrigin.PLAYLIST,
                     )
                 },
                 contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
@@ -1021,7 +1024,8 @@ fun LocalPlaylistHeader(
                             title = playlist.playlist.name,
                             items = songs.map { it.song.toMediaMetadata() },
                             startShuffled = true,
-                        )
+                        ),
+                        origin = PlayOrigin.PLAYLIST,
                     )
                 },
                 contentPadding = ButtonDefaults.ButtonWithIconContentPadding,

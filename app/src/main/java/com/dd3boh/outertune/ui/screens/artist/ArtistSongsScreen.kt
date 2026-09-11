@@ -42,6 +42,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSnackbarHostState
@@ -166,7 +167,8 @@ fun ArtistSongsScreen(
                                                 items = songs.map { it.toMediaMetadata() },
                                                 startShuffled = true,
                                                 playlistId = null,
-                                            )
+                                            ),
+                                            origin = PlayOrigin.ARTIST,
                                         )
                                     }
                                 ),
@@ -213,7 +215,8 @@ fun ArtistSongsScreen(
                                         items = songs.map { it.toMediaMetadata() },
                                         startIndex = index,
                                         playlistId = playlistId
-                                    )
+                                    ),
+                                    origin = PlayOrigin.ARTIST,
                                 )
                             }
                         }

@@ -64,6 +64,7 @@ import androidx.compose.ui.util.fastForEachReversed
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
@@ -332,7 +333,8 @@ fun HistoryScreen(
                                                     ListQueue(
                                                         title = context.getString(R.string.queue_remote_history),
                                                         items = section.songs.map { it.toMediaMetadata() }
-                                                    )
+                                                    ),
+                                                    origin = PlayOrigin.HISTORY,
                                                 )
                                             }
                                         },
@@ -411,7 +413,8 @@ fun HistoryScreen(
                                             }",
                                             items = eventsGroup.map { it.song.toMediaMetadata() },
                                             startIndex = index
-                                        )
+                                        ),
+                                        origin = PlayOrigin.HISTORY,
                                     )
                                 }
                             },

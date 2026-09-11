@@ -34,6 +34,7 @@ import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSyncUtils
@@ -122,7 +123,8 @@ fun SelectionMediaMetadataMenu(
                 ListQueue(
                     title = "Selection",
                     items = selection
-                )
+                ),
+                origin = PlayOrigin.MENU,
             )
             clearAction()
         }
@@ -146,7 +148,8 @@ fun SelectionMediaMetadataMenu(
                     title = "Selection",
                     items = selection,
                     startShuffled = true,
-                )
+                ),
+                origin = PlayOrigin.MENU,
             )
             clearAction()
         }

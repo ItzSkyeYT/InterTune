@@ -78,6 +78,7 @@ import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
@@ -377,7 +378,8 @@ fun AlbumScreen(
                                         items = albumWithSongs?.songs?.mapNotNull { it.toMediaMetadata() }?.toList()
                                             ?: emptyList(),
                                         playlistId = albumWithSongsLocal.album.playlistId
-                                    )
+                                    ),
+                                    origin = PlayOrigin.ALBUM,
                                 )
                             },
                             contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
@@ -403,7 +405,8 @@ fun AlbumScreen(
                                             ?: emptyList(),
                                         playlistId = albumWithSongsLocal.album.playlistId,
                                         startShuffled = true,
-                                    )
+                                    ),
+                                    origin = PlayOrigin.ALBUM,
                                 )
                             },
                             contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
@@ -455,7 +458,8 @@ fun AlbumScreen(
                                 items = albumWithSongsLocal.songs.map { it.toMediaMetadata() },
                                 startIndex = index,
                                 playlistId = albumWithSongsLocal.album.playlistId
-                            )
+                            ),
+                            origin = PlayOrigin.ALBUM,
                         )
                     },
                     modifier = Modifier

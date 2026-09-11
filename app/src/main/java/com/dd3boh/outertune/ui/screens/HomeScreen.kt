@@ -67,6 +67,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPollChecker
@@ -228,7 +229,8 @@ fun HomeScreen(
                                         ListQueue(
                                             title = source,
                                             items = listOf(song)
-                                        )
+                                        ),
+                                        origin = PlayOrigin.HOME_ROW,
                                     )
                                 } else {
                                     playerConnection.playQueue(YouTubeQueue.radio(song), isRadio = true)
@@ -689,7 +691,8 @@ fun HomeScreen(
                                             title = queueTitle,
                                             items = forgottenFavorites.map { it.toMediaMetadata() },
                                             startIndex = index
-                                        )
+                                        ),
+                                        origin = PlayOrigin.HOME_ROW,
                                     )
                                 },
                                 modifier = Modifier.width(horizontalLazyGridItemWidth)
@@ -948,7 +951,8 @@ fun HomeScreen(
                                     ListQueue(
                                         title = luckyItem.title,
                                         items = songs.map(Song::toMediaMetadata)
-                                    )
+                                    ),
+                                    origin = PlayOrigin.HOME_ROW,
                                 )
                             }
                         }

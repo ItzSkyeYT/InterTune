@@ -48,6 +48,7 @@ import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSyncUtils
@@ -205,7 +206,8 @@ fun SongMenu(
                 queue = ListQueue(
                     title = song.title,
                     items = listOf(song.toMediaMetadata())
-                )
+                ),
+                origin = PlayOrigin.MENU,
             )
             onDismiss()
         }

@@ -28,6 +28,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
@@ -126,7 +127,8 @@ fun StatsScreen(
                         ListQueue(
                             title = mostPlayedSongTitle,
                             items = mostPlayedSongs.map { it.toMediaMetadata() }
-                        )
+                        ),
+                        origin = PlayOrigin.STATS,
                     )
                 },
                 modifier = Modifier

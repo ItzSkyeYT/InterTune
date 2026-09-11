@@ -20,6 +20,7 @@ import androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM
 import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.Timeline
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.LyricsEntity.Companion.uninitializedLyric
 import com.dd3boh.outertune.extensions.currentMetadata
@@ -107,14 +108,20 @@ class PlayerConnection(
         shouldResume: Boolean = false,
         replace: Boolean = true,
         isRadio: Boolean = false,
-        title: String? = null
+        title: String? = null,
+        /** Where the listener started this from. UNKNOWN is honest; a wrong origin is not. */
+        origin: PlayOrigin = PlayOrigin.UNKNOWN,
+        /** The card's position when [origin] is a row, else -1. */
+        originSlot: Int = -1,
     ) {
         service.playQueue(
             queue = queue,
             shouldResume = shouldResume,
             replace = replace,
             title = title,
-            isRadio = isRadio
+            isRadio = isRadio,
+            origin = origin,
+            originSlot = originSlot,
         )
     }
 
