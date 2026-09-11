@@ -57,6 +57,7 @@ import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.SongVersions
+import com.dd3boh.outertune.utils.QuickPicksShelf
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
@@ -410,6 +411,7 @@ class HomeViewModel @Inject constructor(
         val ytShown = ytShelfWanted() && !ytQuickPicksPool.isNullOrEmpty()
         if (ytShown) {
             ytQuickPicks.value = ytQuickPicksPool?.let { yt(it, fresh = true).filterIsInstance<SongItem>() }
+            Log.d("HomeViewModel", "showing the shelf: ${ytQuickPicks.value?.size} of ${ytQuickPicksPool?.size} songs after tidy, first ${ytQuickPicks.value?.firstOrNull()?.title}")
             quickPicks.value = quickPicksPool.take(20)
         } else {
             quickPicks.value = songs(quickPicksPool, fresh = true).take(20)
@@ -551,6 +553,13 @@ class HomeViewModel @Inject constructor(
     private var lastQuickPicksSource: QuickPicksSource? = null
     private var foundQuickPicksThisLoad = false
 
+    /**
+     * What the feed has given the row so far in this load, so that a later batch cannot take it
+     * back. The feed is read in batches and each is searched on its own; without this the last
+     * batch with a song shelf in it won, whatever the shelf was. See [QuickPicksShelf.replaces].
+     */
+    private var lifted: QuickPicksShelf.Lift? = null
+
     private var pendingRefresh = false
     private var pendingRefreshForce = false
     private val previousHomePage = MutableStateFlow<HomePage?>(null)
@@ -567,6 +576,7 @@ class HomeViewModel @Inject constructor(
         isLoading.value = true
         val source = quickPicksSource()
         foundQuickPicksThisLoad = false
+        lifted = null
 
         // Blanked only when the source changed, not on every load.
         //
@@ -781,12 +791,20 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * Lifts YouTube's own Quick picks out of one batch of the home feed, and returns the batch
-     * without it so it does not also render as a carousel further down the page.
-     *
-     * Found by shape rather than by name: the one carousel that is a list of songs. Its title is
-     * localised, so matching the words "Quick picks" would find nothing outside English.
+     * YouTube's Quick picks shelf in one batch of the feed, chosen by [QuickPicksShelf]: the one
+     * carrying that title, else the first list of songs that is mostly songs rather than hour-long
+     * mixes. Every song shelf in the batch is logged with its share of songs, since the choice is
+     * only as good as the feed it is made from.
      */
+    private fun picksShelf(page: HomePage): QuickPicksShelf.Lift? {
+        page.sections.filter(QuickPicksShelf::isSongShelf).forEach { c ->
+            Log.d("HomeViewModel", "song shelf \"${c.title}\": ${c.items.size} items, ${c.itemsPerColumn} per column, ${"%.0f".format(100 * QuickPicksShelf.songShare(c))}% songs")
+        }
+        val lift = QuickPicksShelf.choose(page, context.getString(R.string.quick_picks))
+        Log.d("HomeViewModel", "picks shelf: ${lift?.section?.title ?: "none"}${if (lift?.titled == true) " (by title)" else ""}")
+        return lift
+    }
+
     private fun quickPicksSource(): QuickPicksSource =
         context.dataStore.get(QuickPicksSourceKey, QuickPicksSource.YOUTUBE.name)
             .toEnum(QuickPicksSource.YOUTUBE)
@@ -808,11 +826,9 @@ class HomeViewModel @Inject constructor(
         // and one of them the thing that row exists instead of. That reads as a bug even though
         // both rows are correct.
         if (!ytShelfWanted()) {
-            val theirs = page.sections.firstOrNull { section ->
-                section.itemsPerColumn != null &&
-                        section.items.isNotEmpty() &&
-                        section.items.all { it is SongItem }
-            } ?: return page
+            // Only the shelf that really carries the title needs the rename; a shelf found by
+            // content has a title of its own that does not clash.
+            val theirs = picksShelf(page)?.takeIf { it.titled }?.section ?: return page
             return page.copy(
                 sections = page.sections.map {
                     if (it === theirs) it.copy(title = context.getString(R.string.youtube_picks)) else it
@@ -820,14 +836,18 @@ class HomeViewModel @Inject constructor(
             )
         }
 
-        val shelf = page.sections.firstOrNull { section ->
-            section.itemsPerColumn != null &&
-                    section.items.isNotEmpty() &&
-                    section.items.all { it is SongItem }
-        } ?: return page
+        val lift = picksShelf(page) ?: return page
+        if (!QuickPicksShelf.replaces(lifted, lift)) {
+            // An earlier batch already gave the row a better shelf. This one stays in the feed as
+            // the ordinary carousel it is.
+            Log.d("HomeViewModel", "kept \"${lifted?.section?.title}\" over \"${lift.section.title}\"")
+            return page
+        }
+        lifted = lift
         foundQuickPicksThisLoad = true
-        ytQuickPicksPool = shelf.items.filterIsInstance<SongItem>()
-        return page.copy(sections = page.sections - shelf)
+        ytQuickPicksPool = lift.section.items.filterIsInstance<SongItem>()
+        Log.d("HomeViewModel", "lifted \"${lift.section.title}\" into Quick picks: ${ytQuickPicksPool?.size} songs, first ${ytQuickPicksPool?.firstOrNull()?.title}")
+        return page.copy(sections = page.sections - lift.section)
     }
 
     private val _isLoadingMore = MutableStateFlow(false)
