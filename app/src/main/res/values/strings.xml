@@ -364,6 +364,15 @@ We recycle translations from upstream, they are pulled periodically. -->
     <string name="forget_last_session_description">Nothing played in it teaches the engine, and what it already taught is taken back.</string>
     <string name="forget_today">Forget today\'s listening</string>
     <string name="forget_today_description">The same, for everything since midnight. History and Stats are untouched.</string>
+    <string name="engine_developer">Developer tuning</string>
+    <string name="engine_developer_description">Every constant the engine is tuned by, and the collision report of the version rule over your library.</string>
+    <string name="engine_developer_params">Constants</string>
+    <string name="engine_developer_reset">Reset all</string>
+    <string name="engine_developer_reset_description">%1$d overridden. A change shows on the next build.</string>
+    <string name="engine_developer_default">default %1$s</string>
+    <string name="engine_developer_collisions">Collision report</string>
+    <string name="engine_developer_counting">Counting…</string>
+    <string name="engine_developer_collisions_summary">%1$d songs, %2$d groups with more than one member, %3$d related edges pairing a song with a version of itself.</string>
     <string name="export_engine_data">Export engine data</string>
     <string name="export_engine_data_description">The weights and their priors, as JSON, to share or keep.</string>
     <string name="shadow_comparison">Shadow comparison</string>
