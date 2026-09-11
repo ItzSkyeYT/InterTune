@@ -273,6 +273,8 @@ We recycle translations from upstream, they are pulled periodically. -->
 
     <string name="player_and_audio">Player and audio</string>
     <string name="audio_quality">Audio quality</string>
+    <string name="spatial_audio_status">Spatial audio on this device</string>
+    <string name="spatial_audio_needs_13">Needs Android 13 or later.</string>
     <string name="recommendations">Recommendations</string>
     <string name="queue_learn_off">Don\'t learn from this</string>
     <string name="queue_learn_on">Learn from this again</string>

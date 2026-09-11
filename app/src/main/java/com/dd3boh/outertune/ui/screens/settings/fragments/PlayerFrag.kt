@@ -7,6 +7,8 @@ import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.ClearAll
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Headphones
+import android.os.Build
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.SkipNext
@@ -326,4 +328,50 @@ fun ColumnScope.PlaybackBehaviourFrag() {
             }
         )
     }
+}
+
+/**
+ * What this device can do for spatial audio, read straight from the platform.
+ *
+ * Read-only for now. It exists so the answer to "would head-tracked spatial audio work on my
+ * phone with my headphones" can be read off the settings screen rather than guessed at: the
+ * spatialiser's level, whether it is on, whether a head tracker is present (the Sony XM5 exposes
+ * the standard Android head tracker, so it should be), and whether plain stereo would be
+ * spatialised or, as on most devices, only multichannel, which is what decides whether InterTune
+ * has to upmix. Android 13 and later only; older devices see one line saying so.
+ */
+@Composable
+fun ColumnScope.SpatialAudioFrag() {
+    val context = LocalContext.current
+    val summary = remember {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return@remember null
+        runCatching {
+            val am = context.getSystemService(android.media.AudioManager::class.java)
+            val sp = am.spatializer
+            val level = when (sp.immersiveAudioLevel) {
+                android.media.Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE -> "none"
+                android.media.Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_MULTICHANNEL -> "multichannel"
+                else -> "other"
+            }
+            val attrs = android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA).build()
+            fun fmt(mask: Int) = android.media.AudioFormat.Builder().setEncoding(android.media.AudioFormat.ENCODING_PCM_16BIT).setSampleRate(48000).setChannelMask(mask).build()
+            val stereo = sp.canBeSpatialized(attrs, fmt(android.media.AudioFormat.CHANNEL_OUT_STEREO))
+            val surround = sp.canBeSpatialized(attrs, fmt(android.media.AudioFormat.CHANNEL_OUT_5POINT1))
+            listOf(
+                "level $level",
+                if (sp.isAvailable) "available" else "not available",
+                if (sp.isEnabled) "enabled" else "disabled",
+                if (sp.isHeadTrackerAvailable) "head tracker present" else "no head tracker",
+                "stereo " + (if (stereo) "would be spatialised" else "passes through"),
+                "5.1 " + (if (surround) "would be spatialised" else "would not"),
+            ).joinToString(", ")
+        }.getOrElse { "could not read: ${it.message}" }
+    }
+
+    PreferenceEntry(
+        title = { Text(stringResource(R.string.spatial_audio_status)) },
+        description = summary ?: stringResource(R.string.spatial_audio_needs_13),
+        icon = { Icon(Icons.Rounded.Headphones, null) },
+        onClick = null,
+    )
 }
