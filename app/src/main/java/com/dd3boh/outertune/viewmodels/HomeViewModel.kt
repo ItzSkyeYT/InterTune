@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.engine.PastSeeds
 import com.dd3boh.outertune.constants.EngineOverridesKey
 import com.dd3boh.outertune.engine.EngineTuning
 import com.dd3boh.outertune.engine.ContextChip
@@ -180,6 +181,16 @@ class HomeViewModel @Inject constructor(
     /** How many listens carry the current mood chip; below the threshold the row says it is still learning. */
     val engineChipTagged = MutableStateFlow(-1)
 
+    /** Set by a pull to refresh: the next build reads the library afresh and shows other songs than the last row. */
+    @Volatile private var varietyOnNextBuild = false
+
+    /** Pull to refresh: a new row, not the same one again. */
+    fun pullToRefresh() {
+        varietyOnNextBuild = true
+        engineInputCache = null
+        refresh(force = true)
+    }
+
     /** The chip changed: the row is built again for it. */
     fun chipChanged() {
         lastEngineBuildAt = 0L
@@ -318,12 +329,20 @@ class HomeViewModel @Inject constructor(
         }
         val input = engineInput(now)
         val standing = lastEngineRow
+        // A refresh asks for something else: the last row's songs sit this build out and its
+        // seeds are damped as if they had just been used, which they were.
+        val variety = varietyOnNextBuild && standing != null
+        varietyOnNextBuild = false
+        val varied = if (variety) input.copy(
+            pastSeeds = input.pastSeeds + PastSeeds(now, standing!!.seeds),
+            banned = standing.cards.mapTo(HashSet()) { it.songId },
+        ) else input
         val newOnly = context.dataStore.get(NewSongsOnlyKey, false)
         val familiarity = context.dataStore.get(FamiliarityKey, 25)
         val chip = context.dataStore.get(ContextChipKey, ContextChip.AUTO)
         engineChipTagged.value = if (chip in ContextChip.MOODS) input.listens.count { it.contextChip == chip } else -1
         val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly && familiarity == lastEngineFamiliarity && chip == lastEngineChip) standing
-        else EngineRow.build(input.copy(notSeeds = rejectedSeeds.toSet(), chip = chip), weights = weightsInUse, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly).also {
+        else EngineRow.build(varied.copy(notSeeds = rejectedSeeds.toSet(), chip = chip), weights = weightsInUse, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly).also {
             lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket; lastEngineNewOnly = newOnly; lastEngineFamiliarity = familiarity; lastEngineChip = chip
             Log.d("HomeViewModel", "engine row: ${it.cards.size} cards, ${it.pool.size} in the pool, ${it.seeds.size} seeds, from ${input.songs.size} songs, ${input.listens.size} listens, ${input.edges.size} edges in ${System.currentTimeMillis() - now} ms")
         }
@@ -342,15 +361,15 @@ class HomeViewModel @Inject constructor(
         if (src == QuickPicksSource.ENGINE || src == QuickPicksSource.COMPARE || !context.dataStore.get(RankWithListeningKey, true)) return
         val ids = quickPicksPool.map { it.id } + ytQuickPicksPool.orEmpty().map { it.id }
         if (ids.isEmpty()) return
-        val z = runCatching { withContext(Dispatchers.Default) {
+        val order = runCatching { withContext(Dispatchers.Default) {
             val input = engineInput(System.currentTimeMillis())
             runCatching { learning.run() }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }
             weightsInUse = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS)
-            EngineRow.rank(input, ids, weightsInUse)
+            EngineRow.rankSampled(input, ids, weightsInUse).withIndex().associate { it.value to it.index }
         } }
             .onFailure { reportException(it) }.getOrNull() ?: return
-        quickPicksPool = quickPicksPool.sortedByDescending { z[it.id] ?: Double.NEGATIVE_INFINITY }
-        ytQuickPicksPool = ytQuickPicksPool?.sortedByDescending { z[it.id] ?: Double.NEGATIVE_INFINITY }
+        quickPicksPool = quickPicksPool.sortedBy { order[it.id] ?: Int.MAX_VALUE }
+        ytQuickPicksPool = ytQuickPicksPool?.sortedBy { order[it.id] ?: Int.MAX_VALUE }
     }
 
     private suspend fun tidyRows() = withContext(Dispatchers.IO) {
