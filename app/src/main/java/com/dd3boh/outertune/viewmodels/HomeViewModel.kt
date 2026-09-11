@@ -58,6 +58,7 @@ import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.SongVersions
 import com.dd3boh.outertune.utils.QuickPicksShelf
+import com.dd3boh.outertune.utils.RecentlyShown
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
@@ -106,6 +107,24 @@ class HomeViewModel @Inject constructor(
     // its original. The pass runs again when Home comes back into view, never under the finger.
     private var quickPicksPool: List<Song> = emptyList()
     private var ytQuickPicksPool: List<SongItem>? = null
+
+    /** What each row has shown lately, so that a refresh brings forward what it has not. */
+    private val recentlyShown = RecentlyShown()
+
+    /**
+     * The tiers the YouTube row is drawn from, in order: the shelf's own songs, the songs of the
+     * feed's other song shelves, and what YouTube lists as related to the shelf, fetched on a pull
+     * and kept across loads. The shelf is the same for a whole session, so on its own it could only
+     * ever be reordered; the other two are what a refresh has to show that is new.
+     */
+    private var ytShelfSongs: List<SongItem> = emptyList()
+    private var ytShelfExtras: List<SongItem> = emptyList()
+    private val ytRelated = ArrayDeque<SongItem>()
+    private val ytRelatedSeeds = HashSet<String>()
+    private val ytTier = HashMap<String, Int>()
+
+    /** Set by a pull to refresh: this load also fetches songs related to the shelf. */
+    @Volatile private var moreOnNextLoad = false
     private var forgottenPool: List<Song> = emptyList()
     private var keepListeningPool: List<LocalItem> = emptyList()
     private var similarPool: List<SimilarRecommendation>? = null
@@ -134,7 +153,7 @@ class HomeViewModel @Inject constructor(
     private suspend fun draftCompareRow() {
         val other: List<Song>
         val otherTeam: Int
-        val shelf = ytQuickPicksPool
+        val shelf = ytQuickPicksPool?.take(40)
         if (!shelf.isNullOrEmpty()) {
             val metas = shelf.map { it.toMediaMetadata() }
             runCatching { database.transactionNow { metas.forEach { if (!songExists(it.id)) insert(it) } } }
@@ -188,6 +207,7 @@ class HomeViewModel @Inject constructor(
     /** Pull to refresh: a new row, not the same one again. */
     fun pullToRefresh() {
         varietyOnNextBuild = true
+        moreOnNextLoad = true
         engineInputCache = null
         refresh(force = true)
     }
@@ -363,27 +383,37 @@ class HomeViewModel @Inject constructor(
      */
     private suspend fun rankPools(includeShelf: Boolean) {
         val src = quickPicksSource()
-        if (src == QuickPicksSource.ENGINE || src == QuickPicksSource.COMPARE || !context.dataStore.get(RankWithListeningKey, true)) return
-        val shelf = if (includeShelf) ytQuickPicksPool else null
-        val ids = quickPicksPool.map { it.id } + shelf.orEmpty().map { it.id }
-        if (ids.isEmpty()) return
-        val order = runCatching { withContext(Dispatchers.Default) {
-            val input = engineInput(System.currentTimeMillis())
-            runCatching { learning.run() }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }
-            weightsInUse = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS)
-            EngineRow.rankSampled(input, ids, weightsInUse).withIndex().associate { it.value to it.index }
-        } }
-            .onFailure { reportException(it) }.getOrNull() ?: return
-        quickPicksPool = quickPicksPool.sortedBy { order[it.id] ?: Int.MAX_VALUE }
-        if (includeShelf) ytQuickPicksPool = ytQuickPicksPool?.sortedBy { order[it.id] ?: Int.MAX_VALUE }
+        // The engine's row is in the order it was built in and has its own way of varying.
+        if ((src == QuickPicksSource.ENGINE || src == QuickPicksSource.COMPARE) && engineFallback.value == 0) return
+        if (context.dataStore.get(RankWithListeningKey, true)) {
+            val shelf = if (includeShelf) ytQuickPicksPool else null
+            val ids = quickPicksPool.map { it.id } + shelf.orEmpty().map { it.id }
+            val order = if (ids.isEmpty()) null else runCatching { withContext(Dispatchers.Default) {
+                val input = engineInput(System.currentTimeMillis())
+                runCatching { learning.run() }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }
+                weightsInUse = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS)
+                EngineRow.rankSampled(input, ids, weightsInUse).withIndex().associate { it.value to it.index }
+            } }.onFailure { reportException(it) }.getOrNull()
+            if (order != null) {
+                quickPicksPool = quickPicksPool.sortedBy { order[it.id] ?: Int.MAX_VALUE }
+                // Ranked inside each tier: the shelf's own songs first however they score, so the
+                // row as it opens is YouTube's Quick picks and the other tiers are what a refresh
+                // reaches for.
+                if (includeShelf) ytQuickPicksPool = ytQuickPicksPool?.sortedWith(compareBy({ ytTier[it.id] ?: 9 }, { order[it.id] ?: Int.MAX_VALUE }))
+            }
+        }
+        // Whatever the order so far, what the row has shown lately goes to the back, so that a
+        // refresh is new songs and not the same ones again.
+        quickPicksPool = recentlyShown.order("lib", quickPicksPool) { it.id }
+        if (includeShelf) ytQuickPicksPool = ytQuickPicksPool?.let { pool -> recentlyShown.order("yt", pool) { it.id } }
     }
 
     private suspend fun tidyRows() = withContext(Dispatchers.IO) {
         val tidy = context.dataStore.get(TidyHomeRowsKey, true)
         if (!tidy) {
             quickPicks.value = quickPicksPool.take(20)
-            ytQuickPicks.value = ytQuickPicksPool
-            forgottenFavorites.value = forgottenPool
+            ytQuickPicks.value = ytQuickPicksPool?.take(20)
+            forgottenFavorites.value = forgottenPool.take(20)
             keepListening.value = keepListeningPool
             similarRecommendations.value = similarPool
             homePage.value = homePagePool
@@ -410,14 +440,14 @@ class HomeViewModel @Inject constructor(
         // claim songs from the rows below it.
         val ytShown = ytShelfWanted() && !ytQuickPicksPool.isNullOrEmpty()
         if (ytShown) {
-            ytQuickPicks.value = ytQuickPicksPool?.let { yt(it, fresh = true).filterIsInstance<SongItem>() }
-            Log.d("HomeViewModel", "showing the shelf: ${ytQuickPicks.value?.size} of ${ytQuickPicksPool?.size} songs after tidy, first ${ytQuickPicks.value?.firstOrNull()?.title}")
+            ytQuickPicks.value = ytQuickPicksPool?.let { yt(it, fresh = true).filterIsInstance<SongItem>().take(20) }
+            Log.d("HomeViewModel", "showing the YouTube row: ${ytQuickPicks.value?.size} of a pool of ${ytQuickPicksPool?.size} after tidy, first ${ytQuickPicks.value?.firstOrNull()?.title}")
             quickPicks.value = quickPicksPool.take(20)
         } else {
             quickPicks.value = songs(quickPicksPool, fresh = true).take(20)
-            ytQuickPicks.value = ytQuickPicksPool
+            ytQuickPicks.value = ytQuickPicksPool?.take(20)
         }
-        forgottenFavorites.value = songs(forgottenPool)
+        forgottenFavorites.value = songs(forgottenPool).take(20)
         keepListening.value = local(keepListeningPool)
         similarRecommendations.value = similarPool?.map { it.copy(items = yt(it.items)) }?.filter { it.items.isNotEmpty() }
         homePage.value = homePagePool?.let { page -> page.copy(sections = page.sections.map { it.copy(items = yt(it.items)) }.filter { it.items.isNotEmpty() }) }
@@ -554,9 +584,8 @@ class HomeViewModel @Inject constructor(
     private var foundQuickPicksThisLoad = false
 
     /**
-     * What the feed has given the row so far in this load, so that a later batch cannot take it
-     * back. The feed is read in batches and each is searched on its own; without this the last
-     * batch with a song shelf in it won, whatever the shelf was. See [QuickPicksShelf.replaces].
+     * The shelf lifted into the row by this load, chosen over the whole feed at once. A batch
+     * scrolled in later lends the row its songs but never replaces the shelf.
      */
     private var lifted: QuickPicksShelf.Lift? = null
 
@@ -577,6 +606,7 @@ class HomeViewModel @Inject constructor(
         val source = quickPicksSource()
         foundQuickPicksThisLoad = false
         lifted = null
+        ytShelfExtras = emptyList()
 
         // Blanked only when the source changed, not on every load.
         //
@@ -604,7 +634,7 @@ class HomeViewModel @Inject constructor(
         // 1st. Shuffle inside the strongest 40 instead: still different on each refresh, but drawn
         // from the good end.
         quickPicksPool = database.quickPicks()
-            .first().take(40).shuffled()
+            .first().take(60).shuffled()
         if (source == QuickPicksSource.ENGINE || source == QuickPicksSource.COMPARE) {
             val engine = runCatching { buildEngineRow(force) }.onFailure { reportException(it) }.getOrDefault(emptyList())
             enginePoolForCompare = engine
@@ -619,12 +649,13 @@ class HomeViewModel @Inject constructor(
         }
         rankPools(includeShelf = false)
 
-        forgottenPool = database.forgottenFavorites()
-            .first().shuffled().take(20)
+        // Twice a row's worth, with what was shown lately at the back, so a refresh is the other
+        // half rather than the same twenty shuffled.
+        forgottenPool = recentlyShown.order("forgotten", database.forgottenFavorites().first().shuffled().take(40)) { it.id }
 
         val fromTimeStamp = System.currentTimeMillis() - 86400000 * 7 * 2
-        val keepListeningSongs = database.mostPlayedSongs(fromTimeStamp, limit = 15, offset = 5)
-            .first().shuffled().take(10)
+        val keepListeningSongs = recentlyShown.order("keep", database.mostPlayedSongs(fromTimeStamp, limit = 30, offset = 5).first().shuffled()) { it.id }
+            .take(10)
         val keepListeningAlbums = database.mostPlayedAlbums(fromTimeStamp, limit = 8, offset = 2)
             .first().filter { it.album.thumbnailUrl != null }.shuffled().take(5)
         val keepListeningArtists = database.mostPlayedArtists(0, 1)
@@ -670,6 +701,7 @@ class HomeViewModel @Inject constructor(
         // asked for it and one request doubles as the probe that clears the block.
         if (!force && Throttle.isBlocked) {
             Log.d("HomeViewModel", "Skipping remote home load, backing off")
+            noteShown()
             quickPicksLoading.value = false
             isLoading.value = false
             return
@@ -721,8 +753,6 @@ class HomeViewModel @Inject constructor(
         tidyRows()
 
         YouTube.home().onSuccess { page ->
-            var merged = takeQuickPicks(page)
-
             // Read past the first response, because on its own it is not a home feed.
             //
             // Measured against the live API on 8 Sep, signed out: the first response is 3 sections
@@ -739,20 +769,21 @@ class HomeViewModel @Inject constructor(
             // the end; HOME_REFRESH_BATCHES is the ceiling and scrolling picks up from wherever
             // this left off, since the surviving continuation is carried into merged.
             //
-            // Quick picks used to be the only reason to fetch a continuation at all, since YouTube
-            // puts that shelf at index 0 of the first one rather than in the first response. It is
-            // still lifted out on the way past, by takeQuickPicks on each batch.
+            // Quick picks is one reason to read on: YouTube puts that shelf at index 0 of the first
+            // continuation rather than in the first response. It is lifted out once the batches
+            // are together, so the choice is made over the whole feed and not batch by batch.
+            var merged = page
             var batches = 0
             while (batches < HOME_REFRESH_BATCHES) {
                 val next = merged.continuation ?: break
                 val page2 = YouTube.home(next).getOrNull() ?: break
-                val cleaned = takeQuickPicks(page2)
                 merged = merged.copy(
-                    sections = merged.sections + cleaned.sections,
-                    continuation = cleaned.continuation,
+                    sections = merged.sections + page2.sections,
+                    continuation = page2.continuation,
                 )
                 batches++
             }
+            merged = takeQuickPicks(merged)
             Log.d(
                 "HomeViewModel",
                 "Home loaded: ${merged.sections.size} sections, " +
@@ -768,9 +799,15 @@ class HomeViewModel @Inject constructor(
             ytQuickPicksPool = null
             ytQuickPicks.value = null
         }
-        if (foundQuickPicksThisLoad) rankPools(includeShelf = true)
+        if (foundQuickPicksThisLoad) {
+            if (moreOnNextLoad && !Throttle.isBlocked) runCatching { fetchRelatedToShelf() }.onFailure { reportException(it) }
+            ytQuickPicksPool = ytRowPool()
+            rankPools(includeShelf = true)
+        }
+        moreOnNextLoad = false
         if (source == QuickPicksSource.COMPARE && engineFallback.value == 0) runCatching { draftCompareRow() }.onFailure { reportException(it) }
         tidyRows()
+        noteShown()
 
         // Settled either way: found, or looked for and not there. Leaving it true on failure would
         // leave a skeleton shimmering over a row that is never going to fill.
@@ -815,7 +852,17 @@ class HomeViewModel @Inject constructor(
         return source == QuickPicksSource.YOUTUBE || source == QuickPicksSource.COMPARE || (source == QuickPicksSource.ENGINE && engineFallback.value == 2)
     }
 
-    private fun takeQuickPicks(page: HomePage): HomePage {
+    /**
+     * Lifts YouTube's Quick picks shelf out of the feed into the row, and lends the row the songs
+     * of the feed's other song shelves, which stay where they are. With [canLift] false, as for a
+     * batch scrolled in after the row is on screen, only the lending happens: the row does not
+     * change under the finger.
+     */
+    private fun takeQuickPicks(page: HomePage, canLift: Boolean = true): HomePage {
+        val lift = if (canLift) picksShelf(page) else null
+        ytShelfExtras = ytShelfExtras + page.sections.filter { it !== lift?.section && QuickPicksShelf.lendsSongs(it) }.flatMap { it.items.filterIsInstance<SongItem>() }
+        lift ?: return page
+
         // Set to Your library and YouTube's shelf is left where it is, rendering as an ordinary
         // section of the feed rather than being lifted into the row. The row on that setting is the
         // app's own recommendations, so there is nothing to lift it for, and removing it would just
@@ -824,30 +871,65 @@ class HomeViewModel @Inject constructor(
         // It does get renamed. YouTube calls that shelf "Quick picks" too, so leaving its title
         // alone put two rows with the same heading on the same screen, one of them the library row
         // and one of them the thing that row exists instead of. That reads as a bug even though
-        // both rows are correct.
+        // both rows are correct. Only the shelf that really carries the title needs it; one found
+        // by content has a title of its own that does not clash.
         if (!ytShelfWanted()) {
-            // Only the shelf that really carries the title needs the rename; a shelf found by
-            // content has a title of its own that does not clash.
-            val theirs = picksShelf(page)?.takeIf { it.titled }?.section ?: return page
+            if (!lift.titled) return page
             return page.copy(
                 sections = page.sections.map {
-                    if (it === theirs) it.copy(title = context.getString(R.string.youtube_picks)) else it
+                    if (it === lift.section) it.copy(title = context.getString(R.string.youtube_picks)) else it
                 }
             )
         }
 
-        val lift = picksShelf(page) ?: return page
-        if (!QuickPicksShelf.replaces(lifted, lift)) {
-            // An earlier batch already gave the row a better shelf. This one stays in the feed as
-            // the ordinary carousel it is.
-            Log.d("HomeViewModel", "kept \"${lifted?.section?.title}\" over \"${lift.section.title}\"")
-            return page
-        }
         lifted = lift
         foundQuickPicksThisLoad = true
-        ytQuickPicksPool = lift.section.items.filterIsInstance<SongItem>()
-        Log.d("HomeViewModel", "lifted \"${lift.section.title}\" into Quick picks: ${ytQuickPicksPool?.size} songs, first ${ytQuickPicksPool?.firstOrNull()?.title}")
+        ytShelfSongs = lift.section.items.filterIsInstance<SongItem>()
+        Log.d("HomeViewModel", "lifted \"${lift.section.title}\" into Quick picks: ${ytShelfSongs.size} songs, first ${ytShelfSongs.firstOrNull()?.title}")
         return page.copy(sections = page.sections - lift.section)
+    }
+
+    /** The YouTube row's pool, tier by tier, no song twice. */
+    private fun ytRowPool(): List<SongItem> {
+        val seen = HashSet<String>()
+        val out = ArrayList<SongItem>()
+        ytTier.clear()
+        fun add(items: Collection<SongItem>, tier: Int) = items.forEach { if (seen.add(it.id)) { out += it; ytTier[it.id] = tier } }
+        add(ytShelfSongs, 0); add(ytShelfExtras, 1); add(ytRelated, 2)
+        Log.d("HomeViewModel", "YouTube row pool: ${ytShelfSongs.size} from the shelf, ${ytShelfExtras.size} from the feed's other song shelves, ${ytRelated.size} related, ${out.size} in all")
+        return out
+    }
+
+    /**
+     * A pull to refresh asks for songs that were not there before, and the shelf is the same for a
+     * whole session. So two of its songs not yet used are taken as seeds and what YouTube lists as
+     * related to them joins the pool: songs only, no mixes, kept across loads up to a hundred with
+     * the oldest out first. Two seeds is four requests, about what the Similar to rows already
+     * spend on every load.
+     */
+    private suspend fun fetchRelatedToShelf() {
+        val seeds = ytShelfSongs.filter { it.id !in ytRelatedSeeds }.shuffled().take(RELATED_SEEDS_PER_PULL)
+        for (seed in seeds) {
+            ytRelatedSeeds += seed.id
+            val endpoint = YouTube.next(WatchEndpoint(videoId = seed.id)).getOrNull()?.relatedEndpoint ?: continue
+            val songs = YouTube.related(endpoint).getOrNull()?.songs.orEmpty().filter { (it.duration ?: 0) <= QuickPicksShelf.SONG_MAX_SEC }
+            val known = HashSet<String>()
+            ytRelated.forEach { known += it.id }; ytShelfSongs.forEach { known += it.id }; ytShelfExtras.forEach { known += it.id }
+            songs.filter { known.add(it.id) }.forEach { ytRelated.addLast(it) }
+            while (ytRelated.size > RELATED_POOL_MAX) ytRelated.removeFirst()
+            Log.d("HomeViewModel", "related to ${seed.title}: ${songs.size} songs, ${ytRelated.size} related in the pool")
+        }
+    }
+
+    /** What the rows are showing after this load, remembered so the next refresh brings forward what they have not. */
+    private fun noteShown() {
+        val src = quickPicksSource()
+        val ytShown = ytShelfWanted() && !ytQuickPicksPool.isNullOrEmpty()
+        val libraryShown = !ytShown && (src == QuickPicksSource.LIBRARY || src == QuickPicksSource.YOUTUBE || engineFallback.value == 1)
+        if (ytShown) recentlyShown.note("yt", ytQuickPicks.value.orEmpty().map { it.id })
+        if (libraryShown) recentlyShown.note("lib", quickPicks.value.orEmpty().map { it.id })
+        recentlyShown.note("forgotten", forgottenFavorites.value.orEmpty().map { it.id })
+        recentlyShown.note("keep", keepListening.value.orEmpty().mapNotNull { (it as? Song)?.id })
     }
 
     private val _isLoadingMore = MutableStateFlow(false)
@@ -860,11 +942,15 @@ class HomeViewModel @Inject constructor(
                 _isLoadingMore.value = false
                 return@launch
             }
-            val cleaned = takeQuickPicks(nextSections)
+            val cleaned = takeQuickPicks(nextSections, canLift = lifted == null)
             homePagePool = cleaned.copy(
                 chips = homePagePool?.chips,
                 sections = homePagePool?.sections.orEmpty() + cleaned.sections
             )
+            if (foundQuickPicksThisLoad && ytQuickPicksPool == null) {
+                ytQuickPicksPool = ytRowPool()
+                rankPools(includeShelf = true)
+            }
             tidyRows()
             _isLoadingMore.value = false
         }
@@ -964,3 +1050,9 @@ class HomeViewModel @Inject constructor(
  * the rest to scrolling.
  */
 private const val HOME_REFRESH_BATCHES = 3
+
+/** Seeds taken from the shelf on each pull to refresh, for songs related to them. */
+private const val RELATED_SEEDS_PER_PULL = 2
+
+/** How many related songs the YouTube row keeps across loads. */
+private const val RELATED_POOL_MAX = 100

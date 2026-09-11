@@ -66,14 +66,15 @@ class QuickPicksShelfTest {
     }
 
     @Test
-    fun `a titled lift is never displaced and displaces a lift by content, and the first of two by content stays`() {
-        val titled = QuickPicksShelf.Lift(songs("Quick picks"), titled = true)
-        val byContent = QuickPicksShelf.Lift(songs("Covers and remixes"), titled = false)
-        val later = QuickPicksShelf.Lift(songs("Trending songs for you"), titled = false)
-        assertTrue(QuickPicksShelf.replaces(null, byContent))
-        assertTrue(QuickPicksShelf.replaces(byContent, titled))
-        assertFalse(QuickPicksShelf.replaces(titled, byContent))
-        assertFalse(QuickPicksShelf.replaces(titled, QuickPicksShelf.Lift(songs("Quick picks"), titled = true)))
-        assertFalse(QuickPicksShelf.replaces(byContent, later))
+    fun `the titled shelf wins over the whole feed at once, whichever batch it came in`() {
+        val page = HomePage(null, listOf(songs("Covers and remixes"), mixes("Long listens"), songs("Quick picks"), songs("Trending songs for you")))
+        assertEquals("Quick picks", QuickPicksShelf.choose(page, "Quick picks")!!.section.title)
+    }
+
+    @Test
+    fun `a shelf lends its songs to the pool only when it is mostly songs`() {
+        assertTrue(QuickPicksShelf.lendsSongs(songs("Trending songs for you")))
+        assertFalse(QuickPicksShelf.lendsSongs(mixes("Long listens")))
+        assertFalse(QuickPicksShelf.lendsSongs(shelf("New releases", 200, 210, perColumn = null)))
     }
 }

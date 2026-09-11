@@ -387,7 +387,9 @@ fun HomeScreen(
         )
     }
 
-    LaunchedEffect(quickPicks) {
+    // Back to the first column whichever list fills the row, or a refresh of the YouTube row
+    // left the reader looking at the middle of the new songs.
+    LaunchedEffect(quickPicks, ytQuickPicks) {
         quickPicksLazyGridState.scrollToItem(0)
     }
 
