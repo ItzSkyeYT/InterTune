@@ -96,6 +96,9 @@ import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.minPlaybackDurKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Event
+import com.dd3boh.outertune.db.entities.SongVersionMap
+import com.dd3boh.outertune.db.entities.ListenSignal
+import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.db.entities.Listen
 import com.dd3boh.outertune.constants.EndReason
 import com.dd3boh.outertune.constants.PlayOrigin
@@ -169,6 +172,11 @@ import kotlin.math.pow
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 /** Silence longer than this starts a new listening session. */
 private const val SESSION_GAP_MS = 30L * 60 * 1000
+/** How often an open listen row records how far it got, so a death loses at most this much. */
+private const val CHECKPOINT_MS = 60_000L
+/** A resume within this of where a stop left off, inside this window, continues that listen. */
+private const val RESUME_TOLERANCE_MS = 5_000L
+private const val RESUME_WINDOW_MS = 24L * 60 * 60 * 1000
 
 @AndroidEntryPoint
 class MusicService : MediaLibraryService(),
@@ -552,15 +560,42 @@ class MusicService : MediaLibraryService(),
      * from, how many songs had autoplayed before it, and the wall clock. Read back when its stats
      * arrive, because by then the queue may already be a different one.
      */
-    private data class StartInfo(
-        val startedAt: Long,
+    private class StartInfo(
         val origin: Int,
         val originSlot: Int,
         val queueId: Long,
         val learn: Boolean,
         val autoplayDepth: Int,
-    )
-    private val startInfo = java.util.concurrent.ConcurrentHashMap<String, StartInfo>()
+        val runId: Long,
+    ) {
+        /** When and where sound first came out, set when the row is opened, not when the item was loaded. */
+        @Volatile var startedAt: Long = 0L
+        @Volatile var startPositionMs: Long = 0L
+        @Volatile var opened = false
+        /** The open listen row for this play: 0 until its insert has run, and completed for whoever waits. */
+        @Volatile var rowId: Long = 0L
+        val rowReady = kotlinx.coroutines.CompletableDeferred<Long>()
+    }
+    /**
+     * Per song id, oldest first. A song can be playing twice over as far as this bookkeeping is
+     * concerned: on repeat-one the next play starts before the stats of the one that ended arrive,
+     * so the stats take the oldest entry and everything about the current play uses the newest.
+     */
+    private val startInfo = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.ConcurrentLinkedDeque<StartInfo>>()
+    private fun currentStart(mediaId: String): StartInfo? = startInfo[mediaId]?.peekLast()
+    private fun takeOldestStart(mediaId: String): StartInfo? {
+        val plays = startInfo[mediaId] ?: return null
+        val oldest = plays.pollFirst()
+        if (plays.isEmpty()) startInfo.remove(mediaId, plays)
+        return oldest
+    }
+
+    /** Set by anything that is the listener choosing a song, read and cleared by the next transition. */
+    @Volatile var userChoicePending = false
+    private val lastKnownPosition = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private var checkpointJob: kotlinx.coroutines.Job? = null
+    private var volumeReceiverRegistered = false
+    private var lastRepeatMode = Player.REPEAT_MODE_OFF
 
     /** How the previous song ended, by media id, written at the transition that ended it. */
     private val pendingEndReasons = java.util.concurrent.ConcurrentHashMap<String, Int>()
@@ -588,8 +623,11 @@ class MusicService : MediaLibraryService(),
                 .getOrNull()?.videoDetails)?.lengthSeconds?.toInt()
             ?: -1
         database.query {
-            if (song == null) insert(mediaMetadata.copy(duration = duration))
-            else if (song.song.duration == -1) update(song.song.copy(duration = duration))
+            // Looked up again here: the listen log inserts a song the moment it starts playing,
+            // with whatever length it had, and an insert is ignored if the row already exists.
+            val existing = songDurationSec(mediaId)
+            if (existing == null) insert(mediaMetadata.copy(duration = duration))
+            else if (existing == -1 && duration != -1) setSongDuration(mediaId, duration)
         }
         if (!database.hasRelatedSongs(mediaId) && relatedLookupFailures.none(mediaId) &&
             relatedInFlight.add(mediaId)
@@ -603,6 +641,7 @@ class MusicService : MediaLibraryService(),
             // This graph is what Quick picks is built from, so anything let in here gets
             // recommended.
             val seedTitle = song?.song?.title ?: mediaMetadata.title
+            val fetchedAt = System.currentTimeMillis()
             val related = relatedPage.songs
                 .distinctBy { it.id }
                 .filterNot { it.id == mediaId || SongVersions.isVersionOf(it.title, seedTitle) }
@@ -617,10 +656,14 @@ class MusicService : MediaLibraryService(),
                     .map {
                         RelatedSongMap(
                             songId = mediaId,
-                            relatedSongId = it.id
+                            relatedSongId = it.id,
+                            fetchedAt = fetchedAt,
                         )
                     }
                     .forEach(::insert)
+                // YouTube's own word on which ids are versions of this song. No songs are inserted
+                // for them: the engine only needs to know they are not candidates.
+                insertVersionMap(relatedPage.otherPerformances.map { SongVersionMap(songId = mediaId, versionId = it.id, fetchedAt = fetchedAt) })
             }
         } finally {
             relatedInFlight.remove(mediaId)
@@ -685,6 +728,10 @@ class MusicService : MediaLibraryService(),
         }
         // Radio was already a flag; it is also an origin, and the more useful of the two.
         val playOrigin = if (origin == PlayOrigin.UNKNOWN && isRadio) PlayOrigin.RADIO else origin
+        // A tap that starts a queue is the listener choosing, and it begins a run: one play of
+        // one queue. Queue ids name a title and are reused, so the run is what learning keys on.
+        userChoicePending = true
+        val runId = System.currentTimeMillis()
 
         var queueTitle = title
         queuePlaylistId = queue.playlistId
@@ -704,6 +751,7 @@ class MusicService : MediaLibraryService(),
                     )
                     q?.origin = playOrigin.code
                     q?.originSlot = originSlot
+                    q?.runId = runId
                     queueBoard.setCurrQueue(q, true)
                 }
 
@@ -736,6 +784,7 @@ class MusicService : MediaLibraryService(),
                     )
                     q?.origin = playOrigin.code
                     q?.originSlot = originSlot
+                    q?.runId = runId
                     queueBoard.setCurrQueue(q, shouldResume)
                 }
 
@@ -800,6 +849,7 @@ class MusicService : MediaLibraryService(),
     }
 
     suspend fun initQueue() {
+        closeOrphanedListens()
         Log.i(TAG, "+initQueue()")
         val persistQueue = dataStore.get(PersistentQueueKey, true)
         val maxQueues = dataStore.get(MaxQueuesKey, 19)
@@ -1197,10 +1247,22 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
+        if (isPlaying) {
+            player.currentMediaItem?.mediaId?.let { id -> currentStart(id)?.takeIf { !it.opened }?.let { openListen(id, it) } }
+        }
         if (!isPlaying) {
             val pos = player.currentPosition
+            // A pause is where a stop will have happened if the app dies now, so the open row
+            // learns the position at once rather than at the next minute mark.
+            player.currentMediaItem?.mediaId?.let { id ->
+                lastKnownPosition[id] = pos
+                currentStart(id)?.let { checkpointListen(it, pos) }
+            }
             val q = queueBoard.getCurrentQueue()
             q?.lastSongPos = pos
+            // Written through at once, so a process the system kills while paused still comes back
+            // where it was. Until now the position only reached the database in onDestroy.
+            q?.let { mq -> database.query { runCatching { updateQueue(mq) }.onFailure { Log.w(TAG, "Could not save the paused position", it) } } }
         }
         super.onIsPlayingChanged(isPlaying)
     }
@@ -1303,19 +1365,175 @@ class MusicService : MediaLibraryService(),
                 else -> EndReason.UNKNOWN
             }
         }
-        autoplayRun = if (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO) autoplayRun + 1 else 0
-        val q = queueBoard.getCurrentQueue()
-        mediaItem?.mediaId?.let { id ->
-            startInfo[id] = StartInfo(
-                startedAt = System.currentTimeMillis(),
-                origin = q?.origin ?: PlayOrigin.UNKNOWN.code,
-                originSlot = q?.originSlot ?: -1,
-                queueId = q?.id ?: 0L,
-                learn = q?.learn ?: true,
-                autoplayDepth = autoplayRun,
-            )
+        // Depth resets when the listener chose this song (a new queue, or a tap in the queue sheet,
+        // both of which set the mark) and grows otherwise: a song reached by the next button was not
+        // chosen, it was the one after the one rejected. A repeat is the same choice again, and a
+        // playlist change with no mark is a queue restored at launch or switched to by hand.
+        val chosen = userChoicePending
+        userChoicePending = false
+        autoplayRun = when {
+            chosen || reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED -> 0
+            reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT -> autoplayRun
+            else -> autoplayRun + 1
         }
-        lastMediaId = mediaItem?.mediaId
+        checkpointJob?.cancel()
+        val q = queueBoard.getCurrentQueue()
+        val id = mediaItem?.mediaId ?: run { lastMediaId = null; return }
+        val info = StartInfo(
+            origin = q?.origin ?: PlayOrigin.UNKNOWN.code,
+            originSlot = q?.originSlot ?: -1,
+            queueId = q?.id ?: 0L,
+            learn = q?.learn ?: true,
+            autoplayDepth = autoplayRun,
+            runId = q?.runId ?: 0L,
+        )
+        startInfo.getOrPut(id) { java.util.concurrent.ConcurrentLinkedDeque() }.addLast(info)
+        lastMediaId = id
+        if (!volumeReceiverRegistered) registerVolumeReceiver()
+        // A loaded item is not a listen: the queue restored at launch sits here unplayed. The row
+        // opens when sound starts, which is now if playback carried straight over, and otherwise
+        // in onIsPlayingChanged.
+        if (player.isPlaying) openListen(id, info)
+        checkpointJob = offloadScope.launch {
+            while (true) {
+                delay(CHECKPOINT_MS)
+                val pos = withContext(Dispatchers.Main) { if (player.currentMediaItem?.mediaId == id) player.currentPosition else -1L }
+                if (pos < 0) break
+                checkpointListen(info, pos)
+            }
+        }
+    }
+
+    /**
+     * Opens the listen row the moment a song starts, so a play the app dies in the middle of still
+     * leaves a usable record, and links it to an earlier fragment when this is the listener coming
+     * back to where they left off: same song, resumed within five seconds of where it stopped, in
+     * the last day. A stop is not a verdict; the chain is graded once, as one listen.
+     */
+    private fun openListen(mediaId: String, info: StartInfo) {
+        info.opened = true
+        info.startedAt = System.currentTimeMillis()
+        info.startPositionMs = player.currentPosition.coerceAtLeast(0L)
+        if (dataStore.get(PauseListenHistoryKey, false)) { info.rowReady.complete(0L); return }
+        val metadata = player.currentMediaItem?.takeIf { it.mediaId == mediaId }?.metadata
+        database.transaction {
+            runCatching {
+                // The row points at the song table, and recoverSong may still be fetching the
+                // length before it writes the song; a song with no length yet is still a song.
+                if (!songExists(mediaId)) metadata?.let { insert(it) }
+                val previous = lastStoppedListen(mediaId)
+                val continues = previous?.takeIf {
+                    it.endReason == EndReason.STOPPED && it.endPositionMs >= 0 &&
+                        kotlin.math.abs(info.startPositionMs - it.endPositionMs) <= RESUME_TOLERANCE_MS &&
+                        info.startedAt - maxOf(it.endedAt, it.startedAt) <= RESUME_WINDOW_MS
+                }?.id
+                val last = lastListen()
+                val sessionId = if (last == null || info.startedAt - last.endedAt > SESSION_GAP_MS) info.startedAt else last.sessionId
+                val rowId = insert(
+                    Listen(
+                        songId = mediaId, startedAt = info.startedAt, endedAt = 0L,
+                        tzOffsetMin = java.util.TimeZone.getDefault().getOffset(info.startedAt) / 60_000,
+                        playedMs = 0L, durationMs = -1L, ratio = -1f, endReason = EndReason.OPEN,
+                        origin = info.origin, originSlot = info.originSlot, queueId = info.queueId,
+                        autoplayDepth = info.autoplayDepth, sessionId = sessionId, counted = false,
+                        learn = info.learn, runId = info.runId, endPositionMs = -1L,
+                        continuesListenId = continues,
+                    )
+                )
+                info.rowId = rowId
+                info.rowReady.complete(rowId)
+            }.onFailure { Log.w(TAG, "Could not open listen", it); info.rowReady.complete(0L) }
+        }
+    }
+
+    /** A play too short to be a listen: its open row goes, as if it had never been written. */
+    private fun discardListen(info: StartInfo) {
+        val rowId = info.rowId.takeIf { it > 0 } ?: return
+        database.query {
+            runCatching { discardOpenListen(rowId) }.onFailure { Log.w(TAG, "Could not discard listen", it) }
+        }
+    }
+
+    /** How far this play got, written to its open row: a death then loses at most a minute. */
+    private fun checkpointListen(info: StartInfo, positionMs: Long) {
+        val rowId = info.rowId.takeIf { it > 0 } ?: return
+        database.query {
+            runCatching { checkpoint(rowId, (positionMs - info.startPositionMs).coerceAtLeast(0L), positionMs) }
+                .onFailure { Log.w(TAG, "Could not checkpoint listen", it) }
+        }
+    }
+
+    /**
+     * Rows left open by a death are closed as stopped, from their last checkpoint, at the next
+     * start. The length comes from the song table, so the ratio and the counted flag mean the same
+     * as on a row the player closed itself.
+     */
+    private fun closeOrphanedListens() {
+        val threshold = (dataStore.get(minPlaybackDurKey, 30).toFloat() / 100).coerceIn(0.01f, 0.99f)
+        database.query {
+            runCatching {
+                openListens().forEach { open ->
+                    val durationMs = songDurationSec(open.songId)?.takeIf { it > 0 }?.times(1000L) ?: -1L
+                    val ratio = if (durationMs > 0) open.playedMs.toFloat() / durationMs else -1f
+                    update(open.copy(
+                        endReason = EndReason.STOPPED, endedAt = open.startedAt + open.playedMs,
+                        durationMs = durationMs, ratio = ratio, counted = ratio >= threshold,
+                    ))
+                }
+            }.onFailure { Log.w(TAG, "Could not close orphaned listens", it) }
+        }
+    }
+
+    private fun noteSignal(mediaId: String, kind: Int, positionMs: Long = -1L, value: Float = 0f) {
+        if (dataStore.get(PauseListenHistoryKey, false)) return
+        val now = System.currentTimeMillis()
+        val listenId = currentStart(mediaId)?.rowId?.takeIf { it > 0 }
+        database.query {
+            runCatching { insertSignal(ListenSignal(listenId = listenId, songId = mediaId, kind = kind, positionMs = positionMs, value = value, at = now)) }
+                .onFailure { Log.w(TAG, "Could not record signal", it) }
+        }
+    }
+
+    private val volumeReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", -1) != android.media.AudioManager.STREAM_MUSIC) return
+            if (!player.isPlaying) return
+            val now = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_VALUE", -1)
+            val before = intent.getIntExtra("android.media.EXTRA_PREV_VOLUME_STREAM_VALUE", -1)
+            if (now < 0 || before < 0 || now == before) return
+            val id = player.currentMediaItem?.mediaId ?: return
+            noteSignal(id, if (now > before) SignalKind.VOLUME_UP else SignalKind.VOLUME_DOWN, player.currentPosition, (now - before).toFloat())
+        }
+    }
+
+    private fun registerVolumeReceiver() {
+        runCatching {
+            androidx.core.content.ContextCompat.registerReceiver(
+                this, volumeReceiver, android.content.IntentFilter("android.media.VOLUME_CHANGED_ACTION"),
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+            volumeReceiverRegistered = true
+        }.onFailure { Log.w(TAG, "Could not listen for volume changes", it) }
+    }
+
+    /**
+     * Where the song that just ended was when it ended, and seeks inside the same song. Back is
+     * "hear that again"; forward past a part is a mild no.
+     */
+    override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+        super.onPositionDiscontinuity(oldPosition, newPosition, reason)
+        val itemChanged = oldPosition.mediaItemIndex != newPosition.mediaItemIndex ||
+            oldPosition.mediaItem?.mediaId != newPosition.mediaItem?.mediaId ||
+            reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION
+        if (itemChanged) {
+            oldPosition.mediaItem?.mediaId?.let { lastKnownPosition[it] = oldPosition.positionMs }
+            return
+        }
+        if (reason != Player.DISCONTINUITY_REASON_SEEK) return
+        val id = newPosition.mediaItem?.mediaId ?: return
+        val delta = newPosition.positionMs - oldPosition.positionMs
+        if (kotlin.math.abs(delta) < 3_000) return
+        noteSignal(id, if (delta < 0) SignalKind.SEEK_BACK else SignalKind.SEEK_FORWARD, newPosition.positionMs, delta / 1000f)
     }
 
     /**
@@ -1333,7 +1551,7 @@ class MusicService : MediaLibraryService(),
         counted: Boolean,
     ) {
         val endedAt = System.currentTimeMillis()
-        val info = startInfo.remove(mediaId)
+        val info = takeOldestStart(mediaId)
         val endReason = when {
             playbackStats.endedCount > 0 -> EndReason.ENDED
             else -> pendingEndReasons.remove(mediaId) ?: run {
@@ -1344,6 +1562,23 @@ class MusicService : MediaLibraryService(),
         val startedAt = info?.startedAt
             ?: (endedAt - playbackStats.totalPlayTimeMs - playbackStats.totalPausedTimeMs)
         val offsetMin = java.util.TimeZone.getDefault().getOffset(endedAt) / 60_000
+        val durationMs = if (durationSec > 0) durationSec * 1000L else -1L
+        val endPosition = lastKnownPosition.remove(mediaId) ?: if (endReason == EndReason.ENDED) durationMs else -1L
+        // The row was opened when the song started; this closes it. Only a missing open row (the
+        // insert failed) falls through to writing a whole row now.
+        val openId = info?.takeIf { it.opened }?.let { kotlinx.coroutines.withTimeoutOrNull(2_000) { it.rowReady.await() } } ?: 0L
+        if (openId > 0L) {
+            database.transaction {
+                runCatching {
+                    val open = openListens().firstOrNull { it.id == openId } ?: return@transaction
+                    update(open.copy(
+                        endedAt = endedAt, playedMs = playbackStats.totalPlayTimeMs, durationMs = durationMs,
+                        ratio = ratio, endReason = endReason, counted = counted, endPositionMs = endPosition,
+                    ))
+                }.onFailure { Log.w(TAG, "Could not close listen", it) }
+            }
+            return
+        }
         database.transaction {
             // A session is a run of listening with no gap over 30 minutes, measured from the end of
             // one play to the start of the next. The same boundary Flow and the ACT-R relistening
@@ -1406,7 +1641,8 @@ class MusicService : MediaLibraryService(),
                 runCatching { logListen(mediaItem.mediaId, playbackStats, durationSec, playRatio, counted) }
                     .onFailure { Log.w(TAG, "Could not log listen", it) }
             } else {
-                startInfo.remove(mediaItem.mediaId); pendingEndReasons.remove(mediaItem.mediaId)
+                takeOldestStart(mediaItem.mediaId)?.let(::discardListen)
+                pendingEndReasons.remove(mediaItem.mediaId); lastKnownPosition.remove(mediaItem.mediaId)
             }
             if (counted && !historyPaused) {
                 database.query {
@@ -1462,6 +1698,14 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onRepeatModeChanged(repeatMode: Int) {
+        // Only repeat-one says something about this song; all and off say something about the queue.
+        val kind = when {
+            repeatMode == Player.REPEAT_MODE_ONE -> SignalKind.REPEAT_ONE_ON
+            lastRepeatMode == Player.REPEAT_MODE_ONE -> SignalKind.REPEAT_ONE_OFF
+            else -> null
+        }
+        lastRepeatMode = repeatMode
+        if (kind != null) player.currentMediaItem?.mediaId?.let { id -> noteSignal(id, kind, player.currentPosition) }
         updateNotification()
         offloadScope.launch {
             dataStore.edit { settings ->
@@ -1489,6 +1733,8 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onDestroy() {
+        if (volumeReceiverRegistered) runCatching { unregisterReceiver(volumeReceiver) }
+        checkpointJob?.cancel()
         Log.i(TAG, "Terminating MusicService.")
 
         // Only clear it if it is still ours; a newer service instance may already have replaced it.

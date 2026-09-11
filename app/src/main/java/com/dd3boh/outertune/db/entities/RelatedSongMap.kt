@@ -26,4 +26,8 @@ data class RelatedSongMap(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @ColumnInfo(index = true) val songId: String,
     @ColumnInfo(index = true) val relatedSongId: String,
+    /** When this edge was fetched; 0 for edges older than the column, which are never refreshed. */
+    @ColumnInfo(defaultValue = "0") val fetchedAt: Long = 0,
+    /** 0 YouTube related, 1 Last.fm similar. */
+    @ColumnInfo(defaultValue = "0") val source: Int = 0,
 )

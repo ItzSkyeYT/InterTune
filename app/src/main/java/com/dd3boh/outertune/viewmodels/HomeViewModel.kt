@@ -63,6 +63,7 @@ class HomeViewModel @Inject constructor(
     private var shownBuildIds: List<String> = emptyList()
     private var currentBuildId = 0L
     private var currentBuildSongs: List<String> = emptyList()
+    private var currentTeam = 0
     private val loggedSlots = HashSet<Int>()
 
     /** A new set of songs is on screen. Called whenever the shown list changes, including on refresh. */
@@ -78,11 +79,20 @@ class HomeViewModel @Inject constructor(
                 // song, and YouTube's row arrives from the feed, not from the table.
                 songs.forEach { if (!songExists(it.id)) insert(it) }
                 val sessionId = lastListen()?.sessionId ?: now
-                currentBuildId = insert(RowBuild(builtAt = now, source = source, sessionId = sessionId, modelVersion = 0))
+                currentBuildId = insert(RowBuild(builtAt = now, rowKey = if (source == 1) 3 else 2, sessionId = sessionId, bucket = dayPartBucket(now)))
                 currentBuildSongs = ids
+                currentTeam = if (source == 1) 3 else 2
                 loggedSlots.clear()
             }.onFailure { Log.w("HomeViewModel", "Could not record the Quick picks build", it) }
         }
+    }
+
+    /** Weekday or weekend, times night 0 to 5, morning 6 to 11, afternoon 12 to 17, evening 18 to 23. */
+    private fun dayPartBucket(at: Long): Int {
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = at }
+        val weekend = cal.get(java.util.Calendar.DAY_OF_WEEK).let { it == java.util.Calendar.SATURDAY || it == java.util.Calendar.SUNDAY }
+        val part = cal.get(java.util.Calendar.HOUR_OF_DAY) / 6
+        return (if (weekend) 4 else 0) + part
     }
 
     /** A card has been at least half visible for long enough to count as seen. */
@@ -93,7 +103,7 @@ class HomeViewModel @Inject constructor(
             runCatching {
                 val songId = currentBuildSongs.getOrNull(slot) ?: return@transaction
                 if (currentBuildId == 0L || !loggedSlots.add(slot)) return@transaction
-                insertImpressions(listOf(Impression(buildId = currentBuildId, songId = songId, slot = slot, p = -1f, shownAt = now)))
+                insertImpressions(listOf(Impression(buildId = currentBuildId, songId = songId, slot = slot, team = currentTeam, visibleAt = now)))
             }.onFailure { Log.w("HomeViewModel", "Could not record an impression", it) }
         }
     }

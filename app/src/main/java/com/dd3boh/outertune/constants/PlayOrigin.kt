@@ -28,7 +28,13 @@ enum class PlayOrigin(val code: Int) {
     STATS(10),
     QUEUE(11),
     LOCAL_FILES(12),
-    MENU(13);
+    MENU(13),
+    /** Playback resumed by the system after a restart, through onPlaybackResumption. */
+    RESUMED(14),
+    /** Set by another app or a controller, through onSetMediaItems. */
+    EXTERNAL(15),
+    /** A song the listener identified by ear, which is as deliberate as a search. */
+    RECOGNISED(16);
 
     companion object {
         fun fromCode(code: Int): PlayOrigin = entries.firstOrNull { it.code == code } ?: UNKNOWN
@@ -51,4 +57,25 @@ object EndReason {
     const val REPLACED = 3
     /** Playback stopped: paused and never resumed, the app closed, the service released. */
     const val STOPPED = 4
+    /** Playback failed. */
+    const val ERROR = 5
+    /** Still playing, or the app died before this row was closed. Closed as STOPPED on the next launch. */
+    const val OPEN = 6
+}
+
+/** Things the listener did during or about a song, beyond playing it. Stored by code. */
+object SignalKind {
+    const val SEEK_BACK = 1
+    const val SEEK_FORWARD = 2
+    const val REPEAT_ONE_ON = 3
+    const val REPEAT_ONE_OFF = 4
+    const val VOLUME_UP = 5
+    const val VOLUME_DOWN = 6
+    const val ADD_TO_PLAYLIST = 7
+    const val DOWNLOAD = 8
+    const val SHARE = 9
+    const val LYRICS = 10
+    const val ARTIST_PAGE = 11
+    const val REMOVED_FROM_QUEUE = 12
+    const val CARD_DISMISSED = 13
 }

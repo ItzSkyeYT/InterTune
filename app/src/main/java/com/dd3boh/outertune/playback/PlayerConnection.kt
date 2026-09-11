@@ -125,6 +125,9 @@ class PlayerConnection(
         )
     }
 
+    /** The listener is choosing the next song themselves; the next transition is not an autoplay. */
+    fun markUserChoice() { service.userChoicePending = true }
+
     /**
      * Add item to queue, right after current playing item
      */

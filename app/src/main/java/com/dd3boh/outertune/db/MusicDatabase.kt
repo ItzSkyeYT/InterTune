@@ -20,6 +20,10 @@ import com.dd3boh.outertune.db.entities.AlbumArtistMap
 import com.dd3boh.outertune.db.entities.AlbumEntity
 import com.dd3boh.outertune.db.entities.ArtistEntity
 import com.dd3boh.outertune.db.entities.Event
+import com.dd3boh.outertune.db.entities.ListenSignal
+import com.dd3boh.outertune.db.entities.SongVersionMap
+import com.dd3boh.outertune.db.entities.RecommendationExclusion
+import com.dd3boh.outertune.db.entities.EngineWeight
 import com.dd3boh.outertune.db.entities.Impression
 import com.dd3boh.outertune.db.entities.RowBuild
 import com.dd3boh.outertune.db.entities.Listen
@@ -99,6 +103,10 @@ class MusicDatabase(
         Listen::class,
         RowBuild::class,
         Impression::class,
+        EngineWeight::class,
+        RecommendationExclusion::class,
+        SongVersionMap::class,
+        ListenSignal::class,
     ],
     views = [
         SortedSongArtistMap::class,

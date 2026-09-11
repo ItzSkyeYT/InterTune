@@ -839,7 +839,7 @@ fun BoxScope.QueueContent(
                                                         detachedQueue?.setCurrentQueuePos(index)
                                                         qb.setCurrQueue(detachedQueue, false)
                                                     } else {
-                                                        playerConnection.player.seekToDefaultPosition(index)
+                                                        playerConnection.markUserChoice(); playerConnection.player.seekToDefaultPosition(index)
                                                     }
                                                     playerConnection.player.prepare() // else cannot click to play after auto-skip onError stop
                                                     playerConnection.player.playWhenReady = true

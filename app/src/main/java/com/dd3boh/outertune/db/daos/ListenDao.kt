@@ -8,6 +8,10 @@ package com.dd3boh.outertune.db.daos
 
 import androidx.room.Dao
 import androidx.room.Insert
+import com.dd3boh.outertune.db.entities.SongVersionMap
+import com.dd3boh.outertune.db.entities.ListenSignal
+import androidx.room.OnConflictStrategy
+import androidx.room.Update
 import androidx.room.Query
 import com.dd3boh.outertune.db.entities.Impression
 import com.dd3boh.outertune.db.entities.Listen
@@ -20,13 +24,40 @@ interface ListenDao {
     @Insert
     fun insert(listen: Listen): Long
 
+    @Update
+    fun update(listen: Listen)
+
+    /** Rows opened at play start that were never closed: the app died with them playing. */
+    @Query("SELECT * FROM listen WHERE endReason = 6")
+    fun openListens(): List<Listen>
+
+    @Query("UPDATE listen SET playedMs = :playedMs, endPositionMs = :positionMs WHERE id = :id AND endReason = 6")
+    fun checkpoint(id: Long, playedMs: Long, positionMs: Long)
+
+    /** The latest stopped or still-open play of this song, for linking a resume to it. */
+    @Query("DELETE FROM listen WHERE id = :id AND endReason = 6")
+    fun discardOpenListen(id: Long)
+
+    @Query("SELECT * FROM listen WHERE songId = :songId AND endReason IN (4, 6) ORDER BY id DESC LIMIT 1")
+    fun lastStoppedListen(songId: String): Listen?
+
+    @Insert
+    fun insertSignal(signal: ListenSignal)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertVersionMap(rows: List<SongVersionMap>)
+
+    @Query("SELECT COUNT(*) FROM listen_signal")
+    fun signalCount(): Flow<Int>
+
     @Insert
     fun insert(build: RowBuild): Long
 
     @Insert
     fun insertImpressions(impressions: List<Impression>)
 
-    @Query("SELECT * FROM listen ORDER BY endedAt DESC LIMIT 1")
+    /** The latest closed listen, for the session rule; an open row has no end yet. */
+    @Query("SELECT * FROM listen WHERE endReason != 6 ORDER BY endedAt DESC LIMIT 1")
     fun lastListen(): Listen?
 
     /** Pulls a queue out of what the engine learns from, after the fact. */
@@ -61,6 +92,12 @@ interface ListenDao {
         ORDER BY listen.endedAt DESC LIMIT :limit
     """)
     fun recentListenRows(limit: Int): Flow<List<ListenRow>>
+
+    @Query("SELECT duration FROM song WHERE id = :id")
+    fun songDurationSec(id: String): Int?
+
+    @Query("UPDATE song SET duration = :duration WHERE id = :id")
+    fun setSongDuration(id: String, duration: Int)
 
     @Query("SELECT EXISTS(SELECT 1 FROM song WHERE id = :id)")
     fun songExists(id: String): Boolean
