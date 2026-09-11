@@ -14,16 +14,24 @@ import androidx.room.PrimaryKey
  * One assembly of a recommendation row.
  *
  * An impression only means something against the row it belonged to: which source built it, when,
- * and with which model. Kept small on purpose; the candidates are in [Impression].
+ * under which settings, and with which weights. The unshown candidates are kept for a fortnight so
+ * a song the listener went and played on their own can still be recognised as a pick the engine
+ * had rated low.
  */
 @Immutable
 @Entity(tableName = "row_build")
 data class RowBuild(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val builtAt: Long,
-    /** A [com.dd3boh.outertune.constants.QuickPicksSource] ordinal-free code: 0 library query, 1 YouTube, 2 engine. */
-    val source: Int,
+    /** 1 engine, 2 classic query, 3 YouTube's row, 4 shadow build, 5 compare. */
+    val rowKey: Int,
     val sessionId: Long,
-    val modelVersion: Int,
-    val context: String? = null,
+    /** Weekday or weekend times night, morning, afternoon, evening: 0 to 7. */
+    val bucket: Int = 0,
+    val contextChip: Int = 0,
+    val dial: Int = 15,
+    val engineVersion: Int = 0,
+    val seeds: String = "[]",
+    val weights: String = "{}",
+    val pool: String? = null,
 )

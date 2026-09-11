@@ -64,4 +64,14 @@ data class Listen(
     val counted: Boolean,
     /** False when the listener has said this queue should not teach the engine. */
     @ColumnInfo(defaultValue = "1") val learn: Boolean = true,
+    /** One play of one queue, from the tap that started it. A queue id names a title; this names an episode. */
+    @ColumnInfo(defaultValue = "0") val runId: Long = 0,
+    /** Where playback was when it stopped, so a later resume from there can be linked to this row. */
+    @ColumnInfo(defaultValue = "-1") val endPositionMs: Long = -1,
+    /** The earlier fragment this play continued, when the listener paused, left, and came back. */
+    val continuesListenId: Long? = null,
+    /** The Quick picks impression this play came from, when it did. */
+    val impressionId: Long? = null,
+    val tappedAt: Long? = null,
+    @ColumnInfo(defaultValue = "0") val contextChip: Int = 0,
 )

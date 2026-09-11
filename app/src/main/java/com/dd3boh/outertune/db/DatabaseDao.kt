@@ -392,6 +392,7 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
                 origin = mq.origin,
                 originSlot = mq.originSlot,
                 learn = mq.learn,
+                runId = mq.runId,
                 lastSongPos = mq.lastSongPos,
                 index = mq.index,
                 playlistId = mq.playlistId

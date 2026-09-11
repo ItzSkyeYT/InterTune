@@ -29,6 +29,8 @@ data class MultiQueueObject(
     var originSlot: Int = -1,
     /** False when the listener has asked that this queue not teach the engine. */
     var learn: Boolean = true,
+    /** The current run: one play of this queue from the tap that started it. */
+    var runId: Long = 0,
 ) {
 
     /**

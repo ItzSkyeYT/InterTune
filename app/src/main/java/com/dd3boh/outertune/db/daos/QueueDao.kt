@@ -50,6 +50,7 @@ interface QueueDao {
                     origin = queue.origin,
                     originSlot = queue.originSlot,
                     learn = queue.learn,
+                    runId = queue.runId,
                     lastSongPos = queue.lastSongPos,
                     index = queue.index,
                     playlistId = queue.playlistId
@@ -80,6 +81,7 @@ interface QueueDao {
             origin = q.origin,
             originSlot = q.originSlot,
             learn = q.learn,
+            runId = q.runId,
             lastSongPos = q.lastSongPos,
             index = q.index,
             playlistId = q.playlistId
@@ -110,6 +112,7 @@ interface QueueDao {
                 origin = mq.origin,
                 originSlot = mq.originSlot,
                 learn = mq.learn,
+                runId = mq.runId,
                 lastSongPos = mq.lastSongPos,
                 index = mq.index,
                 playlistId = mq.playlistId

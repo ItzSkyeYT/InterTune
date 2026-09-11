@@ -26,6 +26,9 @@ data class QueueEntity(
     /** False when the listener has asked that this queue not teach the engine. */
     @ColumnInfo(name = "learn", defaultValue = "1")
     var learn: Boolean = true,
+    /** The current run: one play of this queue from the tap that started it. */
+    @ColumnInfo(name = "runId", defaultValue = "0")
+    var runId: Long = 0,
 ) {
     companion object {
         fun generateQueueId() = RandomStringUtils.insecure().next(8, false, true).toLong()

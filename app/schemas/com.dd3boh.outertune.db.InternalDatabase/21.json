@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 21,
-    "identityHash": "2388c159b6664bbcc7589d6c17dc047b",
+    "identityHash": "7f583938f2a0bb98d8d3390ce5fc7027",
     "entities": [
       {
         "tableName": "song",
@@ -699,7 +699,7 @@
       },
       {
         "tableName": "queue",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `title` TEXT NOT NULL DEFAULT '', `shuffled` INTEGER NOT NULL, `queuePos` INTEGER NOT NULL, `lastSongPos` INTEGER NOT NULL DEFAULT -9223372036854775807, `index` INTEGER NOT NULL DEFAULT 0, `playlistId` TEXT, `origin` INTEGER NOT NULL DEFAULT 0, `originSlot` INTEGER NOT NULL DEFAULT -1, `learn` INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `title` TEXT NOT NULL DEFAULT '', `shuffled` INTEGER NOT NULL, `queuePos` INTEGER NOT NULL, `lastSongPos` INTEGER NOT NULL DEFAULT -9223372036854775807, `index` INTEGER NOT NULL DEFAULT 0, `playlistId` TEXT, `origin` INTEGER NOT NULL DEFAULT 0, `originSlot` INTEGER NOT NULL DEFAULT -1, `learn` INTEGER NOT NULL DEFAULT 1, `runId` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -765,6 +765,13 @@
             "affinity": "INTEGER",
             "notNull": true,
             "defaultValue": "1"
+          },
+          {
+            "fieldPath": "runId",
+            "columnName": "runId",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -1167,7 +1174,7 @@
       },
       {
         "tableName": "related_song_map",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `songId` TEXT NOT NULL, `relatedSongId` TEXT NOT NULL, FOREIGN KEY(`songId`) REFERENCES `song`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`relatedSongId`) REFERENCES `song`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `songId` TEXT NOT NULL, `relatedSongId` TEXT NOT NULL, `fetchedAt` INTEGER NOT NULL DEFAULT 0, `source` INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(`songId`) REFERENCES `song`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`relatedSongId`) REFERENCES `song`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1186,6 +1193,20 @@
             "columnName": "relatedSongId",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "fetchedAt",
+            "columnName": "fetchedAt",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -1309,7 +1330,7 @@
       },
       {
         "tableName": "listen",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `songId` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `endedAt` INTEGER NOT NULL, `tzOffsetMin` INTEGER NOT NULL, `playedMs` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL, `ratio` REAL NOT NULL, `endReason` INTEGER NOT NULL, `origin` INTEGER NOT NULL, `originSlot` INTEGER NOT NULL, `queueId` INTEGER NOT NULL, `autoplayDepth` INTEGER NOT NULL, `sessionId` INTEGER NOT NULL, `counted` INTEGER NOT NULL, `learn` INTEGER NOT NULL DEFAULT 1, FOREIGN KEY(`songId`) REFERENCES `song`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `songId` TEXT NOT NULL, `startedAt` INTEGER NOT NULL, `endedAt` INTEGER NOT NULL, `tzOffsetMin` INTEGER NOT NULL, `playedMs` INTEGER NOT NULL, `durationMs` INTEGER NOT NULL, `ratio` REAL NOT NULL, `endReason` INTEGER NOT NULL, `origin` INTEGER NOT NULL, `originSlot` INTEGER NOT NULL, `queueId` INTEGER NOT NULL, `autoplayDepth` INTEGER NOT NULL, `sessionId` INTEGER NOT NULL, `counted` INTEGER NOT NULL, `learn` INTEGER NOT NULL DEFAULT 1, `runId` INTEGER NOT NULL DEFAULT 0, `endPositionMs` INTEGER NOT NULL DEFAULT -1, `continuesListenId` INTEGER, `impressionId` INTEGER, `tappedAt` INTEGER, `contextChip` INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(`songId`) REFERENCES `song`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1407,6 +1428,42 @@
             "affinity": "INTEGER",
             "notNull": true,
             "defaultValue": "1"
+          },
+          {
+            "fieldPath": "runId",
+            "columnName": "runId",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "endPositionMs",
+            "columnName": "endPositionMs",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "-1"
+          },
+          {
+            "fieldPath": "continuesListenId",
+            "columnName": "continuesListenId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "impressionId",
+            "columnName": "impressionId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "tappedAt",
+            "columnName": "tappedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "contextChip",
+            "columnName": "contextChip",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           }
         ],
         "primaryKey": {
@@ -1469,7 +1526,7 @@
       },
       {
         "tableName": "row_build",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `builtAt` INTEGER NOT NULL, `source` INTEGER NOT NULL, `sessionId` INTEGER NOT NULL, `modelVersion` INTEGER NOT NULL, `context` TEXT)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `builtAt` INTEGER NOT NULL, `rowKey` INTEGER NOT NULL, `sessionId` INTEGER NOT NULL, `bucket` INTEGER NOT NULL, `contextChip` INTEGER NOT NULL, `dial` INTEGER NOT NULL, `engineVersion` INTEGER NOT NULL, `seeds` TEXT NOT NULL, `weights` TEXT NOT NULL, `pool` TEXT)",
         "fields": [
           {
             "fieldPath": "id",
@@ -1484,8 +1541,8 @@
             "notNull": true
           },
           {
-            "fieldPath": "source",
-            "columnName": "source",
+            "fieldPath": "rowKey",
+            "columnName": "rowKey",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -1496,14 +1553,44 @@
             "notNull": true
           },
           {
-            "fieldPath": "modelVersion",
-            "columnName": "modelVersion",
+            "fieldPath": "bucket",
+            "columnName": "bucket",
             "affinity": "INTEGER",
             "notNull": true
           },
           {
-            "fieldPath": "context",
-            "columnName": "context",
+            "fieldPath": "contextChip",
+            "columnName": "contextChip",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dial",
+            "columnName": "dial",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "engineVersion",
+            "columnName": "engineVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "seeds",
+            "columnName": "seeds",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weights",
+            "columnName": "weights",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pool",
+            "columnName": "pool",
             "affinity": "TEXT"
           }
         ],
@@ -1516,7 +1603,7 @@
       },
       {
         "tableName": "impression",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `buildId` INTEGER NOT NULL, `songId` TEXT NOT NULL, `slot` INTEGER NOT NULL, `p` REAL NOT NULL, `featuresJson` TEXT, `shownAt` INTEGER NOT NULL, `visibleMs` INTEGER NOT NULL, `outcomeListenId` INTEGER, FOREIGN KEY(`buildId`) REFERENCES `row_build`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`songId`) REFERENCES `song`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `buildId` INTEGER NOT NULL, `songId` TEXT NOT NULL, `slot` INTEGER NOT NULL, `lane` INTEGER NOT NULL DEFAULT 0, `team` INTEGER NOT NULL DEFAULT 0, `sampled` INTEGER NOT NULL DEFAULT 0, `p` REAL, `features` TEXT, `reasons` TEXT, `visibleAt` INTEGER, `visibleMs` INTEGER NOT NULL DEFAULT 0, `tappedAt` INTEGER, `outcome` INTEGER NOT NULL DEFAULT 0, `listenId` INTEGER, `y` REAL, `u` REAL, `gradedAt` INTEGER, `appliedAt` INTEGER, FOREIGN KEY(`buildId`) REFERENCES `row_build`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`songId`) REFERENCES `song`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -1543,31 +1630,88 @@
             "notNull": true
           },
           {
-            "fieldPath": "p",
-            "columnName": "p",
-            "affinity": "REAL",
-            "notNull": true
+            "fieldPath": "lane",
+            "columnName": "lane",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
-            "fieldPath": "featuresJson",
-            "columnName": "featuresJson",
+            "fieldPath": "team",
+            "columnName": "team",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "sampled",
+            "columnName": "sampled",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "p",
+            "columnName": "p",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "features",
+            "columnName": "features",
             "affinity": "TEXT"
           },
           {
-            "fieldPath": "shownAt",
-            "columnName": "shownAt",
-            "affinity": "INTEGER",
-            "notNull": true
+            "fieldPath": "reasons",
+            "columnName": "reasons",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "visibleAt",
+            "columnName": "visibleAt",
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "visibleMs",
             "columnName": "visibleMs",
             "affinity": "INTEGER",
-            "notNull": true
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
-            "fieldPath": "outcomeListenId",
-            "columnName": "outcomeListenId",
+            "fieldPath": "tappedAt",
+            "columnName": "tappedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "outcome",
+            "columnName": "outcome",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "listenId",
+            "columnName": "listenId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "y",
+            "columnName": "y",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "u",
+            "columnName": "u",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "gradedAt",
+            "columnName": "gradedAt",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "appliedAt",
+            "columnName": "appliedAt",
             "affinity": "INTEGER"
           }
         ],
@@ -1597,13 +1741,13 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_impression_songId` ON `${TABLE_NAME}` (`songId`)"
           },
           {
-            "name": "index_impression_shownAt",
+            "name": "index_impression_visibleAt",
             "unique": false,
             "columnNames": [
-              "shownAt"
+              "visibleAt"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_impression_shownAt` ON `${TABLE_NAME}` (`shownAt`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_impression_visibleAt` ON `${TABLE_NAME}` (`visibleAt`)"
           }
         ],
         "foreignKeys": [
@@ -1630,6 +1774,232 @@
             ]
           }
         ]
+      },
+      {
+        "tableName": "engine_weight",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`name` TEXT NOT NULL, `value` REAL NOT NULL, `prior` REAL NOT NULL, `lo` REAL NOT NULL, `hi` REAL NOT NULL, `updates` INTEGER NOT NULL, PRIMARY KEY(`name`))",
+        "fields": [
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "prior",
+            "columnName": "prior",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lo",
+            "columnName": "lo",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hi",
+            "columnName": "hi",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updates",
+            "columnName": "updates",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "name"
+          ]
+        }
+      },
+      {
+        "tableName": "recommendation_exclusion",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `kind` INTEGER NOT NULL, `targetId` TEXT NOT NULL, `label` TEXT NOT NULL, `reason` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `expiresAt` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetId",
+            "columnName": "targetId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "label",
+            "columnName": "label",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiresAt",
+            "columnName": "expiresAt",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_recommendation_exclusion_kind_targetId",
+            "unique": true,
+            "columnNames": [
+              "kind",
+              "targetId"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_recommendation_exclusion_kind_targetId` ON `${TABLE_NAME}` (`kind`, `targetId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "song_version_map",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`songId` TEXT NOT NULL, `versionId` TEXT NOT NULL, `fetchedAt` INTEGER NOT NULL, PRIMARY KEY(`songId`, `versionId`))",
+        "fields": [
+          {
+            "fieldPath": "songId",
+            "columnName": "songId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "versionId",
+            "columnName": "versionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fetchedAt",
+            "columnName": "fetchedAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "songId",
+            "versionId"
+          ]
+        }
+      },
+      {
+        "tableName": "listen_signal",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `listenId` INTEGER, `songId` TEXT NOT NULL, `kind` INTEGER NOT NULL, `positionMs` INTEGER NOT NULL, `value` REAL NOT NULL, `at` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "listenId",
+            "columnName": "listenId",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "songId",
+            "columnName": "songId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "kind",
+            "columnName": "kind",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "positionMs",
+            "columnName": "positionMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "at",
+            "columnName": "at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_listen_signal_listenId",
+            "unique": false,
+            "columnNames": [
+              "listenId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_listen_signal_listenId` ON `${TABLE_NAME}` (`listenId`)"
+          },
+          {
+            "name": "index_listen_signal_songId",
+            "unique": false,
+            "columnNames": [
+              "songId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_listen_signal_songId` ON `${TABLE_NAME}` (`songId`)"
+          },
+          {
+            "name": "index_listen_signal_at",
+            "unique": false,
+            "columnNames": [
+              "at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_listen_signal_at` ON `${TABLE_NAME}` (`at`)"
+          }
+        ]
       }
     ],
     "views": [
@@ -1648,7 +2018,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2388c159b6664bbcc7589d6c17dc047b')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7f583938f2a0bb98d8d3390ce5fc7027')"
     ]
   }
 }
