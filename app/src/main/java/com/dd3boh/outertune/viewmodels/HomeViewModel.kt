@@ -355,11 +355,16 @@ class HomeViewModel @Inject constructor(
         wanted.mapNotNull { byId[it] }
     }
 
-    /** Rank with your listening: the chosen source's pool in the engine's order, ties keeping the source's own. */
-    private suspend fun rankPools() {
+    /**
+     * Rank with your listening: the chosen source's pool in the engine's order. The shelf is only
+     * ranked once it has been fetched afresh, never the stale one still on screen, or a pull to
+     * refresh would reshuffle the old shelf and then replace it, which reads as a glitch.
+     */
+    private suspend fun rankPools(includeShelf: Boolean) {
         val src = quickPicksSource()
         if (src == QuickPicksSource.ENGINE || src == QuickPicksSource.COMPARE || !context.dataStore.get(RankWithListeningKey, true)) return
-        val ids = quickPicksPool.map { it.id } + ytQuickPicksPool.orEmpty().map { it.id }
+        val shelf = if (includeShelf) ytQuickPicksPool else null
+        val ids = quickPicksPool.map { it.id } + shelf.orEmpty().map { it.id }
         if (ids.isEmpty()) return
         val order = runCatching { withContext(Dispatchers.Default) {
             val input = engineInput(System.currentTimeMillis())
@@ -369,7 +374,7 @@ class HomeViewModel @Inject constructor(
         } }
             .onFailure { reportException(it) }.getOrNull() ?: return
         quickPicksPool = quickPicksPool.sortedBy { order[it.id] ?: Int.MAX_VALUE }
-        ytQuickPicksPool = ytQuickPicksPool?.sortedBy { order[it.id] ?: Int.MAX_VALUE }
+        if (includeShelf) ytQuickPicksPool = ytQuickPicksPool?.sortedBy { order[it.id] ?: Int.MAX_VALUE }
     }
 
     private suspend fun tidyRows() = withContext(Dispatchers.IO) {
@@ -602,7 +607,7 @@ class HomeViewModel @Inject constructor(
             engineFallback.value = 0
             shadowBuild()
         }
-        rankPools()
+        rankPools(includeShelf = false)
 
         forgottenPool = database.forgottenFavorites()
             .first().shuffled().take(20)
@@ -753,7 +758,7 @@ class HomeViewModel @Inject constructor(
             ytQuickPicksPool = null
             ytQuickPicks.value = null
         }
-        if (foundQuickPicksThisLoad) rankPools()
+        if (foundQuickPicksThisLoad) rankPools(includeShelf = true)
         if (source == QuickPicksSource.COMPARE && engineFallback.value == 0) runCatching { draftCompareRow() }.onFailure { reportException(it) }
         tidyRows()
 
