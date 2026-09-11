@@ -146,6 +146,11 @@ val MaxSongCacheSizeKey = intPreferencesKey("maxSongCacheSize")
  * Privacy
  */
 val PauseListenHistoryKey = booleanPreferencesKey("pauseListenHistory")
+/** No song twice on Home, no version beside its original, nothing just played in Quick picks. */
+val TidyHomeRowsKey = booleanPreferencesKey("tidyHomeRows")
+/** The day (in days since the epoch) and count of related-song refreshes spent, at most ten a day. */
+val RelatedRefreshDayKey = longPreferencesKey("relatedRefreshDay")
+val RelatedRefreshCountKey = intPreferencesKey("relatedRefreshCount")
 val PauseRemoteListenHistoryKey = booleanPreferencesKey("pauseRemoteListenHistory")
 val PauseSearchHistoryKey = booleanPreferencesKey("pauseSearchHistory")
 val EnableKugouKey = booleanPreferencesKey("enableKugou")

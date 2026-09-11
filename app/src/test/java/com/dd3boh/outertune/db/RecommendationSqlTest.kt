@@ -116,6 +116,14 @@ class RecommendationSqlTest {
     }
 
     @Test
+    fun `quick picks counts only YouTube's own edges`() {
+        song("seed", "X", "Y"); play("seed", 0.1)
+        related("seed", "X")
+        exec("INSERT INTO related_song_map(songId, relatedSongId, source) VALUES ('seed', 'Y', 1)")
+        assertEquals(listOf("X"), ids(RecommendationSql.QUICK_PICKS))
+    }
+
+    @Test
     fun `a pair stored twice counts as one seed`() {
         // Z is related to S1 three times over; W to two different seeds. Two seeds agreeing is the
         // stronger signal. A plain COUNT would score Z three and put it first, so this fails on
