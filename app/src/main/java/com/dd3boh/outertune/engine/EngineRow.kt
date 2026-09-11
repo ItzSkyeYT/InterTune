@@ -39,6 +39,33 @@ object EngineRow {
         return ids.associateWith { Scorer.z(Features.of(it, ctx), weights) }
     }
 
+    /**
+     * The ids in an order drawn without replacement in proportion to exp(z / T): strong songs
+     * near the top on average, a different order each time, so a refresh of a ranked row is a
+     * refresh. Songs with no score keep their source's order at the end.
+     */
+    fun rankSampled(
+        input: EngineInput,
+        ids: List<String>,
+        weights: Weights = Weights.PRIORS,
+        p: EngineParams = EngineParams.DEFAULT,
+        random: Random = Random.Default,
+    ): List<String> {
+        val z = rank(input, ids, weights, p, random)
+        val remaining = ids.filter { z.containsKey(it) }.toMutableList()
+        val out = ArrayList<String>(ids.size)
+        while (remaining.isNotEmpty()) {
+            val top = remaining.maxOf { z[it]!! }
+            val scores = remaining.map { kotlin.math.exp((z[it]!! - top) / p.temperature) }
+            var r = random.nextDouble() * scores.sum()
+            var chosen = remaining.last()
+            for (i in remaining.indices) { r -= scores[i]; if (r <= 0) { chosen = remaining[i]; break } }
+            remaining.remove(chosen); out += chosen
+        }
+        out += ids.filter { !z.containsKey(it) }
+        return out
+    }
+
     fun build(
         input: EngineInput,
         weights: Weights = Weights.PRIORS,

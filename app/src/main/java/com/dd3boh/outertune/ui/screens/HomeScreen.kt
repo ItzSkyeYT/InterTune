@@ -451,7 +451,7 @@ fun HomeScreen(
             .pullToRefresh(
                 state = pullRefreshState,
                 isRefreshing = isRefreshing,
-                onRefresh = { viewModel.refresh(force = true) }
+                onRefresh = { viewModel.pullToRefresh() }
             ),
         contentAlignment = Alignment.TopStart
     ) {
