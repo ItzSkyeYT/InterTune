@@ -37,6 +37,8 @@ class ArtistStats {
     var positiveLong = 0.0
     /** Listens heard well, by day-part bucket, over the context window. */
     val goodByBucket = IntArray(8)
+    /** Listens heard well while the build's chip was on, over the context window. */
+    var goodTagged = 0
 }
 
 /**
@@ -53,6 +55,9 @@ class LibraryStats(input: EngineInput, private val p: EngineParams = EngineParam
     /** All listens heard well in the context window, by bucket. */
     val goodByBucket = IntArray(8)
     var goodInContextWindow = 0
+    /** Listens heard well while the build's chip was on, in all and over the context window. */
+    var goodTaggedAll = 0
+    var goodTaggedInWindow = 0
     /** Likes stamped in a bulk import; their dates say nothing. */
     val bulkLikeSongIds: Set<String>
 
@@ -114,7 +119,9 @@ class LibraryStats(input: EngineInput, private val p: EngineParams = EngineParam
                         a.goodByBucket[b]++
                         goodByBucket[b]++
                         goodInContextWindow++
+                        if (input.chip != ContextChip.AUTO && l.contextChip == input.chip) { a.goodTagged++; goodTaggedInWindow++ }
                     }
+                    if (input.chip != ContextChip.AUTO && l.contextChip == input.chip) goodTaggedAll++
                     bySession.getOrPut(l.sessionId) { HashSet() }.add(artistId)
                     sessionLatest[l.sessionId] = maxOf(sessionLatest[l.sessionId] ?: 0L, l.startedAt)
                 }

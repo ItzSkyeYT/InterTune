@@ -34,8 +34,10 @@ enum class QuickPicksSource {
     YOUTUBE,
     /** The classic query: songs related to what has been played. */
     LIBRARY,
-    /** InterTune's own engine: seeds, four lanes, and a score that learns. Experimental. */
+    /** InterTune's own engine: seeds, five lanes, and a score that learns. Experimental. */
     ENGINE,
+    /** Try both: the engine's cards and the other source's, drawn alternately, so the ledger can say which get played. */
+    COMPARE,
     /** No Quick picks row at all. */
     OFF,
 }

@@ -51,10 +51,23 @@ class SeedSampler(
 
     fun sample(): List<String> {
         val taken = HashSet<String>(input.notSeeds)
+        val moodActive = input.chip in ContextChip.MOODS && stats.goodTaggedAll >= ContextChip.MIN_TAGGED
         val goodListens = input.listens.filter { l ->
             val liked = input.songs[l.songId]?.likedAt?.takeIf { l.songId !in stats.bulkLikeSongIds }
-            l.learn && Signals.engagement(l, liked, p) >= p.justPlayedEngagement
+            l.learn && Signals.engagement(l, liked, p) >= p.justPlayedEngagement && (!moodActive || l.contextChip == input.chip)
         }
+        // Favourites: the row is built around what was liked, and nothing else.
+        if (input.chip == ContextChip.FAVOURITES) {
+            val likes = input.songs.values.filter { it.liked && it.likedAt != null && it.id !in stats.bulkLikeSongIds }.sortedByDescending { it.likedAt }
+            val recent = likes.take(p.likedRecentPool).associate { it.id to 1.0 }
+            val older = likes.drop(p.likedRecentPool).associate { it.id to 1.0 }
+            val out = ArrayList<String>()
+            out += draw(recent.mapValues { (id, w) -> w * damping(id) }, p.seedsTotal / 2, taken)
+            out += draw(older.mapValues { (id, w) -> w * damping(id) }, p.seedsTotal - out.size, taken)
+            return out
+        }
+        // A mood with enough of its own listens seeds from its twenty latest tagged sessions.
+        val moodSessions: Set<Long>? = if (moodActive) goodListens.groupBy { it.sessionId }.entries.sortedByDescending { e -> e.value.maxOf { it.startedAt } }.take(20).map { it.key }.toSet() else null
         val latestSession = stats.latestSessionId
         val localMidnight = run {
             val off = input.tzOffsetMin * 60_000L
@@ -66,24 +79,29 @@ class SeedSampler(
         // Today: since local midnight, outside that session, so a lunch break does not erase the morning.
         val today = HashMap<String, Double>()
         for (l in goodListens) if (l.sessionId != latestSession && l.startedAt >= localMidnight) today.merge(l.songId, Signals.recency(input.now, l.startedAt), ::maxOf)
+        // Under a mood, Today widens to the mood's own recent sessions, so a mood used once a week still has a thread.
+        if (moodSessions != null) for (l in goodListens) if (l.sessionId != latestSession && l.sessionId in moodSessions) today.merge(l.songId, Signals.recency(input.now, l.startedAt), ::maxOf)
+        // Under a mood every pool is drawn from the mood's own listens, so the row is that mood's and no other's.
+        val moodSongs: Set<String>? = if (moodActive) goodListens.mapTo(HashSet()) { it.songId } else null
+        fun inMood(id: String) = moodSongs == null || id in moodSongs
         // Strong: the highest activation, half judged over this day part when it has enough listens.
-        val byActivation = stats.songs.entries.filter { it.value.activation > 0 }.sortedByDescending { it.value.activation }
+        val byActivation = stats.songs.entries.filter { it.value.activation > 0 && inMood(it.key) }.sortedByDescending { it.value.activation }
         val strongAll = byActivation.take(p.strongPool).associate { it.key to it.value.activation }
         val bucketRich = stats.goodByBucket[input.bucket] >= p.contextMinListens
-        val strongBucket = if (bucketRich) stats.songs.entries.filter { it.value.bucketActivation > 0 }
+        val strongBucket = if (bucketRich) stats.songs.entries.filter { it.value.bucketActivation > 0 && inMood(it.key) }
             .sortedByDescending { it.value.bucketActivation }.take(p.strongPool).associate { it.key to it.value.bucketActivation } else strongAll
         // Searched: an unordered set, so the newest query never dominates.
         val searchedCut = input.now - p.searchedDays * day
         val searched = HashMap<String, Double>()
         for (l in input.listens) {
-            if (l.autoplayDepth != 0 || l.startedAt < searchedCut || !l.learn) continue
+            if (l.autoplayDepth != 0 || l.startedAt < searchedCut || !l.learn || !inMood(l.songId)) continue
             val origin = PlayOrigin.fromCode(l.origin)
             if (origin != PlayOrigin.SEARCH && origin != PlayOrigin.RECOGNISED) continue
             val liked = input.songs[l.songId]?.likedAt?.takeIf { l.songId !in stats.bulkLikeSongIds }
             if (Signals.engagement(l, liked, p) >= p.searchedMinEngagement) searched[l.songId] = 1.0
         }
         // Liked: the latest usable likes, and one from long ago.
-        val usableLikes = input.songs.values.filter { it.liked && it.likedAt != null && it.id !in stats.bulkLikeSongIds }.sortedByDescending { it.likedAt }
+        val usableLikes = input.songs.values.filter { it.liked && it.likedAt != null && it.id !in stats.bulkLikeSongIds && inMood(it.id) }.sortedByDescending { it.likedAt }
         val likedRecent = usableLikes.take(p.likedRecentPool).associate { it.id to 1.0 }
         val likedOld = usableLikes.filter { it.likedAt!! < input.now - p.likedOldAfterDays * day }.associate { it.id to 1.0 }
 

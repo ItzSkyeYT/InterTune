@@ -143,7 +143,15 @@ object EngineRow {
         (seeds + lightlyPlayed).forEach { s -> edgesBySeed[s]?.forEach { exploreSource += it.songId } }
         input.songs.values.filter { it.inLibrary && stats.songs[it.id] == null }.forEach { exploreSource += it.id }
         val exploreAll = exploreSource.mapNotNull { candidate(it, Lane.EXPLORE) }
-        val quotasNow = quotas(p.rowSize, dial, newOnly, p)
+        // The chip's shape: Discover half new, Favourites nothing new and the lanes turned toward the familiar.
+        val chipParams = when (input.chip) {
+            ContextChip.FAVOURITES -> p.copy(exploreBase = 0.0, exploreSpan = 0.0, relatedShare = 0.20, againShare = 0.20, artistShare = 0.30, rediscoverShare = 0.30)
+            else -> p
+        }
+        val chipDial = if (input.chip == ContextChip.DISCOVER) 1.5 else dial   // past the dial's end: explore share 0.50
+        val quotasNow = quotas(p.rowSize, chipDial.coerceIn(0.0, 1.5), newOnly, chipParams).let { q ->
+            if (input.chip == ContextChip.DISCOVER) quotas(p.rowSize, 1.0, newOnly, p.copy(exploreBase = 0.50, exploreSpan = 0.0)) else q
+        }
         var explore = exploreAll.filter { it.x[Features.NOVEL] >= 1.0 }.sortedByDescending { it.z }
         if (explore.size < 2 * (quotasNow[Lane.EXPLORE] ?: 0)) {
             explore = (explore + exploreAll.filter { it.x[Features.NOVEL] == 0.5 }.sortedByDescending { it.z })

@@ -1,5 +1,9 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.engine.ContextChip
+import com.dd3boh.outertune.constants.ContextChipKey
+import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.engine.versionKey
 import com.dd3boh.outertune.constants.RestsEverywhereKey
 import kotlinx.coroutines.sync.withLock
 import com.dd3boh.outertune.constants.ShadowComparisonKey
@@ -115,6 +119,50 @@ class HomeViewModel @Inject constructor(
     private val learning by lazy { EngineLearning(context, database) }
     /** The weights the last build or ranking used, for the build record. */
     private var weightsInUse: Weights = Weights.PRIORS
+    /** Try both: which team each card of the drafted row came from (1 engine, 2 library, 3 YouTube). */
+    private val compareTeams = HashMap<String, Int>()
+    private var enginePoolForCompare: List<Song> = emptyList()
+
+    /**
+     * Try both: the engine's cards and the other source's, drawn alternately by version group,
+     * so both are on screen under the same conditions and the ledger can say which get played.
+     */
+    private suspend fun draftCompareRow() {
+        val other: List<Song>
+        val otherTeam: Int
+        val shelf = ytQuickPicksPool
+        if (!shelf.isNullOrEmpty()) {
+            val metas = shelf.map { it.toMediaMetadata() }
+            runCatching { database.transactionNow { metas.forEach { if (!songExists(it.id)) insert(it) } } }
+            val byId = database.songsByIds(metas.map { it.id }).first().associateBy { it.id }
+            other = metas.mapNotNull { byId[it.id] }; otherTeam = 3
+        } else {
+            other = database.quickPicks().first().take(40).shuffled(); otherTeam = 2
+        }
+        val engine = enginePoolForCompare
+        compareTeams.clear()
+        val taken = HashSet<String>()
+        val drafted = ArrayList<Song>()
+        val a = engine.iterator(); val b = other.iterator()
+        fun take(from: Iterator<Song>, team: Int): Boolean {
+            while (from.hasNext()) {
+                val song = from.next()
+                val key = versionKey(song.song.title, song.artists.firstOrNull()?.name)
+                if (!taken.add(key)) continue
+                compareTeams[song.id] = team; drafted += song; return true
+            }
+            return false
+        }
+        var turn = 0
+        while (drafted.size < 60) {
+            val got = if (turn % 2 == 0) take(a, 1) else take(b, otherTeam)
+            if (!got && !a.hasNext() && !b.hasNext()) break
+            turn++
+        }
+        quickPicksPool = drafted
+        ytQuickPicksPool = null
+        ytQuickPicks.value = null
+    }
     /** Why each card of the current engine row (and its pool) is there, for the captions. */
     val engineReasons = MutableStateFlow<Map<String, List<CardReason>>>(emptyMap())
     /** With the engine chosen: 0 its row is showing, 1 the library's row stands in, 2 YouTube's. */
@@ -126,6 +174,15 @@ class HomeViewModel @Inject constructor(
     private val rejectedSeeds = HashSet<String>()
     private var lastEngineNewOnly = false
     private var lastEngineFamiliarity = -1
+    private var lastEngineChip = -1
+    /** How many listens carry the current mood chip; below the threshold the row says it is still learning. */
+    val engineChipTagged = MutableStateFlow(-1)
+
+    /** The chip changed: the row is built again for it. */
+    fun chipChanged() {
+        lastEngineBuildAt = 0L
+        refresh(force = true)
+    }
 
     /** Not this one: the seed is left out and the row built again. */
     fun rejectSeed(songId: String) {
@@ -185,11 +242,12 @@ class HomeViewModel @Inject constructor(
     private suspend fun restoreEngineRow(now: Long): BuiltRow? = withContext(Dispatchers.IO) {
         val last = database.lastBuild(1) ?: return@withContext null
         if (!rowIsFresh(last.builtAt, last.sessionId, last.bucket, now)) return@withContext null
+        if (last.contextChip != context.dataStore.get(ContextChipKey, 0)) return@withContext null
         val cards = RowBuildCodec.decode(last.cards)
         if (cards.size < EngineParams.DEFAULT.minCards) return@withContext null
         BuiltRow(cards, EngineLoader.parseSeeds(last.seeds), RowBuildCodec.decode(last.pool), quotas(20, last.dial / 100.0, false)).also {
             lastEngineRow = it; lastEngineBuildAt = last.builtAt; lastEngineSession = last.sessionId; lastEngineBucket = last.bucket
-            lastEngineNewOnly = context.dataStore.get(NewSongsOnlyKey, false); lastEngineFamiliarity = context.dataStore.get(FamiliarityKey, 25)
+            lastEngineNewOnly = context.dataStore.get(NewSongsOnlyKey, false); lastEngineFamiliarity = context.dataStore.get(FamiliarityKey, 25); lastEngineChip = last.contextChip
         }
     }
 
@@ -226,6 +284,7 @@ class HomeViewModel @Inject constructor(
     private fun reasonOf(key: String, card: Card, input: EngineInput): CardReason = when (key) {
         "x_seed" -> CardReason(key, card.seedId?.let { input.songs[it]?.title })
         "x_art" -> CardReason(key, input.songs[card.songId]?.artistName)
+        "x_ctx" -> CardReason(key, if (input.chip in ContextChip.MOODS) input.chip.toString() else null)
         else -> CardReason(key, null)
     }
 
@@ -244,7 +303,7 @@ class HomeViewModel @Inject constructor(
         val session = currentSessionOf(now)
         val newOnlyNow = context.dataStore.get(NewSongsOnlyKey, false)
         val familiarityNow = context.dataStore.get(FamiliarityKey, 25)
-        if (restored != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && newOnlyNow == lastEngineNewOnly && familiarityNow == lastEngineFamiliarity &&
+        if (restored != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && newOnlyNow == lastEngineNewOnly && familiarityNow == lastEngineFamiliarity && context.dataStore.get(ContextChipKey, 0) == lastEngineChip &&
             lastEngineBucket == dayPartBucket(now, java.util.TimeZone.getDefault().getOffset(now) / 60_000) && engineInputCache == null) {
             // Fresh and restored from the database: shown as it was, without reading the library first.
             engineReasons.value = (restored.cards + restored.pool).associate { c -> c.songId to c.reasons.map { CardReason(it, null) } }
@@ -259,9 +318,11 @@ class HomeViewModel @Inject constructor(
         val standing = lastEngineRow
         val newOnly = context.dataStore.get(NewSongsOnlyKey, false)
         val familiarity = context.dataStore.get(FamiliarityKey, 25)
-        val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly && familiarity == lastEngineFamiliarity) standing
-        else EngineRow.build(input.copy(notSeeds = rejectedSeeds.toSet()), weights = weightsInUse, p = EngineParams.DEFAULT.withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly).also {
-            lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket; lastEngineNewOnly = newOnly; lastEngineFamiliarity = familiarity
+        val chip = context.dataStore.get(ContextChipKey, ContextChip.AUTO)
+        engineChipTagged.value = if (chip in ContextChip.MOODS) input.listens.count { it.contextChip == chip } else -1
+        val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly && familiarity == lastEngineFamiliarity && chip == lastEngineChip) standing
+        else EngineRow.build(input.copy(notSeeds = rejectedSeeds.toSet(), chip = chip), weights = weightsInUse, p = EngineParams.DEFAULT.withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly).also {
+            lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket; lastEngineNewOnly = newOnly; lastEngineFamiliarity = familiarity; lastEngineChip = chip
             Log.d("HomeViewModel", "engine row: ${it.cards.size} cards, ${it.pool.size} in the pool, ${it.seeds.size} seeds, from ${input.songs.size} songs, ${input.listens.size} listens, ${input.edges.size} edges in ${System.currentTimeMillis() - now} ms")
         }
         engineReasons.value = (row.cards + row.pool).associate { c -> c.songId to c.reasons.map { reasonOf(it, c, input) } }
@@ -275,7 +336,8 @@ class HomeViewModel @Inject constructor(
 
     /** Rank with your listening: the chosen source's pool in the engine's order, ties keeping the source's own. */
     private suspend fun rankPools() {
-        if (quickPicksSource() == QuickPicksSource.ENGINE || !context.dataStore.get(RankWithListeningKey, true)) return
+        val src = quickPicksSource()
+        if (src == QuickPicksSource.ENGINE || src == QuickPicksSource.COMPARE || !context.dataStore.get(RankWithListeningKey, true)) return
         val ids = quickPicksPool.map { it.id } + ytQuickPicksPool.orEmpty().map { it.id }
         if (ids.isEmpty()) return
         val z = runCatching { withContext(Dispatchers.Default) {
@@ -353,11 +415,11 @@ class HomeViewModel @Inject constructor(
                 // song, and YouTube's row arrives from the feed, not from the table.
                 songs.forEach { if (!songExists(it.id)) insert(it) }
                 val sessionId = lastListen()?.sessionId ?: now
-                val rowKey = when (source) { 1 -> 3; 2 -> 1; else -> 2 }
-                val engineRow = lastEngineRow?.takeIf { source == 2 }
+                val rowKey = when (source) { 1 -> 3; 2 -> 1; 3 -> 5; else -> 2 }
+                val engineRow = lastEngineRow?.takeIf { source == 2 || source == 3 }
                 currentBuildId = insert(RowBuild(
                     builtAt = now, rowKey = rowKey, sessionId = sessionId, bucket = dayPartBucket(now),
-                    dial = context.dataStore.get(AdventurousnessKey, 15),
+                    dial = context.dataStore.get(AdventurousnessKey, 15), contextChip = context.dataStore.get(ContextChipKey, 0),
                     seeds = EngineLoader.seedsJson(engineRow?.seeds.orEmpty()),
                     weights = if (engineRow != null) weightsInUse.asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" } else "{}",
                     pool = engineRow?.let { RowBuildCodec.encode(it.pool) },
@@ -381,9 +443,10 @@ class HomeViewModel @Inject constructor(
 
     /** An impression, with the engine's record of the card when the engine placed it. */
     private fun impression(songId: String, slot: Int, at: Long): Impression {
-        val card = lastEngineRow?.takeIf { currentTeam == 1 }?.let { r -> (r.cards + r.pool).firstOrNull { it.songId == songId } }
+        val team = if (currentTeam == 5) compareTeams[songId] ?: 1 else currentTeam
+        val card = lastEngineRow?.takeIf { team == 1 }?.let { r -> (r.cards + r.pool).firstOrNull { it.songId == songId } }
         return Impression(
-            buildId = currentBuildId, songId = songId, slot = slot, team = currentTeam, visibleAt = at,
+            buildId = currentBuildId, songId = songId, slot = slot, team = team, visibleAt = at,
             lane = card?.lane?.ordinal?.plus(1) ?: 0, sampled = card?.sampled ?: false, p = card?.p?.toFloat(),
             features = card?.features?.joinToString(",") { String.format(java.util.Locale.ROOT, "%.4f", it) },
             reasons = card?.reasons?.joinToString(","),
@@ -506,8 +569,9 @@ class HomeViewModel @Inject constructor(
         // from the good end.
         quickPicksPool = database.quickPicks()
             .first().take(40).shuffled()
-        if (source == QuickPicksSource.ENGINE) {
+        if (source == QuickPicksSource.ENGINE || source == QuickPicksSource.COMPARE) {
             val engine = runCatching { buildEngineRow(force) }.onFailure { reportException(it) }.getOrDefault(emptyList())
+            enginePoolForCompare = engine
             engineFallback.value = when {
                 engine.isNotEmpty() -> { quickPicksPool = engine; 0 }
                 quickPicksPool.size >= EngineParams.DEFAULT.minCards -> 1
@@ -669,6 +733,7 @@ class HomeViewModel @Inject constructor(
             ytQuickPicks.value = null
         }
         if (foundQuickPicksThisLoad) rankPools()
+        if (source == QuickPicksSource.COMPARE && engineFallback.value == 0) runCatching { draftCompareRow() }.onFailure { reportException(it) }
         tidyRows()
 
         // Settled either way: found, or looked for and not there. Leaving it true on failure would
@@ -703,7 +768,7 @@ class HomeViewModel @Inject constructor(
     /** Whether YouTube's shelf is the Quick picks row: chosen as the source, or standing in for the engine. */
     private fun ytShelfWanted(): Boolean {
         val source = quickPicksSource()
-        return source == QuickPicksSource.YOUTUBE || (source == QuickPicksSource.ENGINE && engineFallback.value == 2)
+        return source == QuickPicksSource.YOUTUBE || source == QuickPicksSource.COMPARE || (source == QuickPicksSource.ENGINE && engineFallback.value == 2)
     }
 
     private fun takeQuickPicks(page: HomePage): HomePage {

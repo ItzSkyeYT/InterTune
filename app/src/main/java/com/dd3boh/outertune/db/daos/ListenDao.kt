@@ -120,7 +120,7 @@ interface ListenDao {
     @Query(EngineSql.SONGS)
     fun engineSongs(): List<EngineSongRow>
 
-    @Query("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId, impressionId FROM listen")
+    @Query("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId, impressionId, contextChip FROM listen")
     fun engineListens(): List<com.dd3boh.outertune.engine.ListenRow>
 
     // ---- The loop: grading what was shown, applying what was graded, keeping the weights.

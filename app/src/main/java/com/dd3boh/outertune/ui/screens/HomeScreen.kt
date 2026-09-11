@@ -1,5 +1,10 @@
 package com.dd3boh.outertune.ui.screens
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.FilterChip
+import com.dd3boh.outertune.engine.ContextChip
+import com.dd3boh.outertune.constants.ContextChipKey
 import com.dd3boh.outertune.constants.AdventurousnessKey
 import com.dd3boh.outertune.engine.Lane
 import androidx.compose.foundation.layout.Spacer
@@ -395,13 +400,14 @@ fun HomeScreen(
     val showReasons by rememberPreference(ShowReasonsKey, defaultValue = true)
     // YouTube's shelf is the row when it is the source, or when it stands in for the engine.
     val ytShelfShown = ytQuickPicks?.isNotEmpty() == true &&
-        (quickPicksSource == QuickPicksSource.YOUTUBE || (quickPicksSource == QuickPicksSource.ENGINE && engineFallback == 2))
+        (quickPicksSource == QuickPicksSource.YOUTUBE || (quickPicksSource != QuickPicksSource.YOUTUBE && quickPicksSource != QuickPicksSource.OFF && engineFallback == 2))
     val shownPicks: List<MediaMetadata> = remember(ytQuickPicks, quickPicks, quickPicksSource, engineFallback) {
         ytQuickPicks?.takeIf { ytShelfShown }?.map { it.toMediaMetadata() }
             ?: quickPicks.orEmpty().map { it.toMediaMetadata() }
     }
     val shownSource = when {
         ytShelfShown -> 1
+        quickPicksSource == QuickPicksSource.COMPARE && engineFallback == 0 -> 3
         quickPicksSource == QuickPicksSource.ENGINE && engineFallback == 0 -> 2
         else -> 0
     }
@@ -606,9 +612,10 @@ fun HomeScreen(
                 item {
                     NavigationTitle(
                         title = stringResource(R.string.quick_picks),
-                        onClick = if (quickPicksSource == QuickPicksSource.ENGINE && engineFallback == 0) ({ showWhyThese = true }) else null,
+                        onClick = if ((quickPicksSource == QuickPicksSource.ENGINE || quickPicksSource == QuickPicksSource.COMPARE) && engineFallback == 0) ({ showWhyThese = true }) else null,
                         label = when {
-                            quickPicksSource != QuickPicksSource.ENGINE -> null
+                            quickPicksSource == QuickPicksSource.COMPARE && engineFallback == 0 -> stringResource(R.string.quick_picks_try_both_label)
+                            quickPicksSource != QuickPicksSource.ENGINE && quickPicksSource != QuickPicksSource.COMPARE -> null
                             engineFallback == 1 -> stringResource(R.string.quick_picks_showing_library)
                             engineFallback == 2 -> stringResource(R.string.quick_picks_showing_youtube)
                             else -> null
@@ -617,6 +624,9 @@ fun HomeScreen(
                     )
                 }
 
+                if ((quickPicksSource == QuickPicksSource.ENGINE || quickPicksSource == QuickPicksSource.COMPARE) && engineFallback == 0) {
+                    item(key = "context_chips") { ContextChipRow(viewModel = viewModel, modifier = Modifier.animateItem()) }
+                }
                 if (ytPicks != null || localPicks.isNotEmpty()) {
                     item(key = "quick_picks_grid") {
                         LazyHorizontalGrid(
@@ -690,7 +700,7 @@ fun HomeScreen(
                                         swipeEnabled = false,
 
                                         thumbnailSize = listThumbnailSize,
-                                        caption = if (showReasons && shownSource == 2) engineReasons[originalSong.id]?.firstOrNull()?.let { reasonText(it) } else null,
+                                        caption = if (showReasons && (shownSource == 2 || shownSource == 3)) engineReasons[originalSong.id]?.firstOrNull()?.let { reasonText(it) } else null,
                                         onExclude = { kind, reason -> viewModel.excludeSong(originalSong, kind, reason) },
                                         onPlay = {
                                             val tappedAt = System.currentTimeMillis()
@@ -1103,7 +1113,10 @@ private fun reasonText(reason: CardReason): String = when (reason.key) {
     "x_art" -> reason.arg?.let { stringResource(R.string.reason_artist, it) } ?: stringResource(R.string.reason_activation)
     "x_dorm" -> stringResource(R.string.reason_dormant)
     "x_like" -> stringResource(R.string.reason_like)
-    "x_ctx" -> stringResource(R.string.reason_context)
+    "x_ctx" -> reason.arg?.toIntOrNull()?.let { chip ->
+        val name = when (chip) { ContextChip.FOCUS -> R.string.chip_focus; ContextChip.CHILL -> R.string.chip_chill; else -> R.string.chip_party }
+        stringResource(R.string.reason_context_mood, stringResource(name))
+    } ?: stringResource(R.string.reason_context)
     "x_co" -> stringResource(R.string.reason_co)
     "new_to_you" -> stringResource(R.string.reason_new)
     "wildcard" -> stringResource(R.string.reason_wildcard)
@@ -1149,4 +1162,40 @@ private fun WhyTheseDialog(viewModel: HomeViewModel, navController: NavControlle
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.ok)) } },
         dismissButton = { TextButton(onClick = { onDismiss(); navController.navigate("settings/recommendations/exclusions") }) { Text(stringResource(R.string.why_these_manage)) } },
     )
+}
+
+/** The declared context, kept until changed: Auto, Discover, Favourites, and three moods that learn from what is played while they are on. */
+@Composable
+private fun ContextChipRow(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
+    val (chip, onChipChange) = rememberPreference(ContextChipKey, defaultValue = ContextChip.AUTO)
+    val tagged by viewModel.engineChipTagged.collectAsState()
+    val names = listOf(
+        ContextChip.AUTO to stringResource(R.string.chip_auto), ContextChip.DISCOVER to stringResource(R.string.chip_discover),
+        ContextChip.FAVOURITES to stringResource(R.string.chip_favourites), ContextChip.FOCUS to stringResource(R.string.chip_focus),
+        ContextChip.CHILL to stringResource(R.string.chip_chill), ContextChip.PARTY to stringResource(R.string.chip_party),
+    )
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            names.forEach { (value, name) ->
+                FilterChip(
+                    selected = chip == value,
+                    onClick = { if (chip != value) { onChipChange(value); viewModel.chipChanged() } },
+                    label = { Text(name) },
+                )
+            }
+        }
+        if (chip in ContextChip.MOODS && tagged in 0 until ContextChip.MIN_TAGGED) {
+            Text(
+                text = stringResource(R.string.chip_learning, names.first { it.first == chip }.second, tagged, ContextChip.MIN_TAGGED),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+    }
 }

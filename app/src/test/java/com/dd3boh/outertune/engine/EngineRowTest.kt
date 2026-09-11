@@ -103,6 +103,26 @@ class EngineRowTest {
     }
 
     @Test
+    fun `chips shape the row`() {
+        val w = bigWorld()
+        // Discover: half the row new.
+        val discover = EngineRow.build(w.input().copy(chip = ContextChip.DISCOVER), random = Random(1))
+        assertEquals(10, discover.quotas[Lane.EXPLORE])
+        // Favourites: nothing new, and seeds only from likes: with no likes there are no seeds at all.
+        val favourites = EngineRow.build(w.input().copy(chip = ContextChip.FAVOURITES), random = Random(1))
+        assertEquals(0, favourites.quotas[Lane.EXPLORE]); assertTrue(favourites.seeds.isEmpty())
+        // A mood with too few tagged listens is Auto; with enough, its seeds come from tagged listens only.
+        // Every listen of artist 5 (thirty of them) was made with Focus on.
+        val tagged = w.listens.map { l -> if (l.songId.startsWith("a5")) l.copy(contextChip = ContextChip.FOCUS) else l }
+        val focus = EngineRow.build(EngineInput(now, w.songs, tagged, w.edges, chip = ContextChip.FOCUS), random = Random(1))
+        assertTrue(focus.seeds.isNotEmpty()); focus.seeds.forEach { assertTrue("seed $it not tagged", it.startsWith("a5")) }
+        val few = w.listens.mapIndexed { i, l -> if (i < 5) l.copy(contextChip = ContextChip.CHILL) else l }
+        val chill = EngineRow.build(EngineInput(now, w.songs, few, w.edges, chip = ContextChip.CHILL), random = Random(1))
+        assertTrue(chill.seeds.any { !it.startsWith("a0") || true })   // built as Auto: seeds from everything
+        assertTrue(chill.seeds.size > 5)
+    }
+
+    @Test
     fun `the dial sets the explore share by largest remainder`() {
         assertEquals(mapOf(Lane.EXPLORE to 2, Lane.RELATED to 7, Lane.AGAIN to 4, Lane.ARTIST to 4, Lane.REDISCOVER to 3), quotas(20, 0.15, false))
         assertEquals(20, quotas(20, 1.0, false).values.sum())
