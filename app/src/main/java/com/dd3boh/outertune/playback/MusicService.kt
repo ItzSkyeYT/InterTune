@@ -567,6 +567,7 @@ class MusicService : MediaLibraryService(),
         val learn: Boolean,
         val autoplayDepth: Int,
         val runId: Long,
+        val tappedAt: Long?,
     ) {
         /** When and where sound first came out, set when the row is opened, not when the item was loaded. */
         @Volatile var startedAt: Long = 0L
@@ -592,6 +593,10 @@ class MusicService : MediaLibraryService(),
 
     /** Set by anything that is the listener choosing a song, read and cleared by the next transition. */
     @Volatile var userChoicePending = false
+    /** The tap that started the queue being set up, handed to the listen it produces. */
+    @Volatile var pendingTap: Long? = null
+    /** An origin for the next play that no queue carries: a system resumption, a play from outside. */
+    @Volatile var pendingOrigin: PlayOrigin? = null
     private val lastKnownPosition = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private var checkpointJob: kotlinx.coroutines.Job? = null
     private var volumeReceiverRegistered = false
@@ -720,6 +725,7 @@ class MusicService : MediaLibraryService(),
         title: String? = null,
         origin: PlayOrigin = PlayOrigin.UNKNOWN,
         originSlot: Int = -1,
+        tappedAt: Long? = null,
     ) {
         if (!qbInit.value) {
             runBlocking(Dispatchers.IO) {
@@ -731,6 +737,7 @@ class MusicService : MediaLibraryService(),
         // A tap that starts a queue is the listener choosing, and it begins a run: one play of
         // one queue. Queue ids name a title and are reused, so the run is what learning keys on.
         userChoicePending = true
+        pendingTap = tappedAt
         val runId = System.currentTimeMillis()
 
         var queueTitle = title
@@ -1371,6 +1378,10 @@ class MusicService : MediaLibraryService(),
         // playlist change with no mark is a queue restored at launch or switched to by hand.
         val chosen = userChoicePending
         userChoicePending = false
+        val tap = pendingTap.takeIf { chosen }
+        pendingTap = null
+        val origin = pendingOrigin
+        pendingOrigin = null
         autoplayRun = when {
             chosen || reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED -> 0
             reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT -> autoplayRun
@@ -1380,12 +1391,13 @@ class MusicService : MediaLibraryService(),
         val q = queueBoard.getCurrentQueue()
         val id = mediaItem?.mediaId ?: run { lastMediaId = null; return }
         val info = StartInfo(
-            origin = q?.origin ?: PlayOrigin.UNKNOWN.code,
+            origin = origin?.code ?: q?.origin ?: PlayOrigin.UNKNOWN.code,
             originSlot = q?.originSlot ?: -1,
             queueId = q?.id ?: 0L,
             learn = q?.learn ?: true,
             autoplayDepth = autoplayRun,
             runId = q?.runId ?: 0L,
+            tappedAt = tap,
         )
         startInfo.getOrPut(id) { java.util.concurrent.ConcurrentLinkedDeque() }.addLast(info)
         lastMediaId = id
@@ -1438,6 +1450,10 @@ class MusicService : MediaLibraryService(),
                         autoplayDepth = info.autoplayDepth, sessionId = sessionId, counted = false,
                         learn = info.learn, runId = info.runId, endPositionMs = -1L,
                         continuesListenId = continues,
+                        // The card's impression was marked with the same moment by the tap itself,
+                        // on this same serial executor, so it is there to be found.
+                        impressionId = info.tappedAt?.let { impressionIdByTap(it) },
+                        tappedAt = info.tappedAt,
                     )
                 )
                 info.rowId = rowId

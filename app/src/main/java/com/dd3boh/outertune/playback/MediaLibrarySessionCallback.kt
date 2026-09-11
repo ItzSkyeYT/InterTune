@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.constants.PlayOrigin
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
@@ -110,6 +111,9 @@ class MediaLibrarySessionCallback @Inject constructor(
         }
         Log.i(TAG, "Resumption queue found. Loading queue: size = ${q.queue.size}, queue name = ${q.title}, " +
                 "queuePosShuffled = ${q.getQueuePosShuffled()}, lastSongPos = ${q.lastSongPos},")
+        // The system asked for this, from a media button or its own resumption notification, not
+        // the listener choosing a song. The fragment it continues carries the real origin.
+        service.pendingOrigin = PlayOrigin.RESUMED
 
        if (isForPlayback) {
            return@future MediaItemsWithStartPosition(
@@ -375,7 +379,11 @@ class MediaLibrarySessionCallback @Inject constructor(
             replace = true,
             delta = false,
             startIndex = queue.second
-        )
+        )?.apply {
+            origin = PlayOrigin.EXTERNAL.code
+            runId = System.currentTimeMillis()
+        }
+        service.userChoicePending = true
         MediaItemsWithStartPosition(queue.first, queue.second, queue.third)
     }
 

@@ -65,6 +65,7 @@ class HomeViewModel @Inject constructor(
     private var currentBuildSongs: List<String> = emptyList()
     private var currentTeam = 0
     private val loggedSlots = HashSet<Int>()
+    private val impressionIds = HashMap<Int, Long>()
 
     /** A new set of songs is on screen. Called whenever the shown list changes, including on refresh. */
     fun quickPicksShown(source: Int, songs: List<MediaMetadata>) {
@@ -83,6 +84,7 @@ class HomeViewModel @Inject constructor(
                 currentBuildSongs = ids
                 currentTeam = if (source == 1) 3 else 2
                 loggedSlots.clear()
+                impressionIds.clear()
             }.onFailure { Log.w("HomeViewModel", "Could not record the Quick picks build", it) }
         }
     }
@@ -103,8 +105,30 @@ class HomeViewModel @Inject constructor(
             runCatching {
                 val songId = currentBuildSongs.getOrNull(slot) ?: return@transaction
                 if (currentBuildId == 0L || !loggedSlots.add(slot)) return@transaction
-                insertImpressions(listOf(Impression(buildId = currentBuildId, songId = songId, slot = slot, team = currentTeam, visibleAt = now)))
+                val ids: List<Long> = insertImpressions(listOf(Impression(buildId = currentBuildId, songId = songId, slot = slot, team = currentTeam, visibleAt = now)))
+                ids.firstOrNull()?.let { impressionIds[slot] = it }
             }.onFailure { Log.w("HomeViewModel", "Could not record an impression", it) }
+        }
+    }
+
+    /**
+     * A card was tapped. The impression is marked with the moment, and the listen the tap starts
+     * carries the same moment, so the two meet without an id crossing the player boundary. A tap
+     * before the card had settled long enough to be logged as seen logs it now.
+     */
+    fun quickPickTapped(slot: Int, tappedAt: Long) {
+        if (context.dataStore.get(PauseListenHistoryKey, false)) return
+        database.transaction {
+            runCatching {
+                val songId = currentBuildSongs.getOrNull(slot) ?: return@transaction
+                if (currentBuildId == 0L) return@transaction
+                val id = impressionIds[slot] ?: run {
+                    loggedSlots.add(slot)
+                    insertImpressions(listOf(Impression(buildId = currentBuildId, songId = songId, slot = slot, team = currentTeam, visibleAt = tappedAt)))
+                        .first().also { impressionIds[slot] = it }
+                }
+                markImpressionTapped(id, tappedAt)
+            }.onFailure { Log.w("HomeViewModel", "Could not record a tap", it) }
         }
     }
 

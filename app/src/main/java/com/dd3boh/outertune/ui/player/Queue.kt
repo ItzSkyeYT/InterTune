@@ -9,6 +9,9 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.SignalKind
+import com.dd3boh.outertune.utils.ActivityLog
 import android.content.res.Configuration
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -256,6 +259,7 @@ fun BoxScope.QueueContent(
 ) {
     Log.v("QueueContent", "QC-1")
     val context = LocalContext.current
+    val database = LocalDatabase.current
     val coroutineScope = rememberCoroutineScope()
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
@@ -746,6 +750,7 @@ fun BoxScope.QueueContent(
                             when (dismissValue) {
                                 SwipeToDismissBoxValue.StartToEnd -> {
                                     if (qb.removeCurrentQueueSong(index)) {
+                                        mutableSongs.getOrNull(index)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
                                         playerConnection.player.removeMediaItem(index)
                                         mutableSongs.removeAt(index)
                                     }
@@ -755,6 +760,7 @@ fun BoxScope.QueueContent(
 
                                 SwipeToDismissBoxValue.EndToStart -> {
                                     if (qb.removeCurrentQueueSong(index)) {
+                                        mutableSongs.getOrNull(index)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
                                         playerConnection.player.removeMediaItem(index)
                                         mutableSongs.removeAt(index)
                                     }
