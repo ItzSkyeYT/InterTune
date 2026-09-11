@@ -1,5 +1,7 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.constants.LearnFromListeningKey
+import com.dd3boh.outertune.engine.EngineLearning
 import com.dd3boh.outertune.constants.NewSongsOnlyKey
 import com.dd3boh.outertune.db.entities.RecommendationExclusion
 import com.dd3boh.outertune.engine.PlayedSong
@@ -100,6 +102,9 @@ class HomeViewModel @Inject constructor(
     private var lastEngineSession = -1L
     private var lastEngineBucket = -1
     private var engineInputCache: Pair<Long, EngineInput>? = null
+    private val learning by lazy { EngineLearning(context, database) }
+    /** The weights the last build or ranking used, for the build record. */
+    private var weightsInUse: Weights = Weights.PRIORS
     /** Why each card of the current engine row (and its pool) is there, for the captions. */
     val engineReasons = MutableStateFlow<Map<String, List<CardReason>>>(emptyMap())
     /** With the engine chosen: 0 its row is showing, 1 the library's row stands in, 2 YouTube's. */
@@ -164,11 +169,13 @@ class HomeViewModel @Inject constructor(
     private suspend fun buildEngineRow(force: Boolean): List<Song> = withContext(Dispatchers.Default) {
         val now = System.currentTimeMillis()
         val input = engineInput(now)
+        runCatching { learning.run(input, now) }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }
+        weightsInUse = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS)
         val session = input.listens.maxByOrNull { it.endedAt }?.sessionId ?: -1L
         val standing = lastEngineRow
         val newOnly = context.dataStore.get(NewSongsOnlyKey, false)
         val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly) standing
-        else EngineRow.build(input.copy(notSeeds = rejectedSeeds.toSet()), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly).also {
+        else EngineRow.build(input.copy(notSeeds = rejectedSeeds.toSet()), weights = weightsInUse, dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly).also {
             lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket; lastEngineNewOnly = newOnly
             Log.d("HomeViewModel", "engine row: ${it.cards.size} cards, ${it.pool.size} in the pool, ${it.seeds.size} seeds, from ${input.songs.size} songs, ${input.listens.size} listens, ${input.edges.size} edges in ${System.currentTimeMillis() - now} ms")
         }
@@ -186,7 +193,12 @@ class HomeViewModel @Inject constructor(
         if (quickPicksSource() == QuickPicksSource.ENGINE || !context.dataStore.get(RankWithListeningKey, true)) return
         val ids = quickPicksPool.map { it.id } + ytQuickPicksPool.orEmpty().map { it.id }
         if (ids.isEmpty()) return
-        val z = runCatching { withContext(Dispatchers.Default) { EngineRow.rank(engineInput(System.currentTimeMillis()), ids) } }
+        val z = runCatching { withContext(Dispatchers.Default) {
+            val input = engineInput(System.currentTimeMillis())
+            runCatching { learning.run(input) }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }
+            weightsInUse = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS)
+            EngineRow.rank(input, ids, weightsInUse)
+        } }
             .onFailure { reportException(it) }.getOrNull() ?: return
         quickPicksPool = quickPicksPool.sortedByDescending { z[it.id] ?: Double.NEGATIVE_INFINITY }
         ytQuickPicksPool = ytQuickPicksPool?.sortedByDescending { z[it.id] ?: Double.NEGATIVE_INFINITY }
@@ -261,7 +273,7 @@ class HomeViewModel @Inject constructor(
                     builtAt = now, rowKey = rowKey, sessionId = sessionId, bucket = dayPartBucket(now),
                     dial = context.dataStore.get(AdventurousnessKey, 15),
                     seeds = EngineLoader.seedsJson(engineRow?.seeds.orEmpty()),
-                    weights = if (engineRow != null) Weights.PRIORS.asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" } else "{}",
+                    weights = if (engineRow != null) weightsInUse.asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" } else "{}",
                     pool = engineRow?.pool?.joinToString(",", "[", "]") { "\"${it.songId}\"" },
                 ))
                 currentBuildSongs = ids
@@ -293,7 +305,7 @@ class HomeViewModel @Inject constructor(
 
     /** A card has been at least half visible for long enough to count as seen. */
     fun quickPickSeen(slot: Int) {
-        if (context.dataStore.get(PauseListenHistoryKey, false)) return
+        if (context.dataStore.get(PauseListenHistoryKey, false) || !context.dataStore.get(LearnFromListeningKey, true)) return
         val now = System.currentTimeMillis()
         database.transaction {
             runCatching {
@@ -310,7 +322,7 @@ class HomeViewModel @Inject constructor(
      * before the card had settled long enough to be logged as seen logs it now.
      */
     fun quickPickTapped(slot: Int, tappedAt: Long) {
-        if (context.dataStore.get(PauseListenHistoryKey, false)) return
+        if (context.dataStore.get(PauseListenHistoryKey, false) || !context.dataStore.get(LearnFromListeningKey, true)) return
         database.transaction {
             runCatching {
                 val songId = currentBuildSongs.getOrNull(slot) ?: return@transaction

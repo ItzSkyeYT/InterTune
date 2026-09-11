@@ -27,6 +27,8 @@ data class ListenRow(
     val learn: Boolean = true,
     val runId: Long = 0,
     val queueId: Long = 0,
+    /** The Quick picks impression this play came from, when it was a tap on a card. */
+    val impressionId: Long? = null,
 )
 
 data class SongRow(
