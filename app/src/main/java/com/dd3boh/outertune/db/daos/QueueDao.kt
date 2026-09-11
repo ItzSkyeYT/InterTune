@@ -47,6 +47,9 @@ interface QueueDao {
                     }.toMutableList(),
                     shuffled = queue.shuffled,
                     queuePos = queue.queuePos,
+                    origin = queue.origin,
+                    originSlot = queue.originSlot,
+                    learn = queue.learn,
                     lastSongPos = queue.lastSongPos,
                     index = queue.index,
                     playlistId = queue.playlistId
@@ -74,6 +77,9 @@ interface QueueDao {
             }.toMutableList(),
             shuffled = q.shuffled,
             queuePos = q.queuePos,
+            origin = q.origin,
+            originSlot = q.originSlot,
+            learn = q.learn,
             lastSongPos = q.lastSongPos,
             index = q.index,
             playlistId = q.playlistId
@@ -101,6 +107,9 @@ interface QueueDao {
                 title = mq.title,
                 shuffled = mq.shuffled,
                 queuePos = mq.queuePos,
+                origin = mq.origin,
+                originSlot = mq.originSlot,
+                learn = mq.learn,
                 lastSongPos = mq.lastSongPos,
                 index = mq.index,
                 playlistId = mq.playlistId

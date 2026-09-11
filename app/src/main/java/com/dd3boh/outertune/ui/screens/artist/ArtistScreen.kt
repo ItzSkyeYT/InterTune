@@ -71,6 +71,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
@@ -325,7 +326,8 @@ fun ArtistScreen(
                                             title = "Library: ${libraryArtist?.artist?.name}",
                                             items = librarySongs.map { it.toMediaMetadata() },
                                             startIndex = index
-                                        )
+                                        ),
+                                        origin = PlayOrigin.ARTIST,
                                     )
                                 },
                                 modifier = Modifier
@@ -439,7 +441,8 @@ fun ArtistScreen(
                                                             startIndex = section.items.indexOf(
                                                                 song
                                                             )
-                                                        )
+                                                        ),
+                                                        origin = PlayOrigin.ARTIST,
                                                     )
                                                 }
                                             },

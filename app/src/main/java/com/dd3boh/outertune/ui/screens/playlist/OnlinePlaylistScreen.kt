@@ -93,6 +93,7 @@ import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
@@ -526,7 +527,8 @@ fun OnlinePlaylistScreen(
                                                         playlistId = playlist.playEndpoint!!.playlistId,
                                                         title = playlist.title,
                                                         items = songs.map { it.toMediaMetadata() },
-                                                    )
+                                                    ),
+                                                    origin = PlayOrigin.PLAYLIST,
                                                 )
                                             },
                                             contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
@@ -551,7 +553,8 @@ fun OnlinePlaylistScreen(
                                                         title = playlist.title,
                                                         items = songs.map { it.toMediaMetadata() },
                                                         startShuffled = true,
-                                                    )
+                                                    ),
+                                                    origin = PlayOrigin.PLAYLIST,
                                                 )
                                             },
                                             contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
@@ -633,7 +636,8 @@ fun OnlinePlaylistScreen(
                                                         title = playlist.title,
                                                         items = filteredSongs.map { it.second.toMediaMetadata() },
                                                         startIndex = index
-                                                    )
+                                                    ),
+                                                    origin = PlayOrigin.PLAYLIST,
                                                 )
                                             }
                                         },

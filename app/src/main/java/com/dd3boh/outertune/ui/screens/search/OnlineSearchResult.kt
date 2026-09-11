@@ -36,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSnackbarHostState
@@ -181,6 +182,7 @@ fun OnlineSearchResult(
                                                 YouTubeQueue.radio(item.toMediaMetadata()),
                                                 isRadio = true,
                                                 replace = true,
+                                                origin = PlayOrigin.SEARCH,
                                             )
                                         }
                                     }

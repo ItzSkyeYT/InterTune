@@ -12,6 +12,7 @@ import androidx.sqlite.db.SupportSQLiteQuery
 import com.dd3boh.outertune.db.daos.AlbumsDao
 import com.dd3boh.outertune.db.daos.ArtistsDao
 import com.dd3boh.outertune.db.daos.PlaylistsDao
+import com.dd3boh.outertune.db.daos.ListenDao
 import com.dd3boh.outertune.db.daos.QueueDao
 import com.dd3boh.outertune.db.daos.SongsDao
 import com.dd3boh.outertune.db.entities.AlbumArtistMap
@@ -46,7 +47,7 @@ import com.zionhuang.innertube.pages.AlbumPage
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao {
+interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao, ListenDao {
 
     @Transaction
     @Query(RecommendationSql.QUICK_PICKS)
@@ -388,6 +389,9 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao 
                 title = mq.title,
                 shuffled = mq.shuffled,
                 queuePos = mq.queuePos,
+                origin = mq.origin,
+                originSlot = mq.originSlot,
+                learn = mq.learn,
                 lastSongPos = mq.lastSongPos,
                 index = mq.index,
                 playlistId = mq.playlistId

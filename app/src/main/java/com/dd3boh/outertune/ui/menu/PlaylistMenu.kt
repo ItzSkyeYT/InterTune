@@ -47,6 +47,7 @@ import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalNetworkConnected
 import com.dd3boh.outertune.LocalPlayerConnection
@@ -194,7 +195,8 @@ fun PlaylistMenu(
                     title = playlist.playlist.name,
                     items = songs.map { it.toMediaMetadata() },
                     playlistId = playlist.playlist.browseId
-                )
+                ),
+                origin = PlayOrigin.PLAYLIST,
             )
         }
 
@@ -209,7 +211,8 @@ fun PlaylistMenu(
                     items = songs.map { it.toMediaMetadata() },
                     startShuffled = true,
                     playlistId = playlist.playlist.browseId
-                )
+                ),
+                origin = PlayOrigin.PLAYLIST,
             )
         }
 

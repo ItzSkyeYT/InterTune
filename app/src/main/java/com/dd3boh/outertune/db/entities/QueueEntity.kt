@@ -18,6 +18,14 @@ data class QueueEntity(
     @ColumnInfo(name = "index", defaultValue = "0")
     val index: Int, // order of queue
     val playlistId: String? = null,
+    /** A PlayOrigin code: how this queue was started. Kept so a play logged after a restart still knows. */
+    @ColumnInfo(name = "origin", defaultValue = "0")
+    var origin: Int = 0,
+    @ColumnInfo(name = "originSlot", defaultValue = "-1")
+    var originSlot: Int = -1,
+    /** False when the listener has asked that this queue not teach the engine. */
+    @ColumnInfo(name = "learn", defaultValue = "1")
+    var learn: Boolean = true,
 ) {
     companion object {
         fun generateQueueId() = RandomStringUtils.insecure().next(8, false, true).toLong()

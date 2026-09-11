@@ -96,6 +96,9 @@ import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.minPlaybackDurKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Event
+import com.dd3boh.outertune.db.entities.Listen
+import com.dd3boh.outertune.constants.EndReason
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.db.entities.FormatEntity
 import com.dd3boh.outertune.db.entities.RelatedSongMap
 import com.dd3boh.outertune.di.AppModule.PlayerCache
@@ -164,6 +167,9 @@ import kotlin.math.min
 import kotlin.math.pow
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
+/** Silence longer than this starts a new listening session. */
+private const val SESSION_GAP_MS = 30L * 60 * 1000
+
 @AndroidEntryPoint
 class MusicService : MediaLibraryService(),
     Player.Listener,
@@ -542,6 +548,26 @@ class MusicService : MediaLibraryService(),
     private val relatedLookupFailures = FailureMemo(RELATED_RETRY_COOLDOWN_MS)
 
     /**
+     * What each song knew about itself when it started, keyed by media id: where its queue came
+     * from, how many songs had autoplayed before it, and the wall clock. Read back when its stats
+     * arrive, because by then the queue may already be a different one.
+     */
+    private data class StartInfo(
+        val startedAt: Long,
+        val origin: Int,
+        val originSlot: Int,
+        val queueId: Long,
+        val learn: Boolean,
+        val autoplayDepth: Int,
+    )
+    private val startInfo = java.util.concurrent.ConcurrentHashMap<String, StartInfo>()
+
+    /** How the previous song ended, by media id, written at the transition that ended it. */
+    private val pendingEndReasons = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    private var lastMediaId: String? = null
+    private var autoplayRun = 0
+
+    /**
      * Songs whose related lookup is running right now.
      *
      * recoverSong is launched on every resolve of the data source, and one play can resolve more
@@ -648,13 +674,17 @@ class MusicService : MediaLibraryService(),
         shouldResume: Boolean = false,
         replace: Boolean = false,
         isRadio: Boolean = false,
-        title: String? = null
+        title: String? = null,
+        origin: PlayOrigin = PlayOrigin.UNKNOWN,
+        originSlot: Int = -1,
     ) {
         if (!qbInit.value) {
             runBlocking(Dispatchers.IO) {
                 initQueue()
             }
         }
+        // Radio was already a flag; it is also an origin, and the more useful of the two.
+        val playOrigin = if (origin == PlayOrigin.UNKNOWN && isRadio) PlayOrigin.RADIO else origin
 
         var queueTitle = title
         queuePlaylistId = queue.playlistId
@@ -672,6 +702,8 @@ class MusicService : MediaLibraryService(),
                         replace = replace,
                         continuationEndpoint = null // fulfilled later on after initial status
                     )
+                    q?.origin = playOrigin.code
+                    q?.originSlot = originSlot
                     queueBoard.setCurrQueue(q, true)
                 }
 
@@ -702,6 +734,8 @@ class MusicService : MediaLibraryService(),
                         replace = replace || preloadItem != null,
                         continuationEndpoint = if (isRadio) items.takeLast(4).shuffled().first().id else null // yq?.getContinuationEndpoint()
                     )
+                    q?.origin = playOrigin.code
+                    q?.originSlot = originSlot
                     queueBoard.setCurrQueue(q, shouldResume)
                 }
 
@@ -1173,6 +1207,7 @@ class MusicService : MediaLibraryService(),
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
+        noteTransition(mediaItem, reason)
         // "Listening now" on Last.fm. Not a scrobble, not stored, and allowed to fail quietly.
         mediaItem?.metadata?.let { meta -> scope.launch { scrobbler.nowPlaying(meta) } }
         // +2 when and error happens, and -1 when transition. Thus when error, number increments by 1, else doesn't change
@@ -1251,6 +1286,92 @@ class MusicService : MediaLibraryService(),
         }
     }
 
+    /**
+     * The transition tells us how the song before it ended, and what the new one is starting as.
+     *
+     * The player never says "the previous song was skipped"; it says "we moved to this one, by
+     * seeking". So the reason is recorded against the song that just ended, to be picked up when its
+     * playback stats arrive, and the run of consecutive autoplays is counted so a song that played
+     * sixth in a radio queue is not weighed like one the listener chose.
+     */
+    private fun noteTransition(mediaItem: MediaItem?, reason: Int) {
+        lastMediaId?.let { previous ->
+            pendingEndReasons[previous] = when (reason) {
+                MEDIA_ITEM_TRANSITION_REASON_AUTO, Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT -> EndReason.ENDED
+                MEDIA_ITEM_TRANSITION_REASON_SEEK -> EndReason.SKIPPED
+                Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED -> EndReason.REPLACED
+                else -> EndReason.UNKNOWN
+            }
+        }
+        autoplayRun = if (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO) autoplayRun + 1 else 0
+        val q = queueBoard.getCurrentQueue()
+        mediaItem?.mediaId?.let { id ->
+            startInfo[id] = StartInfo(
+                startedAt = System.currentTimeMillis(),
+                origin = q?.origin ?: PlayOrigin.UNKNOWN.code,
+                originSlot = q?.originSlot ?: -1,
+                queueId = q?.id ?: 0L,
+                learn = q?.learn ?: true,
+                autoplayDepth = autoplayRun,
+            )
+        }
+        lastMediaId = mediaItem?.mediaId
+    }
+
+    /**
+     * Writes the complete record of a stop, whatever fraction was heard.
+     *
+     * Natural end is read off the stats themselves (endedCount), which is exact. Anything else was
+     * cut short, and the transition that cut it says how; its callback and this one race, so a
+     * missing reason is given a moment to arrive before being called a stop.
+     */
+    private suspend fun logListen(
+        mediaId: String,
+        playbackStats: PlaybackStats,
+        durationSec: Int,
+        ratio: Float,
+        counted: Boolean,
+    ) {
+        val endedAt = System.currentTimeMillis()
+        val info = startInfo.remove(mediaId)
+        val endReason = when {
+            playbackStats.endedCount > 0 -> EndReason.ENDED
+            else -> pendingEndReasons.remove(mediaId) ?: run {
+                delay(300)
+                pendingEndReasons.remove(mediaId)
+            } ?: EndReason.STOPPED
+        }
+        val startedAt = info?.startedAt
+            ?: (endedAt - playbackStats.totalPlayTimeMs - playbackStats.totalPausedTimeMs)
+        val offsetMin = java.util.TimeZone.getDefault().getOffset(endedAt) / 60_000
+        database.transaction {
+            // A session is a run of listening with no gap over 30 minutes, measured from the end of
+            // one play to the start of the next. The same boundary Flow and the ACT-R relistening
+            // work use; Spotify's own is 20.
+            val last = lastListen()
+            val sessionId = if (last == null || startedAt - last.endedAt > SESSION_GAP_MS) startedAt else last.sessionId
+            insert(
+                Listen(
+                    songId = mediaId,
+                    startedAt = startedAt,
+                    endedAt = endedAt,
+                    tzOffsetMin = offsetMin,
+                    playedMs = playbackStats.totalPlayTimeMs,
+                    durationMs = if (durationSec > 0) durationSec * 1000L else -1L,
+                    ratio = ratio,
+                    endReason = endReason,
+                    origin = info?.origin ?: PlayOrigin.UNKNOWN.code,
+                    originSlot = info?.originSlot ?: -1,
+                    queueId = info?.queueId ?: 0L,
+                    autoplayDepth = info?.autoplayDepth ?: 0,
+                    sessionId = sessionId,
+                    counted = counted,
+                    learn = info?.learn ?: true,
+                )
+            )
+        }
+    }
+
     override fun onPlaybackStatsReady(eventTime: AnalyticsListener.EventTime, playbackStats: PlaybackStats) {
         offloadScope.launch {
             val mediaItem = eventTime.timeline.getWindow(eventTime.windowIndex, Timeline.Window()).mediaItem
@@ -1273,7 +1394,18 @@ class MusicService : MediaLibraryService(),
             val playRatio =
                 if (durationSec > 0) playbackStats.totalPlayTimeMs.toFloat() / (durationSec * 1000) else -1f
             Log.d(TAG, "Playback ratio: $playRatio Min threshold: $minPlaybackDur (duration ${durationSec}s)")
-            if (playRatio >= minPlaybackDur && !dataStore.get(PauseListenHistoryKey, false)) {
+            val historyPaused = dataStore.get(PauseListenHistoryKey, false)
+            val counted = playRatio >= minPlaybackDur
+            // The complete record, under the same privacy switch as the counted play. Nothing that
+            // lasted under two seconds: that is the player settling or a double tap, not a listen,
+            // and it would otherwise be the most common row in the table.
+            if (!historyPaused && playbackStats.totalPlayTimeMs >= 2_000) {
+                runCatching { logListen(mediaItem.mediaId, playbackStats, durationSec, playRatio, counted) }
+                    .onFailure { Log.w(TAG, "Could not log listen", it) }
+            } else {
+                startInfo.remove(mediaItem.mediaId); pendingEndReasons.remove(mediaItem.mediaId)
+            }
+            if (counted && !historyPaused) {
                 database.query {
                     incrementPlayCount(mediaItem.mediaId)
                     try {

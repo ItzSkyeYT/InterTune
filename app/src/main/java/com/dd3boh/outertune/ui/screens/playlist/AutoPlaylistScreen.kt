@@ -85,6 +85,7 @@ import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
@@ -487,7 +488,8 @@ fun AutoPlaylistScreen(
                                             title = playlist.name,
                                             items = songs.map { it.toMediaMetadata() },
                                             playlistId = playlist.browseId
-                                        )
+                                        ),
+                                        origin = PlayOrigin.PLAYLIST,
                                     )
                                 },
                                 contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
@@ -510,7 +512,8 @@ fun AutoPlaylistScreen(
                                             items = songs.map { it.toMediaMetadata() },
                                             startShuffled = true,
                                             playlistId = playlist.browseId
-                                        )
+                                        ),
+                                        origin = PlayOrigin.PLAYLIST,
                                     )
                                 },
                                 contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
@@ -590,7 +593,8 @@ fun AutoPlaylistScreen(
                                 items = (if (isSearching) filteredSongs else mutableSongs).map { it.toMediaMetadata() },
                                 startIndex = index,
                                 playlistId = playlist.browseId
-                            )
+                            ),
+                            origin = PlayOrigin.PLAYLIST,
                         )
                     },
                     modifier = Modifier

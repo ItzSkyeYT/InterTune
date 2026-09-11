@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSnackbarHostState
@@ -219,7 +220,8 @@ fun ArtistItemsScreen(
                                                 items = itemsPage?.items.orEmpty()
                                                     .map { (it as SongItem).toMediaMetadata() },
                                                 startIndex = index
-                                            )
+                                            ),
+                                            origin = PlayOrigin.ARTIST,
                                         )
                                     }
                                 },
@@ -285,7 +287,8 @@ fun ArtistItemsScreen(
                                             title = "Artist songs: ${item.artists.firstOrNull()?.name}",
                                             items = itemsPage?.items.orEmpty().map { (it as SongItem).toMediaMetadata() },
                                             startIndex = index
-                                        )
+                                        ),
+                                        origin = PlayOrigin.ARTIST,
                                     )
                                     is AlbumItem -> navController.navigate("album/${item.id}")
                                     is ArtistItem -> navController.navigate("artist/${item.id}")

@@ -72,6 +72,7 @@ import androidx.compose.ui.util.fastSumBy
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSnackbarHostState
@@ -532,7 +533,8 @@ fun FolderScreen(
                                 title = currDir.currentDir.substringAfterLast('/'),
                                 items = mutableSongs.map { it.toMediaMetadata() },
                                 startIndex = mutableSongs.indexOf(song)
-                            )
+                            ),
+                            origin = PlayOrigin.LIBRARY,
                         )
                     },
                     modifier = Modifier
