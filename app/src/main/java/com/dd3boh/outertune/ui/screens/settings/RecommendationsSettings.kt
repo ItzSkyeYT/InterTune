@@ -271,11 +271,13 @@ fun RecommendationsSettings(
             title = { Text(stringResource(R.string.export_engine_data)) },
             description = stringResource(R.string.export_engine_data_description),
             onClick = {
-                val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                    type = "application/json"
-                    putExtra(android.content.Intent.EXTRA_TEXT, viewModel.exportJson())
+                viewModel.export { json ->
+                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "application/json"
+                        putExtra(android.content.Intent.EXTRA_TEXT, json)
+                    }
+                    context.startActivity(android.content.Intent.createChooser(intent, null))
                 }
-                context.startActivity(android.content.Intent.createChooser(intent, null))
             },
         )
         Spacer(Modifier.height(16.dp))

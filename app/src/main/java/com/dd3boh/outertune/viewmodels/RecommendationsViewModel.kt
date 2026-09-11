@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.viewmodels
 
+import kotlinx.coroutines.withContext
 import com.dd3boh.outertune.engine.EngineLearning
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -61,8 +62,13 @@ class RecommendationsViewModel @Inject constructor(
         }
     }
 
-    /** Everything the engine has learned, as JSON, handed to the share sheet as text. */
-    fun exportJson(): String {
+    /** Everything the engine has learned, as JSON, built off the main thread and handed back on it for the share sheet. */
+    fun export(onReady: (String) -> Unit) = viewModelScope.launch(Dispatchers.IO) {
+        val json = runCatching { exportJson() }.getOrNull() ?: return@launch
+        withContext(Dispatchers.Main) { onReady(json) }
+    }
+
+    private fun exportJson(): String {
         val weights = database.engineWeights()
         val counts = database.engineWeights().maxOfOrNull { it.updates } ?: 0
         fun q(s: String) = "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
