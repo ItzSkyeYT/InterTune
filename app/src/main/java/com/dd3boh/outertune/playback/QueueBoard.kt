@@ -907,6 +907,23 @@ class QueueBoard(
         }
     }
 
+    /**
+     * Whether this queue teaches the recommendation engine.
+     *
+     * Applied backwards as well as forwards: the listens this queue has already produced are
+     * marked too, so a one-off queue, the party playlist, the songs put on for someone else, can be
+     * pulled out after the fact rather than only before anyone thought of it. The flag lives on
+     * the queue, so it survives a restart and covers everything the queue goes on to play.
+     */
+    fun setQueueLearns(mq: MultiQueueObject, learn: Boolean) {
+        mq.learn = learn
+        saveQueue(mq)
+        player.database.query {
+            runCatching { setQueueLearns(mq.id, learn) }
+                .onFailure { Log.w(TAG, "Could not update learn flag on listens", it) }
+        }
+    }
+
     private fun saveQueue(mq: MultiQueueObject) {
         if (player.dataStore.get(PersistentQueueKey, true)) {
             queueEntity.add(
