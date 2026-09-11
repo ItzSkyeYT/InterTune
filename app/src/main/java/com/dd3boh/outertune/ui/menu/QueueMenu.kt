@@ -5,6 +5,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material.icons.Icons
+import androidx.compose.runtime.remember
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material3.HorizontalDivider
@@ -36,6 +39,7 @@ fun QueueMenu(
         return
     }
     val songs = mq.getCurrentQueueShuffled()
+    var learns by remember(mq.id) { mutableStateOf(mq.learn) }
 
     var showChoosePlaylistDialog by rememberSaveable {
         mutableStateOf(false)
@@ -78,6 +82,15 @@ fun QueueMenu(
             title = R.string.edit
         ) {
             showEditDialog = true
+        }
+        // Whether what plays here teaches Quick picks. One tap, reversible, and it reaches back
+        // over what the queue has already played.
+        GridMenuItem(
+            icon = if (learns) Icons.Rounded.AutoAwesome else Icons.Outlined.AutoAwesome,
+            title = if (learns) R.string.queue_learn_off else R.string.queue_learn_on
+        ) {
+            learns = !learns
+            playerConnection.service.queueBoard.setQueueLearns(mq, learns)
         }
     }
 
