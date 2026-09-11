@@ -64,7 +64,37 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
     fun events(): Flow<List<EventWithSong>>
 
     @Query("DELETE FROM event")
-    fun clearListenHistory()
+    fun clearEvents()
+
+    @Query("DELETE FROM listen")
+    fun clearListens()
+
+    @Query("DELETE FROM listen_signal")
+    fun clearListenSignals()
+
+    @Query("DELETE FROM impression")
+    fun clearImpressions()
+
+    @Query("DELETE FROM row_build")
+    fun clearRowBuilds()
+
+    @Query("DELETE FROM engine_weight")
+    fun clearEngineWeights()
+
+    /**
+     * Everything the app has recorded about what was played, in one transaction: the legacy play
+     * log, the listen log and its signals, what Quick picks showed, and what the engine learned
+     * from it (its weights go back to their priors the next time it runs).
+     */
+    @Transaction
+    fun clearListenHistory() {
+        clearEvents()
+        clearListenSignals()
+        clearListens()
+        clearImpressions()
+        clearRowBuilds()
+        clearEngineWeights()
+    }
 
     @Query("SELECT * FROM search_history WHERE `query` LIKE :query || '%' ORDER BY id DESC")
     fun searchHistory(query: String = ""): Flow<List<SearchHistory>>
@@ -133,7 +163,7 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
     fun insert(searchHistory: SearchHistory)
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    fun insert(event: Event)
+    fun insert(event: Event): Long
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insert(map: RelatedSongMap)

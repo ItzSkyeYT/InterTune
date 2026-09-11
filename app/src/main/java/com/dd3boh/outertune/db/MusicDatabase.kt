@@ -58,6 +58,9 @@ class MusicDatabase(
     val openHelper: SupportSQLiteOpenHelper
         get() = delegate.openHelper
 
+    /** Runs [block] inside one transaction on the calling thread, for a background job that must see its own writes before going on. */
+    fun <T> transactionNow(block: MusicDatabase.() -> T): T = delegate.runInTransaction(java.util.concurrent.Callable { block() })
+
     fun query(block: MusicDatabase.() -> Unit) = with(delegate) {
         queryExecutor.execute {
             block(this@MusicDatabase)
