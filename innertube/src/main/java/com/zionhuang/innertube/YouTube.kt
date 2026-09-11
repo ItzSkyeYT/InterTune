@@ -802,11 +802,24 @@ object YouTube {
     suspend fun related(endpoint: BrowseEndpoint): Result<RelatedPage> = runCatching {
         val response = innerTube.browse(WEB_REMIX, endpoint.browseId).body<BrowseResponse>()
         val songs = mutableListOf<SongItem>()
+        val otherPerformances = mutableListOf<SongItem>()
         val albums = mutableListOf<AlbumItem>()
         val artists = mutableListOf<ArtistItem>()
         val playlists = mutableListOf<PlaylistItem>()
+        // The page has five carousel shelves: songs you might also like, recommended playlists,
+        // other performances of the same song, similar artists, and the artist. Only two of them
+        // hold song rows, and the second is by definition versions of the seed. Told apart by
+        // position among the song-row shelves rather than by title, because titles are localised:
+        // the order was checked identical in English, French and Japanese on 11 Sep 2026. If a
+        // third song shelf ever appears it lands in otherPerformances, which is the safe way to be
+        // wrong: a few fewer candidates, never a variant passed off as a recommendation.
+        var songShelvesSeen = 0
         response.contents?.sectionListRenderer?.contents?.forEach { sectionContent ->
-            sectionContent.musicCarouselShelfRenderer?.contents?.forEach { content ->
+            val shelfContents = sectionContent.musicCarouselShelfRenderer?.contents
+            val target = if (shelfContents?.any { it.musicResponsiveListItemRenderer != null } == true) {
+                if (songShelvesSeen++ == 0) songs else otherPerformances
+            } else songs
+            shelfContents?.forEach { content ->
                 when (val item = content.musicResponsiveListItemRenderer?.let(RelatedPage.Companion::fromMusicResponsiveListItemRenderer)
                     ?: content.musicTwoRowItemRenderer?.let(RelatedPage.Companion::fromMusicTwoRowItemRenderer)) {
                     is SongItem -> if (content.musicResponsiveListItemRenderer?.overlay
@@ -814,7 +827,7 @@ object YouTube {
                             ?.musicPlayButtonRenderer?.playNavigationEndpoint
                             ?.watchEndpoint?.watchEndpointMusicSupportedConfigs
                             ?.watchEndpointMusicConfig?.musicVideoType == MUSIC_VIDEO_TYPE_ATV
-                    ) songs.add(item)
+                    ) target.add(item)
 
                     is AlbumItem -> albums.add(item)
                     is ArtistItem -> artists.add(item)
@@ -823,7 +836,7 @@ object YouTube {
                 }
             }
         }
-        RelatedPage(songs, albums, artists, playlists)
+        RelatedPage(songs, albums, artists, playlists, otherPerformances)
     }
 
     suspend fun queue(videoIds: List<String>? = null, playlistId: String? = null): Result<List<SongItem>> = runCatching {

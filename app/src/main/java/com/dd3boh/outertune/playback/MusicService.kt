@@ -122,6 +122,7 @@ import com.dd3boh.outertune.utils.Scrobbler
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.FailureMemo
 import com.dd3boh.outertune.utils.Throttle
+import com.dd3boh.outertune.utils.SongVersions
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.enumPreference
@@ -540,6 +541,16 @@ class MusicService : MediaLibraryService(),
      */
     private val relatedLookupFailures = FailureMemo(RELATED_RETRY_COOLDOWN_MS)
 
+    /**
+     * Songs whose related lookup is running right now.
+     *
+     * recoverSong is launched on every resolve of the data source, and one play can resolve more
+     * than once, so two lookups for the same song used to run side by side: both saw no related
+     * rows, both fetched, both wrote. On a fresh install five plays left 224 rows of which 109 were
+     * duplicates, each seed's list written twice in YouTube's slightly different second ordering.
+     */
+    private val relatedInFlight: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
     private suspend fun recoverSong(mediaId: String, playbackData: YTPlayerUtils.PlaybackData? = null) {
         val song = database.song(mediaId).first()
         val mediaMetadata = withContext(Dispatchers.Main) {
@@ -554,13 +565,27 @@ class MusicService : MediaLibraryService(),
             if (song == null) insert(mediaMetadata.copy(duration = duration))
             else if (song.song.duration == -1) update(song.song.copy(duration = duration))
         }
-        if (!database.hasRelatedSongs(mediaId) && relatedLookupFailures.none(mediaId)) {
+        if (!database.hasRelatedSongs(mediaId) && relatedLookupFailures.none(mediaId) &&
+            relatedInFlight.add(mediaId)
+        ) try {
             val relatedEndpoint = YouTube.next(WatchEndpoint(videoId = mediaId)).getOrNull()?.relatedEndpoint
                 ?: return relatedLookupFailures.note(mediaId)
             val relatedPage = YouTube.related(relatedEndpoint).getOrNull()
                 ?: return relatedLookupFailures.note(mediaId)
-            database.query {
-                relatedPage.songs
+            // Only the page's related shelf (other performances are split off in YouTube.related),
+            // and never a version of the seed itself, which that shelf still sometimes carries.
+            // This graph is what Quick picks is built from, so anything let in here gets
+            // recommended.
+            val seedTitle = song?.song?.title ?: mediaMetadata.title
+            val related = relatedPage.songs
+                .distinctBy { it.id }
+                .filterNot { it.id == mediaId || SongVersions.isVersionOf(it.title, seedTitle) }
+            database.transaction {
+                // Checked again here, on the serial transaction executor, so two lookups that
+                // raced past the check above still write the list once. The in-flight set stops
+                // most of them fetching at all; this is what makes it exact.
+                if (hasRelatedSongs(mediaId)) return@transaction
+                related
                     .map(SongItem::toMediaMetadata)
                     .onEach(::insert)
                     .map {
@@ -571,6 +596,8 @@ class MusicService : MediaLibraryService(),
                     }
                     .forEach(::insert)
             }
+        } finally {
+            relatedInFlight.remove(mediaId)
         }
     }
 
