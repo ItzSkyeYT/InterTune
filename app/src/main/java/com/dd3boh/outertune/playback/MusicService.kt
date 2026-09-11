@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.constants.ContextChipKey
 import com.dd3boh.outertune.db.entities.RecommendationExclusion
 import com.dd3boh.outertune.constants.RestSongsISkipKey
 import com.dd3boh.outertune.constants.RelatedRefreshCountKey
@@ -1484,6 +1485,7 @@ class MusicService : MediaLibraryService(),
                         autoplayDepth = info.autoplayDepth, sessionId = sessionId, counted = false,
                         learn = info.learn, runId = info.runId, endPositionMs = -1L,
                         continuesListenId = continues,
+                        contextChip = dataStore.get(ContextChipKey, 0),
                         // The card's impression was marked with the same moment by the tap itself,
                         // on this same serial executor, so it is there to be found.
                         impressionId = info.tappedAt?.let { impressionIdByTap(it) },

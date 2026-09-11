@@ -36,7 +36,7 @@ data class EngineSeedsRow(val builtAt: Long, val seeds: String)
  * the same shapes from a copy of a real database.
  */
 object EngineLoader {
-    fun load(database: MusicDatabase, now: Long = System.currentTimeMillis(), bucket: Int? = null): EngineInput {
+    fun load(database: MusicDatabase, now: Long = System.currentTimeMillis(), bucket: Int? = null, chip: Int = ContextChip.AUTO): EngineInput {
         val tz = TimeZone.getDefault().getOffset(now) / 60_000
         val songs = HashMap<String, SongRow>()
         for (r in database.engineSongs()) {
@@ -60,6 +60,7 @@ object EngineLoader {
             pastSeeds = database.engineRecentSeeds(now - 3 * 3_600_000L).map { PastSeeds(it.builtAt, parseSeeds(it.seeds)) },
             bucket = bucket ?: dayPartBucket(now, tz),
             tzOffsetMin = tz,
+            chip = chip,
         )
     }
 

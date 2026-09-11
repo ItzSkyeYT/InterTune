@@ -177,6 +177,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="quick_picks_source_youtube">YouTube Music</string>
     <string name="quick_picks_source_library">Your library</string>
     <string name="quick_picks_source_engine">Best recommendations (experimental)</string>
+    <string name="quick_picks_source_compare">Try both (experimental)</string>
     <string name="quick_picks_source_off">Off</string>
     <string name="quick_picks_source_description">Where the Quick picks row gets its songs. YouTube Music picks them for your account. Your library builds the row instead from songs related to what you have already played. This changes that one row; the rest of the home screen is the same either way. Best recommendations builds the row itself from how you actually listen: what you finish, search for and like, when you play it, and what you pass over. It is new and it learns as you go.</string>
     <string name="oobe_update_auto_description">Fetch it in the background so it is ready when you want it. Android still asks you to confirm.</string>

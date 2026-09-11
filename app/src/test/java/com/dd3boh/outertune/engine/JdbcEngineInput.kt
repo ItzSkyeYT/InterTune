@@ -29,12 +29,12 @@ object JdbcEngineInput {
         }
 
     fun listens(db: Connection, now: Long): List<ListenRow> =
-        db.rows("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId, impressionId FROM listen").map {
+        db.rows("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId, impressionId, contextChip FROM listen").map {
             val endReason = (it["endReason"] as Number).toInt()
             ListenRow(it["songId"] as String, (it["startedAt"] as Number).toLong(), if (endReason == EndReason.OPEN) now else (it["endedAt"] as Number).toLong(),
                 (it["playedMs"] as Number).toLong(), (it["durationMs"] as Number).toLong(), endReason, (it["origin"] as Number).toInt(),
                 (it["autoplayDepth"] as Number).toInt(), (it["sessionId"] as Number).toLong(), (it["tzOffsetMin"] as Number).toInt(), (it["learn"] as Number).toInt() != 0,
-                (it["runId"] as Number).toLong(), (it["queueId"] as Number).toLong(), (it["impressionId"] as Number?)?.toLong())
+                (it["runId"] as Number).toLong(), (it["queueId"] as Number).toLong(), (it["impressionId"] as Number?)?.toLong(), (it["contextChip"] as Number).toInt())
         }
 
     fun edges(db: Connection): List<Edge> = db.rows("SELECT songId, relatedSongId FROM related_song_map").map { Edge(it["songId"] as String, it["relatedSongId"] as String) }

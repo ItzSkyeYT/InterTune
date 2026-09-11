@@ -164,6 +164,8 @@ val ShadowComparisonKey = booleanPreferencesKey("shadowComparison")
 val RestSongsISkipKey = booleanPreferencesKey("restSongsISkip")
 /** Rests filter the YouTube and library rows too, not only the engine's. */
 val RestsEverywhereKey = booleanPreferencesKey("restsEverywhere")
+/** The declared context chip above the engine row, kept until changed: 0 Auto, 1 Discover, 2 Favourites, 3 Focus, 4 Chill, 5 Party. */
+val ContextChipKey = intPreferencesKey("contextChip")
 /** Off freezes the engine's weights and stops impressions; the listen log continues. */
 val LearnFromListeningKey = booleanPreferencesKey("learnFromListening")
 /** The local day (days since the epoch) and how much of the day's update budget is spent. */

@@ -52,7 +52,13 @@ object Features {
             .filter { it.seenAt >= input.now - p.impressionWindowDays * day }
             .groupingBy { groups.groupOf(it.songId) }.eachCount()
         val currentSessionArtists: Set<String> = stats.sessionArtists.firstOrNull() ?: emptySet()
-        val bucketShare: Double = if (stats.goodInContextWindow > 0) stats.goodByBucket[input.bucket].toDouble() / stats.goodInContextWindow else 0.0
+        /** A mood chip with enough tagged listens: x_ctx is fit to the mood rather than the day part. */
+        val moodActive: Boolean = input.chip in ContextChip.MOODS && stats.goodTaggedAll >= ContextChip.MIN_TAGGED
+        val bucketShare: Double = when {
+            moodActive -> if (stats.goodInContextWindow > 0) stats.goodTaggedInWindow.toDouble() / stats.goodInContextWindow else 0.0
+            stats.goodInContextWindow > 0 -> stats.goodByBucket[input.bucket].toDouble() / stats.goodInContextWindow
+            else -> 0.0
+        }
     }
 
     fun of(songId: String, c: Context): DoubleArray {
@@ -114,9 +120,10 @@ object Features {
 
     private fun contextLift(art: ArtistStats?, c: Context): Double {
         val p = c.p
-        if (art == null || c.stats.goodByBucket[c.input.bucket] < p.contextMinListens || c.bucketShare <= 0) return 0.0
+        val inBucket = if (c.moodActive) c.stats.goodTaggedInWindow else c.stats.goodByBucket[c.input.bucket]
+        if (art == null || inBucket < p.contextMinListens || c.bucketShare <= 0) return 0.0
         val nA = art.goodListens.toDouble()
-        val nAb = art.goodByBucket[c.input.bucket].toDouble()
+        val nAb = (if (c.moodActive) art.goodTagged else art.goodByBucket[c.input.bucket]).toDouble()
         val lift = ((nAb + p.contextPrior * c.bucketShare) / (nA + p.contextPrior)) / c.bucketShare
         return LibraryStats.log2(lift).coerceIn(-1.0, 1.0)
     }

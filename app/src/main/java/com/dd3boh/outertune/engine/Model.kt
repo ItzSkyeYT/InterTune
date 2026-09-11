@@ -29,6 +29,8 @@ data class ListenRow(
     val queueId: Long = 0,
     /** The Quick picks impression this play came from, when it was a tap on a card. */
     val impressionId: Long? = null,
+    /** The [ContextChip] on when the play started. */
+    val contextChip: Int = 0,
 )
 
 data class SongRow(
@@ -77,7 +79,27 @@ data class EngineInput(
     val banned: Set<String> = emptySet(),
     /** Songs the listener turned down as seeds ("Not this one"); they may still be cards. */
     val notSeeds: Set<String> = emptySet(),
+    /** The [ContextChip] the row is built for. */
+    val chip: Int = ContextChip.AUTO,
 )
+
+/**
+ * The declared context: a chip above the engine row, kept until changed, stamped on every listen
+ * that starts while it is on. Auto is the ordinary row; Discover raises the explore share;
+ * Favourites seeds from likes only; Focus, Chill and Party learn from the listener alone, from
+ * what was played while each was on.
+ */
+object ContextChip {
+    const val AUTO = 0
+    const val DISCOVER = 1
+    const val FAVOURITES = 2
+    const val FOCUS = 3
+    const val CHILL = 4
+    const val PARTY = 5
+    val MOODS = setOf(FOCUS, CHILL, PARTY)
+    /** Below this many listens tagged with a mood, the row behaves as Auto and says so. */
+    const val MIN_TAGGED = 20
+}
 
 /** How a card got into the row. Appended in order: the code stored on an impression is ordinal + 1. */
 enum class Lane { RELATED, ARTIST, REDISCOVER, EXPLORE, AGAIN }

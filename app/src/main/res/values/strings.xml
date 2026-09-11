@@ -297,8 +297,17 @@ We recycle translations from upstream, they are pulled periodically. -->
     <string name="reason_like">One you liked</string>
     <string name="reason_context">Fits this time of day for you</string>
     <string name="reason_co">Goes with what you play together</string>
+    <string name="reason_context_mood">Fits your %1$s listening</string>
+    <string name="chip_auto">Auto</string>
+    <string name="chip_discover">Discover</string>
+    <string name="chip_favourites">Favourites</string>
+    <string name="chip_focus">Focus</string>
+    <string name="chip_chill">Chill</string>
+    <string name="chip_party">Party</string>
+    <string name="chip_learning">Play a few things while %1$s is on and this row will learn it: %2$d of %3$d so far.</string>
     <string name="reason_new">New to you</string>
     <string name="reason_wildcard">A wildcard from your related songs</string>
+    <string name="quick_picks_try_both_label">Try both: Best recommendations and the other source, one after the other</string>
     <string name="quick_picks_showing_library">Showing your library\'s picks: not enough listening yet for Best recommendations</string>
     <string name="quick_picks_showing_youtube">Showing YouTube\'s picks: not enough listening yet for Best recommendations</string>
     <string name="rank_with_listening">Rank with your listening</string>
