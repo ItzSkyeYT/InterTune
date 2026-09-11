@@ -273,6 +273,23 @@ We recycle translations from upstream, they are pulled periodically. -->
 
     <string name="player_and_audio">Player and audio</string>
     <string name="audio_quality">Audio quality</string>
+    <string name="recommendations">Recommendations</string>
+    <string name="settings_recommendations_description">How Quick picks is chosen, and what it learns from.</string>
+    <string name="recommendations_learned_title">What it has to learn from</string>
+    <string name="recommendations_listens">%1$d listens, %2$d counted as plays</string>
+    <string name="recommendations_listens_description">Every time a song stopped, including skips. A listen counts as a play once it passes your play threshold.</string>
+    <string name="recommendations_sessions">%1$d listening sessions</string>
+    <string name="recommendations_sessions_description">A session ends after thirty minutes of silence.</string>
+    <string name="recommendations_how_they_ended">How they ended</string>
+    <string name="recommendations_where_from">Where they were started from</string>
+    <string name="recommendations_impressions">%1$d cards shown, across %2$d rows</string>
+    <string name="recommendations_impressions_description">Quick picks cards that were on screen long enough to be seen. What you passed over teaches it as much as what you played.</string>
+    <string name="recommendations_recent_title">Recent listens</string>
+    <string name="recommendations_nothing_yet">Nothing yet</string>
+    <string name="recommendations_ended">played to the end</string>
+    <string name="recommendations_skipped">skipped</string>
+    <string name="recommendations_replaced">queue replaced</string>
+    <string name="recommendations_stopped">stopped</string>
     <string name="audio_quality_auto">Auto</string>
     <string name="audio_quality_high">High</string>
     <string name="audio_quality_low">Low</string>

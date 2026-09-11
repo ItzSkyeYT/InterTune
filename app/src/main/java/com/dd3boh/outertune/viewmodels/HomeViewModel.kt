@@ -16,6 +16,10 @@ import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.constants.QuickPicksSourceKey
+import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.db.entities.RowBuild
+import com.dd3boh.outertune.db.entities.Impression
+import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.dataStore
@@ -50,6 +54,50 @@ class HomeViewModel @Inject constructor(
     val database: MusicDatabase,
     val syncUtils: SyncUtils
 ) : ViewModel() {
+
+    // ---- Impressions: what Quick picks showed, so the engine can learn from what was passed over.
+    // Every write goes through the serial transaction executor, so a card is never logged against a
+    // build that has not been inserted yet, and the slot bookkeeping needs no locking. Every write
+    // is also caught: a failure here is a lost data point, never a dead app. The first version
+    // crashed on the YouTube row, whose songs exist only in the feed until they are inserted.
+    private var shownBuildIds: List<String> = emptyList()
+    private var currentBuildId = 0L
+    private var currentBuildSongs: List<String> = emptyList()
+    private val loggedSlots = HashSet<Int>()
+
+    /** A new set of songs is on screen. Called whenever the shown list changes, including on refresh. */
+    fun quickPicksShown(source: Int, songs: List<MediaMetadata>) {
+        val ids = songs.map { it.id }
+        if (ids.isEmpty() || ids == shownBuildIds) return
+        shownBuildIds = ids
+        if (context.dataStore.get(PauseListenHistoryKey, false)) return
+        val now = System.currentTimeMillis()
+        database.transaction {
+            runCatching {
+                // The song table is the anchor for everything the engine will ever say about a
+                // song, and YouTube's row arrives from the feed, not from the table.
+                songs.forEach { if (!songExists(it.id)) insert(it) }
+                val sessionId = lastListen()?.sessionId ?: now
+                currentBuildId = insert(RowBuild(builtAt = now, source = source, sessionId = sessionId, modelVersion = 0))
+                currentBuildSongs = ids
+                loggedSlots.clear()
+            }.onFailure { Log.w("HomeViewModel", "Could not record the Quick picks build", it) }
+        }
+    }
+
+    /** A card has been at least half visible for long enough to count as seen. */
+    fun quickPickSeen(slot: Int) {
+        if (context.dataStore.get(PauseListenHistoryKey, false)) return
+        val now = System.currentTimeMillis()
+        database.transaction {
+            runCatching {
+                val songId = currentBuildSongs.getOrNull(slot) ?: return@transaction
+                if (currentBuildId == 0L || !loggedSlots.add(slot)) return@transaction
+                insertImpressions(listOf(Impression(buildId = currentBuildId, songId = songId, slot = slot, p = -1f, shownAt = now)))
+            }.onFailure { Log.w("HomeViewModel", "Could not record an impression", it) }
+        }
+    }
+
     val isRefreshing = MutableStateFlow(false)
     val isLoading = MutableStateFlow(false)
 

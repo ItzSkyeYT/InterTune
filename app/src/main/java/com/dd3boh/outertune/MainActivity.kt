@@ -191,6 +191,7 @@ import com.dd3boh.outertune.ui.screens.settings.PlayerSettings
 import com.dd3boh.outertune.ui.screens.settings.SettingsScreen
 import com.dd3boh.outertune.ui.screens.settings.StorageSettings
 import com.dd3boh.outertune.ui.screens.settings.PrivacySettings
+import com.dd3boh.outertune.ui.screens.settings.RecommendationsSettings
 import com.dd3boh.outertune.ui.screens.settings.UpdateSettings
 import com.dd3boh.outertune.ui.theme.ColorSaver
 import com.dd3boh.outertune.ui.theme.DefaultThemeColor
@@ -1057,6 +1058,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                     composable("settings/privacy") {
                                         PrivacySettings(navController, scrollBehavior)
+                                    }
+                                    composable("settings/recommendations") {
+                                        RecommendationsSettings(navController, scrollBehavior)
                                     }
                                     composable("settings/updates") {
                                         UpdateSettings(navController, scrollBehavior)

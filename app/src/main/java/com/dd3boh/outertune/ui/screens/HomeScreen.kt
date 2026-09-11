@@ -25,6 +25,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.delay
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
@@ -86,6 +91,7 @@ import com.dd3boh.outertune.db.entities.LocalItem
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.togglePlayPause
+import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.YouTubeAlbumRadio
@@ -368,6 +374,35 @@ fun HomeScreen(
         quickPicksLazyGridState.scrollToItem(0)
     }
 
+    // What is actually on screen in Quick picks, in slot order, from whichever source is filling
+    // it. Registered as a build whenever it changes, and each card logged once it has been at least
+    // half visible for half a second while this screen is resumed: a card under the player sheet
+    // or a row scrolled past in a flick is not something the listener passed over.
+    val shownPicks: List<MediaMetadata> = remember(ytQuickPicks, quickPicks, quickPicksSource) {
+        ytQuickPicks?.takeIf { it.isNotEmpty() && quickPicksSource == QuickPicksSource.YOUTUBE }?.map { it.toMediaMetadata() }
+            ?: quickPicks.orEmpty().map { it.toMediaMetadata() }
+    }
+    val shownSource = if (ytQuickPicks?.isNotEmpty() == true && quickPicksSource == QuickPicksSource.YOUTUBE) 1 else 0
+    LaunchedEffect(shownPicks) { viewModel.quickPicksShown(shownSource, shownPicks) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(shownPicks, lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            snapshotFlow {
+                val info = quickPicksLazyGridState.layoutInfo
+                info.visibleItemsInfo.filter { item ->
+                    val start = item.offset.x
+                    val end = start + item.size.width
+                    val visible = minOf(end, info.viewportEndOffset) - maxOf(start, info.viewportStartOffset)
+                    item.size.width > 0 && visible * 2 >= item.size.width
+                }.map { it.index }.toSet()
+            }.collectLatest { slots ->
+                if (slots.isEmpty()) return@collectLatest
+                delay(500)   // cancelled by the next change, so only a settled row counts
+                slots.forEach(viewModel::quickPickSeen)
+            }
+        }
+    }
+
     LaunchedEffect(forgottenFavorites) {
         forgottenFavoritesLazyGridState.scrollToItem(0)
     }
@@ -557,10 +592,10 @@ fun HomeScreen(
                         ) {
                             // Same grid either way. Only which list fills it differs.
                             if (ytPicks != null) {
-                                items(
+                                itemsIndexed(
                                     items = ytPicks,
-                                    key = { it.id }
-                                ) { song ->
+                                    key = { _, it -> it.id }
+                                ) { slot, song ->
                                     YouTubeListItem(
                                         item = song,
                                         isActive = song.id == mediaMetadata?.id,
@@ -574,7 +609,9 @@ fun HomeScreen(
                                                     } else {
                                                         playerConnection.playQueue(
                                                             YouTubeQueue.radio(song.toMediaMetadata()),
-                                                            isRadio = true
+                                                            isRadio = true,
+                                                            origin = PlayOrigin.QUICK_PICKS,
+                                                            originSlot = slot,
                                                         )
                                                     }
                                                 },
@@ -592,10 +629,10 @@ fun HomeScreen(
                                     )
                                 }
                             } else {
-                                items(
+                                itemsIndexed(
                                     items = localPicks,
-                                    key = { it.id }
-                                ) { originalSong ->
+                                    key = { _, it -> it.id }
+                                ) { slot, originalSong ->
                                     SongListItem(
                                         song = originalSong,
                                         navController = navController,
@@ -611,7 +648,9 @@ fun HomeScreen(
                                         onPlay = {
                                             playerConnection.playQueue(
                                                 YouTubeQueue.radio(originalSong.toMediaMetadata()),
-                                                isRadio = true
+                                                isRadio = true,
+                                                origin = PlayOrigin.QUICK_PICKS,
+                                                originSlot = slot,
                                             )
                                         },
                                         modifier = Modifier.width(horizontalLazyGridItemWidth)
