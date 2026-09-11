@@ -94,7 +94,8 @@ class HomeViewModel @Inject constructor(
     private var similarPool: List<SimilarRecommendation>? = null
     private var homePagePool: HomePage? = null
 
-    fun applyTidy() { viewModelScope.launch(Dispatchers.IO) { tidyRows() } }
+    /** Home came back into view: grade and learn from what has happened since, then tidy the rows. */
+    fun applyTidy() { viewModelScope.launch(Dispatchers.IO) { runCatching { learning.run() }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }; tidyRows() } }
 
     // ---- Best recommendations: the engine's own row, and its score over the other sources.
     private var lastEngineRow: BuiltRow? = null
@@ -169,7 +170,7 @@ class HomeViewModel @Inject constructor(
     private suspend fun buildEngineRow(force: Boolean): List<Song> = withContext(Dispatchers.Default) {
         val now = System.currentTimeMillis()
         val input = engineInput(now)
-        runCatching { learning.run(input, now) }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }
+        runCatching { learning.run(now) }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }
         weightsInUse = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS)
         val session = input.listens.maxByOrNull { it.endedAt }?.sessionId ?: -1L
         val standing = lastEngineRow
@@ -195,7 +196,7 @@ class HomeViewModel @Inject constructor(
         if (ids.isEmpty()) return
         val z = runCatching { withContext(Dispatchers.Default) {
             val input = engineInput(System.currentTimeMillis())
-            runCatching { learning.run(input) }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }
+            runCatching { learning.run() }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }
             weightsInUse = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS)
             EngineRow.rank(input, ids, weightsInUse)
         } }

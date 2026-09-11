@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.engine
 
+import kotlinx.coroutines.flow.first
+import com.dd3boh.outertune.db.Converters
+import com.dd3boh.outertune.constants.EndReason
 import android.content.Context
 import android.util.Log
 import androidx.datastore.preferences.core.edit
@@ -28,28 +31,36 @@ class EngineLearning(private val context: Context, private val database: MusicDa
     /** The weights as they stand: the table, or the priors when nothing has been learned. */
     fun weights(): Weights = Weights(database.engineWeights().associate { it.name to it.value.toDouble() })
 
-    /** Grades pending impressions and applies what the budget allows. Returns how many examples were applied. */
-    suspend fun run(input: EngineInput, now: Long = System.currentTimeMillis()): Int {
+    /**
+     * Grades pending impressions and applies what the budget allows. Returns how many examples were
+     * applied. Cheap enough to run whenever Home comes back into view: it reads the listen log and
+     * only the songs the pending cards and recent listens name, never the whole library.
+     */
+    suspend fun run(now: Long = System.currentTimeMillis()): Int {
         if (!context.dataStore.get(LearnFromListeningKey, true)) return 0
-        grade(input, now)
+        grade(now)
         return apply(now)
     }
 
-    private fun grade(input: EngineInput, now: Long) {
+    private suspend fun grade(now: Long) {
         val pending = database.pendingImpressions()
         if (pending.isEmpty()) return
         val rows = pending.map { i ->
             ImpressionRow(i.id, i.songId, i.slot, i.lane.takeIf { it in 1..4 }?.let { Lane.entries[it - 1] }, Grading.parseFeatures(i.features), i.p?.toDouble(), i.visibleAt ?: 0L, i.tappedAt)
         }
-        val groups = VersionGroups(input.songs.values, input.versionLinks)
-        // The listens are read afresh: the input may be a minute old, and the play that finished
-        // a moment ago is the one to grade.
-        val listens = database.engineListens().map { if (it.endReason == com.dd3boh.outertune.constants.EndReason.OPEN) it.copy(endedAt = now) else it }
-        val graded = Grading.grade(rows, listens, input.songs, groups, now)
+        val listens = database.engineListens().map { if (it.endReason == EndReason.OPEN) it.copy(endedAt = now) else it }
+        val oldest = pending.minOf { it.visibleAt ?: now }
+        val recent = listens.filter { it.startedAt >= oldest - 86_400_000L }
+        val ids = (pending.map { it.songId } + recent.map { it.songId }).toSet().toList()
+        val songs = ids.chunked(900).flatMap { chunk -> database.songsByIds(chunk).first() }
+            .associate { it.id to SongRow(it.id, it.song.title, it.artists.firstOrNull()?.id, it.artists.firstOrNull()?.name, it.song.liked, it.song.likedDate?.let { d -> storedLocalToInstant(Converters().dateToTimestamp(d)!!) }?.takeIf { _ -> it.song.liked }) }
+        val groups = VersionGroups(songs.values, database.engineVersionLinks().map { VersionLink(it.songId, it.versionId) })
+        val graded = Grading.grade(rows, recent, songs, groups, now)
         if (graded.isEmpty()) return
         database.transactionNow {
             graded.forEach { markGraded(it.impressionId, it.outcome, it.y.toFloat(), it.u.toFloat(), now) }
         }
+        Log.d(TAG, "graded ${graded.size} of ${pending.size} pending impressions")
     }
 
     private fun example(i: Impression): Example? {
