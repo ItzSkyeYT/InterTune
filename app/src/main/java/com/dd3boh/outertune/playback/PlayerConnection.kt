@@ -113,6 +113,8 @@ class PlayerConnection(
         origin: PlayOrigin = PlayOrigin.UNKNOWN,
         /** The card's position when [origin] is a row, else -1. */
         originSlot: Int = -1,
+        /** When a card was tapped to start this, so the listen can meet its impression. */
+        tappedAt: Long? = null,
     ) {
         service.playQueue(
             queue = queue,
@@ -122,6 +124,7 @@ class PlayerConnection(
             isRadio = isRadio,
             origin = origin,
             originSlot = originSlot,
+            tappedAt = tappedAt,
         )
     }
 

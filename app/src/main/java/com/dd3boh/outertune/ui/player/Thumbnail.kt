@@ -9,6 +9,9 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.SignalKind
+import com.dd3boh.outertune.utils.ActivityLog
 import android.annotation.SuppressLint
 import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
@@ -78,6 +81,7 @@ fun Thumbnail(
     customMediaMetadata: MediaMetadata? = null
 ) {
     val context = LocalContext.current
+    val database = LocalDatabase.current
     val currentView = LocalView.current
     val haptic = LocalHapticFeedback.current
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -148,6 +152,7 @@ fun Thumbnail(
                                 indication = null,
                                 enabled = showLyricsOnClick,
                             ) {
+                                if (!showLyrics) mediaMetadata?.id?.let { ActivityLog.note(context, database, it, SignalKind.LYRICS) }
                                 showLyrics = !showLyrics
                                 haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                             }

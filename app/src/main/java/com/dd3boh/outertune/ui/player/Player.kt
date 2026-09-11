@@ -9,6 +9,9 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.SignalKind
+import com.dd3boh.outertune.utils.ActivityLog
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.res.Configuration
@@ -188,6 +191,7 @@ fun BottomSheetPlayer(
     val playerConnection = LocalPlayerConnection.current ?: return
     val menuState = LocalMenuState.current
     val context = LocalContext.current
+    val database = LocalDatabase.current
 
     val playbackState by playerConnection.playbackState.collectAsState()
     val isPlaying by playerConnection.isPlaying.collectAsState()
@@ -691,6 +695,7 @@ fun BottomSheetPlayer(
                                                 initialDelayMillis = 5000
                                             )
                                             .clickable(enabled = artist.id != null) {
+                                                mediaMetadata?.id?.let { ActivityLog.note(context, database, it, SignalKind.ARTIST_PAGE) }
                                                 navController.navigate("artist/${artist.id}")
                                                 state.collapseSoft()
                                             }

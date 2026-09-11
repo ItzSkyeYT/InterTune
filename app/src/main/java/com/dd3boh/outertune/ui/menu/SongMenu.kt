@@ -1,5 +1,7 @@
 package com.dd3boh.outertune.ui.menu
 
+import com.dd3boh.outertune.constants.SignalKind
+import com.dd3boh.outertune.utils.ActivityLog
 import android.content.Intent
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -267,6 +269,7 @@ fun SongMenu(
             DownloadGridMenu(
                 localDateTime = download,
                 onDownload = {
+                    ActivityLog.note(context, database, song.id, SignalKind.DOWNLOAD)
                     downloadUtil.download(song.toMediaMetadata())
                 },
                 onRemoveDownload = {
@@ -289,6 +292,7 @@ fun SongMenu(
             title = R.string.view_artist
         ) {
             if (song.artists.size == 1) {
+                ActivityLog.note(context, database, song.id, SignalKind.ARTIST_PAGE)
                 navController.navigate("artist/${song.artists[0].id}")
                 onDismiss()
             } else {
@@ -310,6 +314,7 @@ fun SongMenu(
                 title = R.string.share
             ) {
                 onDismiss()
+                ActivityLog.note(context, database, song.id, SignalKind.SHARE)
                 val intent = Intent().apply {
                     action = Intent.ACTION_SEND
                     type = "text/plain"
@@ -400,6 +405,7 @@ fun SongMenu(
             navController = navController,
             songIds = listOf(song.id),
             onPreAdd = { playlist ->
+                ActivityLog.note(context, database, song.id, SignalKind.ADD_TO_PLAYLIST)
                 playlist.playlist.browseId?.let { browseId ->
                     YouTube.addToPlaylist(browseId, song.id)
                 }

@@ -1,5 +1,7 @@
 package com.dd3boh.outertune.ui.menu
 
+import com.dd3boh.outertune.constants.SignalKind
+import com.dd3boh.outertune.utils.ActivityLog
 import android.content.Intent
 import android.media.audiofx.AudioEffect
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -483,6 +485,7 @@ fun PlayerMenu(
                     database.transaction {
                         insert(mediaMetadata)
                     }
+                    ActivityLog.note(context, database, mediaMetadata.id, SignalKind.DOWNLOAD)
                     downloadUtil.download(mediaMetadata)
                 },
                 onRemoveDownload = {
@@ -519,6 +522,7 @@ fun PlayerMenu(
             title = R.string.view_artist
         ) {
             if (mediaMetadata.artists.size == 1) {
+                ActivityLog.note(context, database, mediaMetadata.id, SignalKind.ARTIST_PAGE)
                 navController.navigate("artist/${mediaMetadata.artists[0].id}")
                 playerBottomSheetState.collapseSoft()
                 onDismiss()
@@ -542,6 +546,7 @@ fun PlayerMenu(
                 icon = Icons.Rounded.Share,
                 title = R.string.share
             ) {
+                ActivityLog.note(context, database, mediaMetadata.id, SignalKind.SHARE)
                 val intent = Intent().apply {
                     action = Intent.ACTION_SEND
                     type = "text/plain"
@@ -555,6 +560,7 @@ fun PlayerMenu(
             title = R.string.toggle_lyrics
         ) {
             onDismiss()
+            if (!showLyrics) ActivityLog.note(context, database, mediaMetadata.id, SignalKind.LYRICS)
             showLyrics = !showLyrics
         }
         GridMenuItem(
@@ -649,6 +655,7 @@ fun PlayerMenu(
                 database.transaction {
                     insert(mediaMetadata)
                 }
+                ActivityLog.note(context, database, mediaMetadata.id, SignalKind.ADD_TO_PLAYLIST)
 
                 playlist.playlist.browseId?.let { YouTube.addToPlaylist(it, mediaMetadata.id) }
 

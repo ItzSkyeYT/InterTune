@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.db.daos
 
+import androidx.room.Transaction
 import androidx.room.Dao
 import androidx.room.Insert
 import com.dd3boh.outertune.db.entities.SongVersionMap
@@ -47,6 +48,21 @@ interface ListenDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insertVersionMap(rows: List<SongVersionMap>)
 
+    @Query("SELECT id FROM listen WHERE songId = :songId AND endReason = 6 ORDER BY id DESC LIMIT 1")
+    fun openListenId(songId: String): Long?
+
+    /** Something done about a song from the interface, tied to its open listen if it is playing right now. */
+    @Transaction
+    fun noteSignal(songId: String, kind: Int, value: Float) {
+        insertSignal(ListenSignal(listenId = openListenId(songId), songId = songId, kind = kind, value = value, at = System.currentTimeMillis()))
+    }
+
+    @Query("UPDATE impression SET tappedAt = :at WHERE id = :id")
+    fun markImpressionTapped(id: Long, at: Long)
+
+    @Query("SELECT id FROM impression WHERE tappedAt = :tappedAt ORDER BY id DESC LIMIT 1")
+    fun impressionIdByTap(tappedAt: Long): Long?
+
     @Query("SELECT COUNT(*) FROM listen_signal")
     fun signalCount(): Flow<Int>
 
@@ -54,7 +70,7 @@ interface ListenDao {
     fun insert(build: RowBuild): Long
 
     @Insert
-    fun insertImpressions(impressions: List<Impression>)
+    fun insertImpressions(impressions: List<Impression>): List<Long>
 
     /** The latest closed listen, for the session rule; an open row has no end yet. */
     @Query("SELECT * FROM listen WHERE endReason != 6 ORDER BY endedAt DESC LIMIT 1")

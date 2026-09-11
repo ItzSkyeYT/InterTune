@@ -1,5 +1,7 @@
 package com.dd3boh.outertune.ui.screens
 
+import com.dd3boh.outertune.utils.seenSlots
+import com.dd3boh.outertune.utils.CardBox
 import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -388,13 +390,17 @@ fun HomeScreen(
     LaunchedEffect(shownPicks, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             snapshotFlow {
+                // The grid knows its own viewport; Home's list says how much of the grid is on
+                // screen at all. Both have to agree before a card counts as seen.
+                val outer = lazylistState.layoutInfo
+                val holder = outer.visibleItemsInfo.firstOrNull { it.key == "quick_picks_grid" }
+                    ?: return@snapshotFlow emptySet()
                 val info = quickPicksLazyGridState.layoutInfo
-                info.visibleItemsInfo.filter { item ->
-                    val start = item.offset.x
-                    val end = start + item.size.width
-                    val visible = minOf(end, info.viewportEndOffset) - maxOf(start, info.viewportStartOffset)
-                    item.size.width > 0 && visible * 2 >= item.size.width
-                }.map { it.index }.toSet()
+                seenSlots(
+                    cards = info.visibleItemsInfo.map { CardBox(it.index, it.offset.x, it.offset.y, it.size.width, it.size.height) },
+                    rowViewportStart = info.viewportStartOffset, rowViewportEnd = info.viewportEndOffset,
+                    rowTop = holder.offset, screenTop = outer.viewportStartOffset, screenBottom = outer.viewportEndOffset,
+                )
             }.collectLatest { slots ->
                 if (slots.isEmpty()) return@collectLatest
                 delay(500)   // cancelled by the next change, so only a settled row counts
@@ -577,7 +583,7 @@ fun HomeScreen(
                 }
 
                 if (ytPicks != null || localPicks.isNotEmpty()) {
-                    item {
+                    item(key = "quick_picks_grid") {
                         LazyHorizontalGrid(
                             state = quickPicksLazyGridState,
                             rows = GridCells.Fixed(4),
@@ -607,11 +613,14 @@ fun HomeScreen(
                                                     if (song.id == mediaMetadata?.id) {
                                                         playerConnection.player.togglePlayPause()
                                                     } else {
+                                                        val tappedAt = System.currentTimeMillis()
+                                                        viewModel.quickPickTapped(slot, tappedAt)
                                                         playerConnection.playQueue(
                                                             YouTubeQueue.radio(song.toMediaMetadata()),
                                                             isRadio = true,
                                                             origin = PlayOrigin.QUICK_PICKS,
                                                             originSlot = slot,
+                                                            tappedAt = tappedAt,
                                                         )
                                                     }
                                                 },
@@ -646,11 +655,14 @@ fun HomeScreen(
 
                                         thumbnailSize = listThumbnailSize,
                                         onPlay = {
+                                            val tappedAt = System.currentTimeMillis()
+                                            viewModel.quickPickTapped(slot, tappedAt)
                                             playerConnection.playQueue(
                                                 YouTubeQueue.radio(originalSong.toMediaMetadata()),
                                                 isRadio = true,
                                                 origin = PlayOrigin.QUICK_PICKS,
                                                 originSlot = slot,
+                                                tappedAt = tappedAt,
                                             )
                                         },
                                         modifier = Modifier.width(horizontalLazyGridItemWidth)
