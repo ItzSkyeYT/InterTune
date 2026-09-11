@@ -148,6 +148,12 @@ val MaxSongCacheSizeKey = intPreferencesKey("maxSongCacheSize")
 val PauseListenHistoryKey = booleanPreferencesKey("pauseListenHistory")
 /** No song twice on Home, no version beside its original, nothing just played in Quick picks. */
 val TidyHomeRowsKey = booleanPreferencesKey("tidyHomeRows")
+/** Order the chosen source's Quick picks by the engine's score, whatever the source. */
+val RankWithListeningKey = booleanPreferencesKey("rankWithListening")
+/** Captions under engine cards saying why each is there. */
+val ShowReasonsKey = booleanPreferencesKey("showReasons")
+/** Adventurousness 0 to 100: how much of the engine row is new artists. */
+val AdventurousnessKey = intPreferencesKey("adventurousness")
 /** The day (in days since the epoch) and count of related-song refreshes spent, at most ten a day. */
 val RelatedRefreshDayKey = longPreferencesKey("relatedRefreshDay")
 val RelatedRefreshCountKey = intPreferencesKey("relatedRefreshCount")

@@ -1,5 +1,7 @@
 package com.dd3boh.outertune.ui.screens
 
+import com.dd3boh.outertune.viewmodels.CardReason
+import com.dd3boh.outertune.constants.ShowReasonsKey
 import com.dd3boh.outertune.utils.seenSlots
 import com.dd3boh.outertune.utils.CardBox
 import android.annotation.SuppressLint
@@ -380,11 +382,21 @@ fun HomeScreen(
     // it. Registered as a build whenever it changes, and each card logged once it has been at least
     // half visible for half a second while this screen is resumed: a card under the player sheet
     // or a row scrolled past in a flick is not something the listener passed over.
-    val shownPicks: List<MediaMetadata> = remember(ytQuickPicks, quickPicks, quickPicksSource) {
-        ytQuickPicks?.takeIf { it.isNotEmpty() && quickPicksSource == QuickPicksSource.YOUTUBE }?.map { it.toMediaMetadata() }
+    val engineFallback by viewModel.engineFallback.collectAsState()
+    val engineReasons by viewModel.engineReasons.collectAsState()
+    val showReasons by rememberPreference(ShowReasonsKey, defaultValue = true)
+    // YouTube's shelf is the row when it is the source, or when it stands in for the engine.
+    val ytShelfShown = ytQuickPicks?.isNotEmpty() == true &&
+        (quickPicksSource == QuickPicksSource.YOUTUBE || (quickPicksSource == QuickPicksSource.ENGINE && engineFallback == 2))
+    val shownPicks: List<MediaMetadata> = remember(ytQuickPicks, quickPicks, quickPicksSource, engineFallback) {
+        ytQuickPicks?.takeIf { ytShelfShown }?.map { it.toMediaMetadata() }
             ?: quickPicks.orEmpty().map { it.toMediaMetadata() }
     }
-    val shownSource = if (ytQuickPicks?.isNotEmpty() == true && quickPicksSource == QuickPicksSource.YOUTUBE) 1 else 0
+    val shownSource = when {
+        ytShelfShown -> 1
+        quickPicksSource == QuickPicksSource.ENGINE && engineFallback == 0 -> 2
+        else -> 0
+    }
     LaunchedEffect(shownPicks) { viewModel.quickPicksShown(shownSource, shownPicks) }
     val lifecycleOwner = LocalLifecycleOwner.current
     // What was just played leaves Quick picks when Home comes back into view, not under the finger.
@@ -541,7 +553,7 @@ fun HomeScreen(
             // The YouTube source does fall back to the local list, because YouTube sends no shelf
             // at all while signed out.
             val ytPicks = ytQuickPicks
-                ?.takeIf { it.isNotEmpty() && quickPicksSource == QuickPicksSource.YOUTUBE }
+                ?.takeIf { ytShelfShown }
             val localPicks = quickPicks.orEmpty()
 
             // Skeleton while the answer is still being worked out, including during a pull to
@@ -582,6 +594,12 @@ fun HomeScreen(
                 item {
                     NavigationTitle(
                         title = stringResource(R.string.quick_picks),
+                        label = when {
+                            quickPicksSource != QuickPicksSource.ENGINE -> null
+                            engineFallback == 1 -> stringResource(R.string.quick_picks_showing_library)
+                            engineFallback == 2 -> stringResource(R.string.quick_picks_showing_youtube)
+                            else -> null
+                        },
                         modifier = Modifier.animateItem()
                     )
                 }
@@ -658,6 +676,7 @@ fun HomeScreen(
                                         swipeEnabled = false,
 
                                         thumbnailSize = listThumbnailSize,
+                                        caption = if (showReasons && shownSource == 2) engineReasons[originalSong.id]?.firstOrNull()?.let { reasonText(it) } else null,
                                         onPlay = {
                                             val tappedAt = System.currentTimeMillis()
                                             viewModel.quickPickTapped(slot, tappedAt)
@@ -1060,4 +1079,18 @@ fun HomeScreen(
             onClose = { showPoll = false },
         )
     }
+}
+
+/** The caption's words for a reason the engine gave. */
+@Composable
+private fun reasonText(reason: CardReason): String = when (reason.key) {
+    "x_seed" -> reason.arg?.let { stringResource(R.string.reason_seed, it) } ?: stringResource(R.string.reason_activation)
+    "x_art" -> reason.arg?.let { stringResource(R.string.reason_artist, it) } ?: stringResource(R.string.reason_activation)
+    "x_dorm" -> stringResource(R.string.reason_dormant)
+    "x_like" -> stringResource(R.string.reason_like)
+    "x_ctx" -> stringResource(R.string.reason_context)
+    "x_co" -> stringResource(R.string.reason_co)
+    "new_to_you" -> stringResource(R.string.reason_new)
+    "wildcard" -> stringResource(R.string.reason_wildcard)
+    else -> stringResource(R.string.reason_activation)
 }

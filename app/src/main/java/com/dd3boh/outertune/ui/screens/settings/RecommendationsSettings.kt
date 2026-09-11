@@ -6,6 +6,12 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import androidx.compose.material3.Slider
+import com.dd3boh.outertune.engine.quotas
+import com.dd3boh.outertune.engine.Lane
+import com.dd3boh.outertune.constants.AdventurousnessKey
+import com.dd3boh.outertune.constants.ShowReasonsKey
+import com.dd3boh.outertune.constants.RankWithListeningKey
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.constants.TidyHomeRowsKey
@@ -70,6 +76,9 @@ fun RecommendationsSettings(
     val taps by viewModel.taps.collectAsState(initial = 0)
     val recent by viewModel.recent.collectAsState(initial = emptyList())
     val (tidyHomeRows, onTidyHomeRowsChange) = rememberPreference(TidyHomeRowsKey, defaultValue = true)
+    val (rankWithListening, onRankWithListeningChange) = rememberPreference(RankWithListeningKey, defaultValue = true)
+    val (showReasons, onShowReasonsChange) = rememberPreference(ShowReasonsKey, defaultValue = true)
+    val (adventurousness, onAdventurousnessChange) = rememberPreference(AdventurousnessKey, defaultValue = 15)
     val endReasonLabels = mapOf(
         EndReason.ENDED to stringResource(R.string.recommendations_ended),
         EndReason.SKIPPED to stringResource(R.string.recommendations_skipped),
@@ -89,6 +98,33 @@ fun RecommendationsSettings(
             description = stringResource(R.string.tidy_home_rows_description),
             checked = tidyHomeRows,
             onCheckedChange = onTidyHomeRowsChange,
+        )
+        SwitchPreference(
+            title = { Text(stringResource(R.string.rank_with_listening)) },
+            description = stringResource(R.string.rank_with_listening_description),
+            checked = rankWithListening,
+            onCheckedChange = onRankWithListeningChange,
+        )
+        Spacer(Modifier.height(16.dp))
+
+        // The engine's own controls. Choosing it is done where the source is chosen, under Content.
+        PreferenceGroupTitle(title = stringResource(R.string.recommendations_engine_title))
+        SwitchPreference(
+            title = { Text(stringResource(R.string.show_reasons)) },
+            description = stringResource(R.string.show_reasons_description),
+            checked = showReasons,
+            onCheckedChange = onShowReasonsChange,
+        )
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.adventurousness)) },
+            description = stringResource(R.string.adventurousness_description, quotas(20, adventurousness / 100.0, false)[Lane.EXPLORE] ?: 0),
+            onClick = null,
+        )
+        Slider(
+            value = adventurousness.toFloat(),
+            onValueChange = { onAdventurousnessChange(it.toInt()) },
+            valueRange = 0f..100f,
+            modifier = Modifier.padding(horizontal = 16.dp),
         )
         Spacer(Modifier.height(16.dp))
 

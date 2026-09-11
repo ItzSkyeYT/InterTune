@@ -30,7 +30,12 @@ enum class PlayerBackgroundStyle {
  * such shelf, which is every signed-out session.
  */
 enum class QuickPicksSource {
-    YOUTUBE, LIBRARY
+    /** YouTube's own row for the account, or the library row when signed out. */
+    YOUTUBE,
+    /** The classic query: songs related to what has been played. */
+    LIBRARY,
+    /** InterTune's own engine: seeds, four lanes, and a score that learns. Experimental. */
+    ENGINE,
 }
 
 enum class LibraryViewType {
