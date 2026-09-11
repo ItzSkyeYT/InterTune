@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -169,6 +170,12 @@ fun SettingsScreen(
                     stringResource(R.string.update_available, it.versionName)
                 } ?: stringResource(R.string.settings_updates_description),
                 onClick = { navController.navigate("settings/updates") }
+            )
+            PreferenceEntry(
+                title = { Text(stringResource(R.string.recommendations)) },
+                icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+                description = stringResource(R.string.settings_recommendations_description),
+                onClick = { navController.navigate("settings/recommendations") }
             )
             PreferenceEntry(
                 title = { Text(stringResource(R.string.advanced)) },

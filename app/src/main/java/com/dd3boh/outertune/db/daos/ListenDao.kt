@@ -54,5 +54,25 @@ interface ListenDao {
     @Query("SELECT * FROM listen ORDER BY endedAt DESC LIMIT :limit")
     fun recentListens(limit: Int): Flow<List<Listen>>
 
+    @Query("""
+        SELECT listen.id, song.title, listen.endReason, listen.origin, listen.originSlot, listen.ratio,
+               listen.playedMs, listen.endedAt, listen.counted, listen.autoplayDepth
+        FROM listen JOIN song ON song.id = listen.songId
+        ORDER BY listen.endedAt DESC LIMIT :limit
+    """)
+    fun recentListenRows(limit: Int): Flow<List<ListenRow>>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM song WHERE id = :id)")
+    fun songExists(id: String): Boolean
+
+    @Query("SELECT COUNT(*) FROM row_build")
+    fun rowBuildCount(): Flow<Int>
+
     data class CodeCount(val code: Int, val n: Int)
+
+    /** One listen with its title, for the report; nothing else needs the join. */
+    data class ListenRow(
+        val id: Long, val title: String, val endReason: Int, val origin: Int, val originSlot: Int,
+        val ratio: Float, val playedMs: Long, val endedAt: Long, val counted: Boolean, val autoplayDepth: Int,
+    )
 }

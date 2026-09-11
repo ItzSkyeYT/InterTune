@@ -1347,7 +1347,9 @@ class MusicService : MediaLibraryService(),
         database.transaction {
             // A session is a run of listening with no gap over 30 minutes, measured from the end of
             // one play to the start of the next. The same boundary Flow and the ACT-R relistening
-            // work use; Spotify's own is 20.
+            // work use; Spotify's own is 20. Caught, because this runs on Room's executor where an
+            // exception is fatal to the process, and a lost data point is the correct failure.
+            runCatching {
             val last = lastListen()
             val sessionId = if (last == null || startedAt - last.endedAt > SESSION_GAP_MS) startedAt else last.sessionId
             insert(
@@ -1369,6 +1371,7 @@ class MusicService : MediaLibraryService(),
                     learn = info?.learn ?: true,
                 )
             )
+            }.onFailure { Log.w(TAG, "Could not log listen", it) }
         }
     }
 
