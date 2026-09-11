@@ -1,5 +1,9 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.constants.NewSongsOnlyKey
+import com.dd3boh.outertune.db.entities.RecommendationExclusion
+import com.dd3boh.outertune.engine.PlayedSong
+import com.dd3boh.outertune.engine.Lane
 import com.dd3boh.outertune.constants.RankWithListeningKey
 import com.dd3boh.outertune.constants.AdventurousnessKey
 import com.dd3boh.outertune.engine.Weights
@@ -100,6 +104,44 @@ class HomeViewModel @Inject constructor(
     val engineReasons = MutableStateFlow<Map<String, List<CardReason>>>(emptyMap())
     /** With the engine chosen: 0 its row is showing, 1 the library's row stands in, 2 YouTube's. */
     val engineFallback = MutableStateFlow(0)
+    /** The current build's seeds as (id, title), its lane quotas, and the exclusions in force, for Why these? */
+    val engineSeeds = MutableStateFlow<List<Pair<String, String>>>(emptyList())
+    val engineQuotas = MutableStateFlow<Map<Lane, Int>>(emptyMap())
+    val activeExclusions = database.activeExclusionCount(System.currentTimeMillis())
+    private val rejectedSeeds = HashSet<String>()
+    private var lastEngineNewOnly = false
+
+    /** Not this one: the seed is left out and the row built again. */
+    fun rejectSeed(songId: String) {
+        rejectedSeeds += songId
+        lastEngineBuildAt = 0L
+        refresh(force = true)
+    }
+
+    /** Not this song, less of this artist, never this artist: written, applied to every row at once, and the engine row built again. */
+    fun exclude(kind: Int, targetId: String, label: String, reason: Int) {
+        val now = System.currentTimeMillis()
+        val exclusion = RecommendationExclusion(
+            kind = kind, targetId = targetId, label = label, reason = reason, createdAt = now,
+            expiresAt = if (reason == ExclusionsViewModel.REASON_SNOOZE) now + ExclusionsViewModel.SNOOZE_MS else null,
+        )
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { database.transactionNow { insertExclusion(exclusion) } }.onFailure { Log.w("HomeViewModel", "Could not write an exclusion", it) }
+            lastEngineBuildAt = 0L
+            tidyRows()
+            refresh()
+        }
+    }
+
+    fun excludeSong(song: Song, kind: Int, reason: Int) {
+        if (kind == ExclusionsViewModel.KIND_SONG) exclude(kind, song.id, song.song.title, reason)
+        else song.artists.firstOrNull()?.let { exclude(kind, it.id, it.name, reason) }
+    }
+
+    fun excludeYt(song: SongItem, kind: Int, reason: Int) {
+        if (kind == ExclusionsViewModel.KIND_SONG) exclude(kind, song.id, song.title, reason)
+        else song.artists.firstOrNull()?.let { a -> a.id?.let { exclude(kind, it, a.name, reason) } }
+    }
 
     /** The engine's input, read once per minute at most: the biggest read on Home is the song table. */
     private suspend fun engineInput(now: Long): EngineInput = withContext(Dispatchers.IO) {
@@ -124,12 +166,15 @@ class HomeViewModel @Inject constructor(
         val input = engineInput(now)
         val session = input.listens.maxByOrNull { it.endedAt }?.sessionId ?: -1L
         val standing = lastEngineRow
-        val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket) standing
-        else EngineRow.build(input, dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0).also {
-            lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket
+        val newOnly = context.dataStore.get(NewSongsOnlyKey, false)
+        val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly) standing
+        else EngineRow.build(input.copy(notSeeds = rejectedSeeds.toSet()), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly).also {
+            lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket; lastEngineNewOnly = newOnly
             Log.d("HomeViewModel", "engine row: ${it.cards.size} cards, ${it.pool.size} in the pool, ${it.seeds.size} seeds, from ${input.songs.size} songs, ${input.listens.size} listens, ${input.edges.size} edges in ${System.currentTimeMillis() - now} ms")
         }
         engineReasons.value = (row.cards + row.pool).associate { c -> c.songId to c.reasons.map { reasonOf(it, c, input) } }
+        engineSeeds.value = row.seeds.map { it to (input.songs[it]?.title ?: it) }
+        engineQuotas.value = row.quotas
         if (row.cards.size < EngineParams.DEFAULT.minCards) return@withContext emptyList()
         val wanted = (row.cards + row.pool).map { it.songId }
         val byId = database.songsByIds(wanted).first().associateBy { it.id }
@@ -164,10 +209,16 @@ class HomeViewModel @Inject constructor(
                 ?: database.lastListen()?.takeIf { now - it.endedAt <= SESSION_GAP_MS }?.sessionId
         }.getOrNull() ?: -1L
         val played = runCatching { database.justPlayed(now - 86_400_000L, session) }.getOrDefault(emptyList())
-        val pass = TidyPass(played)
-        fun songs(items: List<Song>, fresh: Boolean = false) = pass.row(items, fresh, { it.song.id }, { it.song.title }, { it.artists.firstOrNull()?.name })
-        fun local(items: List<LocalItem>) = pass.row(items, false, { (it as? Song)?.song?.id }, { (it as? Song)?.song?.title }, { (it as? Song)?.artists?.firstOrNull()?.name })
-        fun yt(items: List<YTItem>, fresh: Boolean = false) = pass.row(items, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name })
+        // Manual bans and snoozes filter every recommendation row, whatever the source.
+        val exclusions = runCatching { database.engineExclusions(now) }.getOrDefault(emptyList())
+        val bannedSongs = exclusions.filter { it.kind == ExclusionsViewModel.KIND_SONG }.map { it.targetId }
+            .takeIf { it.isNotEmpty() }?.let { ids -> runCatching { database.songsByIds(ids).first() }.getOrDefault(emptyList()) }
+            ?.map { PlayedSong(it.id, it.song.title, it.artists.firstOrNull()?.name) }.orEmpty()
+        val bannedArtists = exclusions.filter { it.kind == ExclusionsViewModel.KIND_ARTIST }.flatMap { listOf(it.targetId, it.label.trim().lowercase()) }.toSet()
+        val pass = TidyPass(played, bannedSongs, bannedArtists)
+        fun songs(items: List<Song>, fresh: Boolean = false) = pass.row(items, fresh, { it.song.id }, { it.song.title }, { it.artists.firstOrNull()?.name }, { it.artists.firstOrNull()?.id })
+        fun local(items: List<LocalItem>) = pass.row(items, false, { (it as? Song)?.song?.id }, { (it as? Song)?.song?.title }, { (it as? Song)?.artists?.firstOrNull()?.name }, { (it as? Song)?.artists?.firstOrNull()?.id })
+        fun yt(items: List<YTItem>, fresh: Boolean = false) = pass.row(items, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name }, { (it as? SongItem)?.artists?.firstOrNull()?.id })
         // Whichever Quick picks row is on screen goes first; the other is not shown and must not
         // claim songs from the rows below it.
         val ytShown = ytShelfWanted() && !ytQuickPicksPool.isNullOrEmpty()

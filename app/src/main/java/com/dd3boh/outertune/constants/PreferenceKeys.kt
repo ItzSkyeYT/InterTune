@@ -154,6 +154,8 @@ val RankWithListeningKey = booleanPreferencesKey("rankWithListening")
 val ShowReasonsKey = booleanPreferencesKey("showReasons")
 /** Adventurousness 0 to 100: how much of the engine row is new artists. */
 val AdventurousnessKey = intPreferencesKey("adventurousness")
+/** The engine row holds only songs new to the listener. */
+val NewSongsOnlyKey = booleanPreferencesKey("newSongsOnly")
 /** The day (in days since the epoch) and count of related-song refreshes spent, at most ten a day. */
 val RelatedRefreshDayKey = longPreferencesKey("relatedRefreshDay")
 val RelatedRefreshCountKey = intPreferencesKey("relatedRefreshCount")

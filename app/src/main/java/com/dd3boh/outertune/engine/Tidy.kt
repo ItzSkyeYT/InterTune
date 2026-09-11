@@ -25,9 +25,17 @@ fun versionKey(title: String, artist: String?): String =
  * it remembers, so no later row shows a song, or a version of a song, that an earlier row already
  * has. The Quick picks row is also asked to be fresh: nothing just played, and no version of it.
  */
-class TidyPass(justPlayed: Collection<PlayedSong>) {
+class TidyPass(
+    justPlayed: Collection<PlayedSong>,
+    /** Songs the listener banned, with their versions: matched by id and by key. */
+    bannedSongs: Collection<PlayedSong> = emptyList(),
+    /** Artists the listener banned or snoozed, by artist id and by name. */
+    private val bannedArtists: Set<String> = emptySet(),
+) {
     private val playedIds = justPlayed.mapTo(HashSet()) { it.id }
     private val playedKeys = justPlayed.mapTo(HashSet()) { versionKey(it.title, it.artist) }
+    private val bannedIds = bannedSongs.mapTo(HashSet()) { it.id }
+    private val bannedKeys = bannedSongs.mapTo(HashSet()) { versionKey(it.title, it.artist) }
     private val seen = HashSet<String>()
 
     fun <T> row(
@@ -36,10 +44,15 @@ class TidyPass(justPlayed: Collection<PlayedSong>) {
         id: (T) -> String?,
         title: (T) -> String?,
         artist: (T) -> String?,
+        /** The artist's id where the item has one, for the artist bans. */
+        artistId: (T) -> String? = { null },
     ): List<T> = items.filter { item ->
         val itemId = id(item) ?: return@filter true
         val itemTitle = title(item) ?: return@filter true
-        val key = versionKey(itemTitle, artist(item))
+        val itemArtist = artist(item)
+        val key = versionKey(itemTitle, itemArtist)
+        if (itemId in bannedIds || key in bannedKeys) return@filter false
+        if (bannedArtists.isNotEmpty() && (artistId(item)?.let { it in bannedArtists } == true || itemArtist?.trim()?.lowercase()?.let { it in bannedArtists } == true)) return@filter false
         if (freshOnly && (itemId in playedIds || key in playedKeys)) return@filter false
         seen.add(key)
     }

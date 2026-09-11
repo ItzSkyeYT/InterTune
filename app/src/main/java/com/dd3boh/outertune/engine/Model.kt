@@ -73,6 +73,8 @@ data class EngineInput(
     val tzOffsetMin: Int = 0,
     /** Songs never to offer as candidates, whatever the lanes say (the Tidy pass handles the rest). */
     val banned: Set<String> = emptySet(),
+    /** Songs the listener turned down as seeds ("Not this one"); they may still be cards. */
+    val notSeeds: Set<String> = emptySet(),
 )
 
 /** How a card got into the row. */

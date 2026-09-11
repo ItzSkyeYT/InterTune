@@ -36,6 +36,8 @@ enum class QuickPicksSource {
     LIBRARY,
     /** InterTune's own engine: seeds, four lanes, and a score that learns. Experimental. */
     ENGINE,
+    /** No Quick picks row at all. */
+    OFF,
 }
 
 enum class LibraryViewType {

@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import com.dd3boh.outertune.constants.NewSongsOnlyKey
 import androidx.compose.material3.Slider
 import com.dd3boh.outertune.engine.quotas
 import com.dd3boh.outertune.engine.Lane
@@ -79,6 +80,8 @@ fun RecommendationsSettings(
     val (rankWithListening, onRankWithListeningChange) = rememberPreference(RankWithListeningKey, defaultValue = true)
     val (showReasons, onShowReasonsChange) = rememberPreference(ShowReasonsKey, defaultValue = true)
     val (adventurousness, onAdventurousnessChange) = rememberPreference(AdventurousnessKey, defaultValue = 15)
+    val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
+    val activeExclusions by viewModel.activeExclusions.collectAsState(initial = 0)
     val endReasonLabels = mapOf(
         EndReason.ENDED to stringResource(R.string.recommendations_ended),
         EndReason.SKIPPED to stringResource(R.string.recommendations_skipped),
@@ -125,6 +128,17 @@ fun RecommendationsSettings(
             onValueChange = { onAdventurousnessChange(it.toInt()) },
             valueRange = 0f..100f,
             modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        SwitchPreference(
+            title = { Text(stringResource(R.string.new_songs_only)) },
+            description = stringResource(R.string.new_songs_only_description),
+            checked = newSongsOnly,
+            onCheckedChange = onNewSongsOnlyChange,
+        )
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.exclusions)) },
+            description = stringResource(R.string.exclusions_count, activeExclusions),
+            onClick = { navController.navigate("settings/recommendations/exclusions") },
         )
         Spacer(Modifier.height(16.dp))
 

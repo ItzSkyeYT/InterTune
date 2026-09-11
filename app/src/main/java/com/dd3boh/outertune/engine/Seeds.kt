@@ -50,7 +50,7 @@ class SeedSampler(
     }
 
     fun sample(): List<String> {
-        val taken = HashSet<String>()
+        val taken = HashSet<String>(input.notSeeds)
         val goodListens = input.listens.filter { l ->
             val liked = input.songs[l.songId]?.likedAt?.takeIf { l.songId !in stats.bulkLikeSongIds }
             l.learn && Signals.engagement(l, liked, p) >= p.justPlayedEngagement

@@ -60,6 +60,15 @@ class TidyPassTest {
     }
 
     @Test
+    fun `a banned song and its versions, and a banned artist, leave every row`() {
+        val pass = TidyPass(emptyList(), bannedSongs = listOf(PlayedSong("a1", "Africa", "Toto")), bannedArtists = setOf("art_x", "rihanna"))
+        val row = listOf(Card("a2", "Africa (Live)", "Toto"), Card("h1", "Hold the Line", "Toto"), Card("u1", "Umbrella", "Rihanna"), Card("d1", "Diamonds", "RIHANNA "))
+        assertEquals(listOf("h1"), pass.cards(row).map { it.id })
+        val byId = TidyPass(emptyList(), bannedArtists = setOf("art_x"))
+        assertEquals(emptyList<Card>(), byId.row(listOf(Card("z", "Zed", "Someone")), false, { it.id }, { it.title }, { it.artist }, { "art_x" }))
+    }
+
+    @Test
     fun `keys ignore case and spacing around the artist`() {
         assertEquals(versionKey("Africa", "Toto"), versionKey("AFRICA (Remastered)", " toto "))
     }

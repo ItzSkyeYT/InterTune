@@ -1,5 +1,8 @@
 package com.dd3boh.outertune.ui.menu
 
+import androidx.compose.material.icons.rounded.PersonOff
+import androidx.compose.material.icons.rounded.Snooze
+import androidx.compose.material.icons.rounded.Block
 import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.utils.ActivityLog
 import android.content.Intent
@@ -92,6 +95,8 @@ fun SongMenu(
     event: Event? = null,
     navController: NavController,
     onDismiss: () -> Unit,
+    /** Present on a recommendation card: (kind 1 song 2 artist, reason 1 ban 2 snooze). */
+    onExclude: ((kind: Int, reason: Int) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -231,6 +236,11 @@ fun SongMenu(
             title = R.string.add_to_queue
         ) {
             showChooseQueueDialog = true
+        }
+        if (onExclude != null) {
+            GridMenuItem(icon = Icons.Rounded.Block, title = R.string.menu_not_this_song) { onExclude(1, 1); onDismiss() }
+            GridMenuItem(icon = Icons.Rounded.Snooze, title = R.string.menu_less_of_artist) { onExclude(2, 2); onDismiss() }
+            GridMenuItem(icon = Icons.Rounded.PersonOff, title = R.string.menu_never_artist) { onExclude(2, 1); onDismiss() }
         }
         GridMenuItem(
             icon = Icons.AutoMirrored.Rounded.PlaylistAdd,

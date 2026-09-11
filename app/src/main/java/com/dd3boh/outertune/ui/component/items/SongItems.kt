@@ -101,6 +101,8 @@ fun SongListItem(
     modifier: Modifier = Modifier,
     /** Why a recommendation row holds this card; shown in place of the length, which matters least there. */
     caption: String? = null,
+    /** On a recommendation card: the menu offers Not this song, Less of this artist, Never this artist. */
+    onExclude: ((kind: Int, reason: Int) -> Unit)? = null,
 ) {
     val menuState = LocalMenuState.current
     val haptic = LocalHapticFeedback.current
@@ -155,7 +157,8 @@ fun SongListItem(
                                         playlistSong = playlistSong,
                                         playlist = playlist,
                                         navController = navController,
-                                        onDismiss = menuState::dismiss
+                                        onDismiss = menuState::dismiss,
+                                        onExclude = onExclude,
                                     )
                                 }
                             }
@@ -200,6 +203,7 @@ fun SongListItem(
                             SongMenu(
                                 originalSong = song,
                                 navController = navController,
+                                onExclude = onExclude,
                                 onDismiss = menuState::dismiss
                             )
                         }
