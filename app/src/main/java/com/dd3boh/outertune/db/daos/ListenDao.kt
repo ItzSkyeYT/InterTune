@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.db.daos
 
+import com.dd3boh.outertune.engine.EngineSql
+import com.dd3boh.outertune.db.entities.RecommendationExclusion
 import com.dd3boh.outertune.engine.EngineSeedsRow
 import com.dd3boh.outertune.engine.EngineExclusionRow
 import com.dd3boh.outertune.engine.EngineSeenRow
@@ -114,10 +116,7 @@ interface ListenDao {
     fun deleteRelated(songId: String)
 
     // ---- The engine's input, see engine/EngineLoader.kt. Plain rows, no entities.
-    @Query("""SELECT s.id, s.title, s.liked, s.likedDate, s.inLibrary, s.isLocal, s.localPath,
-        (SELECT m.artistId FROM song_artist_map m WHERE m.songId = s.id ORDER BY m.position LIMIT 1) AS artistId,
-        (SELECT a.name FROM song_artist_map m JOIN artist a ON a.id = m.artistId WHERE m.songId = s.id ORDER BY m.position LIMIT 1) AS artistName
-        FROM song s""")
+    @Query(EngineSql.SONGS)
     fun engineSongs(): List<EngineSongRow>
 
     @Query("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId FROM listen")
@@ -132,11 +131,31 @@ interface ListenDao {
     @Query("SELECT songId, visibleAt FROM impression WHERE visibleAt >= :since AND tappedAt IS NULL AND visibleAt > 0")
     fun engineSeen(since: Long): List<EngineSeenRow>
 
-    @Query("SELECT kind, targetId FROM recommendation_exclusion WHERE expiresAt IS NULL OR expiresAt > :now")
+    @Query("SELECT kind, targetId, label FROM recommendation_exclusion WHERE expiresAt IS NULL OR expiresAt > :now")
     fun engineExclusions(now: Long): List<EngineExclusionRow>
 
     @Query("SELECT builtAt, seeds FROM row_build WHERE rowKey IN (1, 4) AND builtAt >= :since")
     fun engineRecentSeeds(since: Long): List<EngineSeedsRow>
+
+    // ---- Exclusions: what the recommendation rows must never suggest.
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertExclusion(exclusion: RecommendationExclusion): Long
+
+    @Query("SELECT * FROM recommendation_exclusion WHERE kind = :kind AND targetId = :targetId LIMIT 1")
+    fun exclusion(kind: Int, targetId: String): RecommendationExclusion?
+
+    @Query("DELETE FROM recommendation_exclusion WHERE id = :id")
+    fun deleteExclusion(id: Long)
+
+    @Query("SELECT * FROM recommendation_exclusion ORDER BY createdAt DESC")
+    fun exclusions(): Flow<List<RecommendationExclusion>>
+
+    @Query("SELECT COUNT(*) FROM recommendation_exclusion WHERE expiresAt IS NULL OR expiresAt > :now")
+    fun activeExclusionCount(now: Long): Flow<Int>
+
+    /** An exclusion in force, with its target's version group left to the caller. */
+    @Query("SELECT kind, targetId, label FROM recommendation_exclusion WHERE expiresAt IS NULL OR expiresAt > :now")
+    fun activeExclusions(now: Long): Flow<List<EngineExclusionRow>>
 
     @Query("SELECT COUNT(*) FROM listen_signal")
     fun signalCount(): Flow<Int>

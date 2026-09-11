@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.ui.screens.settings.ExclusionsSettings
 import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.content.Intent
@@ -1061,6 +1062,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                     composable("settings/recommendations") {
                                         RecommendationsSettings(navController, scrollBehavior)
+                                    }
+                                    composable("settings/recommendations/exclusions") {
+                                        ExclusionsSettings(navController, scrollBehavior)
                                     }
                                     composable("settings/updates") {
                                         UpdateSettings(navController, scrollBehavior)

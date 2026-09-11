@@ -1,5 +1,13 @@
 package com.dd3boh.outertune.ui.screens
 
+import com.dd3boh.outertune.constants.AdventurousnessKey
+import com.dd3boh.outertune.engine.Lane
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
 import com.dd3boh.outertune.viewmodels.CardReason
 import com.dd3boh.outertune.constants.ShowReasonsKey
 import com.dd3boh.outertune.utils.seenSlots
@@ -397,7 +405,9 @@ fun HomeScreen(
         quickPicksSource == QuickPicksSource.ENGINE && engineFallback == 0 -> 2
         else -> 0
     }
-    LaunchedEffect(shownPicks) { viewModel.quickPicksShown(shownSource, shownPicks) }
+    LaunchedEffect(shownPicks) { if (quickPicksSource != QuickPicksSource.OFF) viewModel.quickPicksShown(shownSource, shownPicks) }
+    var showWhyThese by remember { mutableStateOf(false) }
+    if (showWhyThese) WhyTheseDialog(viewModel = viewModel, navController = navController, onDismiss = { showWhyThese = false })
     val lifecycleOwner = LocalLifecycleOwner.current
     // What was just played leaves Quick picks when Home comes back into view, not under the finger.
     LaunchedEffect(lifecycleOwner) {
@@ -559,7 +569,9 @@ fun HomeScreen(
             // Skeleton while the answer is still being worked out, including during a pull to
             // refresh, so the row visibly reloads rather than sitting on the previous songs. The
             // same grid, filled with placeholders, so nothing shifts size when the songs arrive.
-            if (quickPicksLoading && ytPicks == null) {
+            if (quickPicksSource == QuickPicksSource.OFF) {
+                // Nothing: the listener turned the row off.
+            } else if (quickPicksLoading && ytPicks == null) {
                 item {
                     NavigationTitle(
                         title = stringResource(R.string.quick_picks),
@@ -594,6 +606,7 @@ fun HomeScreen(
                 item {
                     NavigationTitle(
                         title = stringResource(R.string.quick_picks),
+                        onClick = if (quickPicksSource == QuickPicksSource.ENGINE && engineFallback == 0) ({ showWhyThese = true }) else null,
                         label = when {
                             quickPicksSource != QuickPicksSource.ENGINE -> null
                             engineFallback == 1 -> stringResource(R.string.quick_picks_showing_library)
@@ -652,7 +665,8 @@ fun HomeScreen(
                                                         YouTubeSongMenu(
                                                             song = song,
                                                             navController = navController,
-                                                            onDismiss = menuState::dismiss
+                                                            onDismiss = menuState::dismiss,
+                                                            onExclude = { kind, reason -> viewModel.excludeYt(song, kind, reason) }
                                                         )
                                                     }
                                                 }
@@ -677,6 +691,7 @@ fun HomeScreen(
 
                                         thumbnailSize = listThumbnailSize,
                                         caption = if (showReasons && shownSource == 2) engineReasons[originalSong.id]?.firstOrNull()?.let { reasonText(it) } else null,
+                                        onExclude = { kind, reason -> viewModel.excludeSong(originalSong, kind, reason) },
                                         onPlay = {
                                             val tappedAt = System.currentTimeMillis()
                                             viewModel.quickPickTapped(slot, tappedAt)
@@ -1093,4 +1108,44 @@ private fun reasonText(reason: CardReason): String = when (reason.key) {
     "new_to_you" -> stringResource(R.string.reason_new)
     "wildcard" -> stringResource(R.string.reason_wildcard)
     else -> stringResource(R.string.reason_activation)
+}
+
+/** Why these? The seeds the row was built around (each can be turned down), the lanes and their quotas, and the exclusions in force. */
+@Composable
+private fun WhyTheseDialog(viewModel: HomeViewModel, navController: NavController, onDismiss: () -> Unit) {
+    val seeds by viewModel.engineSeeds.collectAsState()
+    val quotas by viewModel.engineQuotas.collectAsState()
+    val exclusions by viewModel.activeExclusions.collectAsState(initial = 0)
+    val adventurousness by rememberPreference(AdventurousnessKey, defaultValue = 15)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.why_these)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.why_these_seeds), style = MaterialTheme.typography.titleSmall)
+                seeds.forEach { (id, title) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(title, modifier = Modifier.weight(1f), maxLines = 1, style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { viewModel.rejectSeed(id) }) { Text(stringResource(R.string.why_these_not_this_one)) }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.why_these_lanes), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    listOf(
+                        stringResource(R.string.why_these_lane_related, quotas[Lane.RELATED] ?: 0),
+                        stringResource(R.string.why_these_lane_artist, quotas[Lane.ARTIST] ?: 0),
+                        stringResource(R.string.why_these_lane_rediscover, quotas[Lane.REDISCOVER] ?: 0),
+                        stringResource(R.string.why_these_lane_explore, quotas[Lane.EXPLORE] ?: 0),
+                    ).joinToString("\n"),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.why_these_dial, adventurousness), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.why_these_exclusions, exclusions), style = MaterialTheme.typography.bodyMedium)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.ok)) } },
+        dismissButton = { TextButton(onClick = { onDismiss(); navController.navigate("settings/recommendations/exclusions") }) { Text(stringResource(R.string.why_these_manage)) } },
+    )
 }

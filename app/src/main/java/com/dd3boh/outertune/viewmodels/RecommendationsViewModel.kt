@@ -25,5 +25,6 @@ class RecommendationsViewModel @Inject constructor(
     val rowBuilds = database.rowBuildCount()
     val signals = database.signalCount()
     val taps = database.tapCount()
+    val activeExclusions = database.activeExclusionCount(System.currentTimeMillis())
     val recent = database.recentListenRows(30)
 }
