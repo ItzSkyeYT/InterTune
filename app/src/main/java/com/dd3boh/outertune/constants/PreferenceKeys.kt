@@ -166,6 +166,8 @@ val RestSongsISkipKey = booleanPreferencesKey("restSongsISkip")
 val RestsEverywhereKey = booleanPreferencesKey("restsEverywhere")
 /** The declared context chip above the engine row, kept until changed: 0 Auto, 1 Discover, 2 Favourites, 3 Focus, 4 Chill, 5 Party. */
 val ContextChipKey = intPreferencesKey("contextChip")
+/** Developer overrides of EngineParams, as one JSON object of name to value. */
+val EngineOverridesKey = stringPreferencesKey("engineOverrides")
 /** Off freezes the engine's weights and stops impressions; the listen log continues. */
 val LearnFromListeningKey = booleanPreferencesKey("learnFromListening")
 /** The local day (days since the epoch) and how much of the day's update budget is spent. */

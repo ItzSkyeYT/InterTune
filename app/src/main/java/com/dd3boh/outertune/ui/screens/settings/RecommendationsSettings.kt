@@ -268,6 +268,11 @@ fun RecommendationsSettings(
             onClick = { viewModel.forgetToday() },
         )
         PreferenceEntry(
+            title = { Text(stringResource(R.string.engine_developer)) },
+            description = stringResource(R.string.engine_developer_description),
+            onClick = { navController.navigate("settings/recommendations/developer") },
+        )
+        PreferenceEntry(
             title = { Text(stringResource(R.string.export_engine_data)) },
             description = stringResource(R.string.export_engine_data_description),
             onClick = {

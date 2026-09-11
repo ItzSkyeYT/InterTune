@@ -1,5 +1,7 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.constants.EngineOverridesKey
+import com.dd3boh.outertune.engine.EngineTuning
 import com.dd3boh.outertune.engine.ContextChip
 import com.dd3boh.outertune.constants.ContextChipKey
 import com.dd3boh.outertune.models.toMediaMetadata
@@ -268,7 +270,7 @@ class HomeViewModel @Inject constructor(
                 val input = engineInput(now)
                 val weights = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS)
                 val familiarity = context.dataStore.get(FamiliarityKey, 25)
-                val row = EngineRow.build(input, weights = weights, p = EngineParams.DEFAULT.withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0)
+                val row = EngineRow.build(input, weights = weights, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0)
                 if (row.cards.isEmpty()) return@launch
                 database.transactionNow {
                     insert(RowBuild(
@@ -321,7 +323,7 @@ class HomeViewModel @Inject constructor(
         val chip = context.dataStore.get(ContextChipKey, ContextChip.AUTO)
         engineChipTagged.value = if (chip in ContextChip.MOODS) input.listens.count { it.contextChip == chip } else -1
         val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly && familiarity == lastEngineFamiliarity && chip == lastEngineChip) standing
-        else EngineRow.build(input.copy(notSeeds = rejectedSeeds.toSet(), chip = chip), weights = weightsInUse, p = EngineParams.DEFAULT.withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly).also {
+        else EngineRow.build(input.copy(notSeeds = rejectedSeeds.toSet(), chip = chip), weights = weightsInUse, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly).also {
             lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket; lastEngineNewOnly = newOnly; lastEngineFamiliarity = familiarity; lastEngineChip = chip
             Log.d("HomeViewModel", "engine row: ${it.cards.size} cards, ${it.pool.size} in the pool, ${it.seeds.size} seeds, from ${input.songs.size} songs, ${input.listens.size} listens, ${input.edges.size} edges in ${System.currentTimeMillis() - now} ms")
         }
