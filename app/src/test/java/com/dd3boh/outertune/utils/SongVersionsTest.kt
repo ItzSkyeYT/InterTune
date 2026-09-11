@@ -61,4 +61,19 @@ class SongVersionsTest {
         // Both reduce to nothing; matching empty to empty would filter every untitled track.
         assertFalse(SongVersions.isVersionOf("(Untitled)", "(Intro)"))
     }
+
+    @Test
+    fun `versions in other scripts and full-width brackets are caught`() {
+        assertTrue(SongVersions.isVersionOf("夜に駆ける（Live）", "夜に駆ける"))
+        assertTrue(SongVersions.isVersionOf("夜に駆ける【MV】", "夜に駆ける"))
+        assertTrue(SongVersions.isVersionOf("Кино (Live)", "Кино"))
+    }
+
+    @Test
+    fun `different titles in other scripts are not versions`() {
+        assertFalse(SongVersions.isVersionOf("クイーン", "キング"))
+        // A title quoted in corner brackets keeps its words: stripping them would have emptied it.
+        assertFalse(SongVersions.isVersionOf("「群青」", "「夜に駆ける」"))
+        assertTrue(SongVersions.isVersionOf("「群青」", "「群青」"))
+    }
 }

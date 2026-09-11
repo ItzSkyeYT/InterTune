@@ -21,7 +21,11 @@ package com.dd3boh.outertune.utils
  * a list of songs related to it.
  */
 object SongVersions {
-    private val BRACKETED = Regex("""\s*[\(\[][^\)\]]*[\)\]]""")
+    // Full-width （） ［］ and lenticular 【】 too, which is how Japanese and Chinese titles mark a
+    // version ("（Live）", "【MV】"); without them those versions slipped through. Corner brackets
+    // 「」 are left alone on purpose: they usually quote the title itself, and stripping them would
+    // empty it.
+    private val BRACKETED = Regex("""\s*[\(\[（［【][^\)\]）］】]*[\)\]）］】]""")
     private val TRAILING_QUALIFIER = Regex("""\s+-\s+.*$""")
     private val NON_ALPHANUMERIC = Regex("""[^\p{L}\p{N}]+""")
 
