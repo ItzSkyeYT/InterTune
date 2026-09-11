@@ -156,6 +156,11 @@ val ShowReasonsKey = booleanPreferencesKey("showReasons")
 val AdventurousnessKey = intPreferencesKey("adventurousness")
 /** The engine row holds only songs new to the listener. */
 val NewSongsOnlyKey = booleanPreferencesKey("newSongsOnly")
+/** Off freezes the engine's weights and stops impressions; the listen log continues. */
+val LearnFromListeningKey = booleanPreferencesKey("learnFromListening")
+/** The local day (days since the epoch) and how much of the day's update budget is spent. */
+val EngineBudgetDayKey = longPreferencesKey("engineBudgetDay")
+val EngineBudgetSpentKey = floatPreferencesKey("engineBudgetSpent")
 /** The day (in days since the epoch) and count of related-song refreshes spent, at most ten a day. */
 val RelatedRefreshDayKey = longPreferencesKey("relatedRefreshDay")
 val RelatedRefreshCountKey = intPreferencesKey("relatedRefreshCount")

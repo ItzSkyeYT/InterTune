@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import com.dd3boh.outertune.engine.Features
+import com.dd3boh.outertune.engine.Calibration
+import com.dd3boh.outertune.constants.LearnFromListeningKey
 import com.dd3boh.outertune.constants.NewSongsOnlyKey
 import androidx.compose.material3.Slider
 import com.dd3boh.outertune.engine.quotas
@@ -82,6 +85,10 @@ fun RecommendationsSettings(
     val (adventurousness, onAdventurousnessChange) = rememberPreference(AdventurousnessKey, defaultValue = 15)
     val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
     val activeExclusions by viewModel.activeExclusions.collectAsState(initial = 0)
+    val gradedByTeam by viewModel.gradedByTeam.collectAsState(initial = emptyList())
+    val calibration by viewModel.calibration.collectAsState(initial = emptyList())
+    val weights by viewModel.weights.collectAsState(initial = emptyList())
+    val (learnFromListening, onLearnFromListeningChange) = rememberPreference(LearnFromListeningKey, defaultValue = true)
     val endReasonLabels = mapOf(
         EndReason.ENDED to stringResource(R.string.recommendations_ended),
         EndReason.SKIPPED to stringResource(R.string.recommendations_skipped),
@@ -139,6 +146,65 @@ fun RecommendationsSettings(
             title = { Text(stringResource(R.string.exclusions)) },
             description = stringResource(R.string.exclusions_count, activeExclusions),
             onClick = { navController.navigate("settings/recommendations/exclusions") },
+        )
+        Spacer(Modifier.height(16.dp))
+
+        // How it's doing: what was shown, what was played, how well the predictions matched, and
+        // each weight beside where it started.
+        PreferenceGroupTitle(title = stringResource(R.string.recommendations_doing_title))
+        SwitchPreference(
+            title = { Text(stringResource(R.string.learn_from_listening)) },
+            description = stringResource(R.string.learn_from_listening_description),
+            checked = learnFromListening,
+            onCheckedChange = onLearnFromListeningChange,
+        )
+        val teamNames = mapOf(1 to stringResource(R.string.recommendations_team_engine), 2 to stringResource(R.string.recommendations_team_library), 3 to stringResource(R.string.recommendations_team_youtube))
+        val scored = gradedByTeam.filter { it.outcome in 1..3 }.groupBy { it.team }
+        val winsLine = stringResource(R.string.recommendations_wins_line)
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.recommendations_wins)) },
+            description = scored.entries.sortedBy { it.key }.joinToString("\n") { (team, rows) ->
+                val seen = rows.sumOf { it.n }; val wins = rows.sumOf { it.wins }
+                String.format(winsLine, teamNames[team] ?: team.toString(), wins, seen, if (seen > 0) 100.0 * wins / seen else 0.0)
+            }.ifBlank { stringResource(R.string.recommendations_nothing_yet) },
+            onClick = null,
+        )
+        val pairs = calibration.map { it.p.toDouble() to it.y.toDouble() }
+        val brier = Calibration.brier(pairs)
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.recommendations_brier)) },
+            description = if (brier.isNaN()) stringResource(R.string.recommendations_nothing_yet)
+                else stringResource(R.string.recommendations_brier_description, brier, pairs.size) + "\n" +
+                    Calibration.reliability(pairs).filter { it.count > 0 }.joinToString("\n") { b -> "%.0f%% to %.0f%%: %d cards, %.0f%% played".format(b.lo * 100, b.hi * 100, b.count, b.playRate * 100) },
+            onClick = null,
+        )
+        val weightNames = mapOf(
+            "x_act" to stringResource(R.string.weight_act), "x_sat" to stringResource(R.string.weight_sat), "x_gap" to stringResource(R.string.weight_gap),
+            "x_dorm" to stringResource(R.string.weight_dorm), "x_like" to stringResource(R.string.weight_like), "x_seed" to stringResource(R.string.weight_seed),
+            "x_art" to stringResource(R.string.weight_art), "x_novel" to stringResource(R.string.weight_novel), "x_imp" to stringResource(R.string.weight_imp),
+            "x_co" to stringResource(R.string.weight_co), "x_ctx" to stringResource(R.string.weight_ctx), "x_over" to stringResource(R.string.weight_over),
+            "w_pos" to stringResource(R.string.weight_pos), "b" to stringResource(R.string.weight_bias),
+        )
+        val updates = weights.maxOfOrNull { it.updates } ?: 0
+        val started = stringResource(R.string.recommendations_weight_started)
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.recommendations_weights, updates)) },
+            description = Features.priors.keys.filter { it in weightNames }.joinToString("\n") { name ->
+                val row = weights.firstOrNull { it.name == name }
+                val prior = Features.priors[name]!!.value
+                "%s: %.2f (%s %.2f)".format(weightNames[name], row?.value ?: prior, started, prior)
+            },
+            onClick = null,
+        )
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.recommendations_reset_weights)) },
+            description = stringResource(R.string.recommendations_reset_weights_description),
+            onClick = { viewModel.resetWeights() },
+        )
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.recommendations_rebuild_weights)) },
+            description = stringResource(R.string.recommendations_rebuild_weights_description),
+            onClick = { viewModel.rebuildWeights() },
         )
         Spacer(Modifier.height(16.dp))
 

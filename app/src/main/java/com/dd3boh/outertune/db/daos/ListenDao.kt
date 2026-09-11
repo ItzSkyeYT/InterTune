@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.db.daos
 
+import com.dd3boh.outertune.db.entities.EngineWeight
 import com.dd3boh.outertune.engine.EngineSql
 import com.dd3boh.outertune.db.entities.RecommendationExclusion
 import com.dd3boh.outertune.engine.EngineSeedsRow
@@ -119,8 +120,45 @@ interface ListenDao {
     @Query(EngineSql.SONGS)
     fun engineSongs(): List<EngineSongRow>
 
-    @Query("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId FROM listen")
+    @Query("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId, impressionId FROM listen")
     fun engineListens(): List<com.dd3boh.outertune.engine.ListenRow>
+
+    // ---- The loop: grading what was shown, applying what was graded, keeping the weights.
+    @Query("SELECT * FROM impression WHERE gradedAt IS NULL AND visibleAt IS NOT NULL ORDER BY id")
+    fun pendingImpressions(): List<Impression>
+
+    @Query("UPDATE impression SET outcome = :outcome, y = :y, u = :u, gradedAt = :at WHERE id = :id")
+    fun markGraded(id: Long, outcome: Int, y: Float, u: Float, at: Long)
+
+    /** Graded examples the engine placed, not yet applied, oldest first. */
+    @Query("SELECT * FROM impression WHERE gradedAt IS NOT NULL AND appliedAt IS NULL AND features IS NOT NULL AND u > 0 ORDER BY gradedAt, id")
+    fun unappliedExamples(): List<Impression>
+
+    /** Everything applied so far, in the order it was applied: a rebuild replays exactly this. */
+    @Query("SELECT * FROM impression WHERE appliedAt IS NOT NULL AND features IS NOT NULL AND u > 0 ORDER BY appliedAt, id")
+    fun appliedExamples(): List<Impression>
+
+    @Query("UPDATE impression SET appliedAt = :at WHERE id = :id")
+    fun markApplied(id: Long, at: Long)
+
+    @Query("UPDATE impression SET appliedAt = NULL WHERE appliedAt IS NOT NULL")
+    fun unapplyAll()
+
+    @Query("SELECT * FROM engine_weight")
+    fun engineWeights(): List<EngineWeight>
+
+    @Query("SELECT * FROM engine_weight")
+    fun engineWeightsFlow(): Flow<List<EngineWeight>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertEngineWeights(rows: List<EngineWeight>)
+
+    @Query("SELECT team AS team, outcome AS outcome, COUNT(*) AS n, SUM(CASE WHEN y >= 0.5 THEN 1 ELSE 0 END) AS wins FROM impression WHERE gradedAt IS NOT NULL GROUP BY team, outcome")
+    fun gradedByTeam(): Flow<List<TeamOutcome>>
+
+    /** The engine's slotted, graded cards: prediction beside grade, for the Brier score and the reliability table. */
+    @Query("SELECT p AS p, y AS y FROM impression WHERE team = 1 AND slot >= 0 AND gradedAt IS NOT NULL AND u > 0 AND p IS NOT NULL AND y IS NOT NULL")
+    fun engineCalibration(): Flow<List<PredictionGrade>>
 
     @Query("SELECT songId, relatedSongId FROM related_song_map")
     fun engineEdges(): List<EngineEdgeRow>
@@ -223,3 +261,6 @@ interface ListenDao {
         val ratio: Float, val playedMs: Long, val endedAt: Long, val counted: Boolean, val autoplayDepth: Int,
     )
 }
+
+data class TeamOutcome(val team: Int, val outcome: Int, val n: Int, val wins: Int)
+data class PredictionGrade(val p: Float, val y: Float)
