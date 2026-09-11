@@ -20,6 +20,7 @@ import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.Throttle
+import com.dd3boh.outertune.utils.SongVersions
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
@@ -216,7 +217,12 @@ class HomeViewModel @Inject constructor(
                     val page = YouTube.related(endpoint).getOrNull() ?: return@mapNotNull null
                     SimilarRecommendation(
                         title = song,
-                        items = (page.songs.shuffled().take(8) +
+                        // A row titled "Similar to Bohemian Rhapsody" must not offer Bohemian
+                        // Rhapsody live at Live Aid, and the related shelf does sometimes carry a
+                        // version of the seed.
+                        items = (page.songs
+                            .filterNot { it.id == song.id || SongVersions.isVersionOf(it.title, song.song.title) }
+                            .shuffled().take(8) +
                                 page.albums.shuffled().take(4) +
                                 page.artists.shuffled().take(4) +
                                 page.playlists.shuffled().take(4))

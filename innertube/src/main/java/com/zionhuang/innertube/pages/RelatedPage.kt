@@ -12,10 +12,18 @@ import com.zionhuang.innertube.models.YTItem
 import com.zionhuang.innertube.models.oddElements
 
 data class RelatedPage(
+    /** The page's first song shelf, "You might also like": songs related to the seed. */
     val songs: List<SongItem>,
     val albums: List<AlbumItem>,
     val artists: List<ArtistItem>,
     val playlists: List<PlaylistItem>,
+    /**
+     * Every later song shelf, which on the page as it stands is "Other performances": live cuts,
+     * remixes, re-recordings and covers of the seed itself. These used to be merged into [songs],
+     * so anything reading the related list as "songs like this one" was also handed versions of
+     * the song it started from.
+     */
+    val otherPerformances: List<SongItem> = emptyList(),
 ) {
     companion object {
         fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer): SongItem? {
