@@ -38,8 +38,9 @@ A small release before 0.11: three things you asked for, the Quick picks row beh
 
 ## The listening log
 
-- InterTune starts keeping a log of what you play: every stop, how far through you got, how it ended and where you started it from. It is on this device, in the app's own database, and it goes nowhere else. Nothing reads it yet. It is what the recommendations in 0.11 will learn from, and starting it now means they arrive to a history rather than to nothing.
-- **Settings > Privacy and history > Pause listen history** turns it off, and **Clear listen history** deletes all of it. Both were already there and both cover the new log.
+- InterTune starts keeping a log of what you play: every stop, how far through you got, how it ended and where you started it from. It is on this device, in the app's own database, and it goes nowhere else. It is what the recommendations in 0.11 will learn from, and starting it now means they arrive to a history rather than to nothing.
+- Two things already read it, and they are the two Quick picks improvements above: the row skips what you have just heard, and it is ordered by what you tend to finish, search for and like rather than by the order it arrived in. Both are on, and this release has no switch for either; 0.11 adds one for each.
+- **Settings > Privacy and history > Pause listen history** turns the log off, and **Clear listen history** deletes all of it. Both were already there and both cover the new log. With it paused, the two behaviours above have nothing to work from and the row is simply the order it arrived in.
 - It rides along in a backup, so a backup taken now carries it.
 
 ## Not in this release, on purpose
