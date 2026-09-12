@@ -10,7 +10,7 @@ Checked on 12 September 2026, against the published 0.10.7 apk and the tree it w
 - **No proprietary dependencies.** Nothing from Google Play services, Firebase, billing or crash reporting, in the gradle files or in the apk.
 - **No prebuilt binaries in the source.** `media/` is ignored and untracked; the only jar in git is the gradle wrapper's. The one native library, `libtaglib.so`, is built by the NDK from the C++ in the `taglib` submodule.
 - **The build needs no secrets.** Last.fm credentials and the poll endpoints are read from `local.properties`, which is not in the repository, and every one of them is optional: the Last.fm setting hides itself and the poll checker does nothing. An F-Droid build is an InterTune with no scrobbling login and no questions.
-- **Store metadata is in the repository** at `fastlane/metadata/android/en-US`: title, short and full descriptions, an icon, five phone screen shots, three tablet screen shots, and a changelog for the current version code.
+- **Store metadata is in the repository** at `fastlane/metadata/android/en-US`: title, short and full descriptions, an icon, five phone screen shots, four tablet screen shots, and a changelog for the current version code.
 - **Releases are tagged.** `v0.10.7` and the rest are real tags on the default branch, which is what a build recipe points at.
 - **An F-Droid install already updates through F-Droid.** `utils/InstallSource.kt` recognises the F-Droid clients and Droidify and Neo Store; the in-app updater then stands aside and points at the F-Droid page instead of offering an apk that would refuse to install over a differently signed one.
 
