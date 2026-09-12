@@ -23,6 +23,14 @@ A pull to refresh brings songs that were not there before. Each row remembers wh
 
 Measured, honestly: replayed over the maintainer's own history session by session, the engine at its priors holds the next pick 3.8 percent of the time against 2.1 for the old query, and a plain list of the twenty most recent songs holds it 29 percent of the time, because that history is mostly re-listens and the row refuses what was just played by design. The engine is the only row of the five with no version collisions and the best at surfacing songs new to the listener that they then played. A warm start that fitted the weights to old history before any card was shown was tried and made held-out sessions worse, so it is not run. The numbers that count are the ones the app itself keeps under How it's doing.
 
+## The home screen widget
+
+InterTune puts a widget on the home screen: what is playing with its artwork, previous, play or pause and next, and under it as much of Quick picks as the size allows. Four by two holds the song and two picks; dragged taller it holds up to six; dragged narrow it keeps the song and the play button and drops the skips. Tapping the song opens the app, tapping a pick plays it, and the picks are the ones Home is showing, whichever source they came from, so the widget and the app never disagree.
+
+Written in Glance (`widget/`). A widget is drawn by the launcher at moments the app has no say in, often with the process long dead, so it draws from a snapshot on disk (`WidgetStore`, a tab separated file beside the artwork it names) that the app writes whenever the song, the playback state or the Quick picks row changes. The words are written whatever happens; the artwork, cropped square and scaled to 256 or 96 pixels, is fetched only when a widget actually exists, so a listener who never adds one pays a few hundred bytes a song and nothing else. A widget added to a home screen for the first time fills itself from the library's own Quick picks query rather than sitting empty until Home is next opened.
+
+The buttons speak the same language as a headset. While the service is alive the key event goes straight to it; while it is not, it goes to media3's media button receiver, which starts the service and resumes the queue through `onPlaybackResumption`, the path already built for Bluetooth and the system's own resumption. Verified on the emulator with the process killed: play on the widget brought back a 51-song queue where it left off. Glance's own trap is worth recording, since it cost an hour: `provideGlance` runs once per session, so a snapshot read there and passed into the composition is frozen for the life of that session however often the app rewrites the file. The composition follows a state flow instead, and the file is only the cold start.
+
 ## Landscape and tablets
 
 Separate from the playback fix, the two-pane landscape now-playing screen got some work. The

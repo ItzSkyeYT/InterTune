@@ -75,6 +75,15 @@ import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import com.dd3boh.outertune.constants.PlayOrigin
+import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.playback.queues.YouTubeQueue
+import com.dd3boh.outertune.widget.WidgetCommands
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -252,6 +261,50 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
  * as a flick; this is slow enough to follow and short enough not to be in the way.
  */
 private val NavPopSpec = tween<IntOffset>(300, easing = FastOutSlowInEasing)
+
+/**
+ * A song tapped on the home screen widget.
+ *
+ * The widget carries enough of the song in its intent to play it without a lookup, because the
+ * song it is offering need not be in the library at all: Quick picks on the YouTube source is a
+ * shelf from the feed. The library is still asked first, since a song that is there comes with
+ * everything else the app knows about it.
+ *
+ * Returns whether this intent was a widget tap, so the caller knows to leave it alone.
+ */
+private fun playFromWidget(
+    intent: Intent?,
+    database: MusicDatabase,
+    playerConnection: PlayerConnection?,
+    scope: CoroutineScope,
+): Boolean {
+    if (intent?.action != WidgetCommands.ACTION_PLAY_SONG) return false
+    val id = intent.getStringExtra(WidgetCommands.EXTRA_SONG_ID) ?: return false
+    // Taken out of the intent, or every recomposition and every rotation plays it again.
+    intent.removeExtra(WidgetCommands.EXTRA_SONG_ID)
+    val connection = playerConnection ?: return true
+    val title = intent.getStringExtra(WidgetCommands.EXTRA_SONG_TITLE).orEmpty()
+    val artist = intent.getStringExtra(WidgetCommands.EXTRA_SONG_ARTIST).orEmpty()
+    val thumbnail = intent.getStringExtra(WidgetCommands.EXTRA_SONG_THUMBNAIL)
+    val duration = intent.getIntExtra(WidgetCommands.EXTRA_SONG_DURATION, 0)
+    scope.launch {
+        val known = runCatching { withContext(Dispatchers.IO) { database.song(id).first() } }.getOrNull()
+        val metadata = known?.toMediaMetadata() ?: MediaMetadata(
+            id = id,
+            title = title,
+            artists = listOf(MediaMetadata.Artist(null, artist)),
+            duration = duration,
+            thumbnailUrl = thumbnail,
+            genre = null,
+        )
+        connection.playQueue(
+            YouTubeQueue.radio(metadata),
+            isRadio = true,
+            origin = PlayOrigin.WIDGET,
+        )
+    }
+    return true
+}
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -670,8 +723,16 @@ class MainActivity : ComponentActivity() {
                     )
 
 
+                    // A Quick pick tapped on the home screen widget. Handled for the intent that
+                    // opened the app and, through the listener below, for one that arrives while it
+                    // is already open.
+                    LaunchedEffect(playerConnection) {
+                        playFromWidget(intent, database, playerConnection, coroutineScope)
+                    }
+
                     DisposableEffect(Unit) {
                         val listener = Consumer<Intent> { intent ->
+                            if (playFromWidget(intent, database, playerConnection, coroutineScope)) return@Consumer
                             val uri =
                                 intent.data ?: intent.extras?.getString(Intent.EXTRA_TEXT)?.toUri()
                                 ?: return@Consumer

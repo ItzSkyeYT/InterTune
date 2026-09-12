@@ -15,6 +15,10 @@ Quick picks learns how you listen. Everything below is a switch or a choice; not
 - It learns from what you play and pass over, a little at a time, never more than a set amount per day. **How it's doing** under Settings > Recommendations shows cards played of cards seen per source, how often each row held what you played next, how well it predicts, and every weight beside where it started. **Learn from listening**, **Forget the last session**, **Forget today**, **Reset**, **Rebuild from history** and **Export** are all there.
 - Your play history from earlier versions is converted once at first start, so recommendations begin from everything you have played.
 
+## Home screen
+
+- A **widget**: what is playing, with previous, play or pause and next, and Quick picks under it. Resize it and it shows more or fewer picks. Tap a pick to play it. It works with the app closed, and its play button brings back the queue you were on.
+
 ## Playback
 
 - A pause, a closed app and a return later is one listen, not a stop. The app also comes back where you paused even when Android closed it in the meantime.

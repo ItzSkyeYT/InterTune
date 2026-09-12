@@ -282,6 +282,8 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.lazycolumnscrollbar)
     implementation(libs.shimmer)
+    implementation(libs.glance)
+    implementation(libs.glance.material3)
 
     // material
     implementation(libs.adaptive)

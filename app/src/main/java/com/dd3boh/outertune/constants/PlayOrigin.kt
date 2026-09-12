@@ -34,7 +34,9 @@ enum class PlayOrigin(val code: Int) {
     /** Set by another app or a controller, through onSetMediaItems. */
     EXTERNAL(15),
     /** A song the listener identified by ear, which is as deliberate as a search. */
-    RECOGNISED(16);
+    RECOGNISED(16),
+    /** A card tapped on the home screen widget: the Quick picks row, outside the app. */
+    WIDGET(17);
 
     companion object {
         fun fromCode(code: Int): PlayOrigin = entries.firstOrNull { it.code == code } ?: UNKNOWN
