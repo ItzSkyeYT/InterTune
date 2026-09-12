@@ -1,0 +1,49 @@
+# InterTune, as F-Droid's own metadata.
+#
+# This file is a draft of what belongs in fdroiddata at
+# metadata/dev.skye.intertune.yml. It lives here so it can be kept beside the
+# code that has to stay true to it: every release adds a Builds entry, and the
+# output name follows the rename rule in app/build.gradle.kts.
+#
+# The build needs no secrets. Last.fm credentials and the poll endpoints come
+# from local.properties, which is not in the repository, and the app is written
+# to work without them: the Last.fm setting hides itself and the poll checker
+# does nothing at all. An F-Droid build is therefore an InterTune with no
+# scrobbling login and no questions, which is the honest outcome and worth
+# saying in the release notes rather than hiding.
+
+Categories:
+  - Multimedia
+License: GPL-3.0-only
+AuthorName: Mel Boro
+SourceCode: https://github.com/ItzSkyeYT/InterTune
+IssueTracker: https://github.com/ItzSkyeYT/InterTune/issues
+Changelog: https://github.com/ItzSkyeYT/InterTune/releases
+
+AutoName: InterTune
+
+# YouTube Music is a non-free network service, and half of what this app does
+# talks to it. Declared rather than argued about.
+AntiFeatures:
+  - NonFreeNet
+
+RepoType: git
+Repo: https://github.com/ItzSkyeYT/InterTune.git
+
+Builds:
+  - versionName: 0.10.7
+    versionCode: 84
+    commit: v0.10.7
+    subdir: app
+    # taglib is a submodule and is built from its C++ sources by the NDK; the
+    # core flavour is the one to build, since full only adds ffMetadataEx.
+    submodules: true
+    gradle:
+      - core
+    ndk: 29.0.13113456
+    output: app/build/outputs/apk/core/release/InterTune-0.10.7-core-release-84.apk
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[0-9.]+$
+CurrentVersion: 0.10.7
+CurrentVersionCode: 84
