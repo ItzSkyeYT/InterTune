@@ -150,8 +150,8 @@
         </service>
 
         <!--
-          The home screen widget. Its updates come from the app itself as things happen; the daily
-          period in music_widget_info is only a way back from a force stop, which empties it.
+          The home screen widget. Its updates come from the app itself as things happen, never on
+          a timer, so nothing here wakes for a widget with nothing new to show.
         -->
         <receiver
             android:name=".widget.MusicWidgetReceiver"
