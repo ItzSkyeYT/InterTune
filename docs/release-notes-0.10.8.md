@@ -38,11 +38,10 @@ A small release before 0.11: three things you asked for, the Quick picks row beh
 
 ## The listening log
 
-- InterTune starts keeping a log of what you play: every stop, how far through you got, how it ended and where you started it from. It is on this device, in the app's own database, and it goes nowhere else. It is what the recommendations in 0.11 will learn from, and starting it now means they have something to work with on the day they arrive.
-- **Settings > Privacy and history > Pause listen history** turns it off, and **Clear listen history** on the same screen deletes all of it.
-- **Settings > Recommendations** shows the whole of it: how many listens and sessions, how they ended, where they were started from, and a list of recent listens with the lot. Nothing is recorded that is not shown there.
-- Every item on that screen has a small **i** beside it that explains, at length, what it does and what it reads.
+- InterTune starts keeping a log of what you play: every stop, how far through you got, how it ended and where you started it from. It is on this device, in the app's own database, and it goes nowhere else. Nothing reads it yet. It is what the recommendations in 0.11 will learn from, and starting it now means they arrive to a history rather than to nothing.
+- **Settings > Privacy and history > Pause listen history** turns it off, and **Clear listen history** deletes all of it. Both were already there and both cover the new log.
+- It rides along in a backup, so a backup taken now carries it.
 
 ## Not in this release, on purpose
 
-Best recommendations, Try both, the context chips, the long-press card controls and the home screen widget are built and on the branch, and they are 0.11. They are held behind one switch in the source rather than on a branch of their own, so 0.10.8 is this same tree with that switch off.
+Best recommendations, Try both, the context chips, the long-press card controls, the whole Recommendations settings screen and the home screen widget are built and on the branch, and they are 0.11. They are held behind one switch in the source rather than on a branch of their own, so 0.10.8 is this same tree with that switch off.

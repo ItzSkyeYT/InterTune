@@ -22,6 +22,6 @@ Version 0.10.8
 
 === Notes ===
 • Installs from F-Droid update through F-Droid; the in-app updater steps aside for them
-• The listening log starts here so that the recommendations in 0.11 have something to learn from. Settings > Privacy and history > Pause listen history turns it off, and Settings > Recommendations shows everything it has recorded
+• The app starts logging what you play so that the recommendations coming in 0.11 arrive to a history rather than to nothing. Nothing reads it yet, it stays on this device, and Settings > Privacy and history > Pause listen history turns it off
 
 Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.10.8
