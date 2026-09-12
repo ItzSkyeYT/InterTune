@@ -90,6 +90,51 @@ A build recipe is drafted at
 https://github.com/ItzSkyeYT/InterTune/blob/visionos-fix/docs/fdroid/dev.skye.intertune.yml
 ```
 
+## Opening the merge request to fdroiddata
+
+Their submission queue says it plainly: packaging it yourself and opening a merge request saves everyone a lot of time, and an issue on its own guarantees nothing. This is that, step by step. Nothing here needs anything from the InterTune repository except the one file.
+
+1. **Fork fdroiddata** at <https://gitlab.com/fdroid/fdroiddata> in the browser. It is large; a shallow clone is fine.
+
+   ```bash
+   git clone --depth 1 https://gitlab.com/<your-gitlab-user>/fdroiddata.git
+   cd fdroiddata
+   git checkout -b dev.skye.intertune
+   ```
+
+   They ask that the branch be named after the app id, which is what that is.
+
+2. **Add the one file.** It goes in `metadata`, named after the application id exactly.
+
+   ```bash
+   cp ~/projects/intertune/InterTune/docs/fdroid/dev.skye.intertune.yml metadata/dev.skye.intertune.yml
+   ```
+
+   Drop the commented Binaries and AllowedAPKSigningKeys lines at the bottom, and the long comment header if it reads as noise beside the other files. The rest is meant to stay.
+
+3. **Check it, if fdroidserver is installed.** `pipx install fdroidserver` gets it. None of this is required to open the merge request, and their CI runs the same checks, but finding a problem locally is faster than finding it in a pipeline.
+
+   ```bash
+   fdroid readmeta                      # does the file parse
+   fdroid rewritemeta dev.skye.intertune # their own formatting, applied
+   fdroid lint dev.skye.intertune       # warnings
+   fdroid build -v -l dev.skye.intertune # the real test: does it build
+   ```
+
+   The build one is the whole point and takes a while. It needs their buildserver or a local android SDK with the NDK and cmake the recipe names.
+
+4. **Commit and push.**
+
+   ```bash
+   git add metadata/dev.skye.intertune.yml
+   git commit -m "New app: InterTune"
+   git push origin dev.skye.intertune
+   ```
+
+5. **Watch your fork's CI.** GitLab runs their pipeline on the push. If it fails, the log says which check, and the fix is usually one line of metadata.
+
+6. **Open the merge request** against `fdroid/fdroiddata`, fill in their template, and link the request for packaging issue so the two are tied together. Then answer questions; commits get squashed when it is merged.
+
 ## What every release has to do from now on
 
 - Bump `versionCode` and `versionName` in `app/build.gradle.kts`.
