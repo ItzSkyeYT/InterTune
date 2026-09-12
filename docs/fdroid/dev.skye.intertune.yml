@@ -40,6 +40,9 @@ Builds:
     submodules: true
     gradle:
       - core
+    # The version the taglib module asks for. The buildserver carries a fixed set
+    # of NDK releases, so if this one is not among them, pin the newest that
+    # taglib builds with rather than guessing here.
     ndk: 29.0.13113456
     output: app/build/outputs/apk/core/release/InterTune-0.10.7-core-release-84.apk
 
