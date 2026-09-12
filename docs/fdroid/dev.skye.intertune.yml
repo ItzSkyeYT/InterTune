@@ -1,54 +1,70 @@
 # InterTune, as F-Droid's own metadata.
 #
-# This file is a draft of what belongs in fdroiddata at
-# metadata/dev.skye.intertune.yml. It lives here so it can be kept beside the
-# code that has to stay true to it: every release adds a Builds entry, and the
-# output name follows the rename rule in app/build.gradle.kts.
+# A draft of metadata/dev.skye.intertune.yml in fdroiddata, kept here beside the code it
+# has to stay true to: every release adds a Builds entry.
 #
-# The build needs no secrets. Last.fm credentials and the poll endpoints come
-# from local.properties, which is not in the repository, and the app is written
-# to work without them: the Last.fm setting hides itself and the poll checker
-# does nothing at all. An F-Droid build is therefore an InterTune with no
-# scrobbling login and no questions, which is the honest outcome and worth
-# saying in the release notes rather than hiding.
+# Shaped after OuterTune's own entry, which is in fdroiddata and builds on the same
+# infrastructure from the same submodule, so the awkward parts are already answered there:
+# cmake has to be installed by hand in a prebuild line, and the taglib submodule has to be
+# kept out of the source scanner. What this adds is the NDK, which upstream does not pin
+# and this fork does.
+#
+# The build needs no secrets. Last.fm credentials and the poll endpoints come from
+# local.properties, which is not in the repository, and the app works without them: the
+# Last.fm setting hides itself and the poll checker does nothing at all.
+
+AntiFeatures:
+  NonFreeNet:
+    en-US: "Playing anything from YouTube Music depends on YouTube Music."
 
 Categories:
   - Multimedia
+  - Online Media Player
+
 License: GPL-3.0-only
+
 AuthorName: Mel Boro
+
 SourceCode: https://github.com/ItzSkyeYT/InterTune
 IssueTracker: https://github.com/ItzSkyeYT/InterTune/issues
 Changelog: https://github.com/ItzSkyeYT/InterTune/releases
 
 AutoName: InterTune
 
-# YouTube Music is a non-free network service, and half of what this app does
-# talks to it. Declared rather than argued about.
-AntiFeatures:
-  - NonFreeNet
-
 RepoType: git
-Repo: https://github.com/ItzSkyeYT/InterTune.git
+Repo: https://github.com/ItzSkyeYT/InterTune
 
 Builds:
   - versionName: 0.10.7
     versionCode: 84
     commit: v0.10.7
     subdir: app
-    # taglib is a submodule and is built from its C++ sources by the NDK; the
-    # core flavour is the one to build, since full only adds ffMetadataEx.
     submodules: true
     gradle:
       - core
-    # The taglib submodule pins NDK 29, which is new enough that the buildserver
-    # may not carry it. r28c is old enough to be there and builds the same
-    # library: tested on 12 Sep 2026, all four ABIs, and the whole core release
-    # apk with it. The sed is what makes the submodule accept it.
-    prebuild: sed -i -e 's/ndkVersion = "29\.0\.13113456"/ndkVersion = "28.2.13676358"/' ../taglib/build.gradle.kts
+    # Two things the build needs that the server does not have by default. The cmake
+    # version is the one taglib's CMakeLists demands, and upstream installs the same one.
+    # The sed is the NDK: taglib pins 29, which is new enough that the buildserver may not
+    # carry it, so it is rewritten to r28c. Built and tested that way on 12 Sep 2026, all
+    # four ABIs and the whole core release apk.
+    prebuild:
+      - sdkmanager 'cmake;3.31.6'
+      - sed -i -e 's/ndkVersion = "29\.0\.13113456"/ndkVersion = "28.2.13676358"/' ../taglib/build.gradle.kts
     ndk: 28.2.13676358
-    output: app/build/outputs/apk/core/release/InterTune-0.10.7-core-release-84.apk
+    # The submodule is C++ sources plus its own gradle wrapper; upstream keeps it out of
+    # the scanner the same way.
+    scandelete:
+      - taglib
+
+# Reproducible builds are possible here and worth trying once the first build lands: the
+# release apks are published at a stable path and signed with one key, which is what
+# Binaries and AllowedAPKSigningKeys are for. Left out of the first submission so that a
+# mismatch cannot hold up an otherwise good build.
+#
+# Binaries: https://github.com/ItzSkyeYT/InterTune/releases/download/v%v/InterTune-%v-core-release-%c.apk
+# AllowedAPKSigningKeys: 69c6b5fbf1220a44206e8a3a098f41c78af7f94d2fa56eb3165ca40b9199a2a7
 
 AutoUpdateMode: Version
-UpdateCheckMode: Tags ^v[0-9.]+$
+UpdateCheckMode: Tags ^v
 CurrentVersion: 0.10.7
 CurrentVersionCode: 84
