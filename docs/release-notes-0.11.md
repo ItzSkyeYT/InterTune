@@ -43,6 +43,7 @@ Quick picks learns how you listen. Everything below is a switch or a choice; not
 ## Updates
 
 - Installs from F-Droid update through F-Droid; the in-app updater steps aside for them.
+- **If InterTune reaches F-Droid**, its copy will be signed with F-Droid's key rather than mine, so it cannot install over this one and this one cannot install over it. Moving either way means uninstalling first, which loses your library unless you back it up. Settings > Backup and restore does that in one tap, and the restore puts everything back, including your play history.
 
 ## Under the hood
 

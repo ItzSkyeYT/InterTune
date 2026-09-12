@@ -23,7 +23,7 @@ SHA-1    b2753483bb52715810360d1e08ce1ebbe22b1abc
 CN=InterTune, OU=Development, O=skye.dev, C=FR
 ```
 
-F-Droid's own repository signs with its own key, so an install from there cannot be updated over an install from GitHub, in either direction. That is worth a line in the release notes when it happens.
+F-Droid's own repository signs with its own key, so an install from there cannot be updated over an install from GitHub, in either direction. Moving either way means uninstalling first, which takes the library with it unless somebody backs it up. The 0.11 release notes say so and point at Settings > Backup and restore, and that line should be repeated whenever the F-Droid listing actually lands.
 
 ## IzzyOnDroid is not a route, and here is why
 
@@ -46,7 +46,7 @@ Checked against the published 0.10.7 apk, by reading its dex directly: no Fireba
 
 1. Open a request for packaging at <https://gitlab.com/fdroid/rfp/-/issues/new> with the template. The text below is ready to paste.
 2. Offer the recipe in `docs/fdroid/dev.skye.intertune.yml`, which is a draft of `metadata/dev.skye.intertune.yml` in fdroiddata. It builds the `core` flavour, pulls submodules for taglib, and names an NDK.
-3. Settle which GPL the project means. Every file header says `GPL-3.0`, which SPDX deprecated because it does not say whether a later version is allowed; F-Droid wants `GPL-3.0-only` or `GPL-3.0-or-later`. The recipe says only, for now, and upstream OuterTune should really be the one to decide it.
+3. The licence identifier is settled: `GPL-3.0-only`. The headers inherited from upstream say `GPL-3.0`, which SPDX deprecated because it does not say whether a later version may be used, and a fork cannot grant a permission its upstream never gave. The README says so in as many words. If OuterTune or InnerTune ever declare or-later, this follows them and the recipe changes with it.
 4. Expect two questions. The native library, answered by it being built from source in the submodule. And the anti-feature, which is `NonFreeNet` because half of what the app does is talk to YouTube Music; declare it rather than argue.
 
 The NDK question is settled rather than left open. The taglib submodule pins `29.0.13113456`, which is new enough that the buildserver may not carry it, so the recipe names `28.2.13676358` (r28c) and rewrites the submodule's pin in a prebuild line. Tested on 12 September 2026: taglib built for all four ABIs, and the whole core release apk built with it, native library and all.
