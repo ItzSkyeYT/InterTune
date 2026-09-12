@@ -117,6 +117,7 @@ import com.dd3boh.outertune.ui.component.PollBanner
 import com.dd3boh.outertune.ui.component.ThrottleBanner
 import com.dd3boh.outertune.ui.component.PollDialog
 import com.dd3boh.outertune.ui.component.ChipsRow
+import com.dd3boh.outertune.ui.component.ExplainButton
 import com.dd3boh.outertune.ui.component.HideOnScrollFAB
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.NavigationTile
@@ -1177,19 +1178,29 @@ private fun ContextChipRow(viewModel: HomeViewModel, modifier: Modifier = Modifi
         ContextChip.CHILL to stringResource(R.string.chip_chill), ContextChip.PARTY to stringResource(R.string.chip_party),
     )
     Column(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            names.forEach { (value, name) ->
-                FilterChip(
-                    selected = chip == value,
-                    onClick = { if (chip != value) { onChipChange(value); viewModel.chipChanged() } },
-                    label = { Text(name) },
-                )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                names.forEach { (value, name) ->
+                    FilterChip(
+                        selected = chip == value,
+                        onClick = { if (chip != value) { onChipChange(value); viewModel.chipChanged() } },
+                        label = { Text(name) },
+                    )
+                }
             }
+            // Outside the scrolling row on purpose: a chip row wider than the screen would
+            // otherwise carry the explanation off the right hand edge.
+            ExplainButton(
+                title = stringResource(R.string.context_chips),
+                body = stringResource(R.string.context_chips_info),
+                modifier = Modifier.padding(end = 4.dp),
+            )
         }
         if (chip in ContextChip.MOODS && tagged in 0 until ContextChip.MIN_TAGGED) {
             Text(

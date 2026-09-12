@@ -30,6 +30,7 @@ import com.dd3boh.outertune.constants.minPlaybackDurKey
 import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.constants.QuickPicksSourceKey
 import com.dd3boh.outertune.ui.component.EnumListPreference
+import com.dd3boh.outertune.ui.component.ExplainButton
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -231,9 +232,13 @@ fun ColumnScope.QuickPicksSourceFrag() {
     val (quickPicksSource, onQuickPicksSourceChange) =
         rememberEnumPreference(QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE)
 
+    val quickPicksTitle = stringResource(R.string.quick_picks_source)
     EnumListPreference(
-        title = { Text(stringResource(R.string.quick_picks_source)) },
+        title = { Text(quickPicksTitle) },
         icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+        trailingContent = {
+            ExplainButton(title = quickPicksTitle, body = stringResource(R.string.quick_picks_source_info))
+        },
         selectedValue = quickPicksSource,
         onValueSelected = onQuickPicksSourceChange,
         valueText = {
