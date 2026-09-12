@@ -8,6 +8,7 @@ package com.dd3boh.outertune.widget
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
+import android.util.Log
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +30,17 @@ class MusicWidgetReceiver : GlanceAppWidgetReceiver() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
-        scope.launch { WidgetStore.hydrate(context) }
+        // Held open while it runs. A receiver's process is a candidate for death the moment
+        // onReceive returns, and this reads the library and fetches artwork.
+        val pending = goAsync()
+        scope.launch {
+            try {
+                WidgetStore.hydrate(context)
+            } catch (e: Throwable) {
+                Log.w("MusicWidgetReceiver", "Could not fill the widget", e)
+            } finally {
+                runCatching { pending.finish() }
+            }
+        }
     }
 }

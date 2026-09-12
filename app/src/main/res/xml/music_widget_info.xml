@@ -4,10 +4,10 @@
   be, how small it may be dragged, and what to show in the picker. Four by two is the size that
   holds the song, its controls and two Quick picks; two by one still holds a song and a play button.
 
-  The app redraws the widget itself whenever it has something new to say, so the update period is
-  not how it keeps up. It is once a day purely as a way back: Android empties a widget when its app
-  is force stopped, and without a single scheduled update a widget emptied that way would sit blank
-  until its owner next opened the app.
+  No update period: the app redraws the widget itself whenever it has something to say, and a timer
+  would only wake the phone to redraw the same thing. Force stopping the app empties its widget
+  until the app is next opened, which is Android's rule for every widget and not something a period
+  can mend, since a stopped app receives no broadcasts at all.
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_description"
@@ -23,5 +23,5 @@
     android:resizeMode="horizontal|vertical"
     android:targetCellHeight="2"
     android:targetCellWidth="4"
-    android:updatePeriodMillis="86400000"
+    android:updatePeriodMillis="0"
     android:widgetCategory="home_screen" />
