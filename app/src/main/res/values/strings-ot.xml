@@ -806,4 +806,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="context_chips">Context chips</string>
     <string name="explain_what_this_does">What %1$s does</string>
     <string name="explain_close">Close</string>
+
+<!--
+  0.10.8 only. The full versions above name Best recommendations and Try both, which this release
+  does not offer, so these say the same thing without them. They go when Unreleased.ENGINE does.
+-->
+    <string name="quick_picks_source_description_basic">Where the Quick picks row gets its songs. YouTube Music picks them for your account. Your library builds the row instead from songs related to what you have already played. This changes that one row; the rest of the home screen is the same either way.</string>
+    <string name="quick_picks_source_info_basic">YouTube Music shows the shelf YouTube builds for your account, falling back to the library row when a load finds no shelf, offline for one. Your library ranks songs related to your last five plays, your week\'s top five and your last ten likes. Off removes the row.\n\nOnly this row changes, nothing else on Home: the carousels, the Similar to rows and the mood tiles are YouTube\'s either way.</string>
+    <string name="recommendations_home_title_info_basic">These two act on Home after the songs have arrived, whatever Quick picks is set to. Neither chooses which songs are fetched, and neither adds anything you would not otherwise have seen. Tidy Home rows reaches every recommendation row on the screen; ranking touches the Quick picks row alone.\n\nBoth are on by default, both work entirely from what is already on this phone, and both can be turned off here without changing where the songs come from.</string>
+    <string name="tidy_home_rows_info_basic">One pass runs down Home, Quick picks, Forgotten favourites, Keep listening, Similar to, then the feed, and no row shows a song an earlier row has. Two cards count as one when their titles agree after brackets and a spaced dash suffix go, so live, remastered and video fold into the original, but only if the first artist matches.\n\nQuick picks also drops this session\'s songs and anything you heard 30 seconds and 45 percent of in the last day. Nothing fills a gap, so a row can come up short. On by default.</string>
+    <string name="rank_with_listening_info_basic">It reorders a row built elsewhere. Each song scores on twelve measures: how recently and often you played it, whether you liked it, how strong that artist is with you, whether it is new to you, and how often you have scrolled past it in the last fortnight. Nothing is added and nothing is removed.\n\nThe order is drawn in proportion to those scores rather than sorted, so a refresh reorders. It runs on the Your library row, and within each tier of the YouTube row, the shelf first. On by default.</string>
 </resources>

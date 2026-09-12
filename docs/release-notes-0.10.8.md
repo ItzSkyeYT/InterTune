@@ -36,6 +36,13 @@ A small release before 0.11: three things you asked for, the Quick picks row beh
 - Installs from F-Droid update through F-Droid; the in-app updater steps aside for them.
 - If InterTune reaches F-Droid, its copy will be signed with F-Droid's key rather than mine, so neither copy can install over the other. Moving either way means uninstalling first, which loses your library unless you back it up. That is what the automatic backups are for.
 
+## The listening log
+
+- InterTune starts keeping a log of what you play: every stop, how far through you got, how it ended and where you started it from. It is on this device, in the app's own database, and it goes nowhere else. It is what the recommendations in 0.11 will learn from, and starting it now means they have something to work with on the day they arrive.
+- **Settings > Privacy and history > Pause listen history** turns it off, and **Clear listen history** on the same screen deletes all of it.
+- **Settings > Recommendations** shows the whole of it: how many listens and sessions, how they ended, where they were started from, and a list of recent listens with the lot. Nothing is recorded that is not shown there.
+- Every item on that screen has a small **i** beside it that explains, at length, what it does and what it reads.
+
 ## Not in this release, on purpose
 
-Best recommendations, Try both, the context chips and the home screen widget are built and on the branch, and they are 0.11. The listening log that feeds them starts in this release so that they have something to learn from when they arrive; Pause listening history under Settings > Recommendations is its off switch.
+Best recommendations, Try both, the context chips, the long-press card controls and the home screen widget are built and on the branch, and they are 0.11. They are held behind one switch in the source rather than on a branch of their own, so 0.10.8 is this same tree with that switch off.

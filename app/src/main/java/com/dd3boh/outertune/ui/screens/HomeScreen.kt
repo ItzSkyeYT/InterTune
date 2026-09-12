@@ -101,6 +101,8 @@ import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.LocalLibraryEnableKey
 import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.constants.QuickPicksSourceKey
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.Artist
@@ -211,9 +213,10 @@ fun HomeScreen(
     val forgottenFavoritesLazyGridState = rememberLazyGridState()
 
     val localLibEnable by rememberPreference(LocalLibraryEnableKey, defaultValue = true)
-    val quickPicksSource by rememberEnumPreference(
+    val storedQuickPicksSource by rememberEnumPreference(
         QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE
     )
+    val quickPicksSource = storedQuickPicksSource.orOffered()
 
     val scope = rememberCoroutineScope()
     val lazylistState = rememberLazyListState()
@@ -679,7 +682,7 @@ fun HomeScreen(
                                                             song = song,
                                                             navController = navController,
                                                             onDismiss = menuState::dismiss,
-                                                            onExclude = { kind, reason -> viewModel.excludeYt(song, kind, reason) }
+                                                            onExclude = if (Unreleased.ENGINE) ({ kind, reason -> viewModel.excludeYt(song, kind, reason) }) else null
                                                         )
                                                     }
                                                 }
@@ -704,7 +707,7 @@ fun HomeScreen(
 
                                         thumbnailSize = listThumbnailSize,
                                         caption = if (showReasons && (shownSource == 2 || shownSource == 3)) engineReasons[originalSong.id]?.firstOrNull()?.let { reasonText(it) } else null,
-                                        onExclude = { kind, reason -> viewModel.excludeSong(originalSong, kind, reason) },
+                                        onExclude = if (Unreleased.ENGINE) ({ kind, reason -> viewModel.excludeSong(originalSong, kind, reason) }) else null,
                                         onPlay = {
                                             val tappedAt = System.currentTimeMillis()
                                             viewModel.quickPickTapped(slot, tappedAt)

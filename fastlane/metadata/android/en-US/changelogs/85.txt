@@ -1,0 +1,27 @@
+Version 0.10.8
+
+=== New ===
+• Automatic backups: pick a folder, pick every day or every week, and pick how many to keep on a slider. Your library, playlists, settings and listening history. Off until you turn it on
+• Save the queue as a playlist, from a button on the queue sheet, in the order shown
+• Export every playlist as an M3U file, in one tap, into a folder you choose
+
+=== Quick picks ===
+• The row no longer blanks on every refresh, and Home no longer shows two rows both called Quick picks
+• On the YouTube Music source the row is YouTube's own Quick picks shelf, so a feed carrying a shelf of hour-long mixes no longer puts those under the heading
+• A card you play stays where it is, playing, until you refresh
+• Pull to refresh brings new songs, not the same ones in a new order
+• Two long-standing defects in the library query were fixed, and live, slowed and remastered versions of one song are no longer shown side by side
+
+=== Interface ===
+• Predictive back and reveal transitions
+• An Offline tab: the songs that will play with no connection
+• Remove a song from its playlist without leaving the player
+• Resume playback when the app opens, as a setting
+• A Highest available audio tier, and the settings now say what is actually playing
+• The app says so when the song cache is turned off
+
+=== Notes ===
+• Installs from F-Droid update through F-Droid; the in-app updater steps aside for them
+• The listening log starts here so that the recommendations in 0.11 have something to learn from. Settings > Privacy and history > Pause listen history turns it off, and Settings > Recommendations shows everything it has recorded
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.10.8
