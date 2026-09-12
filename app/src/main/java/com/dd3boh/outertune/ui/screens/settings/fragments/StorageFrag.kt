@@ -2,6 +2,7 @@ package com.dd3boh.outertune.ui.screens.settings.fragments
 
 import android.content.Intent
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -38,11 +39,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.unit.DpSize
+import kotlin.math.roundToInt
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -124,6 +133,10 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.withContext
 
+// The expressive slider track, the one with the gap beside the thumb, is still marked
+// experimental in Material 3 1.4. It is what the rest of the system draws, so it is the right
+// look rather than an adventurous one.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
     val context = LocalContext.current
@@ -213,10 +226,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
     // asked again when the folder changes.
     val folderName by produceState<String?>(initialValue = null, autoBackupFolder) {
         value = if (autoBackupFolder.isBlank()) null
-        else withContext(Dispatchers.IO) {
-            tryOrNull { DocumentFile.fromTreeUri(context, autoBackupFolder.toUri())?.name }
-                ?: autoBackupFolder
-        }
+        else withContext(Dispatchers.IO) { folderLabel(context, autoBackupFolder) }
     }
 
     ElevatedCard(
@@ -296,17 +306,47 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             }
         )
 
-        ListPreference(
+        // A slider rather than a few fixed choices, because how many backups are worth keeping
+        // depends on the size of the library and the space to hand, and neither is ours to guess.
+        // The Material 3 track: a gap between thumb and track, rounded inside corners, and the
+        // stop indicator at the far end. No tick marks, since twenty of them is a row of dots
+        // nobody reads; the number is in the line above instead.
+        // The line follows the finger, not the stored value: writing to DataStore on every step of
+        // the drag and waiting for it to come back would leave the number trailing the thumb, and
+        // would write twenty times for one drag. The preference is set when the finger lifts, and
+        // re-seeds this when it changes from anywhere else.
+        var keepShown by remember(autoBackupKeep) { mutableIntStateOf(autoBackupKeep) }
+        PreferenceEntry(
             title = { Text(stringResource(R.string.auto_backup_keep)) },
-            selectedValue = autoBackupKeep,
-            values = AutoBackup.KEEP_CHOICES,
-            valueText = { stringResource(R.string.auto_backup_keep_count, it) },
-            onValueSelected = {
-                onAutoBackupKeepChange(it)
-                // The worker reads this when it runs; re-applying the schedule keeps the rule
-                // that every change here goes through the same door.
-                AutoBackup.schedule(context)
-            }
+            description = pluralStringResource(R.plurals.auto_backup_keep_count, keepShown, keepShown),
+            onClick = null,
+        )
+        val keepInteraction = remember { MutableInteractionSource() }
+        Slider(
+            value = keepShown.toFloat(),
+            onValueChange = { keepShown = it.roundToInt() },
+            // Nothing to reschedule: the worker reads this the next time it runs, so all the
+            // release has to do is store the number the drag ended on.
+            onValueChangeFinished = { onAutoBackupKeepChange(keepShown) },
+            valueRange = AutoBackup.KEEP_MIN.toFloat()..AutoBackup.KEEP_MAX.toFloat(),
+            steps = AutoBackup.KEEP_MAX - AutoBackup.KEEP_MIN - 1,
+            interactionSource = keepInteraction,
+            thumb = {
+                SliderDefaults.Thumb(
+                    interactionSource = keepInteraction,
+                    thumbSize = DpSize(4.dp, 44.dp),
+                )
+            },
+            track = { sliderState ->
+                SliderDefaults.Track(
+                    sliderState = sliderState,
+                    modifier = Modifier.height(16.dp),
+                    thumbTrackGapSize = 6.dp,
+                    trackInsideCornerSize = 6.dp,
+                    drawTick = { _, _ -> },
+                )
+            },
+            modifier = Modifier.padding(horizontal = 16.dp),
         )
 
         PreferenceEntry(
@@ -364,6 +404,23 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
  * land in the folder. Room is read through its flows, which run on the query executor, so the
  * caller only has to be off the main thread for the file writes.
  */
+/**
+ * What to call the chosen folder on screen.
+ *
+ * The provider's display name when it will give one. When it will not, which happens the moment
+ * the folder is deleted or its card is pulled out, the path inside the tree id still reads as a
+ * folder to a person: "primary:Backups/InterTune" is where they put it. What it showed before in
+ * that case was the raw content uri, which is a string nobody should have to read.
+ */
+private fun folderLabel(context: Context, uri: String): String {
+    val parsed = tryOrNull { uri.toUri() } ?: return uri
+    tryOrNull { DocumentFile.fromTreeUri(context, parsed)?.name }
+        ?.takeIf { it.isNotBlank() }
+        ?.let { return it }
+    val id = tryOrNull { DocumentsContract.getTreeDocumentId(parsed) }
+    return id?.substringAfter(':')?.trim('/')?.takeIf { it.isNotBlank() } ?: uri
+}
+
 private suspend fun exportPlaylistsAsM3u(context: Context, database: MusicDatabase, treeUri: Uri): Int {
     val folder = DocumentFile.fromTreeUri(context, treeUri) ?: return 0
     val playlists = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true).first()
