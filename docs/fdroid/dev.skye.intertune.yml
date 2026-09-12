@@ -40,10 +40,12 @@ Builds:
     submodules: true
     gradle:
       - core
-    # The version the taglib module asks for. The buildserver carries a fixed set
-    # of NDK releases, so if this one is not among them, pin the newest that
-    # taglib builds with rather than guessing here.
-    ndk: 29.0.13113456
+    # The taglib submodule pins NDK 29, which is new enough that the buildserver
+    # may not carry it. r28c is old enough to be there and builds the same
+    # library: tested on 12 Sep 2026, all four ABIs, and the whole core release
+    # apk with it. The sed is what makes the submodule accept it.
+    prebuild: sed -i -e 's/ndkVersion = "29\.0\.13113456"/ndkVersion = "28.2.13676358"/' ../taglib/build.gradle.kts
+    ndk: 28.2.13676358
     output: app/build/outputs/apk/core/release/InterTune-0.10.7-core-release-84.apk
 
 AutoUpdateMode: Version
