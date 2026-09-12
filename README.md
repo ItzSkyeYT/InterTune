@@ -140,7 +140,9 @@ backwards. It is built on [AndroidLiquidGlass](https://github.com/Kyant0/Android
 
 ## Licence
 
-GPL-3.0. See [LICENSE](LICENSE).
+GPL-3.0-only. See [LICENSE](LICENSE).
+
+The file headers say `GPL-3.0`, which SPDX deprecated because it does not say whether a later version of the licence may be used. They come from upstream, and a fork cannot hand out a permission its upstream never gave, so the project reads them the conservative way: version 3, and version 3 only. If OuterTune or InnerTune ever say otherwise, this follows them.
 
 Copyright © 2024 z-huang/InnerTune<br>
 Copyright © 2025 OuterTune Project<br>
