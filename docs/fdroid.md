@@ -90,6 +90,12 @@ A build recipe is drafted at
 https://github.com/ItzSkyeYT/InterTune/blob/visionos-fix/docs/fdroid/dev.skye.intertune.yml
 ```
 
+## What happened to the first request, 12 September 2026
+
+Posted as <https://gitlab.com/fdroid/rfp/-/work_items/4387> and closed by `fdroid-bot` six minutes later. The labels it left say why: `in-fdroiddata`, and `com.dd3boh.outertune`. That is upstream's package, already in F-Droid, and it is not what this app installs as. The bot read the `namespace` in `app/build.gradle.kts`, which the fork inherited along with the package structure, rather than the `applicationId` two lines below it, which is `dev.skye.intertune`.
+
+The reply is in `docs/fdroid/rfp-reply.md`: the correction, the evidence from the published apk, and an offer to bring a merge request instead. Worth knowing for later: the namespace and the application id disagreeing will confuse more than one tool. Renaming the namespace touches every generated `R` and `BuildConfig` reference in the app, so it is a day's careful work rather than a line, but it is the real fix and it is worth doing before the next store or repository looks at this.
+
 ## Opening the merge request to fdroiddata
 
 Their submission queue says it plainly: packaging it yourself and opening a merge request saves everyone a lot of time, and an issue on its own guarantees nothing. This is that, step by step. Nothing here needs anything from the InterTune repository except the one file.
