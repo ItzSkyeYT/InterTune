@@ -14,6 +14,8 @@ Until now the Quick picks row came from YouTube Music, or from a simple query ov
 
 **Honest about it.** It is marked experimental because it is. It starts from sensible guesses and gets better the more you use it, and the first week is it finding its feet. If a row looks odd, Why these? will tell you what it was thinking, and Try both will show you whether it is beating what you had.
 
+**On the home screen.** You asked for this one in the poll, so it is here: a widget showing what is playing with its controls, and your Quick picks under it. Make it taller for more picks, narrower for just the song. Tapping a pick plays it. It works with the app closed, and pressing play brings back the queue you were on rather than starting something new.
+
 **Also in 0.11.** A Highest available audio quality tier and a readout of what is actually playing. Predictive back and reveal transitions. The app comes back where you paused even if Android closed it. F-Droid installs now update through F-Droid. Your old play history is converted once at first start, so the new row begins from everything you have already played, not from zero.
 
 Thank you to everyone who filled in the poll and opened issues. Tell me what the row gets right and what it gets wrong; that is exactly what it learns from.

@@ -58,6 +58,7 @@ import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.SongVersions
 import com.dd3boh.outertune.utils.QuickPicksShelf
+import com.dd3boh.outertune.widget.WidgetStore
 import com.dd3boh.outertune.utils.RecentlyShown
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.syncCoroutine
@@ -484,6 +485,12 @@ class HomeViewModel @Inject constructor(
         val ids = songs.map { it.id }
         if (ids.isEmpty() || ids == shownBuildIds) return
         shownBuildIds = ids
+        // The home screen widget shows the row the app is showing, so it is filled from the same
+        // moment: what is on screen, whatever source it came from. This is deliberately outside
+        // the history switch below, since a widget is a display and not a record of listening.
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { WidgetStore.setPicks(context, songs) }.onFailure { Log.w("HomeViewModel", "Could not fill the widget", it) }
+        }
         if (context.dataStore.get(PauseListenHistoryKey, false)) return
         val now = System.currentTimeMillis()
         database.transaction {

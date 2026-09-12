@@ -149,6 +149,22 @@
             </intent-filter>
         </service>
 
+        <!--
+          The home screen widget. Its updates come from the app itself as things happen; the daily
+          period in music_widget_info is only a way back from a force stop, which empties it.
+        -->
+        <receiver
+            android:name=".widget.MusicWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/music_widget_info" />
+        </receiver>
+
         <receiver
             android:name="androidx.media3.session.MediaButtonReceiver"
             android:exported="true">

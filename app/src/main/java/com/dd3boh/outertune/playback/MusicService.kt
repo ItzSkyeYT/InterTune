@@ -148,7 +148,9 @@ import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
+import com.dd3boh.outertune.widget.WidgetStore
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -197,6 +199,9 @@ class MusicService : MediaLibraryService(),
     @Inject
     lateinit var database: MusicDatabase
     private val scope = CoroutineScope(Dispatchers.Main)
+
+    /** Outlives the service on purpose: the last thing it does is tell the widget it has stopped. */
+    private val widgetScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val offloadScope = CoroutineScope(playerCoroutine)
 
     // Critical player components
@@ -289,6 +294,7 @@ class MusicService : MediaLibraryService(),
     override fun onCreate() {
         Log.i(TAG, "Starting MusicService")
         super.onCreate()
+        isRunning = true
 
         // The repair scan must never rewrite the loudness of the song that is playing, because
         // after the unknown-loudness fallback an unrepaired track sits at heavy attenuation and
@@ -1274,6 +1280,7 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
+        updateWidget()
         if (isPlaying) {
             player.currentMediaItem?.mediaId?.let { id -> currentStart(id)?.takeIf { !it.opened }?.let { openListen(id, it) } }
         }
@@ -1372,6 +1379,7 @@ class MusicService : MediaLibraryService(),
         }
         if (events.containsAny(EVENT_TIMELINE_CHANGED, EVENT_POSITION_DISCONTINUITY)) {
             currentMediaMetadata.value = player.currentMetadata
+            updateWidget()
         }
     }
 
@@ -1808,7 +1816,28 @@ class MusicService : MediaLibraryService(),
         }
     }
 
+    /**
+     * What the home screen widget draws is a snapshot on disk, written here whenever the song or
+     * the playback state changes. Off the main thread, never blocking playback, and when nobody
+     * has added a widget it writes a line of text and fetches nothing.
+     */
+    private fun updateWidget(stopped: Boolean = false) {
+        widgetScope.launch {
+            runCatching {
+                WidgetStore.setNowPlaying(this@MusicService) {
+                    if (stopped) WidgetStore.NowState(currentMediaMetadata.value, false)
+                    else withContext(Dispatchers.Main) { WidgetStore.NowState(currentMediaMetadata.value, player.isPlaying) }
+                }
+            }.onFailure { Log.w(TAG, "Could not update the widget", it) }
+        }
+    }
+
     override fun onDestroy() {
+        isRunning = false
+        // The widget keeps the song and loses the pause: its play button then resumes the queue
+        // through the same receiver a headset button uses. Read as stopped rather than from the
+        // player, which is about to be released.
+        updateWidget(stopped = true)
         if (volumeReceiverRegistered) runCatching { unregisterReceiver(volumeReceiver) }
         checkpointJob?.cancel()
         Log.i(TAG, "Terminating MusicService.")
@@ -1848,6 +1877,15 @@ class MusicService : MediaLibraryService(),
     }
 
     companion object {
+        /**
+         * Whether a service instance is alive, which decides whether the widget's buttons can
+         * speak to it directly or have to go the long way round, through the media button
+         * receiver that also starts it.
+         */
+        @Volatile
+        var isRunning: Boolean = false
+            private set
+
         /**
          * Normalisation reference, in dB relative to YouTube's -14 LKFS target.
          *
