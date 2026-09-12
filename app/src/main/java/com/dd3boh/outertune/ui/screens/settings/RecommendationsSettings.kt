@@ -23,7 +23,9 @@ import com.dd3boh.outertune.constants.AdventurousnessKey
 import com.dd3boh.outertune.constants.ShowReasonsKey
 import com.dd3boh.outertune.constants.RankWithListeningKey
 import com.dd3boh.outertune.utils.rememberPreference
-import com.dd3boh.outertune.ui.component.SwitchPreference
+import com.dd3boh.outertune.ui.component.ExplainedGroupTitle
+import com.dd3boh.outertune.ui.component.ExplainedPreference
+import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.constants.TidyHomeRowsKey
 import androidx.compose.foundation.layout.Column
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -55,7 +57,6 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.EndReason
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.ui.component.PreferenceEntry
-import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.viewmodels.RecommendationsViewModel
 import java.text.DateFormat
@@ -114,15 +115,20 @@ fun RecommendationsSettings(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier.padding(horizontal = 16.dp)
     ) {
-        PreferenceGroupTitle(title = stringResource(R.string.recommendations_home_title))
-        SwitchPreference(
-            title = { Text(stringResource(R.string.tidy_home_rows)) },
+        ExplainedGroupTitle(
+            title = stringResource(R.string.recommendations_home_title),
+            explanation = stringResource(R.string.recommendations_home_title_info),
+        )
+        ExplainedSwitchPreference(
+            title = stringResource(R.string.tidy_home_rows),
+            explanation = stringResource(R.string.tidy_home_rows_info),
             description = stringResource(R.string.tidy_home_rows_description),
             checked = tidyHomeRows,
             onCheckedChange = onTidyHomeRowsChange,
         )
-        SwitchPreference(
-            title = { Text(stringResource(R.string.rank_with_listening)) },
+        ExplainedSwitchPreference(
+            title = stringResource(R.string.rank_with_listening),
+            explanation = stringResource(R.string.rank_with_listening_info),
             description = stringResource(R.string.rank_with_listening_description),
             checked = rankWithListening,
             onCheckedChange = onRankWithListeningChange,
@@ -130,17 +136,21 @@ fun RecommendationsSettings(
         Spacer(Modifier.height(16.dp))
 
         // The engine's own controls. Choosing it is done where the source is chosen, under Content.
-        PreferenceGroupTitle(title = stringResource(R.string.recommendations_engine_title))
-        SwitchPreference(
-            title = { Text(stringResource(R.string.show_reasons)) },
+        ExplainedGroupTitle(
+            title = stringResource(R.string.recommendations_engine_title),
+            explanation = stringResource(R.string.recommendations_engine_title_info),
+        )
+        ExplainedSwitchPreference(
+            title = stringResource(R.string.show_reasons),
+            explanation = stringResource(R.string.show_reasons_info),
             description = stringResource(R.string.show_reasons_description),
             checked = showReasons,
             onCheckedChange = onShowReasonsChange,
         )
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.adventurousness)) },
+        ExplainedPreference(
+            title = stringResource(R.string.adventurousness),
+            explanation = stringResource(R.string.adventurousness_info),
             description = stringResource(R.string.adventurousness_description, quotas(20, adventurousness / 100.0, false)[Lane.EXPLORE] ?: 0),
-            onClick = null,
         )
         Slider(
             value = adventurousness.toFloat(),
@@ -148,10 +158,10 @@ fun RecommendationsSettings(
             valueRange = 0f..100f,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.familiarity)) },
+        ExplainedPreference(
+            title = stringResource(R.string.familiarity),
+            explanation = stringResource(R.string.familiarity_info),
             description = stringResource(R.string.familiarity_description, quotas(20, adventurousness / 100.0, false, EngineParams.DEFAULT.withFamiliarity(familiarity / 100.0))[Lane.AGAIN] ?: 0),
-            onClick = null,
         )
         Slider(
             value = familiarity.toFloat(),
@@ -159,25 +169,29 @@ fun RecommendationsSettings(
             valueRange = 0f..60f,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
-        SwitchPreference(
-            title = { Text(stringResource(R.string.new_songs_only)) },
+        ExplainedSwitchPreference(
+            title = stringResource(R.string.new_songs_only),
+            explanation = stringResource(R.string.new_songs_only_info),
             description = stringResource(R.string.new_songs_only_description),
             checked = newSongsOnly,
             onCheckedChange = onNewSongsOnlyChange,
         )
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.exclusions)) },
+        ExplainedPreference(
+            title = stringResource(R.string.exclusions),
+            explanation = stringResource(R.string.exclusions_info),
             description = stringResource(R.string.exclusions_count, activeExclusions),
             onClick = { navController.navigate("settings/recommendations/exclusions") },
         )
-        SwitchPreference(
-            title = { Text(stringResource(R.string.rest_songs_i_skip)) },
+        ExplainedSwitchPreference(
+            title = stringResource(R.string.rest_songs_i_skip),
+            explanation = stringResource(R.string.rest_songs_i_skip_info),
             description = stringResource(R.string.rest_songs_i_skip_description),
             checked = restSongsISkip,
             onCheckedChange = onRestSongsISkipChange,
         )
-        SwitchPreference(
-            title = { Text(stringResource(R.string.rests_everywhere)) },
+        ExplainedSwitchPreference(
+            title = stringResource(R.string.rests_everywhere),
+            explanation = stringResource(R.string.rests_everywhere_info),
             description = stringResource(R.string.rests_everywhere_description),
             checked = restsEverywhere,
             onCheckedChange = onRestsEverywhereChange,
@@ -187,9 +201,13 @@ fun RecommendationsSettings(
 
         // How it's doing: what was shown, what was played, how well the predictions matched, and
         // each weight beside where it started.
-        PreferenceGroupTitle(title = stringResource(R.string.recommendations_doing_title))
-        SwitchPreference(
-            title = { Text(stringResource(R.string.learn_from_listening)) },
+        ExplainedGroupTitle(
+            title = stringResource(R.string.recommendations_doing_title),
+            explanation = stringResource(R.string.recommendations_doing_title_info),
+        )
+        ExplainedSwitchPreference(
+            title = stringResource(R.string.learn_from_listening),
+            explanation = stringResource(R.string.learn_from_listening_info),
             description = stringResource(R.string.learn_from_listening_description),
             checked = learnFromListening,
             onCheckedChange = onLearnFromListeningChange,
@@ -197,37 +215,38 @@ fun RecommendationsSettings(
         val teamNames = mapOf(1 to stringResource(R.string.recommendations_team_engine), 2 to stringResource(R.string.recommendations_team_library), 3 to stringResource(R.string.recommendations_team_youtube))
         val scored = gradedByTeam.filter { it.outcome in 1..3 }.groupBy { it.team }
         val winsLine = stringResource(R.string.recommendations_wins_line)
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.recommendations_wins)) },
+        ExplainedPreference(
+            title = stringResource(R.string.recommendations_wins),
+            explanation = stringResource(R.string.recommendations_wins_info),
             description = scored.entries.sortedBy { it.key }.joinToString("\n") { (team, rows) ->
                 val seen = rows.sumOf { it.n }; val wins = rows.sumOf { it.wins }
                 String.format(winsLine, teamNames[team] ?: team.toString(), wins, seen, if (seen > 0) 100.0 * wins / seen else 0.0)
             }.ifBlank { stringResource(R.string.recommendations_nothing_yet) },
-            onClick = null,
         )
-        SwitchPreference(
-            title = { Text(stringResource(R.string.shadow_comparison)) },
+        ExplainedSwitchPreference(
+            title = stringResource(R.string.shadow_comparison),
+            explanation = stringResource(R.string.shadow_comparison_info),
             description = stringResource(R.string.shadow_comparison_description),
             checked = shadowComparison,
             onCheckedChange = onShadowComparisonChange,
         )
         val rowNames = mapOf(1 to stringResource(R.string.recommendations_team_engine), 2 to stringResource(R.string.recommendations_team_library), 3 to stringResource(R.string.recommendations_team_youtube), 4 to stringResource(R.string.recommendations_row_shadow))
         val heldLine = stringResource(R.string.recommendations_held_line)
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.recommendations_held)) },
+        ExplainedPreference(
+            title = stringResource(R.string.recommendations_held),
+            explanation = stringResource(R.string.recommendations_held_info),
             description = buildScores.sortedBy { it.rowKey }.joinToString("\n") { b ->
                 String.format(heldLine, rowNames[b.rowKey] ?: b.rowKey.toString(), b.hits, b.plays, if (b.plays > 0) 100.0 * b.hits / b.plays else 0.0, b.builds)
             }.ifBlank { stringResource(R.string.recommendations_nothing_yet) },
-            onClick = null,
         )
         val pairs = calibration.map { it.p.toDouble() to it.y.toDouble() }
         val brier = Calibration.brier(pairs)
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.recommendations_brier)) },
+        ExplainedPreference(
+            title = stringResource(R.string.recommendations_brier),
+            explanation = stringResource(R.string.recommendations_brier_info),
             description = if (brier.isNaN()) stringResource(R.string.recommendations_nothing_yet)
                 else stringResource(R.string.recommendations_brier_description, brier, pairs.size) + "\n" +
                     Calibration.reliability(pairs).filter { it.count > 0 }.joinToString("\n") { b -> "%.0f%% to %.0f%%: %d cards, %.0f%% played".format(b.lo * 100, b.hi * 100, b.count, b.playRate * 100) },
-            onClick = null,
         )
         val weightNames = mapOf(
             "x_act" to stringResource(R.string.weight_act), "x_sat" to stringResource(R.string.weight_sat), "x_gap" to stringResource(R.string.weight_gap),
@@ -238,42 +257,48 @@ fun RecommendationsSettings(
         )
         val updates = weights.maxOfOrNull { it.updates } ?: 0
         val started = stringResource(R.string.recommendations_weight_started)
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.recommendations_weights, updates)) },
+        ExplainedPreference(
+            title = stringResource(R.string.recommendations_weights, updates),
+            explanation = stringResource(R.string.recommendations_weights_info),
             description = Features.priors.keys.filter { it in weightNames }.joinToString("\n") { name ->
                 val row = weights.firstOrNull { it.name == name }
                 val prior = Features.priors[name]!!.value
                 "%s: %.2f (%s %.2f)".format(weightNames[name], row?.value ?: prior, started, prior)
             },
-            onClick = null,
         )
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.recommendations_reset_weights)) },
+        ExplainedPreference(
+            title = stringResource(R.string.recommendations_reset_weights),
+            explanation = stringResource(R.string.recommendations_reset_weights_info),
             description = stringResource(R.string.recommendations_reset_weights_description),
             onClick = { viewModel.resetWeights() },
         )
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.recommendations_rebuild_weights)) },
+        ExplainedPreference(
+            title = stringResource(R.string.recommendations_rebuild_weights),
+            explanation = stringResource(R.string.recommendations_rebuild_weights_info),
             description = stringResource(R.string.recommendations_rebuild_weights_description),
             onClick = { viewModel.rebuildWeights() },
         )
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.forget_last_session)) },
+        ExplainedPreference(
+            title = stringResource(R.string.forget_last_session),
+            explanation = stringResource(R.string.forget_last_session_info),
             description = stringResource(R.string.forget_last_session_description),
             onClick = { viewModel.forgetLastSession() },
         )
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.forget_today)) },
+        ExplainedPreference(
+            title = stringResource(R.string.forget_today),
+            explanation = stringResource(R.string.forget_today_info),
             description = stringResource(R.string.forget_today_description),
             onClick = { viewModel.forgetToday() },
         )
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.engine_developer)) },
+        ExplainedPreference(
+            title = stringResource(R.string.engine_developer),
+            explanation = stringResource(R.string.engine_developer_info),
             description = stringResource(R.string.engine_developer_description),
             onClick = { navController.navigate("settings/recommendations/developer") },
         )
-        PreferenceEntry(
-            title = { Text(stringResource(R.string.export_engine_data)) },
+        ExplainedPreference(
+            title = stringResource(R.string.export_engine_data),
+            explanation = stringResource(R.string.export_engine_data_info),
             description = stringResource(R.string.export_engine_data_description),
             onClick = {
                 viewModel.export { json ->
@@ -287,44 +312,50 @@ fun RecommendationsSettings(
         )
         Spacer(Modifier.height(16.dp))
 
-        PreferenceGroupTitle(title = stringResource(R.string.recommendations_learned_title))
+        ExplainedGroupTitle(
+            title = stringResource(R.string.recommendations_learned_title),
+            explanation = stringResource(R.string.recommendations_learned_title_info),
+        )
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-            PreferenceEntry(
-                title = { Text(stringResource(R.string.recommendations_listens, listens, counted)) },
+            ExplainedPreference(
+                title = stringResource(R.string.recommendations_listens, listens, counted),
+                explanation = stringResource(R.string.recommendations_listens_info),
                 description = stringResource(R.string.recommendations_listens_description),
-                onClick = null,
             )
-            PreferenceEntry(
-                title = { Text(stringResource(R.string.recommendations_sessions, sessions)) },
+            ExplainedPreference(
+                title = stringResource(R.string.recommendations_sessions, sessions),
+                explanation = stringResource(R.string.recommendations_sessions_info),
                 description = stringResource(R.string.recommendations_sessions_description),
-                onClick = null,
             )
-            PreferenceEntry(
-                title = { Text(stringResource(R.string.recommendations_how_they_ended)) },
+            ExplainedPreference(
+                title = stringResource(R.string.recommendations_how_they_ended),
+                explanation = stringResource(R.string.recommendations_how_they_ended_info),
                 description = byEndReason.joinToString(", ") { "${endReasonLabel(it.code)} ${it.n}" }
                     .ifBlank { stringResource(R.string.recommendations_nothing_yet) },
-                onClick = null,
             )
-            PreferenceEntry(
-                title = { Text(stringResource(R.string.recommendations_where_from)) },
+            ExplainedPreference(
+                title = stringResource(R.string.recommendations_where_from),
+                explanation = stringResource(R.string.recommendations_where_from_info),
                 description = byOrigin.joinToString(", ") { "${PlayOrigin.fromCode(it.code).name.lowercase().replace('_', ' ')} ${it.n}" }
                     .ifBlank { stringResource(R.string.recommendations_nothing_yet) },
-                onClick = null,
             )
-            PreferenceEntry(
-                title = { Text(stringResource(R.string.recommendations_impressions, impressions, rowBuilds)) },
+            ExplainedPreference(
+                title = stringResource(R.string.recommendations_impressions, impressions, rowBuilds),
+                explanation = stringResource(R.string.recommendations_impressions_info),
                 description = stringResource(R.string.recommendations_impressions_description),
-                onClick = null,
             )
-            PreferenceEntry(
-                title = { Text(stringResource(R.string.recommendations_signals, signals, taps)) },
+            ExplainedPreference(
+                title = stringResource(R.string.recommendations_signals, signals, taps),
+                explanation = stringResource(R.string.recommendations_signals_info),
                 description = stringResource(R.string.recommendations_signals_description),
-                onClick = null,
             )
         }
         Spacer(Modifier.height(16.dp))
 
-        PreferenceGroupTitle(title = stringResource(R.string.recommendations_recent_title))
+        ExplainedGroupTitle(
+            title = stringResource(R.string.recommendations_recent_title),
+            explanation = stringResource(R.string.recommendations_recent_title_info),
+        )
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             if (recent.isEmpty()) {
                 Text(

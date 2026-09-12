@@ -95,6 +95,8 @@ fun <T> ListPreference(
     modifier: Modifier = Modifier,
     title: @Composable () -> Unit,
     icon: (@Composable () -> Unit)? = null,
+    /** Sits at the end of the row, beside the chevron's place. Used for the little "i". */
+    trailingContent: (@Composable () -> Unit)? = null,
     selectedValue: T,
     values: List<T>,
     valueText: @Composable (T) -> String,
@@ -144,6 +146,7 @@ fun <T> ListPreference(
         title = title,
         description = valueText(selectedValue),
         icon = icon,
+        trailingContent = trailingContent,
         onClick = { showDialog = true },
         isEnabled = isEnabled
     )
@@ -154,6 +157,7 @@ inline fun <reified T : Enum<T>> EnumListPreference(
     modifier: Modifier = Modifier,
     noinline title: @Composable () -> Unit,
     noinline icon: (@Composable () -> Unit)?,
+    noinline trailingContent: (@Composable () -> Unit)? = null,
     selectedValue: T,
     noinline valueText: @Composable (T) -> String,
     noinline onValueSelected: (T) -> Unit,
@@ -165,6 +169,7 @@ inline fun <reified T : Enum<T>> EnumListPreference(
         modifier = modifier,
         title = title,
         icon = icon,
+        trailingContent = trailingContent,
         selectedValue = selectedValue,
         values = values,
         valueText = valueText,
