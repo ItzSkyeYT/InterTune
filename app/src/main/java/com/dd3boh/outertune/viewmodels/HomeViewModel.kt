@@ -58,6 +58,7 @@ import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.SongVersions
 import com.dd3boh.outertune.utils.QuickPicksShelf
+import com.dd3boh.outertune.widget.WidgetList
 import com.dd3boh.outertune.widget.WidgetStore
 import com.dd3boh.outertune.utils.RecentlyShown
 import com.dd3boh.outertune.utils.reportException
@@ -431,6 +432,15 @@ class HomeViewModel @Inject constructor(
         if (includeShelf) ytQuickPicksPool = ytQuickPicksPool?.let { pool -> recentlyShown.order("yt", pool) { it.id } }
     }
 
+    /** One of the widget's lists, filled from the row the app is showing. Cheap when no widget exists. */
+    private fun fillWidget(which: WidgetList, songs: List<MediaMetadata>) {
+        if (songs.isEmpty()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { WidgetStore.setList(context, which, songs) }
+                .onFailure { Log.w("HomeViewModel", "Could not fill the widget", it) }
+        }
+    }
+
     private suspend fun tidyRows() = withContext(Dispatchers.IO) {
         val tidy = context.dataStore.get(TidyHomeRowsKey, true)
         if (!tidy) {
@@ -470,6 +480,9 @@ class HomeViewModel @Inject constructor(
         forgottenFavorites.value = songs(forgottenPool).take(20)
         keepListening.value = local(keepListeningPool)
         similarRecommendations.value = similarPool?.map { it.copy(items = yt(it.items)) }?.filter { it.items.isNotEmpty() }
+        // The widget's other two lists are these same rows, filled here where they settle.
+        fillWidget(WidgetList.FORGOTTEN_FAVOURITES, forgottenFavorites.value.orEmpty().map { it.toMediaMetadata() })
+        fillWidget(WidgetList.KEEP_LISTENING, keepListening.value.orEmpty().filterIsInstance<Song>().map { it.toMediaMetadata() })
         homePage.value = homePagePool?.let { page -> page.copy(sections = page.sections.map { it.copy(items = yt(it.items)) }.filter { it.items.isNotEmpty() }) }
     }
 
@@ -488,9 +501,7 @@ class HomeViewModel @Inject constructor(
         // The home screen widget shows the row the app is showing, so it is filled from the same
         // moment: what is on screen, whatever source it came from. This is deliberately outside
         // the history switch below, since a widget is a display and not a record of listening.
-        viewModelScope.launch(Dispatchers.IO) {
-            runCatching { WidgetStore.setPicks(context, songs) }.onFailure { Log.w("HomeViewModel", "Could not fill the widget", it) }
-        }
+        fillWidget(WidgetList.QUICK_PICKS, songs)
         if (context.dataStore.get(PauseListenHistoryKey, false)) return
         val now = System.currentTimeMillis()
         database.transaction {

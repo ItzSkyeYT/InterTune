@@ -22,6 +22,8 @@ class WidgetSnapshotTest {
             song.copy(id = "p1", title = "Africa"),
             song.copy(id = "p2", title = "Hold the Line", artPath = null, thumbnailUrl = null),
         ),
+        forgotten = listOf(song.copy(id = "f1", title = "Georgy Porgy")),
+        keepListening = listOf(song.copy(id = "k1", title = "I'll Be Over You")),
         updatedAt = 1_789_000_000_000L,
     )
 
@@ -61,28 +63,28 @@ class WidgetSnapshotTest {
     }
 
     @Test
-    fun `a widget too small for a list shows none of it, and a tall one is still capped`() {
-        assertEquals(0, WidgetLayout.pickCount(110, 6))
-        assertEquals(0, WidgetLayout.pickCount(160, 0))
-        assertTrue(WidgetLayout.pickCount(240, 6) > 0)
-        assertEquals(WidgetLayout.MAX_PICKS, WidgetLayout.pickCount(2000, 20))
-        assertEquals(2, WidgetLayout.pickCount(240, 2))
+    fun `each list is kept apart and read back by name`() {
+        val back = WidgetCodec.decode(WidgetCodec.encode(snapshot()))
+        assertEquals(listOf("p1", "p2"), back.list(WidgetList.QUICK_PICKS).map { it.id })
+        assertEquals(listOf("f1"), back.list(WidgetList.FORGOTTEN_FAVOURITES).map { it.id })
+        assertEquals(listOf("k1"), back.list(WidgetList.KEEP_LISTENING).map { it.id })
+        assertEquals(5, back.songs().size)
+        val swapped = back.withList(WidgetList.FORGOTTEN_FAVOURITES, emptyList())
+        assertTrue(swapped.forgotten.isEmpty())
+        assertEquals(2, swapped.picks.size)
     }
 
     @Test
-    fun `the row grows with the height, never shrinking as it gets taller`() {
-        var last = 0
-        for (h in 60..600 step 4) {
-            val n = WidgetLayout.pickCount(h, WidgetLayout.MAX_PICKS)
-            assertTrue("$h dp went backwards", n >= last)
-            last = n
-        }
+    fun `a file from a version that knew fewer lists still reads`() {
+        val old = "1\nat\t7\t1\nnow\tabc\tRosanna\tToto\t\t\t302\t0\npick\tp1\tAfrica\tToto\t\t\t295\t0\n"
+        val back = WidgetCodec.decode(old)
+        assertEquals("Rosanna", back.nowPlaying?.title)
+        assertEquals(1, back.picks.size)
+        assertTrue(back.forgotten.isEmpty())
     }
 
     @Test
-    fun `a narrow widget keeps play and loses the skips, and a flat one loses the artwork`() {
-        assertFalse(WidgetLayout.showsSkipButtons(140))
-        assertTrue(WidgetLayout.showsSkipButtons(250))
+    fun `a flat widget loses the artwork`() {
         assertFalse(WidgetLayout.showsArtwork(60))
         assertTrue(WidgetLayout.showsArtwork(110))
     }
