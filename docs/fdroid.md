@@ -49,7 +49,9 @@ Checked against the published 0.10.7 apk, by reading its dex directly: no Fireba
 3. Settle which GPL the project means. Every file header says `GPL-3.0`, which SPDX deprecated because it does not say whether a later version is allowed; F-Droid wants `GPL-3.0-only` or `GPL-3.0-or-later`. The recipe says only, for now, and upstream OuterTune should really be the one to decide it.
 4. Expect two questions. The native library, answered by it being built from source in the submodule. And the anti-feature, which is `NonFreeNet` because half of what the app does is talk to YouTube Music; declare it rather than argue.
 
-One thing to check before the recipe can build: the taglib module asks for NDK `29.0.13113456`, and the F-Droid buildserver only carries the releases it has installed. If that one is not among them the recipe has to name an older NDK, and taglib has to build with it. That is a fifteen minute experiment locally, not a guess to be made in a request.
+The NDK question is settled rather than left open. The taglib submodule pins `29.0.13113456`, which is new enough that the buildserver may not carry it, so the recipe names `28.2.13676358` (r28c) and rewrites the submodule's pin in a prebuild line. Tested on 12 September 2026: taglib built for all four ABIs, and the whole core release apk built with it, native library and all.
+
+The `full` flavour's ffMetadataEx pins the same NDK. The recipe builds `core`, so it does not matter, but anybody switching the recipe to `full` has a second sed to write.
 
 ### The request, ready to paste
 
