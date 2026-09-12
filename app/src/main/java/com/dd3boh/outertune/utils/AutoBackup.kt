@@ -156,7 +156,13 @@ object AutoBackup {
 
     /** Every day, every week. */
     val INTERVAL_CHOICES = listOf(24, 168)
-    val KEEP_CHOICES = listOf(3, 5, 10)
+    /**
+     * How many backups the folder may hold, as a range rather than a few fixed choices: a phone
+     * with a small library and a lot of space wants a different number from one with the opposite,
+     * and there is no reason to guess on their behalf. One is a real answer and so is twenty.
+     */
+    const val KEEP_MIN = 1
+    const val KEEP_MAX = 20
 
     /**
      * Applies the current settings, replacing whatever was scheduled before.

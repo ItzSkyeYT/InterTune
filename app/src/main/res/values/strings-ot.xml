@@ -566,8 +566,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="auto_backup_interval">How often</string>
     <string name="auto_backup_every_day">Every day</string>
     <string name="auto_backup_every_week">Every week</string>
-    <string name="auto_backup_keep">Keep</string>
-    <string name="auto_backup_keep_count">Last %1$d backups</string>
+    <string name="auto_backup_keep">How many to keep</string>
+    <plurals name="auto_backup_keep_count">
+        <item quantity="one">The last backup. Older ones go when a new one is written.</item>
+        <item quantity="other">The last %1$d backups. Older ones go when a new one is written.</item>
+    </plurals>
     <string name="auto_backup_now">Back up now</string>
     <string name="auto_backup_last">Last backup: %1$s</string>
     <string name="auto_backup_last_never">Last backup: never</string>

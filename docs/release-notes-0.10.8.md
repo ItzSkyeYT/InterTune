@@ -4,7 +4,7 @@ A small release before 0.11: three things you asked for, the Quick picks row beh
 
 ## Backups
 
-- **Automatic backups.** Under Settings > Storage > Backup and restore, choose a folder and InterTune backs up your library, playlists, settings and listening history there every day or every week, keeping the last three, five or ten. Off until you turn it on. There is a Back up now button beside it, and a line saying when the last one ran.
+- **Automatic backups.** Under Settings > Storage > Backup and restore, choose a folder and InterTune backs up your library, playlists, settings and listening history there every day or every week, keeping as many as you say: a slider from one to twenty, with a line above it that follows your finger. Off until you turn it on. There is a Back up now button beside it, and a line saying when the last one ran.
 - **Export playlists as M3U.** Every playlist in your library as a file you can open anywhere, one tap, into a folder you choose. The same format the per-playlist export already wrote.
 
 ## Playing
