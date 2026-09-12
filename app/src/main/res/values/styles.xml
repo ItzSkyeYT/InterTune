@@ -10,4 +10,16 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
+
+    <!--
+      The widget's configuration screen. A dialog rather than a full screen, because it is two
+      questions asked while the launcher waits behind it, and it follows the system's own light or
+      dark setting rather than the app's, which it cannot read before Compose is up.
+    -->
+    <style name="Theme.InterTune.WidgetConfig" parent="android:Theme.DeviceDefault.Dialog">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowMinWidthMinor">92%</item>
+        <item name="android:windowMinWidthMajor">72%</item>
+    </style>
 </resources>

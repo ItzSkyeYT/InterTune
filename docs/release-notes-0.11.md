@@ -17,7 +17,9 @@ Quick picks learns how you listen. Everything below is a switch or a choice; not
 
 ## Home screen
 
-- A **widget**: what is playing, with previous, play or pause and next, and Quick picks under it. Resize it and it shows more or fewer picks. Tap a pick to play it. It works with the app closed, and its play button brings back the queue you were on.
+- A **widget**: what is playing, with previous, play or pause and next, and a list under it. Tap a row to play it. It works with the app closed, and its play button brings back the queue you were on.
+- Each widget is set up on its own, when you add it and again from the launcher afterwards: what it shows (what's playing, a list, or both), which list (Quick picks, Forgotten favourites, Keep listening, Recently played), how many rows, the background (the system's, dark, light, taken from the artwork, or none), how solid it is, which buttons, the text size, whether artwork, artists and the heading are drawn, and whether the corners are rounded.
+- It changes shape with its size rather than scaling: one cell is the cover with a play button, four by two is the song and two rows, taller adds rows, narrow stacks the cover over the song, and given only what's playing and enough room the cover fills it.
 
 ## Playback
 

@@ -153,6 +153,18 @@
           The home screen widget. Its updates come from the app itself as things happen, never on
           a timer, so nothing here wakes for a widget with nothing new to show.
         -->
+        <!-- What a widget holds, asked when it is dropped and answerable again from the launcher. -->
+        <activity
+            android:name=".widget.WidgetConfigActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/widget_label"
+            android:theme="@style/Theme.InterTune.WidgetConfig">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".widget.MusicWidgetReceiver"
             android:exported="false"

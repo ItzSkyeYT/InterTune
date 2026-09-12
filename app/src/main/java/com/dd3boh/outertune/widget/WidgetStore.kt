@@ -12,6 +12,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.scale
 import androidx.core.net.toUri
 import androidx.glance.appwidget.updateAll
@@ -21,6 +22,7 @@ import coil3.request.allowHardware
 import coil3.toBitmap
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.ui.theme.extractThemeColor
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.utils.LocalArtworkPath
 import dagger.hilt.EntryPoint
@@ -48,10 +50,13 @@ import java.security.MessageDigest
 object WidgetStore {
     private const val TAG = "WidgetStore"
 
-    /** The now playing artwork, which has the whole width of the widget to fill. */
-    private const val ART_NOW_PX = 256
+    /** The now playing artwork beside a title. */
+    private const val ART_NOW_PX = 192
 
-    /** A Quick picks thumbnail, which is a small square at the head of a row. */
+    /** The now playing artwork when the whole widget is given over to it. */
+    private const val ART_BIG_PX = 320
+
+    /** A thumbnail at the head of a list row. */
     private const val ART_PICK_PX = 96
 
     /**
@@ -59,7 +64,7 @@ object WidgetStore {
      * megabyte to spend for everything on screen, so the files are small and there are few of
      * them. Anything older than the snapshot's own songs is deleted on each write.
      */
-    private const val MAX_ART_FILES = 12
+    private const val MAX_ART_FILES = 40
 
     private val mutex = Mutex()
 
@@ -75,8 +80,12 @@ object WidgetStore {
     private val _drawn = MutableStateFlow<Drawn?>(null)
     val drawn: StateFlow<Drawn?> = _drawn.asStateFlow()
 
-    /** A snapshot and the artwork it names, decoded once per change rather than once per draw. */
-    data class Drawn(val snapshot: WidgetSnapshot, val art: Map<String, Bitmap>)
+    /**
+     * A snapshot and the artwork it names, decoded once per change rather than once per draw.
+     * [big] is the one large cover, for a widget whose whole face is the artwork; sending that one
+     * everywhere would spend the launcher's whole megabyte on a picture nobody can see.
+     */
+    data class Drawn(val snapshot: WidgetSnapshot, val art: Map<String, Bitmap>, val big: Bitmap? = null)
 
     private fun dir(context: Context) = File(context.filesDir, "widget").apply { mkdirs() }
     private fun file(context: Context) = File(dir(context), "snapshot.tsv")
@@ -96,21 +105,24 @@ object WidgetStore {
 
     /** What to draw right now: the flow if this process has it, else the file. */
     suspend fun load(context: Context): Drawn = drawn.value ?: withContext(Dispatchers.IO) {
-        val snapshot = read(context)
-        Drawn(snapshot, decodeArt(snapshot)).also { _drawn.value = it }
+        decoded(context, read(context)).also { _drawn.value = it }
     }
 
     /** The artwork the snapshot names, as bitmaps. Small, few, and only re-read when they change. */
-    private fun decodeArt(snapshot: WidgetSnapshot): Map<String, Bitmap> {
+    private fun decoded(context: Context, snapshot: WidgetSnapshot): Drawn {
         val old = _drawn.value?.art.orEmpty()
-        return (listOfNotNull(snapshot.nowPlaying) + snapshot.picks).mapNotNull { song ->
-            val path = song.artPath ?: return@mapNotNull null
-            val bitmap = old[song.id] ?: runCatching {
-                File(path).takeIf { it.exists() }?.let { BitmapFactory.decodeFile(path) }
-            }.getOrNull()
+        val art = snapshot.songs().mapNotNull { song ->
+            val bitmap = old[song.id] ?: decode(song.artPath)
             bitmap?.let { song.id to it }
         }.toMap()
+        return Drawn(snapshot, art, snapshot.nowPlaying?.let { decode(bigArtPath(context, it.id)) })
     }
+
+    private fun decode(path: String?): Bitmap? = runCatching {
+        path?.let { File(it) }?.takeIf { it.exists() }?.let { BitmapFactory.decodeFile(path) }
+    }.getOrNull()
+
+    private fun bigArtPath(context: Context, id: String) = File(artDir(context), hash(id) + "_" + ART_BIG_PX + ".png").absolutePath
 
     private suspend fun write(context: Context, snapshot: WidgetSnapshot) = withContext(Dispatchers.IO) {
         runCatching {
@@ -122,7 +134,7 @@ object WidgetStore {
         }.onFailure { Log.w(TAG, "Could not write the widget snapshot", it) }
         // The flow is what a widget already on screen is watching; the file is for the next time
         // the process starts from nothing.
-        _drawn.value = Drawn(snapshot, decodeArt(snapshot))
+        _drawn.value = decoded(context, snapshot)
     }
 
     /** What is playing at the moment the snapshot is written. */
@@ -147,9 +159,12 @@ object WidgetStore {
             } else {
                 val same = old.nowPlaying?.id == song.id
                 // The picture is the expensive half and only a widget needs it. The words are
-                // written either way, so a widget added mid-song opens on the right song.
+                // written either way, so a widget added mid-song opens on the right song. Two
+                // sizes, because a widget given over to the artwork wants a real cover while one
+                // with a list beside it wants a thumbnail.
+                if (!same && widgets) artFor(context, song.id, artModel(song, ART_BIG_PX), ART_BIG_PX)
                 val art = if (same) old.nowPlaying?.artPath
-                else if (widgets) artFor(context, song.id, artModel(song), ART_NOW_PX) else null
+                else if (widgets) artFor(context, song.id, artModel(song, ART_NOW_PX), ART_NOW_PX) else null
                 val now = WidgetSong(
                     id = song.id,
                     title = song.title,
@@ -158,23 +173,30 @@ object WidgetStore {
                     thumbnailUrl = song.thumbnailUrl,
                     durationSec = song.duration,
                     isLocal = song.isLocal,
+                    colour = if (same) old.nowPlaying?.colour else artColour(art),
                 )
-                write(context, old.copy(nowPlaying = now, isPlaying = isPlaying, updatedAt = System.currentTimeMillis()))
+                // Recently played is kept here rather than queried: the song that just started is
+                // the newest there is, and the widget should not have to ask the database to know it.
+                val recent = (listOf(now.copy(artPath = pickArt(context, now))) + old.recent)
+                    .distinctBy { it.id }
+                    .take(WidgetLayout.MAX_PICKS)
+                write(context, old.copy(nowPlaying = now, isPlaying = isPlaying, recent = recent, updatedAt = System.currentTimeMillis()))
             }
             prune(context)
         }
         if (widgets) MusicWidget().updateAll(context)
     }
 
-    /** Quick picks as Home is showing them. The widget and the app then hold the same row. */
-    suspend fun setPicks(context: Context, songs: List<MediaMetadata>) {
+    /** One of Home's rows as Home is showing it. The widget and the app then hold the same songs. */
+    suspend fun setList(context: Context, which: WidgetList, songs: List<MediaMetadata>) {
         val widgets = hasWidgets(context)
+        var changed = false
         mutex.withLock {
             val old = read(context)
             val wanted = songs.take(WidgetLayout.MAX_PICKS)
-            if (wanted.map { it.id } == old.picks.map { it.id }) return@withLock
-            val byId = old.picks.associateBy { it.id }
-            val picks = wanted.map { song ->
+            if (wanted.map { it.id } == old.list(which).map { it.id }) return@withLock
+            val byId = old.songs().associateBy { it.id }
+            val list = wanted.map { song ->
                 WidgetSong(
                     id = song.id,
                     title = song.title,
@@ -185,10 +207,11 @@ object WidgetStore {
                     isLocal = song.isLocal,
                 )
             }
-            write(context, old.copy(picks = picks, updatedAt = System.currentTimeMillis()))
+            write(context, old.withList(which, list).copy(updatedAt = System.currentTimeMillis()))
             prune(context)
+            changed = true
         }
-        if (widgets) MusicWidget().updateAll(context)
+        if (widgets && changed) MusicWidget().updateAll(context)
     }
 
     /**
@@ -204,15 +227,16 @@ object WidgetStore {
             if (now != null && now.artPath == null) {
                 snapshot = snapshot.copy(nowPlaying = now.copy(artPath = artFor(context, now.id, artModel(now), ART_NOW_PX)))
             }
-            if (snapshot.picks.isEmpty()) {
-                snapshot = snapshot.copy(picks = libraryPicks(context))
+            if (now != null) artFor(context, now.id, artModel(now, ART_BIG_PX), ART_BIG_PX)
+            // Every list, not only the one this widget shows: a second widget, or the same one
+            // set to another list, then has something to draw the moment it is asked.
+            for (which in WidgetList.entries) {
+                val filled = snapshot.list(which).ifEmpty { fromLibrary(context, which) }
+                snapshot = snapshot.withList(which, filled.map { song ->
+                    if (song.artPath != null) song
+                    else song.copy(artPath = artFor(context, song.id, artModel(song, ART_PICK_PX), ART_PICK_PX))
+                })
             }
-            snapshot = snapshot.copy(
-                picks = snapshot.picks.map { pick ->
-                    if (pick.artPath != null) pick
-                    else pick.copy(artPath = artFor(context, pick.id, artModel(pick, ART_PICK_PX), ART_PICK_PX))
-                }
-            )
             write(context, snapshot)
             prune(context)
         }
@@ -220,12 +244,22 @@ object WidgetStore {
     }
 
     /**
-     * Quick picks straight from the library, for a widget added before Home has ever filled its
-     * row. The same query the Your library source uses, so the widget is never emptier than the app.
+     * A row straight from the library, for a widget added before Home has ever filled that row.
+     * The same queries Home uses, so the widget is never emptier than the app.
      */
-    private suspend fun libraryPicks(context: Context): List<WidgetSong> = runCatching {
+    private suspend fun fromLibrary(context: Context, which: WidgetList): List<WidgetSong> = runCatching {
         val database = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java).database()
-        database.quickPicks().first().take(WidgetLayout.MAX_PICKS).map { song ->
+        val rows = when (which) {
+            WidgetList.QUICK_PICKS -> database.quickPicks().first()
+            WidgetList.FORGOTTEN_FAVOURITES -> database.forgottenFavorites().first()
+            WidgetList.KEEP_LISTENING -> database.mostPlayedSongs(
+                System.currentTimeMillis() - 14L * 86_400_000L, limit = WidgetLayout.MAX_PICKS,
+            ).first()
+            // Newest first, one row per song however often it has been played.
+            WidgetList.RECENT -> database.events().first()
+                .map { it.song }.distinctBy { it.id }.take(WidgetLayout.MAX_PICKS)
+        }
+        rows.take(WidgetLayout.MAX_PICKS).map { song ->
             val meta = song.toMediaMetadata()
             WidgetSong(
                 id = meta.id,
@@ -237,7 +271,16 @@ object WidgetStore {
                 isLocal = meta.isLocal,
             )
         }
-    }.onFailure { Log.w(TAG, "Could not read Quick picks for the widget", it) }.getOrDefault(emptyList())
+    }.onFailure { Log.w(TAG, "Could not read $which for the widget", it) }.getOrDefault(emptyList())
+
+    /** The colour of a cover, the way the player takes its own. */
+    private fun artColour(path: String?): Int? = runCatching {
+        decode(path)?.extractThemeColor()?.toArgb()
+    }.getOrNull()
+
+    /** A row-sized copy of the now playing artwork, for the Recently played list. */
+    private suspend fun pickArt(context: Context, song: WidgetSong): String? =
+        artFor(context, song.id, artModel(song, ART_PICK_PX), ART_PICK_PX) ?: song.artPath
 
     private fun artModel(song: MediaMetadata, px: Int = ART_NOW_PX): Any? = when {
         song.isLocal -> song.localPath?.let { LocalArtworkPath(it, px, px) }

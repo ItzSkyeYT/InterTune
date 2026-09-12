@@ -28,6 +28,8 @@ data class WidgetSong(
     val durationSec: Int = 0,
     /** Whether the song is on this device already, which decides how the art is loaded. */
     val isLocal: Boolean = false,
+    /** The artwork's own colour, for a widget told to take its background from the cover. */
+    val colour: Int? = null,
 )
 
 data class WidgetSnapshot(
@@ -35,8 +37,32 @@ data class WidgetSnapshot(
     val isPlaying: Boolean = false,
     /** Quick picks as Home last showed them, so the widget and the app agree. */
     val picks: List<WidgetSong> = emptyList(),
+    /** Forgotten favourites, the same row Home shows under that name. */
+    val forgotten: List<WidgetSong> = emptyList(),
+    /** Keep listening, songs only: an album or an artist is not something a widget row can play. */
+    val keepListening: List<WidgetSong> = emptyList(),
+    /** What was played last, newest first, kept by the widget itself as songs come and go. */
+    val recent: List<WidgetSong> = emptyList(),
     val updatedAt: Long = 0L,
-)
+) {
+    /** The list this widget was set to show. */
+    fun list(which: WidgetList): List<WidgetSong> = when (which) {
+        WidgetList.QUICK_PICKS -> picks
+        WidgetList.FORGOTTEN_FAVOURITES -> forgotten
+        WidgetList.KEEP_LISTENING -> keepListening
+        WidgetList.RECENT -> recent
+    }
+
+    fun withList(which: WidgetList, songs: List<WidgetSong>): WidgetSnapshot = when (which) {
+        WidgetList.QUICK_PICKS -> copy(picks = songs)
+        WidgetList.FORGOTTEN_FAVOURITES -> copy(forgotten = songs)
+        WidgetList.KEEP_LISTENING -> copy(keepListening = songs)
+        WidgetList.RECENT -> copy(recent = songs)
+    }
+
+    /** Every song the snapshot names, for the artwork it needs. */
+    fun songs(): List<WidgetSong> = listOfNotNull(nowPlaying) + picks + forgotten + keepListening + recent
+}
 
 object WidgetCodec {
     private const val VERSION = "1"
@@ -47,6 +73,9 @@ object WidgetCodec {
         append("at").append(TAB).append(snapshot.updatedAt).append(TAB).append(if (snapshot.isPlaying) 1 else 0).append('\n')
         snapshot.nowPlaying?.let { append(line("now", it)) }
         snapshot.picks.forEach { append(line("pick", it)) }
+        snapshot.forgotten.forEach { append(line("forgotten", it)) }
+        snapshot.keepListening.forEach { append(line("keep", it)) }
+        snapshot.recent.forEach { append(line("recent", it)) }
     }
 
     fun decode(text: String?): WidgetSnapshot {
@@ -57,19 +86,26 @@ object WidgetCodec {
         var playing = false
         var at = 0L
         val picks = ArrayList<WidgetSong>()
+        val forgotten = ArrayList<WidgetSong>()
+        val keep = ArrayList<WidgetSong>()
+        val recent = ArrayList<WidgetSong>()
         for (line in lines.drop(1)) {
             val f = line.split(TAB)
             when (f.getOrNull(0)) {
                 "at" -> { at = f.getOrNull(1)?.toLongOrNull() ?: 0L; playing = f.getOrNull(2) == "1" }
                 "now" -> now = song(f)
                 "pick" -> song(f)?.let { picks += it }
+                "forgotten" -> song(f)?.let { forgotten += it }
+                "keep" -> song(f)?.let { keep += it }
+                "recent" -> song(f)?.let { recent += it }
+                // An unknown kind is a file written by a later version: skipped, not fatal.
             }
         }
-        return WidgetSnapshot(now, playing, picks, at)
+        return WidgetSnapshot(now, playing, picks, forgotten, keep, recent, at)
     }
 
     private fun line(kind: String, s: WidgetSong): String =
-        listOf(kind, s.id, esc(s.title), esc(s.artist), esc(s.artPath.orEmpty()), esc(s.thumbnailUrl.orEmpty()), s.durationSec.toString(), if (s.isLocal) "1" else "0")
+        listOf(kind, s.id, esc(s.title), esc(s.artist), esc(s.artPath.orEmpty()), esc(s.thumbnailUrl.orEmpty()), s.durationSec.toString(), if (s.isLocal) "1" else "0", s.colour?.toString().orEmpty())
             .joinToString(TAB.toString()) + "\n"
 
     private fun song(f: List<String>): WidgetSong? {
@@ -82,6 +118,7 @@ object WidgetCodec {
             thumbnailUrl = unesc(f.getOrNull(5).orEmpty()).takeIf { it.isNotEmpty() },
             durationSec = f.getOrNull(6)?.toIntOrNull() ?: 0,
             isLocal = f.getOrNull(7) == "1",
+            colour = f.getOrNull(8)?.toIntOrNull(),
         )
     }
 
@@ -104,38 +141,5 @@ object WidgetCodec {
             out.append(c); i++
         }
         return out.toString()
-    }
-}
-
-/**
- * How much of the widget's content fits the space the launcher gave it. Pure arithmetic, so the
- * shape of the widget at every size is decided by a test rather than by dragging one around a
- * home screen.
- */
-object WidgetLayout {
-    /** Below this height there is room for one line of song and the controls, and nothing else. */
-    const val COMPACT_HEIGHT_DP = 110
-
-    /** A row of a list, including its padding. */
-    const val PICK_ROW_DP = 56
-
-    /** What the now playing block takes before any picks. */
-    const val NOW_PLAYING_DP = 96
-
-    /** Narrower than this and the skip buttons go, leaving play and pause. */
-    const val WIDE_ENOUGH_DP = 180
-
-    /** Never more than this many picks, however tall the widget is: past that it is a list, not a widget. */
-    const val MAX_PICKS = 6
-
-    fun showsSkipButtons(widthDp: Int): Boolean = widthDp >= WIDE_ENOUGH_DP
-
-    fun showsArtwork(heightDp: Int): Boolean = heightDp >= 72
-
-    /** How many Quick picks fit under the now playing block at this height. */
-    fun pickCount(heightDp: Int, available: Int): Int {
-        if (heightDp < COMPACT_HEIGHT_DP + PICK_ROW_DP) return 0
-        val room = (heightDp - NOW_PLAYING_DP) / PICK_ROW_DP
-        return room.coerceIn(0, minOf(MAX_PICKS, available))
     }
 }
