@@ -118,18 +118,18 @@ fun RecommendationsSettings(
     ) {
         ExplainedGroupTitle(
             title = stringResource(R.string.recommendations_home_title),
-            explanation = stringResource(if (Unreleased.ENGINE) R.string.recommendations_home_title_info else R.string.recommendations_home_title_info_basic),
+            explanation = stringResource(R.string.recommendations_home_title_info),
         )
         ExplainedSwitchPreference(
             title = stringResource(R.string.tidy_home_rows),
-            explanation = stringResource(if (Unreleased.ENGINE) R.string.tidy_home_rows_info else R.string.tidy_home_rows_info_basic),
+            explanation = stringResource(R.string.tidy_home_rows_info),
             description = stringResource(R.string.tidy_home_rows_description),
             checked = tidyHomeRows,
             onCheckedChange = onTidyHomeRowsChange,
         )
         ExplainedSwitchPreference(
             title = stringResource(R.string.rank_with_listening),
-            explanation = stringResource(if (Unreleased.ENGINE) R.string.rank_with_listening_info else R.string.rank_with_listening_info_basic),
+            explanation = stringResource(R.string.rank_with_listening_info),
             description = stringResource(R.string.rank_with_listening_description),
             checked = rankWithListening,
             onCheckedChange = onRankWithListeningChange,

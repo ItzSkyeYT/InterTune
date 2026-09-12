@@ -49,6 +49,7 @@ import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.utils.backToMain
@@ -171,12 +172,17 @@ fun SettingsScreen(
                 } ?: stringResource(R.string.settings_updates_description),
                 onClick = { navController.navigate("settings/updates") }
             )
-            PreferenceEntry(
-                title = { Text(stringResource(R.string.recommendations)) },
-                icon = { Icon(Icons.Rounded.AutoAwesome, null) },
-                description = stringResource(R.string.settings_recommendations_description),
-                onClick = { navController.navigate("settings/recommendations") }
-            )
+            // Held for 0.11 along with the engine it describes: see Unreleased. The log it would
+            // show still runs, because 0.11 needs a history to arrive to; Privacy and history is
+            // where it is turned off and cleared, and that screen ships.
+            if (Unreleased.ENGINE) {
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.recommendations)) },
+                    icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+                    description = stringResource(R.string.settings_recommendations_description),
+                    onClick = { navController.navigate("settings/recommendations") }
+                )
+            }
             PreferenceEntry(
                 title = { Text(stringResource(R.string.advanced)) },
                 description = stringResource(R.string.settings_advanced_description),
