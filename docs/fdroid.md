@@ -25,24 +25,66 @@ CN=InterTune, OU=Development, O=skye.dev, C=FR
 
 F-Droid's own repository signs with its own key, so an install from there cannot be updated over an install from GitHub, in either direction. That is worth a line in the release notes when it happens.
 
-## Route one: IzzyOnDroid
+## IzzyOnDroid is not a route, and here is why
 
-The fast one, days rather than months. IzzyOnDroid takes the apk from the GitHub release rather than building it, so the submodules and the NDK are not their problem, and it reaches everyone who has that repository in their F-Droid client.
+Their [app inclusion policy](https://izzyondroid.org/docs/general/AppInclusionPolicy/) rejects apps created fully or in part by generative AI, rejects what it calls vibe-coded apps outright, and says that a lack of transparency about it can move a project to rejected. Using a language model to research, debug or look something up is allowed; its output ending up in the code is not.
 
-What it asks for is already true: an OSI licence, fastlane metadata in the repository, an apk attached to a GitHub release, a version code that only ever goes up, and no trackers. Open an issue at <https://gitlab.com/IzzyOnDroid/repo/-/issues> using their inclusion request template, with the repository url. Expect them to run a scan and ask about anything it flags.
+A large part of this fork's recent work was written that way, in the open, with the maintainer directing it. That is exactly what the policy excludes. There are two honest options and neither is a submission as things stand:
 
-The one thing to say up front: the app talks to YouTube Music, which is a non-free network service, and to a self-hosted analytics endpoint for the questions it sometimes asks, which is not configured in any build but the maintainer's own.
+1. Do not apply. The f-droid.org route below has no such rule.
+2. Apply and say so in the request. Expect it to be rejected, and treat the answer as theirs to give rather than something to word around.
 
-## Route two: f-droid.org
+What is not an option is applying and staying quiet about it. The policy asks for transparency by name, and a repository that finds out afterwards is entitled to feel misled.
 
-The slow one, and the one that reaches everybody. It needs a request for packaging, then a build recipe that their server can run.
+Everything else IzzyOnDroid asks for is already true here: an OSI licence, sources on GitHub, fastlane metadata in the repository, a release with one signed apk under thirty megabytes, no trackers, no proprietary libraries, and an in-app updater that is opt-in and off until somebody says yes.
 
-1. Open an RFP at <https://gitlab.com/fdroid/rfp/-/issues/new> with the template. Name the licence, the repository, and that the app is a fork of OuterTune, itself a fork of InnerTune.
-2. Offer the recipe in `docs/fdroid/dev.skye.intertune.yml`, which is a draft of `metadata/dev.skye.intertune.yml` in fdroiddata. It builds the `core` flavour, pulls submodules for taglib, and names the NDK the taglib module asks for.
-3. Settle which GPL the project means. Every file header says `GPL-3.0`, which SPDX deprecated because it does not say whether a later version is allowed; F-Droid wants `GPL-3.0-only` or `GPL-3.0-or-later`. The recipe says `GPL-3.0-only` for now, and upstream OuterTune should decide it rather than this fork.
-4. Expect two questions. The native library, which is answered by it being built from source in the submodule. And the anti-feature, which is `NonFreeNet` and should be declared rather than argued about.
+## The f-droid.org route
 
-Their builds are unsigned by us and signed by them, and they build from the tag, so nothing about the release process changes except that the recipe needs a new `Builds:` entry per version.
+Their [inclusion policy](https://f-droid.org/docs/Inclusion_Policy/) says nothing about how the code was written. It asks that the app be free software, that it build from source on their infrastructure with a free toolchain, that it carry no proprietary tracking or advertising libraries, and that anything which downloads an executable be opt-in and explained. All four hold.
+
+Checked against the published 0.10.7 apk, by reading its dex directly: no Firebase, no Crashlytics, no Play services, no AdMob, no Facebook, Flurry, Adjust, AppsFlyer, Sentry, ACRA or Matomo, no Play billing and no install referrer. Three native libraries, two of them AndroidX and the third `libtaglib.so`, built from the C++ in the taglib submodule.
+
+1. Open a request for packaging at <https://gitlab.com/fdroid/rfp/-/issues/new> with the template. The text below is ready to paste.
+2. Offer the recipe in `docs/fdroid/dev.skye.intertune.yml`, which is a draft of `metadata/dev.skye.intertune.yml` in fdroiddata. It builds the `core` flavour, pulls submodules for taglib, and names an NDK.
+3. Settle which GPL the project means. Every file header says `GPL-3.0`, which SPDX deprecated because it does not say whether a later version is allowed; F-Droid wants `GPL-3.0-only` or `GPL-3.0-or-later`. The recipe says only, for now, and upstream OuterTune should really be the one to decide it.
+4. Expect two questions. The native library, answered by it being built from source in the submodule. And the anti-feature, which is `NonFreeNet` because half of what the app does is talk to YouTube Music; declare it rather than argue.
+
+One thing to check before the recipe can build: the taglib module asks for NDK `29.0.13113456`, and the F-Droid buildserver only carries the releases it has installed. If that one is not among them the recipe has to name an older NDK, and taglib has to build with it. That is a fifteen minute experiment locally, not a guess to be made in a request.
+
+### The request, ready to paste
+
+```
+App name: InterTune
+Package ID: dev.skye.intertune
+Source: https://github.com/ItzSkyeYT/InterTune
+Issue tracker: https://github.com/ItzSkyeYT/InterTune/issues
+Releases: https://github.com/ItzSkyeYT/InterTune/releases (tagged vX.Y.Z, one signed apk each)
+License: GPL-3.0-only
+Categories: Multimedia
+Anti-Features: NonFreeNet
+
+InterTune is a local music player and YouTube Music client for Android. It is a
+fork of OuterTune, which is a fork of InnerTune, and it credits both. It plays
+local files (MP3, OGG, FLAC and more, read with its own tag extractor), plays
+and downloads from YouTube Music, shows synced lyrics, and keeps its
+recommendations on the device.
+
+It builds with gradle from the tag, needs no keys or secrets, and has no
+proprietary dependencies: no Play services, no Firebase, no analytics library.
+The Last.fm login and the occasional in-app question both read their
+credentials from local.properties, which is not in the repository, so a build
+from source simply does not offer them.
+
+The one native library, libtaglib.so, is built by the NDK from the C++ in the
+taglib submodule.
+
+The in-app update check is opt-in, off until the user says yes during setup,
+and it disables itself entirely when the app was installed by an F-Droid
+client, pointing at the F-Droid page instead.
+
+A build recipe is drafted at
+https://github.com/ItzSkyeYT/InterTune/blob/visionos-fix/docs/fdroid/dev.skye.intertune.yml
+```
 
 ## What every release has to do from now on
 
