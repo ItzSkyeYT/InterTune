@@ -24,7 +24,10 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Downloading
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FolderCopy
+import androidx.compose.material.icons.rounded.Output
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Wifi
@@ -43,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -55,17 +59,26 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import androidx.documentfile.provider.DocumentFile
 import coil3.annotation.ExperimentalCoilApi
 import coil3.imageLoader
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.AutoBackupEnabledKey
+import com.dd3boh.outertune.constants.AutoBackupFolderKey
+import com.dd3boh.outertune.constants.AutoBackupIntervalHoursKey
+import com.dd3boh.outertune.constants.AutoBackupKeepKey
+import com.dd3boh.outertune.constants.AutoBackupLastResultKey
+import com.dd3boh.outertune.constants.AutoBackupLastRunKey
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
 import com.dd3boh.outertune.constants.MaxImageCacheSizeKey
 import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
+import com.dd3boh.outertune.constants.PlaylistFilter
+import com.dd3boh.outertune.constants.PlaylistSortType
 import com.dd3boh.outertune.constants.ScanPathsKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.MusicDatabase
@@ -79,19 +92,27 @@ import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.dialog.InfoLabel
+import com.dd3boh.outertune.utils.AutoBackup
+import com.dd3boh.outertune.utils.M3u
 import com.dd3boh.outertune.utils.dlCoroutine
 import com.dd3boh.outertune.utils.formatFileSize
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
 import com.dd3boh.outertune.utils.scanners.stringFromUriList
 import com.dd3boh.outertune.utils.scanners.uriListFromString
 import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.text.DateFormat
+import java.io.IOException
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Date
+import java.util.Locale
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.material.icons.rounded.Favorite
@@ -116,6 +137,85 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             viewModel.restore(uri)
+        }
+    }
+
+    // Every library playlist as an .m3u in a folder of the user's choosing. A one-off write, so
+    // the picker's grant is used here and now and never persisted.
+    val database = LocalDatabase.current
+    val exportPlaylistsLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            val appContext = context.applicationContext
+            // Its own scope rather than the screen's: leaving Settings must not stop the writes
+            // half way through the library.
+            CoroutineScope(Dispatchers.IO).launch {
+                val exported = try {
+                    exportPlaylistsAsM3u(appContext, database, uri)
+                } catch (e: Exception) {
+                    reportException(e)
+                    0
+                }
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        appContext,
+                        if (exported == 0) appContext.getString(R.string.no_playlists_to_export)
+                        else appContext.getString(R.string.exported_playlists, exported),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+
+    // Automatic backups. Inert until the switch is on and a folder is chosen: AutoBackup.schedule
+    // cancels rather than enqueues in that state, so nothing runs for anyone who has not opted in.
+    val (autoBackupEnabled, onAutoBackupEnabledChange) =
+        rememberPreference(AutoBackupEnabledKey, defaultValue = false)
+    val (autoBackupFolder, onAutoBackupFolderChange) =
+        rememberPreference(AutoBackupFolderKey, defaultValue = "")
+    val (autoBackupHours, onAutoBackupHoursChange) =
+        rememberPreference(AutoBackupIntervalHoursKey, defaultValue = AutoBackup.DEFAULT_INTERVAL_HOURS)
+    val (autoBackupKeep, onAutoBackupKeepChange) =
+        rememberPreference(AutoBackupKeepKey, defaultValue = AutoBackup.DEFAULT_KEEP)
+    val autoBackupLastRun by rememberPreference(AutoBackupLastRunKey, defaultValue = 0L)
+    val autoBackupLastResult by rememberPreference(AutoBackupLastResultKey, defaultValue = "")
+
+    // Set when the switch is what opened the picker, so that choosing a folder is what turns it
+    // on. A switch that is on with nowhere to write would sit there doing nothing.
+    var turnOnAfterPick by rememberSaveable { mutableStateOf(false) }
+
+    val folderLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri == null) {
+                turnOnAfterPick = false
+                return@rememberLauncherForActivityResult
+            }
+            // The grant from the picker dies with this activity. Persisting it is what lets the
+            // worker write there next week, and after a reboot.
+            // A third party picker can hand back a grant that cannot be persisted. Not a reason
+            // to crash the settings screen: the worker reports the folder as unavailable instead.
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }.onFailure { reportException(it) }
+            val folder = uri.toString()
+            onAutoBackupFolderChange(folder)
+            val enabled = turnOnAfterPick || autoBackupEnabled
+            if (turnOnAfterPick) onAutoBackupEnabledChange(true)
+            turnOnAfterPick = false
+            // Handed the values just chosen rather than left to re-read preferences that have
+            // not landed yet, the same trap BackgroundCheckWorker.schedule documents.
+            AutoBackup.schedule(context, enabled = enabled, folder = folder)
+        }
+
+    // The display name is a content provider query, so it stays off the main thread and is only
+    // asked again when the folder changes.
+    val folderName by produceState<String?>(initialValue = null, autoBackupFolder) {
+        value = if (autoBackupFolder.isBlank()) null
+        else withContext(Dispatchers.IO) {
+            tryOrNull { DocumentFile.fromTreeUri(context, autoBackupFolder.toUri())?.name }
+                ?: autoBackupFolder
         }
     }
 
@@ -148,6 +248,155 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             }
         )
     }
+    Spacer(modifier = Modifier.height(16.dp))
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        SwitchPreference(
+            title = { Text(stringResource(R.string.auto_backup)) },
+            description = stringResource(R.string.auto_backup_description),
+            icon = { Icon(Icons.Rounded.Schedule, null) },
+            checked = autoBackupEnabled,
+            onCheckedChange = { on ->
+                if (on && autoBackupFolder.isBlank()) {
+                    // Ask where first. The picker's result is what flips the switch.
+                    turnOnAfterPick = true
+                    folderLauncher.launch(null)
+                } else {
+                    onAutoBackupEnabledChange(on)
+                    AutoBackup.schedule(context, enabled = on)
+                }
+            }
+        )
+
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.auto_backup_folder)) },
+            description = folderName ?: stringResource(R.string.auto_backup_choose_folder),
+            icon = { Icon(Icons.Rounded.Folder, null) },
+            onClick = {
+                turnOnAfterPick = false
+                folderLauncher.launch(null)
+            }
+        )
+
+        ListPreference(
+            title = { Text(stringResource(R.string.auto_backup_interval)) },
+            selectedValue = autoBackupHours,
+            values = AutoBackup.INTERVAL_CHOICES,
+            valueText = {
+                when (it) {
+                    24 -> stringResource(R.string.auto_backup_every_day)
+                    else -> stringResource(R.string.auto_backup_every_week)
+                }
+            },
+            onValueSelected = {
+                onAutoBackupHoursChange(it)
+                AutoBackup.schedule(context, hours = it)
+            }
+        )
+
+        ListPreference(
+            title = { Text(stringResource(R.string.auto_backup_keep)) },
+            selectedValue = autoBackupKeep,
+            values = AutoBackup.KEEP_CHOICES,
+            valueText = { stringResource(R.string.auto_backup_keep_count, it) },
+            onValueSelected = {
+                onAutoBackupKeepChange(it)
+                // The worker reads this when it runs; re-applying the schedule keeps the rule
+                // that every change here goes through the same door.
+                AutoBackup.schedule(context)
+            }
+        )
+
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.auto_backup_now)) },
+            icon = { Icon(Icons.Rounded.Backup, null) },
+            isEnabled = autoBackupFolder.isNotBlank(),
+            onClick = { AutoBackup.runNow(context) }
+        )
+
+        Column(
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp)
+        ) {
+            Text(
+                text = if (autoBackupLastRun > 0L) {
+                    stringResource(
+                        R.string.auto_backup_last,
+                        DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.getDefault())
+                            .format(Date(autoBackupLastRun))
+                    )
+                } else {
+                    stringResource(R.string.auto_backup_last_never)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            // "ok" is the worker's own word for a clean run and is not worth a line; anything
+            // else is the reason the last run did not happen, in the worker's words.
+            if (autoBackupLastResult.isNotBlank() && autoBackupLastResult != AutoBackup.RESULT_OK) {
+                Text(
+                    text = autoBackupLastResult,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+    Spacer(modifier = Modifier.height(16.dp))
+
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.export_playlists_m3u)) },
+            description = stringResource(R.string.export_playlists_m3u_description),
+            icon = { Icon(Icons.Rounded.Output, null) },
+            onClick = { exportPlaylistsLauncher.launch(null) }
+        )
+    }
+}
+
+/**
+ * Writes one .m3u per library playlist into the folder at [treeUri] and returns how many were
+ * written. Playlists with no songs are skipped: an empty file would only be clutter. A playlist
+ * whose songs cannot be read or whose file cannot be created or written is reported and skipped
+ * so that one bad playlist does not stop the rest, and the count stays true to the files that did
+ * land in the folder. Room is read through its flows, which run on the query executor, so the
+ * caller only has to be off the main thread for the file writes.
+ */
+private suspend fun exportPlaylistsAsM3u(context: Context, database: MusicDatabase, treeUri: Uri): Int {
+    val folder = DocumentFile.fromTreeUri(context, treeUri) ?: return 0
+    val playlists = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true).first()
+    val used = HashSet<String>()
+    var exported = 0
+    for (playlist in playlists) {
+        // Everything for one playlist sits in one try, and the catch is wide on purpose: a grant
+        // that died with the activity surfaces as a SecurityException, not an IOException, and
+        // letting that escape would throw away the count of files already written.
+        try {
+            val songs = database.playlistSongs(playlist.id).first().map { it.song }
+            if (songs.isEmpty()) continue
+            val name = M3u.fileName(playlist.playlist.name, used)
+            used += name
+            // DocumentFile swallows whatever the provider threw and hands back null, so the null
+            // is the only trace of a refused file and has to be reported here or it is lost.
+            val file = folder.createFile("audio/x-mpegurl", name)
+            if (file == null) {
+                reportException(IOException("Could not create $name in $treeUri"))
+                continue
+            }
+            val out = context.contentResolver.openOutputStream(file.uri)
+            if (out == null) {
+                reportException(IOException("Could not open $name for writing"))
+                continue
+            }
+            out.use { it.write(M3u.playlist(songs).toByteArray(Charsets.UTF_8)) }
+            exported++
+        } catch (e: Exception) {
+            reportException(e)
+        }
+    }
+    return exported
 }
 
 @Composable

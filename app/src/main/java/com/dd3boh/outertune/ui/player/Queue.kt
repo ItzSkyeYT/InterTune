@@ -14,6 +14,7 @@ import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.utils.ActivityLog
 import android.content.res.Configuration
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -51,6 +52,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -103,6 +105,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
@@ -130,8 +135,12 @@ import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.LockQueueKey
 import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.PlayerHorizontalPadding
+import com.dd3boh.outertune.constants.PlaylistFilter
+import com.dd3boh.outertune.constants.PlaylistSortType
 import com.dd3boh.outertune.constants.SeekIncrement
 import com.dd3boh.outertune.constants.SeekIncrementKey
+import com.dd3boh.outertune.db.entities.PlaylistEntity
+import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.move
 import com.dd3boh.outertune.extensions.supportsWideScreen
@@ -147,8 +156,10 @@ import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.component.items.MediaMetadataListItem
+import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.ui.menu.PlayerMenu
 import com.dd3boh.outertune.ui.menu.QueueMenu
+import com.dd3boh.outertune.utils.QueueToPlaylist
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
@@ -157,9 +168,12 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import java.time.LocalDateTime
 import kotlin.math.roundToInt
 
 @Composable
@@ -487,6 +501,54 @@ fun BoxScope.QueueContent(
                 playingQueue = updatedList.indexOf(qb.getCurrentQueue())
             }
         }
+    }
+
+    /**
+     * SAVE THE SHOWN QUEUE AS A PLAYLIST
+     *
+     * Non-null while the naming dialog is open, holding the name it was opened with. The default name
+     * needs the library's playlist names, which live in the database, so it is worked out in the
+     * coroutine that opens the dialog rather than by watching a flow the sheet has no other use for.
+     */
+    var saveQueueName by remember { mutableStateOf<String?>(null) }
+
+    saveQueueName?.let { proposedName ->
+        TextFieldDialog(
+            icon = { Icon(imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null) },
+            title = { Text(text = stringResource(R.string.save_queue_as_playlist)) },
+            initialTextFieldValue = TextFieldValue(proposedName, TextRange(proposedName.length)),
+            onDismiss = { saveQueueName = null },
+            onDone = { name ->
+                // The list the sheet renders is the order the user is looking at, shuffled or not, so
+                // it is the list that is saved. The queue itself is left alone.
+                val songs = mutableSongs.toList()
+                coroutineScope.launch(Dispatchers.IO) {
+                    val playlist = PlaylistEntity(
+                        name = name,
+                        browseId = null,
+                        bookmarkedAt = LocalDateTime.now(),
+                        isEditable = true,
+                        isLocal = true
+                    )
+                    val saved = runCatching {
+                        database.transactionNow {
+                            // A radio queue holds songs the song table has never seen, and the map's
+                            // foreign key needs them there first.
+                            songs.forEach { if (!songExists(it.id)) insert(it) }
+                            insert(playlist)
+                            QueueToPlaylist.positions(songs.map { it.id }).forEach { (songId, position) ->
+                                insert(PlaylistSongMap(playlistId = playlist.id, songId = songId, position = position))
+                            }
+                        }
+                    }.onFailure { Log.w("Queue.kt", "Could not save the queue as a playlist", it) }.isSuccess
+                    if (saved) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, context.getString(R.string.saved_as_playlist, name), Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        )
     }
 
     val queueHeader: @Composable ColumnScope.(Modifier) -> Unit = { modifier ->
@@ -987,6 +1049,25 @@ fun BoxScope.QueueContent(
                             modifier = Modifier
                                 .weight(1f)
                                 .padding(horizontal = 8.dp)
+                        )
+                        val saveQueueDescription = stringResource(R.string.save_queue_as_playlist)
+                        val queueFallbackName = stringResource(R.string.queue_default_name)
+                        ResizableIconButton(
+                            icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                            enabled = mutableSongs.isNotEmpty(),
+                            onClick = {
+                                val title = detachedQueue?.title ?: mutableQueues.getOrNull(playingQueue)?.title
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    val names = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true)
+                                        .first().map { it.playlist.name }
+                                    val proposed = QueueToPlaylist.defaultName(title, names, queueFallbackName)
+                                    withContext(Dispatchers.Main) { saveQueueName = proposed }
+                                }
+                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            },
+                            modifier = Modifier
+                                .padding(vertical = 6.dp, horizontal = 4.dp)
+                                .semantics { contentDescription = saveQueueDescription }
                         )
                         ResizableIconButton(
                             icon = if (mqExpand) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,

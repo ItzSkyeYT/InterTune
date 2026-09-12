@@ -215,6 +215,7 @@ import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.Scrobbler
 import com.dd3boh.outertune.utils.SyncUtils
+import com.dd3boh.outertune.utils.AutoBackup
 import com.dd3boh.outertune.utils.BackgroundCheckWorker
 import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.UpdateChecker
@@ -445,6 +446,9 @@ class MainActivity : ComponentActivity() {
                 // rather than stacked. This is also what puts the schedule back after a reboot,
                 // since WorkManager needs the app to run once before it will restore its own.
                 BackgroundCheckWorker.schedule(this@MainActivity)
+                // Same again for scheduled backups: a no-op until the switch is on, and the
+                // thing that brings the schedule back after a reboot.
+                AutoBackup.schedule(this@MainActivity)
 
                 // A notification about a question opens the question. handleOpenPoll is called for
                 // the intent that started this, and again from onNewIntent when the app was already

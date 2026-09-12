@@ -41,6 +41,7 @@ import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.items.SongFolderItem
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
+import com.dd3boh.outertune.utils.M3u
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.reportException
@@ -72,13 +73,7 @@ fun FolderMenu(
         uri?.let {
             coroutineScope.launch(lmScannerCoroutine) {
                 try {
-                    var result = "#EXTM3U\n"
-                    allFolderSongs.forEach { s ->
-                        val se = s.song
-                        result += "#EXTINF:${se.duration},${s.artists.joinToString(";") { it.name }} - ${s.title}\n"
-                        result += if (se.isLocal) "${se.id}, ${se.localPath}" else "https://youtube.com/watch?v=${se.id}"
-                        result += "\n"
-                    }
+                    val result = M3u.playlist(allFolderSongs)
                     context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                         outputStream.write(result.toByteArray(Charsets.UTF_8))
                     }

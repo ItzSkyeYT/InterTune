@@ -66,6 +66,7 @@ import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
+import com.dd3boh.outertune.utils.M3u
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.reportException
@@ -99,13 +100,7 @@ fun PlaylistMenu(
         uri?.let {
             CoroutineScope(lmScannerCoroutine).launch {
                 try {
-                    var result = "#EXTM3U\n"
-                    songs.forEach { s ->
-                        val se = s.song
-                        result += "#EXTINF:${se.duration},${s.artists.joinToString(";") { it.name }} - ${s.title}\n"
-                        result += if (se.isLocal) "${se.id}, ${se.localPath}" else "https://youtube.com/watch?v=${se.id}"
-                        result += "\n"
-                    }
+                    val result = M3u.playlist(songs)
                     context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                         outputStream.write(result.toByteArray(Charsets.UTF_8))
                     }
