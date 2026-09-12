@@ -12,17 +12,14 @@ import com.dd3boh.outertune.db.InternalDatabase
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.extensions.div
 import com.dd3boh.outertune.extensions.zipInputStream
-import com.dd3boh.outertune.extensions.zipOutputStream
 import com.dd3boh.outertune.playback.MusicService
+import com.dd3boh.outertune.utils.BackupWriter
 import com.dd3boh.outertune.utils.reportException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.util.zip.Deflater
-import java.util.zip.ZipEntry
 import javax.inject.Inject
 import kotlin.system.exitProcess
 
@@ -35,20 +32,12 @@ class BackupRestoreViewModel @Inject constructor(
     val TAG = BackupRestoreViewModel::class.simpleName.toString()
     fun backup(uri: Uri) {
         runCatching {
-            context.applicationContext.contentResolver.openOutputStream(uri)?.use {
-                it.buffered().zipOutputStream().use { outputStream ->
-                    outputStream.setLevel(Deflater.BEST_COMPRESSION)
-                    (context.filesDir / "datastore" / SETTINGS_FILENAME).inputStream().buffered().use { inputStream ->
-                        outputStream.putNextEntry(ZipEntry(SETTINGS_FILENAME))
-                        inputStream.copyTo(outputStream)
-                    }
-                    runBlocking(Dispatchers.IO) {
-                        database.checkpoint()
-                    }
-                    FileInputStream(database.openHelper.writableDatabase.path).use { inputStream ->
-                        outputStream.putNextEntry(ZipEntry(InternalDatabase.DB_NAME))
-                        inputStream.copyTo(outputStream)
-                    }
+            context.applicationContext.contentResolver.openOutputStream(uri)?.use { stream ->
+                // The zip layout lives in BackupWriter so the scheduled backup writes the very
+                // same file. Still blocking, as it always was; only the checkpoint used to be on
+                // IO, and the copy had no more business on the main thread than that did.
+                runBlocking(Dispatchers.IO) {
+                    BackupWriter.write(context, database, stream)
                 }
             }
         }.onSuccess {
@@ -134,6 +123,6 @@ class BackupRestoreViewModel @Inject constructor(
     }
 
     companion object {
-        const val SETTINGS_FILENAME = "settings.preferences_pb"
+        const val SETTINGS_FILENAME = BackupWriter.SETTINGS_FILENAME
     }
 }
