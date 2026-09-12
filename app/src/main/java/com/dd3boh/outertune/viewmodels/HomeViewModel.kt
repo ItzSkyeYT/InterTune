@@ -48,6 +48,7 @@ import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.constants.QuickPicksSourceKey
+import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.db.entities.RowBuild
 import com.dd3boh.outertune.db.entities.Impression
@@ -883,6 +884,7 @@ class HomeViewModel @Inject constructor(
     private fun quickPicksSource(): QuickPicksSource =
         context.dataStore.get(QuickPicksSourceKey, QuickPicksSource.YOUTUBE.name)
             .toEnum(QuickPicksSource.YOUTUBE)
+            .orOffered()
 
     /** Whether YouTube's shelf is the Quick picks row: chosen as the source, or standing in for the engine. */
     private fun ytShelfWanted(): Boolean {

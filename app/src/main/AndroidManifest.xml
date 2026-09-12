@@ -153,9 +153,15 @@
           The home screen widget. Its updates come from the app itself as things happen, never on
           a timer, so nothing here wakes for a widget with nothing new to show.
         -->
+        <!--
+          Both are android:enabled="false" for 0.10.8: the widget belongs to 0.11 and is held
+          back with the rest of it, so the launcher's widget picker does not offer it. Set both
+          back to true for 0.11, along with Unreleased.ENGINE.
+        -->
         <!-- What a widget holds, asked when it is dropped and answerable again from the launcher. -->
         <activity
             android:name=".widget.WidgetConfigActivity"
+            android:enabled="false"
             android:excludeFromRecents="true"
             android:exported="true"
             android:label="@string/widget_label"
@@ -167,6 +173,7 @@
 
         <receiver
             android:name=".widget.MusicWidgetReceiver"
+            android:enabled="false"
             android:exported="false"
             android:label="@string/widget_label">
             <intent-filter>

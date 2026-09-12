@@ -21,6 +21,7 @@ import com.dd3boh.outertune.engine.quotas
 import com.dd3boh.outertune.engine.Lane
 import com.dd3boh.outertune.constants.AdventurousnessKey
 import com.dd3boh.outertune.constants.ShowReasonsKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.RankWithListeningKey
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.ui.component.ExplainedGroupTitle
@@ -117,24 +118,27 @@ fun RecommendationsSettings(
     ) {
         ExplainedGroupTitle(
             title = stringResource(R.string.recommendations_home_title),
-            explanation = stringResource(R.string.recommendations_home_title_info),
+            explanation = stringResource(if (Unreleased.ENGINE) R.string.recommendations_home_title_info else R.string.recommendations_home_title_info_basic),
         )
         ExplainedSwitchPreference(
             title = stringResource(R.string.tidy_home_rows),
-            explanation = stringResource(R.string.tidy_home_rows_info),
+            explanation = stringResource(if (Unreleased.ENGINE) R.string.tidy_home_rows_info else R.string.tidy_home_rows_info_basic),
             description = stringResource(R.string.tidy_home_rows_description),
             checked = tidyHomeRows,
             onCheckedChange = onTidyHomeRowsChange,
         )
         ExplainedSwitchPreference(
             title = stringResource(R.string.rank_with_listening),
-            explanation = stringResource(R.string.rank_with_listening_info),
+            explanation = stringResource(if (Unreleased.ENGINE) R.string.rank_with_listening_info else R.string.rank_with_listening_info_basic),
             description = stringResource(R.string.rank_with_listening_description),
             checked = rankWithListening,
             onCheckedChange = onRankWithListeningChange,
         )
         Spacer(Modifier.height(16.dp))
 
+        // Held back for 0.11 with the row they steer: see Unreleased. What stays visible without
+        // them is the log and its ledger, which is the part a listener is owed either way.
+        if (Unreleased.ENGINE) {
         // The engine's own controls. Choosing it is done where the source is chosen, under Content.
         ExplainedGroupTitle(
             title = stringResource(R.string.recommendations_engine_title),
@@ -311,6 +315,7 @@ fun RecommendationsSettings(
             },
         )
         Spacer(Modifier.height(16.dp))
+        }
 
         ExplainedGroupTitle(
             title = stringResource(R.string.recommendations_learned_title),

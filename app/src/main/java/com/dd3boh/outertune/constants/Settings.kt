@@ -40,7 +40,23 @@ enum class QuickPicksSource {
     COMPARE,
     /** No Quick picks row at all. */
     OFF,
+    ;
+
+    companion object {
+        /** The sources a listener may choose in this release. See [Unreleased]. */
+        fun offered(): List<QuickPicksSource> =
+            if (Unreleased.ENGINE) entries else entries.filter { it != ENGINE && it != COMPARE }
+    }
 }
+
+/**
+ * The chosen source, or the default when what is stored is not on offer.
+ *
+ * A canary build can leave [QuickPicksSource.ENGINE] in the settings of a release that does not
+ * offer it. Without this the row would quietly be the engine's with no way to see or change that.
+ */
+fun QuickPicksSource.orOffered(): QuickPicksSource =
+    if (this in QuickPicksSource.offered()) this else QuickPicksSource.YOUTUBE
 
 enum class LibraryViewType {
     LIST, GRID;

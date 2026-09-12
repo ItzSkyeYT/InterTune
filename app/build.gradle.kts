@@ -42,8 +42,8 @@ android {
         applicationId = "dev.skye.intertune"
         minSdk = 24
         targetSdk = 36
-        versionCode = 84
-        versionName = "0.10.7"
+        versionCode = 85
+        versionName = "0.10.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Obfuscated, not encrypted, and the difference matters. Anything the app can read, so

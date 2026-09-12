@@ -29,6 +29,8 @@ import com.dd3boh.outertune.constants.PauseSearchHistoryKey
 import com.dd3boh.outertune.constants.minPlaybackDurKey
 import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.constants.QuickPicksSourceKey
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.ExplainButton
 import com.dd3boh.outertune.ui.dialog.InfoLabel
@@ -237,9 +239,13 @@ fun ColumnScope.QuickPicksSourceFrag() {
         title = { Text(quickPicksTitle) },
         icon = { Icon(Icons.Rounded.AutoAwesome, null) },
         trailingContent = {
-            ExplainButton(title = quickPicksTitle, body = stringResource(R.string.quick_picks_source_info))
+            ExplainButton(
+                title = quickPicksTitle,
+                body = stringResource(if (Unreleased.ENGINE) R.string.quick_picks_source_info else R.string.quick_picks_source_info_basic),
+            )
         },
-        selectedValue = quickPicksSource,
+        selectedValue = quickPicksSource.orOffered(),
+        values = QuickPicksSource.offered(),
         onValueSelected = onQuickPicksSourceChange,
         valueText = {
             when (it) {
@@ -251,5 +257,5 @@ fun ColumnScope.QuickPicksSourceFrag() {
             }
         }
     )
-    InfoLabel(stringResource(R.string.quick_picks_source_description))
+    InfoLabel(stringResource(if (Unreleased.ENGINE) R.string.quick_picks_source_description else R.string.quick_picks_source_description_basic))
 }
