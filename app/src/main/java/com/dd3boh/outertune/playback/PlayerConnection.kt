@@ -19,6 +19,7 @@ import androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM
 import androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM
 import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.STATE_ENDED
+import androidx.media3.common.Player.STATE_IDLE
 import androidx.media3.common.Timeline
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.db.MusicDatabase
@@ -55,9 +56,20 @@ class PlayerConnection(
 
     val playbackState = MutableStateFlow(player.playbackState)
     private val playWhenReady = MutableStateFlow(player.playWhenReady)
+    /**
+     * Idle counts as not playing, whatever playWhenReady still says.
+     *
+     * A player error leaves the player idle with playWhenReady untouched, so this used to report
+     * playing over silence: the mini player, the full player and the queue all drew a pause icon,
+     * and the tap that would in fact have recovered it, since togglePlayPause prepares an idle
+     * player, looked like the tap that would stop the music.
+     */
     val isPlaying = combine(playbackState, playWhenReady) { playbackState, playWhenReady ->
-        playWhenReady && playbackState != STATE_ENDED
-    }.stateIn(scope, SharingStarted.Lazily, player.playWhenReady && player.playbackState != STATE_ENDED)
+        playWhenReady && playbackState != STATE_ENDED && playbackState != STATE_IDLE
+    }.stateIn(
+        scope, SharingStarted.Lazily,
+        player.playWhenReady && player.playbackState != STATE_ENDED && player.playbackState != STATE_IDLE
+    )
     val waitingForNetworkConnection: StateFlow<Boolean> = service.waitingForNetworkConnection.asStateFlow()
     val mediaMetadata = MutableStateFlow(player.currentMetadata)
     val currentSong = mediaMetadata.flatMapLatest {

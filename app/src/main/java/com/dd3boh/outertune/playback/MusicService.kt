@@ -154,6 +154,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -247,6 +248,8 @@ class MusicService : MediaLibraryService(),
 
     lateinit var connectivityObserver: NetworkConnectivityObserver
     val waitingForNetworkConnection = MutableStateFlow(false)
+    private var networkRetryJob: Job? = null
+    private var networkRetryAttempt = 0
     private val isNetworkConnected = MutableStateFlow(true)
 
     lateinit var sleepTimer: SleepTimer
@@ -287,6 +290,17 @@ class MusicService : MediaLibraryService(),
     private val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
+    /**
+     * One instance, shared by the builder below and by the observer that keeps the focus flag in
+     * step with the setting. ExoPlayer rebuilds the AudioTrack only when the new attributes differ
+     * from the old, so handing it the same object flips the flag alone: no gap in the sound and no
+     * new audio session id, which is what the equaliser is attached to.
+     */
+    private val musicAudioAttributes = AudioAttributes.Builder()
+        .setUsage(C.USAGE_MEDIA)
+        .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+        .build()
+
     private var isAudioEffectSessionOpened = false
 
     var consecutivePlaybackErr = 0
@@ -317,16 +331,17 @@ class MusicService : MediaLibraryService(),
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-                    .build(),
+                musicAudioAttributes,
                 // handleAudioFocus. On, InterTune claims audio focus, which is what silences
                 // whatever else was playing, and it also pauses InterTune when something else
                 // claims it. Off does both halves of what upstream #1255 asks for: it stops
-                // interrupting others and stops being interrupted. Read once here because audio
-                // attributes are fixed when the player is built, so a change applies at the next
-                // start rather than mid-song.
+                // interrupting others and stops being interrupted.
+                //
+                // This is the starting value only; the observer in onCreate keeps it current. It
+                // has to, because the player is built once per service and the service outlives
+                // every visit to the settings screen: it is created when the interface starts and
+                // then held up by its own MediaController, so nothing short of the process dying
+                // ever builds another one.
                 !dataStore.get(ShareAudioFocusKey, false)
             )
             .setSeekBackIncrementMs(5000)
@@ -445,6 +460,24 @@ class MusicService : MediaLibraryService(),
                     }
                 }
 
+            // The switch has to reach the player already running, not some later one. Without this
+            // it sat inert until the process was killed, which on One UI happens often enough, and
+            // unpredictably enough, to look like the setting works sometimes and not others.
+            //
+            // Applied at once rather than at the next song, because the listener has just asked
+            // for it and a queue can run for an hour. Turning it on abandons focus immediately, so
+            // anything we were ducking or waiting out comes straight back at full volume. Turning
+            // it off requests focus immediately, the same request a fresh play makes, so if
+            // another app holds it the music stops now rather than pretending otherwise.
+            dataStore.data
+                .map { it[ShareAudioFocusKey] ?: false }
+                .distinctUntilChanged()
+                .collectLatest(scope) { share ->
+                    withContext(Dispatchers.Main) {
+                        player.setAudioAttributes(musicAudioAttributes, !share)
+                    }
+                }
+
             // The sleep timer's own notification, and the only thing in this app that can be a
             // Live Update: the media notification draws a custom view, which the platform refuses
             // to promote. Polled rather than observed because triggerTime is Compose state and the
@@ -548,10 +581,15 @@ class MusicService : MediaLibraryService(),
                     isNetworkConnected.value = isConnected
 
                     if (isConnected && waitingForNetworkConnection.value) {
-                        waitingForNetworkConnection.value = false
+                        clearNetworkWait()
                         withContext(Dispatchers.Main) {
-                            player.prepare()
-                            player.play()
+                            // Only resume something that actually stalled. A flag that outlived its
+                            // fault used to mean music starting by itself out of a pocket at the
+                            // next network change.
+                            if (player.playbackState == STATE_IDLE) {
+                                player.prepare()
+                                player.play()
+                            }
                         }
                     }
                 }
@@ -1218,9 +1256,61 @@ class MusicService : MediaLibraryService(),
         )
     }
 
+    /**
+     * Hold the song and try it again on a timer, rather than only waiting for the network to return.
+     *
+     * What lands here is usually a single name resolution or connect miss thrown by our own
+     * resolver, on a connection that never dropped. The observer only speaks when a network becomes
+     * available, so on a healthy link nothing was ever going to release us and playback stayed dead
+     * until the app was force closed. Retries run even when the phone claims to be offline, because
+     * that claim has been wrong before and a retry costs one failed request.
+     */
     fun waitOnNetworkError() {
+        if (!waitingForNetworkConnection.value) {
+            // One toast per outage. The retries stay quiet, or there is one every few seconds.
+            Toast.makeText(this@MusicService, getString(R.string.wait_to_reconnect), Toast.LENGTH_LONG).show()
+        }
         waitingForNetworkConnection.value = true
-        Toast.makeText(this@MusicService, getString(R.string.wait_to_reconnect), Toast.LENGTH_LONG).show()
+        scheduleNetworkRetry()
+    }
+
+    private fun scheduleNetworkRetry() {
+        networkRetryJob?.cancel()
+        val attempt = networkRetryAttempt + 1
+        if (!NetworkRetryPolicy.shouldRetry(attempt)) {
+            networkRetryJob = null
+            // Out of tries. If the phone still believes it is online then no network event is
+            // coming either, so stop pretending to wait and hand the error back to the ordinary
+            // path, which honours the skip-on-error choice and leaves a player whose buttons work.
+            // If it believes it is offline, keep the flag: resuming when the network returns is
+            // exactly what the observer is for.
+            if (isNetworkConnected.value) {
+                clearNetworkWait()
+                if (dataStore.get(SkipOnErrorKey, false)) {
+                    skipOnError()
+                } else {
+                    stopOnError()
+                }
+            }
+            return
+        }
+        networkRetryAttempt = attempt
+        networkRetryJob = scope.launch(SilentHandler) {
+            delay(NetworkRetryPolicy.delayMillis(attempt))
+            // Anything that recovered, or that the listener touched, has already cleared the flag,
+            // and re-preparing a player that is not idle would restart the song under them.
+            if (!waitingForNetworkConnection.value || player.playbackState != STATE_IDLE) return@launch
+            player.prepare()
+            player.play()
+        }
+    }
+
+    /** One place that ends the wait, so the retry job and the counter never outlive the flag. */
+    private fun clearNetworkWait() {
+        networkRetryJob?.cancel()
+        networkRetryJob = null
+        networkRetryAttempt = 0
+        waitingForNetworkConnection.value = false
     }
 
     fun skipOnError() {
@@ -1372,9 +1462,17 @@ class MusicService : MediaLibraryService(),
                 openAudioEffectSession()
             } else {
                 closeAudioEffectSession()
-                if (!player.playWhenReady) {
-                    waitingForNetworkConnection.value = false
-                }
+            }
+            // The old clear only fired on a pause, which a player error never does, so the wait
+            // outlived the fault whichever way it went: a spinner over music that had come back, or
+            // a stale flag that could start playback by itself at the next network change.
+            if (!NetworkRetryPolicy.stillWaiting(
+                    waitingForNetworkConnection.value,
+                    player.playbackState,
+                    player.playWhenReady
+                )
+            ) {
+                clearNetworkWait()
             }
         }
         if (events.containsAny(EVENT_TIMELINE_CHANGED, EVENT_POSITION_DISCONTINUITY)) {
