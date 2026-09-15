@@ -1,4 +1,4 @@
-A small release before 0.11: three things you asked for, two freezes that had no business existing, and the Quick picks row finally behaving itself. Nothing here changes unless you use it.
+A small release before 0.11: three new things, two freezes that had no business existing, and the Quick picks row finally behaving itself. Nothing here changes unless you use it.
 
 ## Your library can back itself up now
 

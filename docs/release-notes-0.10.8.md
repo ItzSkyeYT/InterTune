@@ -1,6 +1,6 @@
 # InterTune 0.10.8
 
-A small release before 0.11: three things you asked for, the Quick picks row behaving itself, and the interface work that was ready. Nothing here changes unless you use it.
+A small release before 0.11: three new things, the Quick picks row behaving itself, and the interface work that was ready. Nothing here changes unless you use it.
 
 ## Backups
 
