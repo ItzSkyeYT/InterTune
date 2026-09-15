@@ -15,7 +15,6 @@ import androidx.compose.ui.util.fastFirst
 import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastForEachIndexed
 import androidx.media3.common.C
-import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.constants.QUEUE_DEBUG
 import com.dd3boh.outertune.db.entities.QueueEntity
 import com.dd3boh.outertune.extensions.currentMetadata
@@ -892,7 +891,7 @@ class QueueBoard(
     }
 
     private fun saveQueueSongs(mq: MultiQueueObject) {
-        if (player.dataStore.get(PersistentQueueKey, true)) {
+        if (player.persistentQueue) {
             queueSongMap.add(
                 PriorityJob(
                     0,
@@ -925,7 +924,10 @@ class QueueBoard(
     }
 
     private fun saveQueue(mq: MultiQueueObject) {
-        if (player.dataStore.get(PersistentQueueKey, true)) {
+        // Held rather than fetched. setCurrQueuePosIndex calls this on the application looper
+        // every time the current position changes, which is every song, and the guard used to be
+        // a blocking read of the preferences file.
+        if (player.persistentQueue) {
             queueEntity.add(
                 PriorityJob(
                     0,
@@ -941,7 +943,7 @@ class QueueBoard(
     }
 
     private fun saveAllQueues(mq: MutableList<MultiQueueObject>) {
-        if (player.dataStore.get(PersistentQueueKey, true)) {
+        if (player.persistentQueue) {
             queueEntity.add(
                 // we select most recent task, therefore "lowest" numeric priority at the end of the list == "highest" priority
                 PriorityJob(
