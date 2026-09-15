@@ -59,9 +59,12 @@ fun ExplainButton(
         ExplainDialog(title = title, body = body, onDismiss = { open = false })
     }
 
+    // The button keeps IconButton's own 48dp target rather than being shrunk to fit the icon.
+    // It was 40dp, under Android's minimum, and it showed: people missed it. The glyph stays
+    // small so it sits quietly beside the setting; only the part you can hit is bigger.
     IconButton(
         onClick = { open = true },
-        modifier = modifier.size(40.dp),
+        modifier = modifier,
     ) {
         Icon(
             Icons.Outlined.Info,

@@ -692,6 +692,12 @@ class MusicService : MediaLibraryService(),
     /** The end reason the last closed listen of each song was given, for the rest rule. */
     private val pendingEndReasonsSeen = java.util.concurrent.ConcurrentHashMap<String, Int>()
     private var lastMediaId: String? = null
+
+    /**
+     * Where in the queue the last transition landed, so that going backwards can be told from
+     * going forwards. Both arrive as the same seek.
+     */
+    private var lastQueueIndex = -1
     private var autoplayRun = 0
 
     /**
@@ -1536,11 +1542,11 @@ class MusicService : MediaLibraryService(),
         pendingTap = null
         val origin = pendingOrigin
         pendingOrigin = null
-        autoplayRun = when {
-            chosen || reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED -> 0
-            reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT -> autoplayRun
-            else -> autoplayRun + 1
-        }
+        // Going back is a choice, and it used to be counted as the opposite of one. See
+        // AutoplayDepth, which holds the rule so a test can hold it to account.
+        val wentBack = AutoplayDepth.wentBack(reason, lastQueueIndex, player.currentMediaItemIndex)
+        autoplayRun = AutoplayDepth.next(autoplayRun, chosen, wentBack, reason)
+        lastQueueIndex = player.currentMediaItemIndex
         checkpointJob?.cancel()
         val q = queueBoard.getCurrentQueue()
         val id = mediaItem?.mediaId ?: run { lastMediaId = null; return }
