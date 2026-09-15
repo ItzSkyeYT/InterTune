@@ -5,12 +5,18 @@ Version 0.10.8
 • Save the queue as a playlist, from a button on the queue sheet, in the order shown
 • Export every playlist as an M3U file, in one tap, into a folder you choose
 
+=== Fixes ===
+• Music no longer sticks on "Wait to reconnect" until you force close the app. One failed request on a healthy connection could hold a song for good
+• "Let other apps play at the same time" now takes effect when you turn it on, instead of doing nothing until the app's process was killed
+• Songs no longer arrive with a play count or an upload date where the artist should be
+
 === Quick picks ===
 • The row no longer blanks on every refresh, and Home no longer shows two rows both called Quick picks
 • On the YouTube Music source the row is YouTube's own Quick picks shelf, so a feed carrying a shelf of hour-long mixes no longer puts those under the heading
 • A card you play stays where it is, playing, until you refresh
 • Pull to refresh brings new songs, not the same ones in a new order
 • Two long-standing defects in the library query were fixed, and live, slowed and remastered versions of one song are no longer shown side by side
+• The row arrives about four seconds sooner, because it no longer waits behind the requests that fill the rows further down the screen
 
 === Interface ===
 • Predictive back and reveal transitions
