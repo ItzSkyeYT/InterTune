@@ -11,6 +11,8 @@ A small release before 0.11: three things you asked for, the Quick picks row beh
 
 - **Save the queue as a playlist.** A button on the queue sheet turns whatever you are listening to into a playlist, songs in the order shown, named by you. Radio songs that were never in your library are added to it as part of the save.
 - Skip silence was already there, under Player and audio, and stays there.
+- **Music no longer sticks on "Wait to reconnect".** One failed request, on a connection that never went down, could hold a song for good: the app sat waiting for a network to come back that had never gone away, and only a force close cleared it. It now tries again on a timer and then decides, rather than waiting for something that is not coming. The play button was also drawing a pause icon over a stopped player, so the one tap that would have fixed it looked like the tap that would stop the music.
+- **Let other apps play at the same time** now takes effect when you turn it on, mid song. It used to be read once when the app's player was built and never again, and since that player outlives pausing, backgrounding and even swiping the app away, the switch did nothing at all until the process was killed. That is why it seemed to work sometimes and not others.
 
 ## Quick picks
 
@@ -20,6 +22,7 @@ A small release before 0.11: three things you asked for, the Quick picks row beh
 - Pull to refresh brings new songs to Quick picks, Forgotten favourites and Keep listening, not the same ones in a new order.
 - Two long-standing defects in the library Quick picks query were fixed: it counted the same seed twice, and Forgotten favourites could surface songs still being played.
 - Versions of one song (live, slowed, remastered, official video) are recognised and never shown side by side.
+- The row arrives about four seconds sooner. It used to wait behind nine requests filling the "Similar to" rows further down the screen, which nothing about Quick picks needs; those now load alongside it instead of in front of it.
 
 ## Interface
 
@@ -29,6 +32,7 @@ A small release before 0.11: three things you asked for, the Quick picks row beh
 - Resume playback when the app opens, as a setting.
 - Audio quality has a Highest available tier, and the settings show what is actually playing: codec, bitrate and sample rate.
 - The app says so when the song cache is turned off.
+- Songs no longer arrive with a play count or an upload date where the artist should be. YouTube leaves that slot empty on some rows, and the app took whatever was sitting there, which is how a library ends up with an artist called "431K plays" or "Aug 25, 2016". Names already saved that way are not repaired yet.
 - The store listing and its screen shots were redone.
 
 ## Updates
