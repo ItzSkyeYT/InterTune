@@ -71,6 +71,17 @@ class GradingTest {
         val x = DoubleArray(Features.COUNT) { it / 10.0 }
         val text = x.joinToString(",") { String.format(java.util.Locale.ROOT, "%.4f", it) }
         assertEquals(x.toList(), Grading.parseFeatures(text)!!.toList())
-        assertEquals(null, Grading.parseFeatures("1,2"))
+
+        // A vector written before a feature existed is padded, not thrown away. Refusing it would
+        // mean every stored impression dropped out of the learner the day a feature was added.
+        val short = Grading.parseFeatures("1,2")!!
+        assertEquals(Features.COUNT, short.size)
+        assertEquals(listOf(1.0, 2.0), short.take(2))
+        assertTrue(short.drop(2).all { it == 0.0 })
+
+        // Wider than the model is not something this version can read, and nonsense is nonsense.
+        assertEquals(null, Grading.parseFeatures((0..Features.COUNT).joinToString(",")))
+        assertEquals(null, Grading.parseFeatures(""))
+        assertEquals(null, Grading.parseFeatures(null))
     }
 }

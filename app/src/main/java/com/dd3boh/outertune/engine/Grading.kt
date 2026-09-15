@@ -80,6 +80,19 @@ object Grading {
     }
 
     /** The features column as stored: comma-separated, four decimals. */
-    fun parseFeatures(text: String?): DoubleArray? =
-        text?.split(",")?.mapNotNull { it.trim().toDoubleOrNull() }?.takeIf { it.size == Features.COUNT }?.toDoubleArray()
+    /**
+     * The feature vector an impression was scored with, padded to today's width.
+     *
+     * It used to insist on exactly [Features.COUNT] numbers, which meant that adding a feature
+     * would silently invalidate every impression ever stored: they would all parse to null and
+     * drop out of the learner, taking the whole history with them. A vector written before a
+     * feature existed simply did not measure it, and zero is the honest value for that, so short
+     * vectors are padded rather than refused. Longer ones are still refused, because a vector
+     * wider than the model is not something this version can read.
+     */
+    fun parseFeatures(text: String?): DoubleArray? {
+        val parsed = text?.split(",")?.mapNotNull { it.trim().toDoubleOrNull() } ?: return null
+        if (parsed.isEmpty() || parsed.size > Features.COUNT) return null
+        return DoubleArray(Features.COUNT) { parsed.getOrElse(it) { 0.0 } }
+    }
 }
