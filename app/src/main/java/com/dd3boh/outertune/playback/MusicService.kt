@@ -261,6 +261,15 @@ class MusicService : MediaLibraryService(),
      * presses queued up behind each other. They are all settings that change about once a year, so
      * they are read once at start and kept current by the observers in onCreate.
      */
+    /**
+     * The app stopped the music because a song failed, rather than the listener stopping it.
+     *
+     * The two look identical to the player, both being playWhenReady false, and they are not the
+     * same thing at all: someone who paused wants it paused, and someone whose song would not load
+     * wants the next one to play the moment they reach for the skip button.
+     */
+    @Volatile private var stoppedByError = false
+
     @Volatile private var listenHistoryPaused = false
     @Volatile private var autoLoadMore = true
     @Volatile private var contextChip = 0
@@ -1366,12 +1375,14 @@ class MusicService : MediaLibraryService(),
             return
         }
 
+        stoppedByError = true
         player.pause()
         Toast.makeText(this@MusicService, getString(R.string.err_stop_on_too_many_errors), Toast.LENGTH_LONG).show()
         consecutivePlaybackErr = 0
     }
 
     fun stopOnError() {
+        stoppedByError = true
         player.pause()
         Toast.makeText(this@MusicService, getString(R.string.err_stop_on_error), Toast.LENGTH_LONG).show()
     }
@@ -1435,9 +1446,28 @@ class MusicService : MediaLibraryService(),
             consecutivePlaybackErr--
         }
 
-        if (player.isPlaying && reason == MEDIA_ITEM_TRANSITION_REASON_SEEK) {
+        // Skipping past a song that failed has to start the next one.
+        //
+        // This was gated on player.isPlaying, which means STATE_READY, and a song that errored
+        // leaves the player idle. So next and previous moved the index and nothing else: the
+        // listener skipped past the dead song and got silence, then skipped again and got more
+        // silence, and the only way out was to force close the app. Idle after an error is
+        // precisely when a skip most needs preparing.
+        //
+        // playWhenReady carries the intent. An error does not clear it, so someone who was
+        // listening starts playing again at once; someone who had paused gets the new song loaded
+        // and left paused, which is what they asked for. The runaway guard is not weakened,
+        // because that counts automatic skips and this is a hand on a button.
+        if (reason == MEDIA_ITEM_TRANSITION_REASON_SEEK &&
+            (player.isPlaying || player.playbackState == STATE_IDLE)
+        ) {
+            val afterError = stoppedByError
+            stoppedByError = false
             player.prepare()
-            player.play()
+            // playWhenReady carries the listener's intent, except after an error, where the app
+            // cleared it on their behalf by pausing. Skipping then is them asking for the next
+            // song, so it plays.
+            if (player.playWhenReady || afterError) player.play()
         }
 
         // Auto load more songs
@@ -1492,6 +1522,8 @@ class MusicService : MediaLibraryService(),
         if (events.containsAny(Player.EVENT_PLAYBACK_STATE_CHANGED, Player.EVENT_PLAY_WHEN_READY_CHANGED)) {
             val isBufferingOrReady =
                 player.playbackState == Player.STATE_BUFFERING || player.playbackState == Player.STATE_READY
+            // Music is coming out of the speaker again, so whatever stopped it is history.
+            if (player.playbackState == Player.STATE_READY) stoppedByError = false
             if (isBufferingOrReady && player.playWhenReady) {
                 openAudioEffectSession()
             } else {
