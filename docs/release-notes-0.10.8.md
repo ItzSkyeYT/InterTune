@@ -12,6 +12,8 @@ A small release before 0.11: three things you asked for, the Quick picks row beh
 - **Save the queue as a playlist.** A button on the queue sheet turns whatever you are listening to into a playlist, songs in the order shown, named by you. Radio songs that were never in your library are added to it as part of the save.
 - Skip silence was already there, under Player and audio, and stays there.
 - **Music no longer sticks on "Wait to reconnect".** One failed request, on a connection that never went down, could hold a song for good: the app sat waiting for a network to come back that had never gone away, and only a force close cleared it. It now tries again on a timer and then decides, rather than waiting for something that is not coming. The play button was also drawing a pause icon over a stopped player, so the one tap that would have fixed it looked like the tap that would stop the music.
+- **A back button on the mini player.** It had play and next and nothing to go back with, so hearing something again meant opening the full player or reaching for the headset.
+- **Skipping is lighter.** Every song change used to ask the settings file four questions, three of them on the thread that draws the screen, which is what made spamming next or previous feel heavy.
 - **Let other apps play at the same time** now takes effect when you turn it on, mid song. It used to be read once when the app's player was built and never again, and since that player outlives pausing, backgrounding and even swiping the app away, the switch did nothing at all until the process was killed. That is why it seemed to work sometimes and not others.
 
 ## Quick picks
