@@ -463,7 +463,11 @@ fun HomeScreen(
     ) {
         val listThumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
 
-        val horizontalLazyGridItemWidthFactor = if (maxWidth * 0.475f >= 320.dp) 0.475f else 0.9f
+        // On a phone a card is nearly the whole width, with a sliver of the next one showing so
+        // it is obvious the row scrolls. It used to leave a tenth of the screen, which is wide
+        // enough to read as a second column starting rather than as a hint. A tablet still gets
+        // two side by side, which is what the 0.475 branch is for.
+        val horizontalLazyGridItemWidthFactor = if (maxWidth * 0.475f >= 320.dp) 0.475f else 0.94f
         val horizontalLazyGridItemWidth = maxWidth * horizontalLazyGridItemWidthFactor
         val quickPicksSnapLayoutInfoProvider = remember(quickPicksLazyGridState) {
             SnapLayoutInfoProvider(
