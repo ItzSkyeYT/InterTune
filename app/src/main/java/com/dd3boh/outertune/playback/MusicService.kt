@@ -250,6 +250,22 @@ class MusicService : MediaLibraryService(),
     val waitingForNetworkConnection = MutableStateFlow(false)
     private var networkRetryJob: Job? = null
     private var networkRetryAttempt = 0
+
+    /**
+     * Settings the transition path asks about, held rather than fetched.
+     *
+     * `dataStore.get` is `runBlocking(Dispatchers.IO) { data.first() }`, so every one of these was
+     * parking the player's thread for a dispatch, a flow collection and a dispatch back. Three of
+     * them ran on the application looper on every single song change, which is what made spamming
+     * next or previous feel heavy: each press paid for all three again, one after another, and the
+     * presses queued up behind each other. They are all settings that change about once a year, so
+     * they are read once at start and kept current by the observers in onCreate.
+     */
+    @Volatile private var listenHistoryPaused = false
+    @Volatile private var autoLoadMore = true
+    @Volatile private var contextChip = 0
+    @Volatile var persistentQueue = true
+        private set
     private val isNetworkConnected = MutableStateFlow(true)
 
     lateinit var sleepTimer: SleepTimer
@@ -459,6 +475,18 @@ class MusicService : MediaLibraryService(),
                         player.skipSilenceEnabled = it
                     }
                 }
+
+            // The four the song-change path used to read blocking. Nothing here touches the
+            // player, so they stay off the main thread; the fields are volatile because the
+            // readers are the application looper and Room's executors.
+            dataStore.data.map { it[PauseListenHistoryKey] ?: false }.distinctUntilChanged()
+                .collectLatest(scope) { listenHistoryPaused = it }
+            dataStore.data.map { it[AutoLoadMoreKey] ?: true }.distinctUntilChanged()
+                .collectLatest(scope) { autoLoadMore = it }
+            dataStore.data.map { it[ContextChipKey] ?: 0 }.distinctUntilChanged()
+                .collectLatest(scope) { contextChip = it }
+            dataStore.data.map { it[PersistentQueueKey] ?: true }.distinctUntilChanged()
+                .collectLatest(scope) { persistentQueue = it }
 
             // The switch has to reach the player already running, not some later one. Without this
             // it sat inert until the process was killed, which on One UI happens often enough, and
@@ -1410,7 +1438,7 @@ class MusicService : MediaLibraryService(),
         val q = queueBoard.getCurrentQueue()
         val songCount = q?.getSize() ?: -1
         val playlistId = q?.playlistId
-        if (dataStore.get(AutoLoadMoreKey, true) &&
+        if (autoLoadMore &&
             reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT &&
             player.mediaItemCount - player.currentMediaItemIndex <= 5 &&
             playlistId != null // aka "hasNext"
@@ -1567,7 +1595,7 @@ class MusicService : MediaLibraryService(),
         info.opened = true
         info.startedAt = System.currentTimeMillis()
         info.startPositionMs = player.currentPosition.coerceAtLeast(0L)
-        if (dataStore.get(PauseListenHistoryKey, false)) { info.rowReady.complete(0L); return }
+        if (listenHistoryPaused) { info.rowReady.complete(0L); return }
         val metadata = player.currentMediaItem?.takeIf { it.mediaId == mediaId }?.metadata
         database.transaction {
             runCatching {
@@ -1591,7 +1619,7 @@ class MusicService : MediaLibraryService(),
                         autoplayDepth = info.autoplayDepth, sessionId = sessionId, counted = false,
                         learn = info.learn, runId = info.runId, endPositionMs = -1L,
                         continuesListenId = continues,
-                        contextChip = dataStore.get(ContextChipKey, 0),
+                        contextChip = contextChip,
                         // The card's impression was marked with the same moment by the tap itself,
                         // on this same serial executor, so it is there to be found.
                         impressionId = info.tappedAt?.let { impressionIdByTap(it) },

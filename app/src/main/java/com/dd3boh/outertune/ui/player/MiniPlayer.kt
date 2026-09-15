@@ -88,6 +88,7 @@ fun MiniPlayer(
     val playbackState by playerConnection.playbackState.collectAsState()
     val error by playerConnection.error.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+    val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
 
     val glass = rememberGlassSpec()
@@ -153,6 +154,27 @@ fun MiniPlayer(
                         modifier = Modifier.padding(horizontal = 6.dp)
                     )
                 }
+            }
+
+            // The mini player had play and next and nothing to go back with, so the only way
+            // to hear something again was to open the full player or reach for the headset. It
+            // takes width from the title, which is the point of the row, so it is the narrower of
+            // the two jobs that loses out: the text truncates a little sooner.
+            IconButton(
+                enabled = canSkipPrevious,
+                onClick = {
+                    if (playerConnection.player.currentMediaItem == null) {
+                        playerConnection.service.queueBoard.setCurrQueue()
+                        playerConnection.player.playWhenReady = true
+                    }
+                    playerConnection.player.seekToPrevious()
+                }
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.skip_previous),
+                    tint = iconButtonColor.copy(alpha = (if (canSkipPrevious) 1f else 0.5f)),
+                    contentDescription = null
+                )
             }
 
             IconButton(
