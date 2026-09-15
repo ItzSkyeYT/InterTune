@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.constants
 
+import com.dd3boh.outertune.BuildConfig
+
 /**
  * Finished, on the branch, and not announced yet.
  *
@@ -20,7 +22,12 @@ package com.dd3boh.outertune.constants
  * history under Settings > Library and content turns it off. The ledger of what it recorded stays
  * visible for the same reason, because a log nobody can see is not one anybody should accept.
  *
- * For 0.11: set [ENGINE] to true, flip `android:enabled` back to true on the two widget
+ * Debug builds have it on, release builds do not. The maintainer listens on the debug build
+ * precisely because it has the engine, and a gate that took that away from him every time a test
+ * build was installed was a gate that had outgrown its job. The release is what 0.10.8 is about,
+ * and `assembleCoreRelease` is what proves the gate still holds.
+ *
+ * For 0.11: set [ENGINE] to true outright, flip `android:enabled` back to true on the two widget
  * components in AndroidManifest.xml, and delete this file along with the three `if (Unreleased.`
  * checks that reference it.
  */
@@ -29,5 +36,5 @@ object Unreleased {
      * The engine as a Quick picks source: Best recommendations, Try both, the context chips that
      * only appear above its row, and the settings that only steer it.
      */
-    const val ENGINE = false
+    val ENGINE = BuildConfig.DEBUG
 }
