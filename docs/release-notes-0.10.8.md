@@ -1,6 +1,6 @@
 # InterTune 0.10.8
 
-A small release before 0.11: three new things, the Quick picks row behaving itself, and the interface work that was ready. Nothing here changes unless you use it.
+A small release: three new things, the Quick picks row behaving itself, and the interface work that was ready. Nothing here changes unless you use it.
 
 ## Backups
 
@@ -44,11 +44,7 @@ A small release before 0.11: three new things, the Quick picks row behaving itse
 
 ## The listening log
 
-- InterTune starts keeping a log of what you play: every stop, how far through you got, how it ended and where you started it from. It is on this device, in the app's own database, and it goes nowhere else. It is what the recommendations in 0.11 will learn from, and starting it now means they arrive to a history rather than to nothing.
-- Two things already read it, and they are the two Quick picks improvements above: the row skips what you have just heard, and it is ordered by what you tend to finish, search for and like rather than by the order it arrived in. Both are on, and this release has no switch for either; 0.11 adds one for each.
+- InterTune starts keeping a log of what you play: every stop, how far through you got, how it ended and where you started it from. It is on this device, in the app's own database, and it goes nowhere else. It is what the recommendation work coming next will learn from, and starting it now means that work arrives to a history rather than to nothing.
+- Two things already read it, and they are the two Quick picks improvements above: the row skips what you have just heard, and it is ordered by what you tend to finish, search for and like rather than by the order it arrived in. Both are on, and this release has no switch for either; that comes later.
 - **Settings > Privacy and history > Pause listen history** turns the log off, and **Clear listen history** deletes all of it. Both were already there and both cover the new log. With it paused, the two behaviours above have nothing to work from and the row is simply the order it arrived in.
 - It rides along in a backup, so a backup taken now carries it.
-
-## Not in this release, on purpose
-
-Best recommendations, Try both, the context chips, the long-press card controls, the whole Recommendations settings screen and the home screen widget are built and on the branch, and they are 0.11. They are held behind one switch in the source rather than on a branch of their own, so 0.10.8 is this same tree with that switch off.
