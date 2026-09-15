@@ -66,6 +66,17 @@ class InnerTube {
             deflate(0.8F)
         }
 
+        // There was no timeout at all, so a request that never answered never failed either. A
+        // refresh makes nineteen of these, and one of them hanging pinned the whole load: the
+        // songs arrived, the spinner kept turning, and because the spinner is also the guard
+        // against two loads at once, pulling again did nothing until the app was restarted.
+        // Generous rather than snappy, because a slow connection is not a broken one.
+        install(HttpTimeout) {
+            connectTimeoutMillis = 15_000
+            socketTimeoutMillis = 20_000
+            requestTimeoutMillis = 30_000
+        }
+
         if (proxy != null) {
             engine {
                 proxy = this@InnerTube.proxy
