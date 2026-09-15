@@ -76,4 +76,28 @@ class SongVersionsTest {
         assertFalse(SongVersions.isVersionOf("「群青」", "「夜に駆ける」"))
         assertTrue(SongVersions.isVersionOf("「群青」", "「群青」"))
     }
+
+    @Test
+    fun `a dash followed by a qualifier is stripped, one followed by a name is not`() {
+        // "Levitating - Maduk Remix" is a version of "Levitating". "Initial D - Deja Vu" is not a
+        // version of "Initial D - Night Of Fire", and treating it as one deleted 64 candidates
+        // from a single build on a real library.
+        assertTrue(SongVersions.isVersionOf("Levitating - Maduk Remix", "Levitating"))
+        assertTrue(SongVersions.isVersionOf("Africa - 2020 Remaster", "Africa"))
+        assertTrue(SongVersions.isVersionOf("Faded - Official Video", "Faded"))
+
+        assertFalse(SongVersions.isVersionOf("Initial D - Deja Vu", "Initial D - Night Of Fire"))
+        assertFalse(SongVersions.isVersionOf("Initial D - Deja Vu", "Initial D - Running In The 90's"))
+    }
+
+    @Test
+    fun `a bare year after a dash is still a qualifier`() {
+        assertTrue(SongVersions.isVersionOf("Africa - 1982", "Africa"))
+    }
+
+    @Test
+    fun `real version sets are untouched by the bound`() {
+        assertTrue(SongVersions.isVersionOf("Stay (Maduk Remix)", "Stay"))
+        assertTrue(SongVersions.isVersionOf("HOME (SLOWED)", "Home"))
+    }
 }
