@@ -30,6 +30,12 @@ It now takes effect the moment you turn it on, mid song.
 
 Two honest limits. Android mutes music for the length of a phone call whatever this is set to, and some phones stop background playback to save battery, so allow unrestricted battery use for InterTune if the music keeps stopping.
 
+## The mini player can go back
+
+It had play and next and nothing to go back with, so hearing a song again meant opening the full player or reaching for the headset. There is a previous button now, to the left of the two it already had.
+
+The song title gives up a little width for it, which is the right way round: going back to a song by hand is about the strongest thing anybody can say about it, and it should not take three taps.
+
 ## Quick picks
 
 The row arrives about **four seconds sooner**. It used to wait behind nine requests filling the "Similar to" rows further down the screen, which nothing about Quick picks needs; those now load alongside it instead of in front of it.
@@ -45,7 +51,6 @@ The rest of the row's bad habits are gone too:
 
 ## Smaller things
 
-- **A back button on the mini player.** It had play and next and nothing to go back with, so hearing something again meant opening the full player or reaching for the headset.
 - **Skipping is lighter.** Every song change used to ask the settings file four questions, three of them on the thread that draws the screen, which is what made spamming next or previous feel heavy.
 - Songs no longer arrive with a play count or an upload date where the artist should be. YouTube leaves that slot empty on some rows and the app took whatever was sitting there, which is how a library ends up with an artist called "431K plays". Names already saved that way are not repaired yet.
 - Predictive back and reveal transitions, an Offline tab, removing a song from its playlist without leaving the player, resuming playback when the app opens, a Highest available audio tier that says what is actually playing, and the app admitting when the song cache is off.
