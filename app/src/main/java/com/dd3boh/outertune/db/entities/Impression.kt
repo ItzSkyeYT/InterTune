@@ -35,7 +35,7 @@ data class Impression(
     val buildId: Long,
     val songId: String,
     val slot: Int,
-    /** 0 none, 1 related, 2 artist, 3 rediscover, 4 explore. */
+    /** [com.dd3boh.outertune.engine.Lane] ordinal plus one, so 0 is no lane. Decode with Lane.ofCode. */
     @ColumnInfo(defaultValue = "0") val lane: Int = 0,
     /** 1 engine, 2 classic, 3 YouTube: whose card this was, which matters in Compare. */
     @ColumnInfo(defaultValue = "0") val team: Int = 0,

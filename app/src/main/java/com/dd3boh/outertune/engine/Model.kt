@@ -102,7 +102,22 @@ object ContextChip {
 }
 
 /** How a card got into the row. Appended in order: the code stored on an impression is ordinal + 1. */
-enum class Lane { RELATED, ARTIST, REDISCOVER, EXPLORE, AGAIN }
+enum class Lane {
+    RELATED, ARTIST, REDISCOVER, EXPLORE, AGAIN;
+
+    companion object {
+        /**
+         * The lane a stored impression came from, or null when it was not the engine's card.
+         *
+         * Impressions keep the lane as `ordinal + 1`, so zero means no lane. The two readers of
+         * that column both wrote the decode by hand, back when there were four lanes, and both
+         * still said `in 1..4`. AGAIN is the fifth, so every AGAIN card has been silently dropped
+         * from the learner since the day that lane was added, and b_again has sat at exactly zero
+         * ever since, which looked like an opinion and was an absence.
+         */
+        fun ofCode(code: Int): Lane? = entries.getOrNull(code - 1)
+    }
+}
 
 data class Card(
     val songId: String,

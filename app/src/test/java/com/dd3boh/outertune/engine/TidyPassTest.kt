@@ -72,4 +72,30 @@ class TidyPassTest {
     fun `keys ignore case and spacing around the artist`() {
         assertEquals(versionKey("Africa", "Toto"), versionKey("AFRICA (Remastered)", " toto "))
     }
+
+    @Test
+    fun `the Again lane may offer back a song heard today`() {
+        // The lane exists to bring back something heard well in the last fortnight, and the
+        // just-played rule was removing three quarters of its cards before anybody saw them.
+        val played = listOf(PlayedSong("a1", "Africa", "Toto"))
+        val picks = listOf(Card("a1", "Africa", "Toto"), Card("a2", "Africa (Live)", "Toto"), Card("h1", "Hold the Line", "Toto"))
+
+        val exempt = TidyPass(played).row(picks, true, { it.id }, { it.title }, { it.artist }, { null }, { it.id == "a1" })
+        assertEquals(listOf("a1", "h1"), exempt.map { it.id })
+    }
+
+    @Test
+    fun `an exempt card still claims its version key, so no second cut follows it`() {
+        // This is what stops the waiver turning into "Africa" and then "Africa (Live)" together.
+        val played = listOf(PlayedSong("a1", "Africa", "Toto"))
+        val picks = listOf(Card("a1", "Africa", "Toto"), Card("a2", "Africa (Live)", "Toto"))
+        val out = TidyPass(played).row(picks, true, { it.id }, { it.title }, { it.artist }, { null }, { it.id == "a1" })
+        assertEquals(listOf("a1"), out.map { it.id })
+    }
+
+    @Test
+    fun `nothing is exempt by default, so every other row is untouched`() {
+        val pass = TidyPass(listOf(PlayedSong("a1", "Africa", "Toto")))
+        assertEquals(listOf("h1"), pass.cards(listOf(Card("a1", "Africa", "Toto"), Card("h1", "Hold the Line", "Toto")), fresh = true).map { it.id })
+    }
 }
