@@ -1,72 +1,62 @@
-A small release: three new things, two freezes that had no business existing, and the Quick picks row finally behaving itself. Nothing here changes unless you use it.
+Backups are the big one this time. Two freezes are gone as well, and Quick picks is four seconds faster and much better behaved.
 
-## Your library can back itself up now
+## Backups
 
-Under **Settings > Storage > Backup and restore**, choose a folder and pick every day or every week. InterTune writes your library, playlists, settings and listening history there and keeps as many as you say, on a slider from one to twenty. Off until you turn it on.
+Pick a folder, pick daily or weekly, pick how many to keep. Library, playlists, settings and listening history, on a schedule, without thinking about it again.
 
-A backup that fails halfway deletes its own half-written file rather than leaving something the restore would accept, and nothing is pruned until a new one has been written successfully. If the folder goes away, the screen says so rather than retrying silently. There is a **Back up now** button beside it, and a line saying when the last one ran.
+It is careful with them. A backup that fails halfway deletes its own half-written file rather than leaving something the restore would accept, and nothing old is pruned until a new one has actually landed. If the folder goes missing it says so instead of retrying quietly.
 
-This matters more than it looks if InterTune ever reaches F-Droid: that copy would be signed with F-Droid's key rather than mine, so neither version can install over the other and moving between them means uninstalling first.
+Off until you turn it on.
 
-## The queue can become a playlist, and playlists can become files
+## The queue as a playlist, playlists as files
 
-A button on the queue sheet turns whatever you are listening to into a playlist, songs in the order shown, named by you. Radio songs that were never in your library are added as part of the save, so nothing goes missing.
+One button on the queue sheet turns whatever you are listening to into a playlist, in order, named by you. Radio songs that were never in your library get added too, so nothing is lost.
 
-And **Export playlists as M3U** writes every playlist in your library as a file you can open anywhere, one tap, into a folder you choose.
+One tap exports every playlist you own as M3U files into a folder you choose.
 
-## Music sticking on "Wait to reconnect"
+## The freeze on "Wait to reconnect"
 
-One failed request could hold a song for good. The app would show that message and then wait for the network to come back, except the network had never gone away: a single name lookup had missed on a connection that was working fine. Nothing was ever going to release it, so the music stayed dead until you force closed the app.
+A single failed request could stop playback for good. The app showed that message and waited for the network to come back, except the network had never gone: one name lookup had missed on a connection that was working fine, and nothing was ever going to release it. Force closing was the only way out.
 
-It now tries again on a timer and then makes a decision, rather than waiting for something that is not coming.
+The player made it worse by drawing a pause icon over a dead player, so the one button that would have fixed it looked like the button that would stop the music.
 
-The player was also lying to you while that happened. It drew a **pause** icon over a stopped player, so the one tap that would have fixed it looked exactly like the tap that would have stopped your music. It shows play now, because that is what it does.
+It retries now, then decides, and the button shows what it actually does.
 
-## "Let other apps play at the same time" actually applies
+## Let other apps play at the same time
 
-If you turned this on and it seemed to work sometimes and not others, that was not your phone being strange. The setting was read once when the app built its player and never again, and that player outlives pausing, backgrounding, and even swiping the app away. So flipping the switch did nothing at all until the process was killed, which happens at unpredictable times.
+If this worked sometimes and not others, it was not your phone. The setting was read once, when the app built its player, and never again, and that player survives pausing, backgrounding and swiping the app away. So the switch did nothing until the process happened to be killed.
 
-It now takes effect the moment you turn it on, mid song.
+It applies the moment you turn it on, mid song.
 
-Two honest limits. Android mutes music for the length of a phone call whatever this is set to, and some phones stop background playback to save battery, so allow unrestricted battery use for InterTune if the music keeps stopping.
+Android still mutes music for the length of a call whatever this is set to, and some phones stop background playback to save battery, so allow unrestricted battery use if the music keeps stopping.
 
-## The mini player can go back
+## A back button on the mini player
 
-It had play and next and nothing to go back with, so hearing a song again meant opening the full player or reaching for the headset. There is a previous button now, to the left of the two it already had.
-
-The song title gives up a little width for it, which is the right way round: going back to a song by hand is about the strongest thing anybody can say about it, and it should not take three taps.
+It had play and next and no way to go back. Now it has one.
 
 ## Quick picks
 
-The row arrives about **four seconds sooner**. It used to wait behind nine requests filling the "Similar to" rows further down the screen, which nothing about Quick picks needs; those now load alongside it instead of in front of it.
+Four seconds faster: it had been waiting behind nine requests fetching rows further down the screen that it does not need.
 
-The rest of the row's bad habits are gone too:
-
-- It no longer blanks on every refresh, and Home no longer shows two rows both called Quick picks.
-- On the YouTube Music source it is YouTube's own Quick picks shelf, so a feed that also carries a shelf of hour-long mixes no longer puts those under the heading.
-- A card you play stays where it is, playing, until you refresh. The row never changes while you are away in the player.
-- Pull to refresh brings new songs, not the same ones in a new order.
-- Two long-standing defects in the library query were fixed: it counted the same seed twice, and Forgotten favourites could surface songs still being played.
-- Live, slowed, remastered and official-video versions of one song are recognised as one song and never shown side by side.
+The rest is behaviour. No more blanking on every refresh, no more two rows with the same name, no more hour-long mixes under the Quick picks heading, no more a card disappearing while you are in the player, no more refreshing into the same twenty songs reordered, and no more one song four times because it is live, slowed, remastered and an official video.
 
 ## Smaller things
 
-- **Skipping is lighter.** Every song change used to ask the settings file four questions, three of them on the thread that draws the screen, which is what made spamming next or previous feel heavy.
-- Songs no longer arrive with a play count or an upload date where the artist should be. YouTube leaves that slot empty on some rows and the app took whatever was sitting there, which is how a library ends up with an artist called "431K plays". Names already saved that way are not repaired yet.
-- Predictive back and reveal transitions, an Offline tab, removing a song from its playlist without leaving the player, resuming playback when the app opens, a Highest available audio tier that says what is actually playing, and the app admitting when the song cache is off.
-- Installs from F-Droid update through F-Droid; the in-app updater steps aside for them.
-- The store listing and its screen shots were redone.
+- Skipping is lighter. Every song change used to read the settings file four times, three of them on the thread that draws the screen.
+- Artists are no longer sometimes called "431K plays" or "Aug 25, 2016". YouTube leaves that slot empty on some rows and the app took whatever was there. Names already saved that way are not repaired yet.
+- Predictive back, an Offline tab, removing a song from a playlist without leaving the player, resuming playback on open, a Highest available audio tier that reports what is actually playing, and the app saying so when the song cache is off.
+- F-Droid installs update through F-Droid.
 
 ## The listening log
 
-InterTune starts keeping a record of what you play: every stop, how far through you got, how it ended and where you started it from. It is on your device, in the app's own database, and it goes nowhere else.
+InterTune now keeps a record of what you play: every stop, how far you got, how it ended, where you started it. It stays on your device, in the app's own database, and goes nowhere else.
 
-It is what the recommendation work coming next will learn from, and starting it now means that work arrives to a history rather than to nothing.
+Two things read it today, both Quick picks improvements above: the row skips what you just heard, and it is ordered by what you tend to finish rather than the order it arrived in.
 
-Two things already read it, and they are the two Quick picks improvements above: the row skips what you have just heard, and it is ordered by what you tend to finish, search for and like rather than by the order it arrived in. Both are on, and this release has no switch for either; that comes later.
+**Settings > Privacy and history > Pause listen history** turns it off, **Clear listen history** deletes all of it, and it travels with your backups.
 
-**Settings > Privacy and history > Pause listen history** turns the log off and **Clear listen history** deletes all of it. Both were already there and both cover the new log. With it paused, the two behaviours above have nothing to work from and the row is simply the order it arrived in. It rides along in a backup, so a backup taken now carries it.
+It is also groundwork. Something rather bigger has been waiting on this, and it wanted a history to start from rather than a blank page. Give it a few weeks of your listening and you will see why. 👀
 
 ---
 
-Upgrading from 0.10.7 was tested against a real 39,000 song library: the database migration runs clean, playlists and history survive, and the old play log is converted into the new one.
+Upgrading from 0.10.7 was tested against a real 39,000 song library: the migration runs clean, playlists and history survive, and the old play log is folded into the new one.
