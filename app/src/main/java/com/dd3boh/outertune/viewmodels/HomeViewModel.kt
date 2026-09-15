@@ -75,6 +75,7 @@ import com.zionhuang.innertube.utils.completed
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -90,6 +91,9 @@ import javax.inject.Inject
 private const val SESSION_GAP_MS = 30L * 60 * 1000
 /** How long the engine's input is kept before being read again. */
 private const val ENGINE_INPUT_TTL_MS = 5L * 60 * 1000
+
+/** How long a load will wait for the "Similar to" rows before giving up on them for this pass. */
+private const val SIMILAR_WAIT_MS = 20_000L
 
 /** One line under a card: a feature name and, for the seed and artist reasons, what it names. */
 data class CardReason(val key: String, val arg: String?)
@@ -820,7 +824,13 @@ class HomeViewModel @Inject constructor(
 
         // Only now: the row the listener pulled for has already settled above, and the rows
         // further down can arrive late without anybody minding.
-        similarPool = similar.await()
+        //
+        // Bounded, because this is the last thing the load waits for and the spinner does not stop
+        // until the load returns. One request refusing to answer used to leave the songs on screen
+        // under a spinner that never stopped, and since that spinner is also what stops two loads
+        // running at once, the next pull did nothing at all. If it misses, these rows keep what
+        // they had and fill on the next load.
+        similarPool = withTimeoutOrNull(SIMILAR_WAIT_MS) { similar.await() } ?: similarPool
         tidyRows()
 
         YouTube.explore().onSuccess { page ->
