@@ -46,6 +46,24 @@ class TidyPass(
         artist: (T) -> String?,
         /** The artist's id where the item has one, for the artist bans. */
         artistId: (T) -> String? = { null },
+        /**
+         * Items the just-played rule should not touch by id.
+         *
+         * The engine's Again lane exists to offer a song you have heard well lately and are due
+         * to hear again, admitting anything from an hour to a fortnight old. The just-played rule
+         * then removed anything heard in the last day, so the two rules argued and the newer one
+         * won: 72.7 percent of Again cards were culled after being placed, against 7 to 18 percent
+         * for every other lane. The lane was doing its job and nobody ever saw the result.
+         *
+         * The whole just-played rule is waived for these, not only the id half. Waiving the id
+         * alone does nothing, because a song's own version key is in the played keys too: play
+         * "Africa" and both halves of the rule name it. A test said so before this shipped.
+         *
+         * What still protects the row is the line below: an exempt card claims its version key
+         * like any other, so nothing further down can be another cut of it, and the engine's own
+         * group rule already stops two versions inside one build.
+         */
+        exemptFromJustPlayed: (T) -> Boolean = { false },
     ): List<T> = items.filter { item ->
         val itemId = id(item) ?: return@filter true
         val itemTitle = title(item) ?: return@filter true
@@ -53,7 +71,7 @@ class TidyPass(
         val key = versionKey(itemTitle, itemArtist)
         if (itemId in bannedIds || key in bannedKeys) return@filter false
         if (bannedArtists.isNotEmpty() && (artistId(item)?.let { it in bannedArtists } == true || itemArtist?.trim()?.lowercase()?.let { it in bannedArtists } == true)) return@filter false
-        if (freshOnly && (itemId in playedIds || key in playedKeys)) return@filter false
+        if (freshOnly && !exemptFromJustPlayed(item) && (itemId in playedIds || key in playedKeys)) return@filter false
         seen.add(key)
     }
 }

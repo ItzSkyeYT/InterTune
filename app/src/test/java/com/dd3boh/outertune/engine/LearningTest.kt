@@ -32,7 +32,7 @@ class LearningTest {
         val l = Learner(); val r = Random(4)
         repeat(10_000) {
             val f = DoubleArray(Features.COUNT) { r.nextDouble(-1.0, 1.0) }
-            l.apply(Example(f, Lane.entries[r.nextInt(4)], r.nextInt(-1, 20), y = r.nextDouble(), u = listOf(1.0, 0.5, 0.3)[r.nextInt(3)], pairwise = r.nextInt(10) == 0))
+            l.apply(Example(f, Lane.entries[r.nextInt(Lane.entries.size)], r.nextInt(-1, 20), y = r.nextDouble(), u = listOf(1.0, 0.5, 0.3)[r.nextInt(3)], pairwise = r.nextInt(10) == 0))
         }
         for ((name, v) in l.asMap()) {
             val prior = Features.priors[name]!!
@@ -66,7 +66,7 @@ class LearningTest {
     @Test
     fun `replaying stored examples reproduces the weights exactly`() {
         val r = Random(9)
-        val examples = List(300) { Example(DoubleArray(Features.COUNT) { r.nextDouble(-1.0, 1.0) }, Lane.entries[it % 4], it % 20, r.nextDouble(), 1.0) }
+        val examples = List(300) { Example(DoubleArray(Features.COUNT) { r.nextDouble(-1.0, 1.0) }, Lane.entries[it % Lane.entries.size], it % 20, r.nextDouble(), 1.0) }
         val a = Learner(); examples.forEach { a.apply(it) }
         val b = Learner(); examples.forEach { b.apply(it) }
         for ((name, v) in a.asMap()) assertEquals(v, b.asMap()[name]!!, 1e-12)

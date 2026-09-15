@@ -469,7 +469,10 @@ class HomeViewModel @Inject constructor(
             ?.map { PlayedSong(it.id, it.song.title, it.artists.firstOrNull()?.name) }.orEmpty()
         val bannedArtists = exclusions.filter { it.kind == ExclusionsViewModel.KIND_ARTIST }.flatMap { listOf(it.targetId, it.label.trim().lowercase()) }.toSet()
         val pass = TidyPass(played, bannedSongs, bannedArtists)
-        fun songs(items: List<Song>, fresh: Boolean = false) = pass.row(items, fresh, { it.song.id }, { it.song.title }, { it.artists.firstOrNull()?.name }, { it.artists.firstOrNull()?.id })
+        // The Again lane is allowed to offer something heard in the last day, because that is the
+        // whole point of it. Nothing else is. See TidyPass.row.
+        val againIds = lastEngineRow?.cards.orEmpty().filter { it.lane == Lane.AGAIN }.map { it.songId }.toSet()
+        fun songs(items: List<Song>, fresh: Boolean = false) = pass.row(items, fresh, { it.song.id }, { it.song.title }, { it.artists.firstOrNull()?.name }, { it.artists.firstOrNull()?.id }, { it.song.id in againIds })
         fun local(items: List<LocalItem>) = pass.row(items, false, { (it as? Song)?.song?.id }, { (it as? Song)?.song?.title }, { (it as? Song)?.artists?.firstOrNull()?.name }, { (it as? Song)?.artists?.firstOrNull()?.id })
         fun yt(items: List<YTItem>, fresh: Boolean = false) = pass.row(items, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name }, { (it as? SongItem)?.artists?.firstOrNull()?.id })
         // Whichever Quick picks row is on screen goes first; the other is not shown and must not

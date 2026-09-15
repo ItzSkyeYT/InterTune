@@ -95,7 +95,7 @@ class EngineLearning(private val context: Context, private val database: MusicDa
         val pending = database.pendingImpressions()
         if (pending.isEmpty()) return
         val rows = pending.map { i ->
-            ImpressionRow(i.id, i.songId, i.slot, i.lane.takeIf { it in 1..4 }?.let { Lane.entries[it - 1] }, Grading.parseFeatures(i.features), i.p?.toDouble(), i.visibleAt ?: 0L, i.tappedAt)
+            ImpressionRow(i.id, i.songId, i.slot, Lane.ofCode(i.lane), Grading.parseFeatures(i.features), i.p?.toDouble(), i.visibleAt ?: 0L, i.tappedAt)
         }
         val listens = database.engineListens().map { if (it.endReason == EndReason.OPEN) it.copy(endedAt = now) else it }
         val oldest = pending.minOf { it.visibleAt ?: now }
@@ -115,7 +115,7 @@ class EngineLearning(private val context: Context, private val database: MusicDa
     private fun example(i: Impression): Example? {
         val x = Grading.parseFeatures(i.features) ?: return null
         val y = i.y ?: return null; val u = i.u ?: return null
-        return Example(x, i.lane.takeIf { it in 1..4 }?.let { Lane.entries[it - 1] }, i.slot, y.toDouble(), u.toDouble(), pairwise = i.slot < 0)
+        return Example(x, Lane.ofCode(i.lane), i.slot, y.toDouble(), u.toDouble(), pairwise = i.slot < 0)
     }
 
     private suspend fun apply(now: Long): Int {
