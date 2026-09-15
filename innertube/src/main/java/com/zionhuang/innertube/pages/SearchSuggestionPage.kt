@@ -19,13 +19,11 @@ object SearchSuggestionPage {
                     title = renderer.flexColumns.firstOrNull()
                         ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()
                         ?.text ?: return null,
-                    artists = renderer.flexColumns.getOrNull(1)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.splitBySeparator()
-                        ?.getOrNull(1)?.oddElements()?.map {
-                            Artist(
-                                name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId
-                            )
-                        } ?: return null,
+                    // Group index 1 of the byline used to be taken on faith. A suggestion row
+                    // with no artist attribution collapses to two groups, which put the play
+                    // count in the artist's slot, and that is how a library ends up holding an
+                    // artist called "431K plays".
+                    artists = PageHelper.songArtists(renderer.flexColumns),
                     album = renderer.flexColumns.getOrNull(2)?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.let {
                         Album(
                             name = it.text,
