@@ -56,6 +56,20 @@ Builds:
     scandelete:
       - taglib
 
+  - versionName: 0.10.8
+    versionCode: 85
+    commit: v0.10.8
+    subdir: app
+    submodules: true
+    gradle:
+      - core
+    prebuild:
+      - sdkmanager 'cmake;3.31.6'
+      - sed -i -e 's/ndkVersion = "29\.0\.13113456"/ndkVersion = "28.2.13676358"/' ../taglib/build.gradle.kts
+    ndk: 28.2.13676358
+    scandelete:
+      - taglib
+
 # Reproducible builds are possible here and worth trying once the first build lands: the
 # release apks are published at a stable path and signed with one key, which is what
 # Binaries and AllowedAPKSigningKeys are for. Left out of the first submission so that a
@@ -66,5 +80,5 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v
-CurrentVersion: 0.10.7
-CurrentVersionCode: 84
+CurrentVersion: 0.10.8
+CurrentVersionCode: 85
