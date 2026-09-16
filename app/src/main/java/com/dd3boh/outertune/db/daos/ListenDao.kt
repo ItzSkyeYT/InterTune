@@ -273,7 +273,12 @@ interface ListenDao {
     fun lastBuild(rowKey: Int): RowBuild?
 
     /** Builds whose day is over and not yet scored, oldest first. */
-    @Query("SELECT * FROM row_build WHERE gradedAt IS NULL AND cards IS NOT NULL AND builtAt < :before ORDER BY builtAt")
+    /**
+     * Builds old enough to judge. Any row that recorded what it showed qualifies, not only the
+     * engine's: cards is null for the library and YouTube rows, and requiring it meant those two
+     * were written down and never scored.
+     */
+    @Query("SELECT * FROM row_build WHERE gradedAt IS NULL AND (cards IS NOT NULL OR shownIds != '') AND builtAt < :before ORDER BY builtAt")
     fun buildsToScore(before: Long): List<RowBuild>
 
     @Query("SELECT MIN(builtAt) FROM row_build WHERE rowKey = :rowKey AND builtAt > :after")

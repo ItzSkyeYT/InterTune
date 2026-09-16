@@ -78,7 +78,7 @@ class MusicDatabase(
     fun close() = delegate.close()
 
     companion object {
-        const val MUSIC_DATABASE_VERSION = 21
+        const val MUSIC_DATABASE_VERSION = 22
     }
 }
 
@@ -135,6 +135,7 @@ class MusicDatabase(
         AutoMigration(from = 18, to = 19), // Recent activity
         AutoMigration(from = 19, to = 20, spec = Migration19To20::class), // Db optimization, remove totalplaytime, local media fields
         AutoMigration(from = 20, to = 21), // Listen log, impressions, queue origin; all additive with defaults
+        AutoMigration(from = 21, to = 22), // row_build.shownIds, so every source can be scored; additive with a default
     ]
 )
 @TypeConverters(Converters::class)
