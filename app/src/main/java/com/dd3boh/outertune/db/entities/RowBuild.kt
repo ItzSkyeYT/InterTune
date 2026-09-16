@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.db.entities
 
 import androidx.compose.runtime.Immutable
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -36,6 +37,16 @@ data class RowBuild(
     val pool: String? = null,
     /** The row's cards as RowBuildCodec text, so Home can show the last build at once and a shadow build can be judged. */
     val cards: String? = null,
+    /**
+     * The song ids this row actually showed, newline separated, for every source.
+     *
+     * [cards] only exists for rows the engine built, so the library and YouTube rows were recorded
+     * and could never be scored: buildsToScore requires cards, and the panel that asks which row
+     * held what was played next could only ever show the engine against its own shadow, which the
+     * engine wins by construction because it is the one on screen. Storing the ids for every build
+     * is what makes the three sources comparable at all.
+     */
+    @ColumnInfo(defaultValue = "") val shownIds: String = "",
     /** After the build's day: the listener's picks in that time, and how many the row held. */
     val plays: Int? = null,
     val hits: Int? = null,

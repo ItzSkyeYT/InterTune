@@ -339,6 +339,7 @@ class HomeViewModel @Inject constructor(
                         builtAt = now, rowKey = 4, sessionId = currentSessionOf(now), bucket = input.bucket, dial = context.dataStore.get(AdventurousnessKey, 15),
                         seeds = EngineLoader.seedsJson(row.seeds), weights = weights.asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" },
                         pool = RowBuildCodec.encode(row.pool), cards = RowBuildCodec.encode(row.cards),
+                        shownIds = row.cards.joinToString("\n") { it.songId },
                     ))
                 }
             }.onFailure { Log.w("HomeViewModel", "Shadow build failed", it) }
@@ -528,6 +529,8 @@ class HomeViewModel @Inject constructor(
                     weights = if (engineRow != null) weightsInUse.asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" } else "{}",
                     pool = engineRow?.let { RowBuildCodec.encode(it.pool) },
                     cards = engineRow?.let { RowBuildCodec.encode(it.cards) },
+                    // Every source, not just the engine's, so all three can be scored the same way.
+                    shownIds = ids.joinToString("\n"),
                 ))
                 currentBuildSongs = ids
                 currentTeam = rowKey

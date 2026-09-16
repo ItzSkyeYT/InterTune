@@ -57,15 +57,19 @@ class EngineLearning(private val context: Context, private val database: MusicDa
         for (b in builds) {
             val cards = RowBuildCodec.decode(b.cards)
             val pool = RowBuildCodec.decode(b.pool)
+            // What the row put on screen. The engine's builds carry full cards; the library and
+            // YouTube rows carry ids alone, which is all the hit count needs.
+            val shown = if (cards.isNotEmpty()) cards.map { it.songId }
+            else b.shownIds.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
             val end = minOf(database.nextBuildAt(b.rowKey, b.builtAt) ?: Long.MAX_VALUE, b.builtAt + 86_400_000L)
             val window = listens.filter { it.startedAt > b.builtAt && it.startedAt <= end }
-            val ids = (cards.map { it.songId } + pool.map { it.songId } + window.map { it.songId }).toSet().toList()
+            val ids = (shown + pool.map { it.songId } + window.map { it.songId }).toSet().toList()
             val songs = ids.chunked(900).flatMap { chunk -> database.songsByIds(chunk).first() }
                 .associate { it.id to SongRow(it.id, it.song.title, it.artists.firstOrNull()?.id, it.artists.firstOrNull()?.name, it.song.liked, it.song.likedDate?.let { d -> storedLocalToInstant(Converters().dateToTimestamp(d)!!) }?.takeIf { _ -> it.song.liked }) }
             val groups = VersionGroups(songs.values, database.engineVersionLinks().map { VersionLink(it.songId, it.versionId) })
             val picks = window.filter { Signals.engagement(it, songs[it.songId]?.likedAt) >= EngineParams.DEFAULT.justPlayedEngagement }
                 .groupBy { groups.groupOf(it.songId) }
-            val rowGroups = cards.map { groups.groupOf(it.songId) }.toSet()
+            val rowGroups = shown.map { groups.groupOf(it) }.toSet()
             val hits = picks.keys.count { it in rowGroups }
             database.transactionNow { scoreBuild(b.id, picks.size, hits, now) }
             if (b.rowKey != 1 || pool.isEmpty() || database.poolPicksOf(b.id) > 0) continue
