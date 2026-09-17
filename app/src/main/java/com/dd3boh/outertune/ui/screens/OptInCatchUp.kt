@@ -34,12 +34,14 @@ import androidx.compose.ui.window.DialogProperties
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
+import com.dd3boh.outertune.constants.UsageCountEnabledKey
 import com.dd3boh.outertune.utils.rememberNullablePreference
 
 /**
  * The questions somebody was never asked, asked.
  *
- * [SetupWizard] is the only place that raises the update and questions opt ins, and it runs once,
+ * [SetupWizard] is the only place that raises the update, questions and counting opt ins, and it
+ * runs once,
  * which leaves two ways to hold an install whose answers were never given:
  *
  *  - updating from a build whose onboarding predates the card, so the wizard ran before there was
@@ -50,19 +52,20 @@ import com.dd3boh.outertune.utils.rememberNullablePreference
  * check ever runs, no question is ever fetched, and nothing says so. The first poll went out to an
  * install base where almost nobody had been asked, so almost nobody answered.
  *
- * A slice of onboarding rather than a second copy of it. The same two cards the wizard shows, in
+ * A slice of onboarding rather than a second copy of it. The same cards the wizard shows, in
  * the same order, with none of the setup around them, so it is over in one screen. Somebody who has
  * already answered one of them sees it as the switch it becomes rather than as a question, which
  * keeps the screen honest about how little it is actually asking for.
  *
  * Not dismissable, for the reason the update dialog before it was not: a prompt that can be waved
  * away without answering leaves the preference unset, and then it is owed all over again on the next
- * launch. [onDone] only unlocks once both have a value, so the screen is left by answering it.
+ * launch. [onDone] only unlocks once every card has a value, so the screen is left by answering it.
  */
 @Composable
 fun OptInCatchUp(onDone: () -> Unit) {
     val updateChoice by rememberNullablePreference(UpdateCheckEnabledKey)
     val pollChoice by rememberNullablePreference(PollsEnabledKey)
+    val usageChoice by rememberNullablePreference(UsageCountEnabledKey)
 
     Dialog(
         onDismissRequest = { },
@@ -108,8 +111,10 @@ fun OptInCatchUp(onDone: () -> Unit) {
 
                 PollsOptInCard()
 
+                UsageCountOptInCard()
+
                 Button(
-                    enabled = updateChoice != null && pollChoice != null,
+                    enabled = updateChoice != null && pollChoice != null && usageChoice != null,
                     onClick = onDone,
                     modifier = Modifier
                         .fillMaxWidth()

@@ -77,6 +77,7 @@ import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material.icons.rounded.Sync
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Poll
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.Button
@@ -136,6 +137,7 @@ import com.dd3boh.outertune.constants.DEFAULT_ENABLED_FILTERS
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
 import com.dd3boh.outertune.constants.AutoInstallUpdatesKey
 import com.dd3boh.outertune.constants.PollsEnabledKey
+import com.dd3boh.outertune.constants.UsageCountEnabledKey
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.constants.EnabledFiltersKey
 import com.dd3boh.outertune.constants.EnabledTabsKey
@@ -876,6 +878,8 @@ fun SetupWizard(
 
                                     PollsOptInCard()
 
+                                    UsageCountOptInCard()
+
                                     Row(
                                         horizontalArrangement = Arrangement.Center,
                                         modifier = Modifier.padding(vertical = 16.dp)
@@ -1222,6 +1226,79 @@ fun PollsOptInCard() {
                 title = { Text(stringResource(R.string.polls_enabled)) },
                 description = stringResource(R.string.oobe_polls_answered),
                 icon = { Icon(Icons.Rounded.Poll, null) },
+                checked = answered,
+                onCheckedChange = { answer(it) }
+            )
+        }
+    }
+}
+
+
+/**
+ * The third and last of these, and the only one that sends anything without being looked at.
+ *
+ * Its own card rather than a line inside the questions one, because they are different bargains:
+ * a poll is a thing you are shown and may answer, this is a thing that happens quietly once a day.
+ * Folding them into one yes would be the kind of consent that is technically obtained and actually
+ * not, and the poll modal's promise that nothing identifies anybody has to stay true on its own.
+ *
+ * No ping is fired on saying yes. [com.dd3boh.outertune.utils.ActiveCount] runs at launch, so the
+ * first count lands on the next open, which is soon enough and keeps this card free of a checker.
+ */
+@Composable
+fun UsageCountOptInCard() {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val choice by rememberNullablePreference(UsageCountEnabledKey)
+
+    fun answer(enabled: Boolean) {
+        coroutineScope.launch {
+            context.dataStore.edit { it[UsageCountEnabledKey] = enabled }
+        }
+    }
+
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp)
+    ) {
+        val answered = choice
+        if (answered == null) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.usage_count_opt_in_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = stringResource(R.string.usage_count_opt_in_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                ) {
+                    TextButton(onClick = { answer(false) }) {
+                        Text(stringResource(R.string.polls_opt_in_no))
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Button(onClick = { answer(true) }) {
+                        Text(stringResource(R.string.usage_count_opt_in_yes))
+                    }
+                }
+            }
+        } else {
+            SwitchPreference(
+                title = { Text(stringResource(R.string.usage_count_enabled)) },
+                description = stringResource(R.string.oobe_usage_count_answered),
+                icon = { Icon(Icons.Rounded.Groups, null) },
                 checked = answered,
                 onCheckedChange = { answer(it) }
             )

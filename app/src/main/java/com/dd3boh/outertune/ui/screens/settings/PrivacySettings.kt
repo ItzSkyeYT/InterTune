@@ -42,6 +42,7 @@ import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.screens.settings.fragments.ListenHistoryFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PollsFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.UsageCountFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SearchHistoryFrag
 import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -102,6 +103,18 @@ fun PrivacySettings(
             modifier = Modifier.fillMaxWidth()
         ) {
             PollsFrag()
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        PreferenceGroupTitle(
+            title = stringResource(R.string.grp_usage_count)
+        )
+
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            UsageCountFrag()
         }
 
         SettingsClickToReveal(stringResource(R.string.advanced)) {

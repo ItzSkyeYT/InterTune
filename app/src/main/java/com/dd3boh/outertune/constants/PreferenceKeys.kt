@@ -357,6 +357,25 @@ val LastPollFetchKey = longPreferencesKey("lastPollFetch")
  */
 val CachedPollsJsonKey = stringPreferencesKey("cachedPollsJson")
 
+/**
+ * Consent to being counted once a day. Off until somebody says otherwise, like every other switch
+ * that sends anything anywhere.
+ */
+val UsageCountEnabledKey = booleanPreferencesKey("usageCountEnabled")
+
+/**
+ * The random name this device is counted under this month, and the month it belongs to.
+ *
+ * Held rather than derived so that the device keeps no long lived secret either: when the month
+ * turns the old value is overwritten, not hashed forward, so nothing on the device links this
+ * month to the last one.
+ */
+val UsageCountIdKey = stringPreferencesKey("usageCountId")
+val UsageCountPeriodKey = stringPreferencesKey("usageCountPeriod")
+
+/** The last local day counted, which is what keeps this to once a day however often the app opens. */
+val UsageCountLastDayKey = stringPreferencesKey("usageCountLastDay")
+
 val LanguageCodeToName = mapOf(
     "af" to "Afrikaans",
     "az" to "Azərbaycan",

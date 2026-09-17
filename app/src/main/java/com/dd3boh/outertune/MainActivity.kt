@@ -68,6 +68,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
+import com.dd3boh.outertune.constants.UsageCountEnabledKey
 import com.dd3boh.outertune.utils.dataStore
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -217,6 +218,7 @@ import com.dd3boh.outertune.utils.Scrobbler
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.AutoBackup
 import com.dd3boh.outertune.utils.BackgroundCheckWorker
+import com.dd3boh.outertune.utils.ActiveCount
 import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.UpdateInstaller
@@ -335,6 +337,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var pollChecker: PollChecker
 
+    @Inject
+    lateinit var activeCount: ActiveCount
+
     lateinit var activityLauncher: ActivityLauncherHelper
     lateinit var connectivityObserver: NetworkConnectivityObserver
 
@@ -442,6 +447,10 @@ class MainActivity : ComponentActivity() {
                 // Same contract as the update check: nothing happens unless the user opted in, it
                 // rate limits itself, and failure is silent.
                 coroutineScope.launch { pollChecker.check() }
+
+                // And the same again for the once-a-day count: off unless asked for, silent when
+                // it fails, and a no-op on every open after the first one each day.
+                coroutineScope.launch { activeCount.ping() }
                 // Re-applied on every launch, cheap because the work is keyed by name and replaced
                 // rather than stacked. This is also what puts the schedule back after a reboot,
                 // since WorkManager needs the app to run once before it will restore its own.
@@ -768,6 +777,7 @@ class MainActivity : ComponentActivity() {
                         LocalUpdateChecker provides updateChecker,
                         LocalUpdateInstaller provides updateInstaller,
                         LocalPollChecker provides pollChecker,
+                        LocalActiveCount provides activeCount,
                         LocalNetworkConnected provides isNetworkConnected,
                         LocalSnackbarHostState provides snackbarHostState,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
@@ -804,13 +814,14 @@ class MainActivity : ComponentActivity() {
                          */
                         val updateChoice by rememberNullablePreference(UpdateCheckEnabledKey)
                         val pollChoice by rememberNullablePreference(PollsEnabledKey)
+                        val usageChoice by rememberNullablePreference(UsageCountEnabledKey)
 
                         var catchUpOpen by rememberSaveable { mutableStateOf(false) }
                         var catchUpDone by rememberSaveable { mutableStateOf(false) }
 
-                        LaunchedEffect(updateChoice, pollChoice, oobeStatus) {
+                        LaunchedEffect(updateChoice, pollChoice, usageChoice, oobeStatus) {
                             if (!catchUpDone && oobeStatus >= OOBE_VERSION &&
-                                (updateChoice == null || pollChoice == null)
+                                (updateChoice == null || pollChoice == null || usageChoice == null)
                             ) {
                                 catchUpOpen = true
                             }
@@ -820,6 +831,10 @@ class MainActivity : ComponentActivity() {
                             OptInCatchUp(onDone = {
                                 catchUpOpen = false
                                 catchUpDone = true
+                                // The launch ping already ran, before there was an answer to read.
+                                // Somebody who has just said yes should count today rather than
+                                // tomorrow, so ask once more now that the preference is written.
+                                coroutineScope.launch { activeCount.ping() }
                             })
                         }
 
@@ -1559,5 +1574,6 @@ val LocalLoudnessRepair = staticCompositionLocalOf<LoudnessRepair> { error("No L
 val LocalUpdateChecker = staticCompositionLocalOf<UpdateChecker> { error("No UpdateChecker provided") }
 val LocalUpdateInstaller = staticCompositionLocalOf<UpdateInstaller> { error("No UpdateInstaller provided") }
 val LocalPollChecker = staticCompositionLocalOf<PollChecker> { error("No PollChecker provided") }
+val LocalActiveCount = staticCompositionLocalOf<ActiveCount> { error("No ActiveCount provided") }
 val LocalNetworkConnected = staticCompositionLocalOf<Boolean> { error("No Network Status provided") }
 val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> { error("No SnackbarHostState provided") }
