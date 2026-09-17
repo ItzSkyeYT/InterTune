@@ -45,7 +45,13 @@ GPL-3.0-only. The file headers in both projects say the deprecated GPL-3.0, whic
 say whether a later version may be used, so this fork reads it the conservative way. Happy to
 match upstream if you would rather they agree.
 
-Request for packaging: <link to the RFP issue>
+A request for packaging was filed as fdroid/rfp#4387 and closed automatically by fdroid-bot
+six minutes later, labelled com.dd3boh.outertune. That is upstream's package, and the match is
+a false one: app/build.gradle.kts still carries upstream's namespace, inherited with the
+package structure, while the applicationId two lines below it is dev.skye.intertune. aapt2 on
+the published 0.10.7 apk reports package: name='dev.skye.intertune', the two install side by
+side, and the signing keys differ so there is no upgrade path between them either way. Raising
+it here rather than reopening there, since a merge request is what the docs ask for anyway.
 
 I am the maintainer.
 ```
