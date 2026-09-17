@@ -24,6 +24,7 @@ Categories:
 License: GPL-3.0-only
 
 AuthorName: Mel Boro
+AuthorEmail: pacific-kindly66@bravealias.com
 
 SourceCode: https://github.com/ItzSkyeYT/InterTune
 IssueTracker: https://github.com/ItzSkyeYT/InterTune/issues
@@ -70,13 +71,21 @@ Builds:
     scandelete:
       - taglib
 
-# Reproducible builds are possible here and worth trying once the first build lands: the
-# release apks are published at a stable path and signed with one key, which is what
-# Binaries and AllowedAPKSigningKeys are for. Left out of the first submission so that a
-# mismatch cannot hold up an otherwise good build.
+# Reproducible builds, asked for in the first submission rather than added later, because
+# there is no later: fdroiddata's own inclusion template says that an app first published
+# signed with F-Droid's key cannot be moved to the developer's own afterwards. Getting this
+# wrong once is permanent, and it decides whether the people already running the GitHub apk
+# can ever move to the F-Droid one without uninstalling and losing their library.
 #
-# Binaries: https://github.com/ItzSkyeYT/InterTune/releases/download/v%v/InterTune-%v-core-release-%c.apk
-# AllowedAPKSigningKeys: 69c6b5fbf1220a44206e8a3a098f41c78af7f94d2fa56eb3165ca40b9199a2a7
+# The path is stable and the key is one key. Verified against the published artifact on
+# 17 Sep 2026 rather than taken on trust: apksigner reports the V2 signer certificate as
+# the digest below, and aapt2 reports the package as dev.skye.intertune.
+#
+# If the comparison does not come out byte for byte, the answer is to drop these two lines
+# and take F-Droid's signature. That costs a round trip. The other order costs the signature
+# for good.
+Binaries: https://github.com/ItzSkyeYT/InterTune/releases/download/v%v/InterTune-%v-core-release-%c.apk
+AllowedAPKSigningKeys: 69c6b5fbf1220a44206e8a3a098f41c78af7f94d2fa56eb3165ca40b9199a2a7
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v
