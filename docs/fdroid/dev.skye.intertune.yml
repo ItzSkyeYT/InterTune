@@ -1,31 +1,12 @@
-# InterTune, as F-Droid's own metadata.
-#
-# A draft of metadata/dev.skye.intertune.yml in fdroiddata, kept here beside the code it
-# has to stay true to: every release adds a Builds entry.
-#
-# Shaped after OuterTune's own entry, which is in fdroiddata and builds on the same
-# infrastructure from the same submodule, so the awkward parts are already answered there:
-# cmake has to be installed by hand in a prebuild line, and the taglib submodule has to be
-# kept out of the source scanner. What this adds is the NDK, which upstream does not pin
-# and this fork does.
-#
-# The build needs no secrets. Last.fm credentials and the poll endpoints come from
-# local.properties, which is not in the repository, and the app works without them: the
-# Last.fm setting hides itself and the poll checker does nothing at all.
-
 AntiFeatures:
   NonFreeNet:
-    en-US: "Playing anything from YouTube Music depends on YouTube Music."
-
+    en-US: Playing anything from YouTube Music depends on YouTube Music.
 Categories:
   - Multimedia
   - Online Media Player
-
 License: GPL-3.0-only
-
 AuthorName: Mel Boro
 AuthorEmail: pacific-kindly66@bravealias.com
-
 SourceCode: https://github.com/ItzSkyeYT/InterTune
 IssueTracker: https://github.com/ItzSkyeYT/InterTune/issues
 Changelog: https://github.com/ItzSkyeYT/InterTune/releases
@@ -34,45 +15,21 @@ AutoName: InterTune
 
 RepoType: git
 Repo: https://github.com/ItzSkyeYT/InterTune
+Binaries: https://github.com/ItzSkyeYT/InterTune/releases/download/v%v/InterTune-%v-core-release-%c.apk
 
 Builds:
   - versionName: 0.10.8
     versionCode: 85
-    # The full hash rather than the v0.10.8 tag: a tag can be repointed after review, a
-    # commit cannot, and the reviewer asked for it this way.
     commit: fa052addec9d195a98f430b759a464059f960d9a
     subdir: app
     submodules: true
     gradle:
       - core
-    # Two things the build needs that the server does not have by default. The cmake
-    # version is the one taglib's CMakeLists demands, and upstream installs the same one.
-    # The sed is the NDK: taglib pins 29, which is new enough that the buildserver may not
-    # carry it, so it is rewritten to r28c. Built and tested that way on 12 Sep 2026, all
-    # four ABIs and the whole core release apk.
-    prebuild:
-      - sdkmanager 'cmake;3.31.6'
-      - sed -i -e 's/ndkVersion = "29\.0\.13113456"/ndkVersion = "28.2.13676358"/' ../taglib/build.gradle.kts
-    ndk: 28.2.13676358
-    # The submodule is C++ sources plus its own gradle wrapper; upstream keeps it out of
-    # the scanner the same way.
+    prebuild: sdkmanager 'cmake;3.31.6'
     scandelete:
       - taglib
+    ndk: 29.0.13113456
 
-# Reproducible builds, asked for in the first submission rather than added later, because
-# there is no later: fdroiddata's own inclusion template says that an app first published
-# signed with F-Droid's key cannot be moved to the developer's own afterwards. Getting this
-# wrong once is permanent, and it decides whether the people already running the GitHub apk
-# can ever move to the F-Droid one without uninstalling and losing their library.
-#
-# The path is stable and the key is one key. Verified against the published artifact on
-# 17 Sep 2026 rather than taken on trust: apksigner reports the V2 signer certificate as
-# the digest below, and aapt2 reports the package as dev.skye.intertune.
-#
-# If the comparison does not come out byte for byte, the answer is to drop these two lines
-# and take F-Droid's signature. That costs a round trip. The other order costs the signature
-# for good.
-Binaries: https://github.com/ItzSkyeYT/InterTune/releases/download/v%v/InterTune-%v-core-release-%c.apk
 AllowedAPKSigningKeys: 69c6b5fbf1220a44206e8a3a098f41c78af7f94d2fa56eb3165ca40b9199a2a7
 
 AutoUpdateMode: Version
