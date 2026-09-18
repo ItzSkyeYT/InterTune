@@ -86,7 +86,20 @@ class LoudnessRepair @Inject constructor(
         data class Blocked(val repaired: Int) : State
     }
 
-    val isRunning: Boolean get() = job?.isActive == true
+    /**
+     * Still working, including the part after cancel() where it is unwinding.
+     *
+     * [Job.isActive] is the obvious spelling and the wrong one. Cancelling flips it to false at
+     * once, while the coroutine keeps going until it reaches a suspension point and then runs its
+     * catch block, which is where the stopped-early result is published from. Between those two
+     * moments isActive says "not running" about a run that is still holding the network and still
+     * writing to [unavailable], so [start] would happily begin a second one alongside it.
+     *
+     * isCompleted is false for both active and cancelling, and true only once the body has
+     * actually finished, which is the question being asked here. A null job, meaning nothing has
+     * ever run, compares false and is correctly not running.
+     */
+    val isRunning: Boolean get() = job?.isCompleted == false
 
     /**
      * Provides the id that must not be touched, because it is playing right now.
@@ -209,9 +222,16 @@ class LoudnessRepair @Inject constructor(
         if (unavailable.isEmpty()) State.NothingToDo
         else State.Finished(repaired = 0, unavailable = unavailable.size, failed = 0, stoppedEarly = false)
 
+    /**
+     * Asks it to stop. It is not stopped when this returns.
+     *
+     * The job is deliberately kept rather than dropped. Nulling it here was the same bug as
+     * reading isActive: it made [isRunning] answer false while the old run was still unwinding,
+     * so the toggle in settings could start a second run over the top of the first. The reference
+     * stays until [start] replaces it, and the cancelled run publishes what it managed to do.
+     */
     fun cancel() {
         job?.cancel()
-        job = null
     }
 
     /** Clears a finished result so the settings row returns to its resting state. */
