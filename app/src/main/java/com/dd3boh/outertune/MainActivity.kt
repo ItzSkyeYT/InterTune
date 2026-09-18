@@ -494,7 +494,13 @@ class MainActivity : ComponentActivity() {
                     return@LaunchedEffect
                 }
                 playerConnection.service.currentMediaMetadata.collectLatest { song ->
-                    coroutineScope.launch(coilCoroutine) {
+                    // Done inside collectLatest rather than launched from it. Launching made the
+                    // lambda return the moment the job was handed off, so collectLatest had
+                    // nothing left to cancel when the next song arrived: every skip added another
+                    // image load and palette extraction racing the others to write themeColor,
+                    // and the winner was whichever finished last, not whichever song was playing.
+                    // Skipping quickly could therefore settle the theme on a song two back.
+                    themeColor = withContext(coilCoroutine) {
                         var ret = DefaultThemeColor
                         if (song != null) {
                             val uri = (if (song.isLocal) song.localPath else song.thumbnailUrl)?.toUri()
@@ -515,7 +521,7 @@ class MainActivity : ComponentActivity() {
                                 ret = result.image?.toBitmap()?.extractThemeColor() ?: DefaultThemeColor
                             }
                         }
-                        themeColor = ret
+                        ret
                     }
                 }
             }
