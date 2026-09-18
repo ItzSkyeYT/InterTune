@@ -15,7 +15,8 @@ AutoName: InterTune
 
 RepoType: git
 Repo: https://github.com/ItzSkyeYT/InterTune
-Binaries: https://github.com/ItzSkyeYT/InterTune/releases/download/v%v/InterTune-%v-core-release-%c.apk
+Binaries: 
+  https://github.com/ItzSkyeYT/InterTune/releases/download/v%v/InterTune-%v-core-release-%c.apk
 
 Builds:
   - versionName: 0.10.8
@@ -23,6 +24,10 @@ Builds:
     commit: fa052addec9d195a98f430b759a464059f960d9a
     subdir: app
     submodules: true
+    sudo:
+      - apt-get update
+      - apt-get install -y openjdk-17-jdk-headless
+      - update-alternatives --auto java
     gradle:
       - core
     prebuild: sdkmanager 'cmake;3.31.6'
