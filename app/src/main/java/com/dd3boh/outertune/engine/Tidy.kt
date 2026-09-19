@@ -53,6 +53,9 @@ class TidyPass(
         val key = versionKey(itemTitle, itemArtist)
         if (itemId in bannedIds || key in bannedKeys) return@filter false
         if (bannedArtists.isNotEmpty() && (artistId(item)?.let { it in bannedArtists } == true || itemArtist?.trim()?.lowercase()?.let { it in bannedArtists } == true)) return@filter false
+        // A preview is thirty seconds and a fade. It is never the thing somebody wanted, and it
+        // costs the slot twice: once when it plays, again when they go and find the real one.
+        if (SongTags.isPreview(itemTitle)) return@filter false
         if (freshOnly && (itemId in playedIds || key in playedKeys)) return@filter false
         seen.add(key)
     }
