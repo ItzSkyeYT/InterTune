@@ -1481,33 +1481,6 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            if (BuildConfig.DEBUG) {
-                                val debugColour = Color.Red
-                                Column(
-                                    modifier = Modifier.padding(start = 50.dp, top = 100.dp)
-                                ) {
-                                    Text(
-                                        text = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) | ${BuildConfig.FLAVOR}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = debugColour
-                                    )
-                                    Text(
-                                        text = "${BuildConfig.APPLICATION_ID} | ${BuildConfig.BUILD_TYPE}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = debugColour
-                                    )
-                                    Text(
-                                        text = "${Build.BRAND} ${Build.DEVICE} (${Build.MODEL})",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = debugColour
-                                    )
-                                    Text(
-                                        text = "${Build.VERSION.SDK_INT} (${Build.ID})",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = debugColour
-                                    )
-                                }
-                            }
                         }
                     }
                 }
