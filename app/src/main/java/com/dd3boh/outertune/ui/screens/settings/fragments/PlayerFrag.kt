@@ -54,6 +54,7 @@ import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
 import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SleepTimerFadeKey
 import com.dd3boh.outertune.ui.component.EnumListPreference
+import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -102,10 +103,10 @@ fun ColumnScope.PlayerGeneralFrag() {
 fun ColumnScope.SpatialUpmixFrag() {
     val (enabled, onEnabledChange) = rememberPreference(SpatialUpmixKey, defaultValue = false)
 
-    SwitchPreference(
-        title = { Text(stringResource(R.string.spatial_upmix)) },
+    ExplainedSwitchPreference(
+        title = stringResource(R.string.spatial_upmix),
         description = stringResource(R.string.spatial_upmix_description),
-        icon = { Icon(Icons.Rounded.Headphones, null) },
+        explanation = stringResource(R.string.spatial_upmix_explain),
         checked = enabled,
         onCheckedChange = onEnabledChange,
     )
@@ -116,10 +117,10 @@ fun ColumnScope.SpatialUpmixFrag() {
 fun ColumnScope.HighPrecisionAudioFrag() {
     val (enabled, onEnabledChange) = rememberPreference(HighPrecisionAudioKey, defaultValue = false)
 
-    SwitchPreference(
-        title = { Text(stringResource(R.string.high_precision_audio)) },
+    ExplainedSwitchPreference(
+        title = stringResource(R.string.high_precision_audio),
         description = stringResource(R.string.high_precision_audio_description),
-        icon = { Icon(Icons.Rounded.GraphicEq, null) },
+        explanation = stringResource(R.string.high_precision_audio_explain),
         checked = enabled,
         onCheckedChange = onEnabledChange,
     )

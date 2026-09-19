@@ -41,10 +41,19 @@ import java.nio.ByteBuffer
  * phasey middle when too much difference signal is thrown to the back, and quiet surrounds are a
  * far smaller mistake than loud ones.
  */
-class StereoUpmixAudioProcessor(
-    /** Read once when the player is built, like the rest of the audio chain. */
-    private val enabled: Boolean,
-) : BaseAudioProcessor() {
+class StereoUpmixAudioProcessor : BaseAudioProcessor() {
+
+    /**
+     * Whether to upmix, changeable while the app runs.
+     *
+     * Volatile because the switch is flipped on the main thread and read on the audio thread. The
+     * sink only asks [onConfigure] again when it reconfigures, so flipping this is not enough on
+     * its own: MusicService restarts the current track to make it take hold. Without that the
+     * setting appeared to do nothing, because a sink already configured for two channels goes on
+     * producing two channels however the flag reads.
+     */
+    @Volatile
+    var enabled: Boolean = false
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (!enabled) return AudioProcessor.AudioFormat.NOT_SET

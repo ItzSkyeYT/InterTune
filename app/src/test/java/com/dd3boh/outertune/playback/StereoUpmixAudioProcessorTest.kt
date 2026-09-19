@@ -23,14 +23,14 @@ class StereoUpmixAudioProcessorTest {
 
     @Test
     fun `disabled, it is not in the chain at all`() {
-        val p = StereoUpmixAudioProcessor(enabled = false)
+        val p = StereoUpmixAudioProcessor().apply { enabled = false }
         assertEquals(AudioProcessor.AudioFormat.NOT_SET, p.configure(stereoFloat()))
         assertFalse(p.isActive)
     }
 
     @Test
     fun `enabled, stereo becomes six channels at the same rate`() {
-        val p = StereoUpmixAudioProcessor(enabled = true)
+        val p = StereoUpmixAudioProcessor().apply { enabled = true }
         val out = p.configure(stereoFloat(44100))
         assertEquals(6, out.channelCount)
         assertEquals(44100, out.sampleRate)
@@ -41,14 +41,14 @@ class StereoUpmixAudioProcessorTest {
     @Test
     fun `anything already multichannel is left alone`() {
         // If YouTube ever does serve 5.1, the real thing must pass through untouched.
-        val p = StereoUpmixAudioProcessor(enabled = true)
+        val p = StereoUpmixAudioProcessor().apply { enabled = true }
         val six = AudioProcessor.AudioFormat(48000, 6, C.ENCODING_PCM_FLOAT)
         assertEquals(AudioProcessor.AudioFormat.NOT_SET, p.configure(six))
     }
 
     @Test
     fun `the fronts are untouched and the matrix is what it claims`() {
-        val p = StereoUpmixAudioProcessor(enabled = true)
+        val p = StereoUpmixAudioProcessor().apply { enabled = true }
         p.configure(stereoFloat())
         p.flush()
 
@@ -72,7 +72,7 @@ class StereoUpmixAudioProcessorTest {
     fun `a mono signal puts nothing in the surrounds`() {
         // Identical channels have no difference component, so a centred mono recording must not
         // acquire a phantom surround field out of nowhere.
-        val p = StereoUpmixAudioProcessor(enabled = true)
+        val p = StereoUpmixAudioProcessor().apply { enabled = true }
         p.configure(stereoFloat())
         p.flush()
 
@@ -90,7 +90,7 @@ class StereoUpmixAudioProcessorTest {
 
     @Test
     fun `sixteen bit survives the round trip`() {
-        val p = StereoUpmixAudioProcessor(enabled = true)
+        val p = StereoUpmixAudioProcessor().apply { enabled = true }
         val out = p.configure(AudioProcessor.AudioFormat(48000, 2, C.ENCODING_PCM_16BIT))
         assertEquals(6, out.channelCount)
         assertEquals(C.ENCODING_PCM_16BIT, out.encoding)

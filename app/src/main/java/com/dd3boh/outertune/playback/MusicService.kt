@@ -338,8 +338,12 @@ class MusicService : MediaLibraryService(),
      */
     private val highPrecisionAudio = dataStore.get(HighPrecisionAudioKey, false)
 
-    /** Stereo to 5.1, so the platform spatialiser has something it will act on. Off by default. */
-    private val spatialUpmix = dataStore.get(SpatialUpmixKey, false)
+    /**
+     * Stereo to 5.1, so the platform spatialiser has something it will act on. Off by default.
+     *
+     * One instance, held here, because the switch has to reach the chain that is already running.
+     */
+    val spatialUpmixProcessor = StereoUpmixAudioProcessor()
     private val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
@@ -524,6 +528,27 @@ class MusicService : MediaLibraryService(),
                 .collectLatest(scope) { contextChip = it }
             dataStore.data.map { it[PersistentQueueKey] ?: true }.distinctUntilChanged()
                 .collectLatest(scope) { persistentQueue = it }
+            // Flipping the flag is not enough: a sink already configured for two channels keeps
+            // producing two channels until something makes it reconfigure, and the only thing
+            // that does is the track being re-prepared. So the current one is restarted where it
+            // stands, which costs a short gap and is the price of the setting working when it is
+            // pressed rather than whenever the app is next killed.
+            dataStore.data.map { it[SpatialUpmixKey] ?: false }.distinctUntilChanged()
+                .collectLatest(scope) { want ->
+                    if (spatialUpmixProcessor.enabled == want) return@collectLatest
+                    spatialUpmixProcessor.enabled = want
+                    withContext(Dispatchers.Main) {
+                        if (player.currentMediaItem != null) {
+                            val at = player.currentPosition
+                            val wasPlaying = player.playWhenReady
+                            player.stop()
+                            player.prepare()
+                            player.seekTo(at)
+                            player.playWhenReady = wasPlaying
+                        }
+                    }
+                }
+
             dataStore.data.map {
                 it[AdaptiveQueueModeKey]?.let { name ->
                     runCatching { AdaptiveQueueMode.valueOf(name) }.getOrNull()
@@ -1276,7 +1301,7 @@ class MusicService : MediaLibraryService(),
                                 // Upmix last: gain works on the two channels it was written for,
                                 // and the extra four are derived from the result rather than
                                 // being gained separately.
-                                arrayOf(gainProcessor, StereoUpmixAudioProcessor(spatialUpmix)),
+                                arrayOf(gainProcessor, spatialUpmixProcessor),
                                 SilenceSkippingAudioProcessor(),
                                 SonicAudioProcessor()
                             )
@@ -1308,7 +1333,7 @@ class MusicService : MediaLibraryService(),
                                 // Upmix last: gain works on the two channels it was written for,
                                 // and the extra four are derived from the result rather than
                                 // being gained separately.
-                                arrayOf(gainProcessor, StereoUpmixAudioProcessor(spatialUpmix)),
+                                arrayOf(gainProcessor, spatialUpmixProcessor),
                                 SilenceSkippingAudioProcessor(),
                                 SonicAudioProcessor()
                             )
