@@ -97,8 +97,14 @@ object ContextChip {
     const val CHILL = 4
     const val PARTY = 5
     val MOODS = setOf(FOCUS, CHILL, PARTY)
-    /** Below this many listens tagged with a mood, the row behaves as Auto and says so. */
-    const val MIN_TAGGED = 20
+    /**
+     * Below this many listens tagged with a mood, the chip leans on [ChipPrior] instead of on
+     * what it has learned.
+     *
+     * Was twenty, which is a long time to press Chill and be handed the same row. The prior now
+     * covers the gap, so this only needs to be enough listens to be worth learning from.
+     */
+    const val MIN_TAGGED = 8
 }
 
 /** How a card got into the row. Appended in order: the code stored on an impression is ordinal + 1. */

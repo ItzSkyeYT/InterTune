@@ -105,7 +105,26 @@ class SeedSampler(
         val likedRecent = usableLikes.take(p.likedRecentPool).associate { it.id to 1.0 }
         val likedOld = usableLikes.filter { it.likedAt!! < input.now - p.likedOldAfterDays * day }.associate { it.id to 1.0 }
 
-        fun damped(pool: Map<String, Double>) = pool.mapValues { (id, w) -> w * damping(id) }
+        /**
+         * How much a freshly pressed mood chip may lean on a candidate's treatment.
+         *
+         * Reranking is not enough on its own. Every pool above is drawn from what the listener
+         * played, so pressing Chill in a week of phonk seeds the row from phonk and then reorders
+         * phonk. This tilts the draw itself, which is the only point where the row's subject
+         * matter is decided.
+         *
+         * A tilt, not a filter. The weights are a sampling distribution, so an unfitting song
+         * becomes unlikely rather than impossible, and a song the prior knows nothing about, which
+         * is most of them, keeps exactly the weight it had. Fades to nothing as the chip learns.
+         */
+        val priorWeight = if (ChipPrior.knows(input.chip)) ChipPrior.weight(stats.goodTaggedAll) else 0.0
+        fun moodBias(id: String): Double {
+            if (priorWeight <= 0.0) return 1.0
+            val title = input.songs[id]?.title ?: return 1.0
+            return (1.0 + priorWeight * ChipPrior.fit(input.chip, SongTags.of(title))).coerceAtLeast(0.2)
+        }
+
+        fun damped(pool: Map<String, Double>) = pool.mapValues { (id, w) -> w * damping(id) * moodBias(id) }
         val out = ArrayList<String>()
         var carry = 0
         fun take(pool: Map<String, Double>, want: Int) {

@@ -83,6 +83,13 @@ object Features {
         )
         /** A mood chip with enough tagged listens: x_ctx is fit to the mood rather than the day part. */
         val moodActive: Boolean = input.chip in ContextChip.MOODS && stats.goodTaggedAll >= ContextChip.MIN_TAGGED
+
+        /**
+         * How much the prior below still counts. Zero once the chip has learned enough to speak
+         * for itself, which is the same threshold [moodActive] uses.
+         */
+        val chipPriorWeight: Double =
+            if (ChipPrior.knows(input.chip)) ChipPrior.weight(stats.goodTaggedAll) else 0.0
         val bucketShare: Double = when {
             moodActive -> if (stats.goodInContextWindow > 0) stats.goodTaggedInWindow.toDouble() / stats.goodInContextWindow else 0.0
             stats.goodInContextWindow > 0 -> stats.goodByBucket[input.bucket].toDouble() / stats.goodInContextWindow
@@ -117,7 +124,18 @@ object Features {
             (co / p.coSaturation).coerceAtMost(1.0)
         }
         x[CTX] = contextLift(art, c)
-        x[FIT] = if (song == null) 0.0 else TagFit.score(SongTags.of(song.title), c.tagContext)
+        // One feature, two meanings, and the declared one wins while it is still new.
+        //
+        // With no chip this follows the run: what the last few listens sounded like. But pressing
+        // Chill in the middle of a run of phonk is a request to break the run, not to continue
+        // it, so a mood that has not learned anything yet answers from the prior instead, and
+        // fades back to following the run as its own listens accumulate.
+        x[FIT] = if (song == null) 0.0 else {
+            val tags = SongTags.of(song.title)
+            val run = TagFit.score(tags, c.tagContext)
+            val w = c.chipPriorWeight
+            if (w <= 0.0) run else w * ChipPrior.fit(c.input.chip, tags) + (1 - w) * run
+        }
         x[OVER] = if (art == null || art.positiveLong <= 0) 0.0 else {
             val totalShort = c.stats.artists.values.sumOf { it.positiveShort }
             val totalLong = c.stats.artists.values.sumOf { it.positiveLong }
