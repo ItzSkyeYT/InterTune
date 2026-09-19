@@ -16,11 +16,15 @@ import kotlin.math.exp
 object Features {
     const val ACT = 0; const val SAT = 1; const val GAP = 2; const val DORM = 3; const val LIKE = 4; const val SEED = 5
     const val ART = 6; const val NOVEL = 7; const val IMP = 8; const val CO = 9; const val CTX = 10; const val OVER = 11
-    const val COUNT = 12
+    const val FIT = 12
+    const val COUNT = 13
 
-    val names = listOf("x_act", "x_sat", "x_gap", "x_dorm", "x_like", "x_seed", "x_art", "x_novel", "x_imp", "x_co", "x_ctx", "x_over")
+    val names = listOf("x_act", "x_sat", "x_gap", "x_dorm", "x_like", "x_seed", "x_art", "x_novel", "x_imp", "x_co", "x_ctx", "x_over", "x_fit")
 
-    /** The weight names beyond the twelve: the bias, one bias per lane, and position. */
+    /** How recent a listen has to be to count as part of the run happening now. */
+    const val RUN_WINDOW_MS = 90 * 60 * 1000L
+
+    /** The weight names beyond the features: the bias, one bias per lane, and position. */
     const val BIAS = "b"
     const val POS = "w_pos"
     fun laneBias(lane: Lane) = "b_" + lane.name.lowercase()
@@ -33,7 +37,7 @@ object Features {
         fun penalty(name: String, v: Double) = put(name, Prior(v, v - 3, 0.0))
         free("x_act", 1.0); penalty("x_sat", -0.8); penalty("x_gap", -0.4); free("x_dorm", 0.5); free("x_like", 0.3)
         free("x_seed", 1.2); free("x_art", 0.8); free("x_novel", -0.3); penalty("x_imp", -1.0); free("x_co", 0.4)
-        free("x_ctx", 0.3); penalty("x_over", -1.0); penalty(POS, -0.3); free(BIAS, -3.0)
+        free("x_ctx", 0.3); penalty("x_over", -1.0); free("x_fit", 0.6); penalty(POS, -0.3); free(BIAS, -3.0)
         Lane.entries.forEach { free(laneBias(it), 0.0) }
     }
 
@@ -52,6 +56,31 @@ object Features {
             .filter { it.seenAt >= input.now - p.impressionWindowDays * day }
             .groupingBy { groups.groupOf(it.songId) }.eachCount()
         val currentSessionArtists: Set<String> = stats.sessionArtists.firstOrNull() ?: emptySet()
+
+        /**
+         * What the last few minutes sounded like, or nothing if there were no last few minutes.
+         *
+         * The only thing in this vector that is about the music rather than about the listener or
+         * the artist. Everything else the engine knows is behaviour, so a candidate by an artist
+         * played often at this hour scores the same whether it is the slowed edit or the phonk,
+         * and the row cannot tell one mood from another inside one catalogue.
+         *
+         * Bounded by [RUN_WINDOW_MS] on purpose. A run is a thing happening now; a run that ended
+         * hours ago says nothing about what is wanted after the app has been shut and reopened,
+         * and following it would be worse than following nothing. When the gap is long enough the
+         * context comes back not-known and [TagFit.score] returns zero for everything, which is
+         * the engine admitting it has no idea rather than guessing.
+         */
+        val tagContext: TagFit.Context = TagFit.context(
+            input.listens
+                .asSequence()
+                .filter { it.startedAt >= input.now - RUN_WINDOW_MS }
+                .sortedByDescending { it.startedAt }
+                .mapNotNull { input.songs[it.songId]?.title }
+                .map { SongTags.of(it) }
+                .take(TagFit.WINDOW)
+                .toList()
+        )
         /** A mood chip with enough tagged listens: x_ctx is fit to the mood rather than the day part. */
         val moodActive: Boolean = input.chip in ContextChip.MOODS && stats.goodTaggedAll >= ContextChip.MIN_TAGGED
         val bucketShare: Double = when {
@@ -88,6 +117,7 @@ object Features {
             (co / p.coSaturation).coerceAtMost(1.0)
         }
         x[CTX] = contextLift(art, c)
+        x[FIT] = if (song == null) 0.0 else TagFit.score(SongTags.of(song.title), c.tagContext)
         x[OVER] = if (art == null || art.positiveLong <= 0) 0.0 else {
             val totalShort = c.stats.artists.values.sumOf { it.positiveShort }
             val totalLong = c.stats.artists.values.sumOf { it.positiveLong }
