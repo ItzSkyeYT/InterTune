@@ -126,6 +126,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.window.core.layout.WindowHeightSizeClass
 import androidx.window.core.layout.WindowWidthSizeClass
 import coil3.imageLoader
 import coil3.request.ImageRequest
@@ -422,7 +423,22 @@ class MainActivity : ComponentActivity() {
             val (oobeStatus) = rememberPreference(OobeStatusKey, defaultValue = 0)
 
             var filter by rememberEnumPreference(LibraryFilterKey, Screens.LibraryFilter.ALL)
-            val (slimNav) = rememberPreference(SlimNavBarKey, defaultValue = false)
+            val (slimNavPreference) = rememberPreference(SlimNavBarKey, defaultValue = false)
+
+            /**
+             * The slim bar, forced when the window is too short to spare the room.
+             *
+             * In Samsung's pop up view the whole app is a window a few hundred dp tall, and the
+             * navigation bar was taking a fifth of it: 68dp of chrome with labels under the icons,
+             * above a mini player, inside something the size of a playing card. The same is true
+             * of any short window, landscape included.
+             *
+             * Forced rather than offered, and the preference is still honoured in the other
+             * direction: somebody who asked for the slim bar keeps it everywhere, somebody who did
+             * not gets it back the moment the window is a normal height again.
+             */
+            val slimNav = slimNavPreference ||
+                    windowSizeClass.windowHeightSizeClass == WindowHeightSizeClass.COMPACT
             val (enabledTabs) = rememberPreference(EnabledTabsKey, defaultValue = DEFAULT_ENABLED_TABS)
             val navigationItems = Screens.getScreens(enabledTabs)
             val (defaultOpenTab, onDefaultOpenTabChange) = rememberPreference(
