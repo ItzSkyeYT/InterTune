@@ -60,12 +60,13 @@ class StereoUpmixAudioProcessorTest {
         val out = p.output
         val got = FloatArray(6) { out.float }
 
-        assertEquals("front left is the original", 0.8f, got[0], 1e-6f)
-        assertEquals("front right is the original", -0.2f, got[1], 1e-6f)
-        assertEquals("centre is the sum at -3dB", (0.8f + -0.2f) * 0.7071f, got[2], 1e-5f)
+        val t = StereoUpmixAudioProcessor.TRIM
+        assertEquals("front left is the original, trimmed", 0.8f * t, got[0], 1e-6f)
+        assertEquals("front right is the original, trimmed", -0.2f * t, got[1], 1e-6f)
+        assertEquals("centre is the sum at -3dB", (0.8f + -0.2f) * 0.7071f * t, got[2], 1e-5f)
         assertEquals("LFE is silent on purpose", 0f, got[3], 1e-9f)
-        assertEquals("back left is the difference", (0.8f - -0.2f) * 0.5f, got[4], 1e-5f)
-        assertEquals("back right is its opposite", -((0.8f - -0.2f) * 0.5f), got[5], 1e-5f)
+        assertEquals("back left is the difference", (0.8f - -0.2f) * 0.5f * t, got[4], 1e-5f)
+        assertEquals("back right is its opposite", -((0.8f - -0.2f) * 0.5f * t), got[5], 1e-5f)
     }
 
     @Test
@@ -85,7 +86,28 @@ class StereoUpmixAudioProcessorTest {
         val got = FloatArray(6) { out.float }
         assertEquals(0f, got[4], 1e-9f)
         assertEquals(0f, got[5], 1e-9f)
-        assertEquals("and the centre carries it", 0.5f * 2 * 0.7071f, got[2], 1e-5f)
+        assertEquals("and the centre carries it", 0.5f * 2 * 0.7071f * StereoUpmixAudioProcessor.TRIM, got[2], 1e-5f)
+    }
+
+    @Test
+    fun `a centred signal comes back at the level it went in`() {
+        // The system folds the six channels back to stereo on the way out, adding centre and
+        // surrounds into left and right at -3 dB each. Without the trim that returns about +6 dB
+        // and the setting wins every comparison by being louder, whatever it does to the imaging.
+        val p = StereoUpmixAudioProcessor().apply { enabled = true }
+        p.configure(stereoFloat())
+        p.flush()
+
+        val input = ByteBuffer.allocateDirect(8).order(ByteOrder.nativeOrder())
+        input.putFloat(0.5f).putFloat(0.5f)
+        input.flip()
+        p.queueInput(input)
+
+        val out = p.output
+        val ch = FloatArray(6) { out.float }
+        // ITU-R BS.775: L = FL + 0.707*C + 0.707*BL
+        val folded = ch[0] + 0.7071f * ch[2] + 0.7071f * ch[4]
+        assertEquals("a mono signal must come back where it started", 0.5f, folded, 0.05f)
     }
 
     @Test
@@ -103,8 +125,8 @@ class StereoUpmixAudioProcessorTest {
 
         val out16 = p.output
         val got = ShortArray(6) { out16.short }
-        assertEquals(16000, got[0].toInt())
-        assertEquals(-4000, got[1].toInt())
+        assertEquals((16000 * StereoUpmixAudioProcessor.TRIM).toInt(), got[0].toInt())
+        assertEquals((-4000 * StereoUpmixAudioProcessor.TRIM).toInt(), got[1].toInt())
         assertEquals(0, got[3].toInt())
     }
 }

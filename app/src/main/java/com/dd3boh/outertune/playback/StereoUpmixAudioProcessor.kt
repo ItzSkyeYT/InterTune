@@ -96,12 +96,12 @@ class StereoUpmixAudioProcessor : BaseAudioProcessor() {
     private inline fun writeFrame(l: Float, r: Float, put: (Float) -> Unit) {
         val centre = (l + r) * CENTRE
         val side = (l - r) * SURROUND
-        put(l)
-        put(r)
-        put(centre)
+        put(l * TRIM)
+        put(r * TRIM)
+        put(centre * TRIM)
         put(0f)
-        put(side)
-        put(-side)
+        put(side * TRIM)
+        put(-side * TRIM)
     }
 
     private fun toPcm16(v: Float): Short {
@@ -121,5 +121,20 @@ class StereoUpmixAudioProcessor : BaseAudioProcessor() {
 
         /** How much difference signal reaches the back. Low on purpose; see the class comment. */
         const val SURROUND = 0.5f
+
+        /**
+         * Overall level, so turning this on is not secretly a volume boost.
+         *
+         * Six channels do not stay six channels. Nothing here is spatialised yet, so the system
+         * folds them back to stereo on the way out, and the standard fold adds the centre and the
+         * surrounds back into left and right at -3 dB each. Run the matrix above through that and
+         * centred material returns about +6 dB, which is enough that the setting would sound
+         * better than the switch off no matter what it did to the imaging. Louder always wins a
+         * comparison.
+         *
+         * A half brings a mono-centred signal back to roughly where it started, so the switch can
+         * be judged on what it does to the sound rather than on how loud it is.
+         */
+        const val TRIM = 0.5f
     }
 }
