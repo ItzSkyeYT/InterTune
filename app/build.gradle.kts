@@ -113,9 +113,13 @@ android {
                     storePassword = it
                 }
             }
-        } else {
-            create("ot_release") { }
         }
+        // No else branch. It used to create an empty ot_release here, which the release build
+        // type then pointed at, and AGP stops at packaging with "missing required property
+        // storeFile" because a signing config with no keystore in it is not a signing config.
+        // Leaving the name undefined lets findByName below return null, which is how you ask
+        // AGP for an unsigned apk, and unsigned is exactly what a build from source should
+        // produce: F-Droid signs its own, and so does anyone else building this without a key.
     }
 
     buildTypes {
@@ -124,7 +128,7 @@ android {
             isShrinkResources = true
             isCrunchPngs = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("ot_release")
+            signingConfig = signingConfigs.findByName("ot_release")
         }
         debug {
             applicationIdSuffix = ".debug"
