@@ -53,6 +53,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="err_stop_on_too_many_errors">Too many errors. Playback stopped</string>
     <string name="wait_to_reconnect">Wait to reconnect</string>
     <string name="err_youtube_busy">YouTube has temporarily stopped serving music to this internet connection. It is not your phone, your account or this song, and it clears by itself. Switching to mobile data usually works straight away. Otherwise leave it a little while and try again.</string>
+    <string name="spatial_upmix">Spatial audio (5.1 upmix)</string>
+    <string name="spatial_upmix_description">Your phone will only apply spatial audio to surround content, and YouTube Music only ever sends stereo, so nothing happens by default. This builds a 5.1 signal out of the stereo one and hands that over. It is an effect, not a remaster: the surround is invented, because the recording never had any. Front left and right are untouched. Best judged with headphones. Takes effect next time playback starts.</string>
     <string name="high_precision_audio">32-bit audio processing</string>
     <string name="high_precision_audio_description">Runs volume normalisation and effects in 32-bit float instead of 16-bit, so the maths does not round the sound back down afterwards. Small difference, and it costs some battery: the phone cannot hand playback off to its low-power audio path in this mode. Takes effect next time playback starts.</string>
     <string name="adaptive_queue">Keep the queue up to date</string>

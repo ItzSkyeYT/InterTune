@@ -386,6 +386,15 @@ val AdaptiveQueueModeKey = stringPreferencesKey("adaptiveQueueMode")
  */
 val HighPrecisionAudioKey = booleanPreferencesKey("highPrecisionAudio")
 
+/**
+ * Whether stereo is upmixed to 5.1 so the platform spatialiser will act on it.
+ *
+ * An effect, not fidelity. YouTube Music serves stereo only, so the surround field is invented
+ * rather than recovered. It exists because this phone's spatialiser refuses stereo outright, so
+ * the real choice is between a synthesised field and none.
+ */
+val SpatialUpmixKey = booleanPreferencesKey("spatialUpmix")
+
 val UsageCountEnabledKey = booleanPreferencesKey("usageCountEnabled")
 
 /**

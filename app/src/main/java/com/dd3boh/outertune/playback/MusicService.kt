@@ -89,6 +89,7 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRa
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.HighPrecisionAudioKey
+import com.dd3boh.outertune.constants.SpatialUpmixKey
 import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.engine.TagFit
 import com.dd3boh.outertune.engine.SongTags
@@ -336,6 +337,9 @@ class MusicService : MediaLibraryService(),
      * renderers, which means rebuilding the player.
      */
     private val highPrecisionAudio = dataStore.get(HighPrecisionAudioKey, false)
+
+    /** Stereo to 5.1, so the platform spatialiser has something it will act on. Off by default. */
+    private val spatialUpmix = dataStore.get(SpatialUpmixKey, false)
     private val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
@@ -1269,7 +1273,10 @@ class MusicService : MediaLibraryService(),
                         .setEnableFloatOutput(enableFloatOutput)
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
-                                arrayOf(gainProcessor),
+                                // Upmix last: gain works on the two channels it was written for,
+                                // and the extra four are derived from the result rather than
+                                // being gained separately.
+                                arrayOf(gainProcessor, StereoUpmixAudioProcessor(spatialUpmix)),
                                 SilenceSkippingAudioProcessor(),
                                 SonicAudioProcessor()
                             )
@@ -1298,7 +1305,10 @@ class MusicService : MediaLibraryService(),
                         .setEnableFloatOutput(enableFloatOutput)
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
-                                arrayOf(gainProcessor),
+                                // Upmix last: gain works on the two channels it was written for,
+                                // and the extra four are derived from the result rather than
+                                // being gained separately.
+                                arrayOf(gainProcessor, StereoUpmixAudioProcessor(spatialUpmix)),
                                 SilenceSkippingAudioProcessor(),
                                 SonicAudioProcessor()
                             )

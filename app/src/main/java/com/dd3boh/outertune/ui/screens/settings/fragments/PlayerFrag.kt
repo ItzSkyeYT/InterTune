@@ -35,6 +35,7 @@ import com.dd3boh.outertune.constants.AudioNormalizationKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.HighPrecisionAudioKey
+import com.dd3boh.outertune.constants.SpatialUpmixKey
 import androidx.compose.material.icons.rounded.AutoAwesome
 import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
 import com.dd3boh.outertune.constants.AdaptiveQueueMode
@@ -96,6 +97,20 @@ fun ColumnScope.PlayerGeneralFrag() {
  * Under the audio settings rather than beside the login, because what it changes is how a song is
  * fetched, and the only time anybody goes looking for it is when a song refuses to play.
  */
+/** Stereo to 5.1, so the platform spatialiser will act on it. */
+@Composable
+fun ColumnScope.SpatialUpmixFrag() {
+    val (enabled, onEnabledChange) = rememberPreference(SpatialUpmixKey, defaultValue = false)
+
+    SwitchPreference(
+        title = { Text(stringResource(R.string.spatial_upmix)) },
+        description = stringResource(R.string.spatial_upmix_description),
+        icon = { Icon(Icons.Rounded.Headphones, null) },
+        checked = enabled,
+        onCheckedChange = onEnabledChange,
+    )
+}
+
 /** 32 bit float through the audio chain, at the cost of the low power offload path. */
 @Composable
 fun ColumnScope.HighPrecisionAudioFrag() {
