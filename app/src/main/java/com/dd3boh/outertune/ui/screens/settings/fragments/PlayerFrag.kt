@@ -34,6 +34,9 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioNormalizationKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
+import androidx.compose.material.icons.rounded.AutoAwesome
+import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
+import com.dd3boh.outertune.constants.AdaptiveQueueMode
 import androidx.compose.material.icons.rounded.AccountCircle
 import com.dd3boh.outertune.constants.PlaybackAuthModeKey
 import com.dd3boh.outertune.constants.PlaybackAuthMode
@@ -92,6 +95,31 @@ fun ColumnScope.PlayerGeneralFrag() {
  * Under the audio settings rather than beside the login, because what it changes is how a song is
  * fetched, and the only time anybody goes looking for it is when a song refuses to play.
  */
+/** Whether the unwatched end of the queue re-plans itself. */
+@Composable
+fun ColumnScope.AdaptiveQueueFrag() {
+    val (mode, onModeChange) = rememberEnumPreference(
+        key = AdaptiveQueueModeKey,
+        defaultValue = AdaptiveQueueMode.AUTOPLAY_ONLY
+    )
+
+    EnumListPreference(
+        title = { Text(stringResource(R.string.adaptive_queue)) },
+        icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+        selectedValue = mode,
+        onValueSelected = onModeChange,
+        valueText = {
+            when (it) {
+                AdaptiveQueueMode.OFF -> stringResource(R.string.adaptive_queue_off)
+                AdaptiveQueueMode.AUTOPLAY_ONLY -> stringResource(R.string.adaptive_queue_autoplay)
+                AdaptiveQueueMode.ALWAYS -> stringResource(R.string.adaptive_queue_always)
+            }
+        }
+    )
+
+    InfoLabel(stringResource(R.string.adaptive_queue_description))
+}
+
 @Composable
 fun ColumnScope.PlaybackAuthFrag() {
     val (authMode, onAuthModeChange) = rememberEnumPreference(

@@ -151,6 +151,10 @@ import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.ui.component.BottomSheet
 import com.dd3boh.outertune.ui.component.BottomSheetState
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
+import com.dd3boh.outertune.constants.AdaptiveQueueMode
+import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
+import com.dd3boh.outertune.playback.AdaptiveQueue
+import androidx.compose.material.icons.rounded.AutoAwesome
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -327,6 +331,7 @@ fun BoxScope.QueueContent(
      * SONG LIST
      */
     val mutableSongs = remember { mutableStateListOf<MediaMetadata>() }
+    val (adaptiveQueueMode) = rememberEnumPreference(AdaptiveQueueModeKey, AdaptiveQueueMode.AUTOPLAY_ONLY)
     val lazySongsListState = rememberLazyListState()
 
     // multiselect
@@ -784,6 +789,43 @@ fun BoxScope.QueueContent(
             contentPadding = contentPadding,
             modifier = if (queueState != null) Modifier.nestedScroll(queueState.preUpPostDownNestedScrollConnection) else Modifier
         ) {
+            // Says what the queue is doing, since it does it out of sight.
+            //
+            // Something that quietly edits a list behind somebody's back has to own up to it the
+            // moment they look, or the first time they notice a song missing they will assume the
+            // app lost it. Only shown when the feature is actually on and there is a tail for it
+            // to act on.
+            if (adaptiveQueueMode != AdaptiveQueueMode.OFF && !isSearching && mutableSongs.size > AdaptiveQueue.LOCKED + 1) {
+                item {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = stringResource(R.string.adaptive_queue_note),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.secondary,
+                            )
+                            Text(
+                                text = stringResource(R.string.adaptive_queue_note_detail),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+
             if ((if (isSearching) filteredSongs else mutableSongs).isEmpty()) {
                 item {
                     EmptyPlaceholder(

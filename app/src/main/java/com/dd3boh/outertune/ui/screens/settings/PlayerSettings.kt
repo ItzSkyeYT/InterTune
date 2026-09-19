@@ -59,6 +59,7 @@ import com.dd3boh.outertune.ui.dialog.CounterDialog
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.screens.settings.fragments.AudioEffectsFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.AudioQualityFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.AdaptiveQueueFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlaybackAuthFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlaybackBehaviourFrag
@@ -118,6 +119,7 @@ fun PlayerSettings(
         ) {
             AudioQualityFrag()
             PlaybackAuthFrag()
+            AdaptiveQueueFrag()
             SpatialAudioFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))

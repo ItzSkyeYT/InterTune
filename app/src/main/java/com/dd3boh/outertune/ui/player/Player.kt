@@ -377,6 +377,16 @@ fun BottomSheetPlayer(
         initialAnchor = 1
     )
 
+    // Nothing may move while the queue is on screen. The service does the re-planning on a
+    // background thread and has no idea what is visible, so the screen tells it.
+    LaunchedEffect(queueSheetState.isExpanded) {
+        playerConnection.service.queueSheetOpen = queueSheetState.isExpanded
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { playerConnection.service.queueSheetOpen = false }
+    }
+
     /**
      * Whether landscape is in lean-back mode, with the system bars hidden.
      *
