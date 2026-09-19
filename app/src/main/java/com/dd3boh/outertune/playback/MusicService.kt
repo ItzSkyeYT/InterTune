@@ -88,6 +88,7 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleShuffle
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRadio
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
+import com.dd3boh.outertune.constants.HighPrecisionAudioKey
 import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.engine.TagFit
 import com.dd3boh.outertune.engine.SongTags
@@ -327,6 +328,14 @@ class MusicService : MediaLibraryService(),
     private val normalizeFactor = MutableStateFlow(1f)
 
     private val audioDecoder = dataStore.get(AudioDecoderKey, DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+
+    /**
+     * 32 bit float through the processor chain, when asked for.
+     *
+     * Read once at construction like [audioDecoder], because changing it means rebuilding the
+     * renderers, which means rebuilding the player.
+     */
+    private val highPrecisionAudio = dataStore.get(HighPrecisionAudioKey, false)
     private val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
@@ -1252,6 +1261,12 @@ class MusicService : MediaLibraryService(),
                 ): AudioSink? {
                     return DefaultAudioSink.Builder(this@MusicService)
                         .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                        // The parameter was being taken and thrown away, so the chain ran in 16
+                        // bit whatever anyone asked for. GainAudioProcessor has handled
+                        // ENCODING_PCM_FLOAT since it was written; it had simply never been given
+                        // any, and every normalised track was rounded back to 16 bit after the
+                        // multiply for no reason.
+                        .setEnableFloatOutput(enableFloatOutput)
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
                                 arrayOf(gainProcessor),
@@ -1264,6 +1279,7 @@ class MusicService : MediaLibraryService(),
                 }
             }
                 .setEnableDecoderFallback(true)
+                .setEnableAudioFloatOutput(highPrecisionAudio)
                 .setExtensionRendererMode(audioDecoder)
         } else {
             return object : DefaultRenderersFactory(this) {
@@ -1274,6 +1290,12 @@ class MusicService : MediaLibraryService(),
                 ): AudioSink? {
                     return DefaultAudioSink.Builder(this@MusicService)
                         .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                        // The parameter was being taken and thrown away, so the chain ran in 16
+                        // bit whatever anyone asked for. GainAudioProcessor has handled
+                        // ENCODING_PCM_FLOAT since it was written; it had simply never been given
+                        // any, and every normalised track was rounded back to 16 bit after the
+                        // multiply for no reason.
+                        .setEnableFloatOutput(enableFloatOutput)
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
                                 arrayOf(gainProcessor),
@@ -1284,7 +1306,7 @@ class MusicService : MediaLibraryService(),
                         .setAudioOffloadSupportProvider(if (!gaplessOffloadAllowed) OtOffloadSupportProvider(context) else DefaultAudioOffloadSupportProvider(context))
                         .build()
                 }
-            }
+            }.setEnableAudioFloatOutput(highPrecisionAudio)
         }
     }
 

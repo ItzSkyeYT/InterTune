@@ -53,6 +53,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="err_stop_on_too_many_errors">Too many errors. Playback stopped</string>
     <string name="wait_to_reconnect">Wait to reconnect</string>
     <string name="err_youtube_busy">YouTube has temporarily stopped serving music to this internet connection. It is not your phone, your account or this song, and it clears by itself. Switching to mobile data usually works straight away. Otherwise leave it a little while and try again.</string>
+    <string name="high_precision_audio">32-bit audio processing</string>
+    <string name="high_precision_audio_description">Runs volume normalisation and effects in 32-bit float instead of 16-bit, so the maths does not round the sound back down afterwards. Small difference, and it costs some battery: the phone cannot hand playback off to its low-power audio path in this mode. Takes effect next time playback starts.</string>
     <string name="adaptive_queue">Keep the queue up to date</string>
     <string name="adaptive_queue_description">When the app adds songs to the end of the queue by itself, it picks them once and then plays them whatever you do next. This lets it change its mind. Songs further down that no longer suit what you have been playing are quietly dropped before you reach them. The next few songs are never touched, nothing is ever reordered, and nothing moves while you have the queue open.</string>
     <string name="adaptive_queue_off">Never</string>

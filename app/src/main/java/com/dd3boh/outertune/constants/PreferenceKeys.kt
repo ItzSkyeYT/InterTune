@@ -372,6 +372,20 @@ val PlaybackAuthModeKey = stringPreferencesKey("playbackAuthMode")
 /** Whether the unwatched end of the queue re-plans itself. See [AdaptiveQueueMode]. */
 val AdaptiveQueueModeKey = stringPreferencesKey("adaptiveQueueMode")
 
+/**
+ * Whether the audio chain runs in 32 bit float rather than 16 bit integer.
+ *
+ * Matters because of the gain stage. Loudness normalisation multiplies every sample, and doing
+ * that in 16 bit rounds the result back to 16 bit afterwards, which is avoidable quantisation on
+ * every single track. GainAudioProcessor was written to handle float and never received any,
+ * because the sink dropped the flag on the floor.
+ *
+ * Off by default. Float output cannot be offloaded, so on a device that would have offloaded this
+ * costs battery, and the difference is small enough that it should be a choice rather than a
+ * decision made for everybody.
+ */
+val HighPrecisionAudioKey = booleanPreferencesKey("highPrecisionAudio")
+
 val UsageCountEnabledKey = booleanPreferencesKey("usageCountEnabled")
 
 /**
