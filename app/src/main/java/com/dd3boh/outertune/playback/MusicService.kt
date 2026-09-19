@@ -63,7 +63,6 @@ import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ShuffleOrder
 import androidx.media3.session.CommandButton
-import androidx.media3.session.CommandButton.ICON_UNDEFINED
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaController
 import androidx.media3.session.MediaLibraryService
@@ -1259,12 +1258,33 @@ class MusicService : MediaLibraryService(),
     fun updateNotification() {
         mediaSession.setCustomLayout(
             listOf(
-                CommandButton.Builder(ICON_UNDEFINED)
-                    .setDisplayName(getString(if (queueBoard.getCurrentQueue()?.shuffled == true) R.string.action_shuffle_off else R.string.action_shuffle_on))
+                // Semantic icons rather than our own drawables, for both of these.
+                //
+                // A controller that redraws the media controls in its own style, which on Samsung
+                // is every one of them, can render an icon it recognises by name. It is under no
+                // obligation to draw an arbitrary drawable handed to it by an app, and One UI
+                // does not: the two buttons built this way were the two that went missing from
+                // the notification while like and radio, already semantic, came through. media3
+                // ships its own drawables for these names, so nothing is lost where the custom
+                // ones did work.
+                //
+                // The label reads the same thing the icon does. It used to read the queue's
+                // shuffled flag while the icon read the player's, and this button calls
+                // toggleShuffleMode, which sets player.shuffleModeEnabled and never touches the
+                // queue. So pressing it moved the icon and left the label behind, sometimes for
+                // good.
+                CommandButton.Builder(if (player.shuffleModeEnabled) CommandButton.ICON_SHUFFLE_ON else CommandButton.ICON_SHUFFLE_OFF)
+                    .setDisplayName(getString(if (player.shuffleModeEnabled) R.string.action_shuffle_off else R.string.action_shuffle_on))
                     .setSessionCommand(CommandToggleShuffle)
-                    .setCustomIconResId(if (player.shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off)
                     .build(),
-                CommandButton.Builder(ICON_UNDEFINED)
+                CommandButton.Builder(
+                    when (player.repeatMode) {
+                        REPEAT_MODE_OFF -> CommandButton.ICON_REPEAT_OFF
+                        REPEAT_MODE_ONE -> CommandButton.ICON_REPEAT_ONE
+                        REPEAT_MODE_ALL -> CommandButton.ICON_REPEAT_ALL
+                        else -> throw IllegalStateException()
+                    }
+                )
                     .setDisplayName(
                         getString(
                             when (player.repeatMode) {
@@ -1274,14 +1294,6 @@ class MusicService : MediaLibraryService(),
                                 else -> throw IllegalStateException()
                             }
                         )
-                    )
-                    .setCustomIconResId(
-                        when (player.repeatMode) {
-                            REPEAT_MODE_OFF -> R.drawable.repeat_off
-                            REPEAT_MODE_ONE -> R.drawable.repeat_one
-                            REPEAT_MODE_ALL -> R.drawable.repeat_on
-                            else -> throw IllegalStateException()
-                        }
                     )
                     .setSessionCommand(CommandToggleRepeatMode)
                     .build(),
