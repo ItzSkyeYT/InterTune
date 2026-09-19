@@ -91,6 +91,10 @@ fun ThumbnailPlaybackError(
     // any information. Branching on errorCode would never fire, because the code set when the
     // response is rejected does not survive the re-wrap. Walk the cause chain instead.
     val isYouTubeBusy = remember(error) { Throttle.isBlock(error) }
+    // The other thing that arrives wearing the same unreadable wrapper, and the far more common
+    // one: a single song YouTube age gates. Nothing is wrong with the app, the network or the
+    // account, and the raw text says none of that.
+    val isAgeGated = remember(error) { Throttle.isAgeGated(error) }
 
     var showStackTrace by remember { mutableStateOf(false) }
 
@@ -116,6 +120,8 @@ fun ThumbnailPlaybackError(
             Text(
                 text = if (isYouTubeBusy) {
                     stringResource(R.string.err_youtube_busy)
+                } else if (isAgeGated) {
+                    stringResource(R.string.err_age_restricted)
                 } else {
                     "${error.message} (${error.errorCode}): ${
                         error.cause?.message ?: error.cause?.cause?.message ?: stringResource(

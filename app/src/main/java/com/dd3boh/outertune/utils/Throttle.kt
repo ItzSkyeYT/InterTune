@@ -111,6 +111,33 @@ object Throttle {
         return "not a bot" in r || ("sign in to confirm" in r && "age" !in r)
     }
 
+    /**
+     * One song YouTube will not serve without an account old enough for it.
+     *
+     * The other half of the distinction [looksLikeBlock] is careful to make. That one has to
+     * exclude the age gate so a single restricted track does not stop every download; this one
+     * exists so the listener is told which of the two just happened, rather than reading
+     * "Source error (2000): Unexpected PlaybackException" and having to guess.
+     */
+    fun looksLikeAgeGate(reason: String?): Boolean {
+        val r = reason?.lowercase() ?: return false
+        return "inappropriate for some users" in r ||
+                "age-restricted" in r ||
+                "age restricted" in r ||
+                ("sign in to confirm" in r && "age" in r)
+    }
+
+    /** Walks the cause chain, for the same reason [isBlock] does: only the tail carries the text. */
+    fun isAgeGated(error: Throwable?): Boolean {
+        var t = error
+        var depth = 0
+        while (t != null && depth++ < 8) {
+            if (looksLikeAgeGate(t.message)) return true
+            t = t.cause
+        }
+        return false
+    }
+
     /** What one /player answer implies. Cheap; safe to call on every request. */
     fun note(status: String?, reason: String?) {
         when {
