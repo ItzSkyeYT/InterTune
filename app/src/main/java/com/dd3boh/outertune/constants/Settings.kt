@@ -29,6 +29,33 @@ enum class PlayerBackgroundStyle {
  * YOUTUBE is the default, and falls back to the library row on its own whenever YouTube sends no
  * such shelf, which is every signed-out session.
  */
+/**
+ * Whether playback may use the signed-in account, and when.
+ *
+ * Every client in the playback chain is anonymous: ANDROID_VR_NO_AUTH, VISIONOS and IOS all
+ * declare loginSupported = false, so InnerTube never attaches the cookie even though /player asks
+ * it to and the account is right there. That is fine almost always, and it is wrong in two cases.
+ *
+ * A song YouTube age gates will not play for anyone anonymous, including a listener whose own
+ * account is perfectly entitled to it. And when YouTube starts refusing the address outright, an
+ * anonymous request is the one thing it is refusing, so repeating it is both useless and the
+ * reason the refusal lasts.
+ *
+ * This is not a way past the age gate. An authenticated request succeeds only if the account
+ * behind it is allowed the song, which is the whole point: it asks on behalf of a real listener
+ * rather than pretending to be a client the check does not apply to.
+ */
+enum class PlaybackAuthMode {
+    /** Never send the account with playback. What the app did before this existed. */
+    NEVER,
+
+    /** Only once the anonymous clients have failed, or while YouTube is refusing us. */
+    WHEN_REFUSED,
+
+    /** Ask as the account from the start. */
+    ALWAYS,
+}
+
 enum class QuickPicksSource {
     /** YouTube's own row for the account, or the library row when signed out. */
     YOUTUBE,

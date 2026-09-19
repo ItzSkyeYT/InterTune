@@ -34,6 +34,9 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioNormalizationKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
+import androidx.compose.material.icons.rounded.AccountCircle
+import com.dd3boh.outertune.constants.PlaybackAuthModeKey
+import com.dd3boh.outertune.constants.PlaybackAuthMode
 import com.dd3boh.outertune.constants.AutoLoadMoreKey
 import com.dd3boh.outertune.constants.KeepAliveKey
 import com.dd3boh.outertune.constants.SeekIncrement
@@ -46,6 +49,7 @@ import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
 import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SleepTimerFadeKey
 import com.dd3boh.outertune.ui.component.EnumListPreference
+import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.dialog.CounterDialog
@@ -80,6 +84,36 @@ fun ColumnScope.PlayerGeneralFrag() {
             seekIncrement -> SeekIncrement.getString(context, seekIncrement)
         }
     )
+}
+
+/**
+ * Whether playback may ask YouTube as the signed-in account.
+ *
+ * Under the audio settings rather than beside the login, because what it changes is how a song is
+ * fetched, and the only time anybody goes looking for it is when a song refuses to play.
+ */
+@Composable
+fun ColumnScope.PlaybackAuthFrag() {
+    val (authMode, onAuthModeChange) = rememberEnumPreference(
+        key = PlaybackAuthModeKey,
+        defaultValue = PlaybackAuthMode.WHEN_REFUSED
+    )
+
+    EnumListPreference(
+        title = { Text(stringResource(R.string.playback_auth_mode)) },
+        icon = { Icon(Icons.Rounded.AccountCircle, null) },
+        selectedValue = authMode,
+        onValueSelected = onAuthModeChange,
+        valueText = {
+            when (it) {
+                PlaybackAuthMode.NEVER -> stringResource(R.string.playback_auth_never)
+                PlaybackAuthMode.WHEN_REFUSED -> stringResource(R.string.playback_auth_when_refused)
+                PlaybackAuthMode.ALWAYS -> stringResource(R.string.playback_auth_always)
+            }
+        }
+    )
+
+    InfoLabel(stringResource(R.string.playback_auth_mode_description))
 }
 
 @Composable

@@ -53,6 +53,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="err_stop_on_too_many_errors">Too many errors. Playback stopped</string>
     <string name="wait_to_reconnect">Wait to reconnect</string>
     <string name="err_youtube_busy">YouTube has temporarily stopped serving music to this internet connection. It is not your phone, your account or this song, and it clears by itself. Switching to mobile data usually works straight away. Otherwise leave it a little while and try again.</string>
+    <string name="playback_auth_mode">Use my account to play</string>
+    <string name="playback_auth_mode_description">Most songs play without signing in, and that is what the app does. Some will not: a song YouTube age restricts is refused to anyone anonymous, even when your own account is allowed it. This decides whether playback may ask as you. It is not a way around the restriction, only a way to use an account that already has access.</string>
+    <string name="playback_auth_never">Never</string>
+    <string name="playback_auth_when_refused">Only when a song is refused</string>
+    <string name="playback_auth_always">Always</string>
     <string name="err_age_restricted">YouTube will not play this one without an account old enough to see it. Other songs are unaffected.</string>
     <string name="err_copy_details">Copy error details</string>
 

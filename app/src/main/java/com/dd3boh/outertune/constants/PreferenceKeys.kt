@@ -361,6 +361,14 @@ val CachedPollsJsonKey = stringPreferencesKey("cachedPollsJson")
  * Consent to being counted once a day. Off until somebody says otherwise, like every other switch
  * that sends anything anywhere.
  */
+/**
+ * Whether playback may ask YouTube as the signed-in account. See [PlaybackAuthMode].
+ *
+ * Defaults to WHEN_REFUSED: costs nothing while everything works, and is the only thing that can
+ * play an age gated song for somebody whose account is allowed it.
+ */
+val PlaybackAuthModeKey = stringPreferencesKey("playbackAuthMode")
+
 val UsageCountEnabledKey = booleanPreferencesKey("usageCountEnabled")
 
 /**

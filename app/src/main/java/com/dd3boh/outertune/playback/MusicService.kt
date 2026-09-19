@@ -89,6 +89,8 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRa
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.PersistentQueueKey
+import com.dd3boh.outertune.constants.PlaybackAuthModeKey
+import com.dd3boh.outertune.constants.PlaybackAuthMode
 import com.dd3boh.outertune.constants.ResumePlaybackOnLaunchKey
 import com.dd3boh.outertune.constants.PlayerVolumeKey
 import com.dd3boh.outertune.constants.RepeatModeKey
@@ -495,6 +497,14 @@ class MusicService : MediaLibraryService(),
                 .collectLatest(scope) { contextChip = it }
             dataStore.data.map { it[PersistentQueueKey] ?: true }.distinctUntilChanged()
                 .collectLatest(scope) { persistentQueue = it }
+            // Read here rather than in YTPlayerUtils, which runs on every song and would have
+            // to block on the datastore to find out.
+            dataStore.data.map {
+                it[PlaybackAuthModeKey]?.let { name ->
+                    runCatching { PlaybackAuthMode.valueOf(name) }.getOrNull()
+                } ?: PlaybackAuthMode.WHEN_REFUSED
+            }.distinctUntilChanged()
+                .collectLatest(scope) { YTPlayerUtils.authMode = it }
 
             // The switch has to reach the player already running, not some later one. Without this
             // it sat inert until the process was killed, which on One UI happens often enough, and

@@ -21,6 +21,7 @@ import com.zionhuang.innertube.NewPipeUtils
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.YouTubeClient
 import com.zionhuang.innertube.models.YouTubeClient.Companion.ANDROID
+import com.dd3boh.outertune.constants.PlaybackAuthMode
 import com.zionhuang.innertube.models.YouTubeClient.Companion.ANDROID_VR_NO_AUTH
 import com.zionhuang.innertube.models.YouTubeClient.Companion.IOS
 import com.zionhuang.innertube.models.YouTubeClient.Companion.TVHTML5
@@ -81,6 +82,45 @@ object YTPlayerUtils {
     )
 
 
+    /**
+     * Whether playback may ask as the signed-in account, set from the preference by MusicService.
+     *
+     * Volatile and not read from the datastore here: this runs on every song and
+     * dataStore.get blocks.
+     */
+    @Volatile
+    var authMode: PlaybackAuthMode = PlaybackAuthMode.WHEN_REFUSED
+
+    /**
+     * The client that carries the account.
+     *
+     * ANDROID rather than WEB_REMIX, which is the other unrestricted login-capable one: WEB_REMIX
+     * needs a po token on /player and answers UNPLAYABLE without one, as the note on
+     * [MAIN_CLIENT] records. The embedded TVHTML5 player is deliberately not here. It is the
+     * client people reach for to walk past an age gate without an account at all, and that is not
+     * what this is for.
+     */
+    private val AUTH_CLIENT: YouTubeClient = ANDROID
+
+    /**
+     * The fallback chain, with the account appended or promoted depending on the setting.
+     *
+     * Appended rather than inserted, in the usual case: the anonymous clients are what works
+     * almost always, and the authenticated one is only reached once they have all failed, which
+     * is precisely the age gate. When YouTube is already refusing this address, anonymous is the
+     * thing being refused, so it goes first instead and the anonymous attempts stop being the
+     * reason the refusal persists.
+     */
+    private fun streamClients(isLoggedIn: Boolean): List<YouTubeClient> {
+        val base = STREAM_FALLBACK_CLIENTS.toList()
+        if (!isLoggedIn || authMode == PlaybackAuthMode.NEVER) return base
+        if (!AUTH_CLIENT.loginSupported) return base
+        return when {
+            authMode == PlaybackAuthMode.ALWAYS || Throttle.isBlocked -> listOf(AUTH_CLIENT) + base
+            else -> base + AUTH_CLIENT
+        }
+    }
+
     data class PlaybackData(
         val audioConfig: PlayerResponse.PlayerConfig.AudioConfig?,
         val videoDetails: PlayerResponse.VideoDetails?,
@@ -118,13 +158,27 @@ object YTPlayerUtils {
         //
         // Keyed off the client list rather than hardcoded off, so putting a client that does use
         // them back in the chain starts generating them again on its own.
-        val playerClients = listOf(MAIN_CLIENT) + STREAM_FALLBACK_CLIENTS
-        val wantsSignatureTimestamp = playerClients.any { it.useSignatureTimestamp }
+        val isLoggedIn = YouTube.cookie != null
+        val streamClients = streamClients(isLoggedIn)
+        val playerClients = listOf(MAIN_CLIENT) + streamClients
         val wantsPoToken = playerClients.any { it.useWebPoTokens }
 
-        val signatureTimestamp = if (wantsSignatureTimestamp) getSignatureTimestampOrNull(videoId) else null
+        // Worked out on first use rather than up front. The authenticated client asks for a
+        // signature timestamp and usually sits at the end of the chain never being reached, so
+        // computing this because it is merely in the list would charge every song for an
+        // extraction that nothing reads. NewPipe caches the player script, so the first client
+        // that genuinely needs it pays once.
+        var signatureTimestamp: Int? = null
+        var signatureTimestampResolved = false
+        fun signatureTimestampFor(client: YouTubeClient): Int? {
+            if (!client.useSignatureTimestamp) return null
+            if (!signatureTimestampResolved) {
+                signatureTimestamp = getSignatureTimestampOrNull(videoId)
+                signatureTimestampResolved = true
+            }
+            return signatureTimestamp
+        }
 
-        val isLoggedIn = YouTube.cookie != null
         val sessionId =
             if (isLoggedIn) {
                 // signed in sessions use dataSyncId as identifier
@@ -134,7 +188,7 @@ object YTPlayerUtils {
                 YouTube.visitorData
             }
 
-        Log.d(TAG, "[$videoId] signatureTimestamp: $signatureTimestamp, isLoggedIn: $isLoggedIn")
+        Log.d(TAG, "[$videoId] isLoggedIn: $isLoggedIn, clients: ${playerClients.joinToString { it.clientName }}")
 
         val (webPlayerPot, webStreamingPot) = if (!wantsPoToken) {
             Pair(null, null)
@@ -161,7 +215,7 @@ object YTPlayerUtils {
         }
 
         val mainPlayerResponse =
-            YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestamp, webPlayerPot)
+            YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestampFor(MAIN_CLIENT), webPlayerPot)
                 .onFailure { Throttle.noteFailure(it) }
                 .getOrThrow()
         mainPlayerResponse.rememberBlock()
@@ -174,7 +228,7 @@ object YTPlayerUtils {
         var streamExpiresInSeconds: Int? = null
 
         var streamPlayerResponse: PlayerResponse? = null
-        for (clientIndex in (-1 until STREAM_FALLBACK_CLIENTS.size)) {
+        for (clientIndex in (-1 until streamClients.size)) {
             // reset for each client
             format = null
             streamUrl = null
@@ -188,9 +242,9 @@ object YTPlayerUtils {
                 client = MAIN_CLIENT
                 streamPlayerResponse = mainPlayerResponse
             } else {
-                Log.d(TAG, "Trying fallback client: ${STREAM_FALLBACK_CLIENTS[clientIndex].clientName}")
+                Log.d(TAG, "Trying fallback client: ${streamClients[clientIndex].clientName}")
                 // after main client use fallback clients
-                client = STREAM_FALLBACK_CLIENTS[clientIndex]
+                client = streamClients[clientIndex]
 
                 if (client.loginRequired && !isLoggedIn) {
                     // skip client if it requires login but user is not logged in
@@ -198,7 +252,7 @@ object YTPlayerUtils {
                 }
 
                 streamPlayerResponse =
-                    YouTube.player(videoId, playlistId, client, signatureTimestamp, webPlayerPot)
+                    YouTube.player(videoId, playlistId, client, signatureTimestampFor(client), webPlayerPot)
                         .onFailure { Throttle.noteFailure(it) }
                         .getOrNull()
                 streamPlayerResponse?.rememberBlock()
@@ -225,7 +279,7 @@ object YTPlayerUtils {
                     streamUrl += "&pot=$webStreamingPot";
                 }
 
-                if (clientIndex == STREAM_FALLBACK_CLIENTS.size - 1) {
+                if (clientIndex == streamClients.size - 1) {
                     /** skip [validateStatus] for last client */
                     break
                 }
