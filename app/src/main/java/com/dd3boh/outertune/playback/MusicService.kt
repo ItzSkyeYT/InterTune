@@ -89,6 +89,10 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRa
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.PersistentQueueKey
+import com.dd3boh.outertune.engine.TagFit
+import com.dd3boh.outertune.engine.SongTags
+import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
+import com.dd3boh.outertune.constants.AdaptiveQueueMode
 import com.dd3boh.outertune.constants.PlaybackAuthModeKey
 import com.dd3boh.outertune.constants.PlaybackAuthMode
 import com.dd3boh.outertune.constants.ResumePlaybackOnLaunchKey
@@ -273,6 +277,16 @@ class MusicService : MediaLibraryService(),
 
     @Volatile private var listenHistoryPaused = false
     @Volatile private var autoLoadMore = true
+    @Volatile private var adaptiveQueueMode = AdaptiveQueueMode.AUTOPLAY_ONLY
+
+    /**
+     * True while the queue sheet is on screen, set by the UI.
+     *
+     * Nothing moves while somebody is looking at it. A list that rearranges under the finger is
+     * worse than a list with a few wrong songs further down, and the whole feature is only
+     * acceptable because it happens out of sight.
+     */
+    @Volatile var queueSheetOpen = false
     @Volatile private var contextChip = 0
     @Volatile var persistentQueue = true
         private set
@@ -497,6 +511,12 @@ class MusicService : MediaLibraryService(),
                 .collectLatest(scope) { contextChip = it }
             dataStore.data.map { it[PersistentQueueKey] ?: true }.distinctUntilChanged()
                 .collectLatest(scope) { persistentQueue = it }
+            dataStore.data.map {
+                it[AdaptiveQueueModeKey]?.let { name ->
+                    runCatching { AdaptiveQueueMode.valueOf(name) }.getOrNull()
+                } ?: AdaptiveQueueMode.AUTOPLAY_ONLY
+            }.distinctUntilChanged()
+                .collectLatest(scope) { adaptiveQueueMode = it }
             // Read here rather than in YTPlayerUtils, which runs on every song and would have
             // to block on the datastore to find out.
             dataStore.data.map {
@@ -1265,6 +1285,49 @@ class MusicService : MediaLibraryService(),
 
 // Misc
 
+    /**
+     * Drops songs further down the queue that no longer suit what is being played.
+     *
+     * Runs on every transition and almost always does nothing. See [AdaptiveQueue] for the rules;
+     * the short version is that the next few songs are untouchable, order is never rearranged, and
+     * at most a fraction of the tail can go at once.
+     *
+     * The session's character is read from the queue itself rather than from the database: the
+     * items just played are exactly "what you have been listening to in this sitting", and reading
+     * them costs nothing on a thread that must not block.
+     */
+    private fun replanQueueTail() {
+        if (adaptiveQueueMode == AdaptiveQueueMode.OFF || queueSheetOpen) return
+        val q = queueBoard.getCurrentQueue() ?: return
+        // A radio tail is one the app chose; a playlist is one the listener chose.
+        if (adaptiveQueueMode == AdaptiveQueueMode.AUTOPLAY_ONLY && q.playlistId == null) return
+
+        val current = player.currentMediaItemIndex
+        val count = player.mediaItemCount
+        val start = AdaptiveQueue.tailStart(current, count) ?: return
+
+        val recent = (current downTo maxOf(0, current - TagFit.WINDOW + 1))
+            .mapNotNull { runCatching { player.getMediaItemAt(it).mediaMetadata.title?.toString() }.getOrNull() }
+        val context = TagFit.context(recent.map { SongTags.of(it) })
+        if (!context.known) return
+
+        val tail = (start until count).mapNotNull { i ->
+            runCatching { i to player.getMediaItemAt(i).mediaMetadata.title?.toString() }.getOrNull()
+        }
+        if (tail.isEmpty()) return
+
+        val plan = AdaptiveQueue.plan(tail, { it.second }, context)
+        if (!plan.changed) return
+
+        // Descending, so each removal cannot shift the index of the next one.
+        plan.dropped.sortedByDescending { it.first }.forEach { (index, _) ->
+            if (queueBoard.removeCurrentQueueSong(index)) {
+                runCatching { player.removeMediaItem(index) }
+            }
+        }
+        Log.d(TAG, "Adaptive queue: dropped ${plan.dropped.size} of ${tail.size} upcoming")
+    }
+
     fun updateNotification() {
         mediaSession.setCustomLayout(
             listOf(
@@ -1514,6 +1577,8 @@ class MusicService : MediaLibraryService(),
                 }
             }
         }
+
+        replanQueueTail()
 
         queueBoard.setCurrQueuePosIndex(player.currentMediaItemIndex)
 

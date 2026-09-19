@@ -369,6 +369,9 @@ val CachedPollsJsonKey = stringPreferencesKey("cachedPollsJson")
  */
 val PlaybackAuthModeKey = stringPreferencesKey("playbackAuthMode")
 
+/** Whether the unwatched end of the queue re-plans itself. See [AdaptiveQueueMode]. */
+val AdaptiveQueueModeKey = stringPreferencesKey("adaptiveQueueMode")
+
 val UsageCountEnabledKey = booleanPreferencesKey("usageCountEnabled")
 
 /**

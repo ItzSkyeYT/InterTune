@@ -45,6 +45,25 @@ enum class PlayerBackgroundStyle {
  * behind it is allowed the song, which is the whole point: it asks on behalf of a real listener
  * rather than pretending to be a client the check does not apply to.
  */
+/**
+ * Whether the far end of the queue may change while it is not being looked at.
+ *
+ * Half of this listener's plays are six or more songs deep in an autoplay chain, and that band
+ * skips hardest: a radio page is fetched once, when the queue runs low, and then played to the end
+ * whatever happens in between. Twenty minutes later the listener has moved on and the queue has
+ * not.
+ */
+enum class AdaptiveQueueMode {
+    /** The queue is exactly what was put in it. */
+    OFF,
+
+    /** Only tails the app added by itself, which is where the skipping actually happens. */
+    AUTOPLAY_ONLY,
+
+    /** Any queue, including a playlist or album the listener queued on purpose. */
+    ALWAYS,
+}
+
 enum class PlaybackAuthMode {
     /** Never send the account with playback. What the app did before this existed. */
     NEVER,
