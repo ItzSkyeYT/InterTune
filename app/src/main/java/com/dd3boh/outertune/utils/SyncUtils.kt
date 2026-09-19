@@ -89,6 +89,14 @@ class SyncUtils @Inject constructor(
 
     companion object {
         const val DEFAULT_SYNC_CONTENT = "ARPLSC"
+
+        /**
+         * How recently a song can have been liked before sync refuses to unlike it.
+         *
+         * Long enough to cover a weekend where the push to YouTube never went out, short enough
+         * that a genuine unlike made on another device still lands within a couple of days.
+         */
+        const val UNLIKE_GRACE_DAYS = 3L
     }
 
     suspend fun tryAutoSync(bypassCd: Boolean = false) {
@@ -193,10 +201,33 @@ class SyncUtils @Inject constructor(
 
                 val remoteSongs = page.songs.reversed()
 
+                // An empty answer is not "you have unliked everything", it is a fetch that did
+                // not work: a throttled request, a session that came back signed out, a bad page.
+                // Acting on it wipes the entire liked library, and the listener has no way to get
+                // it back. If LM says nothing, believe nothing.
+                if (remoteSongs.isEmpty()) {
+                    Log.w(TAG, "LM came back empty, refusing to unlike anything")
+                    downloadUtil.downloadLikedSongs()
+                    return@onSuccess
+                }
+
                 // Identify local songs to unlike
                 val songsToUnlike = database.likedSongsByNameAsc().first()
                     .filterNot { it.song.isLocal }
                     .filterNot { localSong -> remoteSongs.any { it.id == localSong.id } }
+                    // A like is pushed to YouTube by SongEntity.toggleLike in a coroutine whose
+                    // result nothing reads, so a like made offline, or while YouTube was refusing
+                    // us, never arrives. It is still absent from LM on the next sync, and this
+                    // would then delete it as though the listener had changed their mind. Anything
+                    // liked recently is left alone; if the push really did fail, a later sync with
+                    // a working connection still reconciles it.
+                    .filterNot { localSong ->
+                        localSong.song.likedDate?.isAfter(LocalDateTime.now().minusDays(UNLIKE_GRACE_DAYS)) == true
+                    }
+
+                if (songsToUnlike.isNotEmpty()) {
+                    Log.i(TAG, "Unliking ${songsToUnlike.size} songs absent from LM")
+                }
 
                 // Unlike local songs in the database
                 runBlocking {

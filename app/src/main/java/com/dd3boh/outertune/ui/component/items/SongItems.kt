@@ -112,7 +112,6 @@ fun SongListItem(
         ListItem(
             title = song.song.title,
             subtitle = joinByBullet(
-                (if (BuildConfig.DEBUG) song.song.id else ""),
                 song.artists.joinToString { it.name },
                 caption ?: makeTimeString(song.song.duration * 1000L)
             ),

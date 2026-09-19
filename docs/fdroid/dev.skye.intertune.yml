@@ -21,7 +21,7 @@ Binaries:
 Builds:
   - versionName: 0.10.8.5
     versionCode: 86
-    commit: 1e98d3ae973be08a0d2a812cb0561dce204ed56e
+    commit: 2d4bb66d248c2878546dc23326b7f1981875b170
     subdir: app
     submodules: true
     gradle:
