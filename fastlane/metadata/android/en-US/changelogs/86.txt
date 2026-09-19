@@ -1,0 +1,10 @@
+Version 0.10.8.5
+
+No new features. This exists so the app can be built by someone who is not us.
+
+=== Fixes ===
+• Building from a fresh clone works. Without a local.properties holding Last.fm and poll credentials the generated BuildConfig was malformed and nothing compiled, which is every contributor and every packager who has ever tried
+• Building without a signing key produces an unsigned apk instead of stopping at the last step. F-Droid and anyone else with their own key needed that
+• Compiled against Java 21, which is what the release builds already ran on
+
+Nothing in the app itself has changed. If 0.10.8 works for you, this is the same app.
