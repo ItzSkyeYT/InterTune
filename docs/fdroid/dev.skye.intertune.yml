@@ -19,16 +19,14 @@ Binaries:
   https://github.com/ItzSkyeYT/InterTune/releases/download/v%v/InterTune-%v-core-release-%c.apk
 
 Builds:
-  - versionName: 0.10.8
-    versionCode: 85
-    commit: fa052addec9d195a98f430b759a464059f960d9a
+  - versionName: 0.10.8.5
+    versionCode: 86
+    commit: 1e98d3ae973be08a0d2a812cb0561dce204ed56e
     subdir: app
     submodules: true
     gradle:
       - core
-    prebuild:
-      - sdkmanager 'cmake;3.31.6'
-      - sed -i 's/jvmToolchain(17)/jvmToolchain(21)/' ../*/build.gradle.kts
+    prebuild: sdkmanager 'cmake;3.31.6'
     scandelete:
       - taglib
     ndk: 29.0.13113456
@@ -37,5 +35,5 @@ AllowedAPKSigningKeys: 69c6b5fbf1220a44206e8a3a098f41c78af7f94d2fa56eb3165ca40b9
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v
-CurrentVersion: 0.10.8
-CurrentVersionCode: 85
+CurrentVersion: 0.10.8.5
+CurrentVersionCode: 86
