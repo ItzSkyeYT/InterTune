@@ -55,7 +55,13 @@ android {
         // Last.fm key costs a rate limit, not an account, and is revocable, so this is the right
         // amount of effort for what is at stake.
         fun obfuscated(value: String): String {
-            if (value.isEmpty()) return "\"\""
+            // An empty int array, not an empty string. These fields are declared int[], so
+            // returning "\"\"" emitted `public static final int[] X = "";` and the whole app
+            // stopped compiling the moment local.properties was absent, which is every build
+            // from source: a fresh clone, a contributor, and F-Droid's buildserver. Both
+            // reveal() functions already turn an empty array back into an empty string, so the
+            // features switch themselves off exactly as their comments promise.
+            if (value.isEmpty()) return "new int[]{}"
             val mask = "InterTune".toByteArray()
             val out = value.toByteArray().mapIndexed { i, b ->
                 (b.toInt() xor mask[i % mask.size].toInt()) and 0xff
