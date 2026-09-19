@@ -310,7 +310,22 @@ class DownloadUtil @Inject constructor(
 
     private var likedJob: Job? = null
 
-    val isDownloadingLiked: Boolean get() = likedJob?.isActive == true
+    /**
+     * The song ids the current catch up enqueued.
+     *
+     * Kept so cancelling can drop this run's downloads and only this run's. The map it would
+     * otherwise have to filter holds everything media3 is doing, including an album the listener
+     * started by hand, and those are not ours to remove.
+     */
+    @Volatile
+    private var likedBatch: Set<String> = emptySet()
+
+    /**
+     * Still working, unwinding included. isActive would go false the moment cancel returns while
+     * the coroutine is still enqueuing, which is long enough for a second tap to start a second
+     * run over the top of the first. Same trap as LoudnessRepair.isRunning.
+     */
+    val isDownloadingLiked: Boolean get() = likedJob?.isCompleted == false
 
     /**
      * Queues every liked song that is missing, then reports how many have actually landed.
@@ -350,6 +365,7 @@ class DownloadUtil @Inject constructor(
             }
 
             val batch = pending.map { it.id }.toSet()
+            likedBatch = batch
             val total = batch.size
             _likedDownloadState.value = LikedDownloadState.Running(0, total)
             notifyIfWaitingForWifi()
@@ -368,7 +384,17 @@ class DownloadUtil @Inject constructor(
             // coroutine until it really finishes, or isDownloadingLiked reads false while this is
             // still running and tapping the row starts a second run on top of the first.
             downloads
-                .map { map -> batch.count { id -> map[id].let { it != null && it != STATE_INVALID } } }
+                // Landed means completed. The map keeps three kinds of value: a real timestamp
+                // for a finished download, STATE_DOWNLOADING for queued or in flight, and
+                // STATE_INVALID for everything else. Counting "not invalid" counted every song
+                // the instant it was enqueued, so the run reported itself finished seconds after
+                // it started and the progress display, which is the whole point of the feature,
+                // never moved.
+                .map { map ->
+                    batch.count { id ->
+                        map[id]?.let { it != STATE_INVALID && it != STATE_DOWNLOADING } == true
+                    }
+                }
                 .distinctUntilChanged()
                 .onEach { done -> _likedDownloadState.value = LikedDownloadState.Running(done, total) }
                 .first { done -> done >= total }
@@ -388,15 +414,21 @@ class DownloadUtil @Inject constructor(
     fun cancelLikedDownloads() {
         val state = _likedDownloadState.value
         likedJob?.cancel()
-        likedJob = null
 
         if (state is LikedDownloadState.Running) {
             runCatching {
-                downloads.value.filter { it.value == STATE_INVALID }.keys.forEach { id ->
-                    DownloadService.sendRemoveDownload(
-                        context, ExoDownloadService::class.java, id, false
-                    )
-                }
+                // The queued ones, scoped to this run. It used to filter for STATE_INVALID,
+                // which is the sentinel for failed and removed, so stopping did the opposite of
+                // both things it promised: not one of the batch's queued downloads matched, so
+                // media3 carried on with all of them, while songs that had failed at some
+                // unrelated earlier point did match and were removed.
+                downloads.value
+                    .filter { it.key in likedBatch && it.value == STATE_DOWNLOADING }
+                    .keys.forEach { id ->
+                        DownloadService.sendRemoveDownload(
+                            context, ExoDownloadService::class.java, id, false
+                        )
+                    }
             }.onFailure { Log.w(TAG, "Could not clear queued downloads on cancel", it) }
             _likedDownloadState.value =
                 LikedDownloadState.Finished(state.done, state.total, stoppedEarly = true)
