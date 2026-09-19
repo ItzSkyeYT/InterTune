@@ -206,7 +206,9 @@ fun HomeScreen(
     val allYtItems by viewModel.allYtItems.collectAsState()
 
     val isLoading by viewModel.isLoading.collectAsState()
-    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    // The indicator follows its own flow, which stops when Quick picks settles rather than when
+    // the whole page has finished filling. See HomeViewModel.refreshIndicator.
+    val isRefreshing by viewModel.refreshIndicator.collectAsState()
     val pullRefreshState = rememberPullToRefreshState()
 
     val quickPicksLazyGridState = rememberLazyGridState()

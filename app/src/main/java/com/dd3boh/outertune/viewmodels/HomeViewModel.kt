@@ -594,6 +594,21 @@ class HomeViewModel @Inject constructor(
     }
 
     val isRefreshing = MutableStateFlow(false)
+
+    /**
+     * What the pull to refresh indicator follows, which is not the same thing as [isRefreshing].
+     *
+     * [isRefreshing] has to stay true for the whole load, because it is also the guard that stops
+     * two loads running at once. But the load keeps going long after the row the listener pulled
+     * for has settled: the explore page, the recent activity sync, nine similar lookups, all of
+     * them for rows further down that nobody is waiting on. So the songs would change and the
+     * spinner would keep turning for seconds afterwards, which reads as the app still working when
+     * it has already finished the part that was asked for.
+     *
+     * This one goes false the moment Quick picks is settled. The rest of the page carries on
+     * filling behind it, as it always did.
+     */
+    val refreshIndicator = MutableStateFlow(false)
     val isLoading = MutableStateFlow(false)
 
     val quickPicks = MutableStateFlow<List<Song>?>(null)
@@ -753,6 +768,7 @@ class HomeViewModel @Inject constructor(
             Log.d("HomeViewModel", "Skipping remote home load, backing off")
             noteShown()
             quickPicksLoading.value = false
+            refreshIndicator.value = false
             isLoading.value = false
             return
         }
@@ -827,6 +843,10 @@ class HomeViewModel @Inject constructor(
         // Settled either way: found, or looked for and not there. Leaving it true on failure would
         // leave a skeleton shimmering over a row that is never going to fill.
         quickPicksLoading.value = false
+
+        // And the spinner stops here, with the row it was pulled for. What follows is the explore
+        // page, the activity sync and the similar lookups, none of which the listener is watching.
+        refreshIndicator.value = false
 
         // Only now: the row the listener pulled for has already settled above, and the rows
         // further down can arrive late without anybody minding.
@@ -1083,6 +1103,7 @@ class HomeViewModel @Inject constructor(
         }
         viewModelScope.launch(syncCoroutine) {
             isRefreshing.value = true
+            refreshIndicator.value = true
             try {
                 var nextForce = force
                 do {
@@ -1093,6 +1114,9 @@ class HomeViewModel @Inject constructor(
                 } while (pendingRefresh)
             } finally {
                 isRefreshing.value = false
+                // Backstop. load() drops it as soon as Quick picks settles; this catches the
+                // paths that return before reaching that point.
+                refreshIndicator.value = false
             }
         }
     }
