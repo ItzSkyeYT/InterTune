@@ -75,6 +75,33 @@ object SongTags {
         return found
     }
 
+    /**
+     * Words that mean this is not the recording, it is an advertisement for it.
+     *
+     * Kept apart from [VOCABULARY] because these are not a treatment to match on, they are a
+     * reason to throw the candidate away. Nobody sets out to listen to thirty seconds and a fade,
+     * and offering one as a recommendation wastes the slot and the listener's patience twice: once
+     * when it plays, and again when they go and find the real one.
+     *
+     * Deliberately short. "sample" and "clip" are ordinary words in real titles, "demo" and
+     * "intro" are real recordings people choose on purpose, and none of them belong here.
+     */
+    private val NOT_THE_SONG = listOf("preview", "snippet", "teaser")
+
+    /**
+     * Whether the title says outright that this is a fragment.
+     *
+     * Reads the same bracketed and dashed regions [of] does, for the same reason: the body of a
+     * title is the song's name, and a band called Preview is not a fragment of anything.
+     */
+    fun isPreview(title: String?): Boolean {
+        if (title.isNullOrBlank()) return false
+        val regions = REGIONS.findAll(title).map { it.value }.toList()
+        if (regions.isEmpty()) return false
+        val text = " " + regions.joinToString(" ") { TIDY.replace(it, " ") }.lowercase().trim() + " "
+        return NOT_THE_SONG.any { text.contains(" $it ") }
+    }
+
     /** Whether two songs were treated the same way, which is a crude but free kind of "sounds alike". */
     fun overlap(a: Set<String>, b: Set<String>): Double {
         if (a.isEmpty() || b.isEmpty()) return 0.0
