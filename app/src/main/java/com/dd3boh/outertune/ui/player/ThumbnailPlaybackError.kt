@@ -53,6 +53,7 @@ import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.ui.utils.fadingEdge
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.Throttle
+import com.dd3boh.outertune.utils.YTPlayerUtils
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 
@@ -142,6 +143,10 @@ fun ThumbnailPlaybackError(
                 appendLine("${BuildConfig.APPLICATION_ID} | ${BuildConfig.BUILD_TYPE}")
                 appendLine("${Build.BRAND} ${Build.DEVICE} (${Build.MODEL})")
                 appendLine("Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT} (${Build.ID})")
+                // Which of the player clients produced the url. Without it a report of a 403
+                // partway through a song says nothing about which of three clients to go and
+                // look at, and that is the question every one of these has turned out to be.
+                appendLine("stream client: ${YTPlayerUtils.lastStreamClient ?: "unknown"}")
             }
             val headline = "${error.message} (${error.errorCode}): " +
                     (error.cause?.message ?: error.cause?.cause?.message ?: "")

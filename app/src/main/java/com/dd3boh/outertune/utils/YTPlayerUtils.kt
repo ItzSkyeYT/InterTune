@@ -83,6 +83,21 @@ object YTPlayerUtils {
 
 
     /**
+     * Which client last produced a stream url, and whether it was asked as the account.
+     *
+     * Recorded for the error report and nothing else. This chain has been rebuilt repeatedly as
+     * YouTube changed what it enforces, and every rebuild was worked out from scratch because a
+     * report says "Source error (2004)" and never which of three clients produced the url that
+     * then 403'd. Now it does.
+     *
+     * One value for the app rather than one per song: what a report needs is what was serving at
+     * the moment it broke.
+     */
+    @Volatile
+    var lastStreamClient: String? = null
+        private set
+
+    /**
      * Whether playback may ask as the signed-in account, set from the preference by MusicService.
      *
      * Volatile and not read from the datastore here: this runs on every song and
@@ -228,6 +243,7 @@ object YTPlayerUtils {
         var streamExpiresInSeconds: Int? = null
 
         var streamPlayerResponse: PlayerResponse? = null
+        var lastClient: YouTubeClient? = null
         for (clientIndex in (-1 until streamClients.size)) {
             // reset for each client
             format = null
@@ -257,6 +273,8 @@ object YTPlayerUtils {
                         .getOrNull()
                 streamPlayerResponse?.rememberBlock()
             }
+
+            lastClient = client
 
             Log.d(TAG, "[$videoId] stream client: ${client.clientName}, " +
                     "playabilityStatus: ${streamPlayerResponse?.playabilityStatus?.let {
@@ -291,6 +309,12 @@ object YTPlayerUtils {
                     Log.w(TAG, "[$videoId] [${client.clientName}] got bad http status code")
                 }
             }
+        }
+
+        // Whichever client the loop ended on, successfully or not. Written before the throws
+        // below, so a failure is reported with the client that failed rather than with nothing.
+        lastStreamClient = lastClient?.let {
+            if (it.loginSupported && isLoggedIn) "${it.clientName} (account)" else it.clientName
         }
 
         if (streamUrl != null) {
