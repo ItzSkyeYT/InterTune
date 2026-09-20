@@ -63,6 +63,7 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.AdaptiveQueueFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.HighPrecisionAudioFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.HeadTrackingFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.StageWidthFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.ProximityVolumeFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioModeFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlaybackAuthFrag
@@ -122,14 +123,15 @@ fun PlayerSettings(
         ElevatedCard(
             modifier = Modifier.fillMaxWidth()
         ) {
+            // Only the choices anyone actually makes. Everything that follows from one of them
+            // appears under it once it is on, and everything that is a knob rather than a choice
+            // is in Advanced at the bottom. A screen of switches that do nothing until some other
+            // switch is on is a screen nobody can read.
             AudioQualityFrag()
-            HighPrecisionAudioFrag()
             SpatialAudioModeFrag()
             HeadTrackingFrag()
             ProximityVolumeFrag()
-            PlaybackAuthFrag()
             AdaptiveQueueFrag()
-            SpatialAudioFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -177,6 +179,13 @@ fun PlayerSettings(
                     icon = { Icon(Icons.Rounded.Queue, null) },
                     onClick = { showMaxQueuesDialog = true }
                 )
+                HighPrecisionAudioFrag()
+                PlaybackAuthFrag()
+                // Audio tuning, not recommendation tuning. These were on the engine developer
+                // screen because that is where the sliders happened to live, which is no reason
+                // for anyone to look for them there.
+                StageWidthFrag()
+                SpatialAudioFrag()
             }
             Spacer(modifier = Modifier.height(16.dp))
 

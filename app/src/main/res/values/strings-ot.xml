@@ -65,6 +65,9 @@ Surround upmix builds a 5.1 signal and asks the phone to spatialise it instead. 
 Neither is a remaster. The recording has two channels and nothing recovers what was never recorded. The headphone rendering uses measurements from a dummy head rather than yours, so height will not convince and sounds can occasionally seem behind you instead of in front. Turning on 32-bit processing at the same time avoids rounding the sound twice.</string>
     <string name="stage_width">Stage width</string>
     <string name="stage_width_value">Speakers at %1$d degrees either side</string>
+    <string name="stage_width_explain">Where the two virtual speakers stand, in degrees either side of centre. Thirty is the angle stereo is actually mixed for and the honest default.
+
+Wider is not more correct, but it does separate the instruments more. Push it too far and you get a hole in the middle, the same way a real pair of speakers set too far apart does.</string>
     <string name="stage_width_description">Thirty is what stereo is mixed for. Wider pulls the instruments apart at the cost of a hole in the middle.</string>
     <string name="head_tracking">Head tracking</string>
     <string name="head_tracking_description">The music stays where it is when you turn your head.</string>
@@ -95,7 +98,12 @@ So it takes ten seconds of readings at a time and uses the middle one, and the w
     <string name="proximity_probe">Bluetooth signal log</string>
     <string name="proximity_probe_start">Start logging</string>
     <string name="proximity_probe_stop">Stop logging</string>
-    <string name="proximity_probe_description">Records how strong nearby Bluetooth signals are, to find out whether distance is measurable at all.</string>
+    <string name="proximity_probe_description">Check how well distance can be measured where you are.</string>
+    <string name="proximity_probe_explain">A hundred second test that tells you whether this works properly in your rooms. It talks you through five steps out loud, so you can put the phone down and follow the voice: sit still, turn on the spot, walk away, stay there, walk back.
+
+The step that matters is turning on the spot. Your own body between the phone and your headphones weakens the signal as much as walking several metres does, so if turning round moves the reading as much as leaving the room does, there is no distance to measure where you are and the feature will not behave.
+
+It writes a file you can look at afterwards. Worth running once somewhere new, or if the volume starts moving when you have not.</string>
     <string name="proximity_probe_running">Logging: %1$d seconds, %2$d readings.</string>
     <string name="proximity_probe_step">%1$s  (%2$d s left, %3$d readings)</string>
     <string name="proximity_step_still">Sit still, phone beside you.</string>
@@ -123,6 +131,11 @@ The usual fix is to quietly recentre whenever you have held still for a while, w
 
 Sit comfortably, look straight ahead, and stay still until it finishes. Worth redoing if you change headphones.</string>
     <string name="head_tracking_lead">Tracking lead</string>
+    <string name="head_tracking_lead_full_explain">How far ahead of your head the sound aims, in thousandths of a second. It should match the real delay between the app rendering a sound and your ears hearing it.
+
+That delay is almost entirely whichever Bluetooth codec your headphones negotiated, and it varies by a factor of three between them. The phone does not report it, so the app cannot work it out, which is why this is a slider rather than a number somebody chose for you.
+
+Play something, turn your head, and drag. Too little and the music lags behind you; too much and it swings past and settles back. Somewhere in between it stays nailed to the room, and that is your number.</string>
     <string name="head_tracking_lead_value">Aiming %1$d ms ahead</string>
     <string name="head_tracking_lead_description">Should match the real delay to your ears. Too little lags behind your head, too much swings past and settles back.</string>
     <string name="high_precision_audio">32-bit audio processing</string>

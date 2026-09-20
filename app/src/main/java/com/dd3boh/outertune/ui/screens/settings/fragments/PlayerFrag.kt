@@ -17,6 +17,9 @@ import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Timer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
@@ -67,6 +70,11 @@ import com.dd3boh.outertune.constants.SleepTimerFadeKey
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
 import com.dd3boh.outertune.ui.component.ExplainedPreference
+import androidx.compose.material3.Slider
+import com.dd3boh.outertune.constants.StageWidthKey
+import com.dd3boh.outertune.constants.HeadTrackingLeadKey
+import com.dd3boh.outertune.playback.BinauralAudioProcessor
+import com.dd3boh.outertune.playback.ProximityProbe
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.ExplainButton
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
@@ -140,6 +148,81 @@ fun ColumnScope.ProximityVolumeFrag() {
                 onEnabledChange(want)
             }
         },
+    )
+
+    if (!enabled) return
+
+    // Under the setting it belongs to, rather than on the recommendations developer screen where
+    // it started. It is a distance measurement for this feature, and nobody would think to look
+    // for it beside the engine's tuning constants.
+    val context = LocalContext.current
+    val probe = remember { ProximityProbe(context) }
+    var probeRunning by remember { mutableStateOf(false) }
+    var probeStatus by remember { mutableStateOf<String?>(null) }
+
+    val protocol = listOf(
+        ProximityProbe.Step(stringResource(R.string.proximity_step_still), 20),
+        ProximityProbe.Step(stringResource(R.string.proximity_step_turn), 20),
+        ProximityProbe.Step(stringResource(R.string.proximity_step_away), 20),
+        ProximityProbe.Step(stringResource(R.string.proximity_step_far), 20),
+        ProximityProbe.Step(stringResource(R.string.proximity_step_back), 20),
+    )
+    val finishedMessage = stringResource(R.string.proximity_step_done)
+
+    DisposableEffect(Unit) { onDispose { probe.stop(); probe.release() } }
+
+    LaunchedEffect(probeRunning) {
+        while (probeRunning) {
+            probe.tick { probeRunning = false }
+            val step = probe.currentStep()
+            probeStatus = if (step == null) null
+            else context.getString(R.string.proximity_probe_step, step.first.spoken, step.second, probe.status().second)
+            delay(400)
+        }
+    }
+
+    ExplainedPreference(
+        title = stringResource(
+            if (probeRunning) R.string.proximity_probe_stop else R.string.proximity_probe
+        ),
+        explanation = stringResource(R.string.proximity_probe_explain),
+        description = probeStatus ?: stringResource(R.string.proximity_probe_description),
+        onClick = {
+            if (probeRunning) {
+                probe.stop()
+                probeRunning = false
+            } else {
+                probe.start(protocol, finishedMessage)
+                probeRunning = probe.isRunning
+            }
+        },
+    )
+}
+
+/**
+ * How far apart the binaural renderer's two virtual speakers stand.
+ *
+ * A knob rather than a choice, so it lives in Advanced, and only where it does anything.
+ */
+@Composable
+fun ColumnScope.StageWidthFrag() {
+    val (spatial) = rememberEnumPreference(key = SpatialAudioKey, defaultValue = SpatialAudioMode.OFF)
+    if (spatial != SpatialAudioMode.HEADPHONES) return
+
+    val (width, onWidthChange) = rememberPreference(
+        StageWidthKey,
+        defaultValue = BinauralAudioProcessor.DEFAULT_STAGE_WIDTH.toInt(),
+    )
+    ExplainedPreference(
+        title = stringResource(R.string.stage_width),
+        explanation = stringResource(R.string.stage_width_explain),
+        description = stringResource(R.string.stage_width_value, width),
+    )
+    Slider(
+        value = width.toFloat(),
+        onValueChange = { onWidthChange(it.toInt()) },
+        valueRange = BinauralAudioProcessor.MIN_STAGE_WIDTH..BinauralAudioProcessor.MAX_STAGE_WIDTH,
+        modifier = Modifier.padding(horizontal = 16.dp),
     )
 }
 
@@ -246,6 +329,22 @@ fun ColumnScope.HeadTrackingFrag() {
         explanation = stringResource(R.string.head_tracking_3d_explain),
         checked = threeD,
         onCheckedChange = onThreeDChange,
+    )
+
+    // The delay between rendering a sample and hearing it is mostly whichever Bluetooth codec got
+    // negotiated, and the platform reports no latency for that route, so it cannot be measured
+    // from inside the app. Tuned by ear, once, against the hardware in use.
+    val (lead, onLeadChange) = rememberPreference(HeadTrackingLeadKey, defaultValue = 260)
+    ExplainedPreference(
+        title = stringResource(R.string.head_tracking_lead),
+        explanation = stringResource(R.string.head_tracking_lead_full_explain),
+        description = stringResource(R.string.head_tracking_lead_value, lead),
+    )
+    Slider(
+        value = lead.toFloat(),
+        onValueChange = { onLeadChange(it.toInt()) },
+        valueRange = 0f..500f,
+        modifier = Modifier.padding(horizontal = 16.dp),
     )
 
     // Measured once rather than guessed or bled away continuously. Thirty seconds of a head that
