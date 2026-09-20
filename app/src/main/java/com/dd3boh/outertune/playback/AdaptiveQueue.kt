@@ -41,6 +41,18 @@ object AdaptiveQueue {
     /** At most this share of the provisional tail may go in one pass. */
     const val MAX_DROP_SHARE = 0.4
 
+    /**
+     * The share allowed when the listener has just said something clear.
+     *
+     * Skipping a song is the strongest opinion anyone offers without pressing anything, and liking
+     * one is the strongest they offer by pressing something. Both mean the picture just changed,
+     * so the tail should move further than it does when a song merely ended.
+     */
+    const val STRONG_DROP_SHARE = 0.75
+
+    /** Songs kept untouched after a clear signal. Fewer, because the listener just acted. */
+    const val STRONG_LOCKED = 2
+
     /** Below this fit, a song is considered wrong for what is happening now. */
     const val DROP_BELOW = -0.25
 
@@ -61,6 +73,7 @@ object AdaptiveQueue {
         title: (T) -> String?,
         context: TagFit.Context,
         dropBelow: Double = DROP_BELOW,
+        dropShare: Double = MAX_DROP_SHARE,
     ): Plan<T> {
         if (tail.isEmpty() || !context.known) return Plan(tail, emptyList())
 
@@ -75,7 +88,7 @@ object AdaptiveQueue {
             val tags = SongTags.of(title(item))
             item to if (tags.isEmpty()) 0.0 else TagFit.score(tags, context)
         }
-        val budget = (tail.size * MAX_DROP_SHARE).toInt()
+        val budget = (tail.size * dropShare).toInt()
         if (budget <= 0) return Plan(tail, emptyList())
 
         // The worst offenders first, but only up to the budget, and only ones actually below the

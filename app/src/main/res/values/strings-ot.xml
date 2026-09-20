@@ -143,6 +143,7 @@ Play something, turn your head, and drag. Too little and the music lags behind y
     <string name="high_precision_audio_explain">Volume normalisation multiplies every sample. In 16-bit the result is rounded back down to 16-bit afterwards, on every track, which is avoidable.
 
 The cost is battery: in this mode the phone cannot hand playback to its low-power audio path. The difference is small, so this is a preference rather than a better setting.</string>
+    <string name="adaptive_tail_title">Chosen as you listen</string>
     <string name="adaptive_queue">Keep the queue up to date</string>
     <string name="adaptive_queue_description">Drops songs further down the queue that stop suiting what you are playing.</string>
     <string name="adaptive_queue_off">Never</string>
@@ -938,4 +939,8 @@ The second line is the phone\'s own spatial audio, which is unrelated and does n
 -->
     <string name="quick_picks_source_description_basic">Where the Quick picks row gets its songs. YouTube Music picks them for your account. Your library builds the row instead from songs related to what you have already played. This changes that one row; the rest of the home screen is the same either way.</string>
     <string name="quick_picks_source_info_basic">YouTube Music shows the shelf YouTube builds for your account, falling back to the library row when a load finds no shelf, offline for one. Your library ranks songs related to your last five plays, your week\'s top five and your last ten likes. Off removes the row.\n\nOnly this row changes, nothing else on Home: the carousels, the Similar to rows and the mood tiles are YouTube\'s either way.</string>
+    <plurals name="adaptive_tail_hidden">
+        <item quantity="one">%1$d more song waiting, picked from what you play next</item>
+        <item quantity="other">%1$d more songs waiting, picked from what you play next</item>
+    </plurals>
 </resources>

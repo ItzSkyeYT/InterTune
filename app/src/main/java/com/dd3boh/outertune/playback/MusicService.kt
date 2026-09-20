@@ -303,6 +303,20 @@ class MusicService : MediaLibraryService(),
      * acceptable because it happens out of sight.
      */
     @Volatile var queueSheetOpen = false
+
+    /**
+     * Whether the queue's far end is being chosen rather than fixed, for the queue view to say so.
+     *
+     * The thing this fixes is not a bug in the planning, which has been working: it dropped
+     * eighteen of forty six upcoming songs in one pass and the list still looked like forty six
+     * songs anyone could scroll. A queue that quietly rewrites itself while presenting as a
+     * fixed list is worse than one that does not rewrite itself at all, because the listener is
+     * reading something that is not true.
+     */
+    val adaptiveTailActive = MutableStateFlow(false)
+
+    /** Bumped whenever the tail is replanned, so the queue view can redraw its summary. */
+    val hiddenTailChanged = MutableStateFlow(0)
     @Volatile private var contextChip = 0
     @Volatile var persistentQueue = true
         private set
@@ -1642,15 +1656,29 @@ class MusicService : MediaLibraryService(),
      * items just played are exactly "what you have been listening to in this sitting", and reading
      * them costs nothing on a thread that must not block.
      */
-    private fun replanQueueTail() {
-        if (adaptiveQueueMode == AdaptiveQueueMode.OFF || queueSheetOpen) return
+    /**
+     * @param strong the listener just said something clear, so reach further and lock less.
+     */
+    private fun replanQueueTail(strong: Boolean = false) {
+        if (adaptiveQueueMode == AdaptiveQueueMode.OFF) {
+            adaptiveTailActive.value = false
+            return
+        }
+        // Not while somebody is reading it. A list that rearranges under a finger is the one
+        // thing this must never do.
+        if (queueSheetOpen) return
         val q = queueBoard.getCurrentQueue() ?: return
         // A radio tail is one the app chose; a playlist is one the listener chose.
-        if (adaptiveQueueMode == AdaptiveQueueMode.AUTOPLAY_ONLY && q.playlistId == null) return
+        if (adaptiveQueueMode == AdaptiveQueueMode.AUTOPLAY_ONLY && q.playlistId == null) {
+            adaptiveTailActive.value = false
+            return
+        }
+        adaptiveTailActive.value = true
 
         val current = player.currentMediaItemIndex
         val count = player.mediaItemCount
-        val start = AdaptiveQueue.tailStart(current, count) ?: return
+        val locked = if (strong) AdaptiveQueue.STRONG_LOCKED else AdaptiveQueue.LOCKED
+        val start = AdaptiveQueue.tailStart(current, count, locked) ?: return
 
         val recent = (current downTo maxOf(0, current - TagFit.WINDOW + 1))
             .mapNotNull { runCatching { player.getMediaItemAt(it).mediaMetadata.title?.toString() }.getOrNull() }
@@ -1662,7 +1690,12 @@ class MusicService : MediaLibraryService(),
         }
         if (tail.isEmpty()) return
 
-        val plan = AdaptiveQueue.plan(tail, { it.second }, context)
+        val plan = AdaptiveQueue.plan(
+            tail,
+            { it.second },
+            context,
+            dropShare = if (strong) AdaptiveQueue.STRONG_DROP_SHARE else AdaptiveQueue.MAX_DROP_SHARE,
+        )
         if (!plan.changed) return
 
         // Descending, so each removal cannot shift the index of the next one.
@@ -1671,7 +1704,8 @@ class MusicService : MediaLibraryService(),
                 runCatching { player.removeMediaItem(index) }
             }
         }
-        Log.d(TAG, "Adaptive queue: dropped ${plan.dropped.size} of ${tail.size} upcoming")
+        hiddenTailChanged.value = hiddenTailChanged.value + 1
+        Log.d(TAG, "Adaptive queue: dropped ${plan.dropped.size} of ${tail.size} upcoming, strong=$strong")
     }
 
     fun updateNotification() {
@@ -1879,6 +1913,10 @@ class MusicService : MediaLibraryService(),
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
         noteTransition(mediaItem, reason)
+        // Every song change, not only when the queue itself changes. A skip is the strongest
+        // opinion anyone gives without pressing anything, so it reaches further than a song that
+        // simply ended.
+        replanQueueTail(strong = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)
         // "Listening now" on Last.fm. Not a scrobble, not stored, and allowed to fail quietly.
         mediaItem?.metadata?.let { meta -> scope.launch { scrobbler.nowPlaying(meta) } }
         // +2 when and error happens, and -1 when transition. Thus when error, number increments by 1, else doesn't change

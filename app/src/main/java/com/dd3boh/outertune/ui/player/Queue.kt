@@ -104,6 +104,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -179,6 +180,14 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
+
+/**
+ * Songs shown beyond the one playing while the far end is being chosen.
+ *
+ * Four, matching what the planner leaves untouched, so everything on screen is genuinely settled
+ * and nothing listed can be taken away while somebody is looking at it.
+ */
+private const val ADAPTIVE_VISIBLE_AHEAD = 4
 
 @Composable
 fun QueueSheet(
@@ -464,6 +473,21 @@ fun BoxScope.QueueContent(
             exitDetachHead()
         }
     }
+
+    /**
+     * How much of the queue is worth showing when the far end is being chosen as you listen.
+     *
+     * A few songs, not a few dozen. The point of showing any is that what comes next is settled
+     * and can be relied on; past that the list would be describing decisions that have not been
+     * made yet.
+     */
+    val adaptiveTailActive by playerConnection.service.adaptiveTailActive.collectAsState()
+    val tailRevision by playerConnection.service.hiddenTailChanged.collectAsState()
+    val visibleSongs = remember(mutableSongs.size, currentWindowIndex, adaptiveTailActive, tailRevision, detachedQueue, isSearching) {
+        if (!adaptiveTailActive || isSearching || detachedQueue != null) mutableSongs.toList()
+        else mutableSongs.take((currentWindowIndex + 1 + ADAPTIVE_VISIBLE_AHEAD).coerceIn(0, mutableSongs.size))
+    }
+    val hiddenTailCount = if (isSearching) 0 else mutableSongs.size - visibleSongs.size
 
     LaunchedEffect(queueWindows, detachedQueue) { // add to songs list & scroll
         if (isSearching) return@LaunchedEffect
@@ -838,7 +862,7 @@ fun BoxScope.QueueContent(
 
             val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
             itemsIndexed(
-                items = if (isSearching) filteredSongs else mutableSongs,
+                items = if (isSearching) filteredSongs else visibleSongs,
                 key = { _, item -> item.hashCode() },
                 contentType = { _, _ -> CONTENT_TYPE_SONG }
             ) { index, window ->
@@ -976,6 +1000,46 @@ fun BoxScope.QueueContent(
                         )
                     } else {
                         content()
+                    }
+                }
+            }
+
+            // What is past the end of the list, and why it is not shown.
+            //
+            // The planning has been working all along: it replaced eighteen of forty six upcoming
+            // songs in a single pass. Nobody could tell, because the queue still presented forty
+            // six songs as though they were settled. Showing a fixed list that is quietly being
+            // rewritten is worse than not rewriting it, so the far end is not shown at all, and
+            // this says what is happening there instead.
+            if (hiddenTailCount > 0) {
+                item(key = "adaptive-tail", contentType = "adaptive-tail") {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 20.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.AutoAwesome,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = stringResource(R.string.adaptive_tail_title),
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            Text(
+                                text = pluralStringResource(
+                                    R.plurals.adaptive_tail_hidden,
+                                    hiddenTailCount,
+                                    hiddenTailCount,
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
