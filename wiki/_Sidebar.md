@@ -13,6 +13,12 @@
 - [Volume and loudness](Volume-and-loudness)
 - [Audio offload](Audio-offload)
 
+**Where the sound is**
+
+- [Spatial audio](Spatial-audio)
+- [Head tracking](Head-tracking)
+- [Quieter as you walk away](Quieter-as-you-walk-away)
+
 **Look and layout**
 
 - [Player appearance](Player-appearance)
