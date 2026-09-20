@@ -427,6 +427,56 @@ class BinauralAudioProcessorTest {
     }
 
     @Test
+    fun `a full scale sine never leaves full scale, at any order`() {
+        // Every head-related transfer function peaks where the ear canal resonates, and this one
+        // puts a full scale centred sine at nearly twice full scale around three kilohertz. Left
+        // alone that hits the hard clamp underneath and splatters across the spectrum. Checked at
+        // both orders because the peak is a property of the ear, not of the harmonic count.
+        for (third in booleanArrayOf(false, true)) {
+            for (hz in intArrayOf(200, 440, 1000, 2000, 4000, 8000)) {
+                val p = BinauralAudioProcessor().apply { enabled = true; thirdOrder = third }
+                p.configure(stereoFloat())
+                p.flush()
+
+                var peak = 0f
+                var n = 0
+                repeat(8) {
+                    val input = ByteBuffer.allocateDirect(8 * 1024).order(ByteOrder.nativeOrder())
+                    repeat(1024) {
+                        val v = sin(2.0 * PI * hz * n++ / 48000.0).toFloat()
+                        input.putFloat(v).putFloat(v)      // centred, full scale: the worst case
+                    }
+                    input.flip()
+                    p.queueInput(input)
+                    val out = p.output
+                    // Skip the first buffer: the convolution is still filling.
+                    repeat(1024) {
+                        val l = abs(out.float)
+                        val r = abs(out.float)
+                        if (n > 2048) peak = maxOf(peak, l, r)
+                    }
+                }
+                assertTrue(
+                    "order ${if (third) 3 else 1} at $hz Hz peaked at $peak",
+                    peak <= 1.0f,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `mono keeps its level, headroom is not taken from everything`() {
+        // The wrong fix for the peak was backing the gain off until nothing could ever clip,
+        // which cost almost six decibels and made every track quieter to spare the loud ones.
+        val p = BinauralAudioProcessor().apply { enabled = true; thirdOrder = true }
+        p.configure(stereoFloat())
+        p.flush()
+        val (left, right) = impulse(p, 1f, 1f, SadieHrir.TAPS)
+        assertEquals("left ear", 1.0, energy(left), 0.05)
+        assertEquals("right ear", 1.0, energy(right), 0.05)
+    }
+
+    @Test
     fun `the buffer that comes out is the size of the one that went in`() {
         val p = BinauralAudioProcessor().apply { enabled = true; thirdOrder = false }
         p.configure(stereoFloat())

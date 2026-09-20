@@ -2440,7 +2440,7 @@ class MusicService : MediaLibraryService(),
          * the system says its minimum is, so this only bites where that floor is lower. If it
          * ever crackles, this is the number that did it.
          */
-        const val LOW_LATENCY_BUFFER_US = 60_000
+        const val LOW_LATENCY_BUFFER_US = 90_000
 
         const val COMMAND_GET_BINDER = "GET_BINDER"
     }

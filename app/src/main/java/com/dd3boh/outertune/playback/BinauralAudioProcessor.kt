@@ -227,6 +227,33 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     }
 
     /**
+     * Keep the rare peak under full scale without making everything quieter.
+     *
+     * Any head-related transfer function has a pronounced peak where the ear canal resonates,
+     * around three to five kilohertz, and this set is no exception: a full scale centred sine
+     * there comes out at nearly twice full scale. It is a real property of a real ear, not a bug,
+     * and it is the same at first order and third, so it is not what the extra harmonics changed.
+     *
+     * The obvious fix, backing the gain off until nothing can ever exceed full scale, costs almost
+     * six decibels to solve a problem that only occurs when the music is both loud and
+     * concentrated at one frequency. That trade is wrong: it makes every track quieter to spare
+     * the occasional one, and a renderer that is quieter than the signal it replaced loses every
+     * comparison for the wrong reason.
+     *
+     * So the level match stands and the top is rounded off instead. Below the knee this is
+     * arithmetically identity, so ordinary listening passes through untouched; above it the curve
+     * approaches full scale and never reaches it. Vastly preferable to the hard clamp underneath,
+     * which turns one loud moment into splatter across the whole spectrum.
+     */
+    private fun softClip(v: Float): Float {
+        val a = abs(v)
+        if (a <= KNEE) return v
+        val over = (a - KNEE) / (1f - KNEE)
+        val shaped = KNEE + (1f - KNEE) * (over / (1f + over))
+        return if (v < 0f) -shaped else shaped
+    }
+
+    /**
      * The measured filters, moved to the rate the stream is actually running at.
      *
      * Necessary rather than nice: the set is measured at 48 kHz, which is what Opus decodes to,
@@ -245,7 +272,7 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         if (length < 8 || length > MAX_TAPS) return false
 
         appliedRate = rate
-        taps = length
+        taps = min(length, KEEP_TAPS)
         filters = FloatArray(active * taps)
         for (i in 0 until active) {
             resampleInto(source, sourceChannel[i] * sourceTaps, sourceTaps, ratio, i * taps)
@@ -256,9 +283,16 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         return true
     }
 
+    /** Half a Hann over the last few taps, so a truncated filter does not end in a step. */
+    private fun fade(t: Int): Float {
+        val from = taps - FADE_TAPS
+        if (t < from) return 1f
+        return (0.5 * (1.0 + cos(PI * (t - from) / FADE_TAPS))).toFloat()
+    }
+
     private fun resampleInto(source: ShortArray, offset: Int, sourceTaps: Int, ratio: Double, into: Int) {
         if (ratio == 1.0) {
-            for (t in 0 until taps) filters[into + t] = source[offset + t] / 32768f
+            for (t in 0 until taps) filters[into + t] = source[offset + t] / 32768f * fade(t)
             return
         }
         // Below unity the output rate is the lower one, so the filter has to be band limited to
@@ -273,7 +307,7 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
                 val x = at - k
                 acc += (source[offset + k] / 32768.0) * cutoff * sinc(cutoff * x) * window(x)
             }
-            filters[into + m] = acc.toFloat()
+            filters[into + m] = acc.toFloat() * fade(m)
         }
     }
 
@@ -390,8 +424,8 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
 
         val c = common * gain
         val s = side * gain
-        put(c + s)
-        put(c - s)
+        put(softClip(c + s))
+        put(softClip(c - s))
     }
 
     /**
@@ -464,6 +498,20 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
 
         /** Taps either side of the interpolation point when moving the filters to a new rate. */
         private const val HALF_WIDTH = 16
+
+        /**
+         * How much of the measured response to keep.
+         *
+         * The tail past this is thirty six decibels down and carries three hundredths of a percent
+         * of the energy, and dropping it is a third off the arithmetic, which at ten harmonics and
+         * forty eight thousand samples a second is worth having. Faded out rather than cut, so the
+         * truncation does not ripple across the spectrum.
+         */
+        private const val KEEP_TAPS = 160
+        private const val FADE_TAPS = 16
+
+        /** Where the output stops being left alone. Below this the soft clip is identity. */
+        private const val KNEE = 0.85f
 
         /** Faster than any voluntary head turn, so only a glitch is ever clamped. 720 deg/s. */
         const val MAX_YAW_RATE = 12.566371f
