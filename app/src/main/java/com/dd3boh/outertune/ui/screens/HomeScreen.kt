@@ -65,6 +65,7 @@ import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator
 import androidx.compose.material3.pulltorefresh.pullToRefresh
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -213,19 +214,6 @@ fun HomeScreen(
     val isRefreshing by viewModel.refreshIndicator.collectAsState()
     val pullRefreshState = rememberPullToRefreshState()
 
-    // Drive the indicator for a refresh nobody pulled for.
-    //
-    // Its position comes from how far the list was dragged. A pull sets that on the way down, so
-    // pulling has always worked; switching a chip sets isRefreshing with the drag still at zero,
-    // which leaves the spinner its own height above the top edge, turning where it cannot be seen.
-    //
-    // This was tried before and removed, because the state read 1.0 when measured and the call
-    // looked like it did nothing. It read 1.0 because a pull earlier in the same session had left
-    // it there: the measurement was of a session that had already pulled, which is the one case
-    // that was never broken.
-    LaunchedEffect(isRefreshing) {
-        if (isRefreshing) pullRefreshState.animateToThreshold() else pullRefreshState.animateToHidden()
-    }
 
 
     val quickPicksLazyGridState = rememberLazyGridState()
@@ -470,14 +458,31 @@ fun HomeScreen(
         forgottenFavoritesLazyGridState.scrollToItem(0)
     }
 
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .pullToRefresh(
-                state = pullRefreshState,
+    // One component owns the gesture, the spinner and the animation between them.
+    //
+    // This was a pullToRefresh modifier on the box plus an Indicator placed by hand, which meant
+    // two things animating one value and disagreeing about when to put it away: it would not
+    // appear for a refresh nobody pulled for, and once made to appear it would not leave. The
+    // library has a composable for exactly this and it should have been used from the start.
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = { viewModel.pullToRefresh() },
+        state = pullRefreshState,
+        modifier = Modifier.fillMaxSize(),
+        indicator = {
+            // Under the search bar, which the scaffold draws over the top of this box.
+            Indicator(
                 isRefreshing = isRefreshing,
-                onRefresh = { viewModel.pullToRefresh() }
-            ),
+                state = pullRefreshState,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(top = AppBarHeight),
+            )
+        },
+    ) {
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.TopStart
     ) {
         val listThumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
@@ -1113,25 +1118,7 @@ fun HomeScreen(
         )
 
         // Below the search bar, not behind it.
-        //
-        // The spinner lands at the top of this box, and the search bar is drawn over the same
-        // spot by the scaffold above. So it was turning the whole time, exactly where nobody
-        // could see it: the state was right, the flag was right, and the pixels were underneath
-        // something else. Only a screenshot taken mid refresh showed it.
-        // Directly under the search bar, which is where a refresh spinner is looked for.
-        //
-        // It was padded by the player aware insets, which carry more than the top of the screen,
-        // and it ended up floating over the Quick picks heading halfway down. It was rendering
-        // the whole time and simply was not anywhere anyone would look. The status bar plus the
-        // app bar is the actual top of the content, and nothing else belongs in that sum.
-        Indicator(
-            isRefreshing = isRefreshing,
-            state = pullRefreshState,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(top = AppBarHeight),
-        )
+    }
     }
 
     // Only ever opened by tapping the banner. Closing without answering leaves the question
