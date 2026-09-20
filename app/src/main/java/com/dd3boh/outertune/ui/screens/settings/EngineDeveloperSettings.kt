@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -171,20 +172,41 @@ fun EngineDeveloperSettings(
         var probeRunning by remember { mutableStateOf(false) }
         var probeStatus by remember { mutableStateOf("") }
 
+        // Each step is comparable to the others only if they are the same length and in a known
+        // order, and the turning step is the one that decides the question: if the signal moves as
+        // much standing still and turning round as it does crossing the flat, distance is not in
+        // there to be found.
+        val protocol = listOf(
+            ProximityProbe.Step(stringResource(R.string.proximity_step_still), 20),
+            ProximityProbe.Step(stringResource(R.string.proximity_step_turn), 20),
+            ProximityProbe.Step(stringResource(R.string.proximity_step_away), 20),
+            ProximityProbe.Step(stringResource(R.string.proximity_step_far), 20),
+            ProximityProbe.Step(stringResource(R.string.proximity_step_back), 20),
+        )
+        val finished = stringResource(R.string.proximity_step_done)
+
+        DisposableEffect(Unit) { onDispose { probe.stop(); probe.release() } }
+
         val scanPermission = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { granted ->
             if (granted) {
-                probeFile = probe.start()?.absolutePath
+                probeFile = probe.start(protocol, finished)?.absolutePath
                 probeRunning = probe.isRunning
             }
         }
 
         LaunchedEffect(probeRunning) {
             while (probeRunning) {
-                val (elapsed, count) = probe.status()
-                probeStatus = context.getString(R.string.proximity_probe_running, elapsed / 1000, count)
-                delay(500)
+                probe.tick { probeRunning = false }
+                val step = probe.currentStep()
+                val (_, count) = probe.status()
+                probeStatus = if (step == null) {
+                    context.getString(R.string.proximity_probe_saved, probeFile ?: "")
+                } else {
+                    context.getString(R.string.proximity_probe_step, step.first.spoken, step.second, count)
+                }
+                delay(400)
             }
         }
 
@@ -203,7 +225,7 @@ fun EngineDeveloperSettings(
                 } else if (!probe.hasPermission()) {
                     scanPermission.launch(android.Manifest.permission.BLUETOOTH_SCAN)
                 } else {
-                    probeFile = probe.start()?.absolutePath
+                    probeFile = probe.start(protocol, finished)?.absolutePath
                     probeRunning = probe.isRunning
                 }
             },

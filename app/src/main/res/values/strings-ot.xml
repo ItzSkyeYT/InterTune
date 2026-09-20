@@ -90,6 +90,13 @@ If it still feels slow on Quick, the remaining delay is Bluetooth. A different c
     <string name="proximity_probe_stop">Stop logging</string>
     <string name="proximity_probe_description">Records how strong nearby Bluetooth signals are, to find out whether distance is measurable at all.</string>
     <string name="proximity_probe_running">Logging: %1$d seconds, %2$d readings.</string>
+    <string name="proximity_probe_step">%1$s  (%2$d s left, %3$d readings)</string>
+    <string name="proximity_step_still">Sit still, phone beside you.</string>
+    <string name="proximity_step_turn">Stay where you are and turn slowly on the spot.</string>
+    <string name="proximity_step_away">Leave the phone and walk as far away as you can.</string>
+    <string name="proximity_step_far">Stay there and keep still.</string>
+    <string name="proximity_step_back">Walk back to the phone.</string>
+    <string name="proximity_step_done">Finished. You can pick the phone up.</string>
     <string name="proximity_probe_saved">Saved to %1$s</string>
     <string name="head_tracking_3d">Follow tilting too</string>
     <string name="head_tracking_3d_description">Looking up, down or sideways moves the sound as well.</string>
