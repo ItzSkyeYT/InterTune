@@ -125,8 +125,11 @@ class HeadTracking(
     /**
      * How fast the reference itself has to move to stay put, in radians per second.
      *
-     * These headphones have a gyroscope and no compass, so nothing holds yaw down and it slides,
-     * measured at about a degree a second on this pair. Waiting for six seconds of stillness to
+     * The tracker's yaw slides, measured at about a degree a second on this pair. Not a guess
+     * about the hardware: these headphones do contain a magnetometer, whatever it is used for,
+     * and the reports still drift. The HID profile says as much, describing its own reference
+     * frame as arbitrary and possibly slowly drifting, so this is the documented behaviour rather
+     * than a fault. Waiting for six seconds of stillness to
      * correct it works when someone is listening and fails exactly when they are moving about,
      * which is when they would notice. Bleeding the reference towards wherever they are looking
      * cancels drift without stillness, but cannot tell a slow deliberate turn from drift and so
@@ -296,9 +299,9 @@ class HeadTracking(
         }
 
         stillness.add(now, yaw)
-        // Not politeness: these headphones have a gyro and no compass, so nothing pins yaw and it
-        // drifts about a degree a second. Left alone the stage wanders off to one side within a
-        // minute. The price is that holding a deliberate turn for six seconds makes the stage
+        // Not politeness: the tracker's yaw drifts about a degree a second, measured, so left
+        // alone the stage wanders off to one side within a minute. Its own profile describes the
+        // reference frame as arbitrary and possibly slowly drifting, so this is expected. The price is that holding a deliberate turn for six seconds makes the stage
         // follow, which is the same bargain every shipping implementation makes.
         if (stillness.isStill(now)) recentre()
 

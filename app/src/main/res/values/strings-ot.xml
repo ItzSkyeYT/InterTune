@@ -73,7 +73,7 @@ Neither is a remaster. The recording has two channels and nothing recovers what 
 
 Needs headphones that report their orientation and a phone willing to pass it on. Most phones are not: the sensor is reserved for the system, and many manufacturers never enable the part that reads it, so this setting is hidden unless a tracker is actually there.
 
-Because the headphones have no compass, nothing holds the direction steady and it drifts by about a degree a second. So the stage quietly recentres itself whenever you have held still for six seconds. That is also why holding a deliberate turn makes the music slowly follow you, which is a trade every implementation of this makes.</string>
+Nothing holds the direction steady, so it drifts by about a degree a second. So the stage quietly recentres itself whenever you have held still for six seconds. That is also why holding a deliberate turn makes the music slowly follow you, which is a trade every implementation of this makes.</string>
     <string name="head_tracking_response">Tracking response</string>
     <string name="head_tracking_response_description">How far ahead of your head the sound aims.</string>
     <string name="head_tracking_response_smooth">Smooth</string>
@@ -117,7 +117,7 @@ Worth knowing that up and down is the weakest thing this can do. Telling height 
     <string name="head_tracking_calibrate_never">Not calibrated. Tap, then look straight ahead and keep still.</string>
     <string name="head_tracking_calibrate_running">Keep still and look straight ahead. %1$d seconds left.</string>
     <string name="head_tracking_calibrate_done">Correcting %1$.2f degrees per second of drift.</string>
-    <string name="head_tracking_calibrate_explain">Headphones have a gyroscope and no compass, so nothing holds the direction steady and it slides, usually about a degree a second. Left alone the music wanders off to one side over a minute or two.
+    <string name="head_tracking_calibrate_explain">Nothing holds the direction your headphones report steady, so it slides, usually about a degree a second. Left alone the music wanders off to one side over a minute or two.
 
 The usual fix is to quietly recentre whenever you have held still for a while, which works when you are sitting listening and fails exactly when you are moving about. Measuring it is better. Thirty seconds of a head that is not moving is thirty seconds of pure drift, and once the rate is known it can be subtracted for good, without ever mistaking a slow deliberate turn for drift.
 
