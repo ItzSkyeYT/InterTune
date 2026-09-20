@@ -2,6 +2,10 @@ package com.dd3boh.outertune.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.horizontalScroll
+import com.dd3boh.outertune.constants.NewSongsOnlyKey
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.Icon
 import androidx.compose.material3.FilterChip
 import com.dd3boh.outertune.engine.ContextChip
 import com.dd3boh.outertune.constants.AppBarHeight
@@ -1198,6 +1202,7 @@ private fun WhyTheseDialog(viewModel: HomeViewModel, navController: NavControlle
 private fun ContextChipRow(viewModel: HomeViewModel, modifier: Modifier = Modifier) {
     val (chip, onChipChange) = rememberPreference(ContextChipKey, defaultValue = ContextChip.AUTO)
     val tagged by viewModel.engineChipTagged.collectAsState()
+    val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
     val names = listOf(
         ContextChip.AUTO to stringResource(R.string.chip_auto), ContextChip.DISCOVER to stringResource(R.string.chip_discover),
         ContextChip.FAVOURITES to stringResource(R.string.chip_favourites), ContextChip.FOCUS to stringResource(R.string.chip_focus),
@@ -1219,6 +1224,24 @@ private fun ContextChipRow(viewModel: HomeViewModel, modifier: Modifier = Modifi
                         label = { Text(name) },
                     )
                 }
+
+                // Beside the moods rather than buried in settings, because it is the same kind of
+                // decision: what this row should be right now. It is not one of them, though, so
+                // it toggles on its own instead of joining the group.
+                FilterChip(
+                    selected = newSongsOnly,
+                    onClick = { onNewSongsOnlyChange(!newSongsOnly); viewModel.chipChanged() },
+                    label = { Text(stringResource(R.string.new_songs_only)) },
+                    leadingIcon = if (!newSongsOnly) null else {
+                        {
+                            Icon(
+                                Icons.Rounded.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(FilterChipDefaults.IconSize),
+                            )
+                        }
+                    },
+                )
             }
             // Outside the scrolling row on purpose: a chip row wider than the screen would
             // otherwise carry the explanation off the right hand edge.

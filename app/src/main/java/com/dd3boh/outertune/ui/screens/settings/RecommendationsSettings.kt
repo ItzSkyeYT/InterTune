@@ -47,6 +47,11 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -309,19 +314,46 @@ fun RecommendationsSettings(
             description = stringResource(R.string.engine_developer_description),
             onClick = { navController.navigate("settings/recommendations/developer") },
         )
+        // A file, not a share sheet full of text. The reason anyone wants this is to move it to
+        // another device or keep it before a reset, and neither is served by several kilobytes of
+        // JSON pasted into a chat.
+        var engineIoResult by remember { mutableStateOf<String?>(null) }
+        val exportEngineLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/json")
+        ) { uri ->
+            if (uri != null) viewModel.exportTo(uri) { ok ->
+                engineIoResult = context.getString(
+                    if (ok) R.string.engine_data_export_done else R.string.engine_data_failed
+                )
+            }
+        }
+        val importEngineLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.OpenDocument()
+        ) { uri ->
+            if (uri != null) viewModel.importFrom(uri) { count ->
+                engineIoResult = if (count > 0) {
+                    context.getString(R.string.engine_data_import_done, count)
+                } else {
+                    context.getString(R.string.engine_data_failed)
+                }
+            }
+        }
+
         ExplainedPreference(
             title = stringResource(R.string.export_engine_data),
             explanation = stringResource(R.string.export_engine_data_info),
-            description = stringResource(R.string.export_engine_data_description),
+            description = engineIoResult ?: stringResource(R.string.export_engine_data_description),
             onClick = {
-                viewModel.export { json ->
-                    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                        type = "application/json"
-                        putExtra(android.content.Intent.EXTRA_TEXT, json)
-                    }
-                    context.startActivity(android.content.Intent.createChooser(intent, null))
-                }
+                val stamp = java.time.LocalDateTime.now()
+                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+                exportEngineLauncher.launch("InterTune_engine_$stamp.json")
             },
+        )
+        ExplainedPreference(
+            title = stringResource(R.string.import_engine_data),
+            explanation = stringResource(R.string.import_engine_data_info),
+            description = stringResource(R.string.import_engine_data_description),
+            onClick = { importEngineLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
         )
         Spacer(Modifier.height(16.dp))
         }

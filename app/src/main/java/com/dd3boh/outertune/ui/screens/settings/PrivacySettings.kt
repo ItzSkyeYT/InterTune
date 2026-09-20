@@ -35,6 +35,7 @@ import com.dd3boh.outertune.constants.ProxyUrlKey
 import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.EditTextPreference
+import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SettingsClickToReveal
@@ -143,6 +144,9 @@ fun PrivacySettings(
                             value = proxyUrl,
                             onValueChange = onProxyUrlChange
                         )
+                        // Nobody who needs this has a proxy address to hand, and a field reading
+                        // "host:port" tells them nothing about where one comes from.
+                        InfoLabel(stringResource(R.string.proxy_examples))
                     }
                 }
             }
