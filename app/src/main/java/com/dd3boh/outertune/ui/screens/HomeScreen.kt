@@ -193,6 +193,7 @@ fun HomeScreen(
     }
     val ytQuickPicks by viewModel.ytQuickPicks.collectAsState()
     val quickPicksLoading by viewModel.quickPicksLoading.collectAsState()
+    val quickPicksSwitching by viewModel.quickPicksSwitching.collectAsState()
     val forgottenFavorites by viewModel.forgottenFavorites.collectAsState()
     val keepListening by viewModel.keepListening.collectAsState()
     val similarRecommendations by viewModel.similarRecommendations.collectAsState()
@@ -589,7 +590,7 @@ fun HomeScreen(
             // same grid, filled with placeholders, so nothing shifts size when the songs arrive.
             if (quickPicksSource == QuickPicksSource.OFF) {
                 // Nothing: the listener turned the row off.
-            } else if (quickPicksLoading && ytPicks == null) {
+            } else if ((quickPicksLoading && ytPicks == null) || quickPicksSwitching) {
                 item {
                     NavigationTitle(
                         title = stringResource(R.string.quick_picks),

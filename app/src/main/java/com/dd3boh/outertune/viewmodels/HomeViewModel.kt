@@ -255,6 +255,7 @@ class HomeViewModel @Inject constructor(
     /** The chip changed: the row is built again for it. */
     fun chipChanged() {
         lastEngineBuildAt = 0L
+        quickPicksSwitching.value = true
         refresh(force = true)
     }
 
@@ -644,6 +645,16 @@ class HomeViewModel @Inject constructor(
      * true, so a refresh replaces the songs rather than leaving the old ones sitting there.
      */
     val quickPicksLoading = MutableStateFlow(false)
+
+    /**
+     * True from tapping a context chip until the row it asked for has settled.
+     *
+     * Separate from [quickPicksLoading], which answers "is there no row yet" and is false whenever
+     * there is one, including the one belonging to the chip you have just moved away from. Asking
+     * for Focus and being shown the Auto songs with nothing turning is indistinguishable from the
+     * tap not registering, and the row is rebuilt from scratch either way.
+     */
+    val quickPicksSwitching = MutableStateFlow(false)
     val forgottenFavorites = MutableStateFlow<List<Song>?>(null)
     val keepListening = MutableStateFlow<List<LocalItem>?>(null)
     val similarRecommendations = MutableStateFlow<List<SimilarRecommendation>?>(null)
@@ -781,6 +792,7 @@ class HomeViewModel @Inject constructor(
             Log.d("HomeViewModel", "Skipping remote home load, backing off")
             noteShown()
             quickPicksLoading.value = false
+            quickPicksSwitching.value = false
             refreshIndicator.value = false
             isLoading.value = false
             return
@@ -856,6 +868,7 @@ class HomeViewModel @Inject constructor(
         // Settled either way: found, or looked for and not there. Leaving it true on failure would
         // leave a skeleton shimmering over a row that is never going to fill.
         quickPicksLoading.value = false
+        quickPicksSwitching.value = false
 
         // And the spinner stops here, with the row it was pulled for. What follows is the explore
         // page, the activity sync and the similar lookups, none of which the listener is watching.
@@ -1130,6 +1143,7 @@ class HomeViewModel @Inject constructor(
                 // Backstop. load() drops it as soon as Quick picks settles; this catches the
                 // paths that return before reaching that point.
                 refreshIndicator.value = false
+                quickPicksSwitching.value = false
             }
         }
     }
