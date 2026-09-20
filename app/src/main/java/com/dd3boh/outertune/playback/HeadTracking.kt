@@ -112,9 +112,15 @@ class HeadTracking(
     private fun tracker(): Sensor? =
         sensors?.getDynamicSensorList(Sensor.TYPE_HEAD_TRACKER)?.firstOrNull()
 
-    /** Whether a tracker is currently feeding the renderer. */
-    var isRunning: Boolean = false
-        private set
+    /** Whether the listener wants tracking, whether or not there is anything to track with. */
+    private var wantRunning = false
+
+    /** The sensor currently feeding the renderer, if any. */
+    private var attached: Sensor? = null
+
+    /** Whether a tracker is actually feeding the renderer. */
+    val isRunning: Boolean
+        get() = attached != null
     private var pendingRecentre = true
 
     /** Where the head was when the stage was last put in front of it, and when that was. */
@@ -178,26 +184,81 @@ class HeadTracking(
     private var lastReportYaw = 0f
 
     fun start(): Boolean {
-        if (isRunning) return true
-        val sensor = tracker() ?: return false
-        isRunning = true
+        if (wantRunning) return isRunning
+        wantRunning = true
+        // Dynamic sensors are destroyed and rebuilt, not reused. Headphones that drop for a
+        // moment come back as a different sensor with a different handle, and a listener
+        // registered against the old one simply stops being called: no error, no callback,
+        // nothing to notice except that the soundstage has quietly stopped following anyone.
+        // Recentring does not help, because the problem is that nothing is arriving at all.
+        runCatching { sensors?.registerDynamicSensorCallback(dynamicSensors, handler) }
+        handler.postDelayed(watchdog, WATCHDOG_MS)
+        return attach(tracker())
+    }
+
+    private fun attach(sensor: Sensor?): Boolean {
+        if (!wantRunning || attached != null) return attached != null
+        val found = sensor ?: return false
         pendingRecentre = true
         settling = false
         stillness.reset()
         lastAdvanceNanos = 0L
         lastReportNanos = 0L
+        lastYawNanos = 0L
         yawRate = 0f
-        // SENSOR_DELAY_GAME asks for 20 ms. The tracker caps itself at 25 Hz, so this is really
-        // just saying "as fast as you have".
-        sensors?.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME, handler)
-        Log.d(TAG, "head tracking started on ${sensor.name}")
+        sensors?.registerListener(this, found, SensorManager.SENSOR_DELAY_GAME, handler)
+        attached = found
+        Log.d(TAG, "attached to ${found.name}")
         return true
     }
 
+    private fun detach() {
+        if (attached == null) return
+        runCatching { sensors?.unregisterListener(this) }
+        attached = null
+    }
+
+    private val dynamicSensors = object : SensorManager.DynamicSensorCallback() {
+        override fun onDynamicSensorConnected(sensor: Sensor) {
+            if (sensor.type != Sensor.TYPE_HEAD_TRACKER) return
+            attach(sensor)
+        }
+
+        override fun onDynamicSensorDisconnected(sensor: Sensor) {
+            if (sensor.type != Sensor.TYPE_HEAD_TRACKER) return
+            detach()
+            wanted = 0f
+            settling = true
+            handler.post(glide)
+        }
+    }
+
+    /**
+     * Second line of defence, because the callback is not guaranteed to arrive.
+     *
+     * A still head still reports, so silence for several seconds means the link is gone rather
+     * than that nobody moved. Cheap to check and it costs nothing when everything is working.
+     */
+    private val watchdog = object : Runnable {
+        override fun run() {
+            if (!wantRunning) return
+            val quiet = lastYawNanos != 0L &&
+                SystemClock.elapsedRealtimeNanos() - lastYawNanos > REACQUIRE_NANOS
+            if (attached == null || quiet) {
+                if (quiet) Log.d(TAG, "no reports for a while, re-acquiring")
+                detach()
+                attach(tracker())
+            }
+            handler.postDelayed(this, WATCHDOG_MS)
+        }
+    }
+
     fun stop(glideHome: Boolean) {
-        if (!isRunning) return
-        isRunning = false
-        sensors?.unregisterListener(this)
+        if (!wantRunning) return
+        wantRunning = false
+        runCatching { sensors?.unregisterDynamicSensorCallback(dynamicSensors) }
+        handler.removeCallbacks(watchdog)
+        detach()
         handler.removeCallbacks(stale)
         if (glideHome) {
             wanted = 0f
@@ -264,7 +325,7 @@ class HeadTracking(
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
 
     override fun onSensorChanged(event: SensorEvent) {
-        if (!isRunning) return
+        if (attached == null) return
         // values[0..2] is an Euler vector: direction is the axis, length is the angle in radians.
         // Not the quaternion-tail form TYPE_ROTATION_VECTOR uses, so getRotationMatrixFromVector
         // cannot be fed this and the conversion is done by hand.
@@ -459,6 +520,12 @@ class HeadTracking(
 
         /** Prints every pose. For watching the pipeline rather than guessing at it. */
         private const val TRACE = false
+
+        /** How often to check the link is still alive. */
+        const val WATCHDOG_MS = 4_000L
+
+        /** Silence longer than this means the sensor is gone, not that nobody moved. */
+        const val REACQUIRE_NANOS = 3_000_000_000L
 
         /** Sanity bounds on the gap between two reports, either side of the profile's 20 to 40 ms. */
         const val MIN_REPORT_INTERVAL = 0.005f
