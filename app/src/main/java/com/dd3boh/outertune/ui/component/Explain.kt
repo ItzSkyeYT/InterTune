@@ -31,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
@@ -53,11 +54,19 @@ fun ExplainButton(
     title: String,
     body: String,
     modifier: Modifier = Modifier,
+    footer: String? = null,
+    links: List<ExplainLink> = emptyList(),
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
 
     if (open) {
-        ExplainDialog(title = title, body = body, onDismiss = { open = false })
+        ExplainDialog(
+            title = title,
+            body = body,
+            footer = footer,
+            links = links,
+            onDismiss = { open = false },
+        )
     }
 
     // The button keeps IconButton's own 48dp target rather than being shrunk to fit the icon.
@@ -76,12 +85,18 @@ fun ExplainButton(
     }
 }
 
+/** Somewhere to go when the explanation is not the end of it. */
+data class ExplainLink(val label: String, val url: String)
+
 @Composable
 fun ExplainDialog(
     title: String,
     body: String,
     onDismiss: () -> Unit,
+    footer: String? = null,
+    links: List<ExplainLink> = emptyList(),
 ) {
+    val uriHandler = LocalUriHandler.current
     DefaultDialog(
         onDismiss = onDismiss,
         horizontalAlignment = Alignment.Start,
@@ -105,10 +120,29 @@ fun ExplainDialog(
             text = body,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier
-                .heightIn(max = 560.dp)
+                .heightIn(max = 480.dp)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         )
+
+        // For the settings that cannot work everywhere. Being told why is only half of it; the
+        // other half is being able to say so when the reason does not apply to you.
+        if (footer != null) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = footer,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+        if (links.isNotEmpty()) {
+            Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+                links.forEach { link ->
+                    TextButton(onClick = { uriHandler.openUri(link.url) }) { Text(link.label) }
+                }
+            }
+        }
         Spacer(Modifier.height(8.dp))
     }
 }
@@ -121,6 +155,8 @@ fun ExplainedPreference(
     modifier: Modifier = Modifier,
     description: String? = null,
     icon: (@Composable () -> Unit)? = null,
+    footer: String? = null,
+    links: List<ExplainLink> = emptyList(),
     onClick: (() -> Unit)? = null,
     isEnabled: Boolean = true,
 ) = PreferenceEntry(
@@ -128,7 +164,9 @@ fun ExplainedPreference(
     title = { Text(title) },
     description = description,
     icon = icon,
-    trailingContent = { ExplainButton(title = title, body = explanation) },
+    trailingContent = {
+        ExplainButton(title = title, body = explanation, footer = footer, links = links)
+    },
     onClick = onClick,
     isEnabled = isEnabled,
 )
@@ -143,6 +181,8 @@ fun ExplainedSwitchPreference(
     modifier: Modifier = Modifier,
     description: String? = null,
     icon: (@Composable () -> Unit)? = null,
+    footer: String? = null,
+    links: List<ExplainLink> = emptyList(),
     isEnabled: Boolean = true,
 ) = PreferenceEntry(
     modifier = modifier,
@@ -151,7 +191,7 @@ fun ExplainedSwitchPreference(
     icon = icon,
     trailingContent = {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            ExplainButton(title = title, body = explanation)
+            ExplainButton(title = title, body = explanation, footer = footer, links = links)
 
             Spacer(Modifier.width(4.dp))
 

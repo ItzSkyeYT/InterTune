@@ -69,6 +69,7 @@ import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SleepTimerFadeKey
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
+import com.dd3boh.outertune.ui.component.ExplainLink
 import com.dd3boh.outertune.ui.component.ExplainedPreference
 import androidx.compose.material3.Slider
 import com.dd3boh.outertune.constants.StageWidthKey
@@ -280,15 +281,35 @@ fun ColumnScope.HeadTrackingFrag() {
 
     if (spatial != SpatialAudioMode.HEADPHONES) return
 
+    // Somewhere to go when the answer is "your phone will not". Most phones will not, and being
+    // told that is only half of it: the other half is being able to say so when your headphones
+    // do have it and this still says they do not.
+    val reportLinks = listOf(
+        ExplainLink(stringResource(R.string.link_wiki), HEAD_TRACKING_WIKI),
+        ExplainLink(stringResource(R.string.link_report), HEAD_TRACKING_ISSUE),
+    )
+
+    if (!available) {
+        // A row rather than a dead switch. A switch that cannot be moved invites people to keep
+        // trying it, and greying the whole row would fade the one thing they need to tap.
+        ExplainedPreference(
+            title = stringResource(R.string.head_tracking),
+            description = stringResource(R.string.head_tracking_none),
+            explanation = stringResource(R.string.head_tracking_explain),
+            footer = stringResource(R.string.head_tracking_report_prompt),
+            links = reportLinks,
+        )
+        return
+    }
+
     ExplainedSwitchPreference(
         title = stringResource(R.string.head_tracking),
-        description = stringResource(
-            if (available) R.string.head_tracking_description else R.string.head_tracking_none
-        ),
+        description = stringResource(R.string.head_tracking_description),
         explanation = stringResource(R.string.head_tracking_explain),
-        checked = enabled && available,
+        footer = stringResource(R.string.head_tracking_report_prompt),
+        links = reportLinks,
+        checked = enabled,
         onCheckedChange = onEnabledChange,
-        isEnabled = available,
     )
 
     if (!enabled || !available) return
@@ -378,6 +399,14 @@ fun ColumnScope.HeadTrackingFrag() {
         onClick = { if (!running) onCalibrate(System.currentTimeMillis()) },
     )
 }
+
+private const val HEAD_TRACKING_WIKI = "https://github.com/ItzSkyeYT/InterTune/wiki/Head-tracking"
+
+/** Pre-filled so a report arrives with the one thing that actually identifies the problem. */
+private const val HEAD_TRACKING_ISSUE =
+    "https://github.com/ItzSkyeYT/InterTune/issues/new?labels=head+tracking&title=Head+tracking+not+detected&body=" +
+        "Headphones%3A%20%0APhone%3A%20%0AAndroid%20version%3A%20%0A%0A" +
+        "Output%20of%20%60adb%20shell%20dumpsys%20sensorservice%20%7C%20grep%20head_tracker%60%3A%0A"
 
 /** Thirty seconds, matching HeadTracking.CALIBRATION_NANOS. */
 private const val CALIBRATION_MS = 30_000L

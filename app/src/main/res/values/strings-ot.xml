@@ -69,6 +69,9 @@ Wider separates the instruments more. Too wide leaves a gap in the middle.</stri
     <string name="stage_width_description">Thirty is what stereo is mixed for. Wider pulls the instruments apart at the cost of a hole in the middle.</string>
     <string name="head_tracking">Head tracking</string>
     <string name="head_tracking_description">The music stays where it is when you turn your head.</string>
+    <string name="head_tracking_report_prompt">Your headphones have head tracking and this still says they do not? Tell me about it.</string>
+    <string name="link_wiki">Wiki</string>
+    <string name="link_report">Report it</string>
     <string name="head_tracking_none">No head tracker on this phone.</string>
     <string name="head_tracking_explain">The music stays where it is when you turn your head.
 
