@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.FilterChip
 import com.dd3boh.outertune.engine.ContextChip
+import com.dd3boh.outertune.constants.AppBarHeight
 import com.dd3boh.outertune.constants.ContextChipKey
 import com.dd3boh.outertune.constants.AdventurousnessKey
 import com.dd3boh.outertune.engine.Lane
@@ -211,15 +212,6 @@ fun HomeScreen(
     val isRefreshing by viewModel.refreshIndicator.collectAsState()
     val pullRefreshState = rememberPullToRefreshState()
 
-    // Bring the spinner into view for a refresh nobody pulled for.
-    //
-    // The indicator is positioned from how far the list was dragged, so with no drag it sits its
-    // own height above the top edge and stays there, however true isRefreshing is. PullToRefreshBox
-    // drives that for you; this screen uses the lower level modifier and its own Indicator, so
-    // nothing was. Switching a chip or a source therefore refreshed with no sign of it.
-    LaunchedEffect(isRefreshing) {
-        if (isRefreshing) pullRefreshState.animateToThreshold() else pullRefreshState.animateToHidden()
-    }
 
     val quickPicksLazyGridState = rememberLazyGridState()
     val forgottenFavoritesLazyGridState = rememberLazyGridState()
@@ -1105,12 +1097,19 @@ fun HomeScreen(
             }
         )
 
+        // Below the search bar, not behind it.
+        //
+        // The spinner lands at the top of this box, and the search bar is drawn over the same
+        // spot by the scaffold above. So it was turning the whole time, exactly where nobody
+        // could see it: the state was right, the flag was right, and the pixels were underneath
+        // something else. Only a screenshot taken mid refresh showed it.
         Indicator(
             isRefreshing = isRefreshing,
             state = pullRefreshState,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(LocalPlayerAwareWindowInsets.current.asPaddingValues()),
+                .padding(LocalPlayerAwareWindowInsets.current.asPaddingValues())
+                .padding(top = AppBarHeight),
         )
     }
 
