@@ -88,12 +88,16 @@ fun ExplainDialog(
         // The container pads by eight, and the body below adds sixteen. Without the same here the
         // heading sat sixteen short of the text it belongs to, which is the sort of thing nobody
         // can name but everybody sees.
-        title = { Text(title, modifier = Modifier.padding(horizontal = 16.dp)) },
+        title = {
+            Text(
+                title,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+            )
+        },
         buttons = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.explain_close)) }
         },
     ) {
-        Spacer(Modifier.height(8.dp))
         // Still capped, because a large font on a short phone would otherwise push the button off
         // the bottom, but high enough that nothing worth reading has to be scrolled to. The real
         // fix for scrolling is writing less, which is the other half of this change.
@@ -116,12 +120,14 @@ fun ExplainedPreference(
     explanation: String,
     modifier: Modifier = Modifier,
     description: String? = null,
+    icon: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
     isEnabled: Boolean = true,
 ) = PreferenceEntry(
     modifier = modifier,
     title = { Text(title) },
     description = description,
+    icon = icon,
     trailingContent = { ExplainButton(title = title, body = explanation) },
     onClick = onClick,
     isEnabled = isEnabled,
@@ -136,11 +142,13 @@ fun ExplainedSwitchPreference(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     description: String? = null,
+    icon: (@Composable () -> Unit)? = null,
     isEnabled: Boolean = true,
 ) = PreferenceEntry(
     modifier = modifier,
     title = { Text(title) },
     description = description,
+    icon = icon,
     trailingContent = {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ExplainButton(title = title, body = explanation)

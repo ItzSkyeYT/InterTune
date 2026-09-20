@@ -58,44 +58,42 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_audio_off">Off</string>
     <string name="spatial_audio_headphones">Headphones</string>
     <string name="spatial_audio_surround">Surround upmix</string>
-    <string name="spatial_audio_explain">Headphones put the music inside your head. This puts it in front of you instead, working out what each ear would hear from a pair of speakers in the room.
+    <string name="spatial_audio_explain">Headphones put the music inside your head. This puts it in front of you instead.
 
-Headphones does this inside the app, so it works on any phone. Surround upmix asks your phone to do it, which only helps if your phone has spatial audio and it is switched on.
-
-Neither adds anything that was not recorded. Height is the weak part, because it depends on the shape of your own ears.</string>
+Headphones does it in the app, so it works on any phone. Surround upmix asks your phone to do it, which only helps if your phone supports it.</string>
     <string name="stage_width">Stage width</string>
     <string name="stage_width_value">Speakers at %1$d degrees either side</string>
-    <string name="stage_width_explain">Where the two virtual speakers stand, in degrees either side of centre. Thirty is what stereo is mixed for.
+    <string name="stage_width_explain">How far apart the two virtual speakers are. 30 degrees is what stereo is mixed for.
 
-Wider separates the instruments more, but too wide leaves a hole in the middle, like real speakers set too far apart.</string>
+Wider separates the instruments more. Too wide leaves a gap in the middle.</string>
     <string name="stage_width_description">Thirty is what stereo is mixed for. Wider pulls the instruments apart at the cost of a hole in the middle.</string>
     <string name="head_tracking">Head tracking</string>
     <string name="head_tracking_description">The music stays where it is when you turn your head.</string>
     <string name="head_tracking_none">No head tracker on this phone.</string>
-    <string name="head_tracking_explain">The music stays where it is when you turn your head, instead of turning with you. That is most of what makes it sound like a room rather than headphones.
+    <string name="head_tracking_explain">The music stays where it is when you turn your head.
 
-Needs headphones that report which way they are facing and a phone willing to pass it on. Most phones will not, so this is hidden unless yours does.</string>
+Needs headphones that report which way they are facing, and a phone that shares it. Most phones do not, so this is hidden unless yours does.</string>
     <string name="head_tracking_response">Tracking response</string>
     <string name="head_tracking_response_description">How far ahead of your head the sound aims.</string>
     <string name="head_tracking_response_smooth">Smooth</string>
     <string name="head_tracking_response_balanced">Balanced</string>
     <string name="head_tracking_response_quick">Quick</string>
     <string name="head_tracking_response_instant">Instant</string>
-    <string name="head_tracking_response_explain">Sound takes time to reach you, mostly because of Bluetooth, so the app aims slightly ahead of where your head is.
+    <string name="head_tracking_response_explain">Sound takes time to reach your ears, so the app aims slightly ahead of your head.
 
-Quick and Instant aim further and feel immediate, but can swing past when you stop turning. Smooth never guesses and always feels slightly behind.</string>
+Quick and Instant feel immediate but can overshoot when you stop turning. Smooth never overshoots but feels slightly behind.</string>
     <string name="proximity_volume">Quieter as you walk away</string>
     <string name="proximity_volume_description">Treats your phone as where the music is coming from.</string>
-    <string name="proximity_volume_explain">Your phone becomes where the music is coming from. Walk away and it fades; come back and it returns.
+    <string name="proximity_volume_explain">Your phone becomes where the music comes from. Walk away and it gets quieter.
 
-It judges distance from Bluetooth signal strength. Individual readings are unreliable, because your own body blocks the signal, so it uses ten seconds at a time and only moves the volume a little. It never mutes.</string>
+It judges distance from Bluetooth signal strength, which is rough, so it changes slowly and only a little. It never mutes.</string>
     <string name="proximity_probe">Bluetooth signal log</string>
     <string name="proximity_probe_start">Start logging</string>
     <string name="proximity_probe_stop">Stop logging</string>
     <string name="proximity_probe_description">Check how well distance can be measured where you are.</string>
-    <string name="proximity_probe_explain">A hundred second test that tells you whether distance can be measured where you are. It talks you through five steps, so you can put the phone down and follow the voice.
+    <string name="proximity_probe_explain">A 100 second test to check this works where you are. It reads each step out loud, so you can put the phone down and follow along.
 
-The step that matters is turning on the spot. If turning moves the reading as much as walking away does, there is nothing to measure here and the feature will not behave.</string>
+If turning on the spot moves the signal as much as walking away does, distance cannot be measured here.</string>
     <string name="proximity_probe_running">Logging: %1$d seconds, %2$d readings.</string>
     <string name="proximity_probe_step">%1$s  (%2$d s left, %3$d readings)</string>
     <string name="proximity_step_still">Sit still, phone beside you.</string>
@@ -107,21 +105,21 @@ The step that matters is turning on the spot. If turning moves the reading as mu
     <string name="proximity_probe_saved">Saved to %1$s</string>
     <string name="head_tracking_3d">Follow tilting too</string>
     <string name="head_tracking_3d_description">Looking up, down or sideways moves the sound as well.</string>
-    <string name="head_tracking_3d_explain">Without this the sound only moves when you turn. With it, looking up or down moves it too.
+    <string name="head_tracking_3d_explain">Looking up and down moves the sound too, not just turning.
 
-Costs a little more processing, and restarts the current song when you switch it. Up and down is the weakest part of the effect, because height depends on the shape of your own ears.</string>
+Uses a bit more battery, and restarts the current song when you switch it on.</string>
     <string name="head_tracking_recentre">Recentre</string>
     <string name="head_tracking_calibrate">Calibrate</string>
     <string name="head_tracking_calibrate_never">Not calibrated. Tap, then look straight ahead and keep still.</string>
     <string name="head_tracking_calibrate_running">Keep still and look straight ahead. %1$d seconds left.</string>
     <string name="head_tracking_calibrate_done">Correcting %1$.2f degrees per second of drift.</string>
-    <string name="head_tracking_calibrate_explain">The direction your headphones report slowly drifts, about a degree a second, so the music wanders off to one side after a minute or two.
+    <string name="head_tracking_calibrate_explain">Your headphones slowly lose track of which way is forward, so the music drifts to one side.
 
-Thirty seconds of sitting still measures how fast yours drifts, and it is corrected from then on. Sit comfortably, look ahead, and do not move until it finishes.</string>
+Sit still and look straight ahead for 30 seconds. It measures your drift and corrects it from then on.</string>
     <string name="head_tracking_lead">Tracking lead</string>
-    <string name="head_tracking_lead_full_explain">How far ahead the sound aims, in thousandths of a second. It should match the delay to your ears, which depends on your Bluetooth codec and which the phone does not report.
+    <string name="head_tracking_lead_full_explain">How far ahead the sound aims, in milliseconds. It should match the delay to your ears, which depends on your Bluetooth codec.
 
-Play something, turn your head, and drag. Too little lags behind you, too much swings past. In between it stays put.</string>
+Play something, turn your head, and drag until the sound stays put.</string>
     <string name="head_tracking_lead_value">Aiming %1$d ms ahead</string>
     <string name="head_tracking_lead_description">Should match the real delay to your ears. Too little lags behind your head, too much swings past and settles back.</string>
     <string name="high_precision_audio">32-bit audio processing</string>
@@ -131,9 +129,9 @@ Play something, turn your head, and drag. Too little lags behind you, too much s
 The cost is battery: in this mode the phone cannot hand playback to its low-power audio path. The difference is small, so this is a preference rather than a better setting.</string>
     <string name="activity_log">Record movement while listening</string>
     <string name="activity_log_description">Changes nothing. Gathers evidence for whether it would be worth changing something.</string>
-    <string name="activity_log_explain">Writes one line a minute while music plays: what was on, and how much your phone moved. Nothing else, and it never leaves your phone.
+    <string name="activity_log_explain">Writes one line a minute while music plays: what was on, and how much your phone moved. It stays on your phone.
 
-It is there to find out whether moving about tells the app anything the time of day does not already tell it. Better to know before building on it than after.</string>
+It is here to find out whether moving around predicts what you want to hear, before anything is built on it.</string>
     <string name="grp_spatial">Where the sound is</string>
     <string name="adaptive_tail_title">Chosen as you listen</string>
     <string name="adaptive_queue">Keep the queue up to date</string>
@@ -626,11 +624,9 @@ It is there to find out whether moving about tells the app anything the time of 
     </plurals>
     <string name="share_audio_focus">Let other apps play at the same time</string>
     <string name="share_audio_focus_description">Play music over another app\'s sound instead of stopping it.</string>
-    <string name="share_audio_focus_explain">Normally, starting music here stops whatever else was playing. With this on, both play together, which is what you want for music over a video or a lecture.
+    <string name="share_audio_focus_explain">Normally, starting music here stops other apps. With this on, both play at once.
 
-The cost is that InterTune stops getting out of the way: it will not duck for navigation, go quiet for an alarm, or wait its turn.
-
-Calls still mute music whatever this is set to, and some phones stop background playback to save battery.</string>
+InterTune also stops lowering itself for navigation and alarms. Calls mute it either way.</string>
     <string name="sleep_timer_notif_end_of_song">The music stops at the end of this song</string>
     <string name="sleep_timer_notif_chip">%1$d min</string>
     <plurals name="sleep_timer_notif_minutes">
@@ -704,11 +700,9 @@ Calls still mute music whatever this is set to, and some phones stop background 
     <string name="spatial_audio_status_platform_off">The phone has its own spatial audio, switched off.</string>
     <string name="spatial_audio_status_platform_on">The phone has its own spatial audio, switched on.</string>
     <string name="spatial_audio_status_unreadable">Could not read: %1$s</string>
-    <string name="spatial_audio_status_explain">Two different things share this name.
+    <string name="spatial_audio_status_explain">The first line is what InterTune can use. It needs your phone to share which way your head is facing, and most phones do not.
 
-The first line is what InterTune can use. It renders spatial audio itself, so that part works anywhere, but it needs your phone to say which way your head is facing and most phones never do.
-
-The second line is your phone\'s own spatial audio, which is separate and does not affect anything here.</string>
+The second line is your phone\'s own spatial audio. It is separate and does not affect InterTune.</string>
     <string name="spatial_audio_needs_13">Needs Android 13 or later.</string>
     <string name="recommendations">Recommendations</string>
     <string name="queue_learn_off">Don\'t learn from this</string>

@@ -649,6 +649,7 @@ fun ColumnScope.PlaybackBehaviourFrag() {
         title = stringResource(R.string.share_audio_focus),
         description = stringResource(R.string.share_audio_focus_description),
         explanation = stringResource(R.string.share_audio_focus_explain),
+        icon = { Icon(Icons.Rounded.Hearing, null) },
         checked = shareAudioFocus,
         onCheckedChange = onShareAudioFocusChange,
     )
