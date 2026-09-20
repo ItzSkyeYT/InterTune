@@ -40,3 +40,7 @@ Fixes. Nothing new to learn, nothing moved, and the bigger work is waiting for 0
 ## Building
 
 - The app builds without `local.properties`, produces an unsigned APK when no signing key is present, and no longer carries one machine's JDK path in a file everybody clones. None of this changes the app; it makes the F-Droid build possible.
+
+---
+
+0.11 will not be a fixes release. Bring headphones.
