@@ -211,6 +211,16 @@ fun HomeScreen(
     val isRefreshing by viewModel.refreshIndicator.collectAsState()
     val pullRefreshState = rememberPullToRefreshState()
 
+    // Bring the spinner into view for a refresh nobody pulled for.
+    //
+    // The indicator is positioned from how far the list was dragged, so with no drag it sits its
+    // own height above the top edge and stays there, however true isRefreshing is. PullToRefreshBox
+    // drives that for you; this screen uses the lower level modifier and its own Indicator, so
+    // nothing was. Switching a chip or a source therefore refreshed with no sign of it.
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing) pullRefreshState.animateToThreshold() else pullRefreshState.animateToHidden()
+    }
+
     val quickPicksLazyGridState = rememberLazyGridState()
     val forgottenFavoritesLazyGridState = rememberLazyGridState()
 
