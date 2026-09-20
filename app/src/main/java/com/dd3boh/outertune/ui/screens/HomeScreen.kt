@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -211,6 +212,20 @@ fun HomeScreen(
     // the whole page has finished filling. See HomeViewModel.refreshIndicator.
     val isRefreshing by viewModel.refreshIndicator.collectAsState()
     val pullRefreshState = rememberPullToRefreshState()
+
+    // Drive the indicator for a refresh nobody pulled for.
+    //
+    // Its position comes from how far the list was dragged. A pull sets that on the way down, so
+    // pulling has always worked; switching a chip sets isRefreshing with the drag still at zero,
+    // which leaves the spinner its own height above the top edge, turning where it cannot be seen.
+    //
+    // This was tried before and removed, because the state read 1.0 when measured and the call
+    // looked like it did nothing. It read 1.0 because a pull earlier in the same session had left
+    // it there: the measurement was of a session that had already pulled, which is the one case
+    // that was never broken.
+    LaunchedEffect(isRefreshing) {
+        if (isRefreshing) pullRefreshState.animateToThreshold() else pullRefreshState.animateToHidden()
+    }
 
 
     val quickPicksLazyGridState = rememberLazyGridState()
@@ -1103,12 +1118,18 @@ fun HomeScreen(
         // spot by the scaffold above. So it was turning the whole time, exactly where nobody
         // could see it: the state was right, the flag was right, and the pixels were underneath
         // something else. Only a screenshot taken mid refresh showed it.
+        // Directly under the search bar, which is where a refresh spinner is looked for.
+        //
+        // It was padded by the player aware insets, which carry more than the top of the screen,
+        // and it ended up floating over the Quick picks heading halfway down. It was rendering
+        // the whole time and simply was not anywhere anyone would look. The status bar plus the
+        // app bar is the actual top of the content, and nothing else belongs in that sum.
         Indicator(
             isRefreshing = isRefreshing,
             state = pullRefreshState,
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(LocalPlayerAwareWindowInsets.current.asPaddingValues())
+                .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(top = AppBarHeight),
         )
     }
