@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowOutward
@@ -102,12 +103,16 @@ fun OnlineSearchScreen(
     val lazyListState = rememberLazyListState()
     val snackbarHostState = LocalSnackbarHostState.current
 
-    LaunchedEffect(Unit) {
-        snapshotFlow { lazyListState.firstVisibleItemScrollOffset }
-            .drop(1)
-            .collect {
-                keyboardController?.hide()
-            }
+    // Put the keyboard away when the listener scrolls the suggestions, and only then.
+    //
+    // This watched the scroll offset, which also moves when the list changes underneath it. So
+    // three hundred milliseconds after anyone stopped typing, fresh suggestions arrived, the
+    // offset shifted, and the keyboard closed itself mid-search. Dragging is the actual signal,
+    // and it can only come from a finger.
+    LaunchedEffect(lazyListState.interactionSource) {
+        lazyListState.interactionSource.interactions.collect { interaction ->
+            if (interaction is DragInteraction.Start) keyboardController?.hide()
+        }
     }
 
     LaunchedEffect(query) {
