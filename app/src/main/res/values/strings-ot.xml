@@ -565,6 +565,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="auto_backup_folder">Folder</string>
     <string name="auto_backup_choose_folder">Choose a folder</string>
     <string name="auto_backup_interval">How often</string>
+    <string name="backup_in_progress">Writing the backup…</string>
+    <string name="auto_backup_every_6h">Every 6 hours</string>
+    <string name="auto_backup_every_month">Every month</string>
+    <string name="auto_backup_every_6mo">Every 6 months</string>
+    <string name="auto_backup_every_year">Every year</string>
     <string name="auto_backup_every_day">Every day</string>
     <string name="auto_backup_every_week">Every week</string>
     <string name="auto_backup_keep">How many to keep</string>

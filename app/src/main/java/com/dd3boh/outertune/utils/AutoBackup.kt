@@ -155,7 +155,12 @@ object AutoBackup {
     const val DEFAULT_KEEP = 5
 
     /** Every day, every week. */
-    val INTERVAL_CHOICES = listOf(24, 168)
+    /**
+     * In hours. Six hourly up to yearly, because what this is worth keeping up with varies hugely:
+     * somebody curating daily wants one every few hours, and somebody whose library has not
+     * changed since last spring does not want fifty two copies of it a year.
+     */
+    val INTERVAL_CHOICES = listOf(6, 24, 168, 720, 4380, 8760)
     /**
      * How many backups the folder may hold, as a range rather than a few fixed choices: a phone
      * with a small library and a lot of space wants a different number from one with the opposite,

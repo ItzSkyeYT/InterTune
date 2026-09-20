@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import android.widget.Toast
+import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.ViewModel
 import com.dd3boh.outertune.MainActivity
 import com.dd3boh.outertune.R
@@ -18,6 +19,9 @@ import com.dd3boh.outertune.utils.reportException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.runBlocking
 import java.io.FileOutputStream
 import javax.inject.Inject
@@ -30,21 +34,36 @@ class BackupRestoreViewModel @Inject constructor(
     val database: MusicDatabase,
 ) : ViewModel() {
     val TAG = BackupRestoreViewModel::class.simpleName.toString()
+
+    /**
+     * Whether a backup is being written, so the button can say so.
+     *
+     * It used to block the thread it was called on and announce itself with a toast when it was
+     * over. On a large library that is several seconds of an app that appears to have ignored the
+     * tap, which is the point at which people press it again.
+     */
+    val backupInProgress = MutableStateFlow(false)
+
     fun backup(uri: Uri) {
-        runCatching {
-            context.applicationContext.contentResolver.openOutputStream(uri)?.use { stream ->
-                // The zip layout lives in BackupWriter so the scheduled backup writes the very
-                // same file. Still blocking, as it always was; only the checkpoint used to be on
-                // IO, and the copy had no more business on the main thread than that did.
-                runBlocking(Dispatchers.IO) {
-                    BackupWriter.write(context, database, stream)
+        if (backupInProgress.value) return
+        backupInProgress.value = true
+        viewModelScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    context.applicationContext.contentResolver.openOutputStream(uri)?.use { stream ->
+                        // The zip layout lives in BackupWriter so the scheduled backup writes the
+                        // very same file.
+                        BackupWriter.write(context, database, stream)
+                    }
                 }
             }
-        }.onSuccess {
-            Toast.makeText(context, R.string.backup_create_success, Toast.LENGTH_SHORT).show()
-        }.onFailure {
-            reportException(it)
-            Toast.makeText(context, R.string.backup_create_failed, Toast.LENGTH_SHORT).show()
+            backupInProgress.value = false
+            result.onSuccess {
+                Toast.makeText(context, R.string.backup_create_success, Toast.LENGTH_SHORT).show()
+            }.onFailure {
+                reportException(it)
+                Toast.makeText(context, R.string.backup_create_failed, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
