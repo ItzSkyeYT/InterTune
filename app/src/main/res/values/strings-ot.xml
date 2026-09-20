@@ -143,6 +143,13 @@ Play something, turn your head, and drag. Too little and the music lags behind y
     <string name="high_precision_audio_explain">Volume normalisation multiplies every sample. In 16-bit the result is rounded back down to 16-bit afterwards, on every track, which is avoidable.
 
 The cost is battery: in this mode the phone cannot hand playback to its low-power audio path. The difference is small, so this is a preference rather than a better setting.</string>
+    <string name="activity_log">Record movement while listening</string>
+    <string name="activity_log_description">Changes nothing. Gathers evidence for whether it would be worth changing something.</string>
+    <string name="activity_log_explain">Writes one line a minute while music is playing: what was on, and how much your phone was moving. Nothing else. It does not affect what you are recommended, and it never leaves your phone.
+
+The question it answers is whether being on the move tells the app anything that the time of day does not already tell it. Walking at half past eight is the commute; sitting still at eleven at night is winding down. If movement is just a less reliable way of asking what time it is, then building recommendations on it would add a sensor for no benefit, and it is better to know that before rather than after.
+
+It uses the accelerometer, which needs no permission, rather than step counting, which does. After a couple of weeks there is enough to look at.</string>
     <string name="adaptive_tail_title">Chosen as you listen</string>
     <string name="adaptive_queue">Keep the queue up to date</string>
     <string name="adaptive_queue_description">Drops songs further down the queue that stop suiting what you are playing.</string>

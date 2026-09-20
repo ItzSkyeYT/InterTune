@@ -25,6 +25,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.RankWithListeningKey
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.ui.component.ExplainedGroupTitle
+import com.dd3boh.outertune.constants.ActivityLogKey
 import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.constants.TidyHomeRowsKey
@@ -293,6 +294,14 @@ fun RecommendationsSettings(
             explanation = stringResource(R.string.forget_today_info),
             description = stringResource(R.string.forget_today_description),
             onClick = { viewModel.forgetToday() },
+        )
+        val (activityLog, onActivityLogChange) = rememberPreference(ActivityLogKey, defaultValue = false)
+        ExplainedSwitchPreference(
+            title = stringResource(R.string.activity_log),
+            description = stringResource(R.string.activity_log_description),
+            explanation = stringResource(R.string.activity_log_explain),
+            checked = activityLog,
+            onCheckedChange = onActivityLogChange,
         )
         ExplainedPreference(
             title = stringResource(R.string.engine_developer),

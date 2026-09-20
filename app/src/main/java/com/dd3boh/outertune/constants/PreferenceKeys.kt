@@ -454,6 +454,14 @@ val HeadTracking3dKey = booleanPreferencesKey("headTracking3d")
  */
 val ProximityVolumeKey = booleanPreferencesKey("proximityVolume")
 
+/**
+ * Whether to record how much the listener moves while each song plays.
+ *
+ * Changes nothing about what is chosen. It exists to find out whether activity says anything the
+ * time of day does not already say, before anything is built on the assumption that it does.
+ */
+val ActivityLogKey = booleanPreferencesKey("activityLog")
+
 val UsageCountEnabledKey = booleanPreferencesKey("usageCountEnabled")
 
 /**

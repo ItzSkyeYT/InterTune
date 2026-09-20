@@ -77,6 +77,7 @@ import com.dd3boh.outertune.constants.AudioDecoderKey
 import com.dd3boh.outertune.constants.AudioGaplessOffloadKey
 import com.dd3boh.outertune.constants.AudioNormalizationKey
 import com.dd3boh.outertune.BuildConfig
+import com.dd3boh.outertune.constants.ActivityLogKey
 import com.dd3boh.outertune.constants.AudioOffloadKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
@@ -460,6 +461,17 @@ class MusicService : MediaLibraryService(),
     private var proximityWanted = false
 
     /**
+     * Records movement against what was playing. Off by default and changes nothing when on.
+     *
+     * Lazy for the reason everything here is lazy: a field initialiser on a Service runs before
+     * the base context is attached, which is how this took the app down once already.
+     */
+    private val activityProbe: ActivityProbe by lazy {
+        ActivityProbe(this, Handler(Looper.getMainLooper())) { player.currentMediaItem?.mediaId }
+    }
+    private var activityLogWanted = false
+
+    /**
      * One instance, shared by the builder below and by the observer that keeps the focus flag in
      * step with the setting. ExoPlayer rebuilds the AudioTrack only when the new attributes differ
      * from the old, so handing it the same object flips the flag alone: no gap in the sound and no
@@ -688,6 +700,14 @@ class MusicService : MediaLibraryService(),
             // reports no latency for this route.
             // Changes how many harmonics there are to convolve, so the sink has to be told, and
             // the only thing that tells it is the track being re-prepared.
+            dataStore.data.map { it[ActivityLogKey] ?: false }.distinctUntilChanged()
+                .collectLatest(scope) { want ->
+                    activityLogWanted = want
+                    withContext(Dispatchers.Main) {
+                        if (want && player.isPlaying) activityProbe.start() else activityProbe.stop()
+                    }
+                }
+
             dataStore.data.map { it[ProximityVolumeKey] ?: false }.distinctUntilChanged()
                 .collectLatest(scope) { want ->
                     proximityWanted = want
@@ -1890,6 +1910,9 @@ class MusicService : MediaLibraryService(),
         }
         // Scanning is the cost, so it only runs while there is something to turn down.
         if (isPlaying && proximityWanted) proximityVolume.start() else if (!isPlaying) proximityVolume.stop()
+        // Only while something is playing: a row for a minute nobody was listening to says
+        // nothing about what they wanted to hear.
+        if (isPlaying && activityLogWanted) activityProbe.start() else if (!isPlaying) activityProbe.stop()
         if (isPlaying) {
             player.currentMediaItem?.mediaId?.let { id -> currentStart(id)?.takeIf { !it.opened }?.let { openListen(id, it) } }
         }
@@ -2510,6 +2533,7 @@ class MusicService : MediaLibraryService(),
     override fun onDestroy() {
         headTracking.stop(glideHome = false)
         proximityVolume.stop()
+        activityProbe.stop()
         isRunning = false
         // The widget keeps the song and loses the pause: its play button then resumes the queue
         // through the same receiver a headset button uses. Read as stopped rather than from the
