@@ -98,4 +98,59 @@ class TidyPassTest {
         val pass = TidyPass(listOf(PlayedSong("a1", "Africa", "Toto")))
         assertEquals(listOf("h1"), pass.cards(listOf(Card("a1", "Africa", "Toto"), Card("h1", "Hold the Line", "Toto")), fresh = true).map { it.id })
     }
+
+    @Test
+    fun `one artist cannot take over a row`() {
+        // The complaint was a Quick picks row that came out mostly one kind of music. The engine
+        // reads treatments and not genres, so it cannot see the kind; what it can see is that such
+        // a run arrives from a handful of artists at once.
+        val items = (1..10).map { Triple("id$it", "Song $it", if (it <= 7) "Phonk Guy" else "Someone Else") }
+        val kept = TidyPass(emptyList()).row(
+            items,
+            id = { it.first },
+            title = { it.second },
+            artist = { it.third },
+            maxPerArtist = 2,
+        )
+        assertEquals(2, kept.count { it.third == "Phonk Guy" })
+        // Capped too: three offered, two kept. The cap is a cap, not a handicap for the winner.
+        assertEquals(2, kept.count { it.third == "Someone Else" })
+    }
+
+    @Test
+    fun `the ones it keeps are the ones that ranked highest`() {
+        // Order is the ranking, so a cap must take from the front rather than at random.
+        val items = (1..5).map { Triple("id$it", "Song $it", "One Artist") }
+        val kept = TidyPass(emptyList()).row(
+            items,
+            id = { it.first },
+            title = { it.second },
+            artist = { it.third },
+            maxPerArtist = 2,
+        )
+        assertEquals(listOf("id1", "id2"), kept.map { it.first })
+    }
+
+    @Test
+    fun `without a cap nothing is dropped for its artist`() {
+        // Every other row is meant to be able to be all one artist: an album, a discography.
+        val items = (1..6).map { Triple("id$it", "Song $it", "One Artist") }
+        val kept = TidyPass(emptyList()).row(items, id = { it.first }, title = { it.second }, artist = { it.third })
+        assertEquals(6, kept.size)
+    }
+
+    @Test
+    fun `a missing artist never counts against the cap`() {
+        // Local files often have no artist at all, and lumping them together as one would thin a
+        // row of exactly the songs least likely to sound alike.
+        val items = (1..6).map { Triple("id$it", "Song $it", null) }
+        val kept = TidyPass(emptyList()).row(
+            items,
+            id = { it.first },
+            title = { it.second },
+            artist = { it.third },
+            maxPerArtist = 2,
+        )
+        assertEquals(6, kept.size)
+    }
 }

@@ -113,6 +113,16 @@ class HomeViewModel @Inject constructor(
     // ---- Tidy Home rows. Every row is loaded into a pool and shown through one pass in screen
     // order (engine/Tidy.kt): nothing just played in Quick picks, no song twice, no version beside
     // its original. The pass runs again when Home comes back into view, never under the finger.
+    /**
+     * Cards one artist may hold in Quick picks.
+     *
+     * Two, because a row of twenty that is half one artist is not a selection, it is a playlist
+     * nobody asked for. It is a proxy: the engine reads treatments, not genres, so it cannot know
+     * that a run is all phonk. What it can see is that such a run arrives from a handful of
+     * artists at once, and capping them breaks it up.
+     */
+    private val QUICK_PICKS_PER_ARTIST = 2
+
     private var quickPicksPool: List<Song> = emptyList()
     private var ytQuickPicksPool: List<SongItem>? = null
 
@@ -473,18 +483,21 @@ class HomeViewModel @Inject constructor(
         // The Again lane is allowed to offer something heard in the last day, because that is the
         // whole point of it. Nothing else is. See TidyPass.row.
         val againIds = lastEngineRow?.cards.orEmpty().filter { it.lane == Lane.AGAIN }.map { it.songId }.toSet()
-        fun songs(items: List<Song>, fresh: Boolean = false) = pass.row(items, fresh, { it.song.id }, { it.song.title }, { it.artists.firstOrNull()?.name }, { it.artists.firstOrNull()?.id }, { it.song.id in againIds })
+        // Quick picks is the row that is supposed to be varied, and the one that goes lopsided:
+        // a run of the same sort of music arrives together because it comes from the same few
+        // artists. Two apiece breaks that up without thinning a row that was fine already.
+        fun songs(items: List<Song>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE) = pass.row(items, fresh, { it.song.id }, { it.song.title }, { it.artists.firstOrNull()?.name }, { it.artists.firstOrNull()?.id }, { it.song.id in againIds }, maxPerArtist)
         fun local(items: List<LocalItem>) = pass.row(items, false, { (it as? Song)?.song?.id }, { (it as? Song)?.song?.title }, { (it as? Song)?.artists?.firstOrNull()?.name }, { (it as? Song)?.artists?.firstOrNull()?.id })
-        fun yt(items: List<YTItem>, fresh: Boolean = false) = pass.row(items, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name }, { (it as? SongItem)?.artists?.firstOrNull()?.id })
+        fun yt(items: List<YTItem>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE) = pass.row(items, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name }, { (it as? SongItem)?.artists?.firstOrNull()?.id }, { false }, maxPerArtist)
         // Whichever Quick picks row is on screen goes first; the other is not shown and must not
         // claim songs from the rows below it.
         val ytShown = ytShelfWanted() && !ytQuickPicksPool.isNullOrEmpty()
         if (ytShown) {
-            ytQuickPicks.value = ytQuickPicksPool?.let { yt(it, fresh = true).filterIsInstance<SongItem>().take(20) }
+            ytQuickPicks.value = ytQuickPicksPool?.let { yt(it, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST).filterIsInstance<SongItem>().take(20) }
             Log.d("HomeViewModel", "showing the YouTube row: ${ytQuickPicks.value?.size} of a pool of ${ytQuickPicksPool?.size} after tidy, first ${ytQuickPicks.value?.firstOrNull()?.title}")
             quickPicks.value = quickPicksPool.take(20)
         } else {
-            quickPicks.value = songs(quickPicksPool, fresh = true).take(20)
+            quickPicks.value = songs(quickPicksPool, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST).take(20)
             ytQuickPicks.value = ytQuickPicksPool?.take(20)
         }
         forgottenFavorites.value = songs(forgottenPool).take(20)

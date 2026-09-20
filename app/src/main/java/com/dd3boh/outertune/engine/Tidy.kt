@@ -64,7 +64,22 @@ class TidyPass(
          * group rule already stops two versions inside one build.
          */
         exemptFromJustPlayed: (T) -> Boolean = { false },
-    ): List<T> = items.filter { item ->
+        /**
+         * How many cards one artist may hold in this row.
+         *
+         * Not about repetition for its own sake. The engine has no idea what genre anything is:
+         * the tags it reads are treatments, slowed and reverbed and bass boosted, not styles. So
+         * when a row comes out as ten of the same kind of thing, the only handle on it is that
+         * one sort of music tends to arrive from a handful of artists at once. Capping them is a
+         * blunt instrument aimed at a real problem, and it is the sharpest one available without
+         * genre data the app does not have.
+         *
+         * Off by default, because it only makes sense where a row is meant to be varied.
+         */
+        maxPerArtist: Int = Int.MAX_VALUE,
+    ): List<T> {
+        val perArtist = HashMap<String, Int>()
+        return items.filter { item ->
         val itemId = id(item) ?: return@filter true
         val itemTitle = title(item) ?: return@filter true
         val itemArtist = artist(item)
@@ -75,6 +90,17 @@ class TidyPass(
         // costs the slot twice: once when it plays, again when they go and find the real one.
         if (SongTags.isPreview(itemTitle)) return@filter false
         if (freshOnly && !exemptFromJustPlayed(item) && (itemId in playedIds || key in playedKeys)) return@filter false
+        // Order is preserved, so the ones that survive are the best of that artist rather than
+        // whichever happened to come first.
+        if (maxPerArtist < Int.MAX_VALUE) {
+            val who = itemArtist?.trim()?.lowercase()
+            if (!who.isNullOrEmpty()) {
+                val had = perArtist.getOrDefault(who, 0)
+                if (had >= maxPerArtist) return@filter false
+                perArtist[who] = had + 1
+            }
+        }
         seen.add(key)
+        }
     }
 }
