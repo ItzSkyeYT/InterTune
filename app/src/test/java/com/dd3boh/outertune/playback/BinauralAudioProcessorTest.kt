@@ -587,6 +587,65 @@ class BinauralAudioProcessorTest {
     }
 
     @Test
+    fun `the renderer does not retune the music`() {
+        // What made switching this on sound worse rather than wider. Two speakers at thirty
+        // degrees summed to about three decibels up in the bass and four and a half down through
+        // the presence region: eight decibels of tilt, which is a tone control nobody asked for.
+        //
+        // Measured the way an ear meets it, by playing a tone and reading the level out, one
+        // frequency at a time.
+        fun levelAt(hz: Int, third: Boolean): Double {
+            val p = BinauralAudioProcessor().apply { enabled = true; thirdOrder = third }
+            p.configure(stereoFloat())
+            p.flush()
+            var n = 0
+            var sum = 0.0
+            var counted = 0
+            repeat(6) {
+                val input = ByteBuffer.allocateDirect(8 * 1024).order(ByteOrder.nativeOrder())
+                repeat(1024) {
+                    val v = sin(2.0 * PI * hz * n++ / 48000.0).toFloat()
+                    input.putFloat(v).putFloat(v)   // centred, so this is the tone the ear hears
+                }
+                input.flip()
+                p.queueInput(input)
+                val out = p.output
+                repeat(1024) {
+                    val l = out.float
+                    out.float
+                    // Skip the first buffers while the convolutions fill.
+                    if (n > 3072) { sum += l.toDouble() * l; counted++ }
+                }
+            }
+            return sqrt(sum / counted)
+        }
+
+        // Averaged over each band, because the correction deliberately only flattens the broad
+        // shape. A single tone can still sit in a narrow notch, and those notches are the pinna
+        // cues that say where a sound is: removing them would take the effect with them.
+        val bands = listOf(
+            intArrayOf(100, 160, 250),
+            intArrayOf(350, 500, 800),
+            intArrayOf(1200, 1800, 2600),
+            intArrayOf(3500, 4500, 5500),
+            intArrayOf(6500, 8000, 9500),
+            intArrayOf(11000, 13000, 15000),
+        )
+        for (third in booleanArrayOf(false, true)) {
+            val levels = bands.map { tones ->
+                20 * Math.log10(tones.map { levelAt(it, third) }.average())
+            }
+            val reference = levels.average()
+            val worst = levels.maxOf { abs(it - reference) }
+            assertTrue(
+                "order ${if (third) 3 else 1} tilts by $worst dB across the bands: " +
+                    levels.map { "%.1f".format(it - reference) },
+                worst < 3.0,
+            )
+        }
+    }
+
+    @Test
     fun `the buffer that comes out is the size of the one that went in`() {
         val p = BinauralAudioProcessor().apply { enabled = true; thirdOrder = false }
         p.configure(stereoFloat())

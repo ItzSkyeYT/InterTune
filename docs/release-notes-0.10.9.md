@@ -43,4 +43,4 @@ Fixes. Nothing new to learn, nothing moved, and the bigger work is waiting for 0
 
 ---
 
-0.11 will not be a fixes release. Bring headphones.
+0.11 is not a fixes release.

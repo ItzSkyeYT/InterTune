@@ -17,6 +17,10 @@ import kotlin.math.atan2
 import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.floor
+import kotlin.math.exp
+import kotlin.math.ln
+import kotlin.math.max
+import kotlin.math.pow
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -138,6 +142,28 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private var stepRight = FloatArray(0)
     private var speakerAzimuth = 0f
     private val rotated = FloatArray(3)
+
+    /**
+     * Flattens the renderer's own tonal colouring, applied to the input before anything else.
+     *
+     * A virtualiser is supposed to add where a sound is, not change what it sounds like, and this
+     * one was doing both: two speakers at thirty degrees summed to roughly three decibels up below
+     * three hundred hertz and four and a half down between six and ten kilohertz. Eight decibels
+     * of tilt is not a subtle colouration, it is a tone control nobody asked for, and it is why
+     * switching this on sounded worse rather than wider.
+     *
+     * Only the broad shape is corrected. The response is smoothed by a third of an octave before
+     * being inverted, so the narrow peaks and notches survive untouched: those are the pinna cues
+     * that say where a sound is, and flattening them would remove the effect along with the
+     * colouring.
+     *
+     * On the input rather than folded into each harmonic, because it is the same correction for
+     * both ears and every harmonic. Two short convolutions instead of ten longer ones.
+     */
+    private var correction = FloatArray(0)
+    private val leftHistory = FloatArray(CORRECTION_RING)
+    private val rightHistory = FloatArray(CORRECTION_RING)
+    private var historyIndex = 0
     private val targetLeft = FloatArray(16)
     private val targetRight = FloatArray(16)
     private val poseBuffer = FloatArray(4)
@@ -349,15 +375,22 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
      */
     private fun computeGain(): Float {
         var energy = 0.0
+        val mono = FloatArray(taps)
         for (t in 0 until taps) {
-            var monoPath = 0f
+            var v = 0f
             for (i in 0 until active) {
                 // Both speakers carrying the same signal. The harmonics of negative degree cancel
                 // between them, which is why a centred source reaches both ears identically.
-                monoPath += (identityLeft[i] + identityRight[i]) * filters[i * taps + t]
+                v += (identityLeft[i] + identityRight[i]) * filters[i * taps + t]
             }
-            energy += monoPath.toDouble() * monoPath.toDouble()
+            mono[t] = v
         }
+        // Through the tonal correction as well, since that is what the ear actually receives and
+        // matching the level of something the listener never hears would be matching nothing.
+        val effective = if (correction.isEmpty()) mono else FloatArray(taps + correction.size - 1).also { out ->
+            for (a in mono.indices) for (b in correction.indices) out[a + b] += mono[a] * correction[b]
+        }
+        for (v in effective) energy += v.toDouble() * v
         if (energy <= 0.0) return 1f
         return (1.0 / sqrt(energy)).toFloat()
     }
@@ -414,9 +447,96 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             resampleInto(source, sourceChannel[i] * sourceTaps, sourceTaps, ratio, i * taps)
         }
         rings = FloatArray(active * RING)
+        buildCorrection(rate)
         gain = computeGain()
         clearTails()
         return true
+    }
+
+    /**
+     * The inverse of the mono path's broad magnitude response, as a short symmetric filter.
+     *
+     * Direct transforms rather than an FFT: this runs once per format change over a hundred and
+     * sixty taps, so the simple version costs nothing and there is no library to pull in.
+     */
+    private fun buildCorrection(sampleRate: Int) {
+        if (taps <= 0 || active == 0) {
+            correction = FloatArray(0)
+            return
+        }
+        // The response of a centred signal, which is what the listener hears as the tone.
+        val mono = FloatArray(taps)
+        for (t in 0 until taps) {
+            var v = 0f
+            for (i in 0 until active) v += (identityLeft[i] + identityRight[i]) * filters[i * taps + t]
+            mono[t] = v
+        }
+
+        val mag = DoubleArray(CORRECTION_BINS)
+        for (k in 0 until CORRECTION_BINS) {
+            val w = PI * k / CORRECTION_BINS
+            var re = 0.0
+            var im = 0.0
+            for (t in 0 until taps) {
+                val a = w * t
+                re += mono[t] * cos(a)
+                im -= mono[t] * sin(a)
+            }
+            mag[k] = sqrt(re * re + im * im)
+        }
+
+        // A third of an octave either side, in log frequency, so the correction follows the tilt
+        // and not the fine structure.
+        val smoothed = DoubleArray(CORRECTION_BINS)
+        // The rate is passed in rather than read from inputAudioFormat, which BaseAudioProcessor
+        // does not populate until flush: during onConfigure it is still unset, so every frequency
+        // worked out from it was nonsense and the correction was shaped against nothing.
+        val nyquist = sampleRate / 2.0
+        for (k in 0 until CORRECTION_BINS) {
+            val f = k * nyquist / CORRECTION_BINS
+            if (f <= 0.0) { smoothed[k] = mag.getOrElse(1) { mag[0] }; continue }
+            val lo = f / SIXTH_OCTAVE
+            val hi = f * SIXTH_OCTAVE
+            var sum = 0.0
+            var n = 0
+            for (j in 0 until CORRECTION_BINS) {
+                val fj = j * nyquist / CORRECTION_BINS
+                if (fj in lo..hi) { sum += ln(max(mag[j], 1e-9)); n++ }
+            }
+            smoothed[k] = if (n > 0) exp(sum / n) else max(mag[k], 1e-9)
+        }
+
+        // Invert, hold the extremes flat, normalise to unity on average and limit how far it may
+        // reach. An unlimited inverse would try to undo a deep notch and produce a howl.
+        val inverse = DoubleArray(CORRECTION_BINS)
+        var logSum = 0.0
+        for (k in 0 until CORRECTION_BINS) {
+            val f = k * nyquist / CORRECTION_BINS
+            val clampedIndex = when {
+                f < CORRECTION_LOW_HZ -> (CORRECTION_LOW_HZ / nyquist * CORRECTION_BINS).toInt()
+                f > CORRECTION_HIGH_HZ -> (CORRECTION_HIGH_HZ / nyquist * CORRECTION_BINS).toInt()
+                else -> k
+            }.coerceIn(0, CORRECTION_BINS - 1)
+            inverse[k] = 1.0 / max(smoothed[clampedIndex], 1e-9)
+            logSum += ln(inverse[k])
+        }
+        val mean = exp(logSum / CORRECTION_BINS)
+        val limit = 10.0.pow(CORRECTION_LIMIT_DB / 20.0)
+        for (k in 0 until CORRECTION_BINS) {
+            inverse[k] = (inverse[k] / mean).coerceIn(1.0 / limit, limit)
+        }
+
+        // Symmetric, so it delays both ears identically and the interaural timing is untouched.
+        val half = CORRECTION_TAPS / 2
+        val out = FloatArray(CORRECTION_TAPS)
+        for (t in 0 until CORRECTION_TAPS) {
+            val d = t - half
+            var v = inverse[0]
+            for (k in 1 until CORRECTION_BINS) v += 2.0 * inverse[k] * cos(PI * k * d / CORRECTION_BINS)
+            val window = 0.5 - 0.5 * cos(2.0 * PI * t / (CORRECTION_TAPS - 1))
+            out[t] = (v / (2 * CORRECTION_BINS) * window).toFloat()
+        }
+        correction = out
     }
 
     /** Half a Hann over the last few taps, so a truncated filter does not end in a step. */
@@ -549,7 +669,25 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
      * common to both, and the negative ones are added for the left ear and subtracted for the
      * right. One convolution per harmonic rather than two, for exactly the same result.
      */
-    private inline fun render(l: Float, r: Float, harmonics: FloatArray, put: (Float) -> Unit) {
+    private inline fun render(rawL: Float, rawR: Float, harmonics: FloatArray, put: (Float) -> Unit) {
+        var l = rawL
+        var r = rawR
+        val tone = correction
+        if (tone.isNotEmpty()) {
+            val h = historyIndex
+            leftHistory[h] = rawL
+            rightHistory[h] = rawR
+            var accL = 0f
+            var accR = 0f
+            for (t in tone.indices) {
+                val k = (h - t) and CORRECTION_MASK
+                accL += leftHistory[k] * tone[t]
+                accR += rightHistory[k] * tone[t]
+            }
+            historyIndex = (h + 1) and CORRECTION_MASK
+            l = accL
+            r = accR
+        }
         for (i in 0 until active) {
             harmonics[i] = l * encodeLeft[i] + r * encodeRight[i]
             encodeLeft[i] += stepLeft[i]
@@ -600,6 +738,9 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     /** A seek must not drag the tail of the old audio into the new position. */
     private fun clearTails() {
         Arrays.fill(rings, 0f)
+        Arrays.fill(leftHistory, 0f)
+        Arrays.fill(rightHistory, 0f)
+        historyIndex = 0
         writeIndex = 0
         framesProcessed = 0L
     }
@@ -615,6 +756,29 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
          * for a rate nothing here streams and a tap count that would cost real battery.
          */
         private const val MAX_TAPS = RING / 2
+
+        /**
+         * Length of the tonal correction, and the ring it walks.
+         *
+         * Sixty three taps flattens the worst band to about one decibel, which is inaudible, for
+         * six tenths of a millisecond of delay. Longer buys tenths of a decibel nobody can hear.
+         */
+        const val CORRECTION_TAPS = 63
+        private const val CORRECTION_RING = 128
+        private const val CORRECTION_MASK = CORRECTION_RING - 1
+
+        /** Frequency points the response is measured at when inverting it. */
+        private const val CORRECTION_BINS = 256
+
+        /** A third of an octave, as the ratio to each side of centre. */
+        private const val SIXTH_OCTAVE = 1.122462
+
+        /** Held flat outside this, where there is no music and the inverse would run away. */
+        private const val CORRECTION_LOW_HZ = 60.0
+        private const val CORRECTION_HIGH_HZ = 17000.0
+
+        /** How far the correction may reach, so a deep notch cannot turn into a howl. */
+        private const val CORRECTION_LIMIT_DB = 12.0
 
         /** Taps either side of the interpolation point when moving the filters to a new rate. */
         private const val HALF_WIDTH = 16
