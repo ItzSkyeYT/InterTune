@@ -9,6 +9,7 @@ package com.dd3boh.outertune.ui.component
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -84,22 +85,27 @@ fun ExplainDialog(
     DefaultDialog(
         onDismiss = onDismiss,
         horizontalAlignment = Alignment.Start,
-        title = { Text(title) },
+        // The container pads by eight, and the body below adds sixteen. Without the same here the
+        // heading sat sixteen short of the text it belongs to, which is the sort of thing nobody
+        // can name but everybody sees.
+        title = { Text(title, modifier = Modifier.padding(horizontal = 16.dp)) },
         buttons = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.explain_close)) }
         },
     ) {
-        // Capped and scrollable rather than trusted to fit: the longest of these runs to a
-        // paragraph and a half, and a short phone in a large font would otherwise push the
-        // button off the bottom of the screen.
+        Spacer(Modifier.height(8.dp))
+        // Still capped, because a large font on a short phone would otherwise push the button off
+        // the bottom, but high enough that nothing worth reading has to be scrolled to. The real
+        // fix for scrolling is writing less, which is the other half of this change.
         Text(
             text = body,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier
-                .heightIn(max = 420.dp)
+                .heightIn(max = 560.dp)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
         )
+        Spacer(Modifier.height(8.dp))
     }
 }
 

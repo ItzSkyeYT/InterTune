@@ -644,10 +644,11 @@ fun ColumnScope.PlaybackBehaviourFrag() {
         checked = stopMusicOnTaskClear,
         onCheckedChange = onStopMusicOnTaskClearChange,
     )
-    SwitchPreference(
-        title = { Text(stringResource(R.string.share_audio_focus)) },
+    // The caveats moved behind the i button. A row description is a label, not a paragraph.
+    ExplainedSwitchPreference(
+        title = stringResource(R.string.share_audio_focus),
         description = stringResource(R.string.share_audio_focus_description),
-        icon = { Icon(Icons.Rounded.Hearing, null) },
+        explanation = stringResource(R.string.share_audio_focus_explain),
         checked = shareAudioFocus,
         onCheckedChange = onShareAudioFocusChange,
     )

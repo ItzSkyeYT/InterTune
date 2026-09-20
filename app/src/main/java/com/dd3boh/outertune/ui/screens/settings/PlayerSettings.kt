@@ -128,10 +128,22 @@ fun PlayerSettings(
             // is in Advanced at the bottom. A screen of switches that do nothing until some other
             // switch is on is a screen nobody can read.
             AudioQualityFrag()
+            AdaptiveQueueFrag()
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+
+        PreferenceGroupTitle(
+            title = stringResource(R.string.grp_spatial)
+        )
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Its own section rather than four more rows under Audio. Head tracking alone brings
+            // response, tilt, calibration and lead with it once it is on, and they are all about
+            // where the sound is rather than what it sounds like.
             SpatialAudioModeFrag()
             HeadTrackingFrag()
             ProximityVolumeFrag()
-            AdaptiveQueueFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))
 
