@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 22,
-    "identityHash": "69e090ab53a5769e3e432564913f7478",
+    "version": 23,
+    "identityHash": "9abb4529db5b41e39cf7bc0a54c8855d",
     "entities": [
       {
         "tableName": "song",
@@ -979,7 +979,7 @@
       },
       {
         "tableName": "format",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `itag` INTEGER NOT NULL, `mimeType` TEXT NOT NULL, `codecs` TEXT NOT NULL, `bitrate` INTEGER NOT NULL, `sampleRate` INTEGER, `bitsPerSample` INTEGER, `contentLength` INTEGER NOT NULL, `loudnessDb` REAL, `playbackTrackingUrl` TEXT, `extraComment` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `itag` INTEGER NOT NULL, `mimeType` TEXT NOT NULL, `codecs` TEXT NOT NULL, `bitrate` INTEGER NOT NULL, `sampleRate` INTEGER, `bitsPerSample` INTEGER, `contentLength` INTEGER NOT NULL, `loudnessDb` REAL, `playbackTrackingUrl` TEXT, `qualityTier` TEXT, `extraComment` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -1035,6 +1035,11 @@
           {
             "fieldPath": "playbackTrackingUrl",
             "columnName": "playbackTrackingUrl",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "qualityTier",
+            "columnName": "qualityTier",
             "affinity": "TEXT"
           },
           {
@@ -2059,7 +2064,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '69e090ab53a5769e3e432564913f7478')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9abb4529db5b41e39cf7bc0a54c8855d')"
     ]
   }
 }

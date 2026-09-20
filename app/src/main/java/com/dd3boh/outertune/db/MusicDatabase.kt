@@ -78,7 +78,7 @@ class MusicDatabase(
     fun close() = delegate.close()
 
     companion object {
-        const val MUSIC_DATABASE_VERSION = 22
+        const val MUSIC_DATABASE_VERSION = 23
     }
 }
 
@@ -136,6 +136,14 @@ class MusicDatabase(
         AutoMigration(from = 19, to = 20, spec = Migration19To20::class), // Db optimization, remove totalplaytime, local media fields
         AutoMigration(from = 20, to = 21), // Listen log, impressions, queue origin; all additive with defaults
         AutoMigration(from = 21, to = 22), // row_build.shownIds, so every source can be scored; additive with a default
+        // format.qualityTier, so a cached song can tell what setting fetched it. Additive with a
+        // null default, which is also what says "cached before this existed, leave it alone".
+        //
+        // A new version rather than an edit to 22, even though 22 is in no release. Someone is
+        // already running 22, and changing a schema under a database that exists fails the
+        // identity check and takes the app down on launch with nothing to do about it but wipe
+        // their library. Unreleased means nobody has it in a release, not that nobody has it.
+        AutoMigration(from = 22, to = 23),
     ]
 )
 @TypeConverters(Converters::class)
