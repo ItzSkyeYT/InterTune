@@ -53,13 +53,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="err_stop_on_too_many_errors">Too many errors. Playback stopped</string>
     <string name="wait_to_reconnect">Wait to reconnect</string>
     <string name="err_youtube_busy">YouTube has temporarily stopped serving music to this internet connection. It is not your phone, your account or this song, and it clears by itself. Switching to mobile data usually works straight away. Otherwise leave it a little while and try again.</string>
-    <string name="spatial_upmix">Spatial audio (5.1 upmix)</string>
-    <string name="spatial_upmix_description">Builds a surround signal from stereo so your phone will spatialise it.</string>
-    <string name="spatial_upmix_explain">Your phone only applies spatial audio to surround content, and YouTube Music only ever sends stereo, so nothing happens without this.
+    <string name="spatial_audio">Spatial audio</string>
+    <string name="spatial_audio_description">Takes the music off the line between your ears.</string>
+    <string name="spatial_audio_off">Off</string>
+    <string name="spatial_audio_headphones">Headphones</string>
+    <string name="spatial_audio_surround">Surround upmix</string>
+    <string name="spatial_audio_explain">Headphones is the one to try. Stereo on headphones is unnatural in a way people stop noticing: a hard-panned guitar arrives at one ear and never reaches the other, which cannot happen in a room, so the brain gives up placing it and puts the whole mix inside your head. This renders the same two channels as two speakers standing in front of you, working out what each ear would really receive, head and outer ear included. It runs inside InterTune, so it works on any phone and with any headphones.
 
-It is an effect, not a remaster. The surround is invented, because the recording never had any: no app can recover information that was not recorded. Front left and right are left exactly as they are, the centre takes the mono sum, and the surrounds take the part of the recording that already differs between the two channels.
+Surround upmix builds a 5.1 signal and asks the phone to spatialise it instead. Worth trying if your phone has spatial audio of its own and it is switched on. Many do not, and then this does nothing at all.
 
-Best judged with headphones, and worth trying against the switch off before deciding you like it. Turning on 32-bit processing at the same time avoids rounding the sound twice.</string>
+Neither is a remaster. The recording has two channels and nothing recovers what was never recorded. The headphone rendering uses measurements from a dummy head rather than yours, so height will not convince and sounds can occasionally seem behind you instead of in front. Turning on 32-bit processing at the same time avoids rounding the sound twice.</string>
     <string name="high_precision_audio">32-bit audio processing</string>
     <string name="high_precision_audio_description">Process volume and effects in 32-bit instead of 16-bit.</string>
     <string name="high_precision_audio_explain">Volume normalisation multiplies every sample. In 16-bit the result is rounded back down to 16-bit afterwards, on every track, which is avoidable.

@@ -61,7 +61,8 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.AudioEffectsFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.AudioQualityFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.AdaptiveQueueFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.HighPrecisionAudioFrag
-import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialUpmixFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioModeFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlaybackAuthFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlaybackBehaviourFrag
@@ -121,7 +122,7 @@ fun PlayerSettings(
         ) {
             AudioQualityFrag()
             HighPrecisionAudioFrag()
-            SpatialUpmixFrag()
+            SpatialAudioModeFrag()
             PlaybackAuthFrag()
             AdaptiveQueueFrag()
             SpatialAudioFrag()

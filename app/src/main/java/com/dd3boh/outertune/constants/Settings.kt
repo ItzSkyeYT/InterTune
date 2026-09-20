@@ -64,6 +64,36 @@ enum class AdaptiveQueueMode {
     ALWAYS,
 }
 
+/**
+ * What, if anything, the audio chain does to the stereo it is given.
+ *
+ * Two different things wear the name "spatial audio" and only one of them works on any given
+ * phone, so this is a choice rather than a switch. [HEADPHONES] is done here, in the app, and
+ * therefore works everywhere; [SURROUND] hands the job to the phone and works only where the
+ * phone is willing to do it, which on this one it is not.
+ */
+enum class SpatialAudioMode {
+    /** The recording as it was mixed. */
+    OFF,
+
+    /**
+     * Render the stereo as two loudspeakers in front of the listener, in the app.
+     *
+     * The mix comes off the line between the ears, where headphones otherwise pin it. Nothing
+     * outside InterTune is involved, so nothing outside InterTune can decline.
+     */
+    HEADPHONES,
+
+    /**
+     * Invent a 5.1 signal and let the phone's own spatialiser render it.
+     *
+     * Works on hardware whose spatialiser is actually on, which is worth having for anyone whose
+     * is. It is not on here: Samsung routes it through Dolby and keeps it switched off, so on
+     * this phone the six channels are folded straight back down and nothing happens.
+     */
+    SURROUND,
+}
+
 enum class PlaybackAuthMode {
     /** Never send the account with playback. What the app did before this existed. */
     NEVER,

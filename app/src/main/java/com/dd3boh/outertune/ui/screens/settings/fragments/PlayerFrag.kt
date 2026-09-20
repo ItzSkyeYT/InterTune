@@ -12,6 +12,7 @@ import android.os.Build
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Icon
@@ -35,7 +36,8 @@ import com.dd3boh.outertune.constants.AudioNormalizationKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.HighPrecisionAudioKey
-import com.dd3boh.outertune.constants.SpatialUpmixKey
+import com.dd3boh.outertune.constants.SpatialAudioKey
+import com.dd3boh.outertune.constants.SpatialAudioMode
 import androidx.compose.material.icons.rounded.AutoAwesome
 import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
 import com.dd3boh.outertune.constants.AdaptiveQueueMode
@@ -54,6 +56,7 @@ import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
 import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SleepTimerFadeKey
 import com.dd3boh.outertune.ui.component.EnumListPreference
+import com.dd3boh.outertune.ui.component.ExplainButton
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -98,18 +101,33 @@ fun ColumnScope.PlayerGeneralFrag() {
  * Under the audio settings rather than beside the login, because what it changes is how a song is
  * fetched, and the only time anybody goes looking for it is when a song refuses to play.
  */
-/** Stereo to 5.1, so the platform spatialiser will act on it. */
+/** What the audio chain does to the stereo it is given. */
 @Composable
-fun ColumnScope.SpatialUpmixFrag() {
-    val (enabled, onEnabledChange) = rememberPreference(SpatialUpmixKey, defaultValue = false)
-
-    ExplainedSwitchPreference(
-        title = stringResource(R.string.spatial_upmix),
-        description = stringResource(R.string.spatial_upmix_description),
-        explanation = stringResource(R.string.spatial_upmix_explain),
-        checked = enabled,
-        onCheckedChange = onEnabledChange,
+fun ColumnScope.SpatialAudioModeFrag() {
+    val (mode, onModeChange) = rememberEnumPreference(
+        key = SpatialAudioKey,
+        defaultValue = SpatialAudioMode.OFF
     )
+    val title = stringResource(R.string.spatial_audio)
+
+    EnumListPreference(
+        title = { Text(title) },
+        icon = { Icon(Icons.Rounded.SurroundSound, null) },
+        trailingContent = {
+            ExplainButton(title = title, body = stringResource(R.string.spatial_audio_explain))
+        },
+        selectedValue = mode,
+        onValueSelected = onModeChange,
+        valueText = {
+            when (it) {
+                SpatialAudioMode.OFF -> stringResource(R.string.spatial_audio_off)
+                SpatialAudioMode.HEADPHONES -> stringResource(R.string.spatial_audio_headphones)
+                SpatialAudioMode.SURROUND -> stringResource(R.string.spatial_audio_surround)
+            }
+        }
+    )
+
+    InfoLabel(stringResource(R.string.spatial_audio_description))
 }
 
 /** 32 bit float through the audio chain, at the cost of the low power offload path. */

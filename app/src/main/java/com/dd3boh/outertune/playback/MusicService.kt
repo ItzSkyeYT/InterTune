@@ -89,7 +89,8 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRa
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.HighPrecisionAudioKey
-import com.dd3boh.outertune.constants.SpatialUpmixKey
+import com.dd3boh.outertune.constants.SpatialAudioKey
+import com.dd3boh.outertune.constants.SpatialAudioMode
 import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.engine.TagFit
 import com.dd3boh.outertune.engine.SongTags
@@ -344,6 +345,15 @@ class MusicService : MediaLibraryService(),
      * One instance, held here, because the switch has to reach the chain that is already running.
      */
     val spatialUpmixProcessor = StereoUpmixAudioProcessor()
+
+    /**
+     * Stereo rendered as two loudspeakers in front of the listener. Off by default.
+     *
+     * Held for the same reason as [spatialUpmixProcessor], and mutually exclusive with it: one
+     * hands six channels to the phone, the other hands back the two it was given, and doing both
+     * would mean spatialising an already spatialised signal.
+     */
+    val binauralProcessor = BinauralAudioProcessor()
     private val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
@@ -533,11 +543,31 @@ class MusicService : MediaLibraryService(),
             // that does is the track being re-prepared. So the current one is restarted where it
             // stands, which costs a short gap and is the price of the setting working when it is
             // pressed rather than whenever the app is next killed.
-            dataStore.data.map { it[SpatialUpmixKey] ?: false }.distinctUntilChanged()
-                .collectLatest(scope) { want ->
-                    if (spatialUpmixProcessor.enabled == want) return@collectLatest
-                    spatialUpmixProcessor.enabled = want
+            dataStore.data.map {
+                it[SpatialAudioKey]?.let { name ->
+                    runCatching { SpatialAudioMode.valueOf(name) }.getOrNull()
+                } ?: SpatialAudioMode.OFF
+            }.distinctUntilChanged()
+                .collectLatest(scope) { mode ->
+                    val wantSurround = mode == SpatialAudioMode.SURROUND
+                    val wantHeadphones = mode == SpatialAudioMode.HEADPHONES
+                    if (spatialUpmixProcessor.enabled == wantSurround &&
+                        binauralProcessor.enabled == wantHeadphones
+                    ) {
+                        return@collectLatest
+                    }
+                    spatialUpmixProcessor.enabled = wantSurround
+                    binauralProcessor.enabled = wantHeadphones
                     withContext(Dispatchers.Main) {
+                        // Offload hands the stream to the phone's low power audio path, which
+                        // skips the processor chain entirely. Leaving it on would mean the
+                        // setting appears to do nothing for anyone who turned offload on, with
+                        // no way to tell why, so spatial audio takes it off itself.
+                        if (mode != SpatialAudioMode.OFF) {
+                            player.setOffloadEnabled(false)
+                        } else {
+                            player.setOffloadEnabled(dataStore.get(AudioOffloadKey, false))
+                        }
                         if (player.currentMediaItem != null) {
                             val at = player.currentPosition
                             val wasPlaying = player.playWhenReady
@@ -1118,6 +1148,17 @@ class MusicService : MediaLibraryService(),
 // Audio playback
 
     private fun openAudioEffectSession() {
+        // Not while the upmix is on. Android disables spatialisation for any track that has
+        // effects attached to its session, and this broadcast is the invitation for the system
+        // equaliser, and on this phone One UI's own processing, to attach. With it sent, six
+        // channels go out and nothing renders them: dumpsys reports channelMask 0x3f and
+        // isSpatialized false, the system folds them straight back to stereo, and the round trip
+        // works out at 0.93L + 0.07R, which is audibly nothing.
+        //
+        // So the two are mutually exclusive by the platform's rules, not by choice here: the
+        // system equaliser, or a spatialiser that will actually render. Turning the upmix on
+        // picks the second.
+        if (spatialUpmixProcessor.enabled) return
         if (isAudioEffectSessionOpened) return
         isAudioEffectSessionOpened = true
         sendBroadcast(
@@ -1299,9 +1340,10 @@ class MusicService : MediaLibraryService(),
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
                                 // Upmix last: gain works on the two channels it was written for,
-                                // and the extra four are derived from the result rather than
-                                // being gained separately.
-                                arrayOf(gainProcessor, spatialUpmixProcessor),
+                                // and anything derived from them is derived from the gained
+                                // result rather than being gained separately. Only one of the two
+                                // spatial stages is ever on.
+                                arrayOf(gainProcessor, binauralProcessor, spatialUpmixProcessor),
                                 SilenceSkippingAudioProcessor(),
                                 SonicAudioProcessor()
                             )
@@ -1331,9 +1373,10 @@ class MusicService : MediaLibraryService(),
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
                                 // Upmix last: gain works on the two channels it was written for,
-                                // and the extra four are derived from the result rather than
-                                // being gained separately.
-                                arrayOf(gainProcessor, spatialUpmixProcessor),
+                                // and anything derived from them is derived from the gained
+                                // result rather than being gained separately. Only one of the two
+                                // spatial stages is ever on.
+                                arrayOf(gainProcessor, binauralProcessor, spatialUpmixProcessor),
                                 SilenceSkippingAudioProcessor(),
                                 SonicAudioProcessor()
                             )
