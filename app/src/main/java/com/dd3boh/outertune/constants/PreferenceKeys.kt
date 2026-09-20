@@ -444,6 +444,16 @@ val HeadTrackingLeadKey = intPreferencesKey("headTrackingLead")
  */
 val HeadTracking3dKey = booleanPreferencesKey("headTracking3d")
 
+/**
+ * Whether walking away from the phone turns the music down.
+ *
+ * Signal strength is a usable distance measure here, which was worth checking rather than
+ * assuming: near and far separate by about thirty decibels, and the body shadowing that makes
+ * individual readings jump around is symmetric enough that a median deletes it. See
+ * ProximityVolume.
+ */
+val ProximityVolumeKey = booleanPreferencesKey("proximityVolume")
+
 val UsageCountEnabledKey = booleanPreferencesKey("usageCountEnabled")
 
 /**

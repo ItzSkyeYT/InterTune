@@ -15,6 +15,8 @@ import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.Timer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
@@ -42,6 +44,7 @@ import com.dd3boh.outertune.constants.HeadTrackingDriftKey
 import com.dd3boh.outertune.constants.HeadTrackingKey
 import com.dd3boh.outertune.constants.HeadTrackingResponse
 import com.dd3boh.outertune.constants.HeadTrackingResponseKey
+import com.dd3boh.outertune.constants.ProximityVolumeKey
 import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -110,6 +113,36 @@ fun ColumnScope.PlayerGeneralFrag() {
  * Under the audio settings rather than beside the login, because what it changes is how a song is
  * fetched, and the only time anybody goes looking for it is when a song refuses to play.
  */
+/**
+ * Whether walking away from the phone turns the music down.
+ *
+ * Needs the scan permission, asked for here rather than at install, because a music player having
+ * Bluetooth scanning in its manifest is a thing people are right to be suspicious of. Nothing
+ * here wants to know where anyone is, only how strong a signal from headphones already connected
+ * happens to be, which is why the permission is declared as never for location.
+ */
+@Composable
+fun ColumnScope.ProximityVolumeFrag() {
+    val (enabled, onEnabledChange) = rememberPreference(ProximityVolumeKey, defaultValue = false)
+    val scanPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted -> if (granted) onEnabledChange(true) }
+
+    ExplainedSwitchPreference(
+        title = stringResource(R.string.proximity_volume),
+        description = stringResource(R.string.proximity_volume_description),
+        explanation = stringResource(R.string.proximity_volume_explain),
+        checked = enabled,
+        onCheckedChange = { want ->
+            if (want && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                scanPermission.launch(android.Manifest.permission.BLUETOOTH_SCAN)
+            } else {
+                onEnabledChange(want)
+            }
+        },
+    )
+}
+
 /** What the audio chain does to the stereo it is given. */
 @Composable
 fun ColumnScope.SpatialAudioModeFrag() {

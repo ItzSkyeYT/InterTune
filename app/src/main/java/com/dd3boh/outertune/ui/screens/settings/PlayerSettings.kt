@@ -63,6 +63,7 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.AdaptiveQueueFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.HighPrecisionAudioFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.HeadTrackingFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.ProximityVolumeFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioModeFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlaybackAuthFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioFrag
@@ -125,6 +126,7 @@ fun PlayerSettings(
             HighPrecisionAudioFrag()
             SpatialAudioModeFrag()
             HeadTrackingFrag()
+            ProximityVolumeFrag()
             PlaybackAuthFrag()
             AdaptiveQueueFrag()
             SpatialAudioFrag()

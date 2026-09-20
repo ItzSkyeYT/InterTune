@@ -112,6 +112,7 @@ import com.dd3boh.outertune.constants.PlaybackAuthModeKey
 import com.dd3boh.outertune.constants.PlaybackAuthMode
 import com.dd3boh.outertune.constants.ResumePlaybackOnLaunchKey
 import com.dd3boh.outertune.constants.PlayerVolumeKey
+import com.dd3boh.outertune.constants.ProximityVolumeKey
 import com.dd3boh.outertune.constants.RepeatModeKey
 import com.dd3boh.outertune.constants.SkipOnErrorKey
 import com.dd3boh.outertune.constants.SleepTimerDefaults
@@ -434,6 +435,10 @@ class MusicService : MediaLibraryService(),
     private val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
+    /** Quieter the further the listener gets from the phone. One unless it is switched on. */
+    val proximityVolume = ProximityVolume(this)
+    private var proximityWanted = false
+
     /**
      * One instance, shared by the builder below and by the observer that keeps the focus flag in
      * step with the setting. ExoPlayer rebuilds the AudioTrack only when the new attributes differ
@@ -561,9 +566,10 @@ class MusicService : MediaLibraryService(),
             combine(
                 playerVolume,
                 normalizeFactor,
-                sleepTimer.fadeFactor
-            ) { playerVolume, normalizeFactor, fadeFactor ->
-                playerVolume * normalizeFactor * fadeFactor
+                sleepTimer.fadeFactor,
+                proximityVolume.factor
+            ) { playerVolume, normalizeFactor, fadeFactor, proximityFactor ->
+                playerVolume * normalizeFactor * fadeFactor * proximityFactor
             }.collectLatest(scope) { _ ->
                 // Signal order is still decode -> normalise -> amplify -> soft clip. What changed
                 // is WHERE each stage runs, and the split is by what survives audio offload rather
@@ -657,6 +663,14 @@ class MusicService : MediaLibraryService(),
             // reports no latency for this route.
             // Changes how many harmonics there are to convolve, so the sink has to be told, and
             // the only thing that tells it is the track being re-prepared.
+            dataStore.data.map { it[ProximityVolumeKey] ?: false }.distinctUntilChanged()
+                .collectLatest(scope) { want ->
+                    proximityWanted = want
+                    withContext(Dispatchers.Main) {
+                        if (want && player.isPlaying) proximityVolume.start() else proximityVolume.stop()
+                    }
+                }
+
             dataStore.data.map { it[HeadTracking3dKey] ?: false }.distinctUntilChanged()
                 .collectLatest(scope) { want ->
                     if (binauralProcessor.fullSphere == want) return@collectLatest
@@ -1789,6 +1803,8 @@ class MusicService : MediaLibraryService(),
         } else if (!isPlaying) {
             headTracking.stop(glideHome = true)
         }
+        // Scanning is the cost, so it only runs while there is something to turn down.
+        if (isPlaying && proximityWanted) proximityVolume.start() else if (!isPlaying) proximityVolume.stop()
         if (isPlaying) {
             player.currentMediaItem?.mediaId?.let { id -> currentStart(id)?.takeIf { !it.opened }?.let { openListen(id, it) } }
         }
@@ -2404,6 +2420,7 @@ class MusicService : MediaLibraryService(),
 
     override fun onDestroy() {
         headTracking.stop(glideHome = false)
+        proximityVolume.stop()
         isRunning = false
         // The widget keeps the song and loses the pause: its play button then resumes the queue
         // through the same receiver a headset button uses. Read as stopped rather than from the
