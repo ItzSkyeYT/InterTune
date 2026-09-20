@@ -275,10 +275,16 @@ class HeadTracking(
         const val MAX_STAGE_RATE = 0.8f
 
         /**
-         * How far ahead to aim, in seconds. Bluetooth A2DP is most of it; the sink's own buffer,
-         * shortened while tracking, is the rest.
+         * How far ahead to aim, in seconds.
+         *
+         * Bluetooth is nearly all of it; the sink's own buffer, shortened while tracking, is the
+         * rest. Sized for LDAC, which is the slowest of the three codecs a good pair of headphones
+         * will negotiate and the one worth using, since the alternatives buy their latency back by
+         * sounding worse. Too long for the others, which is what the response setting is for: it
+         * scales this, so anyone on a quicker link turns it down rather than being stuck with a
+         * soundstage that arrives before they do.
          */
-        const val LOOKAHEAD_SECONDS = 0.20f
+        const val LOOKAHEAD_SECONDS = 0.26f
 
         /** Fifteen degrees, so one bad rate estimate cannot throw the stage across the room. */
         const val PREDICT_CLAMP = 0.26f
