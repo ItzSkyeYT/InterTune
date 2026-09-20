@@ -597,7 +597,12 @@ class MusicService : MediaLibraryService(),
                 val total = normalizeFactor.value * playerVolume.value
                 gainProcessor.gain = total
                 withContext(Dispatchers.Main) {
-                    player.volume = min(total, 1f) * sleepTimer.fadeFactor.value
+                    // Proximity belongs on this side of the split for the same reason
+                    // normalisation does: it only ever attenuates, so it goes where offload
+                    // cannot skip it. The combine above only decides when to recompute, so
+                    // anything left out of this line does nothing at all.
+                    player.volume = min(total, 1f) * sleepTimer.fadeFactor.value *
+                        proximityVolume.factor.value
                 }
             }
 
