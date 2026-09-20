@@ -23,13 +23,16 @@ import wave
 
 NAMES = ["W", "Y", "Z", "X"]
 
+ORDER_FOR_CHANNELS = {4: 1, 9: 2, 16: 3}
+
 
 def main(path):
     w = wave.open(path)
     assert w.getsampwidth() == 2, "expected 16-bit samples"
     assert w.getframerate() == 48000, "expected 48 kHz"
     channels, taps = w.getnchannels(), w.getnframes()
-    assert channels == 4, "expected first order, four channels"
+    assert channels in ORDER_FOR_CHANNELS, "expected 4, 9 or 16 channels, got %d" % channels
+    order = ORDER_FOR_CHANNELS[channels]
     raw = struct.unpack("<%dh" % (channels * taps), w.readframes(taps))
     chans = [[raw[f * channels + c] for f in range(taps)] for c in range(channels)]
 

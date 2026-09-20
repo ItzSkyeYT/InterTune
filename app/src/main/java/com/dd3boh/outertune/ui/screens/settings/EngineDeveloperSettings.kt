@@ -41,6 +41,9 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.EngineOverridesKey
 import com.dd3boh.outertune.engine.EngineTuning
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
+import androidx.compose.material3.Slider
+import com.dd3boh.outertune.constants.StageWidthKey
+import com.dd3boh.outertune.playback.BinauralAudioProcessor
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -100,6 +103,32 @@ fun EngineDeveloperSettings(
                 )
             }
         }
+        Spacer(Modifier.height(16.dp))
+
+        // A tuning knob, not a feature, which is why it lives here rather than in the audio
+        // settings. Judging a soundstage means moving it while listening, and that cannot be done
+        // by rebuilding the app between guesses.
+        PreferenceGroupTitle(title = stringResource(R.string.stage_width))
+        val (stageWidth, onStageWidthChange) = rememberPreference(
+            StageWidthKey,
+            defaultValue = BinauralAudioProcessor.DEFAULT_STAGE_WIDTH.toInt(),
+        )
+        Text(
+            stringResource(R.string.stage_width_value, stageWidth),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Slider(
+            value = stageWidth.toFloat(),
+            onValueChange = { onStageWidthChange(it.toInt()) },
+            valueRange = BinauralAudioProcessor.MIN_STAGE_WIDTH..BinauralAudioProcessor.MAX_STAGE_WIDTH,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Text(
+            stringResource(R.string.stage_width_description),
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
         Spacer(Modifier.height(16.dp))
 
         PreferenceGroupTitle(title = stringResource(R.string.engine_developer_collisions))

@@ -63,6 +63,17 @@ while also allowing users to translate our app as well. New, specific strings to
 Surround upmix builds a 5.1 signal and asks the phone to spatialise it instead. Worth trying if your phone has spatial audio of its own and it is switched on. Many do not, and then this does nothing at all.
 
 Neither is a remaster. The recording has two channels and nothing recovers what was never recorded. The headphone rendering uses measurements from a dummy head rather than yours, so height will not convince and sounds can occasionally seem behind you instead of in front. Turning on 32-bit processing at the same time avoids rounding the sound twice.</string>
+    <string name="stage_width">Stage width</string>
+    <string name="stage_width_value">Speakers at %1$d degrees either side</string>
+    <string name="stage_width_description">Thirty is what stereo is mixed for. Wider pulls the instruments apart at the cost of a hole in the middle.</string>
+    <string name="head_tracking">Head tracking</string>
+    <string name="head_tracking_description">The music stays where it is when you turn your head.</string>
+    <string name="head_tracking_none">No head tracker on this phone.</string>
+    <string name="head_tracking_explain">Without this, the soundstage is bolted to your head and turns with you. With it, the band stays put in the room while you look around, which is most of what convinces your ears that it is a room at all.
+
+Needs headphones that report their orientation and a phone willing to pass it on. Most phones are not: the sensor is reserved for the system, and many manufacturers never enable the part that reads it, so this setting is hidden unless a tracker is actually there.
+
+Because the headphones have no compass, nothing holds the direction steady and it drifts by about a degree a second. So the stage quietly recentres itself whenever you have held still for six seconds. That is also why holding a deliberate turn makes the music slowly follow you, which is a trade every implementation of this makes.</string>
     <string name="high_precision_audio">32-bit audio processing</string>
     <string name="high_precision_audio_description">Process volume and effects in 32-bit instead of 16-bit.</string>
     <string name="high_precision_audio_explain">Volume normalisation multiplies every sample. In 16-bit the result is rounded back down to 16-bit afterwards, on every track, which is avoidable.

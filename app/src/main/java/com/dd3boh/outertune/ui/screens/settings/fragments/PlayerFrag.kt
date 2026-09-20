@@ -36,6 +36,7 @@ import com.dd3boh.outertune.constants.AudioNormalizationKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.HighPrecisionAudioKey
+import com.dd3boh.outertune.constants.HeadTrackingKey
 import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -128,6 +129,43 @@ fun ColumnScope.SpatialAudioModeFrag() {
     )
 
     InfoLabel(stringResource(R.string.spatial_audio_description))
+}
+
+/**
+ * Whether the soundstage stays put when the listener turns their head.
+ *
+ * Hidden outright unless a tracker is published right now, rather than shown greyed out: on nearly
+ * every phone this is not a thing that can be turned on, and a permanently dead switch reads as a
+ * bug. Only meaningful alongside the headphone renderer, so it follows that setting too.
+ */
+@Composable
+fun ColumnScope.HeadTrackingFrag() {
+    val context = LocalContext.current
+    val (spatial) = rememberEnumPreference(key = SpatialAudioKey, defaultValue = SpatialAudioMode.OFF)
+    val (enabled, onEnabledChange) = rememberPreference(HeadTrackingKey, defaultValue = false)
+
+    // Dynamic sensors come and go with the headphones, so this is asked on each recomposition of
+    // the screen rather than cached for the life of the process.
+    val available = remember(spatial) {
+        runCatching {
+            context.getSystemService(android.hardware.SensorManager::class.java)
+                ?.getDynamicSensorList(android.hardware.Sensor.TYPE_HEAD_TRACKER)
+                ?.isNotEmpty() == true
+        }.getOrDefault(false)
+    }
+
+    if (spatial != SpatialAudioMode.HEADPHONES) return
+
+    ExplainedSwitchPreference(
+        title = stringResource(R.string.head_tracking),
+        description = stringResource(
+            if (available) R.string.head_tracking_description else R.string.head_tracking_none
+        ),
+        explanation = stringResource(R.string.head_tracking_explain),
+        checked = enabled && available,
+        onCheckedChange = onEnabledChange,
+        isEnabled = available,
+    )
 }
 
 /** 32 bit float through the audio chain, at the cost of the low power offload path. */

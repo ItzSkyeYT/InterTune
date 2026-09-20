@@ -394,6 +394,25 @@ val HighPrecisionAudioKey = booleanPreferencesKey("highPrecisionAudio")
  */
 val SpatialAudioKey = stringPreferencesKey("spatialAudio")
 
+/**
+ * Whether the soundstage stays put when the listener turns their head.
+ *
+ * Only means anything alongside SpatialAudioMode.HEADPHONES, and only on a phone that publishes a
+ * head tracker at all, which most do not: the sensor is restricted to system uids and most vendors
+ * never load the sub-HAL that would create one. Off by default and hidden where nothing is
+ * available, rather than shown as a switch that does nothing.
+ */
+val HeadTrackingKey = booleanPreferencesKey("headTracking")
+
+/**
+ * How far apart the binaural renderer's two virtual loudspeakers stand, in degrees either side.
+ *
+ * Thirty is what a stereo mix is made for. Wider separates the instruments, because a first-order
+ * field is blurry enough that two speakers sixty degrees apart land inside one blur, and the cost
+ * is a hole in the middle. A tuning knob rather than a feature.
+ */
+val StageWidthKey = intPreferencesKey("stageWidth")
+
 val UsageCountEnabledKey = booleanPreferencesKey("usageCountEnabled")
 
 /**

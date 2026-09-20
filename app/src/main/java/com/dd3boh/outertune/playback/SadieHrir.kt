@@ -13,18 +13,25 @@ package com.dd3boh.outertune.playback
  *
  * From Google's Resonance Audio, third_party/SADIE_hrtf_database/WAV/Subject_002/SH/
  * sh_hrir_order_1.wav, Apache License 2.0, kept at docs/hrtf/LICENSE.SADIE. Measured by
- * the Audio Lab at the University of York. 4 channels in ACN order, 256 taps at
- * 48 kHz, diffuse-field corrected, left hemisphere only because the set is symmetric.
+ * the Audio Lab at the University of York on a cube grid, 4 channels in ACN
+ * order, 256 taps at 48 kHz, diffuse-field corrected, left hemisphere only because the
+ * set is symmetric about the median plane.
  *
- * A table of numbers rather than an asset, because F-Droid will not accept a prebuilt
- * binary and this way the data is source like everything else.
+ * Kept beside the third order set as the cheap path: three convolutions per sample rather
+ * than ten, at the cost of a directional blur roughly a hundred and twenty degrees wide,
+ * which smears a stereo mix into one broad object.
+ *
+ * Flat rather than an array of arrays: channel c tap t is at c * TAPS + t, so the inner
+ * loop indexes one object instead of chasing a pointer per channel.
  */
 object SadieHrir {
+    const val ORDER = 1
+    const val CHANNELS = 4
     const val TAPS = 256
     const val SAMPLE_RATE = 48000
 
-    /** ACN 0, W. */
-    val W: ShortArray = shortArrayOf(
+    val H: ShortArray = shortArrayOf(
+        // ACN 0
         -2, -10, -5, -2, -2, -1, -5, 8, -8, 24, -18, -5,
         -52, -515, -995, 497, 3508, 311, -2743, -748, -2624, -664, -2888, -6413,
         -548, 618, 7211, 6254, -762, 3110, 928, 1345, 1316, 947, 2521, 45,
@@ -47,10 +54,7 @@ object SadieHrir {
         -39, -28, -29, -37, -25, -31, -35, -25, -32, -33, -24, -32,
         -31, -24, -34, -31, -30, -37, -35, -36, -39, -37, -37, -37,
         -35, -34, -31, -29,
-    )
-
-    /** ACN 1, Y. */
-    val Y: ShortArray = shortArrayOf(
+        // ACN 1
         2, 16, 11, 7, 12, 1, 1, 4, -6, 16, -25, -12,
         -64, -520, -1006, 497, 3493, 293, -2754, -765, -2635, -661, -2866, -6342,
         -433, 759, 7421, 6561, -285, 3533, 1083, 1536, 1196, 407, 2994, 1206,
@@ -73,10 +77,7 @@ object SadieHrir {
         -2, 6, 0, 0, 6, -1, 2, 5, -1, 3, 5, -1,
         4, 4, -1, 5, 3, 1, 4, 2, 2, 3, 2, 2,
         2, 2, 1, 1,
-    )
-
-    /** ACN 2, Z. */
-    val Z: ShortArray = shortArrayOf(
+        // ACN 2
         0, -3, -1, -1, -1, -3, 2, -7, 2, 5, -13, 26,
         -43, 29, 26, -434, -816, 2023, 2580, -4564, -965, 3473, -3231, 1416,
         2196, -2042, -1156, -759, 5449, 266, -5295, -204, 1210, 1506, 904, 1553,
@@ -99,10 +100,7 @@ object SadieHrir {
         -4, -6, 0, -5, -4, 0, -6, -4, -1, -6, -2, -2,
         -5, -1, -2, -5, -1, -3, -3, -2, -3, -3, -2, -3,
         -3, -2, -2, -2,
-    )
-
-    /** ACN 3, X. */
-    val X: ShortArray = shortArrayOf(
+        // ACN 3
         0, 2, 1, 1, 1, 0, -2, 0, -4, 4, 0, -7,
         4, -50, 65, 135, -395, -421, 1903, 676, -3843, 208, 1250, -2210,
         1741, -390, -595, 4103, 1629, 330, -662, -2010, -1534, 80, 230, -719,
@@ -126,5 +124,4 @@ object SadieHrir {
         -1, 6, 0, 1, 4, 0, 1, 3, 0, 2, 2, 1,
         2, 2, 1, 1,
     )
-
 }

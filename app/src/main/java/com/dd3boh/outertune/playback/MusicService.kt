@@ -24,6 +24,8 @@ import android.database.SQLException
 import android.media.audiofx.AudioEffect
 import android.net.ConnectivityManager
 import android.os.Binder
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import androidx.core.content.getSystemService
@@ -59,6 +61,7 @@ import androidx.media3.exoplayer.analytics.PlaybackStatsListener
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioOffloadSupportProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ShuffleOrder
@@ -89,6 +92,8 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRa
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.HighPrecisionAudioKey
+import com.dd3boh.outertune.constants.HeadTrackingKey
+import com.dd3boh.outertune.constants.StageWidthKey
 import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
 import com.dd3boh.outertune.constants.PersistentQueueKey
@@ -354,6 +359,31 @@ class MusicService : MediaLibraryService(),
      * would mean spatialising an already spatialised signal.
      */
     val binauralProcessor = BinauralAudioProcessor()
+
+    /**
+     * Head tracking, where the phone is willing to publish a tracker at all.
+     *
+     * Lazy because it touches SensorManager, and created whether or not anything is available:
+     * asking it to start is how you find out, and the answer changes when headphones connect.
+     */
+    val headTracking: HeadTracking by lazy {
+        HeadTracking(this, binauralProcessor, Handler(Looper.getMainLooper()))
+    }
+
+    /** Whether the listener asked for head tracking, independent of whether it is possible. */
+    private var headTrackingWanted = false
+
+    /**
+     * Whether to trade buffer headroom for latency, read once at construction like the other
+     * things that decide how the sink is built.
+     *
+     * media3 floors its PCM buffer at 250 ms, so a quarter of a second of already rendered audio
+     * sits in front of the DAC before Bluetooth adds its own 150 to 250. That is inaudible for
+     * ordinary playback and is most of the perceived lag once the soundstage is supposed to follow
+     * a head turn, which is the only case this shortens it for. Underruns are the cost, so it is
+     * not done for anyone who is not head tracking.
+     */
+    private val lowLatencyAudio = dataStore.get(HeadTrackingKey, false)
     private val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
@@ -543,6 +573,19 @@ class MusicService : MediaLibraryService(),
             // that does is the track being re-prepared. So the current one is restarted where it
             // stands, which costs a short gap and is the price of the setting working when it is
             // pressed rather than whenever the app is next killed.
+            dataStore.data.map { it[StageWidthKey] ?: BinauralAudioProcessor.DEFAULT_STAGE_WIDTH.toInt() }
+                .distinctUntilChanged()
+                .collectLatest(scope) { binauralProcessor.stageWidthDegrees = it.toFloat() }
+
+            dataStore.data.map { it[HeadTrackingKey] ?: false }.distinctUntilChanged()
+                .collectLatest(scope) { want ->
+                    headTrackingWanted = want
+                    withContext(Dispatchers.Main) {
+                        if (want && binauralProcessor.enabled && player.isPlaying) headTracking.start()
+                        else if (!want) headTracking.stop(glideHome = true)
+                    }
+                }
+
             dataStore.data.map {
                 it[SpatialAudioKey]?.let { name ->
                     runCatching { SpatialAudioMode.valueOf(name) }.getOrNull()
@@ -559,6 +602,10 @@ class MusicService : MediaLibraryService(),
                     spatialUpmixProcessor.enabled = wantSurround
                     binauralProcessor.enabled = wantHeadphones
                     withContext(Dispatchers.Main) {
+                        // Rotating a field nobody is rendering does nothing, and the sensor costs
+                        // battery, so tracking follows the renderer rather than being independent.
+                        if (!wantHeadphones) headTracking.stop(glideHome = false)
+                        else if (headTrackingWanted && player.isPlaying) headTracking.start()
                         // Offload hands the stream to the phone's low power audio path, which
                         // skips the processor chain entirely. Leaving it on would mean the
                         // setting appears to do nothing for anyone who turned offload on, with
@@ -1337,6 +1384,13 @@ class MusicService : MediaLibraryService(),
                         // any, and every normalised track was rounded back to 16 bit after the
                         // multiply for no reason.
                         .setEnableFloatOutput(enableFloatOutput)
+                        .setAudioTrackBufferSizeProvider(
+                            DefaultAudioTrackBufferSizeProvider.Builder()
+                                .setMinPcmBufferDurationUs(
+                                    if (lowLatencyAudio) LOW_LATENCY_BUFFER_US else DEFAULT_BUFFER_US
+                                )
+                                .build()
+                        )
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
                                 // Upmix last: gain works on the two channels it was written for,
@@ -1370,6 +1424,13 @@ class MusicService : MediaLibraryService(),
                         // any, and every normalised track was rounded back to 16 bit after the
                         // multiply for no reason.
                         .setEnableFloatOutput(enableFloatOutput)
+                        .setAudioTrackBufferSizeProvider(
+                            DefaultAudioTrackBufferSizeProvider.Builder()
+                                .setMinPcmBufferDurationUs(
+                                    if (lowLatencyAudio) LOW_LATENCY_BUFFER_US else DEFAULT_BUFFER_US
+                                )
+                                .build()
+                        )
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
                                 // Upmix last: gain works on the two channels it was written for,
@@ -1607,6 +1668,13 @@ class MusicService : MediaLibraryService(),
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         updateWidget()
+        // The stream is what costs battery, so it runs only while something is playing. Glide the
+        // stage home on pause rather than dropping it, since the listener may well be mid-turn.
+        if (isPlaying && headTrackingWanted && binauralProcessor.enabled) {
+            headTracking.start()
+        } else if (!isPlaying) {
+            headTracking.stop(glideHome = true)
+        }
         if (isPlaying) {
             player.currentMediaItem?.mediaId?.let { id -> currentStart(id)?.takeIf { !it.opened }?.let { openListen(id, it) } }
         }
@@ -2221,6 +2289,7 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onDestroy() {
+        headTracking.stop(glideHome = false)
         isRunning = false
         // The widget keeps the song and loses the pause: its play button then resumes the queue
         // through the same receiver a headset button uses. Read as stopped rather than from the
@@ -2347,6 +2416,12 @@ class MusicService : MediaLibraryService(),
         const val NOTIFICATION_ID = 888
         const val ERROR_CODE_NO_STREAM = 1000001
         const val CHUNK_LENGTH = 512 * 1024L
+
+        /** media3's own floor, kept for everyone who is not chasing their own head. */
+        const val DEFAULT_BUFFER_US = 250_000
+
+        /** Still four times the system minimum, so it is short rather than reckless. */
+        const val LOW_LATENCY_BUFFER_US = 90_000
 
         const val COMMAND_GET_BINDER = "GET_BINDER"
     }
