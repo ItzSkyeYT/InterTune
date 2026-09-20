@@ -85,6 +85,12 @@ Because the headphones have no compass, nothing holds the direction steady and i
 So the only way to feel immediate is to aim at where your head is going rather than where it was, using how fast you are turning. Quick takes almost the whole gap. Instant takes all of it and reacts to a turn the moment it starts, which arrives with your head at the cost of visibly overshooting the end of a fast turn and settling back, because a real head slows down at the end of a turn and the guess does not. Smooth never guesses, so it never overshoots and always feels slightly behind. Balanced splits it.
 
 If it still feels slow on Quick, the remaining delay is Bluetooth. A different codec in your phone\'s developer options is usually worth more than anything in here.</string>
+    <string name="proximity_probe">Bluetooth signal log</string>
+    <string name="proximity_probe_start">Start logging</string>
+    <string name="proximity_probe_stop">Stop logging</string>
+    <string name="proximity_probe_description">Records how strong nearby Bluetooth signals are, to find out whether distance is measurable at all.</string>
+    <string name="proximity_probe_running">Logging: %1$d seconds, %2$d readings.</string>
+    <string name="proximity_probe_saved">Saved to %1$s</string>
     <string name="head_tracking_3d">Follow tilting too</string>
     <string name="head_tracking_3d_description">Looking up, down or sideways moves the sound as well.</string>
     <string name="head_tracking_3d_explain">Without this the soundstage only turns with you. Nod, and it nods along. With it the music stays where it is however you move your head, which is what actually happens in a room.

@@ -209,4 +209,17 @@
     
 </application>
 
+
+    <!--
+        Only for the proximity experiment behind the developer screen, and requested at the point
+        of use rather than assumed at install. neverForLocation because nothing here wants to know
+        where anyone is: the only question is how strong a signal from headphones already paired
+        and connected happens to be.
+    -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
 </manifest>

@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -45,6 +46,11 @@ import androidx.compose.material3.Slider
 import com.dd3boh.outertune.constants.HeadTrackingLeadKey
 import com.dd3boh.outertune.constants.StageWidthKey
 import com.dd3boh.outertune.playback.BinauralAudioProcessor
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.rounded.Bluetooth
+import com.dd3boh.outertune.playback.ProximityProbe
+import kotlinx.coroutines.delay
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -74,6 +80,7 @@ fun EngineDeveloperSettings(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier.padding(horizontal = 16.dp)
     ) {
+        val context = LocalContext.current
         PreferenceGroupTitle(title = stringResource(R.string.engine_developer_params))
         PreferenceEntry(
             title = { Text(stringResource(R.string.engine_developer_reset)) },
@@ -152,6 +159,54 @@ fun EngineDeveloperSettings(
             stringResource(R.string.head_tracking_lead_description),
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Spacer(Modifier.height(16.dp))
+
+        // Before building anything on signal strength, find out whether there is a signal in it.
+        // The prior is that a body between two radios costs more than walking across the room, so
+        // the number would move when you turn rather than when you go anywhere.
+        PreferenceGroupTitle(title = stringResource(R.string.proximity_probe))
+        val probe = remember { ProximityProbe(context) }
+        var probeFile by remember { mutableStateOf<String?>(null) }
+        var probeRunning by remember { mutableStateOf(false) }
+        var probeStatus by remember { mutableStateOf("") }
+
+        val scanPermission = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            if (granted) {
+                probeFile = probe.start()?.absolutePath
+                probeRunning = probe.isRunning
+            }
+        }
+
+        LaunchedEffect(probeRunning) {
+            while (probeRunning) {
+                val (elapsed, count) = probe.status()
+                probeStatus = context.getString(R.string.proximity_probe_running, elapsed / 1000, count)
+                delay(500)
+            }
+        }
+
+        PreferenceEntry(
+            title = { Text(stringResource(if (probeRunning) R.string.proximity_probe_stop else R.string.proximity_probe_start)) },
+            description = when {
+                probeRunning -> probeStatus
+                probeFile != null -> stringResource(R.string.proximity_probe_saved, probeFile!!)
+                else -> stringResource(R.string.proximity_probe_description)
+            },
+            icon = { Icon(Icons.Rounded.Bluetooth, null) },
+            onClick = {
+                if (probeRunning) {
+                    probe.stop()
+                    probeRunning = false
+                } else if (!probe.hasPermission()) {
+                    scanPermission.launch(android.Manifest.permission.BLUETOOTH_SCAN)
+                } else {
+                    probeFile = probe.start()?.absolutePath
+                    probeRunning = probe.isRunning
+                }
+            },
         )
         Spacer(Modifier.height(16.dp))
 

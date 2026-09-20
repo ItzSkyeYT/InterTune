@@ -443,18 +443,6 @@ fun PlayerMenu(
             bottom = 8.dp + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
         )
     ) {
-        // Only while something is actually tracking. The soundstage slides because the headphones
-        // have no compass, and calibration removes most of that but not a knock or a reconnection,
-        // so there has to be a way to put it back in front without digging through settings.
-        if (playerConnection.service.headTracking.isRunning) {
-            GridMenuItem(
-                icon = Icons.Rounded.FilterCenterFocus,
-                title = R.string.head_tracking_recentre
-            ) {
-                playerConnection.service.headTracking.recentre()
-                onDismiss()
-            }
-        }
         if (!mediaMetadata.isLocal)
             GridMenuItem(
                 icon = Icons.Rounded.Radio,
@@ -608,6 +596,19 @@ fun PlayerMenu(
             title = R.string.advanced
         ) {
             showPitchTempoDialog = true
+        }
+        // Last, and only while something is actually tracking. It belongs in this menu because the
+        // moment you want it is the moment you are listening, but it does not belong above items
+        // people already know the position of: a menu that moves under someone is worse than one
+        // that is missing something.
+        if (playerConnection.service.headTracking.isRunning) {
+            GridMenuItem(
+                icon = Icons.Rounded.FilterCenterFocus,
+                title = R.string.head_tracking_recentre
+            ) {
+                playerConnection.service.headTracking.recentre()
+                onDismiss()
+            }
         }
     }
 
