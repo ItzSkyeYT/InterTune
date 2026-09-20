@@ -15,12 +15,11 @@ Fixes. Nothing new to learn, nothing moved, and the bigger work is waiting for 0
 - **A request that never answers now fails** rather than holding the player open indefinitely.
 - Error reports say which stream client was in use, which is the first thing needed to work out why a song would not play.
 
-## Quick picks and recommendations
+## Quick picks
 
-- **Previews are no longer recommended.** A thirty second preview in a row of songs is never what anybody wanted, and it costs the slot twice: once when it plays, again when you go and find the real one.
-- **Radio stops seeding itself from songs nobody has heard.** It was building stations from tracks that had only ever been shown, not played.
-- **One artist can no longer take over the row.** Quick picks holds at most two songs from the same artist, so a run of one sort of music does not fill it. Other rows are unaffected, since an album or a discography is meant to be one artist.
-- Two engine defects: a single dash in a title removed sixty-four candidates from a build, and one lane was invisible to the learner and then discarded by the tidy pass, so it never appeared and never improved.
+- **Previews no longer appear.** A thirty second preview is never what anybody wanted, and it costs the slot twice: once when it plays, again when you go and find the real one.
+- **One artist can no longer fill the row.** Quick picks holds at most two songs from the same artist, so a run of one sort of music does not take it over. Other rows are unaffected, since an album or a discography is meant to be one artist.
+- **Radio no longer starts from songs you have not played.** It could build a station around a track that had only ever been shown to you.
 
 ## Interface
 
