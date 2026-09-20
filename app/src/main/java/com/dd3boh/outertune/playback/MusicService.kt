@@ -435,8 +435,14 @@ class MusicService : MediaLibraryService(),
     private val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
-    /** Quieter the further the listener gets from the phone. One unless it is switched on. */
-    val proximityVolume = ProximityVolume(this)
+    /**
+     * Quieter the further the listener gets from the phone. One unless it is switched on.
+     *
+     * Lazy, and not by preference: a field initialiser on a Service runs during the constructor,
+     * before the base context is attached, so anything that asks for a system service there gets
+     * a null Context and takes the whole app down on launch.
+     */
+    val proximityVolume: ProximityVolume by lazy { ProximityVolume(this) }
     private var proximityWanted = false
 
     /**
