@@ -113,6 +113,20 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private var taps = 0
     private var writeIndex = 0
 
+    /**
+     * How many frames have gone through, so the delay to the ear can be measured rather than
+     * guessed.
+     *
+     * Everything this processor does happens before the sink's own buffer, the Bluetooth encoder
+     * and the headphones, and the total of those is what the head tracking has to predict past.
+     * Comparing this against the position the player reports, which is derived from what the
+     * audio device says it has actually played, gives that total directly. Volatile because it is
+     * written on the audio thread and read on the main one.
+     */
+    @Volatile
+    var framesProcessed: Long = 0L
+        private set
+
     /** Normalisation, worked out from the filters themselves. See [computeGain]. */
     private var gain = 1f
 
@@ -384,6 +398,7 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
 
         inputBuffer.position(inputBuffer.limit())
         out.flip()
+        framesProcessed += frames.toLong()
     }
 
     /**
@@ -482,6 +497,7 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private fun clearTails() {
         Arrays.fill(rings, 0f)
         writeIndex = 0
+        framesProcessed = 0L
     }
 
     companion object {

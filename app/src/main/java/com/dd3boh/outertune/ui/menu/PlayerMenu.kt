@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.LibraryAddCheck
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MoreTime
+import androidx.compose.material.icons.rounded.FilterCenterFocus
 import androidx.compose.material.icons.rounded.Radio
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Share
@@ -442,6 +443,18 @@ fun PlayerMenu(
             bottom = 8.dp + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
         )
     ) {
+        // Only while something is actually tracking. The soundstage slides because the headphones
+        // have no compass, and calibration removes most of that but not a knock or a reconnection,
+        // so there has to be a way to put it back in front without digging through settings.
+        if (playerConnection.service.headTracking.isRunning) {
+            GridMenuItem(
+                icon = Icons.Rounded.FilterCenterFocus,
+                title = R.string.head_tracking_recentre
+            ) {
+                playerConnection.service.headTracking.recentre()
+                onDismiss()
+            }
+        }
         if (!mediaMetadata.isLocal)
             GridMenuItem(
                 icon = Icons.Rounded.Radio,

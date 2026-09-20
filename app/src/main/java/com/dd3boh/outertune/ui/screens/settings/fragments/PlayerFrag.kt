@@ -36,6 +36,8 @@ import com.dd3boh.outertune.constants.AudioNormalizationKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.HighPrecisionAudioKey
+import com.dd3boh.outertune.constants.HeadTrackingCalibrateKey
+import com.dd3boh.outertune.constants.HeadTrackingDriftKey
 import com.dd3boh.outertune.constants.HeadTrackingKey
 import com.dd3boh.outertune.constants.HeadTrackingResponse
 import com.dd3boh.outertune.constants.HeadTrackingResponseKey
@@ -58,6 +60,9 @@ import com.dd3boh.outertune.constants.SleepTimerDefaults
 import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
 import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SleepTimerFadeKey
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.delay
+import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.ExplainButton
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
@@ -199,7 +204,41 @@ fun ColumnScope.HeadTrackingFrag() {
     )
 
     InfoLabel(stringResource(R.string.head_tracking_response_description))
+
+    // Measured once rather than guessed or bled away continuously. Thirty seconds of a head that
+    // is not moving is, by definition, thirty seconds of drift, and a slope can be subtracted
+    // forever after without ever following a real turn.
+    val (calibratedAt, onCalibrate) = rememberPreference(HeadTrackingCalibrateKey, defaultValue = 0L)
+    val (drift) = rememberPreference(HeadTrackingDriftKey, defaultValue = 0f)
+    var elapsed by remember { mutableStateOf(0L) }
+
+    LaunchedEffect(calibratedAt) {
+        if (calibratedAt == 0L) return@LaunchedEffect
+        while (true) {
+            elapsed = System.currentTimeMillis() - calibratedAt
+            if (elapsed > CALIBRATION_MS) break
+            delay(250)
+        }
+    }
+
+    val running = calibratedAt != 0L && elapsed in 0..CALIBRATION_MS
+    ExplainedPreference(
+        title = stringResource(R.string.head_tracking_calibrate),
+        explanation = stringResource(R.string.head_tracking_calibrate_explain),
+        description = when {
+            running -> stringResource(
+                R.string.head_tracking_calibrate_running,
+                ((CALIBRATION_MS - elapsed) / 1000).toInt(),
+            )
+            drift != 0f -> stringResource(R.string.head_tracking_calibrate_done, drift)
+            else -> stringResource(R.string.head_tracking_calibrate_never)
+        },
+        onClick = { if (!running) onCalibrate(System.currentTimeMillis()) },
+    )
 }
+
+/** Thirty seconds, matching HeadTracking.CALIBRATION_NANOS. */
+private const val CALIBRATION_MS = 30_000L
 
 /** 32 bit float through the audio chain, at the cost of the low power offload path. */
 @Composable

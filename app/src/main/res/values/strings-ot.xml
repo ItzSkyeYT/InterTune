@@ -85,6 +85,19 @@ Because the headphones have no compass, nothing holds the direction steady and i
 So the only way to feel immediate is to aim at where your head is going rather than where it was, using how fast you are turning. Quick takes almost the whole gap. Instant takes all of it and reacts to a turn the moment it starts, which arrives with your head at the cost of visibly overshooting the end of a fast turn and settling back, because a real head slows down at the end of a turn and the guess does not. Smooth never guesses, so it never overshoots and always feels slightly behind. Balanced splits it.
 
 If it still feels slow on Quick, the remaining delay is Bluetooth. A different codec in your phone\'s developer options is usually worth more than anything in here.</string>
+    <string name="head_tracking_recentre">Recentre</string>
+    <string name="head_tracking_calibrate">Calibrate</string>
+    <string name="head_tracking_calibrate_never">Not calibrated. Tap, then look straight ahead and keep still.</string>
+    <string name="head_tracking_calibrate_running">Keep still and look straight ahead. %1$d seconds left.</string>
+    <string name="head_tracking_calibrate_done">Correcting %1$.2f degrees per second of drift.</string>
+    <string name="head_tracking_calibrate_explain">Headphones have a gyroscope and no compass, so nothing holds the direction steady and it slides, usually about a degree a second. Left alone the music wanders off to one side over a minute or two.
+
+The usual fix is to quietly recentre whenever you have held still for a while, which works when you are sitting listening and fails exactly when you are moving about. Measuring it is better. Thirty seconds of a head that is not moving is thirty seconds of pure drift, and once the rate is known it can be subtracted for good, without ever mistaking a slow deliberate turn for drift.
+
+Sit comfortably, look straight ahead, and stay still until it finishes. Worth redoing if you change headphones.</string>
+    <string name="head_tracking_lead">Tracking lead</string>
+    <string name="head_tracking_lead_value">Aiming %1$d ms ahead</string>
+    <string name="head_tracking_lead_description">Should match the real delay to your ears. Too little lags behind your head, too much swings past and settles back.</string>
     <string name="high_precision_audio">32-bit audio processing</string>
     <string name="high_precision_audio_description">Process volume and effects in 32-bit instead of 16-bit.</string>
     <string name="high_precision_audio_explain">Volume normalisation multiplies every sample. In 16-bit the result is rounded back down to 16-bit afterwards, on every track, which is avoidable.

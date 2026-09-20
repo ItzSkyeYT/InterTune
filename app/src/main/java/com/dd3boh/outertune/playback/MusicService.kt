@@ -76,6 +76,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioDecoderKey
 import com.dd3boh.outertune.constants.AudioGaplessOffloadKey
 import com.dd3boh.outertune.constants.AudioNormalizationKey
+import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.AudioOffloadKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
@@ -92,7 +93,10 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRa
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.HighPrecisionAudioKey
+import com.dd3boh.outertune.constants.HeadTrackingCalibrateKey
+import com.dd3boh.outertune.constants.HeadTrackingDriftKey
 import com.dd3boh.outertune.constants.HeadTrackingKey
+import com.dd3boh.outertune.constants.HeadTrackingLeadKey
 import com.dd3boh.outertune.constants.HeadTrackingResponse
 import com.dd3boh.outertune.constants.HeadTrackingResponseKey
 import com.dd3boh.outertune.constants.StageWidthKey
@@ -369,11 +373,51 @@ class MusicService : MediaLibraryService(),
      * asking it to start is how you find out, and the answer changes when headphones connect.
      */
     val headTracking: HeadTracking by lazy {
-        HeadTracking(this, binauralProcessor, Handler(Looper.getMainLooper()))
+        HeadTracking(this, binauralProcessor, Handler(Looper.getMainLooper())).apply {
+            onCalibrated = { radiansPerSecond ->
+                scope.launch {
+                    dataStore.edit { prefs ->
+                        prefs[HeadTrackingDriftKey] = Math.toDegrees(radiansPerSecond.toDouble()).toFloat()
+                    }
+                }
+            }
+        }
     }
 
     /** Whether the listener asked for head tracking, independent of whether it is possible. */
     private var headTrackingWanted = false
+
+    /**
+     * Measure how long it takes a rendered sample to reach the ear, and tell the head tracking.
+     *
+     * The renderer counts what it has put out; the player reports where the audio device says it
+     * actually is. The difference is everything in between: the sink's buffer, the Bluetooth
+     * encoder, the link and the headphones. That total is what the prediction has to cover, and
+     * it is not a number an app can assume, because it depends on a codec negotiation that
+     * happens at connection time and varies by a factor of three.
+     *
+     * Smoothed hard and clamped to what is physically plausible, because the player's position
+     * jumps around a seek and the frame count restarts with it.
+     */
+    private fun measureOutputLatency() {
+        val processed = binauralProcessor.framesProcessed
+        if (processed <= 0L) return
+        val rate = player.audioFormat?.sampleRate ?: return
+        if (rate <= 0) return
+        val speed = player.playbackParameters.speed.takeIf { it > 0.01f } ?: 1f
+        val renderedMs = processed * 1000.0 / rate / speed
+        val heardMs = player.currentPosition - (currentTrackStartMs ?: return)
+        val latency = ((renderedMs - heardMs) / 1000.0).toFloat()
+        if (latency < MIN_PLAUSIBLE_LATENCY || latency > MAX_PLAUSIBLE_LATENCY) return
+        val now = headTracking.lookaheadSeconds
+        headTracking.lookaheadSeconds = now + (latency - now) * LATENCY_SMOOTHING
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, "output latency ${(latency * 1000).toInt()} ms, using ${(headTracking.lookaheadSeconds * 1000).toInt()} ms")
+        }
+    }
+
+    /** Media position where the current render run began, so the two clocks share an origin. */
+    private var currentTrackStartMs: Long? = null
 
     /**
      * Whether to trade buffer headroom for latency, read once at construction like the other
@@ -605,6 +649,25 @@ class MusicService : MediaLibraryService(),
                         HeadTrackingResponse.BALANCED -> 0.35f
                         HeadTrackingResponse.QUICK -> 0.6f
                         HeadTrackingResponse.INSTANT -> 0.85f
+                    }
+                }
+
+            // Tuned by ear, because the delay is mostly the Bluetooth codec and the platform
+            // reports no latency for this route.
+            dataStore.data.map { it[HeadTrackingLeadKey] ?: DEFAULT_LEAD_MS }.distinctUntilChanged()
+                .collectLatest(scope) { headTracking.lookaheadSeconds = it / 1000f }
+
+            // Measured once and kept, so a tracker that slides a degree a second stops taking the
+            // soundstage with it.
+            dataStore.data.map { it[HeadTrackingDriftKey] ?: 0f }.distinctUntilChanged()
+                .collectLatest(scope) { headTracking.driftRate = Math.toRadians(it.toDouble()).toFloat() }
+
+            // A request, not a value: the button is in the settings and the sensor is here.
+            dataStore.data.map { it[HeadTrackingCalibrateKey] ?: 0L }.distinctUntilChanged()
+                .collectLatest(scope) { at ->
+                    if (at == 0L) return@collectLatest
+                    withContext(Dispatchers.Main) {
+                        if (headTracking.start()) headTracking.startCalibration()
                     }
                 }
 
@@ -2449,6 +2512,18 @@ class MusicService : MediaLibraryService(),
         const val CHUNK_LENGTH = 512 * 1024L
 
         /** media3's own floor, kept for everyone who is not chasing their own head. */
+        /** Nothing real is quicker than this over any link, so anything under it is a miscount. */
+        const val MIN_PLAUSIBLE_LATENCY = 0.02f
+
+        /** Nor slower than this, so a seek cannot drag the prediction somewhere absurd. */
+        const val MAX_PLAUSIBLE_LATENCY = 0.60f
+
+        /** Slow, because this only has to track a codec change, not a head. */
+        const val LATENCY_SMOOTHING = 0.2f
+
+        /** Roughly LDAC over A2DP, which is the codec worth using. Tuned from here by ear. */
+        const val DEFAULT_LEAD_MS = 260
+
         const val DEFAULT_BUFFER_US = 250_000
 
         /**

@@ -416,6 +416,26 @@ val StageWidthKey = intPreferencesKey("stageWidth")
 /** How hard the renderer guesses ahead of the head. See HeadTrackingResponse. */
 val HeadTrackingResponseKey = stringPreferencesKey("headTrackingResponse")
 
+/**
+ * Written with the current time to ask for a drift calibration. See HeadTracking.
+ *
+ * A request rather than a value, because the work happens in the service and the button is in the
+ * settings, and this is the channel those two already share.
+ */
+val HeadTrackingCalibrateKey = longPreferencesKey("headTrackingCalibrate")
+
+/** Measured drift of the head tracker, in degrees per second. Zero until calibrated. */
+val HeadTrackingDriftKey = floatPreferencesKey("headTrackingDrift")
+
+/**
+ * How far ahead of the head to aim, in milliseconds.
+ *
+ * Should be the real delay between rendering a sample and hearing it, which is mostly whichever
+ * Bluetooth codec got negotiated and is not a number an app can find out: the platform reports no
+ * latency modes for this route. So it is tuned by ear, once, against the hardware in use.
+ */
+val HeadTrackingLeadKey = intPreferencesKey("headTrackingLead")
+
 val UsageCountEnabledKey = booleanPreferencesKey("usageCountEnabled")
 
 /**

@@ -42,6 +42,7 @@ import com.dd3boh.outertune.constants.EngineOverridesKey
 import com.dd3boh.outertune.engine.EngineTuning
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import androidx.compose.material3.Slider
+import com.dd3boh.outertune.constants.HeadTrackingLeadKey
 import com.dd3boh.outertune.constants.StageWidthKey
 import com.dd3boh.outertune.playback.BinauralAudioProcessor
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -126,6 +127,29 @@ fun EngineDeveloperSettings(
         )
         Text(
             stringResource(R.string.stage_width_description),
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Spacer(Modifier.height(16.dp))
+
+        // The delay between rendering a sample and hearing it is mostly whichever Bluetooth codec
+        // got negotiated, and the platform reports no latency for that route, so this cannot be
+        // measured from inside the app. Tuned by ear once against the hardware in use.
+        PreferenceGroupTitle(title = stringResource(R.string.head_tracking_lead))
+        val (lead, onLeadChange) = rememberPreference(HeadTrackingLeadKey, defaultValue = 260)
+        Text(
+            stringResource(R.string.head_tracking_lead_value, lead),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Slider(
+            value = lead.toFloat(),
+            onValueChange = { onLeadChange(it.toInt()) },
+            valueRange = 0f..500f,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        Text(
+            stringResource(R.string.head_tracking_lead_description),
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
