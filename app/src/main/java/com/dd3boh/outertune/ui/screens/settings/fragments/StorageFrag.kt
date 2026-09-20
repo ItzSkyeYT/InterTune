@@ -232,9 +232,17 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth()
     ) {
+        // A spinner while it writes, because on a large library this is several seconds during
+        // which the row looked like it had ignored the tap, which is when people tap it again.
+        val backingUp by viewModel.backupInProgress.collectAsState()
         PreferenceEntry(
             title = { Text(stringResource(R.string.action_backup)) },
+            description = if (backingUp) stringResource(R.string.backup_in_progress) else null,
             icon = { Icon(Icons.Rounded.Backup, null) },
+            trailingContent = if (!backingUp) null else {
+                { CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) }
+            },
+            isEnabled = !backingUp,
             onClick = {
                 val formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
                 backupLauncher.launch(
@@ -296,8 +304,12 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             values = AutoBackup.INTERVAL_CHOICES,
             valueText = {
                 when (it) {
+                    6 -> stringResource(R.string.auto_backup_every_6h)
                     24 -> stringResource(R.string.auto_backup_every_day)
-                    else -> stringResource(R.string.auto_backup_every_week)
+                    168 -> stringResource(R.string.auto_backup_every_week)
+                    720 -> stringResource(R.string.auto_backup_every_month)
+                    4380 -> stringResource(R.string.auto_backup_every_6mo)
+                    else -> stringResource(R.string.auto_backup_every_year)
                 }
             },
             onValueSelected = {
