@@ -433,6 +433,9 @@ object YTPlayerUtils {
         return LoudnessResult.Found(db)
     }
 
+    /** Prints what YouTube offered and what was taken. Debug only; four tiers, two outcomes. */
+    private val TRACE_FORMATS = com.dd3boh.outertune.BuildConfig.DEBUG
+
     private fun findFormat(
         playerResponse: PlayerResponse,
         audioQuality: AudioQuality,
@@ -440,6 +443,14 @@ object YTPlayerUtils {
     ): PlayerResponse.StreamingData.Format? {
         val audioFormats = playerResponse.streamingData?.adaptiveFormats?.filter { it.isAudio }
         if (audioFormats.isNullOrEmpty()) return null
+        if (TRACE_FORMATS) {
+            android.util.Log.d(
+                "YTPlayerUtils",
+                "quality=$audioQuality offered=" + audioFormats.joinToString {
+                    "${it.itag}:${it.mimeType.substringBefore(';')}@${it.bitrate}"
+                },
+            )
+        }
 
         // MAX takes the largest stream and nothing else is allowed a say. In particular it skips
         // the codec bonus below, which is there to break ties between streams of similar size and
@@ -447,6 +458,7 @@ object YTPlayerUtils {
         // the connection is metered, because a tier called highest that quietly drops on mobile
         // data would be lying about what it does. Sample rate breaks genuine ties.
         if (audioQuality == AudioQuality.MAX) {
+            @Suppress("NAME_SHADOWING")
             return audioFormats.maxWithOrNull(
                 compareBy<PlayerResponse.StreamingData.Format> { it.bitrate }
                     .thenBy { it.audioSampleRate ?: 0 }
@@ -460,6 +472,13 @@ object YTPlayerUtils {
                 AudioQuality.LOW -> -1
                 AudioQuality.MAX -> 1 // returned above
             } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
+        }.also {
+            if (TRACE_FORMATS) {
+                android.util.Log.d(
+                    "YTPlayerUtils",
+                    "quality=$audioQuality took=${it?.itag}@${it?.bitrate} metered=${connectivityManager.isActiveNetworkMetered}",
+                )
+            }
         }
     }
 

@@ -1432,13 +1432,19 @@ class MusicService : MediaLibraryService(),
             val isDownload =
                 downloadCache.isCached(mediaId, dataSpec.position, if (dataSpec.length >= 0) dataSpec.length else 1)
             val isCache = playerCache.isCached(mediaId, dataSpec.position, CHUNK_LENGTH)
-            if (isDownload || isCache) {
+            // A copy fetched at a lower setting is fetched again, once, at the higher one. Only
+            // upwards: re-fetching to make something worse would spend data to lose quality, and
+            // the bytes are already here. Downloads are left alone whatever the setting says,
+            // because someone who downloaded a song asked for it to work offline, and quietly
+            // streaming instead would break the one thing they wanted.
+            val staleQuality = isCache && !isDownload && shouldUpgradeCached(mediaId)
+            if ((isDownload || isCache) && !staleQuality) {
                 Log.d(TAG, "PLAYING: remote song (cache = ${isCache}, download = ${isDownload})")
                 offloadScope.launch { recoverSong(mediaId) }
                 return@Factory dataSpec
             }
 
-            songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
+            songUrlCache[mediaId]?.takeIf { !staleQuality && it.second > System.currentTimeMillis() }?.let {
                 Log.d(TAG, "PLAYING: remote song (temp cache)")
                 offloadScope.launch { recoverSong(mediaId) }
                 return@Factory dataSpec.withUri(it.first.toUri())
@@ -1447,10 +1453,9 @@ class MusicService : MediaLibraryService(),
             Log.d(TAG, "PLAYING: remote song (online fetch)")
 
             val playbackData = runBlocking(Dispatchers.IO) {
-                val audioQuality by enumPreference(this@MusicService, AudioQualityKey, AudioQuality.AUTO)
                 YTPlayerUtils.playerResponseForPlayback(
                     mediaId,
-                    audioQuality = audioQuality,
+                    audioQuality = audioQualityNow(),
                     connectivityManager = connectivityManager,
                 )
             }.getOrElse { throwable ->
@@ -1493,6 +1498,7 @@ class MusicService : MediaLibraryService(),
                         sampleRate = format.audioSampleRate,
                         contentLength = format.contentLength!!,
                         loudnessDb = playbackData.audioConfig?.effectiveLoudnessDb,
+                        qualityTier = audioQualityNow().name,
                         playbackTrackingUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
                     )
                 )
@@ -1505,6 +1511,40 @@ class MusicService : MediaLibraryService(),
                 streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
             dataSpec.withUri(streamUrl.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
         }
+    }
+
+    /** What the setting says right now. Read live, because it can change between songs. */
+    private fun audioQualityNow(): AudioQuality {
+        val quality by enumPreference(this@MusicService, AudioQualityKey, AudioQuality.AUTO)
+        return quality
+    }
+
+    /**
+     * Where a setting sits relative to the others, for deciding what counts as an upgrade.
+     *
+     * Auto and High share a rank because on an unmetered connection they resolve to the same
+     * stream, so treating a move between them as an upgrade would re-fetch for nothing.
+     */
+    private fun AudioQuality.rank() = when (this) {
+        AudioQuality.LOW -> 0
+        AudioQuality.AUTO -> 1
+        AudioQuality.HIGH -> 1
+        AudioQuality.MAX -> 2
+    }
+
+    /**
+     * Whether the cached copy was fetched at a lower setting than the one now in force.
+     *
+     * Null means it was cached before any of this was recorded, which is treated as no and left
+     * alone: re-fetching everybody's entire cache the first time they update is not a reasonable
+     * thing to do to someone's data allowance.
+     */
+    private fun shouldUpgradeCached(mediaId: String): Boolean {
+        val stored = runCatching {
+            runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
+        }.getOrNull()?.qualityTier ?: return false
+        val was = runCatching { AudioQuality.valueOf(stored) }.getOrNull() ?: return false
+        return audioQualityNow().rank() > was.rank()
     }
 
     private fun createRenderersFactory(gaplessOffloadAllowed: Boolean): DefaultRenderersFactory {

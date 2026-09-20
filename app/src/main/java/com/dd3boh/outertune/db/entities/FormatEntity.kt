@@ -16,5 +16,15 @@ data class FormatEntity(
     val loudnessDb: Double? = null,
     @Deprecated("playbackTrackingUrl should be retrieved from a fresh player request")
     val playbackTrackingUrl: String? = null,
+    /**
+     * Which audio quality setting fetched this, by name, or null for anything cached before the
+     * app started recording it.
+     *
+     * Kept so a cached copy can be compared against what is being asked for now. Comparing
+     * bitrates instead would be the obvious thing and does not work: a song whose best available
+     * stream is a poor one would look like it needed upgrading forever, and re-fetch on every
+     * play.
+     */
+    val qualityTier: String? = null,
     val extraComment: String? = null,
 )
