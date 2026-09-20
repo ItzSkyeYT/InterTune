@@ -94,6 +94,26 @@ enum class SpatialAudioMode {
     SURROUND,
 }
 
+/**
+ * How hard the renderer guesses ahead of the listener's head.
+ *
+ * Needed because the sound is old by the time it arrives. Bluetooth alone puts a fifth of a second
+ * between the renderer and the ears, which is past the point most people notice the soundstage
+ * lagging behind them, so the only way to feel immediate is to aim at where the head is going
+ * rather than where it was. Guessing costs accuracy at the end of a movement, where a turn slows
+ * down and the guess does not, so this is a preference rather than a setting with a right answer.
+ */
+enum class HeadTrackingResponse {
+    /** Follow the head, do not anticipate. Never overshoots, always feels a beat behind. */
+    SMOOTH,
+
+    /** Take about half the gap. */
+    BALANCED,
+
+    /** Take most of it. Immediate, at the cost of a small swing back when you stop turning. */
+    QUICK,
+}
+
 enum class PlaybackAuthMode {
     /** Never send the account with playback. What the app did before this existed. */
     NEVER,

@@ -46,6 +46,16 @@ class HeadTracking(
 
     private val sensors = context.getSystemService(SensorManager::class.java)
 
+    /**
+     * How much of the gap between where the head is and where it will be to take.
+     *
+     * Volatile because it is set from the settings screen while the sensor thread is reading it.
+     * Zero follows the head honestly and feels a beat behind; anything more trades a little
+     * overshoot at the end of a turn for the whole thing feeling immediate.
+     */
+    @Volatile
+    var predictFraction: Float = 0.5f
+
     /** Whether a tracker is published to us right now. Cheap enough to ask each time. */
     val isAvailable: Boolean
         get() = runCatching { tracker() != null }.getOrDefault(false)
@@ -65,6 +75,9 @@ class HeadTracking(
     private var wanted = 0f
     private var lastAdvanceNanos = 0L
 
+    /** Whether the stage is moving under its own steam rather than following the head. */
+    private var settling = false
+
     private val stillness = StillYaw(AUTO_RECENTRE_WINDOW_NANOS, AUTO_RECENTRE_THRESHOLD)
 
     /** Yaw rate, in radians per second, smoothed. See the prediction in [onSensorChanged]. */
@@ -77,6 +90,7 @@ class HeadTracking(
         val sensor = tracker() ?: return false
         running = true
         pendingRecentre = true
+        settling = false
         stillness.reset()
         lastAdvanceNanos = 0L
         lastReportNanos = 0L
@@ -95,6 +109,7 @@ class HeadTracking(
         handler.removeCallbacks(stale)
         if (glideHome) {
             wanted = 0f
+            settling = true
             handler.post(glide)
         } else {
             commanded = 0f
@@ -107,6 +122,7 @@ class HeadTracking(
     fun recentre() {
         referenceYaw = lastYaw
         stillness.reset()
+        settling = true
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
@@ -158,7 +174,7 @@ class HeadTracking(
         // Only part of the gap is taken. A head turn is bell shaped rather than steady, so full
         // extrapolation overshoots at the end of every movement, and an overshoot that swings back
         // is a worse artefact than the lag it removes.
-        val lead = (PREDICT_FRACTION * LOOKAHEAD_SECONDS * yawRate)
+        val lead = (predictFraction * LOOKAHEAD_SECONDS * yawRate)
             .coerceIn(-PREDICT_CLAMP, PREDICT_CLAMP)
         wanted = wrapPi(yaw - referenceYaw + lead)
         advance(now)
@@ -167,12 +183,31 @@ class HeadTracking(
         handler.postDelayed(stale, STALE_MS)
     }
 
-    /** Walk the stage towards where it should be, never faster than the rate limit. */
+    /**
+     * Move the stage to where it should be.
+     *
+     * Rate limited only while [settling], which is the distinction that matters. The limit exists
+     * for the moments the stage has to move on its own, a recentre or a tracker that has just
+     * thrown its reference away, where a snap would be jarring. Following a head is the opposite
+     * case: people turn at two hundred degrees a second and the limit is forty six, so applying it
+     * to ordinary tracking makes the soundstage crawl after the listener, which is exactly how it
+     * feels. The smoothing that ordinary tracking does need happens per sample in the renderer.
+     */
     private fun advance(nowNanos: Long) {
         val dt = if (lastAdvanceNanos == 0L) 0f else (nowNanos - lastAdvanceNanos) / 1e9f
         lastAdvanceNanos = nowNanos
-        val cap = MAX_STAGE_RATE * dt
-        commanded = wrapPi(commanded + wrapPi(wanted - commanded).coerceIn(-cap, cap))
+        if (settling) {
+            val cap = MAX_STAGE_RATE * dt
+            val gap = wrapPi(wanted - commanded)
+            if (abs(gap) <= cap) {
+                commanded = wanted
+                settling = false
+            } else {
+                commanded = wrapPi(commanded + gap.coerceIn(-cap, cap))
+            }
+        } else {
+            commanded = wanted
+        }
         processor.headYawRadians = commanded
     }
 
@@ -182,6 +217,7 @@ class HeadTracking(
      */
     private val stale = Runnable {
         wanted = 0f
+        settling = true
         handler.post(glide)
     }
 
@@ -243,9 +279,6 @@ class HeadTracking(
          * shortened while tracking, is the rest.
          */
         const val LOOKAHEAD_SECONDS = 0.20f
-
-        /** Half the gap, because a real turn decelerates and full extrapolation overshoots. */
-        const val PREDICT_FRACTION = 0.5f
 
         /** Fifteen degrees, so one bad rate estimate cannot throw the stage across the room. */
         const val PREDICT_CLAMP = 0.26f

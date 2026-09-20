@@ -37,6 +37,8 @@ import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.HighPrecisionAudioKey
 import com.dd3boh.outertune.constants.HeadTrackingKey
+import com.dd3boh.outertune.constants.HeadTrackingResponse
+import com.dd3boh.outertune.constants.HeadTrackingResponseKey
 import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -166,6 +168,36 @@ fun ColumnScope.HeadTrackingFrag() {
         onCheckedChange = onEnabledChange,
         isEnabled = available,
     )
+
+    if (!enabled || !available) return
+
+    val (response, onResponseChange) = rememberEnumPreference(
+        key = HeadTrackingResponseKey,
+        defaultValue = HeadTrackingResponse.BALANCED,
+    )
+    val responseTitle = stringResource(R.string.head_tracking_response)
+
+    EnumListPreference(
+        title = { Text(responseTitle) },
+        icon = { Icon(Icons.Rounded.Speed, null) },
+        trailingContent = {
+            ExplainButton(
+                title = responseTitle,
+                body = stringResource(R.string.head_tracking_response_explain),
+            )
+        },
+        selectedValue = response,
+        onValueSelected = onResponseChange,
+        valueText = {
+            when (it) {
+                HeadTrackingResponse.SMOOTH -> stringResource(R.string.head_tracking_response_smooth)
+                HeadTrackingResponse.BALANCED -> stringResource(R.string.head_tracking_response_balanced)
+                HeadTrackingResponse.QUICK -> stringResource(R.string.head_tracking_response_quick)
+            }
+        },
+    )
+
+    InfoLabel(stringResource(R.string.head_tracking_response_description))
 }
 
 /** 32 bit float through the audio chain, at the cost of the low power offload path. */

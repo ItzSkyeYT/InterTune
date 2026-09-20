@@ -413,6 +413,9 @@ val HeadTrackingKey = booleanPreferencesKey("headTracking")
  */
 val StageWidthKey = intPreferencesKey("stageWidth")
 
+/** How hard the renderer guesses ahead of the head. See HeadTrackingResponse. */
+val HeadTrackingResponseKey = stringPreferencesKey("headTrackingResponse")
+
 val UsageCountEnabledKey = booleanPreferencesKey("usageCountEnabled")
 
 /**

@@ -93,6 +93,8 @@ import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.HighPrecisionAudioKey
 import com.dd3boh.outertune.constants.HeadTrackingKey
+import com.dd3boh.outertune.constants.HeadTrackingResponse
+import com.dd3boh.outertune.constants.HeadTrackingResponseKey
 import com.dd3boh.outertune.constants.StageWidthKey
 import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
@@ -576,6 +578,19 @@ class MusicService : MediaLibraryService(),
             dataStore.data.map { it[StageWidthKey] ?: BinauralAudioProcessor.DEFAULT_STAGE_WIDTH.toInt() }
                 .distinctUntilChanged()
                 .collectLatest(scope) { binauralProcessor.stageWidthDegrees = it.toFloat() }
+
+            dataStore.data.map {
+                it[HeadTrackingResponseKey]?.let { name ->
+                    runCatching { HeadTrackingResponse.valueOf(name) }.getOrNull()
+                } ?: HeadTrackingResponse.BALANCED
+            }.distinctUntilChanged()
+                .collectLatest(scope) { response ->
+                    headTracking.predictFraction = when (response) {
+                        HeadTrackingResponse.SMOOTH -> 0f
+                        HeadTrackingResponse.BALANCED -> 0.5f
+                        HeadTrackingResponse.QUICK -> 0.95f
+                    }
+                }
 
             dataStore.data.map { it[HeadTrackingKey] ?: false }.distinctUntilChanged()
                 .collectLatest(scope) { want ->
@@ -2420,8 +2435,12 @@ class MusicService : MediaLibraryService(),
         /** media3's own floor, kept for everyone who is not chasing their own head. */
         const val DEFAULT_BUFFER_US = 250_000
 
-        /** Still four times the system minimum, so it is short rather than reckless. */
-        const val LOW_LATENCY_BUFFER_US = 90_000
+        /**
+         * Short rather than reckless: media3 still floors the real buffer at four times whatever
+         * the system says its minimum is, so this only bites where that floor is lower. If it
+         * ever crackles, this is the number that did it.
+         */
+        const val LOW_LATENCY_BUFFER_US = 60_000
 
         const val COMMAND_GET_BINDER = "GET_BINDER"
     }
