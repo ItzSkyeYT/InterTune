@@ -79,9 +79,10 @@ Because the headphones have no compass, nothing holds the direction steady and i
     <string name="head_tracking_response_smooth">Smooth</string>
     <string name="head_tracking_response_balanced">Balanced</string>
     <string name="head_tracking_response_quick">Quick</string>
+    <string name="head_tracking_response_instant">Instant</string>
     <string name="head_tracking_response_explain">The sound is already old by the time it reaches you. Bluetooth alone takes about a fifth of a second, which is past the point most people notice the music lagging behind their head, and no amount of work inside the app removes it.
 
-So the only way to feel immediate is to aim at where your head is going rather than where it was, using how fast you are turning. Quick takes almost the whole gap and feels instant, at the cost of a small swing back when you stop turning, because a real head slows down at the end of a turn and the guess does not. Smooth never guesses, so it never overshoots and always feels slightly behind. Balanced splits it.
+So the only way to feel immediate is to aim at where your head is going rather than where it was, using how fast you are turning. Quick takes almost the whole gap. Instant takes all of it and reacts to a turn the moment it starts, which arrives with your head at the cost of visibly overshooting the end of a fast turn and settling back, because a real head slows down at the end of a turn and the guess does not. Smooth never guesses, so it never overshoots and always feels slightly behind. Balanced splits it.
 
 If it still feels slow on Quick, the remaining delay is Bluetooth. A different codec in your phone\'s developer options is usually worth more than anything in here.</string>
     <string name="high_precision_audio">32-bit audio processing</string>

@@ -585,10 +585,26 @@ class MusicService : MediaLibraryService(),
                 } ?: HeadTrackingResponse.BALANCED
             }.distinctUntilChanged()
                 .collectLatest(scope) { response ->
+                    // Fraction, how far the lead may run, and how fast the rate estimate reacts.
+                    // All three together, because turning one up and leaving the others is what
+                    // made Quick still feel slow: the clamp threw most of the lead away.
                     headTracking.predictFraction = when (response) {
                         HeadTrackingResponse.SMOOTH -> 0f
                         HeadTrackingResponse.BALANCED -> 0.5f
                         HeadTrackingResponse.QUICK -> 0.95f
+                        HeadTrackingResponse.INSTANT -> 1.15f
+                    }
+                    headTracking.predictClamp = when (response) {
+                        HeadTrackingResponse.SMOOTH -> 0.26f
+                        HeadTrackingResponse.BALANCED -> 0.52f
+                        HeadTrackingResponse.QUICK -> 1.05f      // 60 degrees
+                        HeadTrackingResponse.INSTANT -> 1.57f    // 90 degrees
+                    }
+                    headTracking.rateSmoothing = when (response) {
+                        HeadTrackingResponse.SMOOTH -> 0.25f
+                        HeadTrackingResponse.BALANCED -> 0.35f
+                        HeadTrackingResponse.QUICK -> 0.6f
+                        HeadTrackingResponse.INSTANT -> 0.85f
                     }
                 }
 

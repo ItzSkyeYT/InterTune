@@ -56,6 +56,28 @@ class HeadTracking(
     @Volatile
     var predictFraction: Float = 0.5f
 
+    /**
+     * The most the guess may run ahead of the head, in radians.
+     *
+     * A safety net against one bad rate estimate throwing the soundstage across the room, and a
+     * mistake when it is set tight: at two hundred degrees a second a quarter of a second of lead
+     * is fifty degrees, so a fifteen degree cap silently threw away two thirds of the prediction
+     * and left it feeling sluggish however high the fraction went.
+     */
+    @Volatile
+    var predictClamp: Float = 0.52f
+
+    /**
+     * One pole on the rate estimate. Higher follows the turn sooner and is noisier.
+     *
+     * These headphones report no angular velocity, so the rate is differentiated from two poses
+     * forty milliseconds apart, which is noisy enough to need smoothing and slow enough that the
+     * smoothing costs real time at the start of a turn. Which side of that to err on is the whole
+     * difference between the response settings.
+     */
+    @Volatile
+    var rateSmoothing: Float = 0.35f
+
     /** Whether a tracker is published to us right now. Cheap enough to ask each time. */
     val isAvailable: Boolean
         get() = runCatching { tracker() != null }.getOrDefault(false)
@@ -165,7 +187,7 @@ class HeadTracking(
             val dt = (now - lastReportNanos) / 1e9f
             if (dt > 1e-4f) {
                 val measured = wrapPi(yaw - lastReportYaw) / dt
-                yawRate += (measured - yawRate) * RATE_SMOOTHING
+                yawRate += (measured - yawRate) * rateSmoothing
             }
         }
         lastReportNanos = now
@@ -175,7 +197,7 @@ class HeadTracking(
         // extrapolation overshoots at the end of every movement, and an overshoot that swings back
         // is a worse artefact than the lag it removes.
         val lead = (predictFraction * LOOKAHEAD_SECONDS * yawRate)
-            .coerceIn(-PREDICT_CLAMP, PREDICT_CLAMP)
+            .coerceIn(-predictClamp, predictClamp)
         wanted = wrapPi(yaw - referenceYaw + lead)
         advance(now)
 
@@ -285,12 +307,6 @@ class HeadTracking(
          * soundstage that arrives before they do.
          */
         const val LOOKAHEAD_SECONDS = 0.26f
-
-        /** Fifteen degrees, so one bad rate estimate cannot throw the stage across the room. */
-        const val PREDICT_CLAMP = 0.26f
-
-        /** One pole on the differentiated rate. Two poses 40 ms apart are a noisy derivative. */
-        const val RATE_SMOOTHING = 0.35f
 
         /** Android's kAutoRecenterWindowDuration and kAutoRecenterRotationalThreshold. */
         const val AUTO_RECENTRE_WINDOW_NANOS = 6_000_000_000L

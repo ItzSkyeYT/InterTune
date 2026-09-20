@@ -112,6 +112,15 @@ enum class HeadTrackingResponse {
 
     /** Take most of it. Immediate, at the cost of a small swing back when you stop turning. */
     QUICK,
+
+    /**
+     * Take all of it, react to the turn as it starts, and allow a large lead.
+     *
+     * The stage arrives with the head at the cost of visibly overshooting the end of a fast turn
+     * and settling back. Some people never notice that and some cannot unhear it, which is why it
+     * is an option rather than the default.
+     */
+    INSTANT,
 }
 
 enum class PlaybackAuthMode {

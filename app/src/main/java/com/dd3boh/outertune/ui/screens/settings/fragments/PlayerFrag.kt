@@ -193,6 +193,7 @@ fun ColumnScope.HeadTrackingFrag() {
                 HeadTrackingResponse.SMOOTH -> stringResource(R.string.head_tracking_response_smooth)
                 HeadTrackingResponse.BALANCED -> stringResource(R.string.head_tracking_response_balanced)
                 HeadTrackingResponse.QUICK -> stringResource(R.string.head_tracking_response_quick)
+                HeadTrackingResponse.INSTANT -> stringResource(R.string.head_tracking_response_instant)
             }
         },
     )
