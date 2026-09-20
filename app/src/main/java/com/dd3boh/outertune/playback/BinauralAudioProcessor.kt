@@ -80,6 +80,28 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     var headYawRadians: Float = 0f
 
     /**
+     * The whole head orientation, as a quaternion in the tracker's own frame: X out the right
+     * ear, Y out the nose, Z out the top of the head. Null falls back to [headYawRadians].
+     *
+     * Separate from the yaw because most of the time there is nothing to supply it, and a
+     * renderer that only turns is both cheaper and, with a dummy head's ears rather than the
+     * listener's, more convincing than one that also tilts.
+     */
+    @Volatile
+    var headPose: FloatArray? = null
+
+    /**
+     * Carry the harmonics that only exist off the horizontal plane.
+     *
+     * Six of the sixteen are identically zero for anything at ear level, so a renderer that only
+     * turns can drop them and does. The moment the head tilts, energy moves into exactly those
+     * six, and without them a nod would quietly attenuate the soundstage instead of moving it.
+     * Read when the format is configured, because it changes how much there is to convolve.
+     */
+    @Volatile
+    var fullSphere: Boolean = false
+
+    /**
      * How far apart the two virtual loudspeakers stand, in degrees either side of centre.
      *
      * Thirty is the angle a stereo mix is made for and the honest default. Wider is not more
@@ -98,8 +120,27 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private var factor = FloatArray(0)
     private var sourceChannel = IntArray(0)
 
-    /** [factor] folded together with the speaker angle. Recomputed when the width changes. */
-    private var encode = FloatArray(0)
+    /**
+     * What each harmonic is worth for each speaker with the head level.
+     *
+     * The level match and the peak check both have to be answered with the head straight, not
+     * wherever it happens to be pointing: turning your head is not allowed to change the volume.
+     * Derived from the same encoding the renderer uses rather than from a horizontal shortcut,
+     * because the shortcut has no answer for the six harmonics that only exist off that plane.
+     */
+    private var identityLeft = FloatArray(0)
+    private var identityRight = FloatArray(0)
+
+    /** What each harmonic is worth for each speaker right now, and how it moves this buffer. */
+    private var encodeLeft = FloatArray(0)
+    private var encodeRight = FloatArray(0)
+    private var stepLeft = FloatArray(0)
+    private var stepRight = FloatArray(0)
+    private var speakerAzimuth = 0f
+    private val rotated = FloatArray(3)
+    private val targetLeft = FloatArray(16)
+    private val targetRight = FloatArray(16)
+    private val poseBuffer = FloatArray(4)
 
     /** Indices into the active list for each rotating pair, and the degree it turns by. */
     private var pairSin = IntArray(0)
@@ -131,6 +172,7 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private var gain = 1f
 
     private var appliedOrder = -1
+    private var appliedSphere = false
     private var appliedWidth = Float.NaN
     private var appliedRate = -1
 
@@ -151,11 +193,16 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
      * elevation; they were derived rather than typed, and the first-order row reproduces the plain
      * W, Y, X encoding exactly, which is what says the derivation is right.
      */
-    private fun buildLayout(order: Int) {
-        if (order == appliedOrder) return
+    private fun buildLayout(order: Int, sphere: Boolean) {
+        if (order == appliedOrder && sphere == appliedSphere) return
         appliedOrder = order
+        appliedSphere = sphere
 
-        val table = if (order >= 3) ORDER_3_LAYOUT else ORDER_1_LAYOUT
+        val table = when {
+            order >= 3 && sphere -> ORDER_3_FULL_LAYOUT
+            order >= 3 -> ORDER_3_LAYOUT
+            else -> ORDER_1_LAYOUT
+        }
         active = table.size / 3
         degree = IntArray(active)
         fromDifference = BooleanArray(active)
@@ -205,15 +252,89 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
      */
     private fun applyWidth(degrees: Float) {
         val clamped = degrees.coerceIn(MIN_STAGE_WIDTH, MAX_STAGE_WIDTH)
-        if (clamped == appliedWidth) return
+        if (clamped == appliedWidth && identityLeft.size == active) return
         appliedWidth = clamped
-        val theta = clamped * PI.toFloat() / 180f
-        encode = FloatArray(active)
-        for (i in 0 until active) {
-            val m = abs(degree[i]) * theta
-            encode[i] = factor[i] * if (fromDifference[i]) sin(m) else cos(m)
-        }
+        speakerAzimuth = clamped * PI.toFloat() / 180f
+        identityLeft = FloatArray(active)
+        identityRight = FloatArray(active)
+        encodeLeft = FloatArray(active)
+        encodeRight = FloatArray(active)
+        stepLeft = FloatArray(active)
+        stepRight = FloatArray(active)
+        encodeSpeakers(IDENTITY, identityLeft, identityRight)
+        System.arraycopy(identityLeft, 0, encodeLeft, 0, active)
+        System.arraycopy(identityRight, 0, encodeRight, 0, active)
         if (taps > 0) gain = computeGain()
+    }
+
+    /**
+     * Where the two speakers end up, and what each harmonic is worth there.
+     *
+     * The whole of the head tracking, in one place. Rather than rotating the sound field, which
+     * needs a different matrix for every order and is fiddly to get right, the two virtual
+     * speakers are moved by the inverse of the head's rotation and re-encoded where they land.
+     * The result is identical and exact at any angle, because there are only ever two sources and
+     * moving two vectors is cheap, and it handles tilting for free: nothing about it assumes the
+     * speakers stayed at ear level.
+     */
+    private fun encodeSpeakers(pose: FloatArray, intoLeft: FloatArray, intoRight: FloatArray) {
+        // The field turns the opposite way to the head, so the conjugate. The tracker's axes are
+        // not the ambisonic ones either: its Y is out of the nose where ambisonic X is the front,
+        // and its X is out of the right ear where ambisonic Y is the left. Only up is shared.
+        val w = pose[0]
+        val rx = -pose[2]
+        val ry = pose[1]
+        val rz = -pose[3]
+
+        val c = cos(speakerAzimuth)
+        val s = sin(speakerAzimuth)
+        rotate(w, rx, ry, rz, c, s, 0f, rotated)
+        shInto(rotated, intoLeft)
+        rotate(w, rx, ry, rz, c, -s, 0f, rotated)
+        shInto(rotated, intoRight)
+    }
+
+    /** A unit vector through a quaternion, the long way round so no temporaries are allocated. */
+    private fun rotate(w: Float, qx: Float, qy: Float, qz: Float, x: Float, y: Float, z: Float, into: FloatArray) {
+        val tx = 2f * (qy * z - qz * y)
+        val ty = 2f * (qz * x - qx * z)
+        val tz = 2f * (qx * y - qy * x)
+        into[0] = x + w * tx + (qy * tz - qz * ty)
+        into[1] = y + w * ty + (qz * tx - qx * tz)
+        into[2] = z + w * tz + (qx * ty - qy * tx)
+    }
+
+    /**
+     * Real spherical harmonics to third order at one direction, SN3D, ambisonic axes.
+     *
+     * Written out rather than recursed. Sixteen expressions are easier to check against a
+     * reference than a recurrence is, and at zero elevation they reduce to exactly the horizontal
+     * table this used before, which is the check that matters.
+     */
+    private fun shInto(d: FloatArray, into: FloatArray) {
+        val x = d[0]
+        val y = d[1]
+        val z = d[2]
+        for (i in 0 until active) {
+            into[i] = when (sourceChannel[i]) {
+                0 -> 1f
+                1 -> y
+                2 -> z
+                3 -> x
+                4 -> SQRT3 * x * y
+                5 -> SQRT3 * y * z
+                6 -> (3f * z * z - 1f) * 0.5f
+                7 -> SQRT3 * x * z
+                8 -> SQRT3 * 0.5f * (x * x - y * y)
+                9 -> SQRT58 * y * (3f * x * x - y * y)
+                10 -> SQRT15 * x * y * z
+                11 -> SQRT38 * y * (5f * z * z - 1f)
+                12 -> z * (5f * z * z - 3f) * 0.5f
+                13 -> SQRT38 * x * (5f * z * z - 1f)
+                14 -> SQRT15 * 0.5f * z * (x * x - y * y)
+                else -> SQRT58 * x * (x * x - 3f * y * y)
+            }
+        }
     }
 
     /**
@@ -231,8 +352,9 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         for (t in 0 until taps) {
             var monoPath = 0f
             for (i in 0 until active) {
-                if (fromDifference[i]) continue
-                monoPath += 2f * encode[i] * filters[i * taps + t]
+                // Both speakers carrying the same signal. The harmonics of negative degree cancel
+                // between them, which is why a centred source reaches both ears identically.
+                monoPath += (identityLeft[i] + identityRight[i]) * filters[i * taps + t]
             }
             energy += monoPath.toDouble() * monoPath.toDouble()
         }
@@ -345,7 +467,7 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         ) {
             return AudioProcessor.AudioFormat.NOT_SET
         }
-        buildLayout(if (thirdOrder) 3 else 1)
+        buildLayout(if (thirdOrder) 3 else 1, fullSphere)
         applyWidth(stageWidthDegrees)
         if (!buildFilters(inputAudioFormat.sampleRate)) return AudioProcessor.AudioFormat.NOT_SET
         applyWidth(stageWidthDegrees)
@@ -360,23 +482,38 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         val out = replaceOutputBuffer(frames * format.bytesPerFrame)
         applyWidth(stageWidthDegrees)
 
-        // One volatile read per buffer. What it returns is where the head is; where the rotation
-        // has actually got to is [rampYaw], and the gap is closed across this buffer.
-        val target = headYawRadians
-        val start = rampYaw
-        var yaw = start
-        var step = 0f
-        if (target != 0f || start != 0f) {
-            // Shortest way round. Without the wrap a head crossing the back of its own field takes
-            // the stage the long way, three hundred and fifty degrees in twenty milliseconds.
+        // One volatile read per buffer, and the whole head orientation resolved here rather than
+        // per sample. Where the speakers have to be is a question about the head; where each
+        // harmonic is worth what follows from that, and neither changes within a buffer.
+        val pose = headPose
+        if (pose != null && pose.size == 4) {
+            poseBuffer[0] = pose[0]; poseBuffer[1] = pose[1]
+            poseBuffer[2] = pose[2]; poseBuffer[3] = pose[3]
+            rampYaw = 0f
+        } else {
+            // Yaw only: the same rotation expressed as a quaternion about the head's up axis, so
+            // there is one encoding path rather than two.
+            val target = headYawRadians
+            val start = rampYaw
             var delta = wrapPi(target - start)
             // Nothing voluntary turns this fast. Anything that does is a dropped report or a
             // tracker that re-referenced itself, and spreading it over a buffer beats taking it
             // whole.
             val cap = MAX_YAW_RATE * frames / format.sampleRate
             delta = delta.coerceIn(-cap, cap)
-            step = delta / frames
             rampYaw = wrapPi(start + delta)
+            val half = rampYaw * 0.5f
+            poseBuffer[0] = cos(half); poseBuffer[1] = 0f
+            poseBuffer[2] = 0f; poseBuffer[3] = sin(half)
+        }
+
+        // Walked across the buffer rather than stepped at the seam. A step here is a step in the
+        // gain applied to every harmonic at once, fifty times a second, which is a buzz.
+        encodeSpeakers(poseBuffer, targetLeft, targetRight)
+        val inv = 1f / frames
+        for (i in 0 until active) {
+            stepLeft[i] = (targetLeft[i] - encodeLeft[i]) * inv
+            stepRight[i] = (targetRight[i] - encodeRight[i]) * inv
         }
 
         val harmonics = FloatArray(active)
@@ -384,16 +521,18 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             C.ENCODING_PCM_16BIT -> repeat(frames) {
                 val l = inputBuffer.short / 32768f
                 val r = inputBuffer.short / 32768f
-                render(l, r, yaw, harmonics) { v -> out.putShort(toPcm16(v)) }
-                yaw += step
+                render(l, r, harmonics) { v -> out.putShort(toPcm16(v)) }
             }
 
             C.ENCODING_PCM_FLOAT -> repeat(frames) {
                 val l = inputBuffer.float
                 val r = inputBuffer.float
-                render(l, r, yaw, harmonics) { v -> out.putFloat(v) }
-                yaw += step
+                render(l, r, harmonics) { v -> out.putFloat(v) }
             }
+        }
+        for (i in 0 until active) {
+            encodeLeft[i] = targetLeft[i]
+            encodeRight[i] = targetRight[i]
         }
 
         inputBuffer.position(inputBuffer.limit())
@@ -410,13 +549,12 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
      * common to both, and the negative ones are added for the left ear and subtracted for the
      * right. One convolution per harmonic rather than two, for exactly the same result.
      */
-    private inline fun render(l: Float, r: Float, yaw: Float, harmonics: FloatArray, put: (Float) -> Unit) {
-        val sum = l + r
-        val diff = l - r
+    private inline fun render(l: Float, r: Float, harmonics: FloatArray, put: (Float) -> Unit) {
         for (i in 0 until active) {
-            harmonics[i] = (if (fromDifference[i]) diff else sum) * encode[i]
+            harmonics[i] = l * encodeLeft[i] + r * encodeRight[i]
+            encodeLeft[i] += stepLeft[i]
+            encodeRight[i] += stepRight[i]
         }
-        rotate(harmonics, yaw)
 
         val idx = writeIndex
         for (i in 0 until active) rings[i * RING + idx] = harmonics[i]
@@ -428,7 +566,7 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             val fbase = i * taps
             var acc = 0f
             // Split at the wrap rather than masking every tap: two straight runs over contiguous
-            // memory, which at ten harmonics and two hundred and fifty six taps is the difference
+            // memory, which at sixteen harmonics and a hundred and sixty taps is the difference
             // between comfortable and not.
             val straight = min(taps, idx + 1)
             for (t in 0 until straight) acc += rings[base + idx - t] * filters[fbase + t]
@@ -438,43 +576,9 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         writeIndex = (idx + 1) and MASK
 
         val c = common * gain
-        val s = side * gain
-        put(softClip(c + s))
-        put(softClip(c - s))
-    }
-
-    /**
-     * Turn the whole field by [yaw], the opposite way to the head.
-     *
-     * A horizontal rotation leaves the harmonics of degree zero alone and turns each remaining
-     * pair by its own degree times the angle, exactly, with no interpolation anywhere. That is the
-     * entire reason for encoding to ambisonics rather than convolving the speakers directly, and
-     * it stays this cheap at any order.
-     */
-    private inline fun rotate(harmonics: FloatArray, yaw: Float) {
-        if (yaw == 0f) return
-        var cm = cos(yaw)
-        var sm = sin(yaw)
-        val c1 = cm
-        val s1 = sm
-        var lastDegree = 1
-        for (p in pairDegree.indices) {
-            val m = pairDegree[p]
-            // Degrees come out of the layout in ascending runs, so the multiple angles are reached
-            // by recurrence rather than by calling cos and sin again per harmonic.
-            while (lastDegree < m) {
-                val nc = cm * c1 - sm * s1
-                sm = sm * c1 + cm * s1
-                cm = nc
-                lastDegree++
-            }
-            val si = pairSin[p]
-            val ci = pairCos[p]
-            val s = harmonics[si]
-            val c = harmonics[ci]
-            harmonics[ci] = c * cm + s * sm
-            harmonics[si] = s * cm - c * sm
-        }
+        val sd = side * gain
+        put(softClip(c + sd))
+        put(softClip(c - sd))
     }
 
     /** Radians into (-pi, pi], so a turn past the back of the head takes the short way. */
@@ -526,6 +630,13 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         private const val KEEP_TAPS = 160
         private const val FADE_TAPS = 16
 
+        private val IDENTITY = floatArrayOf(1f, 0f, 0f, 0f)
+
+        private const val SQRT3 = 1.7320508f
+        private const val SQRT15 = 3.8729835f
+        private const val SQRT38 = 0.6123724f
+        private const val SQRT58 = 0.7905694f
+
         /** Where the output stops being left alone. Below this the soft clip is identity. */
         private const val KNEE = 0.85f
 
@@ -550,6 +661,32 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             0f, 0f, 1f,             // W
             1f, -1f, 1f,            // Y
             3f, 1f, 1f,             // X
+        )
+
+        /**
+         * All sixteen, for when the head may tilt.
+         *
+         * Same order: degree ascending, so the multiple angles the horizontal path reaches by
+         * recurrence stay in runs. The six that the horizontal layout leaves out are the ones with
+         * (n - |m|) odd, which vanish at ear level and carry everything above and below it.
+         */
+        private val ORDER_3_FULL_LAYOUT = floatArrayOf(
+            0f, 0f, 1f,
+            2f, 0f, 1f,
+            6f, 0f, -0.5f,
+            12f, 0f, 1f,
+            1f, -1f, 1f,
+            3f, 1f, 1f,
+            5f, -1f, 1f,
+            7f, 1f, 1f,
+            11f, -1f, -0.6123724f,
+            13f, 1f, -0.6123724f,
+            4f, -2f, 0.8660254f,
+            8f, 2f, 0.8660254f,
+            10f, -2f, 1f,
+            14f, 2f, 1f,
+            9f, -3f, 0.7905694f,
+            15f, 3f, 0.7905694f,
         )
 
         private val ORDER_3_LAYOUT = floatArrayOf(

@@ -17,6 +17,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -474,6 +475,115 @@ class BinauralAudioProcessorTest {
         val (left, right) = impulse(p, 1f, 1f, SadieHrir.TAPS)
         assertEquals("left ear", 1.0, energy(left), 0.05)
         assertEquals("right ear", 1.0, energy(right), 0.05)
+    }
+
+    /** A head rotation as the tracker reports it: X out the right ear, Y the nose, Z the top. */
+    private fun pose(ax: Float, ay: Float, az: Float, degrees: Float): FloatArray {
+        val half = Math.toRadians(degrees.toDouble()).toFloat() / 2f
+        val n = sqrt(ax * ax + ay * ay + az * az).takeIf { it > 0f } ?: 1f
+        val si = sin(half)
+        return floatArrayOf(cos(half), ax / n * si, ay / n * si, az / n * si)
+    }
+
+    private fun posed(p: FloatArray?, l: Float, r: Float): Pair<FloatArray, FloatArray> {
+        val proc = BinauralAudioProcessor().apply {
+            enabled = true
+            thirdOrder = true
+            fullSphere = true
+            headPose = p
+        }
+        proc.configure(stereoFloat())
+        proc.flush()
+        // Settle the interpolation, then clear the tails without disturbing where it settled.
+        val silence = ByteBuffer.allocateDirect(8 * 4096).order(ByteOrder.nativeOrder())
+        repeat(4096) { silence.putFloat(0f).putFloat(0f) }
+        silence.flip()
+        proc.queueInput(silence)
+        proc.output
+        proc.flush()
+        return impulse(proc, l, r, SadieHrir.TAPS)
+    }
+
+    @Test
+    fun `with the head level, the sphere renders what the horizontal path does`() {
+        // Sixteen harmonics against ten. The six extra are identically zero at ear level, so
+        // carrying them must change nothing at all, and if it does the layout is wrong.
+        val (fullL, fullR) = posed(pose(0f, 0f, 1f, 0f), 1f, 0f)
+        val (flatL, flatR) = impulse(turned(0f, third = true), 1f, 0f, SadieHrir.TAPS)
+        for (n in fullL.indices) {
+            assertEquals("left, frame $n", flatL[n], fullL[n], 1e-5f)
+            assertEquals("right, frame $n", flatR[n], fullR[n], 1e-5f)
+        }
+    }
+
+    @Test
+    fun `turning still works through the full sphere path`() {
+        // The landmark that pins the direction, checked again now the rotation happens by moving
+        // the speakers rather than by turning the field.
+        val (turnedL, turnedR) = posed(pose(0f, 0f, 1f, 60f), 1f, 0f)
+        val (restL, restR) = posed(pose(0f, 0f, 1f, 0f), 0f, 1f)
+        for (n in turnedL.indices) {
+            assertEquals("left, frame $n", restL[n], turnedL[n], 1e-5f)
+            assertEquals("right, frame $n", restR[n], turnedR[n], 1e-5f)
+        }
+    }
+
+    @Test
+    fun `looking up and down does something, and something different each way`() {
+        // The whole point of carrying the other six harmonics. Without them a nod would leave the
+        // rendering untouched, or quietly turn it down.
+        val level = posed(pose(1f, 0f, 0f, 0f), 1f, 1f).first
+        val up = posed(pose(1f, 0f, 0f, 30f), 1f, 1f).first
+        val down = posed(pose(1f, 0f, 0f, -30f), 1f, 1f).first
+
+        fun difference(a: FloatArray, b: FloatArray): Double {
+            var d = 0.0
+            for (i in a.indices) d += (a[i] - b[i]).toDouble() * (a[i] - b[i])
+            return sqrt(d)
+        }
+        assertTrue("looking up changed nothing", difference(level, up) > 0.05)
+        assertTrue("looking down changed nothing", difference(level, down) > 0.05)
+        assertTrue("up and down are the same", difference(up, down) > 0.05)
+    }
+
+    @Test
+    fun `a centred source stays centred however far the head tips`() {
+        // Pitch keeps a frontal source in the median plane, so both ears must still hear the same
+        // thing. It is the sharpest check that the six elevation harmonics are wired the right way
+        // up: get one sign wrong and a nod pushes the sound sideways.
+        for (d in floatArrayOf(-60f, -25f, 25f, 60f)) {
+            val (l, r) = posed(pose(1f, 0f, 0f, d), 0.7f, 0.7f)
+            for (n in l.indices) assertEquals("pitch $d, frame $n", l[n], r[n], 1e-6f)
+        }
+    }
+
+    @Test
+    fun `tilting the head mirrors, the same way turning it does`() {
+        // Roll one way with the channels swapped has to equal rolling the other way, or the
+        // elevation harmonics disagree with the horizontal ones about which side is which.
+        for (d in floatArrayOf(20f, 55f)) {
+            val (pL, pR) = posed(pose(0f, 1f, 0f, d), 0.8f, 0.2f)
+            val (mL, mR) = posed(pose(0f, 1f, 0f, -d), 0.2f, 0.8f)
+            for (n in pL.indices) {
+                assertEquals("roll $d, frame $n", pL[n], mR[n], 1e-5f)
+                assertEquals("roll $d, frame $n", pR[n], mL[n], 1e-5f)
+            }
+        }
+    }
+
+    @Test
+    fun `no head position makes it silent, loud or nonsense`() {
+        val reference = posed(pose(0f, 0f, 1f, 0f), 1f, 1f).let { energy(it.first) + energy(it.second) }
+        for (axis in arrayOf(floatArrayOf(1f, 0f, 0f), floatArrayOf(0f, 1f, 0f), floatArrayOf(0f, 0f, 1f))) {
+            for (d in 0 until 360 step 30) {
+                val (l, r) = posed(pose(axis[0], axis[1], axis[2], d.toFloat()), 1f, 1f)
+                val e = energy(l) + energy(r)
+                assertTrue(
+                    "axis ${axis.toList()} at $d deg produced $e",
+                    e.isFinite() && e > reference / 6 && e < reference * 6,
+                )
+            }
+        }
     }
 
     @Test

@@ -93,6 +93,7 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRa
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.HighPrecisionAudioKey
+import com.dd3boh.outertune.constants.HeadTracking3dKey
 import com.dd3boh.outertune.constants.HeadTrackingCalibrateKey
 import com.dd3boh.outertune.constants.HeadTrackingDriftKey
 import com.dd3boh.outertune.constants.HeadTrackingKey
@@ -654,6 +655,25 @@ class MusicService : MediaLibraryService(),
 
             // Tuned by ear, because the delay is mostly the Bluetooth codec and the platform
             // reports no latency for this route.
+            // Changes how many harmonics there are to convolve, so the sink has to be told, and
+            // the only thing that tells it is the track being re-prepared.
+            dataStore.data.map { it[HeadTracking3dKey] ?: false }.distinctUntilChanged()
+                .collectLatest(scope) { want ->
+                    if (binauralProcessor.fullSphere == want) return@collectLatest
+                    binauralProcessor.fullSphere = want
+                    headTracking.fullSphere = want
+                    withContext(Dispatchers.Main) {
+                        if (player.currentMediaItem != null && binauralProcessor.enabled) {
+                            val at = player.currentPosition
+                            val wasPlaying = player.playWhenReady
+                            player.stop()
+                            player.prepare()
+                            player.seekTo(at)
+                            player.playWhenReady = wasPlaying
+                        }
+                    }
+                }
+
             dataStore.data.map { it[HeadTrackingLeadKey] ?: DEFAULT_LEAD_MS }.distinctUntilChanged()
                 .collectLatest(scope) { headTracking.lookaheadSeconds = it / 1000f }
 

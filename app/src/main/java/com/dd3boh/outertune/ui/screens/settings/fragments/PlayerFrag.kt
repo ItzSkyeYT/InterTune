@@ -36,6 +36,7 @@ import com.dd3boh.outertune.constants.AudioNormalizationKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.HighPrecisionAudioKey
+import com.dd3boh.outertune.constants.HeadTracking3dKey
 import com.dd3boh.outertune.constants.HeadTrackingCalibrateKey
 import com.dd3boh.outertune.constants.HeadTrackingDriftKey
 import com.dd3boh.outertune.constants.HeadTrackingKey
@@ -204,6 +205,15 @@ fun ColumnScope.HeadTrackingFrag() {
     )
 
     InfoLabel(stringResource(R.string.head_tracking_response_description))
+
+    val (threeD, onThreeDChange) = rememberPreference(HeadTracking3dKey, defaultValue = false)
+    ExplainedSwitchPreference(
+        title = stringResource(R.string.head_tracking_3d),
+        description = stringResource(R.string.head_tracking_3d_description),
+        explanation = stringResource(R.string.head_tracking_3d_explain),
+        checked = threeD,
+        onCheckedChange = onThreeDChange,
+    )
 
     // Measured once rather than guessed or bled away continuously. Thirty seconds of a head that
     // is not moving is, by definition, thirty seconds of drift, and a slope can be subtracted
@@ -567,32 +577,40 @@ fun ColumnScope.SpatialAudioFrag() {
     val summary = remember {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return@remember null
         runCatching {
-            val am = context.getSystemService(android.media.AudioManager::class.java)
-            val sp = am.spatializer
-            val level = when (sp.immersiveAudioLevel) {
-                android.media.Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE -> "none"
-                android.media.Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_MULTICHANNEL -> "multichannel"
-                else -> "other"
+            val sensors = context.getSystemService(android.hardware.SensorManager::class.java)
+            val tracker = sensors?.getDynamicSensorList(android.hardware.Sensor.TYPE_HEAD_TRACKER)?.firstOrNull()
+            // Whether the phone has the machinery for external sensors at all. This is the line
+            // most devices fail, and it fails silently: without it the headphones stream
+            // orientation into the kernel and nothing ever reads it.
+            val canDiscover = sensors?.isDynamicSensorDiscoverySupported == true
+
+            val head = when {
+                tracker != null -> context.getString(
+                    R.string.spatial_audio_status_tracking,
+                    tracker.name,
+                    tracker.maxDelay.takeIf { it > 0 }?.let { 1_000_000 / it } ?: 25,
+                )
+                !canDiscover -> context.getString(R.string.spatial_audio_status_no_discovery)
+                else -> context.getString(R.string.spatial_audio_status_no_tracker)
             }
-            val attrs = android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA).build()
-            fun fmt(mask: Int) = android.media.AudioFormat.Builder().setEncoding(android.media.AudioFormat.ENCODING_PCM_16BIT).setSampleRate(48000).setChannelMask(mask).build()
-            val stereo = sp.canBeSpatialized(attrs, fmt(android.media.AudioFormat.CHANNEL_OUT_STEREO))
-            val surround = sp.canBeSpatialized(attrs, fmt(android.media.AudioFormat.CHANNEL_OUT_5POINT1))
-            listOf(
-                "level $level",
-                if (sp.isAvailable) "available" else "not available",
-                if (sp.isEnabled) "enabled" else "disabled",
-                if (sp.isHeadTrackerAvailable) "head tracker present" else "no head tracker",
-                "stereo " + (if (stereo) "would be spatialised" else "passes through"),
-                "5.1 " + (if (surround) "would be spatialised" else "would not"),
-            ).joinToString(", ")
-        }.getOrElse { "could not read: ${it.message}" }
+
+            // The platform's own spatialiser, which is a separate thing entirely and reports
+            // nothing about whether InterTune can render. Worth showing because people looking at
+            // this screen are usually trying to work out why the phone's own one does nothing.
+            val sp = context.getSystemService(android.media.AudioManager::class.java).spatializer
+            val platform = when {
+                sp.immersiveAudioLevel == android.media.Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE ->
+                    context.getString(R.string.spatial_audio_status_platform_none)
+                !sp.isEnabled -> context.getString(R.string.spatial_audio_status_platform_off)
+                else -> context.getString(R.string.spatial_audio_status_platform_on)
+            }
+            "$head $platform"
+        }.getOrElse { context.getString(R.string.spatial_audio_status_unreadable, it.message ?: "") }
     }
 
-    PreferenceEntry(
-        title = { Text(stringResource(R.string.spatial_audio_status)) },
+    ExplainedPreference(
+        title = stringResource(R.string.spatial_audio_status),
+        explanation = stringResource(R.string.spatial_audio_status_explain),
         description = summary ?: stringResource(R.string.spatial_audio_needs_13),
-        icon = { Icon(Icons.Rounded.Headphones, null) },
-        onClick = null,
     )
 }

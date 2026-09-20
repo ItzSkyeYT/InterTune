@@ -85,6 +85,13 @@ Because the headphones have no compass, nothing holds the direction steady and i
 So the only way to feel immediate is to aim at where your head is going rather than where it was, using how fast you are turning. Quick takes almost the whole gap. Instant takes all of it and reacts to a turn the moment it starts, which arrives with your head at the cost of visibly overshooting the end of a fast turn and settling back, because a real head slows down at the end of a turn and the guess does not. Smooth never guesses, so it never overshoots and always feels slightly behind. Balanced splits it.
 
 If it still feels slow on Quick, the remaining delay is Bluetooth. A different codec in your phone\'s developer options is usually worth more than anything in here.</string>
+    <string name="head_tracking_3d">Follow tilting too</string>
+    <string name="head_tracking_3d_description">Looking up, down or sideways moves the sound as well.</string>
+    <string name="head_tracking_3d_explain">Without this the soundstage only turns with you. Nod, and it nods along. With it the music stays where it is however you move your head, which is what actually happens in a room.
+
+Six extra components have to be worked out for every sample, so it costs a little over half again in processing. Turning it on restarts the current track, because it changes what the audio chain is built to do.
+
+Worth knowing that up and down is the weakest thing this can do. Telling height apart depends on the fine detail of your own outer ear, and the measurements here came from a dummy head, so the sound will clearly change as you look up and it may read as different rather than as above you. Side to side, which is most of the effect, is unaffected by that.</string>
     <string name="head_tracking_recentre">Recentre</string>
     <string name="head_tracking_calibrate">Calibrate</string>
     <string name="head_tracking_calibrate_never">Not calibrated. Tap, then look straight ahead and keep still.</string>
@@ -659,6 +666,18 @@ The cost is battery: in this mode the phone cannot hand playback to its low-powe
     <string name="back_animations">Back animations</string>
     <string name="back_animations_description">Swiping back follows your finger, and reveals the screen underneath instead of fading between the two. Turn off to go back to how it was.</string>
     <string name="spatial_audio_status">Spatial audio on this device</string>
+    <string name="spatial_audio_status_tracking">Head tracking with %1$s, %2$d times a second.</string>
+    <string name="spatial_audio_status_no_tracker">No head tracker right now. Connect headphones that have one.</string>
+    <string name="spatial_audio_status_no_discovery">This phone cannot see external sensors at all, so head tracking is not possible on it.</string>
+    <string name="spatial_audio_status_platform_none">The phone has no spatial audio of its own.</string>
+    <string name="spatial_audio_status_platform_off">The phone has its own spatial audio, switched off.</string>
+    <string name="spatial_audio_status_platform_on">The phone has its own spatial audio, switched on.</string>
+    <string name="spatial_audio_status_unreadable">Could not read: %1$s</string>
+    <string name="spatial_audio_status_explain">Two separate things wear this name and only the first one matters here.
+
+InterTune renders spatial audio itself, so it works on any phone. What it cannot supply is where your head is pointing, and that has to come from the phone. Most phones never publish a head tracker: the sensor is reserved for the system, and many manufacturers do not enable the part that reads it from the headphones, so the headphones stream their orientation into the phone and nothing listens. That is what the first line is telling you.
+
+The second line is the phone\'s own spatial audio, which is unrelated and does not affect anything InterTune does. It is shown because people usually arrive at this screen trying to work out why it does nothing.</string>
     <string name="spatial_audio_needs_13">Needs Android 13 or later.</string>
     <string name="recommendations">Recommendations</string>
     <string name="queue_learn_off">Don\'t learn from this</string>

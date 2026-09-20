@@ -90,6 +90,21 @@ class HeadTracking(
     @Volatile
     var lookaheadSeconds: Float = 0.26f
 
+    /**
+     * Pass tilting through as well as turning, rather than only the horizontal.
+     *
+     * Kept separate because everything this class corrects for is horizontal. Drift is a yaw
+     * problem, since gravity pins the other two axes and nothing pins that one; recentring is a
+     * yaw decision; and the prediction is about how fast the head is turning. Pitch and roll need
+     * none of it and are passed through untouched, so the corrected yaw is put back into the
+     * orientation and the rest is left as measured.
+     */
+    @Volatile
+    var fullSphere: Boolean = false
+
+    private val poseOut = FloatArray(4)
+    private val swing = FloatArray(4)
+
     /** Whether a tracker is published to us right now. Cheap enough to ask each time. */
     val isAvailable: Boolean
         get() = runCatching { tracker() != null }.getOrDefault(false)
@@ -141,6 +156,9 @@ class HeadTracking(
 
     private var lastYawNanos = 0L
 
+    /** The orientation exactly as reported, kept so the tilt can be passed through. */
+    private val lastPose = floatArrayOf(1f, 0f, 0f, 0f)
+
     /** Where the stage has been told to sit, and where it is being walked towards. */
     private var commanded = 0f
     private var wanted = 0f
@@ -185,6 +203,7 @@ class HeadTracking(
         } else {
             commanded = 0f
             wanted = 0f
+            processor.headPose = null
             processor.headYawRadians = 0f
         }
     }
@@ -246,7 +265,8 @@ class HeadTracking(
         // values[0..2] is an Euler vector: direction is the axis, length is the angle in radians.
         // Not the quaternion-tail form TYPE_ROTATION_VECTOR uses, so getRotationMatrixFromVector
         // cannot be fed this and the conversion is done by hand.
-        val yaw = yawOf(event.values[0], event.values[1], event.values[2])
+        quaternionOf(event.values[0], event.values[1], event.values[2], lastPose)
+        val yaw = wrapPi(2f * atan2(lastPose[3], lastPose[0]))
         lastYaw = yaw
 
         // The tracker threw its own reference away, so ours means nothing either. Android does the
@@ -345,6 +365,49 @@ class HeadTracking(
      * to ordinary tracking makes the soundstage crawl after the listener, which is exactly how it
      * feels. The smoothing that ordinary tracking does need happens per sample in the renderer.
      */
+    /**
+     * Hand the renderer the orientation, with our corrected yaw in place of the measured one.
+     *
+     * Swing-twist: any rotation splits into a turn about a chosen axis and whatever is left, and
+     * here the axis is the head's own up. Take the twist out, substitute the yaw that recentring
+     * and drift correction produced, and multiply the untouched remainder back on. Pitch and roll
+     * survive exactly as measured and the yaw carries every correction.
+     */
+    private fun publish(commandedYaw: Float) {
+        if (!fullSphere) {
+            processor.headPose = null
+            processor.headYawRadians = commandedYaw
+            return
+        }
+        val q = lastPose
+        val tw = q[0]
+        val tz = q[3]
+        val n = sqrt(tw * tw + tz * tz)
+        if (n < 1e-6f) {
+            // Head rotated a half turn about a horizontal axis, where the twist is undefined.
+            // Vanishingly rare and not worth a branch anywhere else; hold the horizontal answer.
+            processor.headPose = null
+            processor.headYawRadians = commandedYaw
+            return
+        }
+        // swing = q * conjugate(twist)
+        val cw = tw / n
+        val cz = -tz / n
+        swing[0] = q[0] * cw - q[3] * cz
+        swing[1] = q[1] * cw + q[2] * cz
+        swing[2] = q[2] * cw - q[1] * cz
+        swing[3] = q[3] * cw + q[0] * cz
+
+        val half = commandedYaw * 0.5f
+        val nw = cos(half)
+        val nz = sin(half)
+        poseOut[0] = swing[0] * nw - swing[3] * nz
+        poseOut[1] = swing[1] * nw + swing[2] * nz
+        poseOut[2] = swing[2] * nw - swing[1] * nz
+        poseOut[3] = swing[3] * nw + swing[0] * nz
+        processor.headPose = poseOut
+    }
+
     private fun advance(nowNanos: Long) {
         val dt = if (lastAdvanceNanos == 0L) 0f else (nowNanos - lastAdvanceNanos) / 1e9f
         lastAdvanceNanos = nowNanos
@@ -360,7 +423,7 @@ class HeadTracking(
         } else {
             commanded = wanted
         }
-        processor.headYawRadians = commanded
+        publish(commanded)
     }
 
     /**
@@ -381,6 +444,7 @@ class HeadTracking(
                 handler.postDelayed(this, 20L)
             } else {
                 commanded = 0f
+                processor.headPose = null
                 processor.headYawRadians = 0f
                 lastAdvanceNanos = 0L
             }
@@ -421,6 +485,24 @@ class HeadTracking(
          * Positive is a turn to the left, which is what [BinauralAudioProcessor.headYawRadians]
          * wants, so nothing is negated on the way through.
          */
+        /**
+         * The rotation vector the tracker reports, as a quaternion.
+         *
+         * Axis-angle: the direction is the axis, the length is the angle in radians. Halving that
+         * for the quaternion leaves sin(t/2)/t, which is a half at the origin and not computable
+         * there, and a head that has not moved reports zeroes every frame, so the common case is
+         * the one that needs the series rather than the division.
+         */
+        fun quaternionOf(rx: Float, ry: Float, rz: Float, into: FloatArray) {
+            val t2 = rx * rx + ry * ry + rz * rz
+            val t = sqrt(t2)
+            val k = if (t < 1e-4f) 0.5f - t2 / 48f else sin(t * 0.5f) / t
+            into[0] = cos(t * 0.5f)
+            into[1] = rx * k
+            into[2] = ry * k
+            into[3] = rz * k
+        }
+
         fun yawOf(rx: Float, ry: Float, rz: Float): Float {
             val t2 = rx * rx + ry * ry + rz * rz
             val t = sqrt(t2)

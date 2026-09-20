@@ -436,6 +436,14 @@ val HeadTrackingDriftKey = floatPreferencesKey("headTrackingDrift")
  */
 val HeadTrackingLeadKey = intPreferencesKey("headTrackingLead")
 
+/**
+ * Whether tilting the head counts, not only turning it.
+ *
+ * Costs six more harmonics to convolve, which is a little over half again, and buys the weakest
+ * cue a borrowed pair of ears can offer. Worth having as a choice.
+ */
+val HeadTracking3dKey = booleanPreferencesKey("headTracking3d")
+
 val UsageCountEnabledKey = booleanPreferencesKey("usageCountEnabled")
 
 /**
