@@ -678,7 +678,11 @@ class HomeViewModel @Inject constructor(
     val allLocalItems = MutableStateFlow<List<LocalItem>>(emptyList())
     val allYtItems = MutableStateFlow<List<YTItem>>(emptyList())
 
-    private suspend fun load(force: Boolean) {
+    /**
+     * @param localOnly stop after the parts that come from the database, and do not go out to the
+     *   network. What was built last time is restored and shown as it was.
+     */
+    private suspend fun load(force: Boolean, localOnly: Boolean = false) {
         isLoading.value = true
         val source = quickPicksSource()
         foundQuickPicksThisLoad = false
@@ -777,8 +781,12 @@ class HomeViewModel @Inject constructor(
         // refusing this network that is a pile of requests that cannot succeed and that make the
         // refusal last longer. Pulling to refresh passes force and still tries, because the user
         // asked for it and one request doubles as the probe that clears the block.
-        if (!force && Throttle.isBlocked) {
-            Log.d("HomeViewModel", "Skipping remote home load, backing off")
+        // Everything above this line came out of the database; everything below goes to YouTube.
+        // Opening the app stops here: the row built last time is restored rather than fetched
+        // again, so the feed is the one that was left behind rather than a new one that arrives a
+        // few seconds later and moves everything.
+        if (localOnly || (!force && Throttle.isBlocked)) {
+            if (!localOnly) Log.d("HomeViewModel", "Skipping remote home load, backing off")
             noteShown()
             quickPicksLoading.value = false
             refreshIndicator.value = false
@@ -1108,7 +1116,7 @@ class HomeViewModel @Inject constructor(
      * The try/finally matters too: without it a thrown load latched isRefreshing true and disabled
      * both this watcher and pull to refresh permanently.
      */
-    fun refresh(force: Boolean = false) {
+    fun refresh(force: Boolean = false, localOnly: Boolean = false) {
         if (isRefreshing.value) {
             pendingRefresh = true
             pendingRefreshForce = pendingRefreshForce || force
@@ -1116,12 +1124,15 @@ class HomeViewModel @Inject constructor(
         }
         viewModelScope.launch(syncCoroutine) {
             isRefreshing.value = true
-            refreshIndicator.value = true
+            // No spinner for the restore on open. Nothing is being fetched, so a spinner would be
+            // claiming work that is not happening, and the rule is that it turns when and only
+            // when something is loading.
+            refreshIndicator.value = !localOnly
             try {
                 var nextForce = force
                 do {
                     pendingRefresh = false
-                    load(nextForce)
+                    load(nextForce, localOnly && !pendingRefreshForce)
                     nextForce = pendingRefreshForce
                     pendingRefreshForce = false
                 } while (pendingRefresh)
@@ -1135,7 +1146,8 @@ class HomeViewModel @Inject constructor(
     }
 
     init {
-        refresh()
+        // Local only: show what was there. Anything from YouTube waits for a pull.
+        refresh(localOnly = true)
         viewModelScope.launch(syncCoroutine) {
             syncUtils.tryAutoSync()
         }
