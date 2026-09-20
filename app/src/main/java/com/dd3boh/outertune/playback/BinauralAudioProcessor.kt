@@ -56,18 +56,26 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     var enabled: Boolean = false
 
     /**
-     * Where the soundstage sits relative to the head, in radians, anticlockwise.
+     * How far the head has turned, in radians, anticlockwise, so plus is a turn to the left.
      *
-     * Exists and is always zero. Rotating the field is one line in [render] and the whole reason
-     * for the ambisonic detour, but the orientation would have to come from the headphones, and on
+     * The field counter-rotates by this, which is what keeps the stage where it was: turn ninety
+     * degrees left and a source that was in front of you ends up on your right. That inversion is
+     * already in the two lines in [render], so whatever drives this should pass head yaw straight
+     * in without negating it.
+     *
+     * Exists and is always zero. The orientation would have to come from the headphones, and on
      * this platform it cannot: Sensor.TYPE_HEAD_TRACKER is restricted to system_server and
      * audioserver by a hardcoded uid check with no permission to request, and the XM5 carries its
      * tracker over Bluetooth Classic HID, which Android exposes to no app at all. Left in place
      * because it costs two multiplies and is the difference between a fixed pair of speakers and a
      * room that stays still while you turn your head.
+     *
+     * If anything ever does drive it, this cannot simply be stepped once per buffer: that is a
+     * step in the gain on two components fifty times a second, which is a buzz rather than a
+     * soundstage. It has to be ramped across the buffer.
      */
     @Volatile
-    var yawRadians: Float = 0f
+    var headYawRadians: Float = 0f
 
     /** The decode filters at the stream's own rate. Rebuilt by [onConfigure]. */
     private var hW = FloatArray(0)
@@ -181,7 +189,7 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         if (frames == 0) return
         val out = replaceOutputBuffer(frames * format.bytesPerFrame)
 
-        val yaw = yawRadians
+        val yaw = headYawRadians
         val cosYaw = cos(yaw)
         val sinYaw = sin(yaw)
 
