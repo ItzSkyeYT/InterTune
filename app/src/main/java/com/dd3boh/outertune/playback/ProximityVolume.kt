@@ -10,7 +10,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
-import android.bluetooth.BluetoothProfile
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
@@ -83,19 +82,39 @@ class ProximityVolume(private val context: Context) {
             PackageManager.PERMISSION_GRANTED
     }
 
+    private fun connectedHeadphoneName(): String? {
+        val audio = context.getSystemService(android.media.AudioManager::class.java) ?: return null
+        val outputs = runCatching {
+            audio.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
+        }.getOrNull() ?: return null
+        return outputs.firstOrNull {
+            it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
+        }?.productName?.toString()?.takeIf { it.isNotBlank() }
+    }
+
     @SuppressLint("MissingPermission")
-    fun start(): Boolean {
+    fun start(): Boolean = runCatching { startInternal() }.getOrElse {
+        // A refused permission, Bluetooth turned off mid-song, a vendor stack that throws where
+        // the documentation says it returns. None of it is worth stopping the music for.
+        Log.w(TAG, "could not start: ${it.message}")
+        running = false
+        factor.value = 1f
+        false
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun startInternal(): Boolean {
         if (running) return true
         if (!hasPermission()) return false
         val scanner = adapter?.takeIf { it.isEnabled }?.bluetoothLeScanner ?: return false
 
         // Which headphones to watch. They advertise under a name derived from the paired one, but
         // from a private address that rotates, so the name is the only stable handle.
-        val bt = adapter ?: return false
-        if (bt.getProfileConnectionState(BluetoothProfile.A2DP) != BluetoothProfile.STATE_CONNECTED) return false
-        targetName = runCatching {
-            bt.bondedDevices?.mapNotNull { it.name }?.firstOrNull { it.isNotBlank() }
-        }.getOrNull() ?: return false
+        // Asked of the audio routing rather than of Bluetooth. Both can name the headphones, but
+        // every route into BluetoothAdapter needs BLUETOOTH_CONNECT on top of the scan permission,
+        // and this one needs nothing at all. It also answers a better question: not what is paired
+        // but what is actually playing the music.
+        targetName = connectedHeadphoneName() ?: return false
 
         times.clear()
         values.clear()
@@ -121,6 +140,10 @@ class ProximityVolume(private val context: Context) {
         runCatching { adapter?.bluetoothLeScanner?.stopScan(callback) }
         factor.value = 1f
     }
+
+    /** Whether the scan is live, so the setting can show what is actually happening. */
+    val isRunning: Boolean
+        get() = running
 
     private fun accept(rssi: Int) {
         val now = SystemClock.elapsedRealtime()
@@ -153,9 +176,7 @@ class ProximityVolume(private val context: Context) {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             if (!running) return
             val target = targetName ?: return
-            val name = result.scanRecord?.deviceName
-                ?: runCatching { result.device.name }.getOrNull()
-                ?: return
+            val name = result.scanRecord?.deviceName ?: return
             // "WH-1000XM5" pairs, "LE_WH-1000XM5" advertises. Contains rather than equals.
             if (!name.contains(target, ignoreCase = true)) return
             accept(result.rssi)
