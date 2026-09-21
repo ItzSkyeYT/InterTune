@@ -8,7 +8,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,6 +30,9 @@ import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.LocalScrobbler
+import com.dd3boh.outertune.constants.TopBarInsets
+import com.dd3boh.outertune.ui.component.button.IconButton
+import com.dd3boh.outertune.ui.utils.backToMain
 import kotlinx.coroutines.launch
 
 /**
@@ -40,6 +48,7 @@ import kotlinx.coroutines.launch
  * was stored and the token expires on its own.
  */
 @SuppressLint("SetJavaScriptEnabled")
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LastFmLoginScreen(
     navController: NavController,
@@ -61,9 +70,11 @@ fun LastFmLoginScreen(
             .onFailure { error = it.message ?: "" }
     }
 
-    // Closing the screen without a word was the old behaviour, and it made a rejected API key look
-    // like a dead button. Say what happened instead.
-    error?.let { message ->
+    val message = error
+    val url = authorizeUrl
+    if (message != null) {
+        // Closing the screen without a word was the old behaviour, and it made a rejected API key
+        // look like a dead button. Say what happened instead.
         Box(
             modifier = Modifier
                 .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
@@ -76,46 +87,63 @@ fun LastFmLoginScreen(
                 textAlign = TextAlign.Center,
             )
         }
-        return
-    }
-
-    val url = authorizeUrl ?: return
-
-    AndroidView(
-        modifier = Modifier
-            .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
-            .fillMaxSize(),
-        factory = { context ->
-            WebView(context).apply {
-                webViewClient = object : WebViewClient() {
-                    override fun onPageFinished(view: WebView, pageUrl: String?) {
-                        if (finishing) return
-                        val t = token ?: return
-                        // Do not try to read approval out of the URL. Last.fm shows "Application
-                        // authenticated" on the same /api/auth address rather than redirecting, so
-                        // watching for a redirect waits forever and the screen just sits there.
-                        //
-                        // Ask instead. auth.getSession answers with a session once the user has
-                        // approved and an error until then, so attempting it on each page load
-                        // costs one cheap request and needs no guesswork. An unapproved token is
-                        // not consumed by the attempt, so retrying is safe.
-                        scope.launch {
-                            scrobbler.completeLogin(t)
-                                .onSuccess {
-                                    finishing = true
-                                    navController.navigateUp()
-                                }
+    } else if (url != null) {
+        AndroidView(
+            modifier = Modifier
+                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
+                .fillMaxSize(),
+            factory = { context ->
+                WebView(context).apply {
+                    webViewClient = object : WebViewClient() {
+                        override fun onPageFinished(view: WebView, pageUrl: String?) {
+                            if (finishing) return
+                            val t = token ?: return
+                            // Do not try to read approval out of the URL. Last.fm shows "Application
+                            // authenticated" on the same /api/auth address rather than redirecting,
+                            // so watching for a redirect waits forever and the screen just sits
+                            // there.
+                            //
+                            // Ask instead. auth.getSession answers with a session once the user has
+                            // approved and an error until then, so attempting it on each page load
+                            // costs one cheap request and needs no guesswork. An unapproved token is
+                            // not consumed by the attempt, so retrying is safe.
+                            scope.launch {
+                                scrobbler.completeLogin(t)
+                                    .onSuccess {
+                                        finishing = true
+                                        navController.navigateUp()
+                                    }
+                            }
                         }
                     }
+                    settings.apply {
+                        javaScriptEnabled = true
+                        setSupportZoom(true)
+                        builtInZoomControls = true
+                        displayZoomControls = false
+                    }
+                    loadUrl(url)
                 }
-                settings.apply {
-                    javaScriptEnabled = true
-                    setSupportZoom(true)
-                    builtInZoomControls = true
-                    displayZoomControls = false
-                }
-                loadUrl(url)
             }
-        }
+        )
+    }
+
+    // Drawn after the branch rather than inside it. The three states here are an error, a blank
+    // wait for the token, and the page itself, and the first two used to return early, so the
+    // screen could sit with nothing on it and no way off but the system gesture.
+    TopAppBar(
+        title = { Text(stringResource(R.string.lastfm_login_title)) },
+        navigationIcon = {
+            IconButton(
+                onClick = navController::navigateUp,
+                onLongClick = navController::backToMain
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = null
+                )
+            }
+        },
+        windowInsets = TopBarInsets,
     )
 }

@@ -648,6 +648,7 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
         <item quantity="other">The music stops in %1$d minutes</item>
     </plurals>
     <string name="grp_lastfm">Last.fm</string>
+    <string name="lastfm_login_title">Last.fm</string>
     <string name="lastfm_connect">Connect a Last.fm account</string>
     <string name="lastfm_connect_description">Sign in to Last.fm and approve InterTune. The page is Last.fm&#8217;s own, so your password is never typed into this app or seen by it.</string>
     <string name="lastfm_connect_failed">Could not reach Last.fm. Check your connection and try again.</string>
