@@ -34,7 +34,11 @@ see https://github.com/OuterTune/ffMetadataEx/blob/main/README.md#building
 
 <br/><br/>
 
-# Contributing to OuterTune
+# Contributing to InterTune
+
+These guidelines are inherited from OuterTune and still describe how this fork works. Where an
+example below links to an OuterTune commit or pull request, it is upstream's, kept because it
+illustrates the convention rather than because it happened here.
 
 ## Translations
 
@@ -65,7 +69,7 @@ To make everyone's life easier, there are a set of guidelines that are to be fol
 - One pull request for one feature/issue, please refrain from tackling many features/issues in one pull request
 - Write a descriptive title and a meaningful description
 - Upload images/video for any UI changes
-- In the event of merge conflicts, you may be required to rebase onto the current `dev` branch
+- In the event of merge conflicts, you may be required to rebase onto the current default branch
 - **You are required to build and test the app before submitting a pull request**
 
 ## Commiting guidelines
@@ -79,9 +83,9 @@ To make everyone's life easier, there are a set of guidelines that are to be fol
       authorship. [Example](https://github.com/OuterTune/OuterTune/commit/b0dc59682190b41f0200e9df5174322acaa3d40d)
     - If this is not possible please provide the source in the commit
       description. [Example](https://github.com/OuterTune/OuterTune/pull/59/commits/e40325dd86ac2c30347cfd4f9e92bbf15a0d0c82)
-- IMPORTANT: When merging `dev` into your branch
-    - Best: Please rebase over dev
-    - Less good: Merging dev into your branch via merge commit. We do not like this as it clobbers the commit history.
+- IMPORTANT: When merging the default branch into your branch
+    - Best: Please rebase over it
+    - Less good: Merging it into your branch via merge commit. We do not like this as it clobbers the commit history.
       If you do this, your pull request will be rebased/squashed and merged
 - IMPORTANT: Merge conflicts
     - As per the previous point, please rebase and conflicts are to be resolve in the commits themselves
@@ -132,7 +136,7 @@ To make everyone's life easier, there are a set of guidelines that are to be fol
 |---------------|-------------------------------------------------------------------------------------------------|
 | `<file name>` | Changes for one single file, that to not fit into any other tags                                |
 | app           | General changes, or anything that does not fit any other tags. (For within the app module only) |
-| outertune     | General changes that span across multiple modules                                               |
+| intertune     | General changes that span across multiple modules                                               |
 | fastlane      | Fastlane components                                                                             |
 | translations  | General changes to translation components                                                       |
 

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2026 InterTune
  *
- * SPDX-License-Identifier: GPL-3.0-or-later
+ * SPDX-License-Identifier: GPL-3.0
  *
  * Port of the Shazam signature container from SongRec by marin-m
  * (https://github.com/marin-m/SongRec, GPL-3.0, tag 0.7.3, commit

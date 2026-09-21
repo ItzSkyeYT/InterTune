@@ -36,6 +36,23 @@ releases itself, shows you what changed, and installs them with your confirmatio
 > (**Settings → Backup and restore**), then restore into InterTune from the same screen. Do not
 > uninstall OuterTune until the restore has finished.
 
+## Screenshots
+
+<div align="center">
+
+| | | |
+|:-:|:-:|:-:|
+| <img src="assets/gallery/homepage.png" width="240" alt="Home"> | <img src="assets/gallery/player.png" width="240" alt="Player"> | <img src="assets/gallery/lyrics.png" width="240" alt="Lyrics"> |
+| Home | Player | Lyrics |
+| <img src="assets/gallery/library.png" width="240" alt="Library"> | <img src="assets/gallery/queue_expanded.png" width="240" alt="Queue"> | <img src="assets/gallery/folders.png" width="240" alt="Folders"> |
+| Library | Queue | Folders |
+
+<img src="assets/gallery/tablet_queue_home_light.png" width="720" alt="Tablet layout">
+
+The tablet and landscape layout.
+
+</div>
+
 ## What changed
 
 - **Songs play all the way through.** Upstream 0.10.1 dies partway into every track with
