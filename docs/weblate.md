@@ -48,6 +48,27 @@ English that en-GB and en-AU read.
 it is what en-GB and en-AU devices read ahead of `values/`, maintained by hand alongside the source.
 Left in, Weblate would offer it to translators as a language and eventually overwrite it.
 
+## The second component: the store listing
+
+`fastlane/metadata/android/` is what F-Droid shows on the app's page, and it was English only.
+
+| Setting | Value |
+| --- | --- |
+| Source code repository | `weblate://intertune/strings` |
+| File format | App store metadata files |
+| File mask | `fastlane/metadata/android/*` |
+| Monolingual base language file | `fastlane/metadata/android/en-US` |
+| Edit base file | off |
+
+The repository is the `weblate://` form on purpose: it shares the clone the Strings component
+already has rather than checking the same repository out twice, and the two then move together.
+
+"No file mask matches" on a fresh one is expected and says so itself. `en-US` is the base rather
+than a translation, so until somebody starts a language there is nothing for the mask to match.
+
+**Turn Edit base file off here too.** It defaults on, and on this component it means a translator
+can rewrite the English store description that F-Droid puts on the app's page.
+
 ## Push access
 
 Weblate commits translations itself rather than opening pull requests. Give it push access by
@@ -56,6 +77,12 @@ write access.
 
 If that is more trust than wanted, set the component to push to a fork and open merge requests
 instead. It costs a click per batch and keeps 48 locale files from changing unreviewed.
+
+## Pulling
+
+A webhook on the GitHub repository posts to `https://hosted.weblate.org/hooks/github/` on push, so
+Weblate pulls by itself. Without it the repository is only pulled when somebody presses Update, and
+the Update button on the component page does not always take.
 
 ## After it is running
 
