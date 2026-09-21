@@ -38,16 +38,25 @@ see https://github.com/OuterTune/ffMetadataEx/blob/main/README.md#building
 
 ## Translations
 
-We use Weblate to translate OuterTune. For more details or to get started,
-visit [our Weblate page](https://hosted.weblate.org/projects/outertune/).
-Thank you for the libre tier!
+We use Weblate. Thank you for the libre tier.
+
+There are two string files and they are translated in two different places, because only one of
+them belongs to this fork.
+
+- `strings-ot.xml` is InterTune's own, and by far the larger of the two. It is translated on
+  [our Weblate page](https://hosted.weblate.org/projects/intertune/).
+- `strings.xml` comes from OuterTune and is translated on
+  [their Weblate page](https://hosted.weblate.org/projects/outertune/). It reaches this repository
+  through upstream merges, so translating it here would mean a merge and a sync writing over each
+  other every time.
 
 ### Important
 
-- Translators should submit strings through Weblate, however if there are changes that cannot be accomplished via
-  Weblate, you may submit a pull request manually
-- Make sure new strings are in the right place, which is `strings-ot.xml` for OuterTune strings
-- If they are ported from upstream InnerTune (ex. when syncing upstream), they go into `strings.xml`
+- Submit translations through Weblate. If something cannot be done there, a pull request is fine
+- New strings go in `strings-ot.xml`. Strings ported from upstream go in `strings.xml`
+- `values-en-rCA` is not a translation. It is English, and it is what en-GB and en-AU devices read
+  **ahead of** `values/`, so any edit to an English string has to touch both files or those
+  locales silently keep the old text
 
 ## Submitting a pull request
 
@@ -82,7 +91,8 @@ To make everyone's life easier, there are a set of guidelines that are to be fol
   are in the `Database schema changes` section
 - For multi-part commits where all parts are required for functionality, use
   `[1/2], [2/2], etc`. [See example](https://github.com/OuterTune/OuterTune/pull/59/commits)
-- Do not mess with translation files directly, this is managed with Weblate.
+- Do not mess with translation files directly. `strings-ot.xml` is managed on our Weblate and
+  `strings.xml` on upstream's.
 
 ### Tags
 
