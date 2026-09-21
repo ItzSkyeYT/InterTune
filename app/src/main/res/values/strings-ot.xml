@@ -662,6 +662,15 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <!-- Song recognition -->
     <string name="recognise">What\'s playing?</string>
     <string name="recognise_listening">Listening\u2026</string>
+    <!-- Cycled while it listens, one every couple of seconds. Ten seconds of a spinner and one
+         unchanging word feels a lot longer than ten seconds. -->
+    <string-array name="recognise_listening_lines">
+        <item>Listening\u2026</item>
+        <item>Ear to the ground</item>
+        <item>Trying to place it</item>
+        <item>Humming along</item>
+        <item>Asking around</item>
+    </string-array>
     <string name="recognise_no_match">Could not place that one. Try again somewhere quieter, or closer to the speaker.</string>
     <string name="recognise_failed">Could not reach the service. Check your connection and try again.</string>
     <string name="recognise_no_mic">InterTune needs the microphone to hear what is playing. Nothing is recorded or kept.</string>

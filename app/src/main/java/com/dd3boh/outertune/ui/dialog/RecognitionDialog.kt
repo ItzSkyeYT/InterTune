@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -38,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -54,6 +56,7 @@ import com.dd3boh.outertune.recognition.ShazamClient
 import com.dd3boh.outertune.utils.urlEncode
 import com.zionhuang.innertube.models.WatchEndpoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -165,14 +168,31 @@ fun RecognitionDialog(
             )
 
             Phase.Listening -> {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                // Side by side rather than stacked. A spinner above a word left a tall sparse
+                // block with the content bunched at the top of the dialog and Close stranded a
+                // long way below it.
+                val lines = stringArrayResource(R.array.recognise_listening_lines)
+                var line by remember { mutableStateOf(0) }
+                LaunchedEffect(Unit) {
+                    // Ten seconds of a spinner and one unchanging word feels far longer than ten
+                    // seconds. The first line is shown on arrival, so the wait starts here.
+                    while (true) {
+                        delay(2_200)
+                        line = (line + 1) % lines.size
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 ) {
-                    CircularProgressIndicator()
-                    Spacer(Modifier.height(16.dp))
+                    CircularProgressIndicator(
+                        strokeWidth = 2.5.dp,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(14.dp))
                     Text(
-                        text = stringResource(R.string.recognise_listening),
+                        text = lines[line],
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
