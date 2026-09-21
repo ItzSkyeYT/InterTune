@@ -21,19 +21,30 @@ One component, and only one. Its job is `strings-ot.xml`.
 | Monolingual base language file | `app/src/main/res/values/strings-ot.xml` |
 | Template for new translations | `app/src/main/res/values/strings-ot.xml` |
 | File format | Android String Resource |
-| Language code style | Android |
-| Language filter | `^(?!en_CA$).+$` |
+| Language code style | Default based on the file format |
+| Language filter | `^(?!en[-_]r?CA$)[^.]+$` |
 
 **Do not add a second component for `strings.xml`.** Those 243 strings are OuterTune's and are
 translated on their Weblate. They arrive here through upstream merges. A component here would mean
 a merge and a translation sync writing over each other, and whichever lost would keep losing.
 
-**Language code style must be Android.** The existing folders use the legacy codes Android wants:
-`values-in` not `values-id`, `values-iw` not `values-he`, and `values-b+sr+Latn` for Serbian Latin.
-Any other setting starts writing a second folder beside each of those and splits the language in
-two, half translated in each.
+**Leave the language code style on the default.** The file format is already Android String
+Resource, so the default resolves to Android naming and keeps the legacy codes the existing folders
+use: `values-in` not `values-id`, `values-iw` not `values-he`, `values-b+sr+Latn` for Serbian Latin.
+Forcing another style writes a second folder beside each of those and splits the language in two,
+half translated in each.
 
-**The language filter excludes `en_CA`.** `values-en-rCA` is not a translation. It is English, and
+**The language filter is matched against the directory suffix, not the language code.** The `*` in
+the file mask captures `en-rCA`, so a filter written as `^(?!en_CA$)...` silently does nothing and
+Weblate offers the file to translators as English (Canada). It has to spell the folder:
+`^(?!en[-_]r?CA$)[^.]+$`. Changing the filter does not remove a language that is already there;
+Operations, Repository maintenance, Rescan applies it.
+
+**Never remove the language from Weblate's side to get rid of it.** Deleting a translation in
+Weblate deletes the file from the repository, which for this one means losing the hand-maintained
+English that en-GB and en-AU read.
+
+**Why `en_CA` is excluded at all.** `values-en-rCA` is not a translation. It is English, and
 it is what en-GB and en-AU devices read ahead of `values/`, maintained by hand alongside the source.
 Left in, Weblate would offer it to translators as a language and eventually overwrite it.
 
