@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.ui.screens.walkthrough
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -51,8 +53,11 @@ object TourTargets {
  * Cleared when the composable leaves, because a stale rectangle is worse than a missing one: the
  * tour would happily cut a hole over empty screen and swear the button was there.
  */
-fun Modifier.tourTarget(id: String): Modifier = this
-    .onGloballyPositioned { TourTargets.put(id, it.boundsInRoot()) }
+@Composable
+fun Modifier.tourTarget(id: String): Modifier {
+    DisposableEffect(id) { onDispose { TourTargets.forget(id) } }
+    return onGloballyPositioned { TourTargets.put(id, it.boundsInRoot()) }
+}
 
 /**
  * One stop on the tour.
@@ -99,9 +104,19 @@ class TourState {
 
     val current: TourStop? get() = stops.getOrNull(index)
 
+    /**
+     * Starts the tour, minus anything that is not on screen to be pointed at.
+     *
+     * Not a defensive guard: the Quick picks chips only exist while Quick picks is drawing from the
+     * engine, so on a good half of installs that stop has no target. Without the filter the overlay
+     * falls back to a card in the middle of the screen, and the result is a step describing a
+     * control that is not there, with a counter claiming it is one of five.
+     */
     fun start(stops: List<TourStop>) {
-        if (stops.isEmpty()) return
-        this.stops = stops
+        val visible = stops.filter { it.targetId == null || TourTargets[it.targetId] != null }
+        // An offer to be shown around, with nothing left to show.
+        if (visible.none { it.targetId != null }) return
+        this.stops = visible
         index = 0
         running = true
     }
