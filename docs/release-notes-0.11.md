@@ -2,6 +2,10 @@
 
 Quick picks learns how you listen. Everything below is a switch or a choice; nothing changes unless you turn it on, except the two tidy-ups marked "on by default", which each have an off.
 
+## One thing to know
+
+InterTune can count this install once a day: one short message with a random name that is replaced by an unrelated one every month, and whether you installed from F-Droid or elsewhere. It is off until you say yes, it asks once, and **Forget this install** removes it. Nothing about what you listen to is ever sent.
+
 ## Recommendations
 
 - **Best recommendations (experimental)**, a new Quick picks source beside YouTube Music and Your library. It builds the row from how you actually listen: what you finish, search for and like, when you play it, what you come back to and what you pass over. Twenty cards from five lanes: related to what you play, songs you come back to, more from artists you finish, favourites gone quiet, and artists you have never played.
@@ -25,11 +29,21 @@ Quick picks learns how you listen. Everything below is a switch or a choice; not
 
 - A pause, a closed app and a return later is one listen, not a stop. The app also comes back where you paused even when Android closed it in the meantime.
 - Audio quality has a **Highest available** tier, and the settings show what is actually playing: codec, bitrate and sample rate.
-- Spatial audio: a status row under Player and audio says whether your headphones and phone support it (the effect itself is planned for 0.12).
+
+## Sound
+
+- **Spatial audio**. Takes the music off the line between your ears and puts it on a stage in front of you. It renders the stereo mix through a pair of virtual speakers using measured ear responses, so it works on any headphones, with nothing to pair and nothing to buy.
+- **Stage width**, from 15 to 90 degrees. Thirty is what stereo is mixed for. Wider pulls the instruments apart at the cost of a hole in the middle.
+- **Head tracking**, on headphones that report their orientation. The music stays where it is when you turn your head, including when you look up or down, so a song sounds like it is coming from a fixed point in the room rather than from the headphones.
+- **Tracking response** picks how tightly the sound follows: Smooth, Balanced, Quick or Instant. **Tracking lead** compensates for the delay between your headphones reporting a movement and the sound arriving. **Recentre** puts the stage back in front of you, and there is a one-off calibration that learns your headphones' delay while you listen.
+- The status row under Player and audio says whether your headphones and phone actually support tracking, and links out if yours should but does not.
+- **Quieter as you walk away**. Treats your phone as where the music is coming from, so the volume falls as you leave it behind and comes back as you return. Off by default.
 
 ## Interface
 
 - Predictive back and reveal transitions (switch, on).
+- **Keep the queue up to date**: drops songs further down the queue that stop suiting what you are playing, and reacts to whether you stay with the current song or skip past it. Most of the queue is hidden while it settles, so you see what is actually coming rather than a list that is about to change.
+- Quick picks is balanced across categories now. One genre can no longer take over the row.
 - An Offline tab: the songs that will play with no connection.
 - Remove a song from its playlist without leaving the player.
 - Resume playback when the app opens, as a setting.
@@ -39,6 +53,17 @@ Quick picks learns how you listen. Everything below is a switch or a choice; not
 - Pull to refresh brings new songs to Quick picks, Forgotten favourites and Keep listening, not the same ones in a new order. On the YouTube Music source each pull reaches past the shelf into the feed's other song shelves and into what YouTube lists as related to them.
 - The app says so when the song cache is turned off.
 - Screen shots and the store listing were redone.
+
+## Settings
+
+- Spatial audio has its own category rather than sitting inside the audio card.
+- Every "i" explanation was rewritten: shorter, plainer, and sized to fit without scrolling.
+- A button to report an issue, on GitHub or Discord.
+- Automatic backups run every 6 hours, day, week, month, 6 months or year, and the backup button shows progress while it works.
+- The proxy fields carry working examples.
+- **New songs only** is a chip on Quick picks instead of a setting buried in Recommendations.
+- Recommendation engine data can be imported as well as exported.
+- Back buttons on the screens that were missing one, including the Last.fm login.
 
 ## Updates
 
