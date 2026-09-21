@@ -345,6 +345,14 @@ val AnsweredPollIdsKey = stringSetPreferencesKey("answeredPollIds")
 /** Poll ids waved away with the banner's close button. Not answered, but not to be raised again. */
 val DismissedPollIdsKey = stringSetPreferencesKey("dismissedPollIds")
 
+/**
+ * Announcements the user has closed.
+ *
+ * Separate from the poll set so that clearing one does not clear the other, and so an announcement
+ * id can never collide with a poll id in the same document.
+ */
+val DismissedAnnouncementIdsKey = stringSetPreferencesKey("dismissedAnnouncementIds")
+
 /** Epoch millis of the last poll fetch, for the rate limit floor. */
 val LastPollFetchKey = longPreferencesKey("lastPollFetch")
 

@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.AnsweredPollIdsKey
 import com.dd3boh.outertune.constants.CachedPollsJsonKey
+import com.dd3boh.outertune.constants.DismissedAnnouncementIdsKey
 import com.dd3boh.outertune.constants.DismissedPollIdsKey
 import com.dd3boh.outertune.constants.LastPollFetchKey
 import com.dd3boh.outertune.constants.Polls
@@ -77,10 +78,34 @@ class PollChecker @Inject constructor(
         val multiple: Boolean,
     )
 
+    /**
+     * Something to say rather than something to ask.
+     *
+     * Same document, same fetch, same version bounds and expiry as a poll, because an announcement
+     * that outlives its release is worse than no announcement. The only real difference is that
+     * there is nothing to answer, so the single optional action is a link out.
+     */
+    data class Announcement(
+        val id: String,
+        /** One line, for the banner at the top of Home. */
+        val banner: String,
+        val title: String,
+        val body: String?,
+        val imageUrl: String?,
+        /** Label and address of the one button, when there is somewhere to send people. */
+        val actionLabel: String?,
+        val actionUrl: String?,
+    )
+
     private val _current = MutableStateFlow<Poll?>(null)
 
     /** The question worth asking right now, or null when there is nothing to ask. */
     val current: StateFlow<Poll?> = _current.asStateFlow()
+
+    private val _currentAnnouncement = MutableStateFlow<Announcement?>(null)
+
+    /** The announcement worth showing right now, or null when there is nothing to say. */
+    val currentAnnouncement: StateFlow<Announcement?> = _currentAnnouncement.asStateFlow()
 
     /**
      * Set when something outside the screen asks for the question to be opened, which today means
@@ -171,6 +196,16 @@ class PollChecker @Inject constructor(
         }
         _current.value = chosen
         if (chosen != null) Log.i(TAG, "Poll available: ${chosen.id}")
+
+        // Picked from the same document in the same pass. The two are independent: an announcement
+        // is not answered, only closed, so it has its own dismissed set and neither hides the
+        // other.
+        val dismissedNotes = store.get(DismissedAnnouncementIdsKey, emptySet())
+        val note = runCatching { parseAnnouncements(json) }.getOrNull().orEmpty()
+            .firstOrNull { it.id !in dismissedNotes }
+        _currentAnnouncement.value = note
+        if (note != null) Log.i(TAG, "Announcement available: ${note.id}")
+
         return chosen
     }
 
@@ -222,6 +257,55 @@ class PollChecker @Inject constructor(
                 )
             }.getOrNull()
         }
+    }
+
+    /**
+     * Reads the announcement list, under its own key in the same document.
+     *
+     * Same rules as [parse]: a malformed entry is skipped rather than failing the rest, and the
+     * version bounds and expiry are applied here so a note about a release never reaches somebody
+     * on a build it does not describe.
+     */
+    private fun parseAnnouncements(json: String): List<Announcement> {
+        val root = JSONObject(json)
+        val arr = root.optJSONArray("announcements") ?: JSONArray()
+        val now = System.currentTimeMillis()
+
+        return (0 until arr.length()).mapNotNull { i ->
+            runCatching {
+                val o = arr.getJSONObject(i)
+
+                val min = o.optInt("minVersionCode", 0)
+                val max = o.optInt("maxVersionCode", Int.MAX_VALUE)
+                if (BuildConfig.VERSION_CODE < min || BuildConfig.VERSION_CODE > max) return@runCatching null
+
+                val expires = o.optLong("expiresAt", 0L)
+                if (expires in 1 until now) return@runCatching null
+
+                // A label without an address, or an address without a label, would draw a button
+                // that does nothing or one nobody can read. Both or neither.
+                val label = o.optString("actionLabel").ifEmpty { null }
+                val url = o.optString("actionUrl").ifEmpty { null }
+
+                Announcement(
+                    id = o.optString("id").ifEmpty { return@runCatching null },
+                    banner = o.optString("banner").ifEmpty { return@runCatching null },
+                    title = o.optString("title").ifEmpty { return@runCatching null },
+                    body = o.optString("body").ifEmpty { null },
+                    imageUrl = o.optString("image").ifEmpty { null },
+                    actionLabel = label?.takeIf { url != null },
+                    actionUrl = url?.takeIf { label != null },
+                )
+            }.getOrNull()
+        }
+    }
+
+    /** Closes an announcement, for good. There is nothing to answer, so this is the only verb. */
+    suspend fun dismissAnnouncement(id: String) {
+        context.dataStore.edit { prefs ->
+            prefs[DismissedAnnouncementIdsKey] = prefs[DismissedAnnouncementIdsKey].orEmpty() + id
+        }
+        _currentAnnouncement.value = null
     }
 
     /**
