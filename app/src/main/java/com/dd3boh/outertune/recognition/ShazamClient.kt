@@ -7,120 +7,178 @@
 package com.dd3boh.outertune.recognition
 
 import android.util.Log
-import com.dd3boh.outertune.fingerprint.DecodedSignature
 import com.dd3boh.outertune.fingerprint.SIGNATURE_SAMPLE_RATE_HZ
+import com.dd3boh.outertune.fingerprint.SignatureGenerator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import java.net.HttpURLConnection
-import java.net.URI
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import java.util.UUID
+import java.util.concurrent.TimeUnit
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
- * Asks Shazam what a signature is.
+ * What Shazam said, reduced to the parts this app can act on.
  *
- * HttpURLConnection rather than the Ktor client the rest of the app uses, because this exact
- * request, headers and all, is the one the `:fingerprint` live probe was verified against, and the
- * endpoint is undocumented enough that reproducing it rather than reimplementing it is the cheaper
- * kind of certainty. There is nothing here worth a connection pool: one request per recognition,
- * seconds apart at the very most.
+ * Deliberately does not carry a YouTube id, because the response does not contain one. Checked
+ * against a real match rather than assumed: the only YouTube reference anywhere in the document is
+ * `track.hub.providers[].actions[].uri`, and that is a *search* url of the form
+ * `music.youtube.com/search?q=Blinding+Lights+The+Weeknd`. So every recognition has to be resolved
+ * by searching, which is exactly why the result is shown for confirmation rather than added
+ * silently: a search for a title and an artist can land on a live take, a cover or a sped-up edit.
+ *
+ * [isrc] identifies the recording rather than the song, so it is the strongest thing here for
+ * telling two versions apart. Nothing uses it yet; it is carried because throwing it away and
+ * wanting it later would mean another round of recognitions.
  */
-object ShazamClient {
-
-    private const val TAG = "ShazamClient"
-
-    private const val ENDPOINT = "https://amp.shazam.com/discovery/v5/en/US/android/-/tag/"
-
-    private val json = Json { ignoreUnknownKeys = true }
-
+data class Recognised(
+    val title: String,
+    val artist: String?,
+    val artworkUrl: String?,
+    val isrc: String?,
+    /** Shazam's own id for the track, useful if this ever needs deduplicating. */
+    val shazamKey: String?,
     /**
-     * A YouTube id wherever it appears in the response.
+     * Where in the reference recording this sample matched, in seconds.
      *
-     * Deliberately not a path into the document. Shazam moves this between `hub.options`,
-     * `sections` and a bare `youtubeurl` depending on the track and the day, and a path that is
-     * right for one response silently returns nothing for the next. The id is eleven characters of
-     * a fixed alphabet and appears in no other field, so finding it is safe and outlasts the shape.
+     * The useful part of a second listen. Two recognitions of the same track, taken a known number
+     * of seconds apart, should advance this by that many seconds. If it advances faster the room is
+     * playing a sped-up edit, slower and it is a slowed one, and that is measurable rather than
+     * guessed from a title.
      */
-    private val YOUTUBE_ID = Regex("""youtu(?:\.be/|be\.com/watch\?v=)([A-Za-z0-9_-]{11})""")
+    val offsetSeconds: Double = 0.0,
+    /** Shazam's own estimate of the playback rate deviation, near zero for an unaltered copy. */
+    val timeSkew: Double = 0.0,
+    /** And of the pitch deviation, which a slowed or nightcore edit moves along with the rate. */
+    val frequencySkew: Double = 0.0,
+) {
+    /** What to hand a YouTube search. */
+    val searchQuery: String get() = listOfNotNull(title, artist).joinToString(" ")
+}
 
-    suspend fun identify(signature: DecodedSignature, sampleCount: Int): RecognitionResult =
-        withContext(Dispatchers.IO) {
-            val seconds = sampleCount.toLong() * 1000 / SIGNATURE_SAMPLE_RATE_HZ
-            val timestamp = System.currentTimeMillis() / 1000
+sealed interface RecognitionOutcome {
+    data class Match(val track: Recognised) : RecognitionOutcome
+    /** The request worked and Shazam simply did not know it. */
+    data object NoMatch : RecognitionOutcome
+    data class Failed(val reason: String) : RecognitionOutcome
+}
 
-            // No geolocation worth the name. Shazam wants the field, and sending where the user
-            // actually is would be handing a third party a location for a feature that does not
-            // need one, so it gets a fixed point and the timezone the format asks for.
-            val body = """
-                {"geolocation":{"altitude":150.0,"latitude":45.0,"longitude":2.0},
-                 "signature":{"samplems":$seconds,
-                              "timestamp":$timestamp,
-                              "uri":"${signature.encodeToUri()}"},
-                 "timestamp":$timestamp,"timezone":"Europe/Paris"}
-            """.trimIndent().replace("\n", "")
+/**
+ * Sends a fingerprint to Shazam and reads the answer.
+ *
+ * The endpoint takes no api key and is not documented anywhere official, so the request shape
+ * follows Audile's ShazamRecognitionService exactly, down to the two uuids in the path and the
+ * query parameters. Guessing any of it produces a 200 with nothing useful in it.
+ */
+@Singleton
+class ShazamClient @Inject constructor() {
 
-            val url = ENDPOINT +
-                    "${UUID.randomUUID().toString().uppercase()}/${UUID.randomUUID()}" +
-                    "?sync=true&webv3=true&sampling=true&connected=" +
-                    "&shazamapiversion=v3&sharehub=true&video=v3"
-
-            val text = try {
-                val conn = URI(url).toURL().openConnection() as HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.connectTimeout = 15_000
-                conn.readTimeout = 20_000
-                conn.doOutput = true
-                conn.setRequestProperty("Content-Type", "application/json")
-                conn.setRequestProperty("Content-Language", "en_US")
-                conn.setRequestProperty(
-                    "User-Agent",
-                    "Dalvik/2.1.0 (Linux; U; Android 13; Pixel 7 Build/TQ3A.230805.001)",
-                )
-                conn.outputStream.use { it.write(body.toByteArray()) }
-
-                val code = conn.responseCode
-                val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-                val payload = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-                conn.disconnect()
-
-                if (code !in 200..299) {
-                    Log.w(TAG, "HTTP $code from Shazam")
-                    return@withContext RecognitionResult.Failed("HTTP $code")
-                }
-                payload
-            } catch (e: Exception) {
-                Log.w(TAG, "Recognition request failed", e)
-                return@withContext RecognitionResult.Failed(e.message ?: e.javaClass.simpleName)
-            }
-
-            parse(text)
-        }
-
-    internal fun parse(payload: String): RecognitionResult {
-        val root = runCatching { json.parseToJsonElement(payload).jsonObject }.getOrNull()
-            ?: return RecognitionResult.Failed("Unreadable reply")
-
-        // No track means Shazam heard it and did not know it, which is an answer rather than a
-        // failure.
-        val track = root["track"]?.let { runCatching { it.jsonObject }.getOrNull() }
-            ?: return RecognitionResult.NoMatch
-
-        val title = track.string("title") ?: return RecognitionResult.NoMatch
-
-        return RecognitionResult.Match(
-            title = title,
-            artist = track.string("subtitle").orEmpty(),
-            artworkUrl = track["images"]?.let { runCatching { it.jsonObject }.getOrNull() }
-                ?.let { it.string("coverarthq") ?: it.string("coverart") },
-            youtubeId = YOUTUBE_ID.find(payload)?.groupValues?.get(1),
-            isrc = track.string("isrc"),
-            key = track.string("key"),
-        )
+    private val client by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .build()
     }
 
-    private fun JsonObject.string(name: String): String? =
-        this[name]?.let { runCatching { it.jsonPrimitive.content }.getOrNull() }?.takeIf { it.isNotBlank() }
+    suspend fun identify(samples: ShortArray): RecognitionOutcome = withContext(Dispatchers.IO) {
+        val signature = runCatching { SignatureGenerator.makeSignature(samples) }.getOrElse {
+            Log.e(TAG, "Could not fingerprint the recording", it)
+            return@withContext RecognitionOutcome.Failed("fingerprint")
+        }
+
+        val peaks = signature.peaksByBand.sumOf { it.size }
+        if (peaks < MIN_USEFUL_PEAKS) {
+            // Silence, or a room too far from the speaker. Worth separating from a genuine
+            // no-match, since the fix is "hold it closer" rather than "Shazam does not have it".
+            //
+            // Not zero. A silent emulator microphone produced exactly one peak over twelve
+            // seconds and sailed past a zero check, so the sheet blamed Shazam for a room that had
+            // nothing in it. A real match off a speaker gave 920, so anything down here is noise.
+            Log.i(TAG, "Only $peaks peaks in the recording, not asking")
+            return@withContext RecognitionOutcome.Failed("silence")
+        }
+        Log.i(TAG, "Fingerprinted ${samples.size} samples into $peaks peaks")
+
+        val timestamp = System.currentTimeMillis() / 1000
+        val payload = JSONObject()
+            .put(
+                "geolocation", JSONObject()
+                    .put("altitude", 150.0).put("latitude", 45.0).put("longitude", 2.0)
+            )
+            .put(
+                "signature", JSONObject()
+                    .put("samplems", samples.size * 1000L / SIGNATURE_SAMPLE_RATE_HZ)
+                    .put("timestamp", timestamp)
+                    .put("uri", signature.encodeToUri())
+            )
+            .put("timestamp", timestamp)
+            .put("timezone", java.util.TimeZone.getDefault().id)
+            .toString()
+
+        val url = "$ENDPOINT${UUID.randomUUID().toString().uppercase()}/${UUID.randomUUID()}" +
+                "?sync=true&webv3=true&sampling=true&connected=&shazamapiversion=v3" +
+                "&sharehub=true&video=v3"
+
+        val response = runCatching {
+            client.newCall(
+                Request.Builder()
+                    .url(url)
+                    .header("Content-Language", "en_US")
+                    .header("User-Agent", USER_AGENT)
+                    .post(payload.toRequestBody("application/json".toMediaType()))
+                    .build()
+            ).execute().use { it.code to it.body?.string().orEmpty() }
+        }.getOrElse {
+            Log.w(TAG, "Recognition request failed", it)
+            return@withContext RecognitionOutcome.Failed("network")
+        }
+
+        val (code, text) = response
+        if (code !in 200..299) {
+            Log.w(TAG, "Recognition returned HTTP $code")
+            return@withContext RecognitionOutcome.Failed("http $code")
+        }
+
+        parse(text)
+    }
+
+    private fun parse(text: String): RecognitionOutcome = runCatching {
+        val root = JSONObject(text)
+        val track = root.optJSONObject("track")
+            ?: return@runCatching RecognitionOutcome.NoMatch
+        val title = track.optString("title").ifEmpty {
+            return@runCatching RecognitionOutcome.NoMatch
+        }
+        val images = track.optJSONObject("images")
+        val match = root.optJSONArray("matches")?.optJSONObject(0)
+        RecognitionOutcome.Match(
+            Recognised(
+                title = title,
+                artist = track.optString("subtitle").ifEmpty { null },
+                artworkUrl = images?.optString("coverarthq")?.ifEmpty { null }
+                    ?: images?.optString("coverart")?.ifEmpty { null },
+                isrc = track.optString("isrc").ifEmpty { null },
+                shazamKey = track.optString("key").ifEmpty { null },
+                offsetSeconds = match?.optDouble("offset", 0.0) ?: 0.0,
+                timeSkew = match?.optDouble("timeskew", 0.0) ?: 0.0,
+                frequencySkew = match?.optDouble("frequencyskew", 0.0) ?: 0.0,
+            )
+        )
+    }.getOrElse {
+        Log.w(TAG, "Could not read the recognition response", it)
+        RecognitionOutcome.Failed("parse")
+    }
+
+    companion object {
+        private const val TAG = "ShazamClient"
+        /** Below this a recording has nothing in it; a real match produced 920. */
+        private const val MIN_USEFUL_PEAKS = 30
+        private const val ENDPOINT = "https://amp.shazam.com/discovery/v5/en/US/android/-/tag/"
+        private const val USER_AGENT =
+            "Dalvik/2.1.0 (Linux; U; Android 13; Pixel 7 Build/TQ3A.230805.001)"
+    }
 }

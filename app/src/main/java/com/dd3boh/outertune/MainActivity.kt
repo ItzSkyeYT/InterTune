@@ -465,6 +465,10 @@ class MainActivity : ComponentActivity() {
                 // Same contract as the update check: nothing happens unless the user opted in, it
                 // rate limits itself, and failure is silent.
                 coroutineScope.launch { pollChecker.check() }
+                // Re-applied on every launch, cheap because the work is keyed by name and replaced
+                // rather than stacked. This is also what puts the schedule back after a reboot,
+                // since WorkManager needs the app to run once before it will restore its own.
+                BackgroundCheckWorker.schedule(this@MainActivity)
 
                 // And the same again for the once-a-day count: off unless asked for, silent when
                 // it fails, and a no-op on every open after the first one each day.

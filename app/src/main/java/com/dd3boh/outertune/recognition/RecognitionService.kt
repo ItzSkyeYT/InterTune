@@ -6,7 +6,6 @@
 
 package com.dd3boh.outertune.recognition
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -17,241 +16,164 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import com.dd3boh.outertune.MainActivity
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.fingerprint.SignatureGenerator
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import javax.inject.Inject
 
 /**
- * Listening, as a foreground service rather than as work the screen owns.
+ * Keeps the microphone alive while the screen is off.
  *
- * This is not architecture for its own sake. From Android 9 an app that is not in the foreground
- * gets silence from the microphone rather than an error, so listening from a composable would
- * quietly stop producing anything the moment the screen went off, and look for all the world like a
- * room that had gone quiet. A foreground service is the only way the platform will keep handing
- * over audio, which is what makes "start it and put the phone down" possible at all.
+ * The point of continuous recognition is a device left face down on a table filling a playlist by
+ * itself, and none of that works from an Activity. Android stops a background process recording the
+ * moment it loses foreground importance, so listening has to be a foreground service with the
+ * microphone type, which in turn means a notification the user can see and stop. That notification
+ * is not decoration; it is the price of the permission, and it is right that somebody can always
+ * tell when an app is listening to a room.
  *
- * State lives in the companion rather than behind a binder. There is one of these at a time, the
- * screen is the only reader, and a binder would be three files of ceremony for a value that is
- * already a flow.
+ * The service owns nothing but the lifetime. [RecognitionEngine] holds the loop and the state, so
+ * the sheet can come and go without interrupting a run.
  */
+@AndroidEntryPoint
 class RecognitionService : Service() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private var listening: Job? = null
+    @Inject lateinit var engine: RecognitionEngine
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_STOP -> {
-                stopListening()
-                return START_NOT_STICKY
-            }
+    override fun onCreate() {
+        super.onCreate()
+        createChannel()
 
-            ACTION_START_ONCE -> start(continuous = false)
-            ACTION_START_CONTINUOUS -> start(continuous = true)
-            else -> {
-                stopSelf()
-                return START_NOT_STICKY
-            }
-        }
-        return START_STICKY
-    }
-
-    private fun start(continuous: Boolean) {
-        // Restarting while already listening would put two recorders on one microphone, and the
-        // second one loses. The request is simply ignored.
-        if (listening?.isActive == true) return
-
-        startForegroundSafely()
-        _continuous.value = continuous
-        _state.value = RecognitionState.Listening
-
-        listening = scope.launch {
-            do {
-                val outcome = identifyOnce()
-                if (outcome is RecognitionResult.Match) {
-                    // Newest first, and never the same song twice in a row. A continuous listen
-                    // through one three minute song would otherwise fill the list with it.
-                    val seen = _history.value
-                    if (seen.firstOrNull()?.sameAs(outcome) != true) {
-                        _history.value = listOf(outcome) + seen
-                    }
-                } else if (!continuous && outcome is RecognitionResult.Failed) {
-                    _state.value = RecognitionState.Failed(outcome.reason)
-                    stopListening()
+        // Redrawn on a timer rather than only on events, because the progress bar has to move
+        // between recognitions. The position is arithmetic on the last match, not a new request,
+        // so this costs nothing but the redraw.
+        scope.launch {
+            while (true) {
+                if (!engine.running.value) {
+                    stopSelf()
                     return@launch
                 }
-
-                // A gap between attempts. Back to back recognitions of a song that is still
-                // playing cost requests and battery to learn nothing, and the ear needs a moment
-                // anyway.
-                if (continuous) delay(GAP_BETWEEN_ATTEMPTS_MS)
-            } while (continuous && isActive)
-
-            stopListening()
+                // Posting needs POST_NOTIFICATIONS from API 33. Without it the update is simply
+                // dropped, which is correct: the service is already foreground and the person
+                // refused to be told about it.
+                val notifier = NotificationManagerCompat.from(this@RecognitionService)
+                if (notifier.areNotificationsEnabled()) {
+                    notifier.notify(NOTIFICATION_ID, build(engine.added.value.size))
+                }
+                delay(1000)
+            }
         }
     }
 
-    private suspend fun identifyOnce(): RecognitionResult = withContext(Dispatchers.Default) {
-        val samples = MicrophoneSnippet.record { _level.value = it }
-            ?: return@withContext RecognitionResult.Failed(getString(R.string.recognise_no_mic))
-        _level.value = 0f
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            Log.i(TAG, "Stopped from the notification")
+            engine.stop()
+            stopSelf()
+            return START_NOT_STICKY
+        }
 
-        val signature = SignatureGenerator.makeSignature(samples)
-        if (signature.peaksByBand.sumOf { it.size } == 0) return@withContext RecognitionResult.NoMatch
-
-        ShazamClient.identify(signature, samples.size)
+        val notification = build(engine.added.value.size)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+        // Not sticky on purpose. If the system kills this, silently reopening the microphone later
+        // without the user asking is exactly the behaviour nobody wants from a listening feature.
+        return START_NOT_STICKY
     }
 
-    private fun stopListening() {
-        listening?.cancel()
-        listening = null
-        _continuous.value = false
-        _level.value = 0f
-        if (_state.value is RecognitionState.Listening) _state.value = RecognitionState.Idle
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE)
-        else @Suppress("DEPRECATION") stopForeground(true)
-        stopSelf()
-    }
-
-    private fun startForegroundSafely() {
-        ensureChannel()
-
+    private fun build(added: Int): android.app.Notification {
+        val playing = engine.nowPlaying.value
         val open = PendingIntent.getActivity(
-            this,
-            0,
+            this, 0,
             Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val stop = PendingIntent.getService(
-            this,
-            1,
+            this, 1,
             Intent(this, RecognitionService::class.java).setAction(ACTION_STOP),
-            PendingIntent.FLAG_IMMUTABLE,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, CHANNEL_ID)
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-        }
-        val notification = builder
-            .setSmallIcon(R.drawable.small_icon)
-            .setContentTitle(getString(R.string.recognise))
-            .setContentText(getString(R.string.recognise_listening))
-            .setContentIntent(open)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .apply {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    addAction(
-                        Notification.Action.Builder(
-                            null,
-                            getString(R.string.recognise_stop),
-                            stop,
-                        ).build()
-                    )
-                }
-            }
-            .build()
+        val counted =
+            if (added == 0) getString(R.string.recognition_service_none)
+            else resources.getQuantityString(R.plurals.recognition_service_added, added, added)
 
-        // The microphone type is what the platform checks before it will keep feeding audio to a
-        // backgrounded process. Declared from Android 10, required from 14.
-        runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(
-                    NOTIFICATION_ID,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
-                )
-            } else {
-                startForeground(NOTIFICATION_ID, notification)
-            }
-        }.onFailure {
-            // Android 14 refuses the microphone type outright if the permission is not granted.
-            // Nothing useful can be done from here; the screen already shows why.
-            Log.w(TAG, "Could not go foreground", it)
-            _state.value = RecognitionState.Failed(getString(R.string.recognise_no_mic))
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.small_icon)
+            .setContentIntent(open)
+            .addAction(0, getString(R.string.recognition_service_stop), stop)
+            .setOngoing(true)
+            .setSilent(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+
+        if (playing == null) {
+            return builder
+                .setContentTitle(getString(R.string.recognition_service_title))
+                .setContentText(counted)
+                .build()
         }
+
+        val position = playing.positionSeconds()
+        builder
+            .setContentTitle(listOfNotNull(playing.title, playing.artist).joinToString(" - "))
+            .setSubText(counted)
+
+        val duration = playing.durationSeconds
+        if (duration != null && duration > 0) {
+            // Where the room is in the song, not where this app is: nothing here is playing it.
+            builder
+                .setContentText("${time(position)} / ${time(duration)}")
+                .setProgress(duration, position.coerceAtMost(duration), false)
+        } else {
+            builder.setContentText(getString(R.string.recognition_service_title))
+        }
+        return builder.build()
     }
 
-    private fun ensureChannel() {
+    private fun time(seconds: Int) = "%d:%02d".format(seconds / 60, seconds % 60)
+
+    private fun createChannel() {
+        // Channels arrived in API 26 and this app still runs on 24, where every call below throws.
+        // NotificationManagerCompat posts fine without one.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            getString(R.string.recognise),
-            // LOW: this says what the phone is doing, it is not news.
-            NotificationManager.IMPORTANCE_LOW,
-        ).apply { setShowBadge(false) }
-        (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-            .createNotificationChannel(channel)
+        val manager = getSystemService(NotificationManager::class.java)
+        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                getString(R.string.recognition_service_channel),
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply { setShowBadge(false) }
+        )
     }
 
     override fun onDestroy() {
-        listening?.cancel()
         scope.cancel()
-        _continuous.value = false
-        if (_state.value is RecognitionState.Listening) _state.value = RecognitionState.Idle
         super.onDestroy()
     }
 
     companion object {
         private const val TAG = "RecognitionService"
-        const val CHANNEL_ID = "recognition"
-
-        /** Must not collide with the media notification, the downloads one or the sleep timer. */
+        private const val CHANNEL_ID = "song_recognition"
         private const val NOTIFICATION_ID = 4243
+        const val ACTION_STOP = "com.dd3boh.outertune.recognition.STOP"
 
-        private const val GAP_BETWEEN_ATTEMPTS_MS = 3_000L
-
-        const val ACTION_START_ONCE = "com.dd3boh.outertune.RECOGNISE_ONCE"
-        const val ACTION_START_CONTINUOUS = "com.dd3boh.outertune.RECOGNISE_CONTINUOUS"
-        const val ACTION_STOP = "com.dd3boh.outertune.RECOGNISE_STOP"
-
-        private val _state = MutableStateFlow<RecognitionState>(RecognitionState.Idle)
-        val state: StateFlow<RecognitionState> = _state.asStateFlow()
-
-        private val _level = MutableStateFlow(0f)
-
-        /** How loud the room is right now, 0 to 1, while listening. */
-        val level: StateFlow<Float> = _level.asStateFlow()
-
-        private val _continuous = MutableStateFlow(false)
-
-        /** True while the listen is the kind that keeps going until it is stopped. */
-        val continuous: StateFlow<Boolean> = _continuous.asStateFlow()
-
-        /**
-         * What has been recognised, newest first.
-         *
-         * Deliberately not a table. This is a scratch list for the session: the songs worth keeping
-         * are the ones the user plays or adds to a playlist, and everything else is noise that a
-         * database would keep forever.
-         */
-        private val _history = MutableStateFlow<List<RecognitionResult.Match>>(emptyList())
-        val history: StateFlow<List<RecognitionResult.Match>> = _history.asStateFlow()
-
-        fun clearHistory() {
-            _history.value = emptyList()
-        }
-
-        fun start(context: Context, continuous: Boolean) {
+        fun start(context: Context) {
             val intent = Intent(context, RecognitionService::class.java)
-                .setAction(if (continuous) ACTION_START_CONTINUOUS else ACTION_START_ONCE)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -265,15 +187,4 @@ class RecognitionService : Service() {
             )
         }
     }
-}
-
-/** Two songs are the same when Shazam says so, or failing that when they read the same. */
-private fun RecognitionResult.Match.sameAs(other: RecognitionResult.Match): Boolean =
-    if (key != null && other.key != null) key == other.key
-    else title == other.title && artist == other.artist
-
-sealed interface RecognitionState {
-    data object Idle : RecognitionState
-    data object Listening : RecognitionState
-    data class Failed(val reason: String) : RecognitionState
 }

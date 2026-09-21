@@ -106,6 +106,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import com.dd3boh.outertune.ui.component.items.YouTubeListItem
+import com.dd3boh.outertune.ui.component.RecognitionSheet
 import com.dd3boh.outertune.constants.CONTENT_TYPE_HEADER
 import com.dd3boh.outertune.constants.CONTENT_TYPE_SONG
 import com.dd3boh.outertune.constants.ListThumbnailSize
@@ -170,6 +171,7 @@ fun LocalPlaylistScreen(
 
     val playlistWithSongs by viewModel.playlistWithSongs.collectAsState()
     val addQuery by viewModel.addQuery.collectAsState()
+    val currentPlaylist = playlistWithSongs.first
     val addResults by viewModel.addResults.collectAsState()
     val addSearching by viewModel.addSearching.collectAsState()
     val justAdded by viewModel.justAdded.collectAsState()
@@ -182,6 +184,7 @@ fun LocalPlaylistScreen(
      * second one. It stays until Done, or until the screen is left.
      */
     var addMode by rememberSaveable { mutableStateOf(false) }
+    var showRecognition by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(playlistWithSongs.first?.songCount) {
         if (playlistWithSongs.first?.songCount == 0) addMode = true
     }
@@ -265,6 +268,13 @@ fun LocalPlaylistScreen(
 
     var showEditDialog by remember {
         mutableStateOf(false)
+    }
+
+    if (showRecognition && currentPlaylist != null) {
+        RecognitionSheet(
+            playlist = currentPlaylist,
+            onDismiss = { showRecognition = false },
+        )
     }
 
     if (showEditDialog) {
@@ -475,6 +485,7 @@ fun LocalPlaylistScreen(
                         contentType = CONTENT_TYPE_HEADER
                     ) {
                         LocalPlaylistHeader(
+                            onIdentifySong = { showRecognition = true },
                             playlist = playlist,
                             songs = playlistWithSongs.second,
                             onShowEditDialog = { showEditDialog = true },
@@ -521,6 +532,20 @@ fun LocalPlaylistScreen(
                                 ),
                                 modifier = Modifier.fillMaxWidth()
                             )
+
+                            // The other way to fill a playlist: hold the phone up. Sits beside the
+                            // search rather than behind a menu, because it is the whole point of
+                            // the feature and nobody hunts for a microphone in an overflow.
+                            OutlinedButton(
+                                onClick = { showRecognition = true },
+                                modifier = Modifier.padding(top = 12.dp)
+                            ) {
+                                Icon(Icons.Rounded.GraphicEq, null, modifier = Modifier.size(18.dp))
+                                Text(
+                                    text = stringResource(R.string.recognition_identify_song),
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
+                            }
                         }
                     }
 
@@ -560,15 +585,24 @@ fun LocalPlaylistScreen(
                         )
                     }
 
+                    // The prompt to add a first song only belongs above an empty playlist. The
+                    // songs already in it are listed below this panel, so showing "add your first
+                    // song" over two of them read as the app having lost them.
                     if (!addSearching && addResults.isEmpty()) {
-                        item(key = "add empty hint") {
-                            EmptyPlaceholder(
-                                icon = Icons.Rounded.MusicNote,
-                                text = stringResource(
-                                    if (addQuery.isBlank()) R.string.playlist_empty_hint
-                                    else R.string.playlist_empty_no_results
-                                ),
-                            )
+                        if (addQuery.isNotBlank()) {
+                            item(key = "add no results") {
+                                EmptyPlaceholder(
+                                    icon = Icons.Rounded.MusicNote,
+                                    text = stringResource(R.string.playlist_empty_no_results),
+                                )
+                            }
+                        } else if (playlist.songCount == 0) {
+                            item(key = "add empty hint") {
+                                EmptyPlaceholder(
+                                    icon = Icons.Rounded.MusicNote,
+                                    text = stringResource(R.string.playlist_empty_hint),
+                                )
+                            }
                         }
                     }
                 } else {
@@ -579,6 +613,7 @@ fun LocalPlaylistScreen(
                             contentType = CONTENT_TYPE_HEADER
                         ) {
                             LocalPlaylistHeader(
+                                onIdentifySong = { showRecognition = true },
                                 playlist = playlist,
                                 songs =  playlistWithSongs.second,
                                 onShowEditDialog = { showEditDialog = true },
@@ -720,15 +755,6 @@ fun LocalPlaylistScreen(
                 }
             },
             actions = {
-                // The search bar, and the listen button living in it, only exist on the top level
-                // tabs. Somebody deep in a playlist who wants to know what is playing in the room
-                // would otherwise have to navigate out to reach it.
-                IconButton(onClick = { navController.navigate("recognition") }) {
-                    Icon(
-                        Icons.Rounded.GraphicEq,
-                        contentDescription = stringResource(R.string.recognise)
-                    )
-                }
                 if (!isSearching) {
                     IconButton(
                         onClick = {
@@ -825,6 +851,7 @@ fun LocalPlaylistScreen(
 
 @Composable
 fun LocalPlaylistHeader(
+    onIdentifySong: () -> Unit = {},
     playlist: Playlist,
     songs: List<PlaylistSong>,
     onShowEditDialog: () -> Unit,
@@ -917,6 +944,15 @@ fun LocalPlaylistHeader(
                         Icon(
                             imageVector = Icons.Rounded.Edit,
                             contentDescription = null
+                        )
+                    }
+
+                    // On every playlist, not only empty ones: recognising something playing near
+                    // you is how you fill a playlist you already started, not just a new one.
+                    IconButton(onClick = onIdentifySong) {
+                        Icon(
+                            imageVector = Icons.Rounded.GraphicEq,
+                            contentDescription = stringResource(R.string.recognition_identify_song),
                         )
                     }
 

@@ -32,7 +32,8 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.RecogniseKeepListeningKey
 import com.dd3boh.outertune.constants.RecognisePauseOnSpeakerKey
 import com.dd3boh.outertune.constants.TopBarInsets
-import com.dd3boh.outertune.recognition.RecognitionService
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.dd3boh.outertune.recognition.RecognitionViewModel
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
@@ -46,6 +47,7 @@ import com.dd3boh.outertune.utils.rememberPreference
 fun RecognitionSettings(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
+    viewModel: RecognitionViewModel = hiltViewModel(),
 ) {
     val (keepListening, onKeepListeningChange) =
         rememberPreference(RecogniseKeepListeningKey, defaultValue = false)
@@ -82,7 +84,7 @@ fun RecognitionSettings(
                 title = stringResource(R.string.recognise_clear_history),
                 explanation = stringResource(R.string.recognise_clear_history_explain),
                 description = stringResource(R.string.recognise_clear_history_desc),
-                onClick = { RecognitionService.clearHistory() },
+                onClick = { viewModel.reset() },
             )
         }
     }

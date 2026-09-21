@@ -25,6 +25,16 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
+
+    <!--
+      Song recognition only. Requested when the user starts listening, never at launch, and the
+      recording is fingerprinted in memory and discarded: no audio is written to disk or sent
+      anywhere. What leaves the device is the signature, which is a few hundred numbers describing
+      peaks and cannot be turned back into sound.
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
@@ -198,8 +208,11 @@
             </intent-filter>
         </receiver>
 
-        <!-- Song recognition. The microphone type is what lets the platform keep handing over
-             audio once the screen is off; without it a backgrounded app is given silence. -->
+        <!--
+          Listening continues with the screen off, which Android only allows a foreground service
+          holding the microphone type. The notification it must show is the point rather than a
+          nuisance: an app recording a room should always be visible and stoppable.
+        -->
         <service
             android:name=".recognition.RecognitionService"
             android:exported="false"
