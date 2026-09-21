@@ -7,13 +7,13 @@
     <string name="download_on_wifi_only_title">Download on Wi-Fi only</string>
     <string name="download_waiting_for_wifi">Queued. Will download when Wi-Fi is available</string>
     <string name="err_copy_details">Copy error details</string>
-    <string name="err_youtube_busy">YouTube has temporarily stopped serving music to this internet connection. It is not your phone, your account or this song, and it clears by itself. Switching to mobile data usually works right away. Otherwise wait a little while and try again.</string>
+    <string name="err_youtube_busy">YouTube has temporarily stopped serving music to this internet connection. It is not your phone, your account or this song, and it clears by itself. Switching to mobile data usually works straight away. Otherwise leave it a little while and try again.</string>
     <string name="grouped_player_controls">Group the player buttons</string>
     <string name="grouped_player_controls_description">Puts shuffle, skip, play and repeat together inside one glass bar. Turn it off to have the buttons sit on their own over the artwork. Needs Liquid glass to be on.</string>
     <string name="quick_picks_source">Quick picks source</string>
     <string name="quick_picks_source_youtube">YouTube Music</string>
     <string name="quick_picks_source_library">Your library</string>
-    <string name="quick_picks_source_description">Where the Quick picks row gets its songs. YouTube Music picks them for your account. Your library builds the row instead from songs related to what you have already played. This changes that one row; the rest of the home screen is the same either way.</string>
+    <string name="quick_picks_source_description">Where the Quick picks row gets its songs. YouTube Music picks them for your account. Your library builds the row instead from songs related to what you have already played. This changes that one row; the rest of the home screen is the same either way. Best recommendations builds the row itself from how you actually listen: what you finish, search for and like, when you play it, and what you pass over. It is new and it learns as you go.</string>
     <string name="oobe_update_auto_description">Fetch it in the background so it is ready when you want it. Android still asks you to confirm.</string>
     <string name="oobe_polls_answered">You can change this any time in Settings, under Questions.</string>
     <string name="poll_title">A question from InterTune</string>
@@ -31,7 +31,7 @@
     <string name="polls_one_waiting">There is a question waiting</string>
     <string name="polls_forget">Let me be asked again</string>
     <string name="polls_forget_description">Clears the record of what you have answered and dismissed, so past questions can come back.</string>
-    <string name="catch_up_title">Two quick questions</string>
+    <string name="catch_up_title">Quick questions</string>
     <string name="catch_up_body">These settings need your say-so, and this install has never been asked. It shows up after an update, or after restoring a backup that did not carry your answers.</string>
     <string name="catch_up_done">Done</string>
     <string name="polls_opt_in_title">Ask you the occasional question?</string>
@@ -41,7 +41,7 @@
     <string name="grp_updates">Updates</string>
     <string name="liked_autodownload_backfill_description">Catches up every liked song you do not already have. On Wi-Fi only, songs you like while on mobile data are skipped rather than queued, so use this once you are back on Wi-Fi. Songs you deleted by hand will come back.</string>
     <string name="liked_autodownload_backfill_title">Download all liked songs now</string>
-    <string name="liked_autodownload_blocked">Paused. YouTube has temporarily stopped serving music to this connection, so downloads are waiting rather than failing. They resume on their own.</string>
+    <string name="liked_autodownload_blocked">Paused. YouTube has temporarily stopped serving music to this connection, so downloads are waiting rather than failing. They carry on by themselves.</string>
     <string name="liked_autodownload_finished">Downloaded %1$d liked songs.</string>
     <string name="liked_autodownload_needs_wifi">You are not on Wi-Fi. Connect to Wi-Fi and try again.</string>
     <string name="liked_autodownload_nothing_to_do">Your liked songs are already downloaded.</string>
@@ -55,7 +55,7 @@
     <string name="loudness_repair_none">Looks up the right volume for songs that are missing it, so nothing suddenly blares out louder than the rest. All your songs already have it.</string>
     <string name="loudness_repair_offline">Needs an internet connection to look up song volumes.</string>
     <string name="loudness_repair_running">Checking song %1$d of %2$d, fixed %3$d so far. Tap to stop.</string>
-    <string name="loudness_repair_stopped">Stopped. Fixed %1$d songs, the rest are still to do. Tap to resume.</string>
+    <string name="loudness_repair_stopped">Stopped. Fixed %1$d songs, the rest are still to do. Tap to carry on.</string>
     <string name="oobe_update_check_answered">You can change this any time in Settings, under Updates.</string>
     <string name="oobe_update_check_description">InterTune is not on an app store, so it checks GitHub when you open the app and tells you when there is a new version. It can download and install one for you, and Android always asks you to confirm first. You can change this later in Settings.</string>
     <string name="oobe_update_check_no">No thanks</string>
@@ -138,6 +138,7 @@
         <item quantity="other">The music stops in %1$d minutes</item>
     </plurals>
     <string name="grp_lastfm">Last.fm</string>
+    <string name="lastfm_login_title">Last.fm</string>
     <string name="lastfm_connect">Connect a Last.fm account</string>
     <string name="lastfm_connect_description">Sign in to Last.fm and approve InterTune. The page is Last.fm&#8217;s own, so your password is never typed into this app or seen by it.</string>
     <string name="lastfm_connect_failed">Could not reach Last.fm. Check your connection and try again.</string>
