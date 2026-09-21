@@ -658,6 +658,17 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     </plurals>
     <string name="grp_lastfm">Last.fm</string>
     <string name="lastfm_login_title">Last.fm</string>
+
+    <!-- Song recognition -->
+    <string name="recognise">What\'s playing?</string>
+    <string name="recognise_listening">Listening\u2026</string>
+    <string name="recognise_no_match">Could not place that one. Try again somewhere quieter, or closer to the speaker.</string>
+    <string name="recognise_failed">Could not reach the service. Check your connection and try again.</string>
+    <string name="recognise_no_mic">InterTune needs the microphone to hear what is playing. Nothing is recorded or kept.</string>
+    <string name="recognise_again">Listen again</string>
+    <string name="recognise_play">Play</string>
+    <string name="recognise_search">Find it</string>
+    <string name="recognise_explain">Listens for ten seconds and asks what is playing. The audio becomes a fingerprint on your phone and only the fingerprint is sent, never the recording, and nothing is saved.</string>
     <string name="lastfm_connect">Connect a Last.fm account</string>
     <string name="lastfm_connect_description">Sign in to Last.fm and approve InterTune. The page is Last.fm&#8217;s own, so your password is never typed into this app or seen by it.</string>
     <string name="lastfm_connect_failed">Could not reach Last.fm. Check your connection and try again.</string>

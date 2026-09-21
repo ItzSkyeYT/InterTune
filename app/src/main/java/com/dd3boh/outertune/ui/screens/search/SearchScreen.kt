@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -70,6 +71,8 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.youtubeNavigator
+import com.dd3boh.outertune.ui.dialog.RecognitionDialog
+import androidx.compose.foundation.layout.Row
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,6 +99,14 @@ fun SearchBarContainer(
 
     val (query, onQueryChange) = rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue())
+    }
+
+    var showRecognition by rememberSaveable { mutableStateOf(false) }
+    if (showRecognition) {
+        RecognitionDialog(
+            navController = navController,
+            onDismiss = { showRecognition = false },
+        )
     }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -224,19 +235,36 @@ fun SearchBarContainer(
                         )
                     }
                 } else {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .clickable {
-                                navController.navigate("settings")
-                            }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Settings,
-                            contentDescription = null
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Beside settings rather than inside a menu. Identifying what is playing
+                        // in the room is something people reach for while the song is still on,
+                        // and a thing you have to go and find is a thing you find too late.
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .clickable { showRecognition = true }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.GraphicEq,
+                                contentDescription = stringResource(R.string.recognise)
+                            )
+                        }
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .clickable {
+                                    navController.navigate("settings")
+                                }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Settings,
+                                contentDescription = null
+                            )
+                        }
                     }
                 }
             },

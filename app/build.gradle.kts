@@ -329,6 +329,7 @@ dependencies {
     testImplementation(libs.sqlite.jdbc)
 
     // modules
+    implementation(project(":fingerprint"))
     implementation(project(":innertube"))
     implementation(project(":kugou"))
     implementation(project(":lrclib"))
