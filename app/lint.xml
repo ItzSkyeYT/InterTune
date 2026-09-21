@@ -11,4 +11,15 @@
         <ignore path="src/main/res/values-lt" />
         <ignore path="src/main/res/values-sk" />
     </issue>
+
+    <!--
+        Compose's rule says to read strings with stringResource() rather than through a Context.
+        Sound advice inside a composable, but most of the hits are not in one: a plain function
+        that maps an enum to a label, a coroutine in a LaunchedEffect, an onClick lambda. None of
+        those may call stringResource at all, so the rule fires on the only correct spelling.
+
+        A warning rather than off, so a genuine one inside a composable still shows. It is an error
+        by default, and 44 of them buried five NewApi errors that were real crashes below minSdk.
+    -->
+    <issue id="LocalContextGetResourceValueCall" severity="warning" />
 </lint>
