@@ -102,10 +102,16 @@ fun RecognitionDialog(
     LaunchedEffect(phase, attempt) {
         if (phase !is Phase.Listening) return@LaunchedEffect
 
-        // Remember whether it was us making the noise, so that a recognition started while paused
-        // does not start playback when it finishes.
+        // Only stop the music when the music is in the room. On headphones the mic hears the room
+        // and our playback does not reach it, so there is nothing to gain by interrupting somebody
+        // mid-song. On the phone's own speaker they share the same air and leaving it running
+        // would recognise the song already playing, every time.
+        //
+        // wasPlaying is also what stops a recognition started while paused from starting playback
+        // when it finishes.
         val wasPlaying = playerConnection?.player?.isPlaying == true
-        if (wasPlaying) playerConnection.player.pause()
+        val mustPause = wasPlaying && !MicrophoneSnippet.playbackIsPrivate(context)
+        if (mustPause) playerConnection.player.pause()
 
         phase = try {
             val samples = MicrophoneSnippet.record()
@@ -122,7 +128,7 @@ fun RecognitionDialog(
                 }
             }
         } finally {
-            if (wasPlaying) playerConnection?.player?.play()
+            if (mustPause) playerConnection?.player?.play()
         }
     }
 

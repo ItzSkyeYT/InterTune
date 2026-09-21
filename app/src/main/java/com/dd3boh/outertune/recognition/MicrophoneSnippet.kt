@@ -7,9 +7,13 @@
 package com.dd3boh.outertune.recognition
 
 import android.annotation.SuppressLint
+import android.content.Context
+import android.media.AudioDeviceInfo
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.os.Build
 import android.util.Log
 import com.dd3boh.outertune.fingerprint.SIGNATURE_SAMPLE_RATE_HZ
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +42,37 @@ object MicrophoneSnippet {
      * everything else, and a fingerprint taken through them loses the quiet peaks it is built from.
      */
     private const val SOURCE = MediaRecorder.AudioSource.MIC
+
+    /**
+     * Whether our own playback is going somewhere the microphone cannot hear.
+     *
+     * Headphones mean the room and the app are separate: the mic hears the room, our music is in
+     * somebody's ears, and there is no reason to stop it. On the phone's own speaker they are the
+     * same air, and leaving playback running would identify the song already playing every time.
+     *
+     * A2DP is counted as private even though the profile covers Bluetooth speakers as well as
+     * headphones and the two cannot be told apart from the device type. Headphones are much the
+     * commoner case, and being wrong costs a recognition of the song that was already playing
+     * rather than anything worse.
+     */
+    fun playbackIsPrivate(context: Context): Boolean {
+        val audio = context.getSystemService(AudioManager::class.java) ?: return false
+        return audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { device ->
+            when (device.type) {
+                AudioDeviceInfo.TYPE_WIRED_HEADSET,
+                AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+                AudioDeviceInfo.TYPE_USB_HEADSET,
+                AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+                AudioDeviceInfo.TYPE_HEARING_AID,
+                -> true
+
+                AudioDeviceInfo.TYPE_BLE_HEADSET ->
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
+                else -> false
+            }
+        }
+    }
 
     /**
      * Records [seconds] of mono 16-bit audio.
