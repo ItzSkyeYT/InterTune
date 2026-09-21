@@ -84,7 +84,9 @@ fun RecognitionSettings(
                 title = stringResource(R.string.recognise_clear_history),
                 explanation = stringResource(R.string.recognise_clear_history_explain),
                 description = stringResource(R.string.recognise_clear_history_desc),
-                onClick = { viewModel.reset() },
+                // Both: reset empties this run, clearHistory empties what is remembered across
+                // runs. The entry says history, so it has to be the second one too.
+                onClick = { viewModel.reset(); viewModel.clearHistory() },
             )
         }
     }

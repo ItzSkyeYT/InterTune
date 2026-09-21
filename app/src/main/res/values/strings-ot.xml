@@ -779,6 +779,8 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="recognition_found">Here is what it heard</string>
     <string name="recognition_pick_version">Pick the version to add. Searching by name can turn up live takes and covers.</string>
     <string name="recognition_not_on_youtube">Nothing on YouTube matched that name.</string>
+    <string name="recognition_history">What you have heard</string>
+    <string name="recognition_history_empty">Nothing yet. Songs you identify will be listed here.</string>
     <string name="recognition_no_match">Shazam did not recognise that.</string>
     <string name="recognition_heard_nothing">The microphone heard nothing. Try holding the phone closer to the speaker.</string>
     <string name="recognition_failed">That did not work. Check your connection and try again.</string>

@@ -37,6 +37,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -94,6 +95,7 @@ import com.dd3boh.outertune.recognition.RecognitionViewModel
 import com.dd3boh.outertune.ui.component.AnimatedDots
 import com.dd3boh.outertune.ui.component.rememberRecognitionPhrase
 import com.dd3boh.outertune.ui.component.button.IconButton
+import com.dd3boh.outertune.ui.component.button.backButtonSurface
 import com.dd3boh.outertune.ui.component.items.ListItem
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.utils.backToMain
@@ -373,10 +375,16 @@ fun RecognitionScreen(
         title = { Text(stringResource(R.string.recognise)) },
         navigationIcon = {
             IconButton(
+                modifier = Modifier.backButtonSurface(),
                 onClick = navController::navigateUp,
                 onLongClick = navController::backToMain,
             ) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
+            }
+        },
+        actions = {
+            IconButton(onClick = { navController.navigate("recognition/history") }) {
+                Icon(Icons.Rounded.History, contentDescription = stringResource(R.string.recognition_history))
             }
         },
         windowInsets = TopBarInsets,

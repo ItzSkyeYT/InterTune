@@ -166,9 +166,11 @@ import com.dd3boh.outertune.ui.screens.AccountScreen
 import com.dd3boh.outertune.ui.screens.AlbumScreen
 import com.dd3boh.outertune.ui.screens.BrowseScreen
 import com.dd3boh.outertune.ui.screens.HistoryScreen
+import com.dd3boh.outertune.ui.screens.RecognitionHistoryScreen
 import com.dd3boh.outertune.ui.screens.HomeScreen
 import com.dd3boh.outertune.ui.screens.LastFmLoginScreen
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.ui.screens.walkthrough.TourOverlay
 import com.dd3boh.outertune.ui.screens.walkthrough.TourState
@@ -260,6 +262,7 @@ import com.dd3boh.outertune.constants.UpdateSnoozeUntilKey
 import com.dd3boh.outertune.constants.UPDATE_SNOOZE_MS
 import com.dd3boh.outertune.ui.component.UpdatePrompt
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import android.provider.Settings
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -1199,12 +1202,24 @@ class MainActivity : ComponentActivity() {
                                                 navController.graph.startDestinationId,
                                                 inclusive = false,
                                             )
-                                            delay(500)
+                                            // Wait for the destination to report where its
+                                            // controls are, rather than betting on a delay. The
+                                            // tour drops stops whose target has not been measured,
+                                            // so a slow frame after popping back used to drop all
+                                            // of them, and the menu entry then did nothing at all
+                                            // with nothing on screen to say why.
+                                            withTimeoutOrNull(4000) {
+                                                while (TourTargets[Tour.SEARCH_BAR] == null) delay(50)
+                                            }
+                                            delay(150)
                                             tourState.start(tourAll())
                                         }
                                     }
                                     composable("recognition") {
                                         RecognitionScreen(navController, scrollBehavior)
+                                    }
+                                    composable("recognition/history") {
+                                        RecognitionHistoryScreen(navController, scrollBehavior)
                                     }
                                     composable("settings") {
                                         SettingsScreen(navController, scrollBehavior)

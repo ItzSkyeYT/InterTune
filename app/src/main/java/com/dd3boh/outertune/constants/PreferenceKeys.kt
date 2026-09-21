@@ -359,6 +359,9 @@ val RecogniseKeepListeningKey = booleanPreferencesKey("recogniseKeepListening")
 /** Whether our own playback stops while listening, when it is coming out of the phone's speaker. */
 val RecognisePauseOnSpeakerKey = booleanPreferencesKey("recognisePauseOnSpeaker")
 
+/** Every song recognition has heard, as a JSON array. See RecognitionHistory. */
+val RecognitionHistoryKey = stringPreferencesKey("recognitionHistory")
+
 /**
  * The build whose walkthrough has already been seen.
  *

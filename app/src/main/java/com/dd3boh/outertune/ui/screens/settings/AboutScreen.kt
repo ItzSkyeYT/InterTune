@@ -195,6 +195,15 @@ fun AboutScreen(
                 // These MUST point at the fork. Upstream's tracker is not the place for bugs in a
                 // build upstream did not ship, and it is already busy with reports of the 403 this
                 // fork exists to fix.
+                // A guided tour is help, not a settings category. It sat at the top level of
+                // Settings between Player and audio and Song recognition, where a row that runs
+                // something reads like a screen full of switches.
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.walkthrough_start)) },
+                    onClick = {
+                        navController.navigate("walkthrough")
+                    }
+                )
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_bug_report_action)) },
                     onClick = {

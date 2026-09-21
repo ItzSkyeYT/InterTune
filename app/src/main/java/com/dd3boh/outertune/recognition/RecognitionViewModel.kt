@@ -11,10 +11,12 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.db.entities.Playlist
 import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -28,6 +30,7 @@ import javax.inject.Inject
 class RecognitionViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val engine: RecognitionEngine,
+    private val history: RecognitionHistory,
 ) : ViewModel() {
 
     val state = engine.state
@@ -37,6 +40,9 @@ class RecognitionViewModel @Inject constructor(
     val skipped = engine.skipped
     val startedAt = engine.startedAt
     val nowPlaying = engine.nowPlaying
+
+    /** Everything ever heard, across restarts, newest first. */
+    val heard = history.entries
 
     /**
      * The one guarded way in.
@@ -78,5 +84,15 @@ class RecognitionViewModel @Inject constructor(
     fun reset() {
         engine.reset()
         RecognitionService.stop(context)
+    }
+
+    /**
+     * Separate from [reset], which only empties this run.
+     *
+     * Clearing what the app remembers hearing is a different act from clearing the current
+     * session, and the settings entry that says it clears history should do the one it says.
+     */
+    fun clearHistory() {
+        viewModelScope.launch { history.clear() }
     }
 }

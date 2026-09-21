@@ -45,6 +45,7 @@ class RecognitionEngine @Inject constructor(
     private val microphone: MicrophoneListener,
     private val shazam: ShazamClient,
     private val database: MusicDatabase,
+    private val history: RecognitionHistory,
 ) {
     data class Added(val title: String, val artist: String, val auto: Boolean)
 
@@ -222,6 +223,20 @@ class RecognitionEngine @Inject constructor(
 
                 // Position is known from this alone, so it is published before any decision about
                 // adding. Even a track that will not be added is worth showing while it plays.
+                // Recorded the moment Shazam names it, before anything is decided about adding
+                // it or even placing it on YouTube. The history is a record of what the room was
+                // playing, which is true whether or not a video turned up for it.
+                scope.launch {
+                    history.add(
+                        Heard(
+                            title = outcome.track.title,
+                            artist = outcome.track.artist.orEmpty(),
+                            videoId = best?.id,
+                            at = System.currentTimeMillis(),
+                        )
+                    )
+                }
+
                 val waitingFor = pending
                 val measuredRate = if (waitingFor != null && waitingFor.first.shazamKey == outcome.track.shazamKey) {
                     val apart = (System.currentTimeMillis() - waitingFor.second) / 1000.0
