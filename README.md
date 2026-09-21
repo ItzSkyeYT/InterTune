@@ -110,8 +110,15 @@ oddly and some of it will simply be wrong. **If anything sounds off in your lang
 line report is enough, a suggested wording is a bonus, and you do not need to open a pull request.
 Corrections are welcome and nobody minds being told.
 
-Strings inherited from InnerTune and OuterTune belong upstream. The ones this fork added, updates,
-loudness repair, liquid glass, the sleep timer fade and downloading liked songs, belong here.
+**Translations are managed with [Weblate](https://hosted.weblate.org/projects/intertune/).** No
+account juggling and no XML: pick your language, type, and the changes arrive here as a pull
+request. Around half of this fork's own strings have no translation yet in any language, so there
+is plenty to do.
+
+Strings inherited from InnerTune and OuterTune belong upstream, and are translated on
+[OuterTune's Weblate](https://hosted.weblate.org/projects/outertune/). The ones this fork added,
+updates, loudness repair, liquid glass, the sleep timer fade and downloading liked songs, belong
+here.
 
 ## Building
 
