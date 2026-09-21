@@ -163,7 +163,7 @@ fun SearchBarContainer(
         exit = fadeOut()
     ) {
         SearchBar(
-            modifier = Modifier.tourTarget(Tour.SEARCH_BAR),
+            pillModifier = Modifier.tourTarget(Tour.SEARCH_BAR),
             query = query,
             onQueryChange = onQueryChange,
             onSearch = onSearch,

@@ -1539,14 +1539,6 @@ class MainActivity : ComponentActivity() {
                                 navHost()
 
                                 SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
-
-                                // Last, so it is over the search bar and the navigation bar as
-                                // well as the content. Those are half of what it points at.
-                                TourOverlay(
-                                    state = tourState,
-                                    onNavigate = { navController.navigate(it) },
-                                    onFinish = { setWalkthroughSeen(BuildConfig.VERSION_CODE) },
-                                )
                             }
 
                             // BottomSheetPlayer and the dock BOTH stay outside the published layer.
@@ -1568,6 +1560,18 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                             bottomSheetMenu()
+
+                            // After the navigation bar, not before it. The bar is a sibling of the
+                            // content box and is drawn after it, so an overlay inside that box ends
+                            // up underneath the bar: the tour would dim the screen right down to
+                            // the bar's top edge and then point at a Library tab it had neither
+                            // dimmed nor lit. Out here it is also outside the published glass
+                            // layer, which it has no business being refracted by.
+                            TourOverlay(
+                                state = tourState,
+                                onNavigate = { navController.navigate(it) },
+                                onFinish = { setWalkthroughSeen(BuildConfig.VERSION_CODE) },
+                            )
 
                             SnackbarHost(
                                 hostState = snackbarHostState,

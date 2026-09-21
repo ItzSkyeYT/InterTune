@@ -126,6 +126,14 @@ fun SearchBar(
     windowInsets: WindowInsets = WindowInsets.safeDrawing,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     focusRequester: FocusRequester = remember { FocusRequester() },
+    /**
+     * Applied to the pill itself rather than the band around it.
+     *
+     * The outer node is the full width of the screen and carries the status bar inset, so anything
+     * measuring from there measures a stripe across the top of the display. The tour cuts a hole
+     * out of whatever it is given, and a hole the width of the screen is not a highlight.
+     */
+    pillModifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val heightOffsetLimit = with(LocalDensity.current) {
@@ -228,7 +236,7 @@ fun SearchBar(
             color = if (animationProgress > 0) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
             contentColor = contentColorFor(colors.containerColor),
             tonalElevation = tonalElevation,
-            modifier = Modifier
+            modifier = pillModifier
                 .padding(
                     top = animatedSurfaceTopPadding,
                     start = startPadding,
