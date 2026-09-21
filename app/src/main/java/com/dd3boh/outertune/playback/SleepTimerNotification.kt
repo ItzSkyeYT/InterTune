@@ -57,7 +57,16 @@ class SleepTimerNotification(private val context: Context) {
             PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val builder = Notification.Builder(context, CHANNEL_ID)
+        // The channel-taking constructor is API 26. Channels do not exist below it, and the
+        // deprecated one is what a pre-26 device wants anyway, so pick by version rather than
+        // raising minSdk for a countdown.
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(context, CHANNEL_ID)
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(context)
+        }
+        builder
             .setSmallIcon(R.drawable.bedtime)
             .setContentTitle(context.getString(R.string.sleep_timer))
             .setContentText(

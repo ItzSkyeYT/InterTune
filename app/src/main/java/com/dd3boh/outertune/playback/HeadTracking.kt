@@ -11,6 +11,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import android.os.Handler
 import android.os.SystemClock
 import android.util.Log
@@ -335,7 +336,12 @@ class HeadTracking(
 
         // The tracker threw its own reference away, so ours means nothing either. Android does the
         // same thing here and lets the rate limit carry the stage home.
-        if (event.firstEventAfterDiscontinuity || pendingRecentre) {
+        // firstEventAfterDiscontinuity is API 33, same release that introduced the head tracker
+        // itself, so in practice this only runs where it exists. Checked anyway: the field access
+        // would throw rather than read false if it ever did not.
+        val discontinuity = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            event.firstEventAfterDiscontinuity
+        if (discontinuity || pendingRecentre) {
             pendingRecentre = false
             recentre()
         }

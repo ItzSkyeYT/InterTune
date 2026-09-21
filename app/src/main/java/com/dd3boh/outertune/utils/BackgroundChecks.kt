@@ -13,6 +13,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
@@ -112,15 +113,19 @@ class BackgroundCheckWorker(
             return
         }
 
-        val manager = context.getSystemService(NotificationManager::class.java)
-        if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    context.getString(R.string.background_channel),
-                    NotificationManager.IMPORTANCE_DEFAULT,
+        // Channels arrived in API 26 and this app still runs on 24, where every call in here
+        // throws. NotificationCompat below posts fine without one.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = context.getSystemService(NotificationManager::class.java)
+            if (manager.getNotificationChannel(CHANNEL_ID) == null) {
+                manager.createNotificationChannel(
+                    NotificationChannel(
+                        CHANNEL_ID,
+                        context.getString(R.string.background_channel),
+                        NotificationManager.IMPORTANCE_DEFAULT,
+                    )
                 )
-            )
+            }
         }
 
         val open = PendingIntent.getActivity(
