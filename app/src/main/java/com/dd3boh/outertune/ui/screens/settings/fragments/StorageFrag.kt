@@ -173,7 +173,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                     Toast.makeText(
                         appContext,
                         if (exported == 0) appContext.getString(R.string.no_playlists_to_export)
-                        else appContext.getString(R.string.exported_playlists, exported),
+                        else appContext.resources.getQuantityString(R.plurals.exported_playlists, exported, exported),
                         Toast.LENGTH_SHORT
                     ).show()
                 }

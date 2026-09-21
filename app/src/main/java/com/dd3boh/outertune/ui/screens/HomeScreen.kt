@@ -90,6 +90,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -1182,14 +1183,14 @@ private fun WhyTheseDialog(viewModel: HomeViewModel, navController: NavControlle
                         stringResource(R.string.why_these_lane_related, quotas[Lane.RELATED] ?: 0),
                         stringResource(R.string.why_these_lane_again, quotas[Lane.AGAIN] ?: 0),
                         stringResource(R.string.why_these_lane_artist, quotas[Lane.ARTIST] ?: 0),
-                        stringResource(R.string.why_these_lane_rediscover, quotas[Lane.REDISCOVER] ?: 0),
+                        pluralStringResource(R.plurals.why_these_lane_rediscover, quotas[Lane.REDISCOVER] ?: 0, quotas[Lane.REDISCOVER] ?: 0),
                         stringResource(R.string.why_these_lane_explore, quotas[Lane.EXPLORE] ?: 0),
                     ).joinToString("\n"),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(stringResource(R.string.why_these_dial, adventurousness), style = MaterialTheme.typography.bodyMedium)
-                Text(stringResource(R.string.why_these_exclusions, exclusions), style = MaterialTheme.typography.bodyMedium)
+                Text(pluralStringResource(R.plurals.why_these_exclusions, exclusions, exclusions), style = MaterialTheme.typography.bodyMedium)
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.ok)) } },

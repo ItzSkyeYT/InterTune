@@ -56,6 +56,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -268,7 +269,7 @@ fun RecommendationsSettings(
         val updates = weights.maxOfOrNull { it.updates } ?: 0
         val started = stringResource(R.string.recommendations_weight_started)
         ExplainedPreference(
-            title = stringResource(R.string.recommendations_weights, updates),
+            title = pluralStringResource(R.plurals.recommendations_weights, updates, updates),
             explanation = stringResource(R.string.recommendations_weights_info),
             description = Features.priors.keys.filter { it in weightNames }.joinToString("\n") { name ->
                 val row = weights.firstOrNull { it.name == name }
@@ -332,7 +333,7 @@ fun RecommendationsSettings(
         ) { uri ->
             if (uri != null) viewModel.importFrom(uri) { count ->
                 engineIoResult = if (count > 0) {
-                    context.getString(R.string.engine_data_import_done, count)
+                    context.resources.getQuantityString(R.plurals.engine_data_import_done, count, count)
                 } else {
                     context.getString(R.string.engine_data_failed)
                 }
@@ -369,7 +370,7 @@ fun RecommendationsSettings(
                 description = stringResource(R.string.recommendations_listens_description),
             )
             ExplainedPreference(
-                title = stringResource(R.string.recommendations_sessions, sessions),
+                title = pluralStringResource(R.plurals.recommendations_sessions, sessions, sessions),
                 explanation = stringResource(R.string.recommendations_sessions_info),
                 description = stringResource(R.string.recommendations_sessions_description),
             )

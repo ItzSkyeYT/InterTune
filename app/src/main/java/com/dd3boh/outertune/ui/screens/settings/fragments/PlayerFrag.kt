@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioNormalizationKey
@@ -389,8 +390,9 @@ fun ColumnScope.HeadTrackingFrag() {
         title = stringResource(R.string.head_tracking_calibrate),
         explanation = stringResource(R.string.head_tracking_calibrate_explain),
         description = when {
-            running -> stringResource(
-                R.string.head_tracking_calibrate_running,
+            running -> pluralStringResource(
+                R.plurals.head_tracking_calibrate_running,
+                ((CALIBRATION_MS - elapsed) / 1000).toInt(),
                 ((CALIBRATION_MS - elapsed) / 1000).toInt(),
             )
             drift != 0f -> stringResource(R.string.head_tracking_calibrate_done, drift)

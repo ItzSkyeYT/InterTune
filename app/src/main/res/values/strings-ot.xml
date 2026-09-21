@@ -114,7 +114,10 @@ Uses a bit more battery, and restarts the current song when you switch it on.</s
     <string name="head_tracking_recentre">Recentre</string>
     <string name="head_tracking_calibrate">Calibrate</string>
     <string name="head_tracking_calibrate_never">Not calibrated. Tap, then look straight ahead and keep still.</string>
-    <string name="head_tracking_calibrate_running">Keep still and look straight ahead. %1$d seconds left.</string>
+    <plurals name="head_tracking_calibrate_running">
+        <item quantity="one">Keep still and look straight ahead. %1$d second left.</item>
+        <item quantity="other">Keep still and look straight ahead. %1$d seconds left.</item>
+    </plurals>
     <string name="head_tracking_calibrate_done">Correcting %1$.2f degrees per second of drift.</string>
     <string name="head_tracking_calibrate_explain">Your headphones slowly lose track of which way is forward, so the music drifts to one side.
 
@@ -143,7 +146,10 @@ Only the weights. Your listening history, likes and playlists are untouched: thi
 
 Anything in the file this version does not recognise is skipped, so a file from an older build still works as far as it goes.</string>
     <string name="engine_data_export_done">Exported.</string>
-    <string name="engine_data_import_done">Imported %1$d weights.</string>
+    <plurals name="engine_data_import_done">
+        <item quantity="one">Imported %1$d weight.</item>
+        <item quantity="other">Imported %1$d weights.</item>
+    </plurals>
     <string name="engine_data_failed">That did not work. Check the file and try again.</string>
     <string name="grp_spatial">Where the sound is</string>
     <string name="adaptive_tail_title">Chosen as you listen</string>
@@ -569,7 +575,10 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="m3u_ytm_lookup">Search on YouTube Music for songs not found in the app database</string>
     <string name="export_playlists_m3u">Export playlists as M3U</string>
     <string name="export_playlists_m3u_description">Every playlist in your library as a file you can open anywhere.</string>
-    <string name="exported_playlists">Exported %1$d playlists</string>
+    <plurals name="exported_playlists">
+        <item quantity="one">Exported %1$d playlist</item>
+        <item quantity="other">Exported %1$d playlists</item>
+    </plurals>
     <string name="no_playlists_to_export">No playlists to export</string>
 
 <!-- Misc -->
@@ -731,7 +740,10 @@ The second line is your phone\'s own spatial audio. It is separate and does not 
     <string name="recommendations_learned_title">What it has to learn from</string>
     <string name="recommendations_listens">%1$d listens, %2$d counted as plays</string>
     <string name="recommendations_listens_description">Every time a song stopped, including skips. A listen counts as a play once it passes your play threshold.</string>
-    <string name="recommendations_sessions">%1$d listening sessions</string>
+    <plurals name="recommendations_sessions">
+        <item quantity="one">%1$d listening session</item>
+        <item quantity="other">%1$d listening sessions</item>
+    </plurals>
     <string name="recommendations_sessions_description">A session ends after thirty minutes of silence.</string>
     <string name="recommendations_how_they_ended">How they ended</string>
     <string name="recommendations_where_from">Where they were started from</string>
@@ -792,10 +804,16 @@ The second line is your phone\'s own spatial audio. It is separate and does not 
     <string name="why_these_lanes">Lanes</string>
     <string name="why_these_lane_related">%1$d related to those</string>
     <string name="why_these_lane_artist">%1$d more from artists you finish</string>
-    <string name="why_these_lane_rediscover">%1$d favourites gone quiet</string>
+    <plurals name="why_these_lane_rediscover">
+        <item quantity="one">%1$d favourite gone quiet</item>
+        <item quantity="other">%1$d favourites gone quiet</item>
+    </plurals>
     <string name="why_these_lane_explore">%1$d new to you</string>
     <string name="why_these_dial">Adventurousness %1$d of 100</string>
-    <string name="why_these_exclusions">%1$d exclusions in force</string>
+    <plurals name="why_these_exclusions">
+        <item quantity="one">%1$d exclusion in force</item>
+        <item quantity="other">%1$d exclusions in force</item>
+    </plurals>
     <string name="why_these_manage">Exclusions</string>
     <string name="recommendations_doing_title">How it\'s doing</string>
     <string name="learn_from_listening">Learn from listening</string>
@@ -831,7 +849,10 @@ The second line is your phone\'s own spatial audio. It is separate and does not 
     <string name="recommendations_row_shadow">Best recommendations, unseen</string>
     <string name="recommendations_brier">How well it predicts</string>
     <string name="recommendations_brier_description">Brier score %1$.3f over %2$d cards (0 is perfect, 0.25 is guessing). By predicted chance:</string>
-    <string name="recommendations_weights">What it has learned, after %1$d updates</string>
+    <plurals name="recommendations_weights">
+        <item quantity="one">What it has learned, after %1$d update</item>
+        <item quantity="other">What it has learned, after %1$d updates</item>
+    </plurals>
     <string name="recommendations_weight_started">started</string>
     <string name="weight_act">Something you keep coming back to</string>
     <string name="weight_sat">Heard a lot lately</string>
