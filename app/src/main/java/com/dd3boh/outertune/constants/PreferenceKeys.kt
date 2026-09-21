@@ -359,6 +359,15 @@ val RecogniseKeepListeningKey = booleanPreferencesKey("recogniseKeepListening")
 /** Whether our own playback stops while listening, when it is coming out of the phone's speaker. */
 val RecognisePauseOnSpeakerKey = booleanPreferencesKey("recognisePauseOnSpeaker")
 
+/**
+ * The build whose walkthrough has already been seen.
+ *
+ * Not the same as the last build that ran: this only moves when somebody reaches the end of a
+ * walkthrough or skips one, so an update that crashes on launch does not silently mark its own
+ * features as already explained.
+ */
+val WalkthroughSeenVersionKey = intPreferencesKey("walkthroughSeenVersion")
+
 /** Epoch millis of the last poll fetch, for the rate limit floor. */
 val LastPollFetchKey = longPreferencesKey("lastPollFetch")
 

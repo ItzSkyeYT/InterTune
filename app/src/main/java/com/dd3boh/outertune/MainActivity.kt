@@ -168,6 +168,10 @@ import com.dd3boh.outertune.ui.screens.BrowseScreen
 import com.dd3boh.outertune.ui.screens.HistoryScreen
 import com.dd3boh.outertune.ui.screens.HomeScreen
 import com.dd3boh.outertune.ui.screens.LastFmLoginScreen
+import com.dd3boh.outertune.ui.screens.walkthrough.WalkthroughScreen
+import com.dd3boh.outertune.ui.screens.walkthrough.walkthroughAll
+import com.dd3boh.outertune.ui.screens.walkthrough.walkthroughFor
+import com.dd3boh.outertune.constants.WalkthroughSeenVersionKey
 import com.dd3boh.outertune.ui.screens.RecognitionScreen
 import com.dd3boh.outertune.ui.screens.settings.RecognitionSettings
 import com.dd3boh.outertune.ui.screens.LoginScreen
@@ -622,6 +626,12 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // Hoisted so the walkthrough can stand aside for it. Two full screen prompts on
+                // one launch is one too many, and an update is the more urgent of the two.
+                val updatePromptVisible = pendingUpdate != null &&
+                        snoozeUntil <= snoozeTick.coerceAtLeast(System.currentTimeMillis()) &&
+                        installState !is UpdateInstaller.State.AwaitingConfirmation
+
                 pendingUpdate?.let { found ->
                     val snoozed = snoozeUntil > snoozeTick.coerceAtLeast(System.currentTimeMillis())
                     if (!snoozed && installState !is UpdateInstaller.State.AwaitingConfirmation) {
@@ -853,6 +863,46 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 catchUpOpen = true
                             }
+                        }
+
+                        /*
+                         * The walkthrough for whatever arrived in this build.
+                         *
+                         * Behind the catch-up on purpose, and behind the wizard through it: being
+                         * asked to make three privacy decisions and then walked through six
+                         * features, before ever reaching the app, is not a welcome. Somebody who
+                         * has just answered those gets the tour on their next launch instead.
+                         *
+                         * Latched the same way and for the same reason: finishing writes the
+                         * preference, and a screen that vanished under the finger that dismissed
+                         * it would read as a crash.
+                         */
+                        val (walkthroughSeen, setWalkthroughSeen) =
+                            rememberPreference(WalkthroughSeenVersionKey, defaultValue = 0)
+                        var walkthroughOpen by rememberSaveable { mutableStateOf(false) }
+                        val pendingSteps = remember(walkthroughSeen) { walkthroughFor(walkthroughSeen) }
+
+                        LaunchedEffect(oobeStatus, catchUpOpen, pendingSteps, updatePromptVisible) {
+                            if (!catchUpOpen && !updatePromptVisible &&
+                                oobeStatus >= OOBE_VERSION && pendingSteps.isNotEmpty()
+                            ) {
+                                walkthroughOpen = true
+                            }
+                        }
+
+                        // Rendered on the live condition, not just opened on it. pendingUpdate
+                        // resolves a moment after launch, so gating only the opening let the
+                        // walkthrough latch first and the update prompt land on top of it. This
+                        // way it steps aside while the update is up and comes back afterwards.
+                        if (walkthroughOpen && !updatePromptVisible) {
+                            WalkthroughScreen(
+                                steps = pendingSteps,
+                                onNavigate = { navController.navigate(it) },
+                                onFinish = {
+                                    walkthroughOpen = false
+                                    setWalkthroughSeen(BuildConfig.VERSION_CODE)
+                                },
+                            )
                         }
 
                         if (catchUpOpen) {
@@ -1141,6 +1191,37 @@ class MainActivity : ComponentActivity() {
                                     }
                                     composable("settings/recognition") {
                                         RecognitionSettings(navController, scrollBehavior)
+                                    }
+                                    composable("walkthrough") {
+                                        val (_, setSeen) = rememberPreference(
+                                            WalkthroughSeenVersionKey, defaultValue = 0
+                                        )
+                                        WalkthroughScreen(
+                                            // Reached by hand from settings, so it shows
+                                            // everything rather than only what is new.
+                                            steps = walkthroughAll(),
+                                            onNavigate = { navController.navigate(it) },
+                                            onFinish = {
+                                                setSeen(BuildConfig.VERSION_CODE)
+                                                navController.navigateUp()
+                                            },
+                                        )
+                                    }
+                                    composable("walkthrough/new") {
+                                        val (seen, setSeen) = rememberPreference(
+                                            WalkthroughSeenVersionKey, defaultValue = 0
+                                        )
+                                        // Remembered once, so finishing the last step does not
+                                        // recompose the list out from under the screen.
+                                        val newSteps = remember(Unit) { walkthroughFor(seen) }
+                                        WalkthroughScreen(
+                                            steps = newSteps,
+                                            onNavigate = { navController.navigate(it) },
+                                            onFinish = {
+                                                setSeen(BuildConfig.VERSION_CODE)
+                                                navController.navigateUp()
+                                            },
+                                        )
                                     }
                                     composable("recognition") {
                                         RecognitionScreen(navController, scrollBehavior)

@@ -699,6 +699,38 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="recognise_history_title">Recognised this session</string>
     <string name="recognise_clear_history">Clear</string>
     <string name="recognise_settings">Song recognition</string>
+
+    <!-- Walkthrough -->
+    <string name="walkthrough_title">What\'s new</string>
+    <string name="walkthrough_title_first">Welcome to InterTune</string>
+    <string name="walkthrough_description">A quick run through the app, and through anything added since you last opened it.</string>
+    <string name="walkthrough_progress">%1$d of %2$d</string>
+    <string name="walkthrough_skip">Skip</string>
+    <string name="walkthrough_back">Back</string>
+    <string name="walkthrough_next">Next</string>
+    <string name="walkthrough_done">Done</string>
+    <string name="walkthrough_action_open">Take me there</string>
+    <string name="walkthrough_action_try">Try it</string>
+
+    <string name="walkthrough_library_title">Your music, wherever it is</string>
+    <string name="walkthrough_library_body">Files on the phone and songs from YouTube Music play from the same queue. Point the scanner at your folders and it will find the rest.</string>
+    <string name="walkthrough_home_title">Home learns what you play</string>
+    <string name="walkthrough_home_body">Quick picks, forgotten favourites and what you were listening to. Pull down to refresh it, and use the chips to change what it draws from.</string>
+    <string name="walkthrough_backup_title">Back it up</string>
+    <string name="walkthrough_backup_body">Your library, playlists, settings and history in one file. Set it to run on its own, because an uninstall takes everything with it.</string>
+
+    <string name="walkthrough_recommendations_title">Picks built from your listening</string>
+    <string name="walkthrough_recommendations_body">A new Quick picks source that reads what you finish, search for and come back to. Every part of it is a switch, and it can show you why it chose something.</string>
+    <string name="walkthrough_recognition_title">Name what is playing</string>
+    <string name="walkthrough_recognition_body">Hold the phone towards the room and it will tell you the song. It can keep listening with the screen off and fill a playlist while it does.</string>
+    <string name="walkthrough_spatial_title">Spatial audio</string>
+    <string name="walkthrough_spatial_body">Puts the music on a stage in front of you instead of between your ears, on any headphones. On ones that report their orientation, the stage stays put when you turn your head.</string>
+    <string name="walkthrough_widget_title">A widget for the home screen</string>
+    <string name="walkthrough_widget_body">What is playing, with controls and a list under it. Add it from the launcher the way you add any widget, then set up what it shows.</string>
+    <string name="walkthrough_announcements_title">Questions, now and then</string>
+    <string name="walkthrough_announcements_body">The app can ask the occasional question or show a short announcement at the top of Home. Off unless you turn it on, and answers are anonymous.</string>
+    <string name="walkthrough_settings_title">All of it is a setting</string>
+    <string name="walkthrough_settings_body">Nothing here is compulsory. Anything you have just been shown can be turned off, and the "i" beside a setting says what it actually does.</string>
     <string name="recognise_settings_description">What happens when you ask InterTune to name what is playing.</string>
     <string name="recognise_keep_listening_desc">Keeps going until you stop it, instead of naming one song and finishing.</string>
     <string name="recognise_keep_listening_explain">A single listen takes about ten seconds and then stops. Keep listening carries on, adding each new song it hears to the list. It works with the screen off. It also uses the microphone and the network the whole time it is running, so it costs battery.</string>
