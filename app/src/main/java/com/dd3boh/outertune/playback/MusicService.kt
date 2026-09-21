@@ -2397,10 +2397,13 @@ class MusicService : MediaLibraryService(),
             val historyPaused = dataStore.get(PauseListenHistoryKey, false)
             val counted = playRatio >= minPlaybackDur
             var listenId = 0L
-            // The complete record, under the same privacy switch as the counted play. Nothing that
-            // lasted under two seconds: that is the player settling or a double tap, not a listen,
-            // and it would otherwise be the most common row in the table.
-            if (!historyPaused && playbackStats.totalPlayTimeMs >= 2_000) {
+            // The complete record, under the same privacy switch as the counted play. Every song
+            // that actually sounded goes in, however briefly: a second of something before
+            // skipping it is still a fact about what was played, and the row carries `counted` so
+            // the engine and the play count can tell a glance from a listen. Only a song that
+            // never produced any audio at all is left out, because that is the player settling
+            // rather than anything the user did.
+            if (!historyPaused && playbackStats.totalPlayTimeMs > 0) {
                 listenId = runCatching { logListen(mediaItem.mediaId, playbackStats, durationSec, playRatio, counted) }
                     .onFailure { Log.w(TAG, "Could not log listen", it) }.getOrDefault(0L)
             } else {

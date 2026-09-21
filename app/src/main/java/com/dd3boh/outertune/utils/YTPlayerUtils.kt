@@ -244,6 +244,12 @@ object YTPlayerUtils {
 
         var streamPlayerResponse: PlayerResponse? = null
         var lastClient: YouTubeClient? = null
+        // The best explanation any client gave, kept because streamPlayerResponse is overwritten
+        // every iteration and the last client is free to fail outright. Five Hours went VISIONOS
+        // "UNPLAYABLE - This video is not available", IOS the same, then ANDROID returned nothing
+        // at all, and the reason two clients had already supplied was dropped on the floor in
+        // favour of "Unknown error".
+        var explained: PlayerResponse.PlayabilityStatus? = null
         for (clientIndex in (-1 until streamClients.size)) {
             // reset for each client
             format = null
@@ -275,6 +281,9 @@ object YTPlayerUtils {
             }
 
             lastClient = client
+            streamPlayerResponse?.playabilityStatus
+                ?.takeIf { it.status != null && it.status != "OK" && explained == null }
+                ?.let { explained = it }
 
             Log.d(TAG, "[$videoId] stream client: ${client.clientName}, " +
                     "playabilityStatus: ${streamPlayerResponse?.playabilityStatus?.let {
@@ -324,6 +333,16 @@ object YTPlayerUtils {
         }
 
         if (streamPlayerResponse == null) {
+            // Prefer whatever an earlier client managed to say. "This video is not available" is
+            // something a person can act on; "Bad stream player response" reaches them as
+            // "Unknown error" and tells them nothing.
+            explained?.let { status ->
+                throw PlaybackException(
+                    status.reason ?: status.status,
+                    null,
+                    PlaybackException.ERROR_CODE_REMOTE_ERROR,
+                )
+            }
             throw Exception("Bad stream player response")
         }
         if (streamPlayerResponse.playabilityStatus.status != "OK") {

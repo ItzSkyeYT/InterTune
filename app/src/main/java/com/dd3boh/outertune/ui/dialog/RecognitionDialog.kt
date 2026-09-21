@@ -19,7 +19,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -131,40 +134,40 @@ fun RecognitionDialog(
 
     DefaultDialog(
         onDismiss = onDismiss,
+        // The icon slot is not decoration. DefaultDialog aligns its title to the start without one
+        // and to the centre with one, and everything below here is centred, so without it the
+        // title is the only thing hanging off to the left.
+        icon = { Icon(Icons.Rounded.GraphicEq, contentDescription = null) },
         title = { Text(stringResource(R.string.recognise)) },
         buttons = {
-            if (phase is Phase.Done) {
-                TextButton(onClick = { attempt++; phase = Phase.Listening }) {
+            // Every action lives here. A button floating in the content sat a long way above this
+            // row with nothing between them, which read as the dialog having failed to fill.
+            when (phase) {
+                Phase.NeedsPermission -> TextButton(onClick = {
+                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }) { Text(stringResource(R.string.recognise_allow)) }
+
+                is Phase.Done -> TextButton(onClick = { attempt++; phase = Phase.Listening }) {
                     Text(stringResource(R.string.recognise_again))
                 }
+
+                Phase.Listening -> Unit
             }
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.explain_close)) }
         },
     ) {
         when (val p = phase) {
-            Phase.NeedsPermission -> {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.recognise_no_mic),
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    TextButton(onClick = {
-                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                    }) {
-                        Text(stringResource(R.string.recognise))
-                    }
-                }
-            }
+            Phase.NeedsPermission -> Text(
+                text = stringResource(R.string.recognise_no_mic),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            )
 
             Phase.Listening -> {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 ) {
                     CircularProgressIndicator()
                     Spacer(Modifier.height(16.dp))
@@ -178,7 +181,7 @@ fun RecognitionDialog(
             is Phase.Done -> when (val r = p.result) {
                 is RecognitionResult.Match -> Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 ) {
                     r.artworkUrl?.let { url ->
                         AsyncImage(
@@ -198,7 +201,7 @@ fun RecognitionDialog(
                             textAlign = TextAlign.Center,
                         )
                     }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         // A YouTube id plays straight away. Without one there is nothing to queue,
                         // so the search is handed the title and artist instead of guessing an id.
@@ -227,14 +230,14 @@ fun RecognitionDialog(
                     text = stringResource(R.string.recognise_no_match),
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 )
 
                 is RecognitionResult.Failed -> Text(
                     text = r.reason.ifBlank { stringResource(R.string.recognise_failed) },
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 )
             }
         }
