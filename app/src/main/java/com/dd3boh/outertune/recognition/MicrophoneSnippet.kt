@@ -44,6 +44,24 @@ object MicrophoneSnippet {
     private const val SOURCE = MediaRecorder.AudioSource.MIC
 
     /**
+     * How loud a chunk is, as something a visualiser can use.
+     *
+     * Root mean square rather than peak, because peak is one stray sample and jumps about. The
+     * square root at the end is not decoration either: loudness is perceived closer to logarithmic
+     * than linear, and a bar driven by raw RMS sits almost flat until something very loud happens.
+     */
+    private fun levelOf(buffer: ShortArray, from: Int, count: Int): Float {
+        if (count <= 0) return 0f
+        var sum = 0.0
+        for (i in from until from + count) {
+            val v = buffer[i].toDouble()
+            sum += v * v
+        }
+        val rms = kotlin.math.sqrt(sum / count) / Short.MAX_VALUE
+        return kotlin.math.sqrt(rms).toFloat().coerceIn(0f, 1f)
+    }
+
+    /**
      * Whether our own playback is going somewhere the microphone cannot hear.
      *
      * Headphones mean the room and the app are separate: the mic hears the room, our music is in
@@ -84,7 +102,16 @@ object MicrophoneSnippet {
      * @return the samples, or null if the recorder would not start.
      */
     @SuppressLint("MissingPermission")
-    suspend fun record(seconds: Int = RECOGNITION_SECONDS): ShortArray? = withContext(Dispatchers.IO) {
+    suspend fun record(
+        seconds: Int = RECOGNITION_SECONDS,
+        /**
+         * Called with how loud the room is, roughly once per buffer, between 0 and 1.
+         *
+         * Reported from the samples already being read rather than from a second recorder: there
+         * is only one microphone and a visualiser is not worth contending for it.
+         */
+        onLevel: ((Float) -> Unit)? = null,
+    ): ShortArray? = withContext(Dispatchers.IO) {
         val wanted = SIGNATURE_SAMPLE_RATE_HZ * seconds
 
         val minBuffer = AudioRecord.getMinBufferSize(
@@ -125,6 +152,7 @@ object MicrophoneSnippet {
                     Log.w(TAG, "read returned $read after $filled samples")
                     break
                 }
+                onLevel?.invoke(levelOf(out, filled, read))
                 filled += read
             }
         } finally {

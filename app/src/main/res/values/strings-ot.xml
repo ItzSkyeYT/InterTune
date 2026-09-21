@@ -664,15 +664,26 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
 
     <!-- Song recognition -->
     <string name="recognise">What\'s playing?</string>
-    <string name="recognise_listening">Listening\u2026</string>
+    <string name="recognise_listening">Listening</string>
     <!-- Cycled while it listens, one every couple of seconds. Ten seconds of a spinner and one
          unchanging word feels a lot longer than ten seconds. -->
     <string-array name="recognise_listening_lines">
-        <item>Listening\u2026</item>
+        <item>Listening</item>
         <item>Ear to the ground</item>
         <item>Trying to place it</item>
         <item>Humming along</item>
         <item>Asking around</item>
+    </string-array>
+    <!--
+        One in a thousand. Shown instead of an ordinary line, so somebody who uses this a lot will
+        eventually see one and nobody has to be told they exist.
+    -->
+    <string-array name="recognise_listening_rare">
+        <item>I know this one, don\'t tell me</item>
+        <item>Hearing colours</item>
+        <item>Was that a kazoo?</item>
+        <item>Humming it back to myself</item>
+        <item>Pretending to think about it</item>
     </string-array>
     <string name="recognise_no_match">Could not place that one. Try again somewhere quieter, or closer to the speaker.</string>
     <string name="recognise_failed">Could not reach the service. Check your connection and try again.</string>
@@ -681,6 +692,8 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="recognise_stop">Stop</string>
     <string name="recognise_once">Listen once</string>
     <string name="recognise_keep_listening">Keep listening</string>
+    <string name="recognise_once_desc">Names one song, then stops.</string>
+    <string name="recognise_keep_listening_short">Keeps going until you stop it.</string>
     <string name="recognise_tap_to_listen">Tap to listen</string>
     <string name="recognise_screen_off_hint">You can turn the screen off. It keeps listening.</string>
     <string name="recognise_history_title">Recognised this session</string>

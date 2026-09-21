@@ -106,8 +106,9 @@ class RecognitionService : Service() {
     }
 
     private suspend fun identifyOnce(): RecognitionResult = withContext(Dispatchers.Default) {
-        val samples = MicrophoneSnippet.record()
+        val samples = MicrophoneSnippet.record { _level.value = it }
             ?: return@withContext RecognitionResult.Failed(getString(R.string.recognise_no_mic))
+        _level.value = 0f
 
         val signature = SignatureGenerator.makeSignature(samples)
         if (signature.peaksByBand.sumOf { it.size } == 0) return@withContext RecognitionResult.NoMatch
@@ -119,6 +120,7 @@ class RecognitionService : Service() {
         listening?.cancel()
         listening = null
         _continuous.value = false
+        _level.value = 0f
         if (_state.value is RecognitionState.Listening) _state.value = RecognitionState.Idle
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE)
         else @Suppress("DEPRECATION") stopForeground(true)
@@ -222,6 +224,11 @@ class RecognitionService : Service() {
 
         private val _state = MutableStateFlow<RecognitionState>(RecognitionState.Idle)
         val state: StateFlow<RecognitionState> = _state.asStateFlow()
+
+        private val _level = MutableStateFlow(0f)
+
+        /** How loud the room is right now, 0 to 1, while listening. */
+        val level: StateFlow<Float> = _level.asStateFlow()
 
         private val _continuous = MutableStateFlow(false)
 
