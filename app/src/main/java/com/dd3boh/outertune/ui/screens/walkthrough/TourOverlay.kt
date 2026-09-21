@@ -7,14 +7,9 @@
 package com.dd3boh.outertune.ui.screens.walkthrough
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,42 +18,67 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.R
+import kotlin.math.roundToInt
+
+/** Space between the cut-out and the bubble that describes it. */
+private val GAP = 10.dp
+
+/** The bubble's beak. */
+private val TAIL = 9.dp
+
+/** Breathing room between the cut-out and the control inside it. */
+private val HOLE_PADDING = 8.dp
+private val HOLE_RADIUS = 14.dp
+
+/** The bubble never touches a screen edge. */
+private val SCREEN_MARGIN = 16.dp
+private val MAX_BUBBLE_WIDTH = 320.dp
+
+private const val SCRIM_ALPHA = 0.72f
 
 /**
- * The tour itself: a dimmed screen with a hole over the thing being talked about, and an arrow.
+ * The tour: the screen dimmed, a hole over the control being described, and a bubble attached to it.
  *
- * Drawn over everything rather than inside any screen, because it points at things belonging to
- * several screens and has to survive navigating between them.
+ * Attached is the entire point. The first version pinned the text to the top or bottom edge of the
+ * screen and drew a separate arrow floating near the target, and the two read as unrelated objects:
+ * the words were nowhere near the thing they described and the arrow came out of nothing. A bubble
+ * with a beak is one object, so the eye travels from the sentence to the control without being asked.
  *
- * The hole is cut rather than drawn. A ring around the target would have to guess the target's
- * shape; clearing a rounded rectangle out of the scrim shows whatever is actually under it, so a
- * circular button looks circular and a row of chips looks like a row of chips.
+ * Drawn over everything rather than inside any screen, because it points at controls belonging to
+ * several screens and has to survive moving between them.
  */
 @Composable
 fun TourOverlay(
@@ -75,143 +95,192 @@ fun TourOverlay(
         if (state.index > 0) state.back() else { state.stop(); onFinish() }
     }
 
-    // Breathing, so the hole reads as something being pointed at rather than as a rendering fault.
-    val pulse by rememberInfiniteTransition(label = "tour").animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1_100), RepeatMode.Reverse),
-        label = "pulse",
-    )
-
     val density = LocalDensity.current
-    val padPx = with(density) { 8.dp.toPx() }
-    val radiusPx = with(density) { 16.dp.toPx() }
+    val gapPx = with(density) { GAP.toPx() }
+    val tailPx = with(density) { TAIL.toPx() }
+    val holePadPx = with(density) { HOLE_PADDING.toPx() }
+    val holeRadiusPx = with(density) { HOLE_RADIUS.toPx() }
+    val marginPx = with(density) { SCREEN_MARGIN.toPx() }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            // One layer, so the clear actually clears instead of punching a hole in the window and
-            // showing the wallpaper.
-            drawContext.canvas.saveLayer(Rect(Offset.Zero, size), androidx.compose.ui.graphics.Paint())
-            drawRect(color = Color.Black.copy(alpha = 0.78f))
+    // The hole travels between targets rather than teleporting, so it is possible to see where it
+    // went and therefore what is being talked about now.
+    val spring = tween<Float>(320, easing = FastOutSlowInEasing)
+    val l by animateFloatAsState(target?.left ?: 0f, spring, label = "l")
+    val t by animateFloatAsState(target?.top ?: 0f, spring, label = "t")
+    val r by animateFloatAsState(target?.right ?: 0f, spring, label = "r")
+    val b by animateFloatAsState(target?.bottom ?: 0f, spring, label = "b")
+    val hole = if (target == null) null else Rect(l, t, r, b)
 
-            target?.let { t ->
-                val grow = padPx + pulse * padPx * 0.5f
-                val hole = Rect(
-                    left = t.left - grow,
-                    top = t.top - grow,
-                    right = t.right + grow,
-                    bottom = t.bottom + grow,
-                )
-                drawRoundRect(
-                    color = Color.Black,
-                    topLeft = Offset(hole.left, hole.top),
-                    size = Size(hole.width, hole.height),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(radiusPx, radiusPx),
-                    blendMode = BlendMode.Clear,
-                )
-            }
-            drawContext.canvas.restore()
+    // Recorded rather than derived, so the beak is drawn from where the bubble actually ended up
+    // after being clamped to the screen, not from where it would have liked to be.
+    var bubble by remember { mutableStateOf<Rect?>(null) }
+    // Read here rather than in the draw block: a draw scope is not a composition and cannot see
+    // the theme. The beak has to be the bubble's own colour or it stops looking attached to it.
+    val bubbleColour = MaterialTheme.colorScheme.surfaceContainerHigh
+    val insets = LocalPlayerAwareWindowInsets.current
 
-            // The arrow, from the card towards the hole. Drawn after the scrim so it sits on top
-            // of it rather than being cut away with the hole.
-            target?.let { t ->
-                val below = t.bottom < size.height / 2
-                // Long enough to read as an arrow rather than a tick, and stopping short of the
-                // hole so the head is not swallowed by the thing it points at.
-                val from = Offset(t.center.x, if (below) t.bottom + padPx * 9 else t.top - padPx * 9)
-                val to = Offset(t.center.x, if (below) t.bottom + padPx * 2f else t.top - padPx * 2f)
-                drawArrow(from, to, Color.White)
-            }
-        }
-
-        // The card goes on the opposite side of the target from the edge it is nearest, so it never
-        // covers the thing it is describing.
-        val cardAlignment = when {
-            target == null -> Alignment.Center
-            target.center.y < with(density) { 360.dp.toPx() } -> Alignment.BottomCenter
-            else -> Alignment.TopCenter
-        }
-
-        Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(20.dp),
-            modifier = Modifier
-                .align(cardAlignment)
-                // The player aware insets, not safeDrawing. The thing that was eating the card was
-                // the app's own bottom navigation bar and mini player, which are ordinary content
-                // and so appear in no system inset at all. It sat behind them and took Skip and
-                // Next with it, which on a tour nobody can leave is the worst thing to lose.
-                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
-                .padding(20.dp),
-        ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text(
-                    text = stringResource(R.string.walkthrough_progress, state.index + 1, state.stops.size),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = stringResource(stop.title),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = stringResource(stop.body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(16.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    TextButton(onClick = { state.stop(); onFinish() }) {
-                        Text(stringResource(R.string.walkthrough_skip))
-                    }
-                    Spacer(Modifier.weight(1f))
-                    if (state.index > 0) {
-                        TextButton(onClick = {
-                            state.back()
-                            state.current?.route?.let(onNavigate)
-                        }) { Text(stringResource(R.string.walkthrough_back)) }
-                    }
-                    Button(onClick = {
-                        val wasLast = state.index == state.stops.lastIndex
-                        state.next()
-                        if (wasLast) onFinish() else state.current?.route?.let(onNavigate)
-                    }) {
-                        Text(
-                            stringResource(
-                                if (state.index == state.stops.lastIndex) R.string.walkthrough_done
-                                else R.string.walkthrough_next
+    Layout(
+        content = {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawBehind {
+                        // One layer, so the clear actually clears rather than punching through the
+                        // window to the wallpaper behind the app.
+                        drawContext.canvas.saveLayer(Rect(Offset.Zero, size), Paint())
+                        drawRect(color = Color.Black.copy(alpha = SCRIM_ALPHA))
+                        hole?.let { h ->
+                            drawRoundRect(
+                                color = Color.Black,
+                                topLeft = Offset(h.left - holePadPx, h.top - holePadPx),
+                                size = Size(h.width + holePadPx * 2, h.height + holePadPx * 2),
+                                cornerRadius = CornerRadius(holeRadiusPx, holeRadiusPx),
+                                blendMode = BlendMode.Clear,
                             )
-                        )
+                        }
+                        drawContext.canvas.restore()
+
+                        // The beak, after the layer is restored so it is not cut away with the hole.
+                        val bub = bubble
+                        if (hole != null && bub != null) {
+                            val below = bub.top > hole.bottom
+                            val tipY = if (below) bub.top - tailPx else bub.bottom + tailPx
+                            val baseY = if (below) bub.top + 1f else bub.bottom - 1f
+                            // Pinned to the target, then kept inside the bubble's own corners so it
+                            // never grows out of thin air beside it.
+                            val x = hole.center.x.coerceIn(
+                                bub.left + tailPx * 2f,
+                                (bub.right - tailPx * 2f).coerceAtLeast(bub.left + tailPx * 2f),
+                            )
+                            drawPath(
+                                Path().apply {
+                                    moveTo(x, tipY)
+                                    lineTo(x - tailPx, baseY)
+                                    lineTo(x + tailPx, baseY)
+                                    close()
+                                },
+                                color = bubbleColour,
+                            )
+                        }
                     }
-                }
+            )
+
+            TourBubble(
+                state = state,
+                stop = stop,
+                onNavigate = onNavigate,
+                onFinish = onFinish,
+                modifier = Modifier
+                    .widthIn(max = MAX_BUBBLE_WIDTH)
+                    .onGloballyPositioned { bubble = it.boundsInRoot() },
+            )
+        },
+    ) { measurables, constraints ->
+        val scrim = measurables[0].measure(constraints)
+        val topInset = insets.getTop(this)
+        val bottomInset = insets.getBottom(this)
+
+        val card = measurables[1].measure(
+            Constraints(
+                maxWidth = (constraints.maxWidth - marginPx * 2).roundToInt().coerceAtLeast(0),
+                maxHeight = (constraints.maxHeight - topInset - bottomInset).coerceAtLeast(0),
+            )
+        )
+
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            scrim.place(0, 0)
+
+            if (hole == null) {
+                // Nothing to point at: the welcome simply sits in the middle.
+                card.place(
+                    x = (constraints.maxWidth - card.width) / 2,
+                    y = (constraints.maxHeight - card.height) / 2,
+                )
+                return@layout
             }
+
+            val needed = card.height + gapPx + holePadPx + tailPx
+            val roomBelow = constraints.maxHeight - bottomInset - hole.bottom
+            val below = roomBelow >= needed
+
+            val y = if (below) hole.bottom + holePadPx + tailPx + gapPx
+            else hole.top - holePadPx - tailPx - gapPx - card.height
+
+            // Centred on the target, then pulled back inside the screen. The beak stays on the
+            // target regardless, which is why it is drawn from the bubble's final position.
+            val x = (hole.center.x - card.width / 2f).coerceIn(
+                marginPx,
+                (constraints.maxWidth - marginPx - card.width).coerceAtLeast(marginPx),
+            )
+
+            card.place(
+                x = x.roundToInt(),
+                y = y.roundToInt().coerceIn(
+                    topInset,
+                    (constraints.maxHeight - bottomInset - card.height).coerceAtLeast(topInset),
+                ),
+            )
         }
     }
 }
 
-/** A straight shaft with a head, pointing from [from] to [to]. */
-private fun DrawScope.drawArrow(from: Offset, to: Offset, color: Color) {
-    val stroke = 4f
-    drawLine(color = color, start = from, end = to, strokeWidth = stroke)
-
-    val direction = to - from
-    val length = kotlin.math.hypot(direction.x, direction.y).takeIf { it > 0f } ?: return
-    val unit = Offset(direction.x / length, direction.y / length)
-    val perpendicular = Offset(-unit.y, unit.x)
-    val head = 18f
-
-    val path = Path().apply {
-        moveTo(to.x, to.y)
-        lineTo(to.x - unit.x * head + perpendicular.x * head * 0.5f, to.y - unit.y * head + perpendicular.y * head * 0.5f)
-        lineTo(to.x - unit.x * head - perpendicular.x * head * 0.5f, to.y - unit.y * head - perpendicular.y * head * 0.5f)
-        close()
+/** The bubble. Title, a sentence, and the three things you can do about it. */
+@Composable
+private fun TourBubble(
+    state: TourState,
+    stop: TourStop,
+    onNavigate: (String) -> Unit,
+    onFinish: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 3.dp,
+        modifier = modifier,
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp)) {
+            Text(
+                text = stringResource(stop.title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(stop.body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(14.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = stringResource(
+                        R.string.walkthrough_progress, state.index + 1, state.stops.size
+                    ),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { state.stop(); onFinish() }) {
+                    Text(stringResource(R.string.walkthrough_skip))
+                }
+                Spacer(Modifier.width(4.dp))
+                Button(onClick = {
+                    val wasLast = state.index == state.stops.lastIndex
+                    state.next()
+                    if (wasLast) onFinish() else state.current?.route?.let(onNavigate)
+                }) {
+                    Text(
+                        stringResource(
+                            if (state.index == state.stops.lastIndex) R.string.walkthrough_done
+                            else R.string.walkthrough_next
+                        )
+                    )
+                }
+            }
+        }
     }
-    drawPath(path, color)
 }
