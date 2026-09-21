@@ -339,12 +339,6 @@ fun LibraryScreen(
                     libraryFilterContent = filterContent
                 )
 
-            LibraryFilter.CACHED ->
-                LibraryCachedScreen(
-                    navController,
-                    libraryFilterContent = filterContent
-                )
-
             LibraryFilter.FOLDERS ->
                 LibraryFoldersScreen(
                     navController,
