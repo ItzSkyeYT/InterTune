@@ -132,6 +132,7 @@ fun RecognitionScreen(
     val continuous by viewModel.continuous.collectAsState()
     val added by viewModel.added.collectAsState()
     val skipped by viewModel.skipped.collectAsState()
+    val nowPlaying by viewModel.nowPlaying.collectAsState()
 
     val (keepListeningDefault) = rememberPreference(RecogniseKeepListeningKey, defaultValue = false)
     val (pauseOnSpeaker) = rememberPreference(RecognisePauseOnSpeakerKey, defaultValue = true)
@@ -222,6 +223,59 @@ fun RecognitionScreen(
                     onClick = { listen(true) },
                     modifier = Modifier.weight(1f),
                 )
+            }
+        }
+
+        // What is playing in the room, which is the question the screen is named after. Shazam
+        // answers it on its own, before YouTube is consulted at all, so this survives the search
+        // coming back with nothing. Without it a run that recognised the song perfectly well
+        // showed a blank screen, because everything below here needs a YouTube match to render.
+        nowPlaying?.let { playing ->
+            item(key = "now_playing") {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                ) {
+                    Text(
+                        text = playing.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                    )
+                    playing.artist?.let { artist ->
+                        Text(
+                            text = artist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+
+        // Heard, named, but not confidently placed on YouTube. Recorded by the engine and, until
+        // now, shown only by the sheet: on this screen a continuous run filled this list and
+        // displayed none of it, so it sat there looking like nothing had happened.
+        if (skipped.isNotEmpty()) {
+            item(key = "skipped") {
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text(
+                        text = stringResource(R.string.recognition_skipped_count, skipped.size),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    for (entry in skipped.asReversed().take(3)) {
+                        Text(
+                            text = "${entry.title} - ${entry.artist}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
             }
         }
 

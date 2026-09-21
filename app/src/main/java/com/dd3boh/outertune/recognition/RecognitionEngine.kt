@@ -207,8 +207,16 @@ class RecognitionEngine @Inject constructor(
             RecognitionOutcome.NoMatch -> if (!keepGoing) _state.value = State.NoMatch
 
             is RecognitionOutcome.Match -> {
-                val candidates = YouTube.search(outcome.track.searchQuery, YouTube.SearchFilter.FILTER_SONG)
-                    .getOrNull()?.items?.filterIsInstance<SongItem>()?.take(4).orEmpty()
+                // Shazam names the song but hands back no video id, only a search URL, so the
+                // match has to be resolved against YouTube before it can be played or added.
+                // getOrNull used to be called straight on this, which made a failed search and a
+                // search with no results the same empty list: the one case worth telling apart,
+                // because the first is our problem and the second is not.
+                val found = YouTube.search(outcome.track.searchQuery, YouTube.SearchFilter.FILTER_SONG)
+                found.exceptionOrNull()?.let {
+                    Log.w(TAG, "Could not resolve '${outcome.track.searchQuery}' on YouTube", it)
+                }
+                val candidates = found.getOrNull()?.items?.filterIsInstance<SongItem>()?.take(4).orEmpty()
                 val best = candidates.firstOrNull()
                 val certain = best != null && corresponds(outcome.track, best)
 
