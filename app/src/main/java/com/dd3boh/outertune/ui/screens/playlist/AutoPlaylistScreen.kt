@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.OfflinePin
@@ -638,6 +639,15 @@ fun AutoPlaylistScreen(
                 }
             },
             actions = {
+                // The search bar, and the listen button living in it, only exist on the top level
+                // tabs. Somebody deep in a playlist who wants to know what is playing in the room
+                // would otherwise have to navigate out to reach it.
+                IconButton(onClick = { navController.navigate("recognition") }) {
+                    Icon(
+                        Icons.Rounded.GraphicEq,
+                        contentDescription = stringResource(R.string.recognise)
+                    )
+                }
                 if (!isSearching) {
                     IconButton(
                         onClick = {

@@ -168,6 +168,8 @@ import com.dd3boh.outertune.ui.screens.BrowseScreen
 import com.dd3boh.outertune.ui.screens.HistoryScreen
 import com.dd3boh.outertune.ui.screens.HomeScreen
 import com.dd3boh.outertune.ui.screens.LastFmLoginScreen
+import com.dd3boh.outertune.ui.screens.RecognitionScreen
+import com.dd3boh.outertune.ui.screens.settings.RecognitionSettings
 import com.dd3boh.outertune.ui.screens.LoginScreen
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
 import com.dd3boh.outertune.ui.screens.MoodAndGenresScreen
@@ -1132,6 +1134,12 @@ class MainActivity : ComponentActivity() {
                                         )
                                     ) {
                                         YouTubeBrowseScreen(navController, scrollBehavior)
+                                    }
+                                    composable("settings/recognition") {
+                                        RecognitionSettings(navController, scrollBehavior)
+                                    }
+                                    composable("recognition") {
+                                        RecognitionScreen(navController, scrollBehavior)
                                     }
                                     composable("settings") {
                                         SettingsScreen(navController, scrollBehavior)

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -121,6 +122,12 @@ fun SettingsScreen(
             )
             // Promoted from a link buried on Library and content. Lyrics are a whole screen of
             // settings that people go looking for by name.
+            PreferenceEntry(
+                title = { Text(stringResource(R.string.recognise_settings)) },
+                description = stringResource(R.string.recognise_settings_description),
+                icon = { Icon(Icons.Rounded.GraphicEq, null) },
+                onClick = { navController.navigate("settings/recognition") }
+            )
             PreferenceEntry(
                 title = { Text(stringResource(R.string.lyrics_settings_title)) },
                 description = stringResource(R.string.settings_lyrics_description),

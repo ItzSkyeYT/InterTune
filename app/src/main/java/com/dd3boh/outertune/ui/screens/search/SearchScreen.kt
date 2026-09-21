@@ -71,7 +71,6 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.youtubeNavigator
-import com.dd3boh.outertune.ui.dialog.RecognitionDialog
 import androidx.compose.foundation.layout.Row
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,13 +100,6 @@ fun SearchBarContainer(
         mutableStateOf(TextFieldValue())
     }
 
-    var showRecognition by rememberSaveable { mutableStateOf(false) }
-    if (showRecognition) {
-        RecognitionDialog(
-            navController = navController,
-            onDismiss = { showRecognition = false },
-        )
-    }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
 
@@ -244,7 +236,7 @@ fun SearchBarContainer(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
-                                .clickable { showRecognition = true }
+                                .clickable { navController.navigate("recognition") }
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.GraphicEq,

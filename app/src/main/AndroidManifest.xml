@@ -23,6 +23,7 @@
          time. Nothing is recorded to disk: the samples become a fingerprint in memory and the
          array is dropped. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -196,6 +197,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>
+
+        <!-- Song recognition. The microphone type is what lets the platform keep handing over
+             audio once the screen is off; without it a backgrounded app is given silence. -->
+        <service
+            android:name=".recognition.RecognitionService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
 
         <service
             android:name=".playback.ExoDownloadService"

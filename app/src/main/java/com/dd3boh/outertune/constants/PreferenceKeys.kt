@@ -353,6 +353,12 @@ val DismissedPollIdsKey = stringSetPreferencesKey("dismissedPollIds")
  */
 val DismissedAnnouncementIdsKey = stringSetPreferencesKey("dismissedAnnouncementIds")
 
+/** Whether the listen button starts a continuous listen rather than a single one. */
+val RecogniseKeepListeningKey = booleanPreferencesKey("recogniseKeepListening")
+
+/** Whether our own playback stops while listening, when it is coming out of the phone's speaker. */
+val RecognisePauseOnSpeakerKey = booleanPreferencesKey("recognisePauseOnSpeaker")
+
 /** Epoch millis of the last poll fetch, for the rate limit floor. */
 val LastPollFetchKey = longPreferencesKey("lastPollFetch")
 
