@@ -14,6 +14,7 @@ import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -176,8 +177,13 @@ class RecognitionEngine @Inject constructor(
                         return@collect stop()
                     }
                 }
+            } catch (t: CancellationException) {
+                // Not a failure. Every stop cancels this job, so catching it with everything else
+                // meant the person was told "StandaloneCoroutine was cancelled" each time they
+                // pressed stop. Rethrown so the parent scope still unwinds properly.
+                throw t
             } catch (t: Throwable) {
-                Log.w(TAG, "Listening stopped", t)
+                Log.w(TAG, "Listening failed", t)
                 _state.value = State.Failed(t.message ?: "microphone", heardNothing = false)
             } finally {
                 running.value = false

@@ -252,7 +252,13 @@ fun RecognitionScreen(
         (state as? RecognitionEngine.State.Failed)?.let { failed ->
             item(key = "failure") {
                 Text(
-                    text = failed.reason,
+                    // reason is a developer string: an exception message, or a word from the
+                    // Shazam client. It stays in the logs. RecognitionSheet already picked
+                    // between these two and this screen should not read differently.
+                    text = stringResource(
+                        if (failed.heardNothing) R.string.recognition_heard_nothing
+                        else R.string.recognition_failed
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                     textAlign = TextAlign.Center,

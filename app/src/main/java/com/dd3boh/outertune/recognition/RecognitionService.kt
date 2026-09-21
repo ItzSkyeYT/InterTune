@@ -78,7 +78,9 @@ class RecognitionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            Log.i(TAG, "Stopped from the notification")
+            // Any ACTION_STOP, which is the notification button and RecognitionViewModel.stop
+            // alike. Naming the notification sent me hunting a phantom tap.
+            Log.i(TAG, "Stop requested")
             engine.stop()
             stopSelf()
             return START_NOT_STICKY
