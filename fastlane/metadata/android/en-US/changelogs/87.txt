@@ -1,0 +1,33 @@
+Version 0.10.9
+
+Fixes. Nothing new to learn and nothing moved.
+
+=== Liked songs ===
+• Likes stopped coming back unliked. If YouTube returned an empty or partial list, InterTune took it at face value and quietly unliked everything missing from it. An empty reply is now ignored, and a song only loses its like after three days of being absent
+• Downloading your liked songs counts what has finished rather than what has started, and cancelling no longer takes songs outside the batch
+
+=== Playing ===
+• A song that fails no longer strands the queue: next moves on to the following song
+• Age-gated songs say so, instead of playing a thirty second wrapper or failing without explanation
+• Notification buttons draw on Samsung phones. Like, shuffle and repeat were missing on One UI
+• A request that never answers now fails rather than holding the player open
+
+=== Quick picks ===
+• Thirty second previews no longer appear
+• At most two songs from one artist, so a run of one sort of music cannot take the row over
+• Radio no longer starts from songs that were only ever shown to you
+
+=== Interface ===
+• The refresh spinner stops when the row you pulled for is ready, not several seconds later
+• The keyboard stays up while you are still typing. New suggestions shifting the list was mistaken for you scrolling it
+• The navigation bar shrinks when the window is too short, so it stays usable in split screen
+• The button that explains a setting is large enough to hit
+
+=== Backups ===
+• Every 6 hours, day, week, month, 6 months or year, instead of only daily or weekly
+• Backing up shows a spinner and runs in the background, instead of freezing the app with no sign of anything happening
+
+=== Audio quality ===
+• Raising the quality setting re-fetches songs already cached at a lower one. Downloads are left alone
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.10.9

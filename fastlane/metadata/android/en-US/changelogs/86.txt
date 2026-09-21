@@ -1,0 +1,5 @@
+Version 0.10.8.5
+
+Nothing in the app changed. This release only made the project buildable by someone who does not already have its private files, which was nobody but the maintainer. A missing local.properties produced a malformed BuildConfig and nothing compiled, and a missing signing key stopped the build at packaging.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.10.8.5
