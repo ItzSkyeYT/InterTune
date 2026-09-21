@@ -359,6 +359,15 @@ val RecogniseKeepListeningKey = booleanPreferencesKey("recogniseKeepListening")
 /** Whether our own playback stops while listening, when it is coming out of the phone's speaker. */
 val RecognisePauseOnSpeakerKey = booleanPreferencesKey("recognisePauseOnSpeaker")
 
+/** Seconds of audio taken per identification attempt. MicrophoneListener.DEFAULT_SECONDS. */
+val RecogniseListenSecondsKey = intPreferencesKey("recogniseListenSeconds")
+
+/** Add confident matches to the playlist without being asked. Continuous runs only. */
+val RecogniseAutoAddKey = booleanPreferencesKey("recogniseAutoAdd")
+
+/** Hold the screen awake while listening. */
+val RecogniseKeepAwakeKey = booleanPreferencesKey("recogniseKeepAwake")
+
 /** Every song recognition has heard, as a JSON array. See RecognitionHistory. */
 val RecognitionHistoryKey = stringPreferencesKey("recognitionHistory")
 

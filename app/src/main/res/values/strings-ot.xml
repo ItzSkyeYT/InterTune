@@ -779,6 +779,15 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="recognition_found">Here is what it heard</string>
     <string name="recognition_pick_version">Pick the version to add. Searching by name can turn up live takes and covers.</string>
     <string name="recognition_not_on_youtube">Nothing on YouTube matched that name.</string>
+    <string name="recognise_listen_seconds">How long to listen</string>
+    <string name="recognise_listen_seconds_explain">Each attempt records this much audio before asking Shazam. Longer gives it more to work with in a noisy room, at the cost of waiting longer for an answer. Twelve seconds is what Shazam itself uses.</string>
+    <string name="recognise_seconds">%1$d seconds</string>
+    <string name="recognise_auto_add">Add matches to the playlist</string>
+    <string name="recognise_auto_add_explain">While listening from a playlist, a song it is sure about is added without asking. Turn this off to be shown what it heard and choose yourself. Songs it is unsure about are never added either way.</string>
+    <string name="recognise_auto_add_desc">Only while keeping listening, and only for confident matches</string>
+    <string name="recognise_keep_awake">Keep the screen on while listening</string>
+    <string name="recognise_keep_awake_explain">Holds the screen awake so you can watch it work. Listening carries on with the screen off regardless, so this is about seeing it rather than about it running.</string>
+    <string name="recognise_keep_awake_desc">Listening continues with the screen off either way</string>
     <string name="recognition_history">What you have heard</string>
     <string name="recognition_history_empty">Nothing yet. Songs you identify will be listed here.</string>
     <string name="recognition_no_match">Shazam did not recognise that.</string>

@@ -54,6 +54,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -73,6 +74,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -87,6 +89,7 @@ import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.RecogniseKeepListeningKey
 import com.dd3boh.outertune.constants.RecognisePauseOnSpeakerKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
+import com.dd3boh.outertune.constants.RecogniseKeepAwakeKey
 import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.recognition.AudioRoute
@@ -135,6 +138,17 @@ fun RecognitionScreen(
     val added by viewModel.added.collectAsState()
     val skipped by viewModel.skipped.collectAsState()
     val nowPlaying by viewModel.nowPlaying.collectAsState()
+
+    // Held only while it is actually listening, and released the moment it stops or the screen
+    // leaves. Listening itself survives the screen going off, since the service holds a foreground
+    // microphone type; this is only so somebody watching it work does not have to keep tapping.
+    val (keepAwake) = rememberPreference(RecogniseKeepAwakeKey, defaultValue = false)
+    val view = LocalView.current
+    DisposableEffect(running, keepAwake) {
+        val on = running && keepAwake
+        if (on) view.keepScreenOn = true
+        onDispose { if (on) view.keepScreenOn = false }
+    }
 
     val (keepListeningDefault) = rememberPreference(RecogniseKeepListeningKey, defaultValue = false)
     val (pauseOnSpeaker) = rememberPreference(RecognisePauseOnSpeakerKey, defaultValue = true)

@@ -8,6 +8,11 @@ package com.dd3boh.outertune.recognition
 
 import android.Manifest
 import android.util.Log
+import dagger.hilt.android.qualifiers.ApplicationContext
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.constants.RecogniseListenSecondsKey
+import com.dd3boh.outertune.constants.RecogniseAutoAddKey
+import android.content.Context
 import androidx.annotation.RequiresPermission
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Playlist
@@ -46,6 +51,7 @@ class RecognitionEngine @Inject constructor(
     private val shazam: ShazamClient,
     private val database: MusicDatabase,
     private val history: RecognitionHistory,
+    @ApplicationContext private val context: Context,
 ) {
     data class Added(val title: String, val artist: String, val auto: Boolean)
 
@@ -167,7 +173,11 @@ class RecognitionEngine @Inject constructor(
             try {
                 // One microphone session for the whole run. Each window is identified while the
                 // next is already being captured, so nothing between songs is missed.
-                microphone.stream { level ->
+                // Read per run rather than cached, so changing it in settings takes effect on the
+                // next listen instead of the next launch.
+                val seconds = context.dataStore.data.first()[RecogniseListenSecondsKey]
+                    ?: MicrophoneListener.DEFAULT_SECONDS
+                microphone.stream(seconds = seconds) { level ->
                     val current = _state.value
                     if (current is State.Listening) _state.value = current.copy(level = level)
                     else if (current is State.Idle) _state.value = State.Listening(level, false)
@@ -253,7 +263,8 @@ class RecognitionEngine @Inject constructor(
                     rate = measuredRate,
                 )
 
-                if (keepGoing && certain && best != null) {
+                val autoAdd = context.dataStore.data.first()[RecogniseAutoAddKey] ?: true
+                if (keepGoing && certain && best != null && autoAdd) {
                     if (best.id in known) {
                         Log.i(TAG, "Still '${best.title}', carrying on")
                         pending = null
