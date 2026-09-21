@@ -18,7 +18,7 @@
     <string name="import_failed_songs">Não foi possível importar</string>
     <string name="scanner_sensitivity_L3">Corresponder título, artistas, e álbuns</string>
     <string name="scanner_type_taglib">Usar o extrator de metadados TagLib integrado</string>
-    <string name="oobe_welcome_message">Boas vindas ao InterTune</string>
+    <string name="oobe_welcome_message">Boas-vindas ao InterTune</string>
     <string name="folders">Pastas</string>
     <string name="local_history">Local</string>
     <string name="remote_history">Remoto</string>

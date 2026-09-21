@@ -205,7 +205,7 @@
     <string name="dev_settings_description">Revela configurações avançadas adicionais utilizadas no desenvolvimento</string>
     <string name="swipe_to_skip_title">Deslizar horizontalmente para mudar de música</string>
     <string name="swipe_to_skip_description">Deslize horizontalmente no reprodutor para mudar de música</string>
-    <string name="oobe_welcome_message">Boas vindas ao InterTune</string>
+    <string name="oobe_welcome_message">Boas-vindas ao InterTune</string>
     <string name="oobe_ytm_integration">Integração com o YouTube Music</string>
     <string name="oobe_ytm_integration_description">Aceda as suas músicas favoritas</string>
     <string name="oobe_ad_free_exp">Sem anúncios do YouTube</string>

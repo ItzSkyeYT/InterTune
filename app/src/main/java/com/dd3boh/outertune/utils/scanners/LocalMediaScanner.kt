@@ -1186,7 +1186,11 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                         }
                     }
                 }
-                localScanner = LocalMediaScanner(context, scannerImpl)
+                // The application context, not the caller's. Callers hand over
+                // LocalContext.current from a composable, which is the Activity, and this holds it
+                // in a static until destroyScanner runs: a rotation in between leaks the whole
+                // Activity. The scanner only ever wants contentResolver and dataStore.
+                localScanner = LocalMediaScanner(context.applicationContext, scannerImpl)
                 scannerProgressTotal.value = 0
                 scannerProgressCurrent.value = -1
                 scannerProgressProbe.value = 0
