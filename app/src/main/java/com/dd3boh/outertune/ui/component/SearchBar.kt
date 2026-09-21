@@ -166,19 +166,24 @@ fun SearchBar(
 
     val defaultInputFieldShape = SearchBarDefaults.inputFieldShape
     val defaultFullScreenShape = SearchBarDefaults.fullScreenShape
-    val animatedShape by remember {
-        derivedStateOf {
-            when {
-                shape == defaultInputFieldShape -> {
-                    // The shape can only be animated if it's the default spec value
-                    val animatedRadius = SearchBarCornerRadius * (1 - animationProgress)
-                    RoundedCornerShape(CornerSize(animatedRadius))
-                }
-
-                animationProgress == 1f -> defaultFullScreenShape
-                else -> shape
-            }
+    // Plain vals, not remembered derived state.
+    //
+    // Both of these used to be `remember { derivedStateOf { ... } }`. derivedStateOf re-runs when
+    // state read INSIDE its lambda changes, and animationProgress is read outside it, one line up:
+    // the lambda closed over a Float. With no keys on the remember it was computed once, at
+    // progress 0, and never again. So the shape stayed a shut pill forever, and the input field's
+    // padding stayed zero, which is why the open search bar rendered under the clock. The
+    // memoisation bought nothing either way, because reading openness.value recomposes this
+    // function on every frame of the animation regardless.
+    val animatedShape = when {
+        shape == defaultInputFieldShape -> {
+            // The shape can only be animated if it's the default spec value
+            val animatedRadius = SearchBarCornerRadius * (1 - animationProgress)
+            RoundedCornerShape(CornerSize(animatedRadius))
         }
+
+        animationProgress == 1f -> defaultFullScreenShape
+        else -> shape
     }
 
     val topInset = windowInsets.asPaddingValues().calculateTopPadding()
@@ -187,16 +192,12 @@ fun SearchBar(
 
     val topPadding = SearchBarVerticalPadding + topInset
     val animatedSurfaceTopPadding = lerp(topPadding, 0.dp, animationProgress)
-    val animatedInputFieldPadding by remember {
-        derivedStateOf {
-            PaddingValues(
-                start = startInset * animationProgress,
-                top = topPadding * animationProgress,
-                end = endInset * animationProgress,
-                bottom = SearchBarVerticalPadding * animationProgress,
-            )
-        }
-    }
+    val animatedInputFieldPadding = PaddingValues(
+        start = startInset * animationProgress,
+        top = topPadding * animationProgress,
+        end = endInset * animationProgress,
+        bottom = SearchBarVerticalPadding * animationProgress,
+    )
 
     BoxWithConstraints(
         modifier = modifier
