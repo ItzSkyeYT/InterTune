@@ -187,15 +187,27 @@ object YouTube {
 
     suspend fun search(query: String, filter: SearchFilter): Result<SearchResult> = runCatching {
         val response = innerTube.search(WEB_REMIX, query, filter.value).body<SearchResponse>()
+        val sections = response.contents?.tabbedSearchResultsRenderer?.tabs?.firstOrNull()
+            ?.tabRenderer?.content?.sectionListRenderer?.contents.orEmpty()
+
+        // The last section that actually carries results, rather than whichever section happens
+        // to come last. lastOrNull() was chosen to step over a leading "did you mean" section and
+        // it does that, but it also bets that nothing is ever appended after the results, and the
+        // bet loses in silence: every link in the chain was a safe call ending in orEmpty(), so a
+        // miss is an empty list inside a *successful* Result, which is indistinguishable from
+        // YouTube not having the song. That bet has already been lost once here, when a Comments
+        // tab appeared and every related lookup went quiet (606937534), and c2abf3324 taught
+        // searchSummary that results now sometimes arrive wrapped in an itemSectionRenderer
+        // rather than a titled shelf. This function is twenty lines below it and was never told.
+        val shelf = sections.lastOrNull { it.musicShelfRenderer != null }?.musicShelfRenderer
+        val rows = shelf?.contents
+            ?: sections.lastOrNull { it.itemSectionRenderer != null }?.itemSectionRenderer?.contents
+
         SearchResult(
-            items = response.contents?.tabbedSearchResultsRenderer?.tabs?.firstOrNull()
-                ?.tabRenderer?.content?.sectionListRenderer?.contents?.lastOrNull()
-                ?.musicShelfRenderer?.contents?.getItems()?.mapNotNull {
-                    SearchPage.toYTItem(it)
-                }.orEmpty(),
-            continuation = response.contents?.tabbedSearchResultsRenderer?.tabs?.firstOrNull()
-                ?.tabRenderer?.content?.sectionListRenderer?.contents?.lastOrNull()
-                ?.musicShelfRenderer?.continuations?.getContinuation()
+            items = rows?.getItems()?.mapNotNull {
+                SearchPage.toYTItem(it)
+            }.orEmpty(),
+            continuation = shelf?.continuations?.getContinuation()
         )
     }
 
