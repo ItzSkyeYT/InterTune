@@ -169,6 +169,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.random.Random
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -681,7 +683,12 @@ fun HomeScreen(
                 }
 
                 if ((quickPicksSource == QuickPicksSource.ENGINE || quickPicksSource == QuickPicksSource.COMPARE) && engineFallback == 0) {
-                    item(key = "context_chips") { ContextChipRow(viewModel = viewModel, modifier = Modifier.animateItem()) }
+                    item(key = "context_chips") {
+                        ContextChipRow(
+                            viewModel = viewModel,
+                            modifier = Modifier.animateItem().tourTarget(Tour.QUICK_PICKS_CHIPS),
+                        )
+                    }
                 }
                 if (ytPicks != null || localPicks.isNotEmpty()) {
                     item(key = "quick_picks_grid") {

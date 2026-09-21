@@ -168,9 +168,12 @@ import com.dd3boh.outertune.ui.screens.BrowseScreen
 import com.dd3boh.outertune.ui.screens.HistoryScreen
 import com.dd3boh.outertune.ui.screens.HomeScreen
 import com.dd3boh.outertune.ui.screens.LastFmLoginScreen
-import com.dd3boh.outertune.ui.screens.walkthrough.WalkthroughScreen
-import com.dd3boh.outertune.ui.screens.walkthrough.walkthroughAll
-import com.dd3boh.outertune.ui.screens.walkthrough.walkthroughFor
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+import com.dd3boh.outertune.ui.screens.walkthrough.TourOverlay
+import com.dd3boh.outertune.ui.screens.walkthrough.TourState
+import com.dd3boh.outertune.ui.screens.walkthrough.tourFor
+import com.dd3boh.outertune.ui.screens.walkthrough.tourAll
 import com.dd3boh.outertune.constants.WalkthroughSeenVersionKey
 import com.dd3boh.outertune.ui.screens.RecognitionScreen
 import com.dd3boh.outertune.ui.screens.settings.RecognitionSettings
@@ -766,6 +769,10 @@ class MainActivity : ComponentActivity() {
                                 )
                         }
 
+                    // One tour for the activity. It outlives individual screens because it
+                    // points at controls belonging to several of them.
+                    val tourState = remember { TourState() }
+
                     val scrollBehavior = appBarScrollBehavior(
                         canScroll = {
                             navBackStackEntry?.destination?.route?.startsWith("search/") == false &&
@@ -879,30 +886,19 @@ class MainActivity : ComponentActivity() {
                          */
                         val (walkthroughSeen, setWalkthroughSeen) =
                             rememberPreference(WalkthroughSeenVersionKey, defaultValue = 0)
-                        var walkthroughOpen by rememberSaveable { mutableStateOf(false) }
-                        val pendingSteps = remember(walkthroughSeen) { walkthroughFor(walkthroughSeen) }
+                        val pendingStops = remember(walkthroughSeen) { tourFor(walkthroughSeen) }
 
-                        LaunchedEffect(oobeStatus, catchUpOpen, pendingSteps, updatePromptVisible) {
+                        LaunchedEffect(oobeStatus, catchUpOpen, pendingStops, updatePromptVisible) {
                             if (!catchUpOpen && !updatePromptVisible &&
-                                oobeStatus >= OOBE_VERSION && pendingSteps.isNotEmpty()
+                                oobeStatus >= OOBE_VERSION && pendingStops.isNotEmpty() &&
+                                !tourState.running
                             ) {
-                                walkthroughOpen = true
+                                // A beat after the first frame, so the controls it points at have
+                                // reported where they are. Pointing at a target that has not been
+                                // measured yet puts the hole in the top left corner.
+                                delay(600)
+                                tourState.start(pendingStops)
                             }
-                        }
-
-                        // Rendered on the live condition, not just opened on it. pendingUpdate
-                        // resolves a moment after launch, so gating only the opening let the
-                        // walkthrough latch first and the update prompt land on top of it. This
-                        // way it steps aside while the update is up and comes back afterwards.
-                        if (walkthroughOpen && !updatePromptVisible) {
-                            WalkthroughScreen(
-                                steps = pendingSteps,
-                                onNavigate = { navController.navigate(it) },
-                                onFinish = {
-                                    walkthroughOpen = false
-                                    setWalkthroughSeen(BuildConfig.VERSION_CODE)
-                                },
-                            )
                         }
 
                         if (catchUpOpen) {
@@ -1193,35 +1189,19 @@ class MainActivity : ComponentActivity() {
                                         RecognitionSettings(navController, scrollBehavior)
                                     }
                                     composable("walkthrough") {
-                                        val (_, setSeen) = rememberPreference(
-                                            WalkthroughSeenVersionKey, defaultValue = 0
-                                        )
-                                        WalkthroughScreen(
-                                            // Reached by hand from settings, so it shows
-                                            // everything rather than only what is new.
-                                            steps = walkthroughAll(),
-                                            onNavigate = { navController.navigate(it) },
-                                            onFinish = {
-                                                setSeen(BuildConfig.VERSION_CODE)
-                                                navController.navigateUp()
-                                            },
-                                        )
-                                    }
-                                    composable("walkthrough/new") {
-                                        val (seen, setSeen) = rememberPreference(
-                                            WalkthroughSeenVersionKey, defaultValue = 0
-                                        )
-                                        // Remembered once, so finishing the last step does not
-                                        // recompose the list out from under the screen.
-                                        val newSteps = remember(Unit) { walkthroughFor(seen) }
-                                        WalkthroughScreen(
-                                            steps = newSteps,
-                                            onNavigate = { navController.navigate(it) },
-                                            onFinish = {
-                                                setSeen(BuildConfig.VERSION_CODE)
-                                                navController.navigateUp()
-                                            },
-                                        )
+                                        // Starts the tour and gets out of the way. The tour points
+                                        // at controls that live on Home and in the bars around it,
+                                        // none of which exist while Settings is on screen, so it
+                                        // has to send the user back there before it can point at
+                                        // anything.
+                                        LaunchedEffect(Unit) {
+                                            navController.popBackStack(
+                                                navController.graph.startDestinationId,
+                                                inclusive = false,
+                                            )
+                                            delay(500)
+                                            tourState.start(tourAll())
+                                        }
                                     }
                                     composable("recognition") {
                                         RecognitionScreen(navController, scrollBehavior)
@@ -1377,6 +1357,12 @@ class MainActivity : ComponentActivity() {
 //                                            it.route?.substringBefore("?")?.substringBefore("/") == screen.route
 //                                        } == true
                                         NavigationBarItem(
+                                            // Only the library tab is pointed at, so only it is
+                                            // reported. Tagging every tab would have four of them
+                                            // writing bounds on every recomposition of the bar.
+                                            modifier = if (screen.route == Screens.Library.route) {
+                                                Modifier.tourTarget(Tour.NAV_LIBRARY)
+                                            } else Modifier,
                                             selected = navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true,
                                             icon = {
                                                 Icon(
@@ -1553,6 +1539,14 @@ class MainActivity : ComponentActivity() {
                                 navHost()
 
                                 SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
+
+                                // Last, so it is over the search bar and the navigation bar as
+                                // well as the content. Those are half of what it points at.
+                                TourOverlay(
+                                    state = tourState,
+                                    onNavigate = { navController.navigate(it) },
+                                    onFinish = { setWalkthroughSeen(BuildConfig.VERSION_CODE) },
+                                )
                             }
 
                             // BottomSheetPlayer and the dock BOTH stay outside the published layer.

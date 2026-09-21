@@ -72,6 +72,8 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.youtubeNavigator
 import androidx.compose.foundation.layout.Row
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -161,6 +163,7 @@ fun SearchBarContainer(
         exit = fadeOut()
     ) {
         SearchBar(
+            modifier = Modifier.tourTarget(Tour.SEARCH_BAR),
             query = query,
             onQueryChange = onQueryChange,
             onSearch = onSearch,
@@ -236,6 +239,7 @@ fun SearchBarContainer(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
+                                .tourTarget(Tour.RECOGNISE)
                                 .clickable { navController.navigate("recognition") }
                         ) {
                             Icon(
@@ -248,6 +252,7 @@ fun SearchBarContainer(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
+                                .tourTarget(Tour.SETTINGS)
                                 .clickable {
                                     navController.navigate("settings")
                                 }
