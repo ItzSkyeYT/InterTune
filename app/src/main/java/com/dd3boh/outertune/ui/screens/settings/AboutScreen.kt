@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Links
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.LYRIC_FETCH_TIMEOUT
 import com.dd3boh.outertune.constants.MAX_LM_SCANNER_JOBS
@@ -197,13 +198,19 @@ fun AboutScreen(
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_bug_report_action)) },
                     onClick = {
-                        uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune/issues")
+                        uriHandler.openUri(Links.ISSUES)
                     }
                 )
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_support_forum)) },
                     onClick = {
-                        uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune/discussions")
+                        uriHandler.openUri(Links.DISCUSSIONS)
+                    }
+                )
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.help_discord)) },
+                    onClick = {
+                        uriHandler.openUri(Links.DISCORD)
                     }
                 )
                 PreferenceEntry(

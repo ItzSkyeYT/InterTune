@@ -123,6 +123,8 @@ import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.YouTubeAlbumRadio
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
+import com.dd3boh.outertune.ui.component.AnnouncementBanner
+import com.dd3boh.outertune.ui.component.AnnouncementDialog
 import com.dd3boh.outertune.ui.component.PollBanner
 import com.dd3boh.outertune.ui.component.ThrottleBanner
 import com.dd3boh.outertune.ui.component.PollDialog
@@ -188,7 +190,9 @@ fun HomeScreen(
 
     val pollChecker = LocalPollChecker.current
     val pendingPoll by pollChecker.current.collectAsState()
+    val pendingAnnouncement by pollChecker.currentAnnouncement.collectAsState()
     var showPoll by rememberSaveable { mutableStateOf(false) }
+    var showAnnouncement by rememberSaveable { mutableStateOf(false) }
 
     // Opened from its own notification. Waits for the question to have loaded, since the tap can
     // arrive before the cached document has been read back on a cold start.
@@ -585,6 +589,19 @@ fun HomeScreen(
 
             // Above Quick picks and below the chips: visible without being in the way, and it
             // scrolls off with everything else rather than pinning itself to the top.
+            // Above the question, because a notice is read once and a question is answered once,
+            // and the one that costs less attention should come first. Both can be present.
+            pendingAnnouncement?.let { note ->
+                item(key = "announcement_banner") {
+                    AnnouncementBanner(
+                        announcement = note,
+                        onOpen = { showAnnouncement = true },
+                        onDismiss = { scope.launch { pollChecker.dismissAnnouncement(note.id) } },
+                        modifier = Modifier.animateItem(),
+                    )
+                }
+            }
+
             pendingPoll?.let { poll ->
                 item(key = "poll_banner") {
                     PollBanner(
@@ -1129,6 +1146,19 @@ fun HomeScreen(
     // Only ever opened by tapping the banner. Closing without answering leaves the question
     // unanswered rather than marking it dealt with, so the banner stays until it is dismissed.
     pendingPoll?.takeIf { showPoll }?.let { poll ->
+        if (showAnnouncement) {
+            pendingAnnouncement?.let { note ->
+                AnnouncementDialog(
+                    announcement = note,
+                    onDismiss = {
+                        showAnnouncement = false
+                        // Opening it is what deals with it; it does not come back tomorrow.
+                        scope.launch { pollChecker.dismissAnnouncement(note.id) }
+                    },
+                )
+            }
+        }
+
         PollDialog(
             poll = poll,
             onSubmit = { chosen ->
