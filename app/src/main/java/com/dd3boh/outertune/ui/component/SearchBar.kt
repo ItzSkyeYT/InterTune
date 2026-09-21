@@ -193,7 +193,15 @@ fun SearchBar(
     BoxWithConstraints(
         modifier = modifier
             .offset {
-                IntOffset(x = 0, y = scrollBehavior.state.heightOffset.roundToInt())
+                // Faded out as the bar opens. The offset is what lets the collapsed bar scroll
+                // away with the list, and its limit is the app bar height plus the status bar, so
+                // a list scrolled to the top of its range carried the full screen search up behind
+                // the clock the moment it was tapped: the field sat under the status bar and the
+                // first row under the field. Shut it is the whole offset, open it is none.
+                IntOffset(
+                    x = 0,
+                    y = (scrollBehavior.state.heightOffset * (1f - animationProgress)).roundToInt(),
+                )
             },
         propagateMinConstraints = true
     ) {
