@@ -102,6 +102,7 @@ import com.dd3boh.outertune.ui.component.button.backButtonSurface
 import com.dd3boh.outertune.ui.component.items.ListItem
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.utils.backToMain
+import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
@@ -163,6 +164,19 @@ fun RecognitionScreen(
             viewModel.setContinuous(pendingContinuous)
             viewModel.start(null)
         }
+    }
+
+    /**
+     * The escape hatch, for every case where the engine cannot hand over something playable.
+     *
+     * Shazam gives a title and an artist even when the YouTube search finds nothing, and the app
+     * already has a search that takes exactly that. Sending it there beats showing a name with no
+     * way to act on it, and it is also the answer when the match is right but the version is not:
+     * a song has a dozen uploads and Shazam has an opinion about none of them.
+     */
+    fun searchFor(title: String, artist: String) {
+        val query = listOf(title, artist).filter { it.isNotBlank() }.joinToString(" ")
+        if (query.isNotBlank()) navController.navigate("search/${query.urlEncode()}")
     }
 
     fun listen(keepGoing: Boolean) {
@@ -288,7 +302,13 @@ fun RecognitionScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
-                            modifier = Modifier.padding(top = 4.dp),
+                            // These are songs it heard and named but could not place confidently.
+                            // They were text, which made the list a tally of near misses with no
+                            // way to act on any of them.
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { searchFor(entry.title, entry.artist) }
+                                .padding(top = 4.dp),
                         )
                     }
                 }
@@ -304,6 +324,20 @@ fun RecognitionScreen(
                     text = found.track.title + (found.track.artist?.let { " · $it" } ?: ""),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+            item(key = "find_other") {
+                Text(
+                    text = stringResource(
+                        if (found.candidates.isEmpty()) R.string.recognition_find_nothing
+                        else R.string.recognition_find_other
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { searchFor(found.track.title, found.track.artist.orEmpty()) }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 )
             }
             items(found.candidates, key = { it.id }) { song ->

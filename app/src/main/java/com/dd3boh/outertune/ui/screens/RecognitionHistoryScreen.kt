@@ -44,6 +44,7 @@ import com.dd3boh.outertune.recognition.RecognitionViewModel
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.backButtonSurface
 import com.dd3boh.outertune.ui.utils.backToMain
+import com.dd3boh.outertune.utils.urlEncode
 import com.zionhuang.innertube.models.WatchEndpoint
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -90,14 +91,23 @@ fun RecognitionHistoryScreen(
             items(heard, key = { it.at }) { entry ->
                 HeardRow(
                     entry = entry,
-                    onPlay = entry.videoId?.let { id ->
-                        {
+                    // Placed on YouTube at the time: play it. Named but never placed, which is a
+                    // real and common outcome: search for it, so the row is worth tapping either
+                    // way rather than being a name with nothing behind it.
+                    onOpen = {
+                        val id = entry.videoId
+                        if (id != null) {
                             scope.launch {
                                 playerConnection?.playQueue(
                                     YouTubeQueue(WatchEndpoint(videoId = id))
                                 )
                             }
-                            Unit
+                        } else {
+                            val query = listOf(entry.title, entry.artist)
+                                .filter { it.isNotBlank() }.joinToString(" ")
+                            if (query.isNotBlank()) {
+                                navController.navigate("search/${query.urlEncode()}")
+                            }
                         }
                     },
                 )
@@ -122,14 +132,14 @@ fun RecognitionHistoryScreen(
 }
 
 @Composable
-private fun HeardRow(entry: Heard, onPlay: (() -> Unit)?) {
+private fun HeardRow(entry: Heard, onOpen: () -> Unit) {
     val when_ = remember(entry.at) {
         DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(entry.at))
     }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (onPlay != null) Modifier.clickable(onClick = onPlay) else Modifier)
+            .clickable(onClick = onOpen)
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Text(

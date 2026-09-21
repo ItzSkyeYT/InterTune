@@ -788,6 +788,8 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="recognise_keep_awake">Keep the screen on while listening</string>
     <string name="recognise_keep_awake_explain">Holds the screen awake so you can watch it work. Listening carries on with the screen off regardless, so this is about seeing it rather than about it running.</string>
     <string name="recognise_keep_awake_desc">Listening continues with the screen off either way</string>
+    <string name="recognition_find_other">Not the right one? Search for it</string>
+    <string name="recognition_find_nothing">Nothing on YouTube matched it. Search for it yourself.</string>
     <string name="recognition_history">What you have heard</string>
     <string name="recognition_history_empty">Nothing yet. Songs you identify will be listed here.</string>
     <string name="recognition_no_match">Shazam did not recognise that.</string>
