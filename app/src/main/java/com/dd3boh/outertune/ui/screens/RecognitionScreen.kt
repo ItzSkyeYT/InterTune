@@ -176,7 +176,7 @@ fun RecognitionScreen(
             ListenButton(
                 listening = listening,
                 continuous = continuous,
-                compact = history.isNotEmpty(),
+                compact = history.size > 1,
                 onClick = { listen(keepListeningDefault) },
             )
         }
@@ -215,7 +215,10 @@ fun RecognitionScreen(
 
         // No heading and no empty state when nothing has been heard yet. An empty list with a
         // title over it is a promise the screen has not kept; the button alone says what to do.
-        if (history.isNotEmpty()) {
+        // One song is not a list. It keeps the big button and sits under it as a single row, so
+        // the screen reads as "here is what that was" rather than as a history with one entry in
+        // it. The heading and the clear button only earn their place once there is a list to head.
+        if (history.size > 1) {
             item(key = "history_header") {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -233,6 +236,9 @@ fun RecognitionScreen(
                 }
             }
 
+        }
+
+        if (history.isNotEmpty()) {
             items(history, key = { it.key ?: (it.title + it.artist) }) { match ->
                 RecognisedSongRow(
                     match = match,
