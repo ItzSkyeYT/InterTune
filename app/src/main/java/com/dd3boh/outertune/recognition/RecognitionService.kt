@@ -15,6 +15,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -55,23 +56,37 @@ class RecognitionService : Service() {
         super.onCreate()
         createChannel()
 
+        // Stopping is its own collector so that it is prompt. It used to be a check at the top of
+        // the redraw loop, which tied how quickly the service goes away to how often it redraws,
+        // and the redraw interval is about to stop being one second.
+        scope.launch {
+            engine.running.collect { running -> if (!running) stopSelf() }
+        }
+
         // Redrawn on a timer rather than only on events, because the progress bar has to move
         // between recognitions. The position is arithmetic on the last match, not a new request,
-        // so this costs nothing but the redraw.
+        // so a redraw is cheap, but cheap once a second for hours is not cheap: a continuous run
+        // has no timeout and stops only when somebody stops it, so this was waking the process
+        // 3600 times an hour for as long as it listened.
+        //
+        // With the screen off nobody is looking at the progress bar, and the only thing the timer
+        // has to do is exist. So it drops to a slow tick and the notification is redrawn on the
+        // way back: isInteractive is a cheap read, and the first pass after the screen comes on
+        // repaints before anybody has focused on it.
         scope.launch {
-            while (true) {
-                if (!engine.running.value) {
-                    stopSelf()
-                    return@launch
+            val power = getSystemService(PowerManager::class.java)
+            while (engine.running.value) {
+                val watching = power?.isInteractive != false
+                if (watching) {
+                    // Posting needs POST_NOTIFICATIONS from API 33. Without it the update is simply
+                    // dropped, which is correct: the service is already foreground and the person
+                    // refused to be told about it.
+                    val notifier = NotificationManagerCompat.from(this@RecognitionService)
+                    if (notifier.areNotificationsEnabled()) {
+                        notifier.notify(NOTIFICATION_ID, build(engine.added.value.size))
+                    }
                 }
-                // Posting needs POST_NOTIFICATIONS from API 33. Without it the update is simply
-                // dropped, which is correct: the service is already foreground and the person
-                // refused to be told about it.
-                val notifier = NotificationManagerCompat.from(this@RecognitionService)
-                if (notifier.areNotificationsEnabled()) {
-                    notifier.notify(NOTIFICATION_ID, build(engine.added.value.size))
-                }
-                delay(1000)
+                delay(if (watching) 1000L else 30_000L)
             }
         }
     }
