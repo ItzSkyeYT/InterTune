@@ -47,6 +47,48 @@ class LastFm(
     fun authorizeUrl(token: String) = "https://www.last.fm/api/auth/?api_key=$apiKey&token=$token"
 
     /**
+     * What Last.fm thinks sounds like this, as a second opinion on YouTube's related graph.
+     *
+     * A public read: the API key and nothing else, no session, no signature. So this works for
+     * somebody who has never connected an account, which matters because connecting one is a
+     * browser round trip most people will not make for a recommendation feature.
+     *
+     * Worth having precisely because it disagrees with YouTube. That graph is built from what
+     * people watch next on a platform optimised for watch time; this one is built from what people
+     * scrobble, which is closer to what they choose to listen to. Two population-level opinions
+     * blended beat either alone, and neither can be improved on from one listener's history.
+     *
+     * [autocorrect] lets Last.fm fix spelling and canonicalise the artist, which matters because
+     * the titles here come from YouTube uploads rather than from a catalogue.
+     *
+     * @param limit Last.fm's own cap is 100; the default is deliberately smaller, since the engine
+     *   walks these edges and a hundred weak neighbours per seed is noise rather than reach.
+     */
+    suspend fun similar(
+        artist: String,
+        track: String,
+        limit: Int = 30,
+        autocorrect: Boolean = true,
+    ): Result<List<SimilarTrack>> = runCatching {
+        if (artist.isBlank() || track.isBlank()) return@runCatching emptyList()
+        val body = client.get(ROOT) {
+            parameter("method", "track.getSimilar")
+            parameter("artist", artist)
+            parameter("track", track)
+            parameter("limit", limit)
+            parameter("autocorrect", if (autocorrect) 1 else 0)
+            parameter("api_key", apiKey)
+            parameter("format", "json")
+        }.body<SimilarResponse>()
+        // Same shape as everywhere else here: failure arrives as HTTP 200 with an error body, so
+        // it has to be read or the caller gets a parser complaint instead of the real cause.
+        body.error?.let { throw LastFmException(it, body.message ?: "no message") }
+        // A known track with nothing similar returns the wrapper and no array, which is not an
+        // error and should not be reported as one.
+        body.similartracks?.track.orEmpty()
+    }
+
+    /**
      * Step three, after the user has approved. The session key it returns does not expire, so it is
      * stored once and reused; there is no refresh to get wrong.
      */
