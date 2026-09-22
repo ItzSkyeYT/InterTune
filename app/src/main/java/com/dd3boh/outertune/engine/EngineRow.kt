@@ -101,13 +101,35 @@ object EngineRow {
             }
         }
         val bannedArtists = input.exclusions.filter { it.kind == 2 }.mapTo(HashSet()) { it.targetId }
-        input.exclusions.filter { it.kind == 1 }.forEach { excludedGroups += groups.groupOf(it.targetId) }
-        input.banned.forEach { excludedGroups += groups.groupOf(it) }
+
+        // A permanent ban is matched by title AND artist, not by version group.
+        //
+        // The exclusions above are all about this build: a seed, something just played, something
+        // in the current session. For those, VersionGroups ignoring the artist is right, and it
+        // says why: a false merge costs one card for one build, a false split puts two versions of
+        // a song side by side. But a kind-1 exclusion is "not this song", ever, and it never
+        // expires. At that lifetime a false merge costs a song the listener never banned, hidden
+        // from every lane of every future row, with one entry in the Exclusions screen naming the
+        // other song and no way to tell what else went with it.
+        //
+        // Groups union on equal base titles with no artist term, and titles recur across artists
+        // constantly: Alone, Home, Angel, Runaway, Faded, Paradise, Sunflower. Banning one
+        // Sunflower banned the other. TidyPass has always used versionKey, which carries the
+        // artist, for exactly this, so the two halves of Home disagreed about what one tap meant.
+        // They agree now.
+        val bannedKeys = (input.exclusions.filter { it.kind == 1 }.map { it.targetId } + input.banned)
+            .mapNotNullTo(HashSet()) { id ->
+                input.songs[id]?.let { versionKey(it.title, it.artistName) }
+            }
+        val bannedIds = (input.exclusions.filter { it.kind == 1 }.map { it.targetId } + input.banned)
+            .toHashSet()
 
         fun eligible(id: String): Boolean {
             val s = input.songs[id] ?: return false
             if (!s.playable) return false
             if (s.artistId != null && s.artistId in bannedArtists) return false
+            // By id as well as by key, so a ban still holds on a song whose row has since gone.
+            if (id in bannedIds || versionKey(s.title, s.artistName) in bannedKeys) return false
             return groups.groupOf(id) !in excludedGroups
         }
 

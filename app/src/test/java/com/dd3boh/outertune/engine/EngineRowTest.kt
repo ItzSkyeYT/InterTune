@@ -145,6 +145,32 @@ class EngineRowTest {
     }
 
     @Test
+    fun `banning a song does not ban another artist's song of the same name`() {
+        // The case that was broken. Kind-1 exclusions were matched by version group, and groups
+        // union on equal base titles with the artist deliberately ignored. Titles recur across
+        // artists constantly, so "not this song" on one Sunflower hid every other Sunflower, from
+        // every lane, for ever, with one entry in the Exclusions screen naming only the first.
+        val w = bigWorld()
+        // Same title as a1s0, different artist, and reachable: artist 19's songs refer to it.
+        w.song("twin", "artist19", title = "Song 1 0")
+        w.edge("a19s0", "twin"); w.edge("a19s1", "twin"); w.edge("a19s2", "twin")
+        for (d in 1..8) w.play("a19s0", hoursAgo = d * 6.0, session = 2000L + d)
+
+        val banned = w.input(exclusions = listOf(ExclusionRow(1, "a1s0")))
+        var twinSeen = false
+        repeat(40) { attempt ->
+            val row = EngineRow.build(banned, random = Random(attempt.toLong()))
+            row.cards.forEach { c ->
+                // The ban still holds on the song itself and on its own artist's live version.
+                assertTrue("the banned song came back", c.songId != "a1s0")
+                assertTrue("the banned song's own version came back", c.songId != "a1live")
+                if (c.songId == "twin") twinSeen = true
+            }
+        }
+        assertTrue("another artist's song of the same name is still banned", twinSeen)
+    }
+
+    @Test
     fun `explore cards are new to the listener and say so`() {
         val w = bigWorld()
         val row = EngineRow.build(w.input(), random = Random(3))
