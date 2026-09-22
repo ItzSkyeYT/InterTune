@@ -178,8 +178,10 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -814,25 +816,37 @@ class MusicService : MediaLibraryService(),
 
             // The sleep timer's own notification, and the only thing in this app that can be a
             // Live Update: the media notification draws a custom view, which the platform refuses
-            // to promote. Polled rather than observed because triggerTime is Compose state and the
-            // thing being shown is a countdown, which has to be redrawn as it counts anyway. A
-            // minute is the resolution the text shows, so it is also the resolution it needs.
+            // to promote.
+            //
+            // A countdown has to be redrawn as it counts, so the armed case is a timer and always
+            // was. What was wrong is the other case. This polled every five seconds while the
+            // timer was idle and every thirty while it was running, which is backwards twice over:
+            // the frequent poll was the one doing nothing, and idle is where this lives almost all
+            // of the time. On the service scope, for the whole life of the service, that is 720
+            // wakeups an hour to read a boolean and go back to sleep.
+            //
+            // isActive is derived from triggerTime and pauseWhenSongEnd, both Compose state, so it
+            // can simply be watched. Idle now costs nothing at all and the countdown still ticks at
+            // the resolution its text shows.
             scope.launch {
                 var shown = false
-                while (isActive) {
-                    val armed = sleepTimer.isActive
-                    if (armed) {
+                snapshotFlow { sleepTimer.isActive }.collectLatest { armed ->
+                    if (!armed) {
+                        if (shown) {
+                            sleepTimerNotification.hide()
+                            shown = false
+                        }
+                        return@collectLatest
+                    }
+                    while (isActive) {
                         val trigger = sleepTimer.triggerTime
                         sleepTimerNotification.show(
                             if (trigger == -1L) null
                             else (trigger - System.currentTimeMillis()).coerceAtLeast(0L)
                         )
                         shown = true
-                    } else if (shown) {
-                        sleepTimerNotification.hide()
-                        shown = false
+                        delay(SLEEP_TIMER_NOTIF_TICK_MS)
                     }
-                    delay(if (armed) SLEEP_TIMER_NOTIF_TICK_MS else SLEEP_TIMER_NOTIF_IDLE_MS)
                 }
             }
 
@@ -2632,7 +2646,6 @@ class MusicService : MediaLibraryService(),
         private const val SLEEP_TIMER_NOTIF_TICK_MS = 30_000L
 
         /** How often to look for a newly armed timer. Cheap: it is one boolean read. */
-        private const val SLEEP_TIMER_NOTIF_IDLE_MS = 5_000L
 
         const val CHANNEL_ID = "music_channel_01"
         const val CHANNEL_NAME = "fgs_workaround"
