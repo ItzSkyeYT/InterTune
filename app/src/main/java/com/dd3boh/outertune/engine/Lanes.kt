@@ -15,14 +15,24 @@ class Candidate(val songId: String, val lane: Lane, val x: DoubleArray, val z: D
 
 /** How many cards each lane gets, by largest remainder over the row. */
 fun quotas(rowSize: Int, dial: Double, newOnly: Boolean, p: EngineParams = EngineParams.DEFAULT): Map<Lane, Int> {
-    val e = if (newOnly) 1.0 else (p.exploreBase + p.exploreSpan * dial.coerceIn(0.0, 1.0))
+    val d = dial.coerceIn(0.0, 1.0)
+    val e = if (newOnly) 1.0 else (p.exploreBase + p.exploreSpan * d)
     val rest = 1 - e
+    // The dial decides what the rest is made of, not only how much of it there is. Again and
+    // Rediscover are replay by definition; Related is a neighbour of something known and need not
+    // itself be known, so it is where the weight goes. Shrinking all four evenly meant that asking
+    // for more new music still bought the same proportion of already-played songs as of anything
+    // else, which is the opposite of what the dial is for. See EngineParams.dialFreesReplay.
+    val keep = 1 - d * p.dialFreesReplay
+    val again = p.againShare * keep
+    val rediscover = p.rediscoverShare * keep
+    val freed = (p.againShare - again) + (p.rediscoverShare - rediscover)
     val shares = mapOf(
         Lane.EXPLORE to e,
-        Lane.RELATED to rest * p.relatedShare,
-        Lane.AGAIN to rest * p.againShare,
+        Lane.RELATED to rest * (p.relatedShare + freed),
+        Lane.AGAIN to rest * again,
         Lane.ARTIST to rest * p.artistShare,
-        Lane.REDISCOVER to rest * p.rediscoverShare,
+        Lane.REDISCOVER to rest * rediscover,
     )
     val floors = shares.mapValues { (_, s) -> (s * rowSize).toInt() }
     var left = rowSize - floors.values.sum()

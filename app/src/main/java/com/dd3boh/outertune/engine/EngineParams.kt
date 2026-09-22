@@ -80,14 +80,36 @@ data class EngineParams(
     // ---- The row
     val rowSize: Int = 20,
     val columns: Int = 4,
-    /** Explore share is [exploreBase] + [exploreSpan] times the dial in [0, 1]. */
+    /**
+     * Explore share is [exploreBase] + [exploreSpan] times the dial in [0, 1].
+     *
+     * The span was 0.30, which put the whole dial between one and seven new cards of twenty, and
+     * left the only way to ask for more as the all-or-nothing New songs only switch. That is a gap
+     * nobody can sit in, and it is the wrong gap: a listener whose plays are spread over 1400
+     * artists at under five plays each has no core to return to, so a row that is 17 parts reminder
+     * and 3 parts discovery is mostly noise to them. The dial now reaches far enough to say so.
+     */
     val exploreBase: Double = 0.05,
-    val exploreSpan: Double = 0.30,
+    val exploreSpan: Double = 0.75,
     /** The rest of the row after explore, split between the four other lanes. */
     val relatedShare: Double = 0.40,
     val againShare: Double = 0.25,
     val artistShare: Double = 0.20,
     val rediscoverShare: Double = 0.15,
+    /**
+     * How much of Again and Rediscover the dial hands to Related on its way up.
+     *
+     * Turning the dial used to shrink all four remaining lanes evenly, so asking for more new music
+     * still bought the same proportion of songs already played as of anything else. But the four
+     * are not alike: Again and Rediscover are replay by definition, Artist is mostly replay, and
+     * Related is the bridge, a neighbour of something known that need not itself be known. So the
+     * dial now changes what the rest is made of as well as how much of it there is, and the weight
+     * it takes off the two replay lanes goes to the bridge rather than being spread back evenly.
+     *
+     * At 0.8 the far end of the dial leaves Again and Rediscover a twentieth of their share each
+     * rather than none: somebody who asks for new music mostly, not only, still gets an anchor.
+     */
+    val dialFreesReplay: Double = 0.8,
     /** Again: songs heard well inside this many days, but not inside [engineFreshHours]. */
     val againWindowDays: Int = 14,
     /**

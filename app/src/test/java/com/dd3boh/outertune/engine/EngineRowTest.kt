@@ -124,11 +124,31 @@ class EngineRowTest {
 
     @Test
     fun `the dial sets the explore share by largest remainder`() {
-        assertEquals(mapOf(Lane.EXPLORE to 2, Lane.RELATED to 7, Lane.AGAIN to 4, Lane.ARTIST to 4, Lane.REDISCOVER to 3), quotas(20, 0.15, false))
+        // The shipped default, which the wider dial moves from two new cards to three.
+        assertEquals(
+            mapOf(Lane.EXPLORE to 3, Lane.RELATED to 8, Lane.AGAIN to 4, Lane.ARTIST to 3, Lane.REDISCOVER to 2),
+            quotas(20, 0.15, false),
+        )
         assertEquals(20, quotas(20, 1.0, false).values.sum())
-        assertEquals(7, quotas(20, 1.0, false)[Lane.EXPLORE])
         assertEquals(1, quotas(20, 0.0, false)[Lane.EXPLORE])
         assertEquals(20, quotas(20, 0.5, true)[Lane.EXPLORE])
+
+        // The dial has to cover the distance between the two ends, not a sixth of it. It used to
+        // run from one new card to seven, and the only way to ask for more was the all-or-nothing
+        // New songs only switch, so a listener who wanted mostly new music had nowhere to stand.
+        assertEquals(16, quotas(20, 1.0, false)[Lane.EXPLORE])
+        assertTrue(quotas(20, 0.5, false)[Lane.EXPLORE]!! in 7..10)
+
+        // And it decides what the rest is made of. Again and Rediscover are replay by definition,
+        // so turning the dial up has to take from them rather than shrink every lane evenly, or
+        // asking for new music still buys the same proportion of songs already played.
+        val calm = quotas(20, 0.0, false)
+        val keen = quotas(20, 1.0, false)
+        assertTrue("Again should shrink as the dial rises", keen[Lane.AGAIN]!! < calm[Lane.AGAIN]!!)
+        assertTrue("Rediscover should shrink too", keen[Lane.REDISCOVER]!! < calm[Lane.REDISCOVER]!!)
+        for (dial in listOf(0.0, 0.15, 0.32, 0.5, 0.75, 1.0)) {
+            assertEquals("the row is always full", 20, quotas(20, dial, false).values.sum())
+        }
     }
 
     @Test
