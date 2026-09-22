@@ -1378,6 +1378,17 @@ class MusicService : MediaLibraryService(),
 
     suspend fun saveQueueToDisk(currentPosition: Long) {
         val data = queueBoard.getAllQueues()
+        // An empty board is ordinary: a fresh install that has been opened and browsed but never
+        // played has one, and so does anybody who has deleted every saved queue from the sheet.
+        // last() on it throws, and this runs inside deInitQueue's runBlocking during onDestroy, so
+        // the throw takes out the rest of teardown with it and leaks the session and the player.
+        //
+        // The early return rather than lastOrNull(), which also stops the throw but is a trap:
+        // updateAllQueues ends in nukeAliens(ids), and DELETE ... WHERE id NOT IN () matches every
+        // row, so writing an empty list wipes every saved queue. The service can be destroyed
+        // before initQueue has read them back, and that window is exactly where the quiet version
+        // of this bug would delete somebody's queues instead of crashing.
+        if (data.isEmpty()) return
         data.last().lastSongPos = currentPosition
         database.updateAllQueues(data)
     }

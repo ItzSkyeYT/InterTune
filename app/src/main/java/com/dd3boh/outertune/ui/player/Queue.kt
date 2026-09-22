@@ -865,7 +865,21 @@ fun BoxScope.QueueContent(
                 items = if (isSearching) filteredSongs else visibleSongs,
                 key = { _, item -> item.hashCode() },
                 contentType = { _, _ -> CONTENT_TYPE_SONG }
-            ) { index, window ->
+            ) { displayIndex, window ->
+                // The lambda hands back a position in the list being displayed, and every use of
+                // it below means a position in the queue. Those are the same list until a search
+                // narrows it, and then they are not: filteredSongs is a filter, so row 0 of two
+                // results is whatever row 0 of the whole queue was. Tapping a result played the
+                // wrong song and swiping one away removed the wrong song, which is the worse half
+                // because it is not obvious and not undoable.
+                //
+                // visibleSongs is safe by construction, being a prefix of the same list, so this
+                // only resolves while searching. Resolved once here rather than at nine call sites.
+                val index = if (isSearching) {
+                    mutableSongs.indexOf(window).takeIf { it >= 0 } ?: displayIndex
+                } else {
+                    displayIndex
+                }
                 ReorderableItem(
                     state = reorderableState,
                     key = window.hashCode()
