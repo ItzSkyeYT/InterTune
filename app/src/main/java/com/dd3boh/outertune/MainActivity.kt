@@ -223,7 +223,6 @@ import com.dd3boh.outertune.ui.theme.OuterTuneTheme
 import com.dd3boh.outertune.ui.theme.extractThemeColor
 import com.dd3boh.outertune.ui.utils.appBarScrollBehavior
 import com.dd3boh.outertune.utils.ActivityLauncherHelper
-import com.dd3boh.outertune.utils.LocalArtworkPath
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.Scrobbler
@@ -543,24 +542,25 @@ class MainActivity : ComponentActivity() {
                     // Skipping quickly could therefore settle the theme on a song two back.
                     themeColor = withContext(coilCoroutine) {
                         var ret = DefaultThemeColor
-                        if (song != null) {
-                            val uri = (if (song.isLocal) song.localPath else song.thumbnailUrl)?.toUri()
-                            if (uri != null) {
-                                val model = if (uri.toString().startsWith("/storage/")) {
-                                    LocalArtworkPath(uri.toString(), 100, 100)
-                                } else {
-                                    uri
-                                }
+                        // A 100px thumbnail, the same one Player.kt asks for when it extracts the
+                        // gradient. Local files were already capped at 100px here, but a remote
+                        // song passed its bare thumbnailUrl with no size, so Coil fetched and
+                        // software-decoded the cover at whatever size that url named, often 544px
+                        // and over a megabyte of heap, on every track change, screen off included,
+                        // only to boil it down to one colour. Palette scales its input down to
+                        // roughly 112px square before it looks at it anyway, so the colour comes
+                        // out near enough the same. It is also the url the player's gradient and
+                        // blur backgrounds ask for, so they share one cached copy of it.
+                        val model = song?.getThumbnailModel(100, 100)
+                        if (model != null) {
+                            val result = applicationContext.imageLoader.execute(
+                                ImageRequest.Builder(applicationContext)
+                                    .data(model)
+                                    .allowHardware(false)
+                                    .build()
+                            )
 
-                                val result = applicationContext.imageLoader.execute(
-                                    ImageRequest.Builder(applicationContext)
-                                        .data(model)
-                                        .allowHardware(false)
-                                        .build()
-                                )
-
-                                ret = result.image?.toBitmap()?.extractThemeColor() ?: DefaultThemeColor
-                            }
+                            ret = result.image?.toBitmap()?.extractThemeColor() ?: DefaultThemeColor
                         }
                         ret
                     }
