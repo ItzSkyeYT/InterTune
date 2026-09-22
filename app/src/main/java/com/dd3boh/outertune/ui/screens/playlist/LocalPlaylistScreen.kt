@@ -386,7 +386,6 @@ fun LocalPlaylistScreen(
         )
     }
 
-    val headerItems = 2
     val lazyListState = rememberLazyListState()
     var dragInfo by remember {
         mutableStateOf<Pair<Int, Int>?>(null)
@@ -395,15 +394,25 @@ fun LocalPlaylistScreen(
         lazyListState = lazyListState,
 //        scrollThresholdPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()
     ) { from, to ->
-        if (to.index >= headerItems && from.index >= headerItems) {
+        // The library hands back positions in the whole LazyColumn, not in the song list. They
+        // used to be turned into song positions by taking off a fixed 2, for the playlist header
+        // and the sort row, but that only holds on the plain playlist screen. With the add-songs
+        // panel open the header, the search field and every search result all sit above the
+        // songs, so a drag there moved the wrong rows and wrote that to the database, or ran off
+        // the end of the list and crashed. Looking each song up by its key gives its real place
+        // whatever is drawn above it. Only ReorderableItems can be drop targets, so both keys are
+        // songs; the check is for the list being refilled from the database mid-drag.
+        val fromSongIndex = mutableSongs.indexOfFirst { it.map.id == from.key }
+        val toSongIndex = mutableSongs.indexOfFirst { it.map.id == to.key }
+        if (fromSongIndex >= 0 && toSongIndex >= 0) {
             val currentDragInfo = dragInfo
             dragInfo = if (currentDragInfo == null) {
-                (from.index - headerItems) to (to.index - headerItems)
+                fromSongIndex to toSongIndex
             } else {
-                currentDragInfo.first to (to.index - headerItems)
+                currentDragInfo.first to toSongIndex
             }
 
-            mutableSongs.move(from.index - headerItems, to.index - headerItems)
+            mutableSongs.move(fromSongIndex, toSongIndex)
         }
     }
 
