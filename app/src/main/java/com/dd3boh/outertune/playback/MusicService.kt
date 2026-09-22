@@ -1060,7 +1060,31 @@ class MusicService : MediaLibraryService(),
      */
     private val relatedInFlight: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
+    /**
+     * Songs recoverSong has nothing left to do for, for as long as this service lives.
+     *
+     * The data source resolves once per 512 KB chunk rather than once per song, and every resolve
+     * launches recoverSong, so an hour of streaming runs it on the order of a hundred times. Only
+     * the network half was guarded. Everything above it ran on every chunk: the song read through
+     * a relation Flow (a Room observer added and dropped again each time), a hop to the main thread
+     * to find it in the queue, and two more queries for its length and its related list, all to
+     * get the same answers the first chunk already had, and all with the screen off.
+     *
+     * An id goes in only once both halves are really done: the length is known, and the related
+     * list is there and not being refreshed, or a fetch has just written it. A song whose length is
+     * still unknown, whose lookup failed, or whose lookup is still running for an earlier chunk is
+     * left out, so the next chunk tries again exactly as it always did. A stale list that the day's
+     * refresh budget or the throttle turned away counts as done: the refresh is rationed anyway,
+     * and it waits for a later run of the service instead of asking again on every chunk. So does a
+     * fetch that came back with no related songs at all: it writes no rows, so until now the next
+     * chunk found none and made both requests to YouTube again. In memory on purpose, like the
+     * failure memo: it is a note about work already done in this process, not a fact about the
+     * song.
+     */
+    private val recoverySettled: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
     private suspend fun recoverSong(mediaId: String, playbackData: YTPlayerUtils.PlaybackData? = null) {
+        if (mediaId in recoverySettled) return
         val song = database.song(mediaId).first()
         val mediaMetadata = withContext(Dispatchers.Main) {
             player.findNextMediaItemById(mediaId)?.metadata
@@ -1082,6 +1106,7 @@ class MusicService : MediaLibraryService(),
         val fetchedAt = database.relatedFetchedAt(mediaId)
         val refresh = fetchedAt != null && fetchedAt > 0 &&
             System.currentTimeMillis() - fetchedAt > RELATED_STALE_MS && !Throttle.isBlocked && takeRelatedRefreshBudget()
+        var relatedDone = fetchedAt != null && !refresh
         if ((fetchedAt == null || refresh) && relatedLookupFailures.none(mediaId) &&
             relatedInFlight.add(mediaId)
         ) try {
@@ -1118,9 +1143,14 @@ class MusicService : MediaLibraryService(),
                 // for them: the engine only needs to know they are not candidates.
                 insertVersionMap(relatedPage.otherPerformances.map { SongVersionMap(songId = mediaId, versionId = it.id, fetchedAt = fetchedAt) })
             }
+            relatedDone = true
         } finally {
             relatedInFlight.remove(mediaId)
         }
+        // Both writes above are queued on Room's executors, not awaited. That is enough to call
+        // the song settled: a queued write either lands or takes the process down with it, and
+        // another chunk could only queue the same writes again.
+        if (duration != -1 && relatedDone) recoverySettled.add(mediaId)
     }
 
     fun toggleLibrary() {
@@ -1965,6 +1995,14 @@ class MusicService : MediaLibraryService(),
         // Every song change, not only when the queue itself changes. A skip is the strongest
         // opinion anyone gives without pressing anything, so it reaches further than a song that
         // simply ended.
+        //
+        // Once per transition. The plain pass that came before this one was left at the bottom of
+        // this function when the skip reach was added, and nothing in between changes what it
+        // reads, so every song change planned the same tail twice: a skip got its strong pass and
+        // then an ordinary one over whatever survived, and a song that simply ended got two
+        // ordinary ones, each taking its own share, where AdaptiveQueue promises never more than
+        // one share at once. The radio top-up further down cannot be what the second pass was for
+        // either: it is launched, not awaited, so its songs have not arrived by then.
         replanQueueTail(strong = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)
         // "Listening now" on Last.fm. Not a scrobble, not stored, and allowed to fail quietly.
         mediaItem?.metadata?.let { meta -> scope.launch { scrobbler.nowPlaying(meta) } }
@@ -2034,8 +2072,6 @@ class MusicService : MediaLibraryService(),
                 }
             }
         }
-
-        replanQueueTail()
 
         queueBoard.setCurrQueuePosIndex(player.currentMediaItemIndex)
 
