@@ -209,13 +209,27 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
         mediaMetadata.album?.let {
             val album = albumsByName(it.title)
             val albumId = album?.id ?: GenreEntity.generateGenreId()
+            // Built from the existing row rather than from scratch, because upsert replaces the
+            // whole row and this only ever carried three fields across. Everything else on an
+            // album it had already seen was thrown away on the next song that named it:
+            // bookmarkedAt above all, so saving an album and later adding any song with the same
+            // album title quietly unsaved it, but also year, themeColor, playlistId and
+            // lastUpdateTime. Nothing reports it and the album simply stops being in your library.
+            //
+            // songCount was hardcoded to 1, so it did not count. index below reads it to place the
+            // song in the album, which is why tracks landed on top of each other.
             upsert(
-                AlbumEntity(
+                album?.copy(
+                    thumbnailUrl = album.thumbnailUrl ?: mediaMetadata.thumbnailUrl,
+                    songCount = album.songCount + 1,
+                    duration = album.duration + mediaMetadata.duration,
+                    isLocal = it.isLocal,
+                ) ?: AlbumEntity(
                     id = albumId,
                     title = it.title,
-                    thumbnailUrl = album?.thumbnailUrl?: mediaMetadata.thumbnailUrl,
+                    thumbnailUrl = mediaMetadata.thumbnailUrl,
                     songCount = 1,
-                    duration = (album?.duration ?: 0) + mediaMetadata.duration,
+                    duration = mediaMetadata.duration,
                     isLocal = it.isLocal
                 )
             )
