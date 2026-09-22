@@ -123,8 +123,17 @@ class LocalPlaylistViewModel @Inject constructor(
         watchAddQuery()
 
         // Fix playlist song order
+        //
+        // Read from the Room query itself, not from playlistWithSongs. That one is a StateFlow
+        // seeded with an empty placeholder, and first() on a StateFlow returns whatever it holds
+        // at that moment, so this used to get the placeholder every time and renumber nothing.
+        // A playlist with two songs at the same position then stayed that way, and dragging or
+        // removing one of them moved rows the user never touched. The Room flow has no
+        // placeholder: first() waits for the query. It also skips the user's chosen sort, which
+        // this has no use for. A playlist that is already numbered 0, 1, 2 and so on gets no
+        // writes at all.
         viewModelScope.launch(Dispatchers.IO) {
-            val sortedSongs = playlistWithSongs.first().second.sortedWith(compareBy({ it.map.position }, { it.map.id }))
+            val sortedSongs = database.playlistSongs(playlistId).first().sortedWith(compareBy({ it.map.position }, { it.map.id }))
             database.transaction {
                 sortedSongs.forEachIndexed { index, song ->
                     if (song.map.position != index) {

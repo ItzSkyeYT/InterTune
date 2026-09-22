@@ -67,6 +67,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -191,17 +192,35 @@ class LibraryArtistsViewModel @Inject constructor(
     }
 
     init {
+        // Fetching artist pages for artists with no picture or stale details, once, on the first
+        // real list. This used to collect allArtists for as long as the view model lived, and
+        // that is a Room query that runs again on every write to the artist table. Playback
+        // writes to it in the background: every new related song the service records is inserted
+        // with its artists and album, and a related song by an artist already in the list raises
+        // that artist's song count, so the list really does change. Each change rescanned the
+        // whole list and fetched every artist that still qualified, with the screen off and
+        // nobody looking at the library, and an artist whose page kept failing was asked for
+        // again every time with no pause at all. An artist whose page has no picture did not
+        // even need playback: the fetch stamps lastUpdateTime, which is a change to the list,
+        // and the picture is still missing, so it qualified again and was fetched again, round
+        // and round. It is a repair job, not a reaction to the list changing, so one pass is
+        // enough. Whatever turns up later, or fails this time, is tried again the next time this
+        // view model is created.
+        //
+        // filterNotNull because allArtists starts as the stateIn placeholder, null, and first()
+        // on a StateFlow hands back whatever it holds right now. Without it this would read the
+        // placeholder and do nothing.
         viewModelScope.launch(Dispatchers.IO) {
-            allArtists.collect { artists ->
+            allArtists.filterNotNull().first().let { artists ->
                 artists
-                    ?.map { it.artist }
-                    ?.filter {
+                    .map { it.artist }
+                    .filter {
                         it.thumbnailUrl == null || Duration.between(
                             it.lastUpdateTime,
                             LocalDateTime.now()
                         ) > Duration.ofDays(10)
                     }
-                    ?.forEach { artist ->
+                    .forEach { artist ->
                         YouTube.artist(artist.id).onSuccess { artistPage ->
                             database.query {
                                 update(artist, artistPage)
@@ -240,12 +259,17 @@ class LibraryAlbumsViewModel @Inject constructor(
     }
 
     init {
+        // Once, on the first real list, for the same reasons as the artist backfill above, and
+        // one more. update(album, albumPage) writes the album's songs and their artists, so every
+        // album it fixed made this list, and the artist list, run again and rescan. And an album
+        // whose page really has no songs is written back with a song count of 0, so it qualified
+        // on every one of those passes and was fetched again each time, forever.
         viewModelScope.launch(Dispatchers.IO) {
-            allAlbums.collect { albums ->
+            allAlbums.filterNotNull().first().let { albums ->
                 albums
-                    ?.filter {
+                    .filter {
                         !it.album.isLocal && it.album.songCount == 0
-                    }?.forEach { album ->
+                    }.forEach { album ->
                         YouTube.album(album.id).onSuccess { albumPage ->
                             database.query {
                                 update(album.album, albumPage)
