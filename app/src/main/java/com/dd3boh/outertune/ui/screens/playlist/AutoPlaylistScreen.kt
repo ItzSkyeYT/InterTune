@@ -135,7 +135,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 enum class PlaylistType {
-    LIKE, DOWNLOAD, OTHER
+    LIKE, DOWNLOAD, FAVOURITES, OTHER
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, FlowPreview::class)
@@ -217,6 +217,7 @@ fun AutoPlaylistScreen(
     val playlistType = when (playlistId) {
         "liked" -> PlaylistType.LIKE
         "downloaded" -> PlaylistType.DOWNLOAD
+        "favourites" -> PlaylistType.FAVOURITES
         else -> PlaylistType.OTHER
     }
     val playlist = PlaylistEntity(
@@ -224,6 +225,7 @@ fun AutoPlaylistScreen(
         name = when (playlistType) {
             PlaylistType.LIKE -> stringResource(id = R.string.liked_songs)
             PlaylistType.DOWNLOAD -> stringResource(id = R.string.downloaded_songs)
+            PlaylistType.FAVOURITES -> stringResource(id = R.string.favorite_artists)
             else -> ""
         },
         browseId = when (playlistType) {

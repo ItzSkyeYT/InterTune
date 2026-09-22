@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.rounded.Input
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CloudDownload
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -124,6 +125,7 @@ fun LibraryPlaylistsScreen(
 
     val likedPlaylist = PlaylistEntity(id = "liked", name = stringResource(id = R.string.liked_songs))
     val downloadedPlaylist = PlaylistEntity(id = "downloaded", name = stringResource(id = R.string.downloaded_songs))
+    val favouritesPlaylist = PlaylistEntity(id = "favourites", name = stringResource(id = R.string.favorite_artists))
 
     val lazyListState = rememberLazyListState()
     val lazyGridState = rememberLazyGridState()
@@ -316,6 +318,22 @@ fun LibraryPlaylistsScreen(
                                     .animateItem()
                             )
                         }
+
+                        item(
+                            key = favouritesPlaylist.id,
+                            contentType = { CONTENT_TYPE_PLAYLIST }
+                        ) {
+                            AutoPlaylistListItem(
+                                playlist = favouritesPlaylist,
+                                thumbnail = Icons.Rounded.Shuffle,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        navController.navigate("auto_playlist/${favouritesPlaylist.id}")
+                                    }
+                                    .animateItem()
+                            )
+                        }
                     }
 
                     playlists?.let { playlists ->
@@ -400,6 +418,23 @@ fun LibraryPlaylistsScreen(
                                     .fillMaxWidth()
                                     .clickable {
                                         navController.navigate("auto_playlist/${downloadedPlaylist.id}")
+                                    }
+                                    .animateItem()
+                            )
+                        }
+
+                        item(
+                            key = favouritesPlaylist.id,
+                            contentType = { CONTENT_TYPE_PLAYLIST }
+                        ) {
+                            AutoPlaylistGridItem(
+                                playlist = favouritesPlaylist,
+                                thumbnail = Icons.Rounded.Shuffle,
+                                fillMaxWidth = true,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        navController.navigate("auto_playlist/${favouritesPlaylist.id}")
                                     }
                                     .animateItem()
                             )
