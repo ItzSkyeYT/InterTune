@@ -361,15 +361,35 @@ fun Lyrics(
                             if (rawSplitLines.size > 1) {
                                 var from = 0
                                 for (i in rawSplitLines) {
-                                    val to = from + i.split(' ').size
-                                    val words = item.words.subList(from, to.coerceIn(from, item.words.size))
+                                    // Two throws lived here, and the coerce on the old subList
+                                    // call only looked like it covered them.
+                                    //
+                                    // `from = to` took the uncoerced value, so once the wrapped
+                                    // lines held more words than the timing data does, from walked
+                                    // past words.size and the next subList threw fromIndex > size.
+                                    // Word counts disagree easily: splitTextToLines wraps on
+                                    // rendered width, and one timed word can carry punctuation or
+                                    // an elision that the split counts as two.
+                                    //
+                                    // And when the coerce did bite, it produced an empty slice,
+                                    // whose first() and last() then threw NoSuchElementException.
+                                    // A line with no timing left is still a line worth showing, so
+                                    // it keeps the parent's range rather than being dropped.
+                                    val to = (from + i.split(' ').size).coerceAtMost(item.words.size)
+                                    val words: MutableList<SemanticLyrics.Word> =
+                                        if (from < to) item.words.subList(from, to)
+                                        else mutableListOf()
                                     lyricLines.add(
-                                        item.copy(
-                                            text = i,
-                                            start = words.first().timeRange.start,
-                                            end = words.last().timeRange.endInclusive,
-                                            words = words
-                                        )
+                                        if (words.isEmpty()) {
+                                            item.copy(text = i, words = mutableListOf())
+                                        } else {
+                                            item.copy(
+                                                text = i,
+                                                start = words.first().timeRange.start,
+                                                end = words.last().timeRange.endInclusive,
+                                                words = words
+                                            )
+                                        }
                                     )
                                     from = to
                                 }

@@ -177,6 +177,18 @@ fun OnlinePlaylistScreen(
         selection.clear()
     }
 
+    // A selection that outlived the list it indexes is dropped rather than restored.
+    //
+    // selection holds positions, and both it and inSelectMode are rememberSaveable, so they come
+    // back after the process is killed. songs does not: it is collected from the view model and is
+    // empty until the playlist is fetched again. Restoring one without the other gave indices into
+    // an empty list, which crashed on dereference, and once the fetch returned they would have
+    // pointed into a list that can legitimately come back in a different order, quietly selecting
+    // songs the person never picked. Neither state is worth keeping.
+    LaunchedEffect(songs.isEmpty()) {
+        if (songs.isEmpty() && selection.isNotEmpty()) onExitSelectionMode()
+    }
+
     // search
     var isSearching by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable(stateSaver = TextFieldValue.Saver) {
@@ -790,8 +802,13 @@ fun OnlinePlaylistScreen(
         FloatingFooter(inSelectMode) {
             SelectHeader(
                 navController = navController,
-                selectedItems = selection.map {
-                    songs[it]
+                // getOrNull because these are indices into a list that need not still exist.
+                // selection and inSelectMode are both rememberSaveable and survive process death;
+                // songs comes from the view model and does not, so coming back to a backgrounded
+                // selection indexed an empty list and threw. See the effect above, which drops a
+                // selection that outlived its list; this is the guard for the frame before it runs.
+                selectedItems = selection.mapNotNull {
+                    songs.getOrNull(it)
                 }.map { it.toMediaMetadata() },
                 totalItemCount = songs.size,
                 onSelectAll = {

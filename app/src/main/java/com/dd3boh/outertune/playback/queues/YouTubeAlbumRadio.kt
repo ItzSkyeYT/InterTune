@@ -24,7 +24,15 @@ class YouTubeAlbumRadio(
         continuation = nextResult.continuation
         Queue.Status(
             title = nextResult.title,
-            items = (albumSongs + nextResult.items.subList(albumSongs.size, nextResult.items.size)).map { it.toMediaMetadata()},
+            // drop, not subList. The intent is "the album, then whatever radio added past it",
+            // which assumes the watch page contains at least the whole album. albumSongs follows
+            // every continuation and returns all of a 60 track compilation; next returns one page,
+            // typically far fewer. subList(60, 25) throws fromIndex > toIndex, playQueue catches
+            // it, and starting radio on a long album showed a toast and played nothing while the
+            // same action worked on short ones. drop is the total version of the same slice and
+            // returns empty instead of throwing, so the album plays and tops up from the
+            // continuation on the next page.
+            items = (albumSongs + nextResult.items.drop(albumSongs.size)).map { it.toMediaMetadata() },
             mediaItemIndex = nextResult.currentIndex ?: 0
         )
     }
