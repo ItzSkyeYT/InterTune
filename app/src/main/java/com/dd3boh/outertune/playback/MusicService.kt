@@ -551,10 +551,30 @@ class MusicService : MediaLibraryService(),
 
         player.repeatMode = dataStore.get(RepeatModeKey, REPEAT_MODE_OFF)
 
-        // Keep a connected controller so that notification works
+        // Released the moment it connects, which the inherited version never did, and that is the
+        // difference between a service that can stop and one that cannot.
+        //
+        // The token is built from a ComponentName, so it is TYPE_SESSION_SERVICE, and media3
+        // connects that kind by binding the service: MediaControllerImplBase.requestConnectToService
+        // calls Context.bindService with BIND_AUTO_CREATE. Holding it forever means the service
+        // holds a binding on itself, and a bound service does not go away for stopSelf. So every
+        // teardown path is a no-op: onTaskRemoved, media3's pauseAllPlayersAndStopSelf, all of it.
+        // onDestroy is the only place that releases the player, the session, the sensors and the
+        // volume receiver, and it was never reached. That is what turns a few minutes of audio into
+        // a service measured in hours, and the session staying alive is what keeps the system's
+        // media and Bluetooth clients talking to us all day.
+        //
+        // The comment it replaces said this was needed for the notification. It is not, at least
+        // not on media3 1.8.0: MediaNotificationManager builds its own controller from the session
+        // token, which connects in process without binding anything. Kept and released rather than
+        // deleted outright because it is inherited from upstream and may still do something useful
+        // at cold start; released immediately, the binding lasts milliseconds instead of hours.
         val sessionToken = SessionToken(this, ComponentName(this, MusicService::class.java))
         val controllerFuture = MediaController.Builder(this, sessionToken).buildAsync()
-        controllerFuture.addListener({ controllerFuture.get() }, MoreExecutors.directExecutor())
+        controllerFuture.addListener(
+            { MediaController.releaseFuture(controllerFuture) },
+            MoreExecutors.directExecutor(),
+        )
 
         connectivityManager = getSystemService()!!
 
