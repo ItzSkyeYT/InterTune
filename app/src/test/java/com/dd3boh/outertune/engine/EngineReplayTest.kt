@@ -95,7 +95,6 @@ class EngineReplayTest {
                     scored++
                     val heard = before.map { it.songId }.toSet()
                     val input = EngineInput(t, songs, before.map(::toListen), edges, links, bucket = dayPartBucket(t, session.first().tz), tzOffsetMin = session.first().tz)
-                    val row = EngineRow.build(input, random = Random(i.toLong()))
                     fun score(sc: Score, ids: List<String>) {
                         val g = ids.map { groups.groupOf(it) }
                         sc.sessions++; sc.collisions += g.size - g.toSet().size
@@ -108,14 +107,20 @@ class EngineReplayTest {
                             }
                         }
                     }
-                    score(seeded, row.cards.map { it.songId })
+                    // ENGINE_REPLAY_SEEDS repeats each session with different draws and sums them. The
+                    // picks are fixed, so this cannot add evidence about the listener, but it does take
+                    // the luck of one sampled row out of a comparison between two sets of edges.
                     val pickGroups = sessionPicks.associateBy { groups.groupOf(it.songId) }
-                    for (c in row.cards) {
-                        val tally = byLane.getOrPut(c.lane) { IntArray(3) }
-                        tally[0]++
-                        val pk = pickGroups[groups.groupOf(c.songId)] ?: continue
-                        tally[1]++
-                        if (pk.songId !in heard) tally[2]++
+                    for (rep in 0 until (System.getenv("ENGINE_REPLAY_SEEDS")?.toIntOrNull() ?: 1)) {
+                        val row = EngineRow.build(input, random = Random(i.toLong() + rep * 100_003L))
+                        score(seeded, row.cards.map { it.songId })
+                        for (c in row.cards) {
+                            val tally = byLane.getOrPut(c.lane) { IntArray(3) }
+                            tally[0]++
+                            val pk = pickGroups[groups.groupOf(c.songId)] ?: continue
+                            tally[1]++
+                            if (pk.songId !in heard) tally[2]++
+                        }
                     }
                     val classicIds = db.rows(RecommendationSql.QUICK_PICKS.replace(":now", t.toString())).map { it["id"] as String }.take(20)
                     score(qClassic, classicIds)
