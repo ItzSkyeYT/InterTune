@@ -305,7 +305,14 @@ fun AboutScreen(
                         name = "FFmpeg",
                         description = stringResource(R.string.ffmpeg_lgpl),
                         type = listOf(CUSTOM),
-                        url = "https://github.com/OuterTune/ffMetadataEx/blob/main/Modules.md"
+                        // Pinned to the submodule commit this build actually ships, not to main.
+                        // This is the LGPL 2.1 source offer for the full flavour, and the offer is
+                        // ours to keep even though the module is not: a link to someone else's
+                        // branch head stops being an offer the day they move the file, and it
+                        // describes whatever they have changed it to rather than what is in this
+                        // APK. Bump it with the submodule.
+                        url = "https://github.com/OuterTune/ffMetadataEx/blob/" +
+                                "5374cd8b5eaf603c09ea8199aaf11311a3e60254/Modules.md"
                     )
                 )
             }
