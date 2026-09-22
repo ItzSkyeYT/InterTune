@@ -31,7 +31,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.PriorityQueue
@@ -215,12 +214,20 @@ class QueueBoard(
                 if (QUEUE_DEBUG)
                     Log.d(TAG, "Adding to queue: delta additive")
 
-                mediaList.fastForEachIndexed { index, s ->
-                    s?.shuffleIndex = index
-                }
+                // Number only the songs being appended, carrying on past the highest shuffle index
+                // the queue already holds. This used to renumber the whole incoming list by its own
+                // positions and then append the missing songs with those numbers, so in a shuffled
+                // queue that had lost a few songs the new ones landed on indexes the remaining songs
+                // already held, and the top indexes were left empty. Play order is a sort on these
+                // numbers, so the wrong track started, and once playback reached an index nobody
+                // held, validateQueuePos took it for corruption and threw the shuffle away. The
+                // songs already in the queue keep their numbers: that is the order being heard.
+                val newSongs = mediaList.filterNotNull().filter { s -> match.queue.none { s.id == it.id } }
+                var nextShuffleIndex = (match.queue.maxOfOrNull { it.shuffleIndex } ?: -1) + 1
+                newSongs.forEach { it.shuffleIndex = nextShuffleIndex++ }
 
                 // add only the songs that are not already in the queue
-                match.queue.addAll(mediaList.filter { s -> match.queue.none { s?.id == it.id } }.filterNotNull())
+                match.queue.addAll(newSongs)
 
                 // find the song in existing queue song, track the index to jump to
                 val findSong = match.queue.firstOrNull { it.id == mediaList[startIndex]?.id }
@@ -863,9 +870,21 @@ class QueueBoard(
 
         jobActive.withLock {
             while (queueEntity.isNotEmpty() || queueSongMap.isNotEmpty()) {
-                runBlocking {
-                    delay(5000L)
-                }
+                // A suspending wait, not runBlocking around one. This is already a suspend function
+                // running on the IO dispatcher, and the runBlocking parked one of its threads for
+                // the full five seconds on every pass.
+                //
+                // The wait does not debounce anything, and that is known. Every save job below is
+                // launched with CoroutineStart.DEFAULT, so it has already reached the database by
+                // the time this picks one and calls start() on it. Making them LAZY looks like the
+                // obvious repair but would lose saves: saveQueueSongs for two different queues
+                // share one list and only one of them would run, last() walks heap order so a
+                // saveAllQueues at priority -1 sits at the front and loses to an older job, a save
+                // that lands just as this loop exits is stranded because its own dispatcher sees
+                // the lock and returns, shutdown() clears whatever is still waiting, and a process
+                // killed inside the five seconds takes the pending save with it. Saving at once is
+                // the safe behaviour until this is rebuilt as a real per-queue coalescer.
+                delay(5000L)
                 Log.d(TAG, "Running database save task")
 
                 // saving songs nukes the queue entity in the process, about it shouldn't matter since are same queue object
