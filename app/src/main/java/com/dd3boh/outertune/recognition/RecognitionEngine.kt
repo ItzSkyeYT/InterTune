@@ -204,8 +204,14 @@ class RecognitionEngine @Inject constructor(
                 }.collect { window ->
                     identify(window)
                     if (!this@RecognitionEngine.continuous.value && _state.value is State.Found) {
-                        // Single shot stops on a result and waits for the person to choose.
-                        return@collect stop()
+                        // Single shot stops on a result and waits for the person to choose. halt,
+                        // not stop: stop ends by writing Idle, so it replaced the Found it was meant
+                        // to wait on within the same instant, and StateFlow only hands its
+                        // collectors the latest value. The sheet saw Idle and never the answer.
+                        // Listen once heard the song, named it, and showed nothing, which is exactly
+                        // the "single shot never identified anything" that continuous mode did not
+                        // share.
+                        return@collect halt()
                     }
                 }
             } catch (t: CancellationException) {
@@ -407,12 +413,24 @@ class RecognitionEngine @Inject constructor(
     }
 
     fun stop() {
+        halt()
+        _state.value = State.Idle
+    }
+
+    /**
+     * Stops listening and leaves whatever the state says on screen.
+     *
+     * [stop] is "put everything down": it is what the stop button and dismissing the sheet mean, and
+     * Idle is right for both. A single-shot run finishing is different. It has an answer the person
+     * has not seen yet, so the microphone closes and the service can go, but the answer stays until
+     * they act on it or dismiss it, which reaches [stop] through the view model.
+     */
+    private fun halt() {
         job?.cancel()
         job = null
         running.value = false
         pending = null
         _nowPlaying.value = null
-        _state.value = State.Idle
     }
 
     fun reset() {
