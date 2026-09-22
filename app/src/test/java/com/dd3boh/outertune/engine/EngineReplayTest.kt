@@ -89,6 +89,7 @@ class EngineReplayTest {
             val familiarParams = EngineParams.DEFAULT.withFamiliarity(0.5)
             val fresh1Params = EngineParams.DEFAULT.withFamiliarity(0.5).copy(engineFreshHours = 1)
             val fresh1capParams = fresh1Params.copy(againIgnoresArtistCap = true)
+            val dial32 = Score(); val dial75 = Score()
             var considered = 0
             val random = Random(1)
             val skipFirst = 5   // nothing to learn from before a few sessions exist
@@ -107,6 +108,10 @@ class EngineReplayTest {
                 val familiarRow = EngineRow.build(input, p = familiarParams, random = Random(i.toLong()))
                 val fresh1Row = EngineRow.build(input, p = fresh1Params, random = Random(i.toLong()))
                 val fresh1capRow = EngineRow.build(input, p = fresh1capParams, random = Random(i.toLong()))
+                // The adventurousness slider, at the value this library is set to against a much
+                // higher one. Same seed per session so the only difference is the dial.
+                val dial32Row = EngineRow.build(input, dial = 0.32, random = Random(i.toLong()))
+                val dial75Row = EngineRow.build(input, dial = 0.75, random = Random(i.toLong()))
                 val heldOut = i >= split
                 val warmRow = if (heldOut) EngineRow.build(input, weights = warmWeights, random = Random(i.toLong())) else null
                 val priorRow = if (heldOut) EngineRow.build(input, random = Random(i.toLong())) else null
@@ -135,6 +140,8 @@ class EngineReplayTest {
                     score(priorsOnHeldOut, priorRow.cards.map { it.songId }, priorRow.cards.map { groups.groupOf(it.songId) })
                     warmPosRow?.let { score(warmedPositive, it.cards.map { c -> c.songId }, it.cards.map { c -> groups.groupOf(c.songId) }) }
                 }
+                score(dial32, dial32Row.cards.map { it.songId }, dial32Row.cards.map { groups.groupOf(it.songId) })
+                score(dial75, dial75Row.cards.map { it.songId }, dial75Row.cards.map { groups.groupOf(it.songId) })
                 score(classic, classicIds, classicIds.map { groups.groupOf(it) })
                 score(recent, recentIds, recentIds.map { groups.groupOf(it) })
                 score(frequent, frequentIds, frequentIds.map { groups.groupOf(it) })
@@ -143,6 +150,7 @@ class EngineReplayTest {
                 name, s.hits.toDouble() / maxOf(1, s.picks), s.repeatHits, s.newHits, s.picks, s.engaged, s.artists.toDouble() / maxOf(1, s.sessions), s.collisions))
             println("engine replay: ${sessions.size} sessions, $considered scored, ${all.size} listens, ${songs.size} songs, ${edges.size} edges (legacy column: proxy picks, favours the classic query)")
             line("engine", engine); line("familiar", familiar); line("fresh1h", fresh1); line("fresh1h+cap", fresh1cap); line("classic", classic); line("recent", recent); line("frequent", frequent)
+            println("  adventurousness: 32 (this library) vs 75"); line("dial 32", dial32); line("dial 75", dial75)
             println("  held-out sessions (last 40%): priors vs warm start"); line("priors", priorsOnHeldOut); line("warmed", warmed); line("warmed+", warmedPositive)
             assertEquals(0, engine.collisions)
         }
