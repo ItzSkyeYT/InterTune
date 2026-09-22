@@ -77,6 +77,9 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastAny
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
@@ -197,19 +200,42 @@ fun Lyrics(
     }
     var currentPos by remember { mutableLongStateOf(0L) }
 
-    LaunchedEffect(lyricsModel) {
+    // Every 125 ms, or with word-by-word karaoke every 33 ms by default and 16 ms at the fastest
+    // setting, so this more than anything has to know when to stop. Composition is not disposed
+    // when the screen goes off, and the player is often left open on the lyrics when the phone
+    // goes into a pocket, so a bare LaunchedEffect here kept reading the player for as long as the
+    // music played: 28,800 wakeups an hour at the slowest, over 100,000 at the default karaoke
+    // speed, to highlight lines nobody could see. It is gated the same way as the mini player's
+    // position poll, STARTED rather than RESUMED because the lyrics are still on screen behind a
+    // dialog and should keep moving there.
+    //
+    // Paused, nothing moves, but the old loop still woke on every tick only to find that out and
+    // go round again. It now waits on isPlaying instead, which costs nothing until playback
+    // resumes. The .value check keeps that wait off the hot path, since first() subscribes to the
+    // flow every time it is called. The tap-to-seek handler below writes currentLineIndex and
+    // currentPos itself, so a tap while paused still moves the highlight at once.
+    //
+    // The read now comes before the delay rather than after it, so coming back from either of
+    // those catches up at once: turning the screen back on shows the line being sung, not the one
+    // that was playing when it went off. Reading straight away is safe because the effect above
+    // that fills lines is keyed on the same lyricsModel, is launched first, and never suspends,
+    // so lines is already full by the time this runs. That ordering matters: findCurrentLineIndex
+    // throws on an empty list, and the old loop never had to care because it slept first.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lyricsModel, lifecycleOwner) {
         if (lyricsModel == null || !isSynced || (lyricsModel as SemanticLyrics.SyncedLyrics).text.isEmpty()) {
             currentLineIndex = -1
             return@LaunchedEffect
         }
-        while (isActive) {
-            // TODO: likely can improve power usage by disabling lyric refresh
-            delay(lyricRefreshRate)
-            if (!playerConnection.isPlaying.value) continue
-            val sliderPosition = sliderPositionProvider()
-            isSeeking = sliderPosition != null
-            currentLineIndex = findCurrentLineIndex(lines, sliderPosition ?: playerConnection.player.currentPosition)
-            currentPos = sliderPosition ?: playerConnection.player.currentPosition
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive) {
+                if (!playerConnection.isPlaying.value) playerConnection.isPlaying.first { it }
+                val sliderPosition = sliderPositionProvider()
+                isSeeking = sliderPosition != null
+                currentLineIndex = findCurrentLineIndex(lines, sliderPosition ?: playerConnection.player.currentPosition)
+                currentPos = sliderPosition ?: playerConnection.player.currentPosition
+                delay(lyricRefreshRate)
+            }
         }
     }
 
