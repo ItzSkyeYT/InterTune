@@ -72,6 +72,67 @@ class EngineReplayTest {
                 if (i == 0) true else { val prev = session[i - 1]; r.startedAt - prev.endedAt > maxOf(prev.durationMs, 60_000L) }
             }
             data class Score(var picks: Int = 0, var hits: Int = 0, var repeatHits: Int = 0, var newHits: Int = 0, var engaged: Double = 0.0, var artists: Int = 0, var collisions: Int = 0, var sessions: Int = 0)
+
+            // ENGINE_REPLAY_QUICK=1: the engine row alone, plus the three cheap baselines, for comparing
+            // two databases that differ only in their related edges. The full run builds nine rows a
+            // session and fits warm start twice, which is eleven minutes; this is one row a session.
+            // The row is seeded per session rather than from one shared generator, so the same session
+            // draws the same way under both databases and a difference is the edges, not the dice.
+            // Hits are also split by lane, because what a second edge source could change is whether
+            // Related finds more, and a whole-row number would bury that under the other four lanes.
+            if (System.getenv("ENGINE_REPLAY_QUICK") == "1") {
+                val label = System.getenv("ENGINE_REPLAY_LABEL") ?: File(path).name
+                val seeded = Score(); val qClassic = Score(); val qRecent = Score(); val qFrequent = Score()
+                val byLane = HashMap<Lane, IntArray>()   // cards, hits, new hits
+                var scored = 0
+                for ((i, session) in sessions.withIndex()) {
+                    if (i < 5) continue
+                    val t = session.first().startedAt
+                    val before = all.filter { it.endedAt <= t }
+                    if (before.isEmpty()) continue
+                    val sessionPicks = picks(session).filter { Signals.engagement(toListen(it), null) >= 0.5 }
+                    if (sessionPicks.isEmpty()) continue
+                    scored++
+                    val heard = before.map { it.songId }.toSet()
+                    val input = EngineInput(t, songs, before.map(::toListen), edges, links, bucket = dayPartBucket(t, session.first().tz), tzOffsetMin = session.first().tz)
+                    val row = EngineRow.build(input, random = Random(i.toLong()))
+                    fun score(sc: Score, ids: List<String>) {
+                        val g = ids.map { groups.groupOf(it) }
+                        sc.sessions++; sc.collisions += g.size - g.toSet().size
+                        sc.artists += ids.mapNotNull { songs[it]?.artistId }.toSet().size
+                        for (pk in sessionPicks) {
+                            sc.picks++
+                            if (groups.groupOf(pk.songId) in g) {
+                                sc.hits++; sc.engaged += Signals.engagement(toListen(pk), null)
+                                if (pk.songId in heard) sc.repeatHits++ else sc.newHits++
+                            }
+                        }
+                    }
+                    score(seeded, row.cards.map { it.songId })
+                    val pickGroups = sessionPicks.associateBy { groups.groupOf(it.songId) }
+                    for (c in row.cards) {
+                        val tally = byLane.getOrPut(c.lane) { IntArray(3) }
+                        tally[0]++
+                        val pk = pickGroups[groups.groupOf(c.songId)] ?: continue
+                        tally[1]++
+                        if (pk.songId !in heard) tally[2]++
+                    }
+                    val classicIds = db.rows(RecommendationSql.QUICK_PICKS.replace(":now", t.toString())).map { it["id"] as String }.take(20)
+                    score(qClassic, classicIds)
+                    score(qRecent, before.sortedByDescending { it.endedAt }.map { it.songId }.distinct().take(20))
+                    score(qFrequent, before.groupingBy { it.songId }.eachCount().entries.sortedByDescending { it.value }.map { it.key }.take(20))
+                }
+                fun line(name: String, s: Score) = println("  %-10s hit@20 %.3f (repeat %d, new %d of %d picks), engaged %.1f, artists/row %.1f, collisions %d".format(
+                    name, s.hits.toDouble() / maxOf(1, s.picks), s.repeatHits, s.newHits, s.picks, s.engaged, s.artists.toDouble() / maxOf(1, s.sessions), s.collisions))
+                println("quick replay [$label]: ${sessions.size} sessions, $scored scored, ${edges.size} edges")
+                line("engine", seeded); line("classic", qClassic); line("recent", qRecent); line("frequent", qFrequent)
+                for (lane in Lane.values()) byLane[lane]?.let { (cards, hits, fresh) ->
+                    println("  lane %-10s %5d cards, %3d hits (%d new), %.2f%% of its cards hit".format(lane.name.lowercase(), cards, hits, fresh, 100.0 * hits / maxOf(1, cards)))
+                }
+                assertEquals(0, seeded.collisions)
+                return@use
+            }
+
             val engine = Score(); val familiar = Score(); val fresh1 = Score(); val fresh1cap = Score(); val classic = Score(); val recent = Score(); val frequent = Score()
             // Warm start: fit the weights on the first six tenths of the sessions, then judge the last four tenths with them against the priors.
             val warmed = Score(); val priorsOnHeldOut = Score()

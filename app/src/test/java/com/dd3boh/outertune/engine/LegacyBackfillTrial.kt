@@ -49,7 +49,9 @@ class LegacyBackfillTrial {
                             val col = field["columnName"]!!.jsonPrimitive.content
                             if (col in have) continue
                             val default = field["defaultValue"]?.jsonPrimitive?.content?.let { " DEFAULT $it" } ?: ""
-                            val notNull = if (field["notNull"]!!.jsonPrimitive.content == "true") " NOT NULL" else ""
+                            // Room writes notNull only when it is true in newer exported schemas, so a missing key means
+                            // nullable. Reading it with !! worked on schema 21 and throws on 23.
+                            val notNull = if (field["notNull"]?.jsonPrimitive?.content == "true") " NOT NULL" else ""
                             st.execute("ALTER TABLE $table ADD COLUMN `$col` ${field["affinity"]!!.jsonPrimitive.content}$notNull$default")
                         }
                     }
