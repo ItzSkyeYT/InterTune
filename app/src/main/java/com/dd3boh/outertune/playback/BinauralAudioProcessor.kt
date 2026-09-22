@@ -303,7 +303,14 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         encodeSpeakers(IDENTITY, identityLeft, identityRight)
         System.arraycopy(identityLeft, 0, encodeLeft, 0, active)
         System.arraycopy(identityRight, 0, encodeRight, 0, active)
-        if (taps > 0) gain = computeGain()
+        // Only when the filters belong to this layout. onConfigure rebuilds the layout first and the
+        // filters after, and applyWidth runs in between, so on a processor that has been configured
+        // before, taps is still set while filters is still sized for the old channel count. Turning
+        // on 3D head tracking during playback grows the layout from ten channels to sixteen, and
+        // computeGain then read sixteen channels' worth out of an array holding ten:
+        // ArrayIndexOutOfBoundsException on the audio thread. buildFilters computes the gain itself
+        // once it has built filters of the right size, so skipping it here loses nothing.
+        if (taps > 0 && filters.size == active * taps) gain = computeGain()
     }
 
     /**

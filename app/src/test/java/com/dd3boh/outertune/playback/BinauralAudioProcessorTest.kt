@@ -50,6 +50,30 @@ class BinauralAudioProcessorTest {
     private fun energy(a: FloatArray) = a.fold(0.0) { acc, v -> acc + v.toDouble() * v }
 
     @Test
+    fun `growing the layout on a configured processor does not crash`() {
+        // Turning on 3D head tracking mid-playback reconfigures a processor that has already run,
+        // with more channels than before. The gain used to be recomputed against filters still sized
+        // for the old layout, and read past the end of them. Configure, grow, configure again, render.
+        val p = BinauralAudioProcessor().apply { enabled = true; thirdOrder = true; fullSphere = false }
+        p.configure(stereoFloat())
+        p.flush()
+        impulse(p, 1f, 0f, 64)
+
+        p.fullSphere = true
+        p.configure(stereoFloat())
+        p.flush()
+        val (left, right) = impulse(p, 1f, 0f, 256)
+        assertTrue("the grown layout renders nothing", energy(left) + energy(right) > 0.0)
+
+        // And back down, which never threw but did briefly compute a gain from the wrong filters.
+        p.fullSphere = false
+        p.configure(stereoFloat())
+        p.flush()
+        val (l2, r2) = impulse(p, 1f, 0f, 256)
+        assertTrue("the shrunk layout renders nothing", energy(l2) + energy(r2) > 0.0)
+    }
+
+    @Test
     fun `disabled, it is not in the chain at all`() {
         val p = BinauralAudioProcessor().apply { enabled = false; thirdOrder = false }
         assertEquals(AudioProcessor.AudioFormat.NOT_SET, p.configure(stereoFloat()))
