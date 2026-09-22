@@ -133,11 +133,6 @@ Play something, turn your head, and drag until the sound stays put.</string>
     <string name="high_precision_audio_explain">Volume normalisation multiplies every sample. In 16-bit the result is rounded back down to 16-bit afterwards, on every track, which is avoidable.
 
 The cost is battery: in this mode the phone cannot hand playback to its low-power audio path. The difference is small, so this is a preference rather than a better setting.</string>
-    <string name="activity_log">Record movement while listening</string>
-    <string name="activity_log_description">Changes nothing. Gathers evidence for whether it would be worth changing something.</string>
-    <string name="activity_log_explain">Writes one line a minute while music plays: what was on, and how much your phone moved. It stays on your phone.
-
-It is here to find out whether moving around predicts what you want to hear, before anything is built on it.</string>
     <string name="import_engine_data">Import learned weights</string>
     <string name="import_engine_data_description">Take back a file exported from here.</string>
     <string name="import_engine_data_info">Restores what the engine had learned from a file exported on this or another device.
