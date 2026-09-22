@@ -8,6 +8,7 @@ package com.dd3boh.outertune.recognition
 
 import com.zionhuang.innertube.models.Artist
 import com.zionhuang.innertube.models.SongItem
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -103,5 +104,56 @@ class CorrespondenceTest {
     fun aMissingArtistIsNeverCertain() {
         assertFalse(corresponds(shazam("Blinding Lights", null), youtube("Blinding Lights", "The Weeknd")))
         assertFalse(corresponds(shazam("Blinding Lights", ""), youtube("Blinding Lights", "The Weeknd")))
+    }
+
+    /** One track as Shazam places it, [offsetSeconds] into the reference recording. */
+    private fun heard(offsetSeconds: Double, key: String? = "k") = Recognised(
+        title = "Children",
+        artist = "Robert Miles",
+        artworkUrl = null,
+        isrc = null,
+        shazamKey = key,
+        offsetSeconds = offsetSeconds,
+    )
+
+    /**
+     * Two listens a window apart still tell an edit from the original. Pinned next to the floor
+     * below, so the floor cannot creep up into the rates real edits play at.
+     */
+    @Test
+    fun twoListensAWindowApartMeasureTheRate() {
+        assertEquals(PlaybackVariant.ORIGINAL, PlaybackVariant.between(heard(60.0), heard(72.0), 12.0))
+        assertEquals("0.8, slowed", PlaybackVariant.SLOWER, PlaybackVariant.between(heard(60.0), heard(69.6), 12.0))
+        assertEquals("1.25, sped up", PlaybackVariant.FASTER, PlaybackVariant.between(heard(60.0), heard(75.0), 12.0))
+    }
+
+    /**
+     * The same track heard twenty minutes apart is not a slowed edit.
+     *
+     * Twenty minutes of wall clock against a couple of minutes of offset is a rate near zero, and
+     * with a ceiling but no floor that read as SLOWER, which chose the slowed upload over the song.
+     */
+    @Test
+    fun listensFarApartSayNothingAboutTheRate() {
+        assertEquals(PlaybackVariant.ORIGINAL, PlaybackVariant.between(heard(30.0), heard(200.0), 1200.0))
+    }
+
+    /** A first sighting is confirmable for a few windows, including across one failed request. */
+    @Test
+    fun aFirstSightingExpires() {
+        val lifetime = 3 * 12 * 1000L
+        assertTrue("the next window", isSecondListen(heard(60.0), 0L, heard(73.0), 13_000L, lifetime))
+        assertTrue("one failed window between", isSecondListen(heard(60.0), 0L, heard(86.0), 26_000L, lifetime))
+        assertFalse("twenty minutes later", isSecondListen(heard(60.0), 0L, heard(90.0), 1_200_000L, lifetime))
+    }
+
+    /** No key means nothing to tell one track from another by, so it never confirms anything. */
+    @Test
+    fun aMissingKeyNeverConfirms() {
+        val lifetime = 3 * 12 * 1000L
+        assertFalse(isSecondListen(heard(60.0, key = null), 0L, heard(72.0, key = null), 12_000L, lifetime))
+        assertFalse(isSecondListen(heard(60.0, key = "a"), 0L, heard(72.0, key = null), 12_000L, lifetime))
+        assertFalse(isSecondListen(heard(60.0, key = null), 0L, heard(72.0, key = "a"), 12_000L, lifetime))
+        assertFalse(isSecondListen(heard(60.0, key = "a"), 0L, heard(72.0, key = "b"), 12_000L, lifetime))
     }
 }

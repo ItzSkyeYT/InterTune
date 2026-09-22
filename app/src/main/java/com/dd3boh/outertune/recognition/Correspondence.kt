@@ -88,7 +88,15 @@ enum class PlaybackVariant { ORIGINAL, FASTER, SLOWER;
             val advanced = second.offsetSeconds - first.offsetSeconds
             // A negative or absurd delta means the track restarted or a different section matched,
             // so there is nothing to conclude and the safe answer is the ordinary one.
-            if (advanced <= 0.0 || advanced > secondsApart * 3) return ORIGINAL
+            //
+            // Absurd runs both ways. There used to be a ceiling and no floor, and a floor is what
+            // two sightings of one track far apart need: twenty minutes of wall clock against a
+            // few minutes of offset is a rate near zero, which fell straight through to SLOWER and
+            // chose the slowed upload. No slowed edit runs anywhere near a third of the speed, so
+            // a third is as safe a floor as three times is a ceiling.
+            if (advanced <= 0.0 || advanced > secondsApart * 3 || advanced < secondsApart / 3) {
+                return ORIGINAL
+            }
             val rate = advanced / secondsApart
             return when {
                 rate > 1.0 + TOLERANCE -> FASTER
@@ -97,6 +105,34 @@ enum class PlaybackVariant { ORIGINAL, FASTER, SLOWER;
             }
         }
     }
+}
+
+/**
+ * Whether [second], heard at [secondAtMs], is the second listen to [first], heard at [firstAtMs],
+ * or has to start a confirmation of its own.
+ *
+ * The first sighting used to have no lifetime. Nothing cleared it when the next window failed,
+ * found nothing or came back unsure, so a track left unconfirmed stayed half confirmed for the
+ * rest of the run, and heard again twenty minutes later it was taken as the second listen. The
+ * rate measured across those twenty minutes came out near zero, read as a slowed edit, and the
+ * slowed upload went into the playlist in place of the song. [lifetimeMs] is a few listen windows,
+ * which leaves room for a failed request between the two sightings and none for a track that has
+ * come round again.
+ *
+ * A missing key is no key. Two matches Shazam sent back without one compared equal, so an unkeyed
+ * first sighting could be confirmed by a different song entirely, and that song added with a rate
+ * measured across two tracks. An unkeyed match is now never confirmed and so never added unasked,
+ * which is the same side [corresponds] errs on.
+ */
+internal fun isSecondListen(
+    first: Recognised,
+    firstAtMs: Long,
+    second: Recognised,
+    secondAtMs: Long,
+    lifetimeMs: Long,
+): Boolean {
+    val key = second.shazamKey ?: return false
+    return first.shazamKey == key && secondAtMs - firstAtMs <= lifetimeMs
 }
 
 private val SLOWED = Regex("slowed|slow(ed)? ?\\+ ?reverb|daycore|screwed", RegexOption.IGNORE_CASE)

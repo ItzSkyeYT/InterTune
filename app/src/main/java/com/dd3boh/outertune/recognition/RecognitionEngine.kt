@@ -28,6 +28,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -144,6 +145,14 @@ class RecognitionEngine @Inject constructor(
     private var pending: Pair<Recognised, Long>? = null
 
     /**
+     * How long [pending] can still be confirmed, set from the listen length at the start of each
+     * run. The length is a setting, so a flat number of seconds would be three windows at one
+     * setting and barely two at another. See [isSecondListen] for why there is a limit at all.
+     */
+    private var pendingLifetimeMs =
+        PENDING_LIFETIME_WINDOWS * MicrophoneListener.DEFAULT_SECONDS * 1000L
+
+    /**
      * @param playlist where confident matches are added, or null to only name things.
      *
      * Null is the dedicated screen, which is reached from the search bar with no playlist in mind.
@@ -178,10 +187,20 @@ class RecognitionEngine @Inject constructor(
                 // next listen instead of the next launch.
                 val seconds = context.dataStore.data.first()[RecogniseListenSecondsKey]
                     ?: MicrophoneListener.DEFAULT_SECONDS
+                pendingLifetimeMs = PENDING_LIFETIME_WINDOWS * seconds * 1000L
                 microphone.stream(seconds = seconds) { level ->
-                    val current = _state.value
-                    if (current is State.Listening) _state.value = current.copy(level = level)
-                    else if (current is State.Idle) _state.value = State.Listening(level, false)
+                    // An atomic update rather than a read and a write, because this runs on the
+                    // microphone's IO thread while identify() writes the state from the collector
+                    // below, on another. A copy read just before identify() changed the state could
+                    // land on top of the change and undo it, bringing a cleared "identifying"
+                    // straight back for a whole window.
+                    _state.update { current ->
+                        when (current) {
+                            is State.Listening -> current.copy(level = level)
+                            State.Idle -> State.Listening(level, false)
+                            else -> current
+                        }
+                    }
                 }.collect { window ->
                     identify(window)
                     if (!this@RecognitionEngine.continuous.value && _state.value is State.Found) {
@@ -206,8 +225,29 @@ class RecognitionEngine @Inject constructor(
     private suspend fun identify(window: ShortArray) {
         val keepGoing = continuous.value
         _state.value = State.Listening(0f, identifying = true)
+        try {
+            respondTo(shazam.identify(window), keepGoing)
+        } finally {
+            // Back to plain listening once the answer has been dealt with, unless dealing with it
+            // moved the state somewhere else. Nothing used to clear this. Every arm that returns
+            // quietly in continuous mode left it set, and the level updates only copy what is
+            // there, so after the first window the sheet said "identifying" for the whole run,
+            // hours of it, while all it was doing was recording. Cleared here rather than when
+            // Shazam replies, because the YouTube search after a match is still part of the same
+            // answer and the flag would drop for its duration and then jump to Confirming.
+            // An atomic update, so a stop() that has already reset the state to Idle stays Idle.
+            _state.update {
+                if (it is State.Listening && it.identifying) it.copy(identifying = false) else it
+            }
+        }
+    }
 
-        when (val outcome = shazam.identify(window)) {
+    /**
+     * Acts on Shazam's answer. Kept apart from [identify] so that every early return in here still
+     * passes through its finally.
+     */
+    private suspend fun respondTo(outcome: RecognitionOutcome, keepGoing: Boolean) {
+        when (outcome) {
             is RecognitionOutcome.Failed -> {
                 // Nothing to say in continuous mode. A quiet stretch or one refused request is not
                 // a reason to stop listening or to ask somebody to press try again.
@@ -263,11 +303,16 @@ class RecognitionEngine @Inject constructor(
                     )
                 }
 
-                val waitingFor = pending
-                val measuredRate = if (waitingFor != null && waitingFor.first.shazamKey == outcome.track.shazamKey) {
+                // Measured only against a first sighting this can really be the second listen to.
+                // A stale one set the rate near zero, and the notification's position all but
+                // stopped for the rest of the track; an unkeyed one measured across two different
+                // songs. The bounds are the ones PlaybackVariant.between uses.
+                val waitingFor = partnerOf(outcome.track, System.currentTimeMillis())
+                val measuredRate = if (waitingFor != null) {
                     val apart = (System.currentTimeMillis() - waitingFor.second) / 1000.0
                     val advanced = outcome.track.offsetSeconds - waitingFor.first.offsetSeconds
-                    if (apart > 0 && advanced > 0 && advanced < apart * 3) advanced / apart else 1.0
+                    if (apart > 0 && advanced > apart / 3 && advanced < apart * 3) advanced / apart
+                    else 1.0
                 } else 1.0
                 _nowPlaying.value = NowPlaying(
                     title = outcome.track.title,
@@ -288,10 +333,12 @@ class RecognitionEngine @Inject constructor(
                     }
 
                     val now = System.currentTimeMillis()
-                    val waiting = pending
-                    if (waiting == null || waiting.first.shazamKey != outcome.track.shazamKey) {
-                        // First sighting. Listen once more before committing, both to be sure and
-                        // to get a second offset to measure the playback rate against.
+                    val waiting = partnerOf(outcome.track, now)
+                    if (waiting == null) {
+                        // First sighting, or the only earlier one is too old or has no key to
+                        // match on and so counts for nothing (see isSecondListen). Listen once
+                        // more before committing, both to be sure and to get a second offset to
+                        // measure the playback rate against.
                         Log.i(TAG, "Heard '${outcome.track.title}', listening again to confirm")
                         pending = outcome.track to now
                         _state.value = State.Confirming(outcome.track)
@@ -326,6 +373,10 @@ class RecognitionEngine @Inject constructor(
             }
         }
     }
+
+    /** [pending], if [track] heard at [now] is its second listen, else null. */
+    private fun partnerOf(track: Recognised, now: Long): Pair<Recognised, Long>? =
+        pending?.takeIf { (first, at) -> isSecondListen(first, at, track, now, pendingLifetimeMs) }
 
     /** Adds a song and remembers it, from either the automatic path or a person's choice. */
     fun add(song: SongItem) {
@@ -371,5 +422,11 @@ class RecognitionEngine @Inject constructor(
 
     companion object {
         private const val TAG = "RecognitionEngine"
+
+        /**
+         * Listen windows a first sighting stays confirmable for. The second listen normally lands
+         * one window later; three leaves room for a failed request or a slow search in between.
+         */
+        private const val PENDING_LIFETIME_WINDOWS = 3
     }
 }
