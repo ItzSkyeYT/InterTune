@@ -13,6 +13,12 @@ import com.dd3boh.outertune.utils.SongVersions
  * YouTube, transitively. The artist is ignored on purpose, so a cover by someone else joins the
  * original; the cost of a false merge is one card for one build, the cost of a false split is two
  * versions side by side, which is the failure the maintainer named.
+ *
+ * The artist is still handed to the base title, but only so that an "Artist - Track" upload is
+ * read as the track, and so groups exactly as its plain-titled release would. On the 11 Sep
+ * library that moved 112 titles: 40 joined their own artist's release, 18 joined other artists'
+ * songs of the same name, which is the accepted cost above, and two wrong groups came apart, one
+ * of them four different Pizza Hotline songs that had all been reduced to "pizza hotline".
  */
 class VersionGroups(songs: Collection<SongRow>, links: Collection<VersionLink> = emptyList()) {
     private val parent = HashMap<String, String>()
@@ -34,7 +40,7 @@ class VersionGroups(songs: Collection<SongRow>, links: Collection<VersionLink> =
         val byTitle = HashMap<String, String>()
         for (s in songs) {
             parent.putIfAbsent(s.id, s.id)
-            val base = SongVersions.baseTitle(s.title)
+            val base = SongVersions.baseTitle(s.title, s.artistName)
             if (base.isEmpty()) continue
             val first = byTitle.putIfAbsent(base, s.id)
             if (first != null) union(s.id, first)

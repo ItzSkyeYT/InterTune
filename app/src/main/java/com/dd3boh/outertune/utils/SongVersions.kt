@@ -64,16 +64,49 @@ object SongVersions {
         return words.size == 1 && YEAR.matches(words[0])
     }
 
-    fun baseTitle(title: String): String {
-        val unbracketed = title.replace(BRACKETED, "")
+    private fun tidy(text: String): String = text.replace(NON_ALPHANUMERIC, " ").trim().lowercase()
+
+    /**
+     * [artist] is the song's first artist, where the caller has one.
+     *
+     * YouTube uploads are very often titled "Artist - Track", and to the dash rule that reads as
+     * a track called Artist with something after it. When what followed happened to hold one of
+     * the words above, the song's name was thrown away and the artist's kept: "Pizza Hotline -
+     * Automata | MOTORSLICE OST" became "pizza hotline", and so did three other Pizza Hotline
+     * songs, which made four songs one version group and one "Not this song" ban. When nothing
+     * after the dash looked like a treatment the artist stayed in the name instead, so "Daft
+     * Punk - One More Time (Official Video)" was never a version of Daft Punk's own "One More
+     * Time" and the two could sit side by side.
+     *
+     * So when the part before the first dash is the song's own artist, it is dropped before
+     * anything else is read, and "Artist - Track - Radio Edit" still loses its edit afterwards.
+     * Only a whole match, compared the way titles are: nothing inside a title can tell "Artist -
+     * Track" from "Track - Somebody's Remix", and guessing would be the same fault turned round.
+     * With no artist, or a different one, the answer is what it always was.
+     *
+     * Two tighter dash rules were tried first, against the 11 Sep library, and both were worse.
+     * Reading each dash on its own parted "Cool for the Summer - Hardstyle - Agartha Remix" and
+     * "Dreiton - C418 - Slowed + Reverb" from their originals and mended nothing. Asking for the
+     * treatment word at the start or end of what follows parted "BEHEMOTH - SUPER SLOWED &
+     * REVERBED" and nine more like it, to mend one wrong group. The artist is what tells the two
+     * readings apart, so the artist is what this uses.
+     */
+    fun baseTitle(title: String, artist: String? = null): String {
+        val unbracketed = withoutOwnArtist(title.replace(BRACKETED, ""), artist)
         val match = TRAILING_QUALIFIER.find(unbracketed)
         val trimmed =
             if (match != null && describesTheRecording(match.groupValues[1])) unbracketed.substring(0, match.range.first)
             else unbracketed
-        return trimmed
-            .replace(NON_ALPHANUMERIC, " ")
-            .trim()
-            .lowercase()
+        return tidy(trimmed)
+    }
+
+    private fun withoutOwnArtist(title: String, artist: String?): String {
+        if (artist.isNullOrBlank()) return title
+        val dash = TRAILING_QUALIFIER.find(title) ?: return title
+        val name = tidy(artist)
+        if (name.isEmpty() || tidy(title.substring(0, dash.range.first)) != name) return title
+        val rest = dash.groupValues[1]
+        return if (tidy(rest).isEmpty()) title else rest
     }
 
     /** A title that is nothing but brackets has no base, and is never counted as anything's version. */

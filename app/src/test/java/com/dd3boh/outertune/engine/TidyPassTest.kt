@@ -74,6 +74,20 @@ class TidyPassTest {
     }
 
     @Test
+    fun `banning one Artist - Track upload does not ban the artist's other songs`() {
+        // Both used to key as "pizza hotline", because the treatment word "OST" after the dash
+        // stripped the song's name and left the artist's. A ban never expires, so that one tap
+        // hid every one of that artist's songs that happened to be titled this way.
+        val pass = TidyPass(emptyList(), bannedSongs = listOf(PlayedSong("p1", "Pizza Hotline - Automata | MOTORSLICE OST", "Pizza Hotline")))
+        val row = listOf(
+            Card("p2", "Pizza Hotline - Heavy Machine (Boss Theme 1) | MOTORSLICE OST", "Pizza Hotline"),
+            Card("p3", "Automata | MOTORSLICE OST", "Pizza Hotline"),
+        )
+        // The other song stays; the same song without the artist in its title is still the song.
+        assertEquals(listOf("p2"), pass.cards(row).map { it.id })
+    }
+
+    @Test
     fun `the Again lane may offer back a song heard today`() {
         // The lane exists to bring back something heard well in the last fortnight, and the
         // just-played rule was removing three quarters of its cards before anybody saw them.

@@ -15,9 +15,13 @@ data class PlayedSong(val id: String, val title: String, val artist: String?)
  * The key two cards share when they are the same song to a listener: the title with its version
  * marks stripped, and the first artist. "Africa" and "Africa (Live)" by Toto share one; "Africa"
  * by someone else does not, because that is a different song with the same name.
+ *
+ * The artist goes into the base title as well, so an upload called "Toto - Africa" is read as
+ * Africa. Without it "Pizza Hotline - Automata | MOTORSLICE OST" keyed as "pizza hotline", and
+ * so did three other Pizza Hotline songs, so banning any one of them banned all four, for good.
  */
 fun versionKey(title: String, artist: String?): String =
-    SongVersions.baseTitle(title) + "|" + artist.orEmpty().trim().lowercase()
+    SongVersions.baseTitle(title, artist) + "|" + artist.orEmpty().trim().lowercase()
 
 /**
  * One pass over Home's rows in screen order. A row is handed over with its songs picked out by
