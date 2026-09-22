@@ -9,6 +9,7 @@ import androidx.room.RewriteQueriesToDropUnusedColumns
 import androidx.room.Transaction
 import androidx.room.Update
 import com.dd3boh.outertune.constants.SongSortType
+import com.dd3boh.outertune.db.FavouritesSql
 import com.dd3boh.outertune.db.entities.PlayCountEntity
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.SongEntity
@@ -290,6 +291,24 @@ interface SongsDao {
             SongSortType.ARTIST -> likedSongsByArtistAsc()
             SongSortType.PLAY_COUNT -> likedSongsByPlayCountAsc()
         }.map { it.reversed(descending) }
+    // endregion
+
+    // region favourite artists
+    /**
+     * Every library song by an artist that has been bookmarked.
+     *
+     * The floor under a favourites mix: only what is already in the library, so it plays offline
+     * and contains nothing the person did not put there. A bookmarked artist whose songs have only
+     * ever been browsed contributes nothing, which is correct; "play my favourites" is about the
+     * library, not about everything the artist has ever released.
+     *
+     * Deliberately unordered. The caller shuffles across artists rather than sorting, because a
+     * sort by anything at all defeats the point: see interleaveByArtist for why a flat shuffle of
+     * these rows is not a mix.
+     */
+    @Transaction
+    @Query(FavouritesSql.BY_BOOKMARKED_ARTISTS)
+    fun songsByBookmarkedArtists(): Flow<List<Song>>
     // endregion
 
     // region downloaded Songs utils
