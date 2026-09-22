@@ -126,10 +126,13 @@ class EngineLearning(private val context: Context, private val database: MusicDa
         val examples = database.unappliedExamples()
         if (examples.isEmpty()) return 0
         val today = now / 86_400_000L
-        var spent = 0.0
-        context.dataStore.edit { prefs ->
-            spent = if (prefs[EngineBudgetDayKey] == today) (prefs[EngineBudgetSpentKey] ?: 0f).toDouble() else 0.0
-        }
+        // A plain read. This was an edit block that only read, and DataStore sends every edit
+        // down its write path whether or not it changes anything: it queues behind any write
+        // already pending, takes the write lock and parses the whole settings file back from
+        // disk, only to find nothing changed and write nothing. The cached read below gets the
+        // same two values. The edit never kept a second run out of this function either, since
+        // its lock was let go long before the real write at the end.
+        val spent = if (context.dataStore[EngineBudgetDayKey] == today) context.dataStore.get(EngineBudgetSpentKey, 0f).toDouble() else 0.0
         val budget = Budget(spent)
         val learner = learner()
         val applied = ArrayList<Long>()
