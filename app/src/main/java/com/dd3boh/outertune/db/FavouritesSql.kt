@@ -18,7 +18,7 @@ package com.dd3boh.outertune.db
 object FavouritesSql {
 
     /**
-     * Every library song by an artist that has been bookmarked.
+     * Every song the app knows of by an artist that has been bookmarked.
      *
      * EXISTS rather than a JOIN, deliberately. A join against song_artist_map multiplies a row by
      * the number of its bookmarked artists, so a track by two bookmarked artists would be returned
@@ -26,20 +26,31 @@ object FavouritesSql {
      * attached, which is the actual question, and returns each song once however many bookmarks
      * point at it.
      *
-     * song.inLibrary IS NOT NULL is what keeps this to things the person actually added. Playing an
-     * artist's whole catalogue because browsing them once cached it is a different feature, and not
-     * one anybody asked for.
+     * No restriction to the library, and that is the part worth explaining, because the obvious
+     * instinct is to add one. This was first written as inLibrary IS NOT NULL, on the reasoning
+     * that browsing an artist once should not enlist their whole catalogue. Measured against a
+     * real device it was wrong by an order of magnitude. The song table holds everything the app
+     * has ever seen, 46804 rows on that phone, while inLibrary is a much narrower "added" marker
+     * with 398. Of the 279 songs by the ten bookmarked artists there, inLibrary kept 13, and four
+     * of the ten artists contributed nothing at all: one of them had 68 songs known and none of
+     * them marked. Liked and downloaded barely move it, to 14. A favourites mix of thirteen songs
+     * is not a mix.
+     *
+     * So the filter is the bookmark and nothing else. The bookmark is already the person choosing
+     * that artist deliberately, which is a stronger statement than whether any particular track
+     * got an inLibrary flag, and it is the only reading that fills a queue. It does mean a song
+     * seen once in a search result can turn up, and it means the mix needs the network, since
+     * these are not downloads. Both are the price of it containing anything.
      *
      * No ORDER BY: the caller shuffles across artists instead. See interleaveByArtist for why
      * sorting or flat-shuffling these rows does not produce a mix.
      */
     const val BY_BOOKMARKED_ARTISTS = """
         SELECT * FROM song
-        WHERE song.inLibrary IS NOT NULL
-          AND EXISTS (
+        WHERE EXISTS (
             SELECT 1 FROM song_artist_map sam
                 JOIN artist ON artist.id = sam.artistId
             WHERE sam.songId = song.id AND artist.bookmarkedAt IS NOT NULL
-          )
+        )
     """
 }

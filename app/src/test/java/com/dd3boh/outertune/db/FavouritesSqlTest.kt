@@ -76,16 +76,28 @@ class FavouritesSqlTest {
     }
 
     @Test
-    fun `only library songs by bookmarked artists`() {
+    fun `only songs by bookmarked artists`() {
         artist("FAVE", bookmarked = true)
         artist("OTHER", bookmarked = false)
 
         song("keep", inLibrary = true); by("keep", "FAVE")
-        song("notAdded", inLibrary = false); by("notAdded", "FAVE")
         song("notFavourite", inLibrary = true); by("notFavourite", "OTHER")
         song("orphan", inLibrary = true)
 
         assertEquals(listOf("keep"), result())
+    }
+
+    @Test
+    fun `a song never added to the library still counts`() {
+        // The bug this pins. Restricting to inLibrary read as obviously right and was measured
+        // wrong on a real device: 279 songs by bookmarked artists, 13 of them marked inLibrary,
+        // and four of the ten artists reduced to nothing. The bookmark is the choice; whether a
+        // given track also picked up an inLibrary flag is not.
+        artist("FAVE", bookmarked = true)
+        song("browsedOnly", inLibrary = false); by("browsedOnly", "FAVE")
+        song("added", inLibrary = true); by("added", "FAVE")
+
+        assertEquals(setOf("browsedOnly", "added"), result().toSet())
     }
 
     @Test

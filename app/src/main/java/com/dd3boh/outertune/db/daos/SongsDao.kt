@@ -295,12 +295,11 @@ interface SongsDao {
 
     // region favourite artists
     /**
-     * Every library song by an artist that has been bookmarked.
+     * Every song the app knows of by an artist that has been bookmarked.
      *
-     * The floor under a favourites mix: only what is already in the library, so it plays offline
-     * and contains nothing the person did not put there. A bookmarked artist whose songs have only
-     * ever been browsed contributes nothing, which is correct; "play my favourites" is about the
-     * library, not about everything the artist has ever released.
+     * Not restricted to the library, which is the opposite of how this was first written. On a
+     * real device that restriction left thirteen songs out of 279 and silenced four of the ten
+     * bookmarked artists outright. See FavouritesSql for the numbers and the reasoning.
      *
      * Deliberately unordered. The caller shuffles across artists rather than sorting, because a
      * sort by anything at all defeats the point: see interleaveByArtist for why a flat shuffle of
