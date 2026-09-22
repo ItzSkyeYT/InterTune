@@ -97,8 +97,21 @@ class UpdateInstaller @Inject constructor(
         return apk.exists() && (expectedBytes <= 0 || apk.length() == expectedBytes)
     }
 
-    /** Fetch it and stop, ready for a later install. Used when automatic downloading is on. */
-    fun download(url: String, expectedBytes: Long) = start(url, expectedBytes, installWhenDone = false)
+    /**
+     * Fetch it and stop, ready for a later install. Used when automatic downloading is on.
+     *
+     * The guard is the whole point, and it was missing. installOrDownload has always checked
+     * isDownloaded before spending the bytes; this path never did, and it is the one that runs by
+     * itself. Worse, a finished background download parks the state back at Idle, and the caller in
+     * MainActivity only tests for Idle before starting one. So the APK was fetched again in full on
+     * every re-entry into composition, which is every rotation, every activity recreate and every
+     * return to the app, for as long as an update sat pending. Forty five megabytes at a time,
+     * silently, on whatever connection was to hand.
+     */
+    fun download(url: String, expectedBytes: Long) {
+        if (isDownloaded(expectedBytes)) return
+        start(url, expectedBytes, installWhenDone = false)
+    }
 
     /** Install what is already downloaded, or fetch it first if it is not. */
     fun installOrDownload(url: String, expectedBytes: Long) {

@@ -207,6 +207,10 @@ import kotlin.math.pow
 private const val SESSION_GAP_MS = 30L * 60 * 1000
 /** How often an open listen row records how far it got, so a death loses at most this much. */
 private const val CHECKPOINT_MS = 60_000L
+
+/** The two things a checkpoint tick can find instead of a position, kept apart because they differ. */
+private const val FINISHED = -1L
+private const val PAUSED = -2L
 /** A resume within this of where a stop left off, inside this window, continues that listen. */
 private const val RESUME_TOLERANCE_MS = 5_000L
 private const val RESUME_WINDOW_MS = 24L * 60 * 60 * 1000
@@ -2146,9 +2150,20 @@ class MusicService : MediaLibraryService(),
         checkpointJob = offloadScope.launch {
             while (true) {
                 delay(CHECKPOINT_MS)
-                val pos = withContext(Dispatchers.Main) { if (player.currentMediaItem?.mediaId == id) player.currentPosition else -1L }
-                if (pos < 0) break
-                checkpointListen(info, pos)
+                // Three outcomes, where there used to be two. The loop ends when the track changes,
+                // as before, but a paused track is not a finished one: it used to keep writing the
+                // same position once a minute for as long as it sat there, and each write
+                // invalidates every Room flow watching that table, so a paused app was re-running
+                // other people's queries once a minute forever. Now it simply waits.
+                val pos = withContext(Dispatchers.Main) {
+                    when {
+                        player.currentMediaItem?.mediaId != id -> FINISHED
+                        !player.isPlaying -> PAUSED
+                        else -> player.currentPosition
+                    }
+                }
+                if (pos == FINISHED) break
+                if (pos != PAUSED) checkpointListen(info, pos)
             }
         }
     }
