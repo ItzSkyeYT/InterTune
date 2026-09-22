@@ -106,6 +106,9 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -310,8 +313,15 @@ fun BottomSheetPlayer(
         }
     }
 
-    LaunchedEffect(playbackState) {
-        if (playbackState == STATE_READY) {
+    // Twice a second, and only while somebody can see it. Composition is not disposed when the
+    // screen goes off, so a bare LaunchedEffect here polled the player all night on any device
+    // left playing: 7200 reads an hour to move a progress bar nobody was looking at. STARTED
+    // rather than RESUMED because the mini player is still visible behind a dialog or a partially
+    // covering screen, and the bar should keep moving there.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(playbackState, lifecycleOwner) {
+        if (playbackState != STATE_READY) return@LaunchedEffect
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (isActive) {
                 delay(500)
                 position = playerConnection.player.currentPosition
