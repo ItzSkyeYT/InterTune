@@ -168,6 +168,18 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private val targetRight = FloatArray(16)
     private val poseBuffer = FloatArray(4)
 
+    /**
+     * One frame's harmonics, on their way into the rings.
+     *
+     * A field rather than a local because [queueInput] runs on the audio thread for every buffer
+     * the sink pulls, fifty or more times a second, and a fresh array there was garbage made at the
+     * audio rate for nothing: every other scratch array in here was already a field, and this one
+     * had simply been missed. Sized in [buildLayout], the only place [active] changes, so it is
+     * never shorter than the loop that fills it. Nothing carries over from one frame to the next,
+     * because [render] writes every slot it reads before reading it.
+     */
+    private var harmonics = FloatArray(0)
+
     /** Indices into the active list for each rotating pair, and the degree it turns by. */
     private var pairSin = IntArray(0)
     private var pairCos = IntArray(0)
@@ -234,6 +246,7 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         fromDifference = BooleanArray(active)
         factor = FloatArray(active)
         sourceChannel = IntArray(active)
+        if (harmonics.size != active) harmonics = FloatArray(active)
         for (i in 0 until active) {
             val acn = table[i * 3].toInt()
             val m = table[i * 3 + 1].toInt()
@@ -636,7 +649,6 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             stepRight[i] = (targetRight[i] - encodeRight[i]) * inv
         }
 
-        val harmonics = FloatArray(active)
         when (format.encoding) {
             C.ENCODING_PCM_16BIT -> repeat(frames) {
                 val l = inputBuffer.short / 32768f
