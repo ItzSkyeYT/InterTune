@@ -16,6 +16,7 @@ import android.content.Context
 import androidx.annotation.RequiresPermission
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Playlist
+import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
@@ -336,7 +337,19 @@ class RecognitionEngine @Inject constructor(
         scope.launch(Dispatchers.IO) {
             database.transaction {
                 insert(song.toMediaMetadata())
-                addSongToPlaylist(target, listOf(song.id))
+                // Not addSongToPlaylist, which takes the position from the Playlist it is handed.
+                // This one is a snapshot taken in start() and held for the whole run, so its count
+                // is however many songs there were when listening began. Every song added over an
+                // evening got that same position, came back in an unspecified order, and removing
+                // one moved all the others to the bottom, because the move matches on position.
+                // Read inside the transaction so the read and the write cannot interleave.
+                insert(
+                    PlaylistSongMap(
+                        songId = song.id,
+                        playlistId = target.id,
+                        position = nextPlaylistPosition(target.id),
+                    )
+                )
             }
             target.playlist.browseId?.let { runCatching { YouTube.addToPlaylist(it, song.id) } }
         }

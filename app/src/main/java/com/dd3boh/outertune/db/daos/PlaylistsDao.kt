@@ -213,6 +213,21 @@ interface PlaylistsDao {
         }
     }
 
+    /**
+     * Where the next song goes, read from the table rather than from a caller's idea of the count.
+     *
+     * [addSongToPlaylist] takes the count off the Playlist object it is handed, which is right for
+     * a caller holding a freshly collected one and wrong for a caller holding a snapshot. Continuous
+     * recognition holds a snapshot for the length of a run, so every song it added over an evening
+     * was written at the same position. They then came back in an unspecified order, and removing
+     * one ran a move that matches on position, so deleting a single recognised song sent every
+     * other one to the bottom of the playlist.
+     *
+     * COALESCE because MAX over no rows is null, and an empty playlist has to start at 0.
+     */
+    @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM playlist_song_map WHERE playlistId = :playlistId")
+    fun nextPlaylistPosition(playlistId: String): Int
+
     @Transaction
     @Query("UPDATE playlist SET isLocal = 1 WHERE id = :playlistId")
     fun playlistDesync(playlistId: String)
