@@ -339,4 +339,11 @@ We recycle translations from upstream, they are pulled periodically. -->
     <string name="translation_models">Translation Models</string>
     <string name="clear_translation_models">Clear translation models</string>
 
+    <!-- Crash report, shown on the launch after a crash (CrashLog) -->
+    <string name="crash_report_title">InterTune crashed last time</string>
+    <string name="crash_report_text">Sorry about that. The error below stayed on this phone and nothing was sent anywhere. Reporting it helps get it fixed on your device.</string>
+    <string name="crash_report_github">Report on GitHub</string>
+    <string name="crash_report_copy">Copy</string>
+    <string name="crash_report_dismiss">Dismiss</string>
+    <string name="crash_report_copied">Error copied</string>
 </resources>

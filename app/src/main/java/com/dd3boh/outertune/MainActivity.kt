@@ -259,6 +259,7 @@ import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
 import com.dd3boh.outertune.ui.component.TopBarGlassDestination
+import com.dd3boh.outertune.ui.component.CrashReportDialog
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
@@ -1626,6 +1627,9 @@ class MainActivity : ComponentActivity() {
                                     .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
                                     .align(Alignment.BottomCenter)
                             )
+
+                            // Only after setup, so a crash during the wizard is offered once it is done.
+                            if (oobeStatus >= OOBE_VERSION) CrashReportDialog()
 
                             // Setup wizard
                             LaunchedEffect(Unit) {
