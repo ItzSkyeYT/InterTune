@@ -578,6 +578,14 @@ class MusicService : MediaLibraryService(),
             )
             // TODO: do i even want to have smaller art for media notification
             .setBitmapLoader(CoilBitmapLoader(this))
+            // Media3 otherwise sends the position every 3 seconds while playing, to every connected
+            // controller and to the platform session, which is a binder call into system_server
+            // that fans out to System UI, Bluetooth and anything else listening. None of them need
+            // it: a platform PlaybackState carries the position, the time it was taken and the
+            // speed, and its readers extrapolate from that, as a media3 controller does from its
+            // own. Play, pause, seek, speed and track changes still update everyone at once. The
+            // app's own screens read the player directly and never saw these.
+            .setPeriodicPositionUpdateEnabled(false)
             .build()
 
         player.repeatMode = dataStore.get(RepeatModeKey, REPEAT_MODE_OFF)
