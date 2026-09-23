@@ -1,3 +1,9 @@
+> [!WARNING]
+>
+> **The "InterTune" on Google Play is not this app.** It is published by VISCALE LTD as `com.intertune.playback`, has nothing to do with this project, and shows ads. This InterTune has never been on Google Play.
+>
+> InterTune will never have ads or tracking. If you installed the Play Store one, uninstall it and get InterTune from the [releases page](https://github.com/ItzSkyeYT/InterTune/releases/latest). You are welcome to report it to Google with [this form](https://support.google.com/googleplay/android-developer/contact/policy_violation_report): choose Impersonation and enter `com.intertune.playback`.
+
 <div align="center">
 
 <img src="assets/intertune.svg" width="128" height="128" alt="">
@@ -19,6 +25,9 @@ upstream 0.10.1, that plays every song to the end again and reworks the landscap
 </div>
 
 ## Download
+
+> [!CAUTION]
+> Only download InterTune from this page. The app of the same name on Google Play is not ours.
 
 **[Download the latest APK](https://github.com/ItzSkyeYT/InterTune/releases/latest)**
 
