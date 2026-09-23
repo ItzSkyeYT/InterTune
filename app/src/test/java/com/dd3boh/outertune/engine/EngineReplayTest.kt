@@ -59,7 +59,14 @@ class EngineReplayTest {
                     id to SongRow(id, r["title"] as String, r["artistId"] as String?, r["artistName"] as String?, (r["liked"] as Number).toInt() != 0,
                         likedDate?.let { storedLocalToInstant(it, tz.toZoneId()) }, r["inLibrary"] != null, (r["isLocal"] as Number).toInt() != 0)
                 }
-            val edges = db.rows("SELECT songId, relatedSongId FROM related_song_map").map { Edge(it["songId"] as String, it["relatedSongId"] as String) }
+            // Through the app's own query: ENGINE_REPLAY_SOURCE=1 for Last.fm (with YouTube's
+            // where it has nothing), 0 or unset for YouTube. "all" reads every row whatever its
+            // source, for the 23 Sep trial's databases, which stored their edge sets that way.
+            val edgeSql = when (val src = System.getenv("ENGINE_REPLAY_SOURCE")) {
+                "all" -> "SELECT songId, relatedSongId FROM related_song_map"
+                else -> com.dd3boh.outertune.db.RelatedSql.ENGINE_EDGES.replace(":source", "${src?.toIntOrNull() ?: 0}")
+            }
+            val edges = db.rows(edgeSql).map { Edge(it["songId"] as String, it["relatedSongId"] as String) }
             val links = db.rows("SELECT songId, versionId FROM song_version_map").map { VersionLink(it["songId"] as String, it["versionId"] as String) }
             val all = db.rows("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin FROM listen WHERE endReason != 6 ORDER BY startedAt")
                 .map { Row(it["songId"] as String, (it["startedAt"] as Number).toLong(), (it["endedAt"] as Number).toLong(), (it["playedMs"] as Number).toLong(), (it["durationMs"] as Number).toLong(),

@@ -37,7 +37,9 @@ object JdbcEngineInput {
                 (it["runId"] as Number).toLong(), (it["queueId"] as Number).toLong(), (it["impressionId"] as Number?)?.toLong(), (it["contextChip"] as Number).toInt())
         }
 
-    fun edges(db: Connection): List<Edge> = db.rows("SELECT songId, relatedSongId FROM related_song_map").map { Edge(it["songId"] as String, it["relatedSongId"] as String) }
+    /** YouTube's edges through the app's query, so a copy holding Last.fm's too reads the same as the app on YouTube. */
+    fun edges(db: Connection, source: Int = 0): List<Edge> =
+        db.rows(com.dd3boh.outertune.db.RelatedSql.ENGINE_EDGES.replace(":source", "$source")).map { Edge(it["songId"] as String, it["relatedSongId"] as String) }
 
     fun links(db: Connection): List<VersionLink> = db.rows("SELECT songId, versionId FROM song_version_map").map { VersionLink(it["songId"] as String, it["versionId"] as String) }
 
