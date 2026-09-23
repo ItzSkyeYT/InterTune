@@ -48,6 +48,10 @@ import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.constants.QuickPicksSourceKey
+import com.dd3boh.outertune.constants.SimilarFromLastFmKey
+import com.dd3boh.outertune.utils.LastFmSimilar
+import com.dd3boh.outertune.db.entities.RelatedSongMap
+import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.db.entities.RowBuild
@@ -102,7 +106,8 @@ data class CardReason(val key: String, val arg: String?)
 class HomeViewModel @Inject constructor(
     @ApplicationContext val context: Context,
     val database: MusicDatabase,
-    val syncUtils: SyncUtils
+    val syncUtils: SyncUtils,
+    private val lastFmSimilar: LastFmSimilar,
 ) : ViewModel() {
 
     // ---- Impressions: what Quick picks showed, so the engine can learn from what was passed over.
@@ -179,6 +184,8 @@ class HomeViewModel @Inject constructor(
     private var lastEngineSession = -1L
     private var lastEngineBucket = -1
     private var engineInputCache: Pair<Long, EngineInput>? = null
+    /** The similar-songs source the cached input was read with; a different one reads it again. */
+    private var engineInputSource = -1
     private val learning by lazy { EngineLearning(context, database) }
     /** The weights the last build or ranking used, for the build record. */
     private var weightsInUse: Weights = Weights.PRIORS
@@ -292,11 +299,17 @@ class HomeViewModel @Inject constructor(
 
     private val engineInputLock = kotlinx.coroutines.sync.Mutex()
 
+    /** YouTube's related lists, or Last.fm's similar tracks when chosen and this build has a key to ask with. */
+    private fun similarSource(): Int =
+        if (BuildConfig.LASTFM_API_KEY.isNotEmpty() && context.dataStore.get(SimilarFromLastFmKey, false)) RelatedSongMap.SOURCE_LASTFM
+        else RelatedSongMap.SOURCE_YOUTUBE
+
     /** The engine's input, read at most every few minutes: the biggest read on Home is the song table. */
     private suspend fun engineInput(now: Long): EngineInput = withContext(Dispatchers.IO) {
         engineInputLock.withLock {
-            engineInputCache?.takeIf { now - it.first < ENGINE_INPUT_TTL_MS }?.second
-                ?: EngineLoader.load(database, now).also { engineInputCache = now to it }
+            val source = similarSource()
+            engineInputCache?.takeIf { now - it.first < ENGINE_INPUT_TTL_MS && engineInputSource == source }?.second
+                ?: EngineLoader.load(database, now, similarSource = source).also { engineInputCache = now to it; engineInputSource = source }
         }
     }
 
@@ -1167,6 +1180,25 @@ class HomeViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { refresh(force = true) }
+        }
+        // Where similar songs come from changes the engine's whole graph; the input cache notices
+        // the source by itself, and these are the rebuilds. Back to YouTube, at once. On to
+        // Last.fm, once the service has caught up: at the moment of the switch nothing has been
+        // asked yet, the row would come out of YouTube's lists anyway, and it would then stand
+        // for up to three hours looking as if the switch did nothing.
+        viewModelScope.launch {
+            context.dataStore.data
+                .map { it[SimilarFromLastFmKey] ?: false }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { on -> if (!on) { lastEngineBuildAt = 0L; refresh(force = true) } }
+        }
+        viewModelScope.launch {
+            lastFmSimilar.caughtUpAt.drop(1).collect {
+                engineInputCache = null
+                lastEngineBuildAt = 0L
+                refresh(force = true)
+            }
         }
     }
 }

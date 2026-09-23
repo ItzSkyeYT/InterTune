@@ -8,6 +8,7 @@ package com.dd3boh.outertune.engine
 
 import com.dd3boh.outertune.constants.EndReason
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.db.entities.RelatedSongMap
 import java.io.File
 import java.util.TimeZone
 
@@ -36,7 +37,14 @@ data class EngineSeedsRow(val builtAt: Long, val seeds: String)
  * the same shapes from a copy of a real database.
  */
 object EngineLoader {
-    fun load(database: MusicDatabase, now: Long = System.currentTimeMillis(), bucket: Int? = null, chip: Int = ContextChip.AUTO): EngineInput {
+    /** [similarSource] is where similar songs come from, RelatedSongMap.SOURCE_YOUTUBE or SOURCE_LASTFM. */
+    fun load(
+        database: MusicDatabase,
+        now: Long = System.currentTimeMillis(),
+        bucket: Int? = null,
+        chip: Int = ContextChip.AUTO,
+        similarSource: Int = RelatedSongMap.SOURCE_YOUTUBE,
+    ): EngineInput {
         val tz = TimeZone.getDefault().getOffset(now) / 60_000
         val songs = HashMap<String, SongRow>()
         for (r in database.engineSongs()) {
@@ -53,7 +61,7 @@ object EngineLoader {
             now = now,
             songs = songs,
             listens = listens,
-            edges = database.engineEdges().map { Edge(it.songId, it.relatedSongId) },
+            edges = database.engineEdges(similarSource).map { Edge(it.songId, it.relatedSongId) },
             versionLinks = database.engineVersionLinks().map { VersionLink(it.songId, it.versionId) },
             seen = database.engineSeen(now - 14 * day).map { SeenCard(it.songId, it.visibleAt) },
             exclusions = database.engineExclusions(now).map { ExclusionRow(it.kind, it.targetId) },

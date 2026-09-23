@@ -30,4 +30,9 @@ data class RelatedSongMap(
     @ColumnInfo(defaultValue = "0") val fetchedAt: Long = 0,
     /** 0 YouTube related, 1 Last.fm similar. */
     @ColumnInfo(defaultValue = "0") val source: Int = 0,
-)
+) {
+    companion object {
+        const val SOURCE_YOUTUBE = 0
+        const val SOURCE_LASTFM = 1
+    }
+}

@@ -8,6 +8,7 @@ package com.dd3boh.outertune.db.daos
 
 import com.dd3boh.outertune.db.entities.EngineWeight
 import com.dd3boh.outertune.engine.EngineSql
+import com.dd3boh.outertune.db.RelatedSql
 import com.dd3boh.outertune.db.entities.RecommendationExclusion
 import com.dd3boh.outertune.engine.EngineSeedsRow
 import com.dd3boh.outertune.engine.EngineExclusionRow
@@ -88,7 +89,7 @@ interface ListenDao {
         WHERE fetchedAt = 0 AND EXISTS (SELECT 1 FROM listen l WHERE l.songId = related_song_map.songId)""")
     fun dateLegacyRelatedEdges()
 
-    @Query("DELETE FROM related_song_map WHERE id NOT IN (SELECT MIN(id) FROM related_song_map GROUP BY songId, relatedSongId)")
+    @Query(RelatedSql.DROP_DUPLICATE_EDGES)
     fun dropDuplicateRelatedEdges()
 
     /** A live listen that also wrote a legacy event row, so the backfill never doubles it. */
@@ -109,12 +110,25 @@ interface ListenDao {
            OR l.sessionId = :sessionId""")
     fun justPlayed(dayAgo: Long, sessionId: Long): List<PlayedSong>
 
-    /** When a seed's related list was fetched (its oldest edge), null with no edges, 0 for a legacy list of unknown age. */
-    @Query("SELECT MIN(fetchedAt) FROM related_song_map WHERE songId = :songId")
+    /** When a seed's YouTube related list was fetched (its oldest edge), null with no edges, 0 for a legacy list of unknown age. */
+    @Query(RelatedSql.YOUTUBE_FETCHED_AT)
     fun relatedFetchedAt(songId: String): Long?
 
-    @Query("DELETE FROM related_song_map WHERE songId = :songId")
+    /** When a seed's Last.fm similar tracks were fetched, null if never. */
+    @Query(RelatedSql.LASTFM_FETCHED_AT)
+    fun lastFmSimilarFetchedAt(songId: String): Long?
+
+    @Query(RelatedSql.DELETE_YOUTUBE_RELATED)
     fun deleteRelated(songId: String)
+
+    @Query(RelatedSql.DELETE_LASTFM_SIMILAR)
+    fun deleteLastFmSimilar(songId: String)
+
+    @Query(RelatedSql.INSERT_LASTFM_EDGE)
+    fun insertLastFmEdge(songId: String, relatedSongId: String, fetchedAt: Long)
+
+    @Query(RelatedSql.LASTFM_CATCH_UP)
+    fun lastFmCatchUp(since: Long, limit: Int): List<PlayedSong>
 
     // ---- The engine's input, see engine/EngineLoader.kt. Plain rows, no entities.
     @Query(EngineSql.SONGS)
@@ -160,8 +174,9 @@ interface ListenDao {
     @Query("SELECT p AS p, y AS y FROM impression WHERE team = 1 AND slot >= 0 AND gradedAt IS NOT NULL AND u > 0 AND p IS NOT NULL AND y IS NOT NULL")
     fun engineCalibration(): Flow<List<PredictionGrade>>
 
-    @Query("SELECT songId, relatedSongId FROM related_song_map")
-    fun engineEdges(): List<EngineEdgeRow>
+    /** One source's edges, RelatedSongMap.SOURCE_YOUTUBE or SOURCE_LASTFM. */
+    @Query(RelatedSql.ENGINE_EDGES)
+    fun engineEdges(source: Int): List<EngineEdgeRow>
 
     @Query("SELECT songId, versionId, fetchedAt FROM song_version_map")
     fun engineVersionLinks(): List<SongVersionMap>

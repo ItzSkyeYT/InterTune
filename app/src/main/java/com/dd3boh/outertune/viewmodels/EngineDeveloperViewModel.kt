@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.db.entities.RelatedSongMap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.db.MusicDatabase
@@ -43,7 +44,8 @@ class EngineDeveloperViewModel @Inject constructor(private val database: MusicDa
             for (s in songs.values) members.getOrPut(groups.groupOf(s.id)) { ArrayList() }.add(s.title)
             val multi = members.values.filter { it.size > 1 }
             val top = multi.sortedByDescending { it.size }.take(40).map { titles -> Collision(SongVersions.baseTitle(titles.first()), titles.distinct().take(6)) }
-            val edges = database.engineEdges()
+            // YouTube's edges: Last.fm's are matched with versions of the seed already left out.
+            val edges = database.engineEdges(RelatedSongMap.SOURCE_YOUTUBE)
             val titleOf = songs.mapValues { it.value.title }
             val legacy = edges.count { e -> val a = titleOf[e.songId]; val b = titleOf[e.relatedSongId]; a != null && b != null && SongVersions.isVersionOf(b, a) }
             report.value = CollisionReport(top, songs.size, multi.size, legacy)

@@ -16,6 +16,8 @@ import com.dd3boh.outertune.engine.Features
 import com.dd3boh.outertune.engine.Calibration
 import com.dd3boh.outertune.constants.LearnFromListeningKey
 import com.dd3boh.outertune.constants.NewSongsOnlyKey
+import com.dd3boh.outertune.constants.SimilarFromLastFmKey
+import com.dd3boh.outertune.BuildConfig
 import androidx.compose.material3.Slider
 import com.dd3boh.outertune.engine.quotas
 import com.dd3boh.outertune.engine.Lane
@@ -99,6 +101,7 @@ fun RecommendationsSettings(
     val (adventurousness, onAdventurousnessChange) = rememberPreference(AdventurousnessKey, defaultValue = 15)
     val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
     val (familiarity, onFamiliarityChange) = rememberPreference(FamiliarityKey, defaultValue = 25)
+    val (similarFromLastFm, onSimilarFromLastFmChange) = rememberPreference(SimilarFromLastFmKey, defaultValue = false)
     val activeExclusions by viewModel.activeExclusions.collectAsState(initial = 0)
     val gradedByTeam by viewModel.gradedByTeam.collectAsState(initial = emptyList())
     val calibration by viewModel.calibration.collectAsState(initial = emptyList())
@@ -186,6 +189,17 @@ fun RecommendationsSettings(
             checked = newSongsOnly,
             onCheckedChange = onNewSongsOnlyChange,
         )
+        // Needs the Last.fm key built into the app. A build without one (F-Droid's) has nothing
+        // to ask with, so the switch is not shown rather than shown doing nothing.
+        if (BuildConfig.LASTFM_API_KEY.isNotEmpty()) {
+            ExplainedSwitchPreference(
+                title = stringResource(R.string.similar_from_lastfm),
+                explanation = stringResource(R.string.similar_from_lastfm_info),
+                description = stringResource(R.string.similar_from_lastfm_description),
+                checked = similarFromLastFm,
+                onCheckedChange = onSimilarFromLastFmChange,
+            )
+        }
         ExplainedPreference(
             title = stringResource(R.string.exclusions),
             explanation = stringResource(R.string.exclusions_info),

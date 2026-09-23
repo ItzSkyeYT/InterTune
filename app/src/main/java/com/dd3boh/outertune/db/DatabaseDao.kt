@@ -102,7 +102,7 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
     @Query("DELETE FROM search_history")
     fun clearSearchHistory()
 
-    @Query("SELECT COUNT(1) FROM related_song_map WHERE songId = :songId LIMIT 1")
+    @Query(RelatedSql.HAS_YOUTUBE_RELATED)
     fun hasRelatedSongs(songId: String): Boolean
 
     @Transaction

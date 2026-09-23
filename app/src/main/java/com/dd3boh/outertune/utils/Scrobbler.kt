@@ -3,6 +3,7 @@ package com.dd3boh.outertune.utils
 import android.util.Log
 import com.dd3boh.lastfm.LastFm
 import com.dd3boh.lastfm.LastFmException
+import com.dd3boh.lastfm.SimilarTrack
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.LastFmScrobbleKey
 import com.dd3boh.outertune.constants.LastFmSessionKey
@@ -48,6 +49,9 @@ class Scrobbler @Inject constructor(
         BuildConfig.LASTFM_API_KEY.isNotEmpty() && BuildConfig.LASTFM_API_SECRET.isNotEmpty()
 
     val isAvailable get() = configured
+
+    /** Similar tracks are a public read: the key is enough, with or without an account. */
+    val canFindSimilar get() = BuildConfig.LASTFM_API_KEY.isNotEmpty()
 
     private val api by lazy { LastFm(apiKey, apiSecret) }
 
@@ -109,6 +113,12 @@ class Scrobbler @Inject constructor(
             album = metadata.album?.title,
             durationSeconds = duration.takeIf { it > 0 },
         ).onFailure { logFailure("scrobble", it) }
+    }
+
+    /** Last.fm's tracks most like this one, most similar first. */
+    suspend fun similar(artist: String, track: String): Result<List<SimilarTrack>> {
+        if (!canFindSimilar) return Result.failure(IllegalStateException("No Last.fm API key in this build"))
+        return api.similar(artist, track)
     }
 
     private fun logFailure(what: String, t: Throwable) {

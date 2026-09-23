@@ -173,6 +173,8 @@ val AdventurousnessKey = intPreferencesKey("adventurousness")
 val NewSongsOnlyKey = booleanPreferencesKey("newSongsOnly")
 /** Familiarity 0 to 60: the share of the engine row given to songs heard well lately. */
 val FamiliarityKey = intPreferencesKey("familiarity")
+/** The engine's similar songs come from Last.fm's similar tracks instead of YouTube's related lists. */
+val SimilarFromLastFmKey = booleanPreferencesKey("similarFromLastFm")
 /** Build the engine row in the background while another source is showing, to compare a day later. */
 val ShadowComparisonKey = booleanPreferencesKey("shadowComparison")
 /** A skip before the middle of a liked or often-played song rests it from the engine row for a week. */

@@ -67,7 +67,8 @@ class JdbcBackfillIo(private val db: Connection) : BackfillIo {
     companion object {
         const val DATE_LEGACY_EDGES = """UPDATE related_song_map SET fetchedAt = (SELECT MIN(l.startedAt) FROM listen l WHERE l.songId = related_song_map.songId)
             WHERE fetchedAt = 0 AND EXISTS (SELECT 1 FROM listen l WHERE l.songId = related_song_map.songId)"""
-        const val DROP_DUPLICATE_EDGES = """DELETE FROM related_song_map WHERE id NOT IN (SELECT MIN(id) FROM related_song_map GROUP BY songId, relatedSongId)"""
+        /** The app's own text, so this test cannot pass against a copy that has drifted from it. */
+        const val DROP_DUPLICATE_EDGES = com.dd3boh.outertune.db.RelatedSql.DROP_DUPLICATE_EDGES
     }
 }
 

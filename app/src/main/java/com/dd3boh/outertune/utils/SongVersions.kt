@@ -29,6 +29,7 @@ object SongVersions {
     private val TRAILING_QUALIFIER = Regex("""\s+-\s+(.*)$""")
     private val NON_ALPHANUMERIC = Regex("""[^\p{L}\p{N}]+""")
     private val YEAR = Regex("""^(19|20)\d{2}$""")
+    private val WHITESPACE = Regex("""\s+""")
 
     /**
      * Words that mean "this is a treatment of a song" rather than naming one.
@@ -91,13 +92,20 @@ object SongVersions {
      * REVERBED" and nine more like it, to mend one wrong group. The artist is what tells the two
      * readings apart, so the artist is what this uses.
      */
-    fun baseTitle(title: String, artist: String? = null): String {
+    fun baseTitle(title: String, artist: String? = null): String = tidy(plainTitle(title, artist))
+
+    /**
+     * [baseTitle] before it is reduced to lowercase letters and digits: "Don't Stop Me Now" rather
+     * than "don t stop me now". For asking another catalogue for the song by name, which wants the
+     * punctuation; for comparing two titles, use [baseTitle].
+     */
+    fun plainTitle(title: String, artist: String? = null): String {
         val unbracketed = withoutOwnArtist(title.replace(BRACKETED, ""), artist)
         val match = TRAILING_QUALIFIER.find(unbracketed)
         val trimmed =
             if (match != null && describesTheRecording(match.groupValues[1])) unbracketed.substring(0, match.range.first)
             else unbracketed
-        return tidy(trimmed)
+        return trimmed.replace(WHITESPACE, " ").trim()
     }
 
     private fun withoutOwnArtist(title: String, artist: String?): String {

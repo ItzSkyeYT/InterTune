@@ -91,6 +91,7 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleRepeatM
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleShuffle
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRadio
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
+import com.dd3boh.outertune.constants.SimilarFromLastFmKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.HighPrecisionAudioKey
 import com.dd3boh.outertune.constants.HeadTracking3dKey
@@ -153,6 +154,7 @@ import com.dd3boh.outertune.utils.CoilBitmapLoader
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.Scrobbler
+import com.dd3boh.outertune.utils.LastFmSimilar
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.FailureMemo
 import com.dd3boh.outertune.utils.Throttle
@@ -273,6 +275,9 @@ class MusicService : MediaLibraryService(),
     @Inject
     lateinit var scrobbler: Scrobbler
 
+    @Inject
+    lateinit var lastFmSimilar: LastFmSimilar
+
     lateinit var connectivityObserver: NetworkConnectivityObserver
     val waitingForNetworkConnection = MutableStateFlow(false)
     private var networkRetryJob: Job? = null
@@ -298,6 +303,7 @@ class MusicService : MediaLibraryService(),
     @Volatile private var stoppedByError = false
 
     @Volatile private var listenHistoryPaused = false
+    @Volatile private var similarFromLastFm = false
     @Volatile private var autoLoadMore = true
     @Volatile private var adaptiveQueueMode = AdaptiveQueueMode.AUTOPLAY_ONLY
 
@@ -666,6 +672,26 @@ class MusicService : MediaLibraryService(),
             // readers are the application looper and Room's executors.
             dataStore.data.map { it[PauseListenHistoryKey] ?: false }.distinctUntilChanged()
                 .collectLatest(scope) { listenHistoryPaused = it }
+            // Found on, or turned on, it unsettles the songs this process settled without asking
+            // Last.fm: the service can outlive the switch by days, and a song resumed at launch
+            // can settle before this first read. Turned on while running, it also catches up on
+            // the songs rows are built around; turned off, the catch-up stops.
+            var similarRead = false
+            dataStore.data.map { it[SimilarFromLastFmKey] ?: false }.distinctUntilChanged()
+                .collectLatest(scope) { on ->
+                    val switchedOn = on && similarRead && !similarFromLastFm
+                    if (on && !similarFromLastFm) recoverySettled.clear()
+                    similarRead = true
+                    similarFromLastFm = on
+                    if (switchedOn) withContext(Dispatchers.IO) {
+                        try {
+                            lastFmSimilar.catchUp()
+                        } catch (e: Exception) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
+                            Log.w(TAG, "Last.fm catch-up failed", e)
+                        }
+                    }
+                }
             dataStore.data.map { it[AutoLoadMoreKey] ?: true }.distinctUntilChanged()
                 .collectLatest(scope) { autoLoadMore = it }
             dataStore.data.map { it[ContextChipKey] ?: 0 }.distinctUntilChanged()
@@ -1101,6 +1127,15 @@ class MusicService : MediaLibraryService(),
             if (existing == null) insert(mediaMetadata.copy(duration = duration))
             else if (existing == -1 && duration != -1) setSongDuration(mediaId, duration)
         }
+        // Last.fm's similar tracks, when the listener chose them over YouTube's related list.
+        // Asked first because YouTube's lookup below returns early when it fails, and the two do
+        // not depend on each other. YouTube's is still fetched either way: Quick picks and the
+        // version links come from it whichever source the engine reads.
+        val similarDone = !similarFromLastFm || lastFmSimilar.ensure(
+            mediaId,
+            song?.song?.title ?: mediaMetadata.title,
+            mediaMetadata.artists.firstOrNull()?.name,
+        )
         // A list is fetched once, and fetched again after 90 days for at most ten seeds a day,
         // never while YouTube is throttling us. A legacy list of unknown age (fetchedAt 0) stays.
         val fetchedAt = database.relatedFetchedAt(mediaId)
@@ -1150,7 +1185,7 @@ class MusicService : MediaLibraryService(),
         // Both writes above are queued on Room's executors, not awaited. That is enough to call
         // the song settled: a queued write either lands or takes the process down with it, and
         // another chunk could only queue the same writes again.
-        if (duration != -1 && relatedDone) recoverySettled.add(mediaId)
+        if (duration != -1 && relatedDone && similarDone) recoverySettled.add(mediaId)
     }
 
     fun toggleLibrary() {
