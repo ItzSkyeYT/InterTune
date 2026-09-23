@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.translate
@@ -92,18 +93,26 @@ val LocalTopBarGlassHost = staticCompositionLocalOf<TopBarGlassHost?> { null }
 internal val LocalTopBarGlass = staticCompositionLocalOf<GlassSpec?> { null }
 
 /**
- * Wraps one navigation destination. With glass off, or for a destination without a bar ([topBar]
- * false: the tabs, search, the walkthrough), this is a plain full size box that records nothing.
+ * Glass for the search pill, over a backdrop of the whole nav host. Provided by MainActivity only
+ * around the search bar that sits beside the nav host. The one the "search" destination composes is
+ * inside the nav host, so it must never get this, and it does not: it is outside the provider.
+ */
+val LocalSearchBarGlass = staticCompositionLocalOf<GlassSpec?> { null }
+
+/**
+ * Wraps one navigation destination. With glass off, or for a destination with nothing floating
+ * over it ([floating] false: no top bar and no floating button, like search or the walkthrough),
+ * this is a plain full size box that records nothing.
  *
  * Decided by route rather than by waiting for a bar to register. Registering happens in an effect,
  * after the frame that needs the backdrop, so gating on it gave every screen a first frame of flat
  * pills.
  */
 @Composable
-fun TopBarGlassDestination(topBar: Boolean, content: @Composable () -> Unit) {
+fun TopBarGlassDestination(floating: Boolean, content: @Composable () -> Unit) {
     // Only whether glass is on. The intensity is the bar's business: asking for it here cost every
     // tab a blocking preference read on each visit.
-    val hosting = topBar && LocalAppBackdrop.current != null
+    val hosting = floating && LocalAppBackdrop.current != null
     // Recorded over the page colour, as the app backdrop is: the screen is transparent between
     // rows, and a blur there would bleed into nothing. The colour is read inside the draw, so a new
     // album colour re-records the layer. Keying the draw on it replaced the backdrop and the host
@@ -190,8 +199,20 @@ internal fun Modifier.drawnBy(host: TopBarGlassHost): Modifier {
 @Composable
 fun Modifier.topBarSurface(shape: Shape = CircleShape): Modifier {
     val glass = LocalTopBarGlass.current ?: return background(topBarSurfaceColor(), shape)
-    val tint = glass.tint(min = 0.66f, max = 0.98f)
-    return this
+    return floatingGlass(glass, shape)
+}
+
+/**
+ * The glass itself, for anything floating over the content: the top bar's shapes, the floating
+ * buttons, the search pill. [tint] defaults to the surface tint the pills use; a button passes its
+ * own container colour so it still reads as a button.
+ *
+ * The caller answers for [glass] being safe to read here, which means this node must not be inside
+ * the layer that [GlassSpec.backdrop] records. See the top of this file.
+ */
+@Composable
+fun Modifier.floatingGlass(glass: GlassSpec, shape: Shape, tint: Color = glass.tint(min = 0.66f, max = 0.98f)): Modifier =
+    this
         .drawBackdrop(
             backdrop = glass.backdrop,
             shape = { shape },
@@ -208,4 +229,3 @@ fun Modifier.topBarSurface(shape: Shape = CircleShape): Modifier {
         // Tint as a background after the backdrop, as the dock does: drawn on the node's own
         // canvas it would paint a square patch.
         .background(tint, shape)
-}

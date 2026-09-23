@@ -232,9 +232,16 @@ fun SearchBar(
             endPadding = lerp((SearchBarHorizontalPadding + endInset).roundToPx().toFloat(), 0f, animationProgress).toDp()
         }
 
+        // Glass while it is a pill floating over the page, fading into the solid full screen search
+        // as it opens. Only the search bar beside the nav host is given any; see LocalSearchBarGlass.
+        val glass = LocalSearchBarGlass.current
         Surface(
             shape = animatedShape,
-            color = if (animationProgress > 0) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
+            color = when {
+                glass != null -> MaterialTheme.colorScheme.surface.copy(alpha = animationProgress)
+                animationProgress > 0 -> MaterialTheme.colorScheme.surface
+                else -> MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp)
+            },
             contentColor = contentColorFor(colors.containerColor),
             tonalElevation = tonalElevation,
             modifier = pillModifier
@@ -244,6 +251,7 @@ fun SearchBar(
                     end = endPadding
                 )
                 .size(width = width, height = height)
+                .then(if (glass != null && animationProgress < 1f) Modifier.floatingGlass(glass, animatedShape) else Modifier)
         ) {
             Column {
                 SearchBarInputField(

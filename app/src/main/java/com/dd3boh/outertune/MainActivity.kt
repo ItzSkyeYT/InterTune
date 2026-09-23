@@ -259,6 +259,10 @@ import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
 import com.dd3boh.outertune.ui.component.TopBarGlassDestination
+import com.dd3boh.outertune.ui.component.LocalSearchBarGlass
+import com.dd3boh.outertune.ui.utils.GlassSpec
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.graphics.graphicsLayer
 import com.dd3boh.outertune.ui.component.CrashReportDialog
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -1035,13 +1039,13 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
                                 )
                                 {
-                                    screen(Screens.Home.route, topBar = false) {
+                                    screen(Screens.Home.route) {
                                         HomeScreen(navController)
                                     }
-                                    screen(Screens.Songs.route, topBar = false) {
+                                    screen(Screens.Songs.route, floating = false) {
                                         LibrarySongsScreen(navController)
                                     }
-                                    screen(Screens.Folders.route, topBar = false) {
+                                    screen(Screens.Folders.route, floating = false) {
                                         LibraryFoldersScreen(navController, scrollBehavior)
                                     }
                                     screen(
@@ -1054,16 +1058,16 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         FolderScreen(navController, scrollBehavior)
                                     }
-                                    screen(Screens.Artists.route, topBar = false) {
+                                    screen(Screens.Artists.route, floating = false) {
                                         LibraryArtistsScreen(navController)
                                     }
-                                    screen(Screens.Albums.route, topBar = false) {
+                                    screen(Screens.Albums.route, floating = false) {
                                         LibraryAlbumsScreen(navController)
                                     }
-                                    screen(Screens.Playlists.route, topBar = false) {
+                                    screen(Screens.Playlists.route) {
                                         LibraryPlaylistsScreen(navController)
                                     }
-                                    screen(Screens.Library.route, topBar = false) {
+                                    screen(Screens.Library.route) {
                                         LibraryScreen(navController, scrollBehavior)
                                     }
                                     screen("history") {
@@ -1095,13 +1099,13 @@ class MainActivity : ComponentActivity() {
                                     }
                                     screen(
                                         route = "search",
-                                        topBar = false,
+                                        floating = false,
                                     ) {
                                         SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
                                     }
                                     screen(
                                         route = "search/{query}",
-                                        topBar = false,
+                                        floating = false,
                                         arguments = listOf(
                                             // nullable because androidx.navigation reserves the
                                             // literal string "null" as its null marker: StringType
@@ -1224,7 +1228,7 @@ class MainActivity : ComponentActivity() {
                                     screen("settings/recognition") {
                                         RecognitionSettings(navController, scrollBehavior)
                                     }
-                                    screen("walkthrough", topBar = false) {
+                                    screen("walkthrough", floating = false) {
                                         // Starts the tour and gets out of the way. The tour points
                                         // at controls that live on Home and in the bars around it,
                                         // none of which exist while Settings is on screen, so it
@@ -1312,7 +1316,7 @@ class MainActivity : ComponentActivity() {
                                         LoginScreen(navController)
                                     }
 
-                                    screen("setup_wizard", topBar = false) {
+                                    screen("setup_wizard", floating = false) {
                                         SetupWizard(navController)
                                     }
                                 }
@@ -1567,6 +1571,18 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
+                            // Over the page colour, like the app backdrop, so the blur has something between rows.
+                            val navHostSurface = rememberUpdatedState(MaterialTheme.colorScheme.surface)
+                            val navHostBackdrop = rememberLayerBackdrop(
+                                onDraw = remember {
+                                    val draw: ContentDrawScope.() -> Unit = {
+                                        drawRect(navHostSurface.value)
+                                        drawContent()
+                                    }
+                                    draw
+                                }
+                            )
+
                             // phone
                             // Everything the glass panels refract goes in here. The .background()
                             // must come AFTER layerBackdrop: LayerBackdropNode records only what
@@ -1584,9 +1600,24 @@ class MainActivity : ComponentActivity() {
                                         } else Modifier
                                     )
                             ) {
-                                navHost()
+                                // The nav host in a layer of its own, which the search pill beside it reads for
+                                // its glass (LocalSearchBarGlass). Always wrapped so turning glass on or off does
+                                // not move the nav host in the composition.
+                                Box(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .then(if (navGlass) Modifier.layerBackdrop(navHostBackdrop).graphicsLayer() else Modifier)
+                                ) {
+                                    navHost()
+                                }
 
-                                SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
+                                // Only this search bar gets the glass. The "search" destination composes another
+                                // one inside the nav host, and that one would be reading a layer it is part of.
+                                CompositionLocalProvider(
+                                    LocalSearchBarGlass provides if (navGlass) GlassSpec(navHostBackdrop, glassIntensity.coerceIn(0f, 1f)) else null
+                                ) {
+                                    SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
+                                }
                             }
 
                             // BottomSheetPlayer and the dock BOTH stay outside the published layer.
@@ -1702,16 +1733,17 @@ private fun navigateToNavTab(
 
 /**
  * A destination, wrapped so its floating top bar can be glass: the screen gets a backdrop of its
- * own and the bar is drawn outside it. See TopBarGlassDestination. [topBar] is false for the
- * destinations that never show a floating bar, so they skip the glass layer.
+ * own and the bar is drawn outside it. See TopBarGlassDestination. [floating] is false for the
+ * destinations with nothing floating over them (no top bar, no floating button), which skip the
+ * glass layer.
  */
 private fun NavGraphBuilder.screen(
     route: String,
     arguments: List<NamedNavArgument> = emptyList(),
-    topBar: Boolean = true,
+    floating: Boolean = true,
     content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
 ) = composable(route = route, arguments = arguments) { entry ->
-    TopBarGlassDestination(topBar) { content(entry) }
+    TopBarGlassDestination(floating) { content(entry) }
 }
 
 val LocalDatabase = staticCompositionLocalOf<MusicDatabase> { error("No database provided") }
