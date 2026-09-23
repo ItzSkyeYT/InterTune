@@ -42,12 +42,12 @@ releases itself, shows you what changed, and installs them with your confirmatio
 
 | | | |
 |:-:|:-:|:-:|
-| <img src="assets/gallery/homepage.png" width="240" alt="Home"> | <img src="assets/gallery/player.png" width="240" alt="Player"> | <img src="assets/gallery/lyrics.png" width="240" alt="Lyrics"> |
-| Home | Player | Lyrics |
-| <img src="assets/gallery/library.png" width="240" alt="Library"> | <img src="assets/gallery/queue_expanded.png" width="240" alt="Queue"> | <img src="assets/gallery/folders.png" width="240" alt="Folders"> |
-| Library | Queue | Folders |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01.jpg" width="240" alt="Player"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/04.jpg" width="240" alt="Lyrics"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/05.jpg" width="240" alt="Queue"> |
+| Player | Lyrics | Queue |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/02.jpg" width="240" alt="Library"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03.jpg" width="240" alt="Album"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/06.jpg" width="240" alt="Artist"> |
+| Library | Album | Artist |
 
-<img src="assets/gallery/tablet_queue_home_light.png" width="720" alt="Tablet layout">
+<img src="fastlane/metadata/android/en-US/images/tenInchScreenshots/01.jpg" width="720" alt="Tablet layout">
 
 The tablet and landscape layout.
 
