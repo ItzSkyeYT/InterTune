@@ -34,10 +34,20 @@ object SongTags {
      * narrower reading goes first. "slowed reverb" is one treatment written two ways and must not
      * count twice, and nightcore is sped up and pitched at once, so it is its own thing rather
      * than a synonym for sped up.
+     *
+     * "Slow down" and "slowly" on their own are left off the slowed list. YouTube titles many
+     * uploads "Artist - Track", and then what follows the dash is the song's name rather than a
+     * qualifier, so "Selena Gomez - Slow Down" would read as a slowed edit. Reading the song's
+     * artist, the way [com.dd3boh.outertune.utils.SongVersions] does, is no cure here: on the 11
+     * Sep library it would have cost three uploads their correct tags, "Jiandro - New Jeans
+     * Hoodtrap Remix" among them, and mended nothing. It is a precaution, not a repair: the
+     * seventeen songs in that library named with either phrase carry it in the body of the
+     * title, which is never read. "Slow down version" stays, the one place there where the
+     * phrase marks a treatment, and "slowed" still matches wherever it appears.
      */
     private val VOCABULARY: List<Pair<String, List<String>>> = listOf(
         "nightcore" to listOf("nightcore"),
-        "slowed" to listOf("slowed", "slow down", "slowed down", "ultra slowed", "extreme slowed", "super slowed", "slowly"),
+        "slowed" to listOf("slowed", "slowed down", "slow down version", "ultra slowed", "extreme slowed", "super slowed"),
         "sped" to listOf("sped up", "speed up", "spedup", "sped", "faster"),
         "reverb" to listOf("reverb", "reverbed"),
         "bassboost" to listOf("bass boost", "bassboost", "bass boosted", "bassboosted"),

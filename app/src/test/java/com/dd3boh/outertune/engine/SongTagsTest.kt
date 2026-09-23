@@ -31,6 +31,24 @@ class SongTagsTest {
     }
 
     @Test
+    fun `a song called Slow Down is not a slowed edit, even uploaded as Artist - Track`() {
+        // After the dash is the song's name here, not a qualifier, and no artist is passed to tell.
+        assertEquals(emptySet<String>(), SongTags.of("Artist - Slow Down"))
+        assertEquals(emptySet<String>(), SongTags.of("Artist - Slowly"))
+        assertEquals(emptySet<String>(), SongTags.of("Slow Down"))
+    }
+
+    @Test
+    fun `a slowed edit is still slowed, after a dash or in brackets`() {
+        assertEquals(setOf("slowed"), SongTags.of("Song - Slowed"))
+        assertEquals(setOf("slowed", "reverb"), SongTags.of("Song - Slowed + Reverb"))
+        assertEquals(setOf("slowed"), SongTags.of("Song (Slowed)"))
+        assertEquals(setOf("slowed"), SongTags.of("Song (Slowed Down)"))
+        assertEquals(setOf("slowed"), SongTags.of("Song (Slow Down Version)"))
+        assertEquals(setOf("slowed", "reverb"), SongTags.of("BEHEMOTH - SUPER SLOWED & REVERBED"))
+    }
+
+    @Test
     fun `most music carries no qualifier and that is the right answer`() {
         assertEquals(emptySet<String>(), SongTags.of("Africa"))
         assertEquals(emptySet<String>(), SongTags.of(null))
