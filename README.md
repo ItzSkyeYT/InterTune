@@ -2,7 +2,7 @@
 >
 > **The "InterTune" on Google Play is not this app.** It is published by VISCALE LTD as `com.intertune.playback`, has nothing to do with this project, and shows ads. This InterTune has never been on Google Play.
 >
-> InterTune will never have ads or tracking. If you installed the Play Store one, uninstall it and get InterTune from the [releases page](https://github.com/ItzSkyeYT/InterTune/releases/latest). You are welcome to report it to Google with [this form](https://support.google.com/googleplay/android-developer/contact/policy_violation_report): choose Impersonation and enter `com.intertune.playback`.
+> InterTune will never have ads or tracking. If you installed the Play Store one, uninstall it and get InterTune from the [releases page](https://github.com/ItzSkyeYT/InterTune/releases/latest). You are welcome to report it to Google with [this form](https://support.google.com/googleplay/android-developer/contact/policy_violation_report).
 
 <div align="center">
 
