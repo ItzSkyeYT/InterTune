@@ -2682,6 +2682,10 @@ class MusicService : MediaLibraryService(),
         // no longer exists.
         sleepTimer.clear()
         sleepTimerNotification.hide()
+        // ConnectivityManager holds the callback, and through the collector, this instance, for as
+        // long as it stays registered. The unregister in onCreate cannot let go of it: it runs on
+        // the next instance, whose field is still empty.
+        if (::connectivityObserver.isInitialized) runCatching { connectivityObserver.unregister() }
         Log.i(TAG, "Terminating MusicService.")
 
         // Only clear it if it is still ours; a newer service instance may already have replaced it.

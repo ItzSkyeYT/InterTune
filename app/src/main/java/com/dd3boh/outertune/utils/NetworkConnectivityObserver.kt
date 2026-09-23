@@ -59,5 +59,7 @@ class NetworkConnectivityObserver(context: Context) {
 
     fun unregister() {
         connectivityManager.unregisterNetworkCallback(networkCallback)
+        // Ends the collection too, which would otherwise wait on this channel for good.
+        _networkStatus.close()
     }
 }
