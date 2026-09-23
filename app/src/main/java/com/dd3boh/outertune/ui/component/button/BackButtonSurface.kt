@@ -6,7 +6,6 @@
 
 package com.dd3boh.outertune.ui.component.button
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -14,7 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import com.dd3boh.outertune.ui.component.topBarSurfaceColor
+import com.dd3boh.outertune.ui.component.topBarSurface
 
 /** One UI 8's back circle, measured on a Galaxy S25 Ultra: 180px at density 600. */
 private val BackButtonSize = 48.dp
@@ -30,21 +29,21 @@ private val BackButtonEnd = 4.dp
 /**
  * Puts the back arrow on something instead of floating it against the screen.
  *
- * A fill, not a lens, and that is not a shortcut. The first version called drawBackdrop with the
- * app backdrop, the way the dock and the mini player do, and it killed the process: those two are
- * deliberately placed OUTSIDE the published layer, while every screen reached through the nav host
- * is inside it. A backdrop reader inside the layer it reads makes that layer contain itself, and
- * RenderNode::prepareTreeImpl recurses until the native stack overflows. MainActivity carries a
- * comment saying exactly this, about exactly this layer. It cost a SIGSEGV on the RenderThread to
- * learn that it applies to anything inside the nav host, a back button included.
+ * Never the app backdrop. The first version called drawBackdrop with it, the way the dock and the
+ * mini player do, and it killed the process: those two are deliberately placed OUTSIDE the
+ * published layer, while every screen reached through the nav host is inside it. A backdrop reader
+ * inside the layer it reads makes that layer contain itself, and RenderNode::prepareTreeImpl
+ * recurses until the native stack overflows. It cost a SIGSEGV on the RenderThread to learn that
+ * it applies to anything inside the nav host, a back button included. The glass it has now reads
+ * the screen's own backdrop from a layer drawn outside it; see TopBarGlass.kt.
  *
  * The size reaches the button inside through its constraints, so the ripple fills the whole
  * circle and the touch target is the circle's own 48dp. The clip is a plain clip, not a backdrop
- * read. The fill is the one the title pill uses, see topBarSurfaceColor.
+ * read. The surface is the one the title pill uses, see topBarSurface.
  */
 @Composable
 fun Modifier.backButtonSurface(): Modifier = this
     .padding(start = BackButtonStart, end = BackButtonEnd)
     .size(BackButtonSize)
-    .background(topBarSurfaceColor(), CircleShape)
+    .topBarSurface()
     .clip(CircleShape)

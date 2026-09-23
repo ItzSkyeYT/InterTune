@@ -122,7 +122,10 @@ import androidx.compose.ui.util.fastForEach
 import androidx.core.net.toUri
 import androidx.core.util.Consumer
 import androidx.core.view.WindowCompat
+import androidx.compose.animation.AnimatedContentScope
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NamedNavArgument
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavType
@@ -255,6 +258,7 @@ import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
+import com.dd3boh.outertune.ui.component.TopBarGlassDestination
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
@@ -1030,16 +1034,16 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
                                 )
                                 {
-                                    composable(Screens.Home.route) {
+                                    screen(Screens.Home.route, topBar = false) {
                                         HomeScreen(navController)
                                     }
-                                    composable(Screens.Songs.route) {
+                                    screen(Screens.Songs.route, topBar = false) {
                                         LibrarySongsScreen(navController)
                                     }
-                                    composable(Screens.Folders.route) {
+                                    screen(Screens.Folders.route, topBar = false) {
                                         LibraryFoldersScreen(navController, scrollBehavior)
                                     }
-                                    composable(
+                                    screen(
                                         route = "${Screens.Folders.route}/{path}",
                                         arguments = listOf(
                                             navArgument("path") {
@@ -1049,32 +1053,32 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         FolderScreen(navController, scrollBehavior)
                                     }
-                                    composable(Screens.Artists.route) {
+                                    screen(Screens.Artists.route, topBar = false) {
                                         LibraryArtistsScreen(navController)
                                     }
-                                    composable(Screens.Albums.route) {
+                                    screen(Screens.Albums.route, topBar = false) {
                                         LibraryAlbumsScreen(navController)
                                     }
-                                    composable(Screens.Playlists.route) {
+                                    screen(Screens.Playlists.route, topBar = false) {
                                         LibraryPlaylistsScreen(navController)
                                     }
-                                    composable(Screens.Library.route) {
+                                    screen(Screens.Library.route, topBar = false) {
                                         LibraryScreen(navController, scrollBehavior)
                                     }
-                                    composable("history") {
+                                    screen("history") {
                                         HistoryScreen(navController)
                                     }
-                                    composable("stats") {
+                                    screen("stats") {
                                         StatsScreen(navController)
                                     }
-                                    composable("mood_and_genres") {
+                                    screen("mood_and_genres") {
                                         MoodAndGenresScreen(navController, scrollBehavior)
                                     }
-                                    composable("account") {
+                                    screen("account") {
                                         AccountScreen(navController, scrollBehavior)
                                     }
 
-                                    composable(
+                                    screen(
                                         route = "browse/{browseId}",
                                         arguments = listOf(
                                             navArgument("browseId") {
@@ -1088,13 +1092,15 @@ class MainActivity : ComponentActivity() {
                                             it.arguments?.getString("browseId")
                                         )
                                     }
-                                    composable(
+                                    screen(
                                         route = "search",
+                                        topBar = false,
                                     ) {
                                         SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
                                     }
-                                    composable(
+                                    screen(
                                         route = "search/{query}",
+                                        topBar = false,
                                         arguments = listOf(
                                             // nullable because androidx.navigation reserves the
                                             // literal string "null" as its null marker: StringType
@@ -1111,7 +1117,7 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         OnlineSearchResult(navController)
                                     }
-                                    composable(
+                                    screen(
                                         route = "album/{albumId}",
                                         arguments = listOf(
                                             navArgument("albumId") {
@@ -1121,7 +1127,7 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         AlbumScreen(navController, scrollBehavior)
                                     }
-                                    composable(
+                                    screen(
                                         route = "artist/{artistId}",
                                         arguments = listOf(
                                             navArgument("artistId") {
@@ -1131,7 +1137,7 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         ArtistScreen(navController, scrollBehavior)
                                     }
-                                    composable(
+                                    screen(
                                         route = "artist/{artistId}/songs",
                                         arguments = listOf(
                                             navArgument("artistId") {
@@ -1141,7 +1147,7 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         ArtistSongsScreen(navController, scrollBehavior)
                                     }
-                                    composable(
+                                    screen(
                                         route = "artist/{artistId}/albums",
                                         arguments = listOf(
                                             navArgument("artistId") {
@@ -1151,7 +1157,7 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         ArtistAlbumsScreen(navController, scrollBehavior)
                                     }
-                                    composable(
+                                    screen(
                                         route = "artist/{artistId}/items?browseId={browseId}?params={params}",
                                         arguments = listOf(
                                             navArgument("artistId") {
@@ -1169,7 +1175,7 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         ArtistItemsScreen(navController, scrollBehavior)
                                     }
-                                    composable(
+                                    screen(
                                         route = "online_playlist/{playlistId}",
                                         arguments = listOf(
                                             navArgument("playlistId") {
@@ -1179,7 +1185,7 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         OnlinePlaylistScreen(navController, scrollBehavior)
                                     }
-                                    composable(
+                                    screen(
                                         route = "local_playlist/{playlistId}",
                                         arguments = listOf(
                                             navArgument("playlistId") {
@@ -1189,7 +1195,7 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         LocalPlaylistScreen(navController, scrollBehavior)
                                     }
-                                    composable(
+                                    screen(
                                         route = "auto_playlist/{playlistId}",
                                         arguments = listOf(
                                             navArgument("playlistId") {
@@ -1199,7 +1205,7 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         AutoPlaylistScreen(navController, scrollBehavior)
                                     }
-                                    composable(
+                                    screen(
                                         route = "youtube_browse/{browseId}?params={params}",
                                         arguments = listOf(
                                             navArgument("browseId") {
@@ -1214,10 +1220,10 @@ class MainActivity : ComponentActivity() {
                                     ) {
                                         YouTubeBrowseScreen(navController, scrollBehavior)
                                     }
-                                    composable("settings/recognition") {
+                                    screen("settings/recognition") {
                                         RecognitionSettings(navController, scrollBehavior)
                                     }
-                                    composable("walkthrough") {
+                                    screen("walkthrough", topBar = false) {
                                         // Starts the tour and gets out of the way. The tour points
                                         // at controls that live on Home and in the bars around it,
                                         // none of which exist while Settings is on screen, so it
@@ -1241,71 +1247,71 @@ class MainActivity : ComponentActivity() {
                                             tourState.start(tourAll())
                                         }
                                     }
-                                    composable("recognition") {
+                                    screen("recognition") {
                                         RecognitionScreen(navController, scrollBehavior)
                                     }
-                                    composable("recognition/history") {
+                                    screen("recognition/history") {
                                         RecognitionHistoryScreen(navController, scrollBehavior)
                                     }
-                                    composable("settings") {
+                                    screen("settings") {
                                         SettingsScreen(navController, scrollBehavior)
                                     }
-                                    composable("settings/appearance") {
+                                    screen("settings/appearance") {
                                         LookAndFeelSettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/library") {
+                                    screen("settings/library") {
                                         LibrarySettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/library/lyrics") {
+                                    screen("settings/library/lyrics") {
                                         LyricsSettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/account_sync") {
+                                    screen("settings/account_sync") {
                                         AccountSyncSettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/player") {
+                                    screen("settings/player") {
                                         PlayerSettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/storage") {
+                                    screen("settings/storage") {
                                         StorageSettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/local") {
+                                    screen("settings/local") {
                                         LocalPlayerSettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/advanced") {
+                                    screen("settings/advanced") {
                                         AdvancedSettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/privacy") {
+                                    screen("settings/privacy") {
                                         PrivacySettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/recommendations") {
+                                    screen("settings/recommendations") {
                                         RecommendationsSettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/recommendations/exclusions") {
+                                    screen("settings/recommendations/exclusions") {
                                         ExclusionsSettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/recommendations/developer") {
+                                    screen("settings/recommendations/developer") {
                                         EngineDeveloperSettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/updates") {
+                                    screen("settings/updates") {
                                         UpdateSettings(navController, scrollBehavior)
                                     }
-                                    composable("settings/about") {
+                                    screen("settings/about") {
                                         AboutScreen(navController, scrollBehavior)
                                     }
-                                    composable("settings/about/attribution") {
+                                    screen("settings/about/attribution") {
                                         AttributionScreen(navController, scrollBehavior)
                                     }
-                                    composable("settings/about/oss_licenses") {
+                                    screen("settings/about/oss_licenses") {
                                         LibrariesScreen(navController, scrollBehavior)
                                     }
-                                    composable("lastfm_login") {
+                                    screen("lastfm_login") {
                                         LastFmLoginScreen(navController)
                                     }
-                                    composable("login") {
+                                    screen("login") {
                                         LoginScreen(navController)
                                     }
 
-                                    composable("setup_wizard") {
+                                    screen("setup_wizard", topBar = false) {
                                         SetupWizard(navController)
                                     }
                                 }
@@ -1688,6 +1694,20 @@ private fun navigateToNavTab(
         launchSingleTop = true
         restoreState = leavingATab
     }
+}
+
+/**
+ * A destination, wrapped so its floating top bar can be glass: the screen gets a backdrop of its
+ * own and the bar is drawn outside it. See TopBarGlassDestination. [topBar] is false for the
+ * destinations that never show a floating bar, so they skip the glass layer.
+ */
+private fun NavGraphBuilder.screen(
+    route: String,
+    arguments: List<NamedNavArgument> = emptyList(),
+    topBar: Boolean = true,
+    content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
+) = composable(route = route, arguments = arguments) { entry ->
+    TopBarGlassDestination(topBar) { content(entry) }
 }
 
 val LocalDatabase = staticCompositionLocalOf<MusicDatabase> { error("No database provided") }

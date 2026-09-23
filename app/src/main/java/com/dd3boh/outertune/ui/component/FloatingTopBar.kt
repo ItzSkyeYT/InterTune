@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Box
@@ -26,7 +28,6 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -53,6 +54,7 @@ import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.backButtonSurface
 import com.dd3boh.outertune.ui.utils.backToMain
+import com.dd3boh.outertune.ui.utils.GlassSpec
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
 
 /**
@@ -103,9 +105,20 @@ fun FloatingTopBar(
     // could be seen between the shapes and not tapped or dragged. Here only the circle and the
     // pills take touches, and the slots keep TopAppBar's own 4dp paddings, which the 12dp edges
     // and the 8dp gaps are measured against.
+    val host = LocalTopBarGlassHost.current
+    val glass = if (host != null) rememberGlassSpec() else null
+    // Only when the host draws this bar. A bar drawn in place is inside the screen's backdrop and
+    // must never read it; see TopBarGlass.kt.
+    val barGlass = if (host != null && glass != null) GlassSpec(host.backdrop, glass.intensity) else null
     Box(
         modifier = modifier
             .fillMaxWidth()
+            // Before the fade, so the fade goes with the bar into its layer and the glass sees the
+            // content itself rather than the content already faded. The graphicsLayer keeps the
+            // bar's own redraws in the bar: each pill's backdrop invalidates itself whenever it is
+            // positioned, which is every frame of a screen transition, and without a layer here
+            // that re-recorded both screens, twice each, for the length of the slide.
+            .then(if (barGlass != null) Modifier.drawnBy(host!!).graphicsLayer() else Modifier)
             .topBarFade()
             .semantics {
                 isTraversalGroup = true
@@ -113,7 +126,10 @@ fun FloatingTopBar(
                 traversalIndex = -1f
             },
     ) {
-        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+        CompositionLocalProvider(
+            LocalContentColor provides MaterialTheme.colorScheme.onSurface,
+            LocalTopBarGlass provides barGlass,
+        ) {
             Row(
                 modifier = Modifier
                     .windowInsetsPadding(windowInsets)
@@ -194,7 +210,13 @@ fun TopBarSearchField(
     }
 }
 
-/** The pill itself, for a title that is more than text. */
+/**
+ * The pill itself, for a title that is more than text.
+ *
+ * The surface is a sibling behind the content rather than a modifier on it. The glass clips to its
+ * shape, and a clip also clips touches: with the content inside it, a tap in a corner of the pill's
+ * rectangle went straight through to the row scrolled underneath.
+ */
 @Composable
 fun TopBarPill(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Box(
@@ -202,40 +224,49 @@ fun TopBarPill(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
             // At least the circle's 48dp, taller only when the content needs it: the folder
             // screen's two lines at a large font size.
             .heightIn(min = 48.dp)
-            .background(topBarSurfaceColor(), CircleShape)
             // Opaque, so a tap on it must not reach a row hidden behind it.
             .pointerInput(Unit) {},
         contentAlignment = Alignment.CenterStart,
-    ) { content() }
+    ) {
+        Box(Modifier.matchParentSize().topBarSurface())
+        content()
+    }
 }
 
 /**
  * A screen's trailing buttons, grouped on one pill: a single button becomes a circle mirroring the
  * back button, 12dp from the other edge, and two share one longer pill, as One UI groups them.
+ * The surface sits behind the buttons for the reason given on [TopBarPill], which here also keeps
+ * each button's 48dp touch target whole in the corners.
  */
 @Composable
 fun TopBarActions(content: @Composable RowScope.() -> Unit) {
-    Row(
+    Box(
         modifier = Modifier
             .padding(end = 8.dp)
             .height(48.dp)
-            .background(topBarSurfaceColor(), CircleShape)
             .pointerInput(Unit) {},
-        verticalAlignment = Alignment.CenterVertically,
-        content = content,
-    )
+    ) {
+        Box(Modifier.matchParentSize().topBarSurface())
+        Row(
+            modifier = Modifier.fillMaxHeight(),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content,
+        )
+    }
 }
 
 /**
- * What the circle and the pills are filled with: a near-neutral grey a couple of tones off the
- * page, the way Samsung's #262626 sits on its black one.
+ * What the circle and the pills are filled with when there is no glass: a near-neutral grey a
+ * couple of tones off the page, the way Samsung's #262626 sits on its black one. With glass they
+ * are glass (topBarSurface), and this is only for a bar with no destination to draw it.
  *
  * Not the glass tint any more. That is surfaceColorAtElevation, which carries the album colour at
  * 70% alpha, and on the bar it came out at 1.06 to 1.14 to 1 against its surroundings: there, but
  * only just. surfaceContainerHigh in the dark is tone 17 against Samsung's 15; in the light the
  * page is tone 98, so a white disc would vanish, and the highest container (tone 90) is the
- * lightest that still reads. On glass it is nearly opaque, never a backdrop read: see
- * BackButtonSurface.kt for why reading the backdrop in here kills the app.
+ * lightest that still reads. A bar not drawn by its destination is nearly opaque on glass,
+ * never a backdrop read: see TopBarGlass.kt for why that would kill the app.
  */
 @Composable
 fun topBarSurfaceColor(): Color {
