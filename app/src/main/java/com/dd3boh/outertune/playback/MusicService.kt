@@ -178,8 +178,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.plus
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -228,10 +230,22 @@ class MusicService : MediaLibraryService(),
 
     @Inject
     lateinit var database: MusicDatabase
+
+    /**
+     * Lives exactly as long as this instance, and onDestroy cancels it. Every settings observer
+     * onCreate starts runs here, so while nothing cancelled it, each destroyed instance stayed
+     * reachable and went on answering setting changes meant for the one after it.
+     */
     private val scope = CoroutineScope(Dispatchers.Main)
 
-    /** Outlives the service on purpose: the last thing it does is tell the widget it has stopped. */
-    private val widgetScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    /**
+     * Outlives the service on purpose, for what has to land after onDestroy: telling the widget it
+     * has stopped, settings writes still on their way, and the last song's scrobble, which media3
+     * only reports once the player has been released.
+     */
+    private val lastingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** Never cancelled either: the last song's listen row is written here, from that same report. */
     private val offloadScope = CoroutineScope(playerCoroutine)
 
     // Critical player components
@@ -348,9 +362,12 @@ class MusicService : MediaLibraryService(),
     // Player vars
     val currentMediaMetadata = MutableStateFlow<MediaMetadata?>(null)
 
+    // Off the main thread as before, but ended with the service. On offloadScope a Lazily shared
+    // flow never stopped, so every destroyed instance stayed subscribed to the song table through
+    // the database, which holds on to its observers, and ran its query again on every write.
     private val currentSong = currentMediaMetadata.flatMapLatest { mediaMetadata ->
         database.song(mediaMetadata?.id)
-    }.stateIn(offloadScope, SharingStarted.Lazily, null)
+    }.stateIn(scope + playerCoroutine, SharingStarted.Lazily, null)
 
     /**
      * Format row for the current song, paired with whether that song is a local file.
@@ -403,7 +420,7 @@ class MusicService : MediaLibraryService(),
     val headTracking: HeadTracking by lazy {
         HeadTracking(this, binauralProcessor, Handler(Looper.getMainLooper())).apply {
             onCalibrated = { radiansPerSecond ->
-                scope.launch {
+                lastingScope.launch {
                     dataStore.edit { prefs ->
                         prefs[HeadTrackingDriftKey] = Math.toDegrees(radiansPerSecond.toDouble()).toFloat()
                     }
@@ -2555,8 +2572,10 @@ class MusicService : MediaLibraryService(),
                 // Last.fm, on the same condition the app uses for its own play count, and with
                 // Last.fm's own rule applied inside the scrobbler on top. Fired after the local
                 // write so a network stall can never delay the thing the user can actually see.
+                // Not on the service scope: the song playing when the service goes is reported
+                // here only after onDestroy has cancelled that.
                 mediaItem.metadata?.let { meta ->
-                    scope.launch {
+                    lastingScope.launch {
                         scrobbler.scrobble(
                             metadata = meta,
                             playedMs = playbackStats.totalPlayTimeMs,
@@ -2631,7 +2650,7 @@ class MusicService : MediaLibraryService(),
      * has added a widget it writes a line of text and fetches nothing.
      */
     private fun updateWidget(stopped: Boolean = false) {
-        widgetScope.launch {
+        lastingScope.launch {
             runCatching {
                 WidgetStore.setNowPlaying(this@MusicService) {
                     if (stopped) WidgetStore.NowState(currentMediaMetadata.value, false)
@@ -2651,6 +2670,18 @@ class MusicService : MediaLibraryService(),
         updateWidget(stopped = true)
         if (volumeReceiverRegistered) runCatching { unregisterReceiver(volumeReceiver) }
         checkpointJob?.cancel()
+        // The observers, the sleep timer and the retry and radio jobs end here. Nothing that has to
+        // finish is on this scope: the last song's listen row and scrobble are reported when the
+        // player below is released, after this returns, and go through offloadScope and
+        // lastingScope. A volume change still inside its one-second debounce would die with the
+        // observer waiting to save it, so it is saved now.
+        val volume = playerVolume.value
+        lastingScope.launch { dataStore.edit { it[PlayerVolumeKey] = volume } }
+        scope.cancel()
+        // The timer ran on the scope, so its notification would stay up, frozen, for a timer that
+        // no longer exists.
+        sleepTimer.clear()
+        sleepTimerNotification.hide()
         Log.i(TAG, "Terminating MusicService.")
 
         // Only clear it if it is still ours; a newer service instance may already have replaced it.
