@@ -1,5 +1,9 @@
 package com.dd3boh.outertune.ui.screens.library
 
+import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.component.TopBarPill
+import com.dd3boh.outertune.ui.component.TopBarTitleStyle
+
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.activity.compose.BackHandler
@@ -22,7 +26,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.MoreVert
@@ -38,7 +41,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -91,7 +93,6 @@ import com.dd3boh.outertune.constants.LastLocalScanKey
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.LocalLibraryEnableKey
 import com.dd3boh.outertune.constants.SwipeToQueueKey
-import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.models.DirectoryTree
 import com.dd3boh.outertune.models.toMediaMetadata
@@ -548,52 +549,49 @@ fun FolderScreen(
         )
 
         if (!isRoot) {
-            TopAppBar(title = {
-                Column {
-                    val title = currDir.currentDir.substringAfterLast('/')
-                    val subtitle = currDir.getFullPath().substringBeforeLast('/')
-                    Text(
-                        text = if (currDir.currentDir == "storage") {
-                            stringResource(R.string.local_player_settings_title)
-                        } else {
-                            title
-                        },
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 1
-                    )
+            FloatingTopBar(
+                titleContent = {
+                    TopBarPill {
+                        Column(modifier = Modifier.padding(horizontal = 18.dp)) {
+                            val title = currDir.currentDir.substringAfterLast('/')
+                            val subtitle = currDir.getFullPath().substringBeforeLast('/')
+                            Text(
+                                text = if (currDir.currentDir == "storage") {
+                                    stringResource(R.string.local_player_settings_title)
+                                } else {
+                                    title
+                                },
+                                // The pill's own title size, and a small path under it: the
+                                // bar's 22sp title and a bodyMedium path filled 48dp exactly.
+                                style = TopBarTitleStyle,
+                                overflow = TextOverflow.Ellipsis,
+                                maxLines = 1
+                            )
 
-                    if (!subtitle.isBlank()) {
-                        Text(
-                            text = subtitle,
-                            color = MaterialTheme.colorScheme.secondary,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                            if (!subtitle.isBlank()) {
+                                Text(
+                                    text = subtitle,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                     }
-                }
-            }, navigationIcon = {
-                IconButton(
-                    onClick = {
-                        if (isSearching) {
-                            isSearching = false
-                            query = TextFieldValue()
-                        } else {
-                            navController.navigateUp()
-                        }
-                    },
-                    onLongClick = {
-                        if (!isSearching) {
-                            navController.backToMain()
-                        }
-                    },
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = null
-                    )
-                }
-            }, windowInsets = TopBarInsets)
+                },
+                navController = navController,
+                // Holding back does nothing while searching, as it always did here.
+                onLongBack = { if (!isSearching) navController.backToMain() },
+                onBack = {
+                    if (isSearching) {
+                        isSearching = false
+                        query = TextFieldValue()
+                    } else {
+                        navController.navigateUp()
+                    }
+                },
+            )
         }
 
         FloatingFooter(inSelectMode) {

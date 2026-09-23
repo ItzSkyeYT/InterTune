@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Timer
@@ -21,7 +20,6 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -35,17 +33,15 @@ import com.dd3boh.outertune.constants.RecogniseKeepAwakeKey
 import com.dd3boh.outertune.constants.RecogniseListenSecondsKey
 import com.dd3boh.outertune.constants.RecogniseKeepListeningKey
 import com.dd3boh.outertune.constants.RecognisePauseOnSpeakerKey
-import com.dd3boh.outertune.constants.TopBarInsets
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dd3boh.outertune.recognition.MicrophoneListener
 import com.dd3boh.outertune.recognition.RecognitionViewModel
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
+import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
-import com.dd3boh.outertune.ui.component.button.IconButton
-import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.utils.rememberPreference
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -130,17 +126,5 @@ fun RecognitionSettings(
         }
     }
 
-    TopAppBar(
-        title = { Text(stringResource(R.string.recognise_settings)) },
-        navigationIcon = {
-            IconButton(
-                onClick = navController::navigateUp,
-                onLongClick = navController::backToMain,
-            ) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
-            }
-        },
-        windowInsets = TopBarInsets,
-        scrollBehavior = scrollBehavior,
-    )
+    FloatingTopBar(title = stringResource(R.string.recognise_settings), navController = navController)
 }

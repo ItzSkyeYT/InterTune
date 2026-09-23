@@ -4,6 +4,8 @@
 while also allowing users to translate our app as well. New, specific strings to OuterTune go here. -->
 
 <resources>
+    <!-- The floating back button, read out by TalkBack. -->
+    <string name="back">Back</string>
 <!-- General -->
     <string name="android_auto">Android Auto</string>
 

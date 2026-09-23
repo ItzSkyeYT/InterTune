@@ -19,9 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Download
@@ -41,9 +39,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator
 import androidx.compose.material3.pulltorefresh.pullToRefresh
@@ -68,13 +63,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -102,7 +95,6 @@ import com.dd3boh.outertune.constants.SongSortType
 import com.dd3boh.outertune.constants.SongSortTypeKey
 import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
-import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toMediaItem
@@ -112,14 +104,18 @@ import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.AutoResizeText
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.ui.component.FloatingFooter
+import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.ui.component.FontSizeRange
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.ScrollToTopManager
 import com.dd3boh.outertune.ui.component.SelectHeader
+import com.dd3boh.outertune.ui.component.TopBarActions
+import com.dd3boh.outertune.ui.component.TopBarSearchField
+import com.dd3boh.outertune.ui.component.TopBarTitle
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.SongListItem
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
-import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.ui.utils.getNSongsString
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.makeTimeString
@@ -610,83 +606,54 @@ fun AutoPlaylistScreen(
             state = lazyListState,
         )
 
-        TopAppBar(
-            title = {
+        FloatingTopBar(
+            titleContent = {
                 if (isSearching) {
-                    TextField(
+                    TopBarSearchField(
                         value = query,
                         onValueChange = { query = it },
-                        placeholder = {
-                            Text(
-                                text = stringResource(R.string.search),
-                                style = MaterialTheme.typography.titleLarge
-                            )
-                        },
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.titleLarge,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                            disabledIndicatorColor = Color.Transparent,
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(focusRequester)
+                        modifier = Modifier.focusRequester(focusRequester),
                     )
                 } else if (showTopBarTitle) {
-                    Text(playlist.name)
+                    TopBarTitle(playlist.name)
+                }
+            },
+            navController = navController,
+            // Holding back does nothing while searching, as it always did here.
+            onLongBack = { if (!isSearching) navController.backToMain() },
+            onBack = {
+                if (isSearching) {
+                    isSearching = false
+                    query = TextFieldValue()
+                } else {
+                    navController.navigateUp()
                 }
             },
             actions = {
                 // The search bar, and the listen button living in it, only exist on the top level
                 // tabs. Somebody deep in a playlist who wants to know what is playing in the room
                 // would otherwise have to navigate out to reach it.
-                IconButton(onClick = { navController.navigate("recognition") }) {
-                    Icon(
-                        Icons.Rounded.GraphicEq,
-                        contentDescription = stringResource(R.string.recognise)
-                    )
-                }
-                if (!isSearching) {
-                    IconButton(
-                        onClick = {
-                            isSearching = true
-                        }
-                    ) {
+                TopBarActions {
+                    IconButton(onClick = { navController.navigate("recognition") }) {
                         Icon(
-                            Icons.Rounded.Search,
-                            contentDescription = null
+                            Icons.Rounded.GraphicEq,
+                            contentDescription = stringResource(R.string.recognise)
                         )
                     }
-                }
-            },
-            navigationIcon = {
-                IconButton(
-                    onClick = {
-                        if (isSearching) {
-                            isSearching = false
-                            query = TextFieldValue()
-                        } else {
-                            navController.navigateUp()
-                        }
-                    },
-                    onLongClick = {
-                        if (!isSearching) {
-                            navController.backToMain()
+                    if (!isSearching) {
+                        IconButton(
+                            onClick = {
+                                isSearching = true
+                            }
+                        ) {
+                            Icon(
+                                Icons.Rounded.Search,
+                                contentDescription = null
+                            )
                         }
                     }
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = null
-                    )
                 }
             },
-            windowInsets = TopBarInsets,
-            scrollBehavior = scrollBehavior
         )
 
         Indicator(

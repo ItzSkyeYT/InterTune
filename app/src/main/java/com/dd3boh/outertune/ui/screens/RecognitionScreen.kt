@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.ui.screens
 
+import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.component.TopBarActions
+
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -419,24 +422,16 @@ fun RecognitionScreen(
         }
     }
 
-    TopAppBar(
-        title = { Text(stringResource(R.string.recognise)) },
-        navigationIcon = {
-            IconButton(
-                modifier = Modifier.backButtonSurface(),
-                onClick = navController::navigateUp,
-                onLongClick = navController::backToMain,
-            ) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
-            }
-        },
+    FloatingTopBar(
+        title = stringResource(R.string.recognise),
+        navController = navController,
         actions = {
-            IconButton(onClick = { navController.navigate("recognition/history") }) {
-                Icon(Icons.Rounded.History, contentDescription = stringResource(R.string.recognition_history))
+            TopBarActions {
+                IconButton(onClick = { navController.navigate("recognition/history") }) {
+                    Icon(Icons.Rounded.History, contentDescription = stringResource(R.string.recognition_history))
+                }
             }
         },
-        windowInsets = TopBarInsets,
-        scrollBehavior = scrollBehavior,
     )
 }
 

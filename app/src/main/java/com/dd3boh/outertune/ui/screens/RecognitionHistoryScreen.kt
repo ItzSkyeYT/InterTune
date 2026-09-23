@@ -14,13 +14,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,13 +33,10 @@ import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.recognition.Heard
 import com.dd3boh.outertune.recognition.RecognitionViewModel
-import com.dd3boh.outertune.ui.component.button.IconButton
-import com.dd3boh.outertune.ui.component.button.backButtonSurface
-import com.dd3boh.outertune.ui.utils.backToMain
+import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.utils.urlEncode
 import com.zionhuang.innertube.models.WatchEndpoint
 import kotlinx.coroutines.launch
@@ -115,20 +108,7 @@ fun RecognitionHistoryScreen(
         }
     }
 
-    TopAppBar(
-        title = { Text(stringResource(R.string.recognition_history)) },
-        navigationIcon = {
-            IconButton(
-                modifier = Modifier.backButtonSurface(),
-                onClick = navController::navigateUp,
-                onLongClick = navController::backToMain,
-            ) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
-            }
-        },
-        windowInsets = TopBarInsets,
-        scrollBehavior = scrollBehavior,
-    )
+    FloatingTopBar(title = stringResource(R.string.recognition_history), navController = navController)
 }
 
 @Composable

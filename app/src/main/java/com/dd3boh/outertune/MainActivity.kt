@@ -88,6 +88,10 @@ import kotlinx.coroutines.withContext
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.compose.material3.TopAppBarState
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
@@ -222,6 +226,7 @@ import com.dd3boh.outertune.ui.theme.DefaultThemeColor
 import com.dd3boh.outertune.ui.theme.OuterTuneTheme
 import com.dd3boh.outertune.ui.theme.extractThemeColor
 import com.dd3boh.outertune.ui.utils.appBarScrollBehavior
+import com.dd3boh.outertune.ui.utils.resetHeightOffset
 import com.dd3boh.outertune.utils.ActivityLauncherHelper
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.LoudnessRepair
@@ -776,12 +781,33 @@ class MainActivity : ComponentActivity() {
                     // points at controls belonging to several of them.
                     val tourState = remember { TourState() }
 
+                    // Remembered: the default built a fresh state on every recomposition of this
+                    // scope, which only went unnoticed because the scope rarely recomposed.
+                    val appBarState = remember { TopAppBarState(-Float.MAX_VALUE, 0f, 0f) }
                     val scrollBehavior = appBarScrollBehavior(
+                        state = appBarState,
                         canScroll = {
                             navBackStackEntry?.destination?.route?.startsWith("search/") == false &&
                                     (playerBottomSheetState.isCollapsed || playerBottomSheetState.isDismissed)
                         }
                     )
+                    // Every screen feeds this one state, and nothing gave it back: scroll a
+                    // settings page, go back, and Home's search bar was still slid away. A tab, or
+                    // search, now arrives with it fully out. Only on arrival there: a tab being
+                    // left keeps its bar where it was while it fades, instead of flashing back in.
+                    // The route is read in the flow, not during composition, so a navigation does
+                    // not recompose everything this scope provides.
+                    val tabRoutes by rememberUpdatedState(navigationItems.map { it.route })
+                    LaunchedEffect(Unit) {
+                        snapshotFlow { navBackStackEntry?.destination?.route }
+                            .distinctUntilChanged()
+                            .collectLatest { route ->
+                                if (route in tabRoutes || route?.startsWith("search/") == true) {
+                                    appBarState.contentOffset = 0f
+                                    appBarState.resetHeightOffset()
+                                }
+                            }
+                    }
 
 
                     // A Quick pick tapped on the home screen widget. Handled for the intent that

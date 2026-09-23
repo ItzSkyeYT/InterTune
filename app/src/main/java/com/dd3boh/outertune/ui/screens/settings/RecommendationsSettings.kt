@@ -31,15 +31,10 @@ import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.constants.TidyHomeRowsKey
 import androidx.compose.foundation.layout.Column
-import com.dd3boh.outertune.ui.component.button.IconButton
 import androidx.compose.foundation.layout.fillMaxHeight
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
-import androidx.compose.material3.TopAppBar
-import com.dd3boh.outertune.constants.TopBarInsets
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material3.Icon
+import com.dd3boh.outertune.ui.component.FloatingTopBar
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -66,7 +61,6 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.EndReason
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.ui.component.PreferenceEntry
-import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.viewmodels.RecommendationsViewModel
 import java.text.DateFormat
 import java.util.Date
@@ -433,21 +427,6 @@ fun RecommendationsSettings(
         }
     }
 
-    TopAppBar(
-        title = { Text(stringResource(R.string.recommendations)) },
-        navigationIcon = {
-            IconButton(
-                onClick = navController::navigateUp,
-                onLongClick = navController::backToMain
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = null
-                )
-            }
-        },
-        windowInsets = TopBarInsets,
-        scrollBehavior = scrollBehavior
-    )
+    FloatingTopBar(title = stringResource(R.string.recommendations), navController = navController)
 }
 

@@ -8,12 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,9 +25,7 @@ import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.LocalScrobbler
-import com.dd3boh.outertune.constants.TopBarInsets
-import com.dd3boh.outertune.ui.component.button.IconButton
-import com.dd3boh.outertune.ui.utils.backToMain
+import com.dd3boh.outertune.ui.component.FloatingTopBar
 import kotlinx.coroutines.launch
 
 /**
@@ -48,7 +41,6 @@ import kotlinx.coroutines.launch
  * was stored and the token expires on its own.
  */
 @SuppressLint("SetJavaScriptEnabled")
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LastFmLoginScreen(
     navController: NavController,
@@ -131,19 +123,5 @@ fun LastFmLoginScreen(
     // Drawn after the branch rather than inside it. The three states here are an error, a blank
     // wait for the token, and the page itself, and the first two used to return early, so the
     // screen could sit with nothing on it and no way off but the system gesture.
-    TopAppBar(
-        title = { Text(stringResource(R.string.lastfm_login_title)) },
-        navigationIcon = {
-            IconButton(
-                onClick = navController::navigateUp,
-                onLongClick = navController::backToMain
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = null
-                )
-            }
-        },
-        windowInsets = TopBarInsets,
-    )
+    FloatingTopBar(title = stringResource(R.string.lastfm_login_title), navController = navController)
 }

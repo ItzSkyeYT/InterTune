@@ -6,22 +6,21 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import com.dd3boh.outertune.ui.component.FloatingTopBar
+
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -39,8 +38,6 @@ import com.dd3boh.outertune.db.entities.RecommendationExclusion
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
-import com.dd3boh.outertune.ui.component.button.IconButton
-import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.viewmodels.ExclusionsViewModel
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -121,16 +118,9 @@ fun ExclusionsSettings(
 
     SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(LocalPlayerAwareWindowInsets.current.asPaddingValues()))
 
-    TopAppBar(
-        title = { Text(stringResource(R.string.exclusions)) },
-        navigationIcon = {
-            IconButton(
-                onClick = navController::navigateUp,
-                onLongClick = navController::backToMain
-            ) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = null)
-            }
-        },
-        scrollBehavior = scrollBehavior
+    FloatingTopBar(
+        title = stringResource(R.string.exclusions),
+        navController = navController,
+        windowInsets = TopAppBarDefaults.windowInsets,
     )
 }

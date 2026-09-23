@@ -11,6 +11,16 @@ package com.dd3boh.outertune.ui.component.button
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.foundation.Indication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -85,6 +95,16 @@ fun ResizableIconButton(
     )
 }
 
+/**
+ * Material's icon button, with a long press when [onLongClick] is given.
+ *
+ * The long press used to be a combinedClickable wrapped around Material's own button, and it never
+ * fired: Material's clickable sits inside and takes the touch first, so the outer detector never
+ * saw a press to hold, and holding the back button did a plain back instead of going to the main
+ * screen. Checked on the emulator from Look and feel, which landed on Settings. So a button that
+ * wants both gets one clickable that knows both, drawn the way Material draws its own: 40dp,
+ * round, the 48dp touch target, the same ripple and colours.
+ */
 @Composable
 fun IconButton(
     onClick: () -> Unit,
@@ -94,17 +114,33 @@ fun IconButton(
     colors: IconButtonColors = IconButtonDefaults.iconButtonColors(),
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     content: @Composable () -> Unit,
-) = IconButton(
-    onClick = onClick,
-    modifier = modifier.combinedClickable(
-        onClick = { },
-        onLongClick = onLongClick,
-    ),
-    enabled = enabled,
-    colors = colors,
-    interactionSource = interactionSource
 ) {
-    content()
+    if (onLongClick == null) {
+        // Qualified: this function is also called IconButton, and a call that resolved to it would recurse.
+        androidx.compose.material3.IconButton(onClick = onClick, modifier = modifier, enabled = enabled, colors = colors, interactionSource = interactionSource, content = content)
+        return
+    }
+    Box(
+        modifier = modifier
+            .minimumInteractiveComponentSize()
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(if (enabled) colors.containerColor else colors.disabledContainerColor)
+            .combinedClickable(
+                interactionSource = interactionSource,
+                indication = ripple(),
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        CompositionLocalProvider(
+            LocalContentColor provides if (enabled) colors.contentColor else colors.disabledContentColor,
+            content = content,
+        )
+    }
 }
 
 @Composable
