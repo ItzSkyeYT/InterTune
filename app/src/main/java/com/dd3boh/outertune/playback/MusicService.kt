@@ -235,8 +235,12 @@ class MusicService : MediaLibraryService(),
      * Lives exactly as long as this instance, and onDestroy cancels it. Every settings observer
      * onCreate starts runs here, so while nothing cancelled it, each destroyed instance stayed
      * reachable and went on answering setting changes meant for the one after it.
+     *
+     * A SupervisorJob, because three jobs here swallow their errors with SilentHandler, and under a
+     * plain Job the one that failed still cancelled the whole scope: a radio top-up with nothing to
+     * seed from took every observer and the sleep timer with it, without a word.
      */
-    private val scope = CoroutineScope(Dispatchers.Main)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     /**
      * Outlives the service on purpose, for what has to land after onDestroy: telling the widget it
