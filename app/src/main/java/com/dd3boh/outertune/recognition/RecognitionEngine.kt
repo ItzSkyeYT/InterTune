@@ -221,6 +221,9 @@ class RecognitionEngine @Inject constructor(
      */
     private val confirmed = mutableMapOf<String, SongItem>()
 
+    /** When each of [confirmed] was confirmed, so taking a piece out spares an earlier real play. */
+    private val confirmedAt = mutableMapOf<String, Long>()
+
     /** The speed the last pair of listens measured, when it was not the original's. */
     private var pendingVariant: PlaybackVariant? = null
 
@@ -258,8 +261,20 @@ class RecognitionEngine @Inject constructor(
      */
     private val answered = mutableSetOf<String>()
 
-    /** When each song was first heard since the last mashup ended, for when a mashup began. */
+    /**
+     * When each song was first heard this time round: reset once it has not been heard for a while,
+     * so a song played on its own earlier in the evening does not make a mashup of it later look
+     * twenty minutes long.
+     */
     private val firstHeard = mutableMapOf<String, Long>()
+    private val lastHeard = mutableMapOf<String, Long>()
+
+    /**
+     * Songs that went back to their top partway through (CutWatch's RESTART), watched to see whether
+     * they then play to their end. One that stops well short was an edit.
+     */
+    private class Restart(val sighting: MixWatch.Sighting, var offset: Double, var atMs: Long, val durationS: Int)
+    private val restarts = mutableMapOf<String, Restart>()
 
     /** Windows in a row with nothing Shazam knows, while a mashup is on. */
     private var unmatchedRun = 0
@@ -282,9 +297,22 @@ class RecognitionEngine @Inject constructor(
      * it could be. For the person to pick, since two mashups of the same songs sound alike to a
      * search that only knows the songs.
      */
-    data class MixChoice(val pieces: List<String>, val candidates: List<SongItem>)
-    private val _mixChoice = MutableStateFlow<MixChoice?>(null)
-    val mixChoice = _mixChoice.asStateFlow()
+    data class MixChoice(
+        /** The Shazam keys of its pieces, which is what ties the choice to its mashup. */
+        val keys: Set<String>,
+        val pieces: List<String>,
+        val candidates: List<SongItem>,
+    )
+    /** Every choice still waiting, newest first. More than one when mashups follow each other. */
+    private val _mixChoices = MutableStateFlow<List<MixChoice>>(emptyList())
+    val mixChoices = _mixChoices.asStateFlow()
+
+    /**
+     * Where everything about mashups is changed: one thread at a time, so a pick on the screen and
+     * the listening loop cannot both be in the middle of it.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val serial = Dispatchers.Default.limitedParallelism(1)
 
     /**
      * The first sighting of a track, held until a second one confirms it.
@@ -327,12 +355,15 @@ class RecognitionEngine @Inject constructor(
         mix = null
         answered.clear()
         firstHeard.clear()
+        lastHeard.clear()
+        restarts.clear()
+        confirmedAt.clear()
         unmatchedRun = 0
-        _mixChoice.value = null
+        _mixChoices.value = emptyList()
         synchronized(written) { written.clear() }
         synchronized(owned) { owned.clear() }
 
-        job = scope.launch {
+        job = scope.launch(serial) {
             running.value = true
             startedAt.value = System.currentTimeMillis()
             known = playlist?.let {
@@ -429,8 +460,13 @@ class RecognitionEngine @Inject constructor(
                 // the estimate is left to run.
                 if (outcome.reason == "silence") {
                     publish(null)
-                    // The music stopped, so whatever mashup was on has ended with it.
+                    // The music stopped, so whatever mashup was on has ended with it, a song that
+                    // went back to its top stopped where it was, and neither watch has anything left
+                    // to go on: a pause is not a cut, and what comes after is new.
+                    checkRestarts(heardAtMs, ended = true)
                     endMix("silence")
+                    mixWatch.clear()
+                    cutWatch.clear()
                 }
                 // Nothing to say in continuous mode. A quiet stretch or one refused request is not
                 // a reason to stop listening or to ask somebody to press try again.
@@ -447,7 +483,10 @@ class RecognitionEngine @Inject constructor(
                 // Two windows in a row of something Shazam does not know is the gap between two
                 // tracks: the Damage mashup had one unmatched window in five minutes, and two at its
                 // end. Whatever came before is over.
-                if (keepGoing && mix != null && ++unmatchedRun >= 2) endMix("two windows of nothing Shazam knows")
+                if (keepGoing && ++unmatchedRun >= 2) {
+                    checkRestarts(heardAtMs, ended = true)
+                    endMix("two windows of nothing Shazam knows")
+                }
             }
 
             is RecognitionOutcome.Match -> {
@@ -564,21 +603,34 @@ class RecognitionEngine @Inject constructor(
                             heardAtMs - m.startedMs > MIX_LONGEST_MS -> endMix("longer than any mashup runs")
                         }
                     }
-                    firstHeard.putIfAbsent(key, heardAtMs)
+                    if (lastHeard[key]?.let { heardAtMs - it > MIX_QUIET_MS } != false) firstHeard[key] = heardAtMs
+                    lastHeard[key] = heardAtMs
+                    checkRestarts(heardAtMs, ended = false, playing = key)
                     val sighting = MixWatch.Sighting(
                         key, outcome.track.title, outcome.track.artist, heardAtMs,
                         outcome.track.offsetSeconds, outcome.track.timeSkew,
                     )
                     mixWatch.observe(sighting)?.let { onMix(it, heardAtMs, key) }
                     val length = best?.duration ?: confirmed[key]?.duration
-                    when (cutWatch.observe(key, outcome.track.offsetSeconds, outcome.track.timeSkew, heardAtMs, length)) {
-                        // Unless another song is playing straight through it: then this is that song's
-                        // original, or a sample in it, which is cut up because that is what a remix does.
-                        CutWatch.Verdict.FIRST -> if (mixWatch.steadyHost(heardAtMs).let { it == null || it == key }) {
-                            onCuts(sighting, heardAtMs)
+                    val verdict = cutWatch.observe(key, outcome.track.offsetSeconds, outcome.track.timeSkew, heardAtMs, length)
+                    restarts[key]?.let { it.offset = outcome.track.offsetSeconds; it.atMs = heardAtMs }
+                    when (verdict) {
+                        CutWatch.Verdict.FIRST, CutWatch.Verdict.AGAIN -> {
+                            val active = mix
+                            if (active != null && key in active.keys) {
+                                // Still cutting about, so still not the song: the hold starts over.
+                                active.lastCutMs = heardAtMs
+                            } else if (mixWatch.steadyHost(heardAtMs).let { it == null || it == key }) {
+                                // Unless another song is playing straight through it: then this is
+                                // that song's original, or a sample in it, which is cut up because
+                                // that is what a remix does. A verdict held back like that is not
+                                // lost: the next cut, once nothing is playing straight, counts.
+                                onCuts(sighting, heardAtMs)
+                            }
                         }
-                        // Still cutting about, so still not the song: the hold starts over.
-                        CutWatch.Verdict.AGAIN -> mix?.takeIf { key in it.keys }?.lastCutMs = heardAtMs
+                        CutWatch.Verdict.RESTART -> length?.let {
+                            restarts[key] = Restart(sighting, outcome.track.offsetSeconds, heardAtMs, it)
+                        }
                         CutWatch.Verdict.NONE -> {}
                     }
                     // Only a return after a cut keeps a mashup going (onMix). A piece playing
@@ -681,7 +733,10 @@ class RecognitionEngine @Inject constructor(
                             endMix("'${outcome.track.title}' started from the top")
                         }
                     }
-                    key?.let { confirmed[it] = chosen }
+                    key?.let {
+                        confirmed[it] = chosen
+                        confirmedAt[it] = heardAtMs
+                    }
                     add(chosen)
                     return
                 }
@@ -882,13 +937,12 @@ class RecognitionEngine @Inject constructor(
                 answered += current.keys
                 current.found = winner
                 current.endsAtMs = endOf(current.startedMs, winner)
-                _mixChoice.value = null
+                dropChoice(current.keys)
                 add(winner)
             }
             // The choice is drawn by the screen, whose runs have no playlist. The sheet shows the
             // unsure list instead, so a playlist's run notes the mashup there.
-            winner == null && playlist == null ->
-                _mixChoice.value = MixChoice(titles, current.candidates.take(CHOICES))
+            winner == null && playlist == null -> offerChoice(current, titles)
             else -> {
                 val name = winner?.title ?: titles.joinToString(" + ")
                 if (_skipped.value.none { it.title == name }) {
@@ -912,6 +966,12 @@ class RecognitionEngine @Inject constructor(
             if (piece.key !in m.keys && m.settled && m.endsAtMs.let { it == null || now > it }) {
                 endMix("another song is cut up")
             }
+        }
+        // Answered already, the same edit or mashup on again: only its piece comes back out.
+        if (mix == null && piece.key in answered) {
+            mix = ActiveMix(mutableSetOf(piece.key), now, now, strong = true, settled = true, searched = true, startedMs = startOf(listOf(piece.key), now))
+            retract(listOf(piece))
+            return
         }
         val active = mix
         if (active != null && piece.key in active.keys) {
@@ -946,7 +1006,7 @@ class RecognitionEngine @Inject constructor(
         val choices = found.take(CHOICES)
         Log.i(TAG, "Remixes and mashups of '${piece.title}': ${found.take(MAX_CANDIDATES).joinToString { "'${it.title}' ${it.duration}s" }}")
         when {
-            choices.isNotEmpty() && playlist == null -> _mixChoice.value = MixChoice(listOf(piece.title), choices)
+            choices.isNotEmpty() && playlist == null -> offerChoice(current, listOf(piece.title))
             choices.isNotEmpty() || !failed -> {
                 if (_skipped.value.none { it.title == piece.title }) {
                     _skipped.value += Added(piece.title, context.getString(R.string.recognise_edit), auto = false)
@@ -967,26 +1027,62 @@ class RecognitionEngine @Inject constructor(
         val over = mix ?: return
         Log.i(TAG, "Mashup over: $why")
         mix = null
-        mixWatch.clear()
-        cutWatch.clear()
-        firstHeard.clear()
+        // Only its own pieces are forgotten. What ended it, a new song from its top or the first
+        // pieces of the next mashup, is what the next verdict needs.
+        mixWatch.forget(over.keys)
+        cutWatch.forget(over.keys)
         unmatchedRun = 0
         if (!over.settled && over.candidates.isNotEmpty()) {
             val heard = heardSeconds(over.startedMs, over.lastHeardMs)
-            val reordered = MixSearch.byLength(over.candidates, heard)
+            val reordered = MixSearch.byLength(over.candidates, heard).ifEmpty { over.candidates }
             Log.i(TAG, "Heard it for ${"%.0f".format(heard)} s: ${reordered.take(CHOICES).joinToString { "'${it.title}' ${it.duration}s" }}")
-            _mixChoice.update { choice -> choice?.copy(candidates = reordered.take(CHOICES)) }
+            updateChoice(over.keys) { it.copy(candidates = reordered.take(CHOICES)) }
         }
     }
 
-    /** Drops the choices shorter than what has already been heard of the mashup. */
+    /**
+     * Drops the choices shorter than what has already been heard of the mashup, as long as that
+     * leaves something: a choice with nothing under "Which one is it?" but None of these asks nothing.
+     */
     private fun refreshChoice(active: ActiveMix) {
         if (active.settled || active.candidates.isEmpty()) return
         val heard = heardSeconds(active.startedMs, active.lastHeardMs)
         val still = active.candidates.filter { MixSearch.couldBe(it, heard) }
-        if (still.size == active.candidates.size) return
+        if (still.size == active.candidates.size || still.isEmpty()) return
         active.candidates = still
-        _mixChoice.update { choice -> choice?.copy(candidates = still.take(CHOICES)) }
+        updateChoice(active.keys) { it.copy(candidates = still.take(CHOICES)) }
+    }
+
+    /** Shows the choice for [active], in place of one it already had, alongside any others. */
+    private fun offerChoice(active: ActiveMix, titles: List<String>) {
+        val choice = MixChoice(active.keys.toSet(), titles, active.candidates.take(CHOICES))
+        _mixChoices.update { list -> listOf(choice) + list.filterNot { it.keys.any { key -> key in active.keys } } }
+    }
+
+    private fun updateChoice(keys: Set<String>, change: (MixChoice) -> MixChoice) {
+        _mixChoices.update { list -> list.map { if (it.keys.any { key -> key in keys }) change(it) else it } }
+    }
+
+    private fun dropChoice(keys: Set<String>) {
+        _mixChoices.update { list -> list.filterNot { it.keys.any { key -> key in keys } } }
+    }
+
+    /**
+     * Settles the songs that went back to their top partway through, once they have stopped: the
+     * one [playing] now is still going and is left alone, the rest have not been heard for two
+     * windows, or [ended] says the music stopped. One that stopped well short of its end was an
+     * edit, and is handled as a cut-up song would be, now that it is over.
+     */
+    private suspend fun checkRestarts(now: Long, ended: Boolean, playing: String? = null) {
+        val over = restarts.filter { (key, r) -> key != playing && (ended || now - r.atMs >= 2 * windowMs) }
+        for ((key, r) in over) {
+            restarts.remove(key)
+            val reached = r.offset + windowMs / 1000.0
+            if (reached < r.durationS - EARLY_END_S) {
+                Log.i(TAG, "'${r.sighting.title}' went back to its top and stopped at ${"%.0f".format(reached)} s of ${r.durationS}: an edit")
+                onCuts(r.sighting.copy(atMs = r.atMs), now)
+            }
+        }
     }
 
     private fun startOf(keys: Collection<String>, now: Long): Long =
@@ -1022,7 +1118,15 @@ class RecognitionEngine @Inject constructor(
      * stays. A YouTube playlist keeps its copy, which the API here has no way to remove.
      */
     private suspend fun retract(pieces: List<MixWatch.Sighting>) {
-        val songs = pieces.mapNotNull { confirmed.remove(it.key) }
+        // Only what was confirmed during this appearance of the song. The same song played on its
+        // own earlier in the evening was a real play, and stays.
+        val songs = pieces.mapNotNull { piece ->
+            val since = (firstHeard[piece.key] ?: 0L) - windowMs
+            if ((confirmedAt[piece.key] ?: Long.MIN_VALUE) >= since) {
+                confirmedAt.remove(piece.key)
+                confirmed.remove(piece.key)
+            } else null
+        }
         val ids = synchronized(owned) { songs.map { it.id }.filter { it in owned }.toSet().also { owned.removeAll(it) } }
         if (ids.isEmpty()) return
         Log.i(TAG, "Taking out ${songs.filter { it.id in ids }.joinToString { "'${it.title}'" }}, pieces of a mashup")
@@ -1038,16 +1142,29 @@ class RecognitionEngine @Inject constructor(
         }
     }
 
-    /** The person picked the mashup it was, from [mixChoice]. */
-    fun acceptMix(song: SongItem) {
-        mix?.apply { found = song; settled = true; answered += keys; endsAtMs = endOf(startedMs, song) }
-        _mixChoice.value = null
-        add(song)
+    /**
+     * The person picked the upload it was, from [choice]. Settles that mashup, if it is still the one
+     * on, and remembers its pieces as answered either way, so it is not asked about again.
+     */
+    fun acceptMix(choice: MixChoice, song: SongItem) {
+        scope.launch(serial) {
+            answered += choice.keys
+            mix?.takeIf { active -> active.keys.any { it in choice.keys } }?.apply {
+                found = song
+                settled = true
+                endsAtMs = endOf(startedMs, song)
+            }
+            dropChoice(choice.keys)
+            add(song)
+        }
     }
 
-    fun dismissMix() {
-        mix?.apply { settled = true; answered += keys }
-        _mixChoice.value = null
+    fun dismissMix(choice: MixChoice) {
+        scope.launch(serial) {
+            answered += choice.keys
+            mix?.takeIf { active -> active.keys.any { it in choice.keys } }?.settled = true
+            dropChoice(choice.keys)
+        }
     }
 
     fun stop() {
@@ -1074,7 +1191,7 @@ class RecognitionEngine @Inject constructor(
 
     fun reset() {
         stop()
-        _mixChoice.value = null
+        _mixChoices.value = emptyList()
         _added.value = emptyList()
         // Cleared with the rest, because the button that calls this sits over the list of what
         // was heard, and a clear that left the near misses standing did not clear anything.
@@ -1087,7 +1204,7 @@ class RecognitionEngine @Inject constructor(
      */
     fun clearRecognised() {
         _recognised.value = emptyList()
-        _mixChoice.value = null
+        _mixChoices.value = emptyList()
         // A fresh list is not the one that playlist was made from, so it stops filling it.
         follow(null)
     }
@@ -1121,6 +1238,9 @@ class RecognitionEngine @Inject constructor(
         /** Uploads offered to pick from, and how many more are kept to reorder them from. */
         private const val CHOICES = 3
         private const val MAX_CANDIDATES = 8
+
+        /** A song that went back to its top and then stopped this far short of its end was an edit. */
+        private const val EARLY_END_S = 30
 
         /**
          * How long after a cut its pieces are held back. Longer than a section of a mashup: the

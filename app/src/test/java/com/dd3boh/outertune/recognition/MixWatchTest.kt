@@ -41,16 +41,44 @@ class MixWatchTest {
     )
 
     @Test
-    fun theDamageRunIsAMixOnceFaintComesBack() {
+    fun songsNamedOnceAreNotPieces() {
+        // The first Damage run: No Love and an unsure match once each. Songs named for one window
+        // and never again are what Shazam does in a busy mix; the return alone proves nothing.
         val watch = MixWatch()
-        val verdicts = run.map { (song, at) -> watch.observe(sighting(song, at)) }
-        // Nothing until Faint returns after No Love and the unsure window.
-        assertTrue(verdicts.subList(0, 10).all { it == null })
-        val mix = verdicts[10]
+        assertTrue(run.all { (song, at) -> watch.observe(sighting(song, at)) == null })
+    }
+
+    /** The second Damage run, 24 Sep 12:56 on, seconds after its first window: No Love came back. */
+    private val damage2 = listOf(
+        faint to 0, faint to 12, faint to 24, faint to 36, faint to 48, faint to 60, faint to 72, faint to 84,
+        faint to 96, faint to 108, faint to 120, noLove to 132, faint to 144, faint to 156, faint to 168,
+        noLove to 180, faint to 192,
+    )
+
+    @Test
+    fun theDamageRunIsAMixOnceNoLoveComesBackToo() {
+        val watch = MixWatch()
+        val verdicts = damage2.map { (song, at) -> watch.observe(sighting(song, at)) }
+        // Nothing while No Love has been heard once.
+        assertTrue(verdicts.subList(0, 15).all { it == null })
+        // No Love back after Faint is the same thing seen from its side, and only one gap so far.
+        assertFalse(verdicts[15]!!.strong)
+        val mix = verdicts[16]
         assertNotNull(mix)
-        // Two windows of something else in a row is not one bad window.
+        // Faint left twice for the same other song.
         assertTrue(mix!!.strong)
-        assertEquals(listOf("faint", "nolove", "lliving"), mix.pieces.map { it.key })
+        assertEquals(listOf("faint", "nolove"), mix.pieces.map { it.key })
+    }
+
+    @Test
+    fun aBreakdownFullOfOneWindowMatchesIsNotAMashup() {
+        // 2 Faced Funks, Powerbass, replayed from a file on 24 Sep: in its breakdown Shazam named
+        // five different tracks for a window each before Powerbass came back.
+        val watch = MixWatch()
+        val sightings = listOf("powerbass" to 0, "powerbass" to 12, "powerbass" to 24, "feel" to 84, "greyhound" to 96,
+            "surprise" to 108, "europa" to 120, "reload" to 132, "powerbass" to 144, "powerbass" to 156, "setmix" to 180,
+            "powerbass" to 192)
+        assertTrue(sightings.all { (key, at) -> watch.observe(MixWatch.Sighting(key, key, "x", at * 1000L)) == null })
     }
 
     @Test
@@ -62,22 +90,20 @@ class MixWatchTest {
     }
 
     @Test
-    fun oneOddWindowIsOnlyWorthALook() {
+    fun oneOddWindowIsNothing() {
         val watch = MixWatch()
         val a = "a" to ("A" to "x"); val odd = "odd" to ("Odd" to "y")
-        listOf(a to 0, a to 12, odd to 24).forEach { (s, at) -> assertNull(watch.observe(sighting(s, at))) }
-        val mix = watch.observe(sighting(a, 36))
-        assertNotNull(mix)
-        assertFalse(mix!!.strong)
+        listOf(a to 0, a to 12, odd to 24, a to 36).forEach { (s, at) -> assertNull(watch.observe(sighting(s, at))) }
     }
 
     @Test
     fun aSecondInterruptionMakesItSure() {
         val watch = MixWatch()
-        val a = "a" to ("A" to "x"); val b = "b" to ("B" to "y"); val c = "c" to ("C" to "z")
+        val a = "a" to ("A" to "x"); val b = "b" to ("B" to "y")
         listOf(a to 0, b to 12).forEach { (s, at) -> watch.observe(sighting(s, at)) }
-        assertFalse(watch.observe(sighting(a, 24))!!.strong)
-        watch.observe(sighting(c, 36))
+        // B once so far: nothing yet.
+        assertNull(watch.observe(sighting(a, 24)))
+        watch.observe(sighting(b, 36))
         assertTrue(watch.observe(sighting(a, 48))!!.strong)
     }
 
@@ -103,7 +129,7 @@ class MixWatchTest {
         val watch = MixWatch()
         val a = "a" to ("A" to "x"); val b1 = "b1" to ("B" to "y"); val b2 = "b2" to ("B" to "y")
         listOf(a to 0, a to 12, a to 24, b1 to 36, b2 to 48).forEach { (s, at) -> watch.observe(sighting(s, at)) }
-        assertFalse(watch.observe(sighting(a, 60))!!.strong)
+        assertFalse(watch.observe(sighting(a, 60))?.strong ?: false)
     }
 
     @Test
@@ -118,7 +144,7 @@ class MixWatchTest {
     @Test
     fun theQueriesAreTheTwoMostHeardPieces() {
         val watch = MixWatch()
-        val mix = run.map { (song, at) -> watch.observe(sighting(song, at)) }[10]!!
+        val mix = damage2.map { (song, at) -> watch.observe(sighting(song, at)) }[16]!!
         assertEquals(listOf("Faint No Love mashup", "Linkin Park Eminem mashup"), MixSearch.queries(mix.pieces))
     }
 
@@ -134,7 +160,7 @@ class MixWatchTest {
     @Test
     fun twoMashupsOfTheSameSongsAreAChoiceNotAGuess() {
         val watch = MixWatch()
-        val pieces = run.map { (song, at) -> watch.observe(sighting(song, at)) }[10]!!.pieces
+        val pieces = damage2.map { (song, at) -> watch.observe(sighting(song, at)) }[16]!!.pieces
         val byTitles = listOf(damage, damageLyrics, otherMashup, psychofaint)
         val byArtists = listOf(damage, breakingTheHabit)
         val ranked = MixSearch.rank(pieces, listOf(byTitles, byArtists))
@@ -158,17 +184,19 @@ class MixWatchTest {
     private val faintCuts = listOf(
         Triple(-2.2, -0.0016, 0), Triple(31.1, -0.0002, 12), Triple(43.1, 0.0003, 24),
         Triple(12.4, 0.0008, 36), Triple(24.4, 0.0018, 48), Triple(36.5, 0.0005, 60),
-        Triple(87.5, 0.0008, 72), Triple(60.4, 0.0018, 84),
+        Triple(87.5, 0.0008, 72), Triple(60.4, 0.0018, 84), Triple(35.1, 0.0010, 96),
+        Triple(47.1, -0.0002, 108), Triple(59.1, -0.0013, 120),
     )
 
     @Test
     fun theDamageRunIsCutUpAMinuteIn() {
         val watch = CutWatch()
         val verdicts = faintCuts.map { (offset, skew, at) -> watch.observe("faint", offset, skew, at * 1000L) }
-        // Two cuts that held, from 31 s and from 12 s: known at the fifth window, 48 s in, where the
-        // mashup check needed three and a half minutes and a second song.
-        assertEquals(CutWatch.Verdict.FIRST, verdicts[4])
-        assertTrue(verdicts.subList(0, 4).all { it == CutWatch.Verdict.NONE })
+        // Home is where Faint first held (31 s on), and two new places held after it, from 12 s and
+        // from 35 s: known 108 s in, where the mashup check needed three and a half minutes and a
+        // second song.
+        assertEquals(CutWatch.Verdict.FIRST, verdicts[9])
+        assertTrue(verdicts.subList(0, 9).all { it == CutWatch.Verdict.NONE })
     }
 
     @Test
@@ -251,11 +279,38 @@ class MixWatchTest {
     }
 
     @Test
-    fun memoriesInTheSecondMashupIsCutUpAtItsThirdWindow() {
+    fun fourWindowsEachSomewhereNewAreChoppedThreeAreNot() {
+        // Memories in Memories Anthem landed at 91.8, 36.4 and 43.1 before the mashup moved on; a
+        // repetitive song's first three windows can do the same (Hotline Bling), so it takes four.
         val watch = CutWatch()
         assertEquals(CutWatch.Verdict.NONE, watch.observe("m", 91.8, 0.0001, 0))
         assertEquals(CutWatch.Verdict.NONE, watch.observe("m", 36.4, 0.0011, 12_000))
-        assertEquals(CutWatch.Verdict.FIRST, watch.observe("m", 43.1, 0.0001, 24_000))
+        assertEquals(CutWatch.Verdict.NONE, watch.observe("m", 160.0, 0.0, 24_000))
+        assertEquals(CutWatch.Verdict.FIRST, watch.observe("m", 5.0, 0.0, 36_000))
+        // 36.4 then 43.1, as Memories actually went, is five seconds behind the clock: the same
+        // place resuming after a stall, so it does not count as somewhere new.
+        val other = CutWatch()
+        listOf(91.8 to 0L, 36.4 to 12_000L, 43.1 to 24_000L, 150.0 to 36_000L)
+            .forEach { (offset, at) -> assertEquals(CutWatch.Verdict.NONE, other.observe("m", offset, 0.0, at)) }
+    }
+
+    @Test
+    fun aRepetitiveSongPlacedInItsOtherRepeatsIsNotCut() {
+        // Drake, Hotline Bling, replayed from a file on 24 Sep: played straight, but Shazam put
+        // windows in three places 20 s and 213 s apart all the way through, starting with a wrong
+        // one.
+        val windows = listOf(20.7, 225.9, 24.6, 36.6, 48.5, 80.7, 92.7, 297.9, 96.6, 108.6, 333.9, 132.5, 144.5,
+            156.6, 168.5, 180.6, 192.6, 204.6)
+        val watch = CutWatch()
+        assertTrue(windows.withIndex().all { (i, offset) -> watch.observe("hb", offset, 0.0, i * 12_000L, 267) == CutWatch.Verdict.NONE })
+    }
+
+    @Test
+    fun aRoundThatAlternatesBetweenTwoPlacesIsNotCut() {
+        // Fleet Foxes, White Winter Hymnal: a round, so Shazam flips between two places 8 s apart.
+        val windows = listOf(-1.4, 10.6, 14.5, 26.5, 46.6, 58.6, 62.5, 82.6, 94.6, 106.6, 118.6, 130.6)
+        val watch = CutWatch()
+        assertTrue(windows.withIndex().all { (i, offset) -> watch.observe("wwh", offset, 0.0, i * 12_000L, 147) == CutWatch.Verdict.NONE })
     }
 
     /**
@@ -319,6 +374,37 @@ class MixWatchTest {
     }
 
     @Test
+    fun twoSongsBlendingEachOnItsOwnTimelineAreNotAMashup() {
+        // A DJ taking one song into the next: Shazam names each in turn, and each keeps its time.
+        val watch = MixWatch()
+        val windows = listOf("h" to (0 to 150.0), "h" to (12 to 162.0), "h" to (24 to 174.0), "x" to (36 to 2.0),
+            "h" to (48 to 198.0), "x" to (60 to 26.0), "h" to (72 to 222.0), "x" to (84 to 50.0), "x" to (96 to 62.0),
+            "x" to (108 to 74.0), "x" to (120 to 86.0), "x" to (132 to 98.0), "x" to (144 to 110.0))
+        assertTrue(windows.all { (key, w) -> watch.observe(MixWatch.Sighting(key, key, key, w.first * 1000L, w.second)) == null })
+    }
+
+    @Test
+    fun aHeldReturnLongGoneIsDroppedNotCounted() {
+        val watch = MixWatch()
+        listOf(0 to 10.0, 12 to 22.0).forEach { (at, o) -> watch.observe(MixWatch.Sighting("a", "A", "x", at * 1000L, o)) }
+        listOf(24 to 30.0, 36 to 42.0, 48 to 54.0, 60 to 66.0).forEach { (at, o) -> watch.observe(MixWatch.Sighting("b", "B", "y", at * 1000L, o)) }
+        // A back partway under steady B: held.
+        assertNull(watch.observe(MixWatch.Sighting("a", "A", "x", 72_000, 90.0)))
+        // Five minutes of nothing, then A from the top: that is not the old return any more.
+        assertNull(watch.observe(MixWatch.Sighting("a", "A", "x", 372_000, 2.0)))
+    }
+
+    @Test
+    fun forgettingAMashupKeepsWhatCameAfterIt() {
+        val watch = MixWatch()
+        val sightings = listOf("old" to 0, "other" to 12, "old" to 24, "other" to 36, "new" to 48, "next" to 60, "next" to 72)
+        sightings.forEach { (key, at) -> watch.observe(MixWatch.Sighting(key, key, key, at * 1000L)) }
+        watch.forget(setOf("old", "other"))
+        // The new mashup's own return is still seen.
+        assertNotNull(watch.observe(MixWatch.Sighting("new", "new", "n", 84_000, 60.0)))
+    }
+
+    @Test
     fun lengthPutsTheUploadThatWasPlayingFirst() {
         fun v(id: String, seconds: Int) = SongItem(id = id, title = id, artists = emptyList(), thumbnail = "", duration = seconds)
         // Memories Anthem, heard for about 192 s, against mashups of the same two songs.
@@ -337,9 +423,19 @@ class MixWatchTest {
         val straight = listOf(-5.9, 3.8, 15.9, 29.1, 39.9, 51.9, 63.8, 75.8, 87.9, 99.8)
         val watch = CutWatch()
         assertTrue(straight.withIndex().all { (i, offset) -> watch.observe("dna", offset, 0.0, i * 12_000L, 186) == CutWatch.Verdict.NONE })
-        // Known once the restart holds for a second window.
+        // Reported once the restart holds for a second window, as a restart: whether it was an edit
+        // shows only when the song stops short of its end, which the engine watches for.
         assertEquals(CutWatch.Verdict.NONE, watch.observe("dna", 2.1, 0.0, 120_000, 186))
-        assertEquals(CutWatch.Verdict.FIRST, watch.observe("dna", 14.1, 0.0, 132_000, 186))
+        assertEquals(CutWatch.Verdict.RESTART, watch.observe("dna", 14.1, 0.0, 132_000, 186))
+    }
+
+    @Test
+    fun aSongPausedTwiceIsNotAnEdit() {
+        // Stalls of 5 s at 40 s and at 88 s: the song carries on from where it stopped each time,
+        // a little behind the clock.
+        val offsets = listOf(10.0, 22.0, 34.0, 41.0, 53.0, 65.0, 77.0, 84.0, 96.0, 108.0, 120.0)
+        val watch = CutWatch()
+        assertTrue(offsets.withIndex().all { (i, offset) -> watch.observe("p", offset, 0.0, i * 12_000L, 240) == CutWatch.Verdict.NONE })
     }
 
     @Test

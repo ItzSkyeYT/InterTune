@@ -62,12 +62,12 @@ class RecognitionViewModel @Inject constructor(
     /** The playlist new songs are going into, once the list was saved as one or added to one. */
     val following = engine.following
 
-    /** A mashup it could not tell from another, with the uploads it could be. */
-    val mixChoice = engine.mixChoice
+    /** Mashups and edits it could not pin down, each with the uploads it could be, newest first. */
+    val mixChoices = engine.mixChoices
 
-    fun acceptMix(song: SongItem) = engine.acceptMix(song)
+    fun acceptMix(choice: RecognitionEngine.MixChoice, song: SongItem) = engine.acceptMix(choice, song)
 
-    fun dismissMix() = engine.dismissMix()
+    fun dismissMix(choice: RecognitionEngine.MixChoice) = engine.dismissMix(choice)
 
     /**
      * A name for the playlist that no playlist in the library already has.

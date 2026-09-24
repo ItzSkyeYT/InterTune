@@ -85,6 +85,9 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
                 // Something new altogether: the track changed, and nothing held is about it.
                 held.mix.pieces.none { it.key == sighting.key } && sighting.key != held.hostKey ->
                     deferred = null
+                // Long gone by now, a pause or a quiet spell: whatever it was about is over.
+                sighting.atMs - held.atMs > DEFER_MS + DEFER_GRACE_MS ->
+                    deferred = null
                 sighting.atMs - held.atMs >= DEFER_MS -> {
                     deferred = null
                     return held.mix
@@ -97,11 +100,21 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
         if (previous < 0) return null
         // What came between this sighting and the last one of the same song. Empty is the song
         // simply carrying on.
-        val interruption = list.subList(previous + 1, list.size - 1)
-        if (interruption.isEmpty()) return null
+        val between = list.subList(previous + 1, list.size - 1)
+        if (between.isEmpty()) return null
 
         val first = list.indexOfFirst { it.key == sighting.key }
-        val span = list.subList(first, list.size)
+        val allOfSpan = list.subList(first, list.size)
+        // Only songs heard more than once count as pieces. A mashup comes back to its pieces: No
+        // Love twice in Damage, Memories three times in Memories Anthem. Songs Shazam names for one
+        // window and never again are noise; 2 Faced Funks' Powerbass had five of them in a row in
+        // its breakdown, each a different track, and read as a mashup of all five.
+        val heard = allOfSpan.groupingBy { it.key }.eachCount()
+        val recurring = heard.filter { (key, times) -> key != sighting.key && times >= 2 }.keys
+        if (recurring.isEmpty()) return null
+        val span = allOfSpan.filter { it.key == sighting.key || it.key in recurring }
+        val interruption = between.filter { it.key in recurring }
+        if (interruption.isEmpty()) return null
         // Runs of other songs between sightings of this one, this interruption included.
         val interruptions = span.indices.count { i ->
             i > 0 && span[i].key != sighting.key && span[i - 1].key == sighting.key
@@ -119,10 +132,14 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
                     interruptions >= 2 ||
                     sighting.offsetSeconds > RESTART_S,
         )
+        // The song that came back never left its own timeline: what came between was inside it,
+        // or two songs blending, each on its own timeline, as a DJ does from one to the next.
+        if (sighting.key in steadyKeys(sighting.atMs)) return null
         return when (val host = steadyHost(sighting.atMs)) {
-            // The song that came back never left its timeline: one window of something else.
-            sighting.key -> null
-            null -> found
+            null -> {
+                deferred = null
+                found
+            }
             else -> {
                 deferred = deferred?.let { Deferred(found, it.hostKey, it.atMs) } ?: Deferred(found, host, sighting.atMs)
                 null
@@ -130,22 +147,42 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
         }
     }
 
+    /** Every song playing straight through the last [HOST_SPAN_MS]; see [steadyHost]. */
+    private fun steadyKeys(atMs: Long): Set<String> = seen
+        .filter { atMs - it.atMs <= HOST_SPAN_MS }
+        .groupBy { it.key }
+        .filterValues { windows -> windows.size >= 3 && windows.zipWithNext().all { (a, b) -> Timeline.continues(a, b) } }
+        .keys
+
     /**
      * The song, if any, playing straight through the last [HOST_SPAN_MS]: heard at least three
      * times in that time, every window where the one before says it should be. The most heard, if
      * more than one.
      */
-    fun steadyHost(atMs: Long): String? = seen
-        .filter { atMs - it.atMs <= HOST_SPAN_MS }
-        .groupBy { it.key }
-        .filterValues { windows -> windows.size >= 3 && windows.zipWithNext().all { (a, b) -> Timeline.continues(a, b) } }
-        .maxByOrNull { it.value.size }
-        ?.key
+    fun steadyHost(atMs: Long): String? {
+        val recent = seen.filter { atMs - it.atMs <= HOST_SPAN_MS }
+        val steady = steadyKeys(atMs)
+        // The most heard; between two heard as often, the one heard last, so the answer does not
+        // depend on which came first.
+        return recent.filter { it.key in steady }
+            .groupBy { it.key }
+            .maxWithOrNull(compareBy<Map.Entry<String, List<Sighting>>> { it.value.size }.thenBy { it.value.last().atMs })
+            ?.key
+    }
 
-    /** Forgets everything, for a new run or once a mashup is over. */
+    /** Forgets everything, for a new run or after silence. */
     fun clear() {
         seen.clear()
         deferred = null
+    }
+
+    /**
+     * Forgets [keys], the pieces of a mashup that is over, and keeps the rest: what ended it, a new
+     * song from its top or the first pieces of the next mashup, is what the next verdict needs.
+     */
+    fun forget(keys: Set<String>) {
+        seen.removeAll { it.key in keys }
+        deferred?.let { held -> if (held.hostKey in keys || held.mix.pieces.any { it.key in keys }) deferred = null }
     }
 
     companion object {
@@ -171,6 +208,9 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
          * inside the R3hab remix before the remix was named again.
          */
         const val DEFER_MS = 48_000L
+
+        /** Past the wait by more than this, what was held is dropped rather than counted. */
+        const val DEFER_GRACE_MS = 24_000L
     }
 }
 
@@ -215,16 +255,30 @@ internal object Timeline {
  */
 internal class CutWatch {
 
-    enum class Verdict { NONE, FIRST, AGAIN }
+    /**
+     * RESTART is a song gone back to its top partway through, on its own: somebody replaying it, or
+     * an edit. Which, only shows later: replayed, it plays on to its end; in "I'm Beggin' For DNA"
+     * DNA. stopped sixty seconds into its second time round. The engine keeps an eye on it.
+     */
+    enum class Verdict { NONE, FIRST, AGAIN, RESTART }
 
-    /** A stretch of the song heard in order: where it last was, how many windows, and how it began. */
-    private class Run(var offset: Double, var atMs: Long, val startedMs: Long, var windows: Int = 1, val restart: Boolean = false)
+    /**
+     * One place in the song, followed in order: where it last was, how many windows in a row have
+     * been on it now, whether it has counted as a cut, and whether it began as a restart.
+     */
+    private class Place(var offset: Double, var atMs: Long, val restart: Boolean) {
+        var inARow = 1
+        var runStartedMs = atMs
+        var counted = false
+    }
 
     private var key: String? = null
-    private val runs = mutableListOf<Run>()
-    /** Windows in a row that each landed somewhere none of the others lead to. */
+    private val places = mutableListOf<Place>()
+    private var home: Place? = null
+    private var current: Place? = null
+    /** Windows in a row that each landed somewhere never heard before. */
     private var loose = 0
-    private var counted = 0
+    private val cuts = mutableListOf<Place>()
     private var reported = false
 
     /**
@@ -233,67 +287,97 @@ internal class CutWatch {
      * AGAIN on every cut after that, NONE otherwise. Another song resets it: consecutive windows of
      * one song are what it compares.
      *
-     * A jump only counts once it holds: the next window has to go on from where it landed. Shazam
-     * places a single window in the wrong repeat of a chorus, or one phrase early in a dance track
-     * whose sixteen bars come round every thirty seconds, and the window after is back where it
-     * belongs. Blasterjaxx's Beautiful World did that twice in a minute, and counted on the spot it
-     * read as an edit. A song chopped so hard that no two windows ever line up, as Memories was in
-     * Memories Anthem, is caught another way: three windows in a row that each land somewhere new.
+     * Every place in the song that has been heard is kept. Home is the first one the song holds for
+     * two windows in a row, not simply the first window, which in a repetitive song can be a wrong
+     * repeat: Drake's Hotline Bling bounced between three places twenty and two hundred seconds
+     * apart for the whole of a file that played straight. A cut is a new place held for two windows
+     * in a row, counted once: going back to a place already heard is a repeat, which is what Shazam
+     * does with a chorus that comes round, a dance track's sixteen bars, or a round like White
+     * Winter Hymnal. A song chopped so hard that nothing holds, as Memories was in Memories Anthem,
+     * is caught another way: four windows in a row that each land somewhere new.
      */
     fun observe(key: String, offset: Double, skew: Double, atMs: Long, durationS: Int? = null): Verdict {
         if (key != this.key) {
+            clear()
             this.key = key
-            runs.clear()
-            runs += Run(offset, atMs, atMs)
-            loose = 1
-            counted = 0
-            reported = false
-            return Verdict.NONE
         }
-        val back = runs.indexOfLast { Timeline.continues(it.offset, it.atMs, offset, atMs, skew) }
-        if (back >= 0) {
-            // Back on a stretch already heard. Anything after it was a detour, and is forgotten.
-            while (runs.size > back + 1) runs.removeAt(runs.lastIndex)
-            runs[back].apply { this.offset = offset; this.atMs = atMs; windows++ }
+        val previous = current
+        val place = places.sortedByDescending { it.atMs }
+            .firstOrNull { Timeline.continues(it.offset, it.atMs, offset, atMs, skew) }
+            // A little behind where it should be is the same place after a stall or a pause: the
+            // song carries on from where it stopped while the clock did not. An edit that cuts back
+            // a few seconds looks the same, and is let go.
+            ?: previous?.takeIf { stalled(it, offset, atMs) }
+        if (place != null) {
+            if (place === previous) place.inARow++ else { place.inARow = 1; place.runStartedMs = atMs }
+            place.offset = offset
+            place.atMs = atMs
             loose = 0
+            current = place
         } else {
             // Back to the top partway through. The second mashup of 24 Sep, "I'm Beggin' For DNA",
             // was DNA. to Shazam from start to end, and gave itself away only by going back to
             // DNA.'s first seconds a hundred seconds into a 186 second song. Somebody replaying a
             // song does it at the end, not two thirds of the way in.
-            val previous = runs.last()
-            val reached = previous.offset + (atMs - previous.atMs) / 1000.0
-            val restart = offset < MixWatch.RESTART_S && durationS != null &&
+            val reached = previous?.let { it.offset + (atMs - it.atMs) / 1000.0 }
+            val restart = offset < MixWatch.RESTART_S && durationS != null && reached != null &&
                     reached > MixWatch.RESTART_S + 10 && reached < durationS - 20
-            runs += Run(offset, atMs, atMs, restart = restart)
+            current = Place(offset, atMs, restart).also { places += it }
             loose++
         }
 
-        // Stretches after the first that held for two windows or more: the cuts.
-        val cuts = runs.drop(1).filter { it.windows >= 2 }
-        val cutUp = loose >= 3 || cuts.any { it.restart } || cuts.size >= 3 ||
-                (cuts.size >= 2 && cuts[cuts.lastIndex].startedMs - cuts[cuts.lastIndex - 1].startedMs <= PAIR_MS)
-        val fresh = cuts.size > counted || loose >= 3
-        counted = cuts.size
+        val held = current!!
+        var restarted = false
+        if (held.inARow >= 2) {
+            if (home == null && !held.restart) home = held
+            else if (held !== home && !held.counted) {
+                held.counted = true
+                cuts += held
+                restarted = held.restart
+            }
+        }
+        // A restart counts as a cut like any other once there is another cut; on its own it is
+        // reported as what it is, and the engine waits to see whether the song plays through.
+        val cutUp = loose >= 4 || cuts.size >= 3 ||
+                (cuts.size >= 2 && cuts[cuts.lastIndex].runStartedMs - cuts[cuts.lastIndex - 1].runStartedMs <= PAIR_MS)
+        val fresh = (held.inARow == 2 && held.counted && cuts.lastOrNull() === held) || loose == 4
         return when {
-            !cutUp -> Verdict.NONE
+            !cutUp -> if (restarted) Verdict.RESTART else Verdict.NONE
             !reported -> { reported = true; Verdict.FIRST }
             fresh -> Verdict.AGAIN
             else -> Verdict.NONE
         }
     }
 
+    private fun stalled(place: Place, offset: Double, atMs: Long): Boolean {
+        val behind = place.offset + (atMs - place.atMs) / 1000.0 - offset
+        return behind > 0 && behind <= STALL_S
+    }
+
+    /** Forgets the song it follows if it is one of [keys]. */
+    fun forget(keys: Set<String>) {
+        if (key in keys) clear()
+    }
+
     fun clear() {
         key = null
-        runs.clear()
+        places.clear()
+        home = null
+        current = null
         loose = 0
-        counted = 0
+        cuts.clear()
         reported = false
     }
 
     companion object {
-        /** Two cuts closer together than this are an edit, not a radio version. */
-        private const val PAIR_MS = 60_000L
+        /**
+         * Two cuts closer together than this are an edit. A radio edit's two, the intro and a
+         * bridge, are minutes apart.
+         */
+        private const val PAIR_MS = 90_000L
+
+        /** How far behind the clock a song can resume and still be the same place, stalled. */
+        private const val STALL_S = 15.0
     }
 }
 
