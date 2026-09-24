@@ -147,6 +147,9 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
         }
     }
 
+    /** When [key] was last heard, if it is still in view. */
+    fun lastHeard(key: String): Long? = seen.lastOrNull { it.key == key }?.atMs
+
     /** Every song playing straight through the last [HOST_SPAN_MS]; see [steadyHost]. */
     private fun steadyKeys(atMs: Long): Set<String> = seen
         .filter { atMs - it.atMs <= HOST_SPAN_MS }
@@ -270,6 +273,7 @@ internal class CutWatch {
         var inARow = 1
         var runStartedMs = atMs
         var counted = false
+        var countedMs = 0L
     }
 
     private var key: String? = null
@@ -328,19 +332,25 @@ internal class CutWatch {
 
         val held = current!!
         var restarted = false
+        var justCounted = false
         if (held.inARow >= 2) {
             if (home == null && !held.restart) home = held
             else if (held !== home && !held.counted) {
                 held.counted = true
+                held.countedMs = held.runStartedMs
+                justCounted = true
                 cuts += held
                 restarted = held.restart
             }
         }
         // A restart counts as a cut like any other once there is another cut; on its own it is
         // reported as what it is, and the engine waits to see whether the song plays through.
-        val cutUp = loose >= 4 || cuts.size >= 3 ||
-                (cuts.size >= 2 && cuts[cuts.lastIndex].runStartedMs - cuts[cuts.lastIndex - 1].runStartedMs <= PAIR_MS)
-        val fresh = (held.inARow == 2 && held.counted && cuts.lastOrNull() === held) || loose == 4
+        // Three within a few minutes, not three over a whole song: Delirious goes back to its drop
+        // and to a repeat of it every minute or so, two held stretches that are neither.
+        val latest = cuts.lastOrNull()?.countedMs
+        val cutUp = loose >= 4 || (latest != null && cuts.count { latest - it.countedMs <= TRIPLE_MS } >= 3) ||
+                (cuts.size >= 2 && cuts[cuts.lastIndex].countedMs - cuts[cuts.lastIndex - 1].countedMs <= PAIR_MS)
+        val fresh = justCounted || loose == 4
         return when {
             !cutUp -> if (restarted) Verdict.RESTART else Verdict.NONE
             !reported -> { reported = true; Verdict.FIRST }
@@ -378,6 +388,9 @@ internal class CutWatch {
 
         /** How far behind the clock a song can resume and still be the same place, stalled. */
         private const val STALL_S = 15.0
+
+        /** Three cuts within this long are an edit, wherever the pairs between them fall. */
+        private const val TRIPLE_MS = 150_000L
     }
 }
 

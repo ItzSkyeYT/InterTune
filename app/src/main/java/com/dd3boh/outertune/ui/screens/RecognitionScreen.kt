@@ -464,7 +464,7 @@ fun RecognitionScreen(
         // that only knows the songs cannot. The pieces are already out of the list; picking one puts
         // the mashup in it like any recognised song.
         for (choice in mixChoices) {
-            val id = choice.keys.sorted().joinToString("+")
+            val id = choice.id
             item(key = "mix_choice/$id") {
                 Text(
                     text = stringResource(
