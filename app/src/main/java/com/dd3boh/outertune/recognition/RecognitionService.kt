@@ -27,6 +27,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -77,17 +80,34 @@ class RecognitionService : Service() {
             val power = getSystemService(PowerManager::class.java)
             while (engine.running.value) {
                 val watching = power?.isInteractive != false
-                if (watching) {
-                    // Posting needs POST_NOTIFICATIONS from API 33. Without it the update is simply
-                    // dropped, which is correct: the service is already foreground and the person
-                    // refused to be told about it.
-                    val notifier = NotificationManagerCompat.from(this@RecognitionService)
-                    if (notifier.areNotificationsEnabled()) {
-                        notifier.notify(NOTIFICATION_ID, build(engine.added.value.size))
-                    }
-                }
+                if (watching) redraw()
                 delay(if (watching) 1000L else 30_000L)
             }
+        }
+
+        // And straight away when the song changes or comes down, whatever the screen is doing.
+        // The timer skips its redraw with the screen off and then sleeps for thirty seconds, so the
+        // phone could be picked up to a song the engine had already dropped, still showing its
+        // progress. Keyed on what the notification says rather than on every fresh estimate, so a
+        // long run costs a redraw or two per song and not one per listen window. The first value is
+        // skipped because onStartCommand draws it.
+        scope.launch {
+            engine.nowPlaying
+                .map { it?.let { playing -> Triple(playing.title, playing.artist, playing.durationSeconds) } }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { if (engine.running.value) redraw() }
+        }
+    }
+
+    /**
+     * Posting needs POST_NOTIFICATIONS from API 33. Without it the update is simply dropped, which
+     * is correct: the service is already foreground and the person refused to be told about it.
+     */
+    private fun redraw() {
+        val notifier = NotificationManagerCompat.from(this)
+        if (notifier.areNotificationsEnabled()) {
+            notifier.notify(NOTIFICATION_ID, build(engine.added.value.size))
         }
     }
 

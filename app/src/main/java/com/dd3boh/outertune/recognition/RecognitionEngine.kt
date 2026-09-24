@@ -25,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
@@ -64,25 +65,40 @@ class RecognitionEngine @Inject constructor(
      * landed. Add the time that has passed since, scaled by however fast the copy is running, and
      * the result is a genuine playback position for audio this app is not playing and has no
      * control over. [durationSeconds] comes from the YouTube match, so it is only as right as that
-     * match, and is null when nothing plausible was found.
+     * match, and is null when nothing plausible was found or the search has not answered yet.
+     *
+     * [sampledAtMs] is when the first sample of the matched window was heard, because that is the
+     * moment the offset describes: a clip cut from 60 s into a track matches at 60, however long
+     * the clip. It used to be the moment the answer arrived, a whole listen window and a network
+     * round trip later, so the position ran twelve or more seconds behind the room.
      */
     data class NowPlaying(
         val title: String,
         val artist: String?,
         val artworkUrl: String?,
         private val offsetAtMatch: Double,
-        private val matchedAtMs: Long,
+        private val sampledAtMs: Long,
         val durationSeconds: Int?,
         private val rate: Double,
     ) {
         fun positionSeconds(nowMs: Long = System.currentTimeMillis()): Int {
-            val elapsed = (nowMs - matchedAtMs) / 1000.0
+            val elapsed = (nowMs - sampledAtMs) / 1000.0
             val position = offsetAtMatch + elapsed * rate
             // Past the end means the track finished and the next recognition has not landed yet.
             return position.toInt().coerceAtLeast(0).let {
                 if (durationSeconds != null) it.coerceAtMost(durationSeconds) else it
             }
         }
+
+        /** When the estimate reaches the end of the track, or null when there is no end to reach. */
+        fun endsAtMs(): Long? {
+            val duration = durationSeconds ?: return null
+            if (rate <= 0.0) return null
+            return sampledAtMs + ((duration - offsetAtMatch) / rate * 1000).toLong()
+        }
+
+        /** Whether [track] is this song, by name, since a name is all the two have in common. */
+        fun isOf(track: Recognised): Boolean = title == track.title && artist == track.artist
     }
 
     sealed interface State {
@@ -125,9 +141,37 @@ class RecognitionEngine @Inject constructor(
     private val _skipped = MutableStateFlow<List<Added>>(emptyList())
     val skipped = _skipped.asStateFlow()
 
-    /** The track currently in the room, refreshed on every recognition of it. */
+    /**
+     * The track currently in the room, refreshed on every recognition of it, and null whenever
+     * there is no current reason to think anything in particular is playing.
+     *
+     * That last part is the engine's call rather than each screen's, so the notification, the
+     * sheet and the screen cannot disagree about it. It is dropped when the estimate runs past the
+     * end of the track, and when a listen after it hears silence or something Shazam cannot name.
+     * Before that it only ever changed when a new song matched, so the notification went on
+     * showing a finished song, its bar sat at the end, until the next match, however far off.
+     */
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
     val nowPlaying = _nowPlaying.asStateFlow()
+
+    /** Clears [nowPlaying] when its track runs out. Replaced with every [publish]. */
+    private var expiry: Job? = null
+
+    /**
+     * Every song this session recognised and placed on YouTube with confidence, oldest first,
+     * each once.
+     *
+     * Apart from [added], which is what went into a playlist and so stays empty on the dedicated
+     * screen however much it names: that screen has no playlist. This is what the screen lists and
+     * can save as one, so it holds the whole [SongItem] rather than two strings, which is what a
+     * row needs to draw a cover and open the song menu.
+     *
+     * Unlike [added] and [skipped] it is not emptied when a run starts. Listen once is one run per
+     * song, and a list that only ever held the latest could never reach the two songs it takes to
+     * be worth saving. It lasts until [clearRecognised].
+     */
+    private val _recognised = MutableStateFlow<List<SongItem>>(emptyList())
+    val recognised = _recognised.asStateFlow()
 
     private var job: Job? = null
     private var playlist: Playlist? = null
@@ -228,11 +272,11 @@ class RecognitionEngine @Inject constructor(
         }
     }
 
-    private suspend fun identify(window: ShortArray) {
+    private suspend fun identify(window: MicrophoneListener.Window) {
         val keepGoing = continuous.value
         _state.value = State.Listening(0f, identifying = true)
         try {
-            respondTo(shazam.identify(window), keepGoing)
+            respondTo(shazam.identify(window.samples), keepGoing, window.startedAtMs)
         } finally {
             // Back to plain listening once the answer has been dealt with, unless dealing with it
             // moved the state somewhere else. Nothing used to clear this. Every arm that returns
@@ -251,10 +295,18 @@ class RecognitionEngine @Inject constructor(
     /**
      * Acts on Shazam's answer. Kept apart from [identify] so that every early return in here still
      * passes through its finally.
+     *
+     * @param heardAtMs when the first sample of the window was heard. Every time below is this
+     * rather than the clock when the answer came back, for the position and for the gap between
+     * two sightings alike: the answer's arrival moves with the network, and the audio does not.
      */
-    private suspend fun respondTo(outcome: RecognitionOutcome, keepGoing: Boolean) {
+    private suspend fun respondTo(outcome: RecognitionOutcome, keepGoing: Boolean, heardAtMs: Long) {
         when (outcome) {
             is RecognitionOutcome.Failed -> {
+                // Silence means the room has stopped, so whatever was on show has finished. The
+                // other failures are this end or the network and say nothing about the room, so
+                // the estimate is left to run.
+                if (outcome.reason == "silence") publish(null)
                 // Nothing to say in continuous mode. A quiet stretch or one refused request is not
                 // a reason to stop listening or to ask somebody to press try again.
                 if (!keepGoing) {
@@ -262,9 +314,32 @@ class RecognitionEngine @Inject constructor(
                 }
             }
 
-            RecognitionOutcome.NoMatch -> if (!keepGoing) _state.value = State.NoMatch
+            RecognitionOutcome.NoMatch -> {
+                // Something is playing and it is not the song on show, or that would have matched
+                // again. Showing it running on regardless is how a finished song stayed up.
+                publish(null)
+                if (!keepGoing) _state.value = State.NoMatch
+            }
 
             is RecognitionOutcome.Match -> {
+                // A different song from the one on show, so the old one comes down now rather
+                // than after the YouTube search below, which takes a second or two that were
+                // spent counting through a track the room had left. The new one goes up without
+                // a length until the search says how long it is.
+                if (_nowPlaying.value?.isOf(outcome.track) != true) {
+                    publish(
+                        NowPlaying(
+                            title = outcome.track.title,
+                            artist = outcome.track.artist,
+                            artworkUrl = outcome.track.artworkUrl,
+                            offsetAtMatch = outcome.track.offsetSeconds,
+                            sampledAtMs = heardAtMs,
+                            durationSeconds = null,
+                            rate = 1.0,
+                        )
+                    )
+                }
+
                 // Shazam names the song but hands back no video id, only a search URL, so the
                 // match has to be resolved against YouTube before it can be played or added.
                 val query = outcome.track.searchQuery
@@ -293,8 +368,6 @@ class RecognitionEngine @Inject constructor(
                 val best = candidates.firstOrNull()
                 val certain = best != null && corresponds(outcome.track, best)
 
-                // Position is known from this alone, so it is published before any decision about
-                // adding. Even a track that will not be added is worth showing while it plays.
                 // Recorded the moment Shazam names it, before anything is decided about adding
                 // it or even placing it on YouTube. The history is a record of what the room was
                 // playing, which is true whether or not a video turned up for it.
@@ -313,45 +386,56 @@ class RecognitionEngine @Inject constructor(
                 // A stale one set the rate near zero, and the notification's position all but
                 // stopped for the rest of the track; an unkeyed one measured across two different
                 // songs. The bounds are the ones PlaybackVariant.between uses.
-                val waitingFor = partnerOf(outcome.track, System.currentTimeMillis())
+                val waitingFor = partnerOf(outcome.track, heardAtMs)
                 val measuredRate = if (waitingFor != null) {
-                    val apart = (System.currentTimeMillis() - waitingFor.second) / 1000.0
+                    val apart = (heardAtMs - waitingFor.second) / 1000.0
                     val advanced = outcome.track.offsetSeconds - waitingFor.first.offsetSeconds
                     if (apart > 0 && advanced > apart / 3 && advanced < apart * 3) advanced / apart
                     else 1.0
                 } else 1.0
-                _nowPlaying.value = NowPlaying(
-                    title = outcome.track.title,
-                    artist = outcome.track.artist,
-                    artworkUrl = outcome.track.artworkUrl,
-                    offsetAtMatch = outcome.track.offsetSeconds,
-                    matchedAtMs = System.currentTimeMillis(),
-                    durationSeconds = best?.duration,
-                    rate = measuredRate,
+
+                // Position is known from this alone, so it is published before any decision about
+                // adding. Even a track that will not be added is worth showing while it plays.
+                // A length the room is already past belongs to a shorter upload than the one
+                // playing, and would only pin the bar at the end, so the song is shown without one.
+                val now = System.currentTimeMillis()
+                val position = outcome.track.offsetSeconds + (now - heardAtMs) / 1000.0 * measuredRate
+                publish(
+                    NowPlaying(
+                        title = outcome.track.title,
+                        artist = outcome.track.artist,
+                        artworkUrl = outcome.track.artworkUrl,
+                        offsetAtMatch = outcome.track.offsetSeconds,
+                        sampledAtMs = heardAtMs,
+                        durationSeconds = best?.duration?.takeIf { it > position },
+                        rate = measuredRate,
+                    )
                 )
 
+                // The setting is about adding to a playlist. A run with no playlist adds nothing
+                // either way, and reading it there sent every confident match to the unsure list,
+                // so with it off the screen never listed a single song it had placed.
                 val autoAdd = context.dataStore.data.first()[RecogniseAutoAddKey] ?: true
-                if (keepGoing && certain && best != null && autoAdd) {
+                if (keepGoing && certain && best != null && (autoAdd || playlist == null)) {
                     if (best.id in known) {
                         Log.i(TAG, "Still '${best.title}', carrying on")
                         pending = null
                         return
                     }
 
-                    val now = System.currentTimeMillis()
-                    val waiting = partnerOf(outcome.track, now)
+                    val waiting = partnerOf(outcome.track, heardAtMs)
                     if (waiting == null) {
                         // First sighting, or the only earlier one is too old or has no key to
                         // match on and so counts for nothing (see isSecondListen). Listen once
                         // more before committing, both to be sure and to get a second offset to
                         // measure the playback rate against.
                         Log.i(TAG, "Heard '${outcome.track.title}', listening again to confirm")
-                        pending = outcome.track to now
+                        pending = outcome.track to heardAtMs
                         _state.value = State.Confirming(outcome.track)
                         return
                     }
 
-                    val apart = (now - waiting.second) / 1000.0
+                    val apart = (heardAtMs - waiting.second) / 1000.0
                     val variant = PlaybackVariant.between(waiting.first, outcome.track, apart)
                     val chosen = pickBest(outcome.track, candidates, variant) ?: best
                     Log.i(
@@ -375,6 +459,12 @@ class RecognitionEngine @Inject constructor(
                     }
                     return
                 }
+                // Placed with confidence, so on the screen it joins the session's list without waiting
+                // to be picked; the screen hides the candidates once it is listed. Not on a
+                // playlist's sheet, which shows the candidates and lets the person pick another:
+                // listing this one there put the upload they turned down in the screen's list, and
+                // Save as playlist saved it. [add] records whatever they do pick.
+                if (certain && playlist == null) record(best)
                 _state.value = State.Found(outcome.track, candidates, certain)
             }
         }
@@ -384,9 +474,33 @@ class RecognitionEngine @Inject constructor(
     private fun partnerOf(track: Recognised, now: Long): Pair<Recognised, Long>? =
         pending?.takeIf { (first, at) -> isSecondListen(first, at, track, now, pendingLifetimeMs) }
 
+    /**
+     * Shows [playing], or nothing, and arranges for it to come down when its track runs out.
+     *
+     * A timer here rather than a check wherever it is drawn, so everything watching [nowPlaying]
+     * sees the song end at the same moment instead of each deciding for itself.
+     */
+    private fun publish(playing: NowPlaying?) {
+        expiry?.cancel()
+        _nowPlaying.value = playing
+        val endsAt = playing?.endsAtMs() ?: return
+        expiry = scope.launch {
+            delay(endsAt - System.currentTimeMillis())
+            // Only if nothing has replaced it since, which a later match would have.
+            _nowPlaying.compareAndSet(playing, null)
+        }
+    }
+
+    /** Adds [song] to [recognised] unless a song with its id is already there. */
+    private fun record(song: SongItem) {
+        _recognised.update { list -> if (list.any { it.id == song.id }) list else list + song }
+    }
+
     /** Adds a song and remembers it, from either the automatic path or a person's choice. */
     fun add(song: SongItem) {
-        val target = playlist ?: return
+        // A run with no playlist is the screen's, and lists what it confirmed. A playlist's run
+        // records nothing there: its songs went into that playlist already.
+        val target = playlist ?: return record(song)
         if (!known.add(song.id)) return
         _added.value += Added(song.title, song.artists.joinToString { it.name }, auto = continuous.value)
         Log.i(TAG, "Added '${song.title}'")
@@ -430,12 +544,23 @@ class RecognitionEngine @Inject constructor(
         job = null
         running.value = false
         pending = null
-        _nowPlaying.value = null
+        publish(null)
     }
 
     fun reset() {
         stop()
         _added.value = emptyList()
+        // Cleared with the rest, because the button that calls this sits over the list of what
+        // was heard, and a clear that left the near misses standing did not clear anything.
+        _skipped.value = emptyList()
+    }
+
+    /**
+     * Empties [recognised]. Separate from [reset] because the playlist sheet resets whenever it is
+     * dismissed, and that emptied the screen's unsaved list along with it.
+     */
+    fun clearRecognised() {
+        _recognised.value = emptyList()
     }
 
     companion object {

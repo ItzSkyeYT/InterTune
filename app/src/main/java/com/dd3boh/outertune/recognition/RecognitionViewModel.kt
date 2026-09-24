@@ -9,28 +9,44 @@ package com.dd3boh.outertune.recognition
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dd3boh.outertune.constants.PlaylistFilter
+import com.dd3boh.outertune.constants.PlaylistSortType
+import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Playlist
+import com.dd3boh.outertune.db.entities.PlaylistEntity
+import com.dd3boh.outertune.db.entities.PlaylistSongMap
+import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.utils.QueueToPlaylist
 import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 /**
- * A window onto [RecognitionEngine], and nothing more.
+ * A window onto [RecognitionEngine], plus saving what it heard as a playlist.
  *
  * The loop deliberately does not live here. A run has to survive the sheet being dismissed and the
  * screen going off, and a view model survives neither, so this only starts and stops the service
- * and passes the engine's state through to the sheet.
+ * and passes the engine's state through to the sheet. Saving is here rather than in the engine
+ * because it is a person's choice made on a screen, not part of listening.
  */
 @HiltViewModel
 class RecognitionViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val engine: RecognitionEngine,
     private val history: RecognitionHistory,
+    private val database: MusicDatabase,
 ) : ViewModel() {
 
     val state = engine.state
@@ -40,9 +56,62 @@ class RecognitionViewModel @Inject constructor(
     val skipped = engine.skipped
     val startedAt = engine.startedAt
     val nowPlaying = engine.nowPlaying
+    val recognised = engine.recognised
 
     /** Everything ever heard, across restarts, newest first. */
     val heard = history.entries
+
+    /**
+     * The song ids last saved as a playlist, in the order saved, so the button can say it is done.
+     * Compared with the whole list rather than kept as a flag, so a song heard after saving brings
+     * the button back instead of leaving it claiming a list it no longer matches.
+     */
+    private val _savedIds = MutableStateFlow<List<String>?>(null)
+    val savedIds = _savedIds.asStateFlow()
+
+    /**
+     * A name for the playlist that no playlist in the library already has.
+     *
+     * The rule the queue sheet uses when it saves itself, so a second save on the same day gets a
+     * " (2)" rather than becoming a second playlist nobody can tell from the first.
+     */
+    suspend fun proposePlaylistName(base: String): String = withContext(Dispatchers.IO) {
+        val names = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true)
+            .first().map { it.playlist.name }
+        QueueToPlaylist.defaultName(base, names, base)
+    }
+
+    /**
+     * Saves [songs] as a new local playlist, in the order given, and says whether it worked.
+     *
+     * The same writes the queue sheet makes when it saves itself as a playlist, and local for the
+     * same reason: it is a record kept on this phone, and nothing here asks to put it on YouTube.
+     */
+    suspend fun saveAsPlaylist(name: String, songs: List<SongItem>): Boolean = withContext(Dispatchers.IO) {
+        val playlist = PlaylistEntity(
+            name = name,
+            browseId = null,
+            bookmarkedAt = LocalDateTime.now(),
+            isEditable = true,
+            isLocal = true,
+        )
+        runCatching {
+            database.transactionNow {
+                // Found by a YouTube search while listening, so most of these have never been in
+                // the song table, and the map's foreign key needs them there first. insert skips
+                // any that already are.
+                songs.forEach { insert(it.toMediaMetadata()) }
+                insert(playlist)
+                QueueToPlaylist.positions(songs.map { it.id }).forEach { (songId, position) ->
+                    insert(PlaylistSongMap(playlistId = playlist.id, songId = songId, position = position))
+                }
+            }
+        }.onFailure {
+            Log.w(TAG, "Could not save the recognised songs as a playlist", it)
+        }.onSuccess {
+            _savedIds.value = songs.map { it.id }
+        }.isSuccess
+    }
 
     /**
      * The one guarded way in.
@@ -86,13 +155,20 @@ class RecognitionViewModel @Inject constructor(
         RecognitionService.stop(context)
     }
 
+    /** Empties the screen's list of recognised songs. Only the screen and Settings ask for this. */
+    fun clearRecognised() = engine.clearRecognised()
+
     /**
-     * Separate from [reset], which only empties this run.
+     * Separate from [reset], which only empties this session.
      *
      * Clearing what the app remembers hearing is a different act from clearing the current
      * session, and the settings entry that says it clears history should do the one it says.
      */
     fun clearHistory() {
         viewModelScope.launch { history.clear() }
+    }
+
+    private companion object {
+        const val TAG = "RecognitionViewModel"
     }
 }

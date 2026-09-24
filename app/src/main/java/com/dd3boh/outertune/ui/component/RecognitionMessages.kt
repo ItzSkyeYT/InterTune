@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -79,10 +80,23 @@ internal val IDENTIFYING_MESSAGES = listOf(
  */
 internal const val SECRET_ODDS = 1000
 
-private const val PHRASE_MS = 2_400L
+/**
+ * How long a phrase stays up, which is however long it takes to read.
+ *
+ * It was a flat 2.4 seconds. That is enough for "Ears open" and not for "Consulting a very large
+ * record collection", so the longer lines, which are most of the jokes, were gone before anybody
+ * reached the end of them. A base for noticing the line has changed, a little more per character
+ * for reading it, and a ceiling so no line holds the screen for longer than it is worth.
+ */
+internal fun phraseMillis(phrase: String): Long =
+    (PHRASE_BASE_MS + phrase.length * PHRASE_PER_CHAR_MS).coerceAtMost(PHRASE_MAX_MS)
+
+private const val PHRASE_BASE_MS = 3_500L
+private const val PHRASE_PER_CHAR_MS = 60L
+private const val PHRASE_MAX_MS = 8_000L
 
 /**
- * A phrase that changes every couple of seconds for as long as it is listening.
+ * A phrase that changes, slowly enough to read, for as long as it is listening.
  *
  * Drawn at random rather than cycled in order, so two listens in a row do not read the same, and
  * never the phrase that is already on screen, which would look like it had stopped.
@@ -104,19 +118,31 @@ fun rememberRecognitionPhrase(
     val first = stringResource(R.string.recognition_msg_ears_open)
 
     val phrase = remember { mutableStateOf(first) }
+    // When the phrase on screen went up, or 0 when none has. Outside the effect so that it
+    // survives the effect restarting, which it does every time identifying flips.
+    val shownAt = remember { mutableLongStateOf(0L) }
     LaunchedEffect(listening, identifying) {
         if (!listening) {
             phrase.value = first
+            shownAt.longValue = 0L
             return@LaunchedEffect
         }
         fun draw(): String =
             if (Random.nextInt(SECRET_ODDS) == 0) secret
             else resolved.filterNot { it == phrase.value }.randomOrNull() ?: resolved.first()
 
-        phrase.value = draw()
+        // Identifying flips on and off once per listen window, and a new pool used to mean a new
+        // line at once, so a search that answered in a second took the line down a second after
+        // it went up. The line already showing now gets its full time first. A search shorter
+        // than that never gets a line of its own, which costs nothing: it is a joke, not a status.
+        if (shownAt.longValue > 0L) {
+            val left = phraseMillis(phrase.value) - (System.currentTimeMillis() - shownAt.longValue)
+            if (left > 0L) delay(left)
+        }
         while (true) {
-            delay(PHRASE_MS)
             phrase.value = draw()
+            shownAt.longValue = System.currentTimeMillis()
+            delay(phraseMillis(phrase.value))
         }
     }
     return phrase

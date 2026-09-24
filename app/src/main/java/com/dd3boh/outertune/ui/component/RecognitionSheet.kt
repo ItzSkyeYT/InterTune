@@ -60,7 +60,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import kotlin.random.Random
 import kotlinx.coroutines.delay
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.R
@@ -359,13 +358,11 @@ private fun Listening(
     )
 
     // A line that changes while it works, rather than one sentence sitting there for minutes. The
-    // dots carry the movement; the wording changes slowly enough to read.
-    val messages = if (identifying) IDENTIFYING_MESSAGES else LISTENING_MESSAGES + ADDING_MESSAGES
-    val bucket = elapsed / 5
-    val roll = remember(bucket, identifying) { Random.nextInt(SECRET_ODDS) }
-    val phrase = message ?: stringResource(
-        if (roll == 0) R.string.recognition_msg_secret else messages[bucket % messages.size]
-    )
+    // dots carry the movement; the wording changes slowly enough to read. Drawn and timed by the
+    // same code as the screen's. This one stepped through the list on its own five second clock,
+    // which is how the two came to change at different speeds.
+    val drawn by rememberRecognitionPhrase(listening = true, identifying = identifying, adding = true)
+    val phrase = message ?: drawn
     Row(
         verticalAlignment = Alignment.Bottom,
         modifier = Modifier.padding(top = 4.dp)

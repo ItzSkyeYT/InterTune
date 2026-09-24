@@ -643,8 +643,8 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
 
     <!-- Song recognition -->
     <string name="recognise">What\'s playing?</string>
-    <!-- Cycled while it listens, one every couple of seconds. Ten seconds of a spinner and one
-         unchanging word feels a lot longer than ten seconds. -->
+    <!-- Cycled while it listens, each one up for as long as it takes to read. Ten seconds of a
+         spinner and one unchanging word feels a lot longer than ten seconds. -->
     <!--
         One in a thousand. Shown instead of an ordinary line, so somebody who uses this a lot will
         eventually see one and nobody has to be told they exist.
@@ -688,8 +688,13 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="recognise_pause_desc">Only when the sound is coming from the phone itself.</string>
     <string name="recognise_pause_explain">The microphone is a few centimetres from the speaker, so with the sound coming out of the phone it hears this app and nothing else, and would name the song already playing. On headphones nothing is paused, because your music never reaches the microphone.</string>
     <string name="recognise_clear_history_desc">Forget the songs recognised so far.</string>
-    <string name="recognise_clear_history_explain">The list is only kept while the app is running and is never written to your library or your history. This empties it now.</string>
+    <string name="recognise_clear_history_explain">The list is only kept while the app is running. Nothing on it reaches your library or your history unless you save it as a playlist. This empties it now.</string>
     <string name="recognise_play">Play</string>
+    <string name="recognise_save_as_playlist">Save as playlist</string>
+    <string name="recognise_saved">Saved</string>
+    <!-- The name a saved list starts with. %1$s is today's date. -->
+    <string name="recognise_playlist_name">Heard on %1$s</string>
+    <string name="recognise_save_failed">Could not save the playlist</string>
     <string name="lastfm_connect">Connect a Last.fm account</string>
     <string name="lastfm_connect_description">Sign in to Last.fm and approve InterTune. The page is Last.fm&#8217;s own, so your password is never typed into this app or seen by it.</string>
     <string name="lastfm_connected_as">Connected as %1$s</string>

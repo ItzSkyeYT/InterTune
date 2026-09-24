@@ -24,6 +24,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +36,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -42,7 +44,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.AllInclusive
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Stop
@@ -51,6 +55,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -79,36 +84,52 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
+import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.LocalSnackbarHostState
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ListThumbnailSize
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.RecogniseKeepListeningKey
 import com.dd3boh.outertune.constants.RecognisePauseOnSpeakerKey
+import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.constants.RecogniseKeepAwakeKey
 import com.dd3boh.outertune.constants.TopBarInsets
+import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.extensions.togglePlayPause
+import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.recognition.AudioRoute
 import com.dd3boh.outertune.recognition.RecognitionEngine
 import com.dd3boh.outertune.recognition.RecognitionViewModel
 import com.dd3boh.outertune.ui.component.AnimatedDots
+import com.dd3boh.outertune.ui.component.SwipeToQueueBox
 import com.dd3boh.outertune.ui.component.rememberRecognitionPhrase
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.backButtonSurface
 import com.dd3boh.outertune.ui.component.items.ListItem
+import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
+import com.dd3boh.outertune.ui.dialog.TextFieldDialog
+import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
 import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import kotlin.random.Random
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -136,12 +157,15 @@ fun RecognitionScreen(
     val playerConnection = LocalPlayerConnection.current
     val scope = rememberCoroutineScope()
 
+    val snackbarHostState = LocalSnackbarHostState.current
+
     val state by viewModel.state.collectAsState()
     val running by viewModel.running.collectAsState()
     val continuous by viewModel.continuous.collectAsState()
-    val added by viewModel.added.collectAsState()
     val skipped by viewModel.skipped.collectAsState()
     val nowPlaying by viewModel.nowPlaying.collectAsState()
+    val recognised by viewModel.recognised.collectAsState()
+    val savedIds by viewModel.savedIds.collectAsState()
 
     // Held only while it is actually listening, and released the moment it stops or the screen
     // leaves. Listening itself survives the screen going off, since the service holds a foreground
@@ -182,6 +206,20 @@ fun RecognitionScreen(
         if (query.isNotBlank()) navController.navigate("search/${query.urlEncode()}")
     }
 
+    // Music started while listening, from a row here, a song menu's radio or the mini player. If it
+    // comes out of the speaker the microphone will only ever name our own song from here on, so
+    // the run stops, by the same rule listen() pauses the music by. Only a start counts, not the
+    // value on arrival, which can still be true for a moment after listen() paused it.
+    LaunchedEffect(playerConnection, running, pauseOnSpeaker) {
+        if (!running || !pauseOnSpeaker) return@LaunchedEffect
+        val playing = playerConnection?.isPlaying ?: return@LaunchedEffect
+        var was = playing.value
+        playing.collect { now ->
+            if (now && !was && !AudioRoute.playbackIsPrivate(context)) viewModel.stop()
+            was = now
+        }
+    }
+
     fun listen(keepGoing: Boolean) {
         if (running) {
             viewModel.stop()
@@ -216,9 +254,47 @@ fun RecognitionScreen(
         )
     }
 
+    /**
+     * Saving the list as a playlist. Non-null while the naming dialog is open, holding the name it
+     * opened with, which needs the library's playlist names and so is worked out before it opens,
+     * the way the queue sheet does it.
+     */
+    var saveName by remember { mutableStateOf<String?>(null) }
+
+    fun proposeSave() {
+        scope.launch {
+            val today = LocalDate.now().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+            saveName = viewModel.proposePlaylistName(
+                context.getString(R.string.recognise_playlist_name, today)
+            )
+        }
+    }
+
+    saveName?.let { proposed ->
+        TextFieldDialog(
+            icon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null) },
+            title = { Text(stringResource(R.string.recognise_save_as_playlist)) },
+            initialTextFieldValue = TextFieldValue(proposed, TextRange(proposed.length)),
+            isInputValid = { it.isNotBlank() },
+            onDismiss = { saveName = null },
+            onDone = { typed ->
+                // The list as it is when the name is confirmed, in the order it was heard, which
+                // includes anything recognised while the dialog was open.
+                val songs = recognised
+                val name = typed.trim()
+                scope.launch {
+                    val saved = viewModel.saveAsPlaylist(name, songs)
+                    snackbarHostState.showSnackbar(
+                        if (saved) context.getString(R.string.saved_as_playlist, name)
+                        else context.getString(R.string.recognise_save_failed)
+                    )
+                }
+            },
+        )
+    }
+
     val level = (state as? RecognitionEngine.State.Listening)?.level ?: 0f
     val identifying = (state as? RecognitionEngine.State.Listening)?.identifying == true
-    val heard = added + skipped
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -230,7 +306,8 @@ fun RecognitionScreen(
                 identifying = identifying,
                 continuous = continuous,
                 level = level,
-                compact = heard.isNotEmpty() || state is RecognitionEngine.State.Found,
+                compact = recognised.isNotEmpty() || skipped.isNotEmpty() ||
+                        state is RecognitionEngine.State.Found,
                 onClick = { listen(keepListeningDefault) },
             )
         }
@@ -322,6 +399,11 @@ fun RecognitionScreen(
         // guess being taken, because a search for a title and an artist lands on live takes,
         // covers and sped-up edits, and picking the wrong one silently is worse than asking.
         (state as? RecognitionEngine.State.Found)?.let { found ->
+            // Placed with confidence, in which case the engine has put it in the list below and
+            // it is drawn there, newest first, with the full song menu. Showing the candidates as
+            // well put the same song on screen twice, so only the way out is kept: the others are
+            // the covers and live takes the search would show anyway.
+            val listed = found.certain && recognised.any { it.id == found.candidates.firstOrNull()?.id }
             item(key = "found_header") {
                 Text(
                     text = found.track.title + (found.track.artist?.let { " · $it" } ?: ""),
@@ -343,7 +425,9 @@ fun RecognitionScreen(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                 )
             }
-            items(found.candidates, key = { it.id }) { song ->
+            // Keys carry a prefix because a candidate can be a song already in the list below,
+            // heard on an earlier listen, and a key used twice in one LazyColumn is a crash.
+            if (!listed) items(found.candidates, key = { "candidate/${it.id}" }) { song ->
                 CandidateRow(
                     song = song,
                     onPlay = {
@@ -387,7 +471,8 @@ fun RecognitionScreen(
 
         // No heading over an empty list. Before anything has been heard the button is the whole
         // screen, because a title with nothing under it is a promise the screen has not kept.
-        if (heard.size > 1) {
+        // One song is not a list either, so the heading, and the button to save it, wait for two.
+        if (recognised.size > 1) {
             item(key = "heard_header") {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -399,25 +484,44 @@ fun RecognitionScreen(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = { viewModel.reset() }) {
+                    TextButton(onClick = { viewModel.reset(); viewModel.clearRecognised() }) {
                         Text(stringResource(R.string.recognise_clear_history))
                     }
                 }
             }
+
+            item(key = "save_playlist") {
+                // Done only while the list is the one that was saved. A song heard afterwards
+                // brings the button back, since the playlist no longer holds everything shown.
+                val saved = savedIds == recognised.map { it.id }
+                FilledTonalButton(
+                    onClick = { proposeSave() },
+                    enabled = !saved,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                ) {
+                    Icon(
+                        imageVector = if (saved) Icons.Rounded.Check else Icons.AutoMirrored.Rounded.PlaylistAdd,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(
+                            if (saved) R.string.recognise_saved else R.string.recognise_save_as_playlist
+                        )
+                    )
+                }
+            }
         }
 
-        items(heard, key = { it.title + it.artist }) { entry ->
-            ListItem(
-                title = entry.title,
-                subtitle = entry.artist,
-                thumbnailContent = {
-                    Icon(
-                        imageVector = Icons.Rounded.GraphicEq,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(ListThumbnailSize),
-                    )
-                },
+        // Newest first, so the song just heard sits under the button rather than off the bottom
+        // of the screen after an evening of listening. A saved playlist runs the other way, in
+        // the order the songs were played, which is the order the engine keeps them in.
+        items(recognised.asReversed(), key = { "recognised/${it.id}" }) { song ->
+            RecognisedSongRow(
+                song = song,
+                navController = navController,
+                modifier = Modifier.animateItem(),
             )
         }
     }
@@ -611,6 +715,72 @@ private fun ModeCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/**
+ * A song this session recognised, drawn exactly as a search result is.
+ *
+ * Not a lookalike of one: the same [YouTubeListItem] that search draws, the same [YouTubeSongMenu]
+ * behind the three dots and on a long press, the same swipe to queue, and a tap that starts the
+ * same radio a tapped search result does. Anything a person can do with a song they found by typing
+ * they can do with one they found by holding the phone up.
+ */
+@Composable
+private fun RecognisedSongRow(
+    song: SongItem,
+    navController: NavController,
+    modifier: Modifier = Modifier,
+) {
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val menuState = LocalMenuState.current
+    val snackbarHostState = LocalSnackbarHostState.current
+    val swipeEnabled by rememberPreference(SwipeToQueueKey, true)
+
+    val isPlaying by playerConnection.isPlaying.collectAsState()
+    val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+
+    fun openMenu() = menuState.show {
+        YouTubeSongMenu(
+            song = song,
+            navController = navController,
+            onDismiss = menuState::dismiss,
+        )
+    }
+
+    SwipeToQueueBox(
+        item = song.toMediaItem(),
+        swipeEnabled = swipeEnabled,
+        snackbarHostState = snackbarHostState,
+        modifier = modifier,
+    ) {
+        YouTubeListItem(
+            item = song,
+            isActive = mediaMetadata?.id == song.id,
+            isPlaying = isPlaying,
+            trailingContent = {
+                IconButton(onClick = { openMenu() }) {
+                    Icon(Icons.Rounded.MoreVert, contentDescription = null)
+                }
+            },
+            modifier = Modifier.combinedClickable(
+                onClick = {
+                    if (song.id == mediaMetadata?.id) {
+                        playerConnection.player.togglePlayPause()
+                    } else {
+                        // Radio, as search does. The origin is the one that exists for songs
+                        // identified by ear, which the recommendations weigh as they do a search.
+                        playerConnection.playQueue(
+                            YouTubeQueue.radio(song.toMediaMetadata()),
+                            isRadio = true,
+                            replace = true,
+                            origin = PlayOrigin.RECOGNISED,
+                        )
+                    }
+                },
+                onLongClick = { openMenu() },
+            ),
+        )
     }
 }
 

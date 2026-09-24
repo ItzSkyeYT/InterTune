@@ -42,6 +42,17 @@ import kotlin.math.abs
 class MicrophoneListener @Inject constructor() {
 
     /**
+     * One window of audio and the wall-clock time its first sample was heard.
+     *
+     * The time travels with the samples because nothing downstream can work it out. Shazam's
+     * offset is where the start of the window falls in the track, and the engine only receives a
+     * window once all of it has been recorded, later still when the previous one was slow to
+     * identify. Timing it from when the answer came back put every position estimate a whole
+     * window and a network round trip behind the room.
+     */
+    class Window(val samples: ShortArray, val startedAtMs: Long)
+
+    /**
      * Records up to [seconds], stopping early if the coroutine is cancelled.
      *
      * Returns whatever was captured before the stop rather than throwing it away, so a user who
@@ -136,7 +147,7 @@ class MicrophoneListener @Inject constructor() {
     fun stream(
         seconds: Int = DEFAULT_SECONDS,
         onProgress: (level: Float) -> Unit = {},
-    ): Flow<ShortArray> = flow {
+    ): Flow<Window> = flow {
         val minBuffer = AudioRecord.getMinBufferSize(
             SIGNATURE_SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
@@ -164,7 +175,12 @@ class MicrophoneListener @Inject constructor() {
                     for (i in 0 until read) peak = maxOf(peak, abs(chunk[i].toInt()))
                     onProgress(peak / 32768f)
                 }
-                if (written == windowSize) emit(window)
+                // Worked back from the end. The last read returns as soon as its tenth of a second
+                // has been captured, so this moment is within a chunk of the final sample, and the
+                // window is a fixed length of audio before it.
+                if (written == windowSize) {
+                    emit(Window(window, System.currentTimeMillis() - seconds * 1000L))
+                }
             }
         } finally {
             runCatching { recorder.stop() }
