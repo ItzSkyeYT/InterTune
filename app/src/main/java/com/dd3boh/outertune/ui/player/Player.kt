@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.ui.component.SleepTimerDialog
+import androidx.compose.material.icons.rounded.Timer
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.utils.ActivityLog
@@ -601,9 +603,40 @@ fun BottomSheetPlayer(
                 else -> 72.dp
             }
 
+            // The sleep timer one tap away on the player itself, not only inside the menu
+            // (yuuichi-s #54). The timer's fields are Compose state, so the button follows it.
+            val sleepTimerOn = playerConnection.service.sleepTimer.isActive
+            var showSleepTimerDialog by remember { mutableStateOf(false) }
+            if (showSleepTimerDialog) {
+                SleepTimerDialog(playerConnection) { showSleepTimerDialog = false }
+            }
+
             val actionButtons: @Composable RowScope.() -> Unit = {
                 Log.v(TAG, "PLR-3.xa")
                 Spacer(modifier = Modifier.width(10.dp))
+
+                // Tertiary while a timer runs, and a tap then cancels it, as the menu's entry does.
+                Box(
+                    modifier = Modifier
+                        .offset(y = 5.dp)
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary)
+                ) {
+                    ResizableIconButton(
+                        icon = Icons.Rounded.Timer,
+                        color = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(24.dp),
+                        onClick = {
+                            if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
+                            else showSleepTimerDialog = true
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(7.dp))
 
                 Box(
                     modifier = Modifier
