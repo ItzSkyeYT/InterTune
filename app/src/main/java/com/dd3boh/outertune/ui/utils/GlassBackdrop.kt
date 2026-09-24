@@ -11,6 +11,7 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -95,6 +96,19 @@ data class GlassSpec(
 @Composable
 fun rememberGlassSpec(): GlassSpec? {
     val backdrop = LocalAppBackdrop.current ?: return null
-    val intensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
+    val intensity = LocalGlassIntensity.current ?: run {
+        val stored by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
+        stored
+    }
     return GlassSpec(backdrop, intensity.coerceIn(0f, 1f))
 }
+
+/**
+ * The glass intensity, handed down by MainActivity, which already reads the preference.
+ *
+ * Reading it through rememberPreference in every glass surface meant a blocking DataStore read on
+ * the main thread each time one entered composition, and a floating button re-enters on every
+ * scroll back up. Dynamic rather than static, so dragging the intensity slider recomposes only the
+ * surfaces that read it, not the whole app.
+ */
+val LocalGlassIntensity = compositionLocalOf<Float?> { null }

@@ -211,11 +211,16 @@ fun Modifier.topBarSurface(shape: Shape = CircleShape): Modifier {
  * the layer that [GlassSpec.backdrop] records. See the top of this file.
  */
 @Composable
-fun Modifier.floatingGlass(glass: GlassSpec, shape: Shape, tint: Color = glass.tint(min = 0.66f, max = 0.98f)): Modifier =
-    this
+fun Modifier.floatingGlass(glass: GlassSpec, shape: Shape, tint: Color = glass.tint(min = 0.66f, max = 0.98f)): Modifier {
+    // One provider for the node's lifetime that reads the shape as it is now. The node keeps the
+    // first provider it was given, so a `{ shape }` made on each recomposition froze the search
+    // pill's glass at the rectangle it had while open, and every close left square corners.
+    val currentShape = rememberUpdatedState(shape)
+    val shapeProvider = remember { { currentShape.value } }
+    return this
         .drawBackdrop(
             backdrop = glass.backdrop,
-            shape = { shape },
+            shape = shapeProvider,
             effects = {
                 vibrancy()
                 blur(glass.blur.toPx())
@@ -229,3 +234,4 @@ fun Modifier.floatingGlass(glass: GlassSpec, shape: Shape, tint: Color = glass.t
         // Tint as a background after the backdrop, as the dock does: drawn on the node's own
         // canvas it would paint a square patch.
         .background(tint, shape)
+}

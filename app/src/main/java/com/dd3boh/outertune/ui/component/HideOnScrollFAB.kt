@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -124,12 +125,15 @@ private fun FloatingButton(onClick: () -> Unit, content: @Composable () -> Unit)
     }
     val spec = GlassSpec(host.backdrop, glass.intensity)
     val shape = FloatingActionButtonDefaults.shape
+    // In dark theme the icon is light, so a thin tint over a pale cover lost it: 0.55 there left it
+    // under 3:1. 0.75 keeps it readable over white; light theme's dark icon is fine at 0.55.
+    val floor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.75f else 0.55f
     FloatingActionButton(
         modifier = Modifier
             .padding(16.dp)
             .drawnBy(host)
             .graphicsLayer()
-            .floatingGlass(spec, shape, MaterialTheme.colorScheme.primaryContainer.copy(alpha = spec.tintAlpha(min = 0.55f, max = 0.95f))),
+            .floatingGlass(spec, shape, MaterialTheme.colorScheme.primaryContainer.copy(alpha = spec.tintAlpha(min = floor, max = 0.95f))),
         onClick = onClick,
         shape = shape,
         containerColor = Color.Transparent,

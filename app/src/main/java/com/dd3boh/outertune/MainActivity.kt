@@ -201,6 +201,7 @@ import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
+import com.dd3boh.outertune.ui.utils.LocalGlassIntensity
 import com.dd3boh.outertune.ui.component.LocalSearchBarGlass
 import com.dd3boh.outertune.ui.utils.GlassSpec
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
@@ -805,6 +806,7 @@ class MainActivity : ComponentActivity() {
                         LocalNetworkConnected provides isNetworkConnected,
                         LocalSnackbarHostState provides snackbarHostState,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
+                        LocalGlassIntensity provides glassIntensity,
                     ) {
                         /**
                          * Ask for the answers this install never gave.
