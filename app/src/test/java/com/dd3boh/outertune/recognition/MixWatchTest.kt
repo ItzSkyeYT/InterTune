@@ -99,6 +99,14 @@ class MixWatchTest {
     }
 
     @Test
+    fun twoKeysForOneSongInTheGapAreStillOneSong() {
+        val watch = MixWatch()
+        val a = "a" to ("A" to "x"); val b1 = "b1" to ("B" to "y"); val b2 = "b2" to ("B" to "y")
+        listOf(a to 0, a to 12, a to 24, b1 to 36, b2 to 48).forEach { (s, at) -> watch.observe(sighting(s, at)) }
+        assertFalse(watch.observe(sighting(a, 60))!!.strong)
+    }
+
+    @Test
     fun aSongComingRoundAgainMuchLaterIsNotAMix() {
         val watch = MixWatch()
         val a = "a" to ("A" to "x"); val b = "b" to ("B" to "y")

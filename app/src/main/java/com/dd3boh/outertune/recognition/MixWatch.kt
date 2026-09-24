@@ -68,7 +68,8 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
             pieces = span.distinctBy { it.key }.sortedByDescending { counts[it.key] ?: 0 },
             // Two different songs in one gap, or a second gap. Two windows of one other song is
             // also what skipping back to the previous song looks like, so it does not count alone.
-            strong = (interruption.size >= 2 && interruption.distinctBy { it.key }.size >= 2) ||
+            // Counted as songs, not keys: Shazam can give one recording two.
+            strong = (interruption.size >= 2 && MixSearch.distinctSongs(interruption).size >= 2) ||
                     interruptions >= 2,
         )
     }

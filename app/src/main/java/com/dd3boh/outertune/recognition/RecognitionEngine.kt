@@ -232,7 +232,10 @@ class RecognitionEngine @Inject constructor(
      */
     private class ActiveMix(
         val keys: MutableSet<String> = mutableSetOf(),
+        /** When any piece was last heard. The mashup is over once none has been for a while. */
         var lastHeardMs: Long = 0,
+        /** When it last cut back to a piece. Pieces are held back for a while after each cut. */
+        var lastCutMs: Long = 0,
         var strong: Boolean = false,
         var found: SongItem? = null,
         /** Answered: a clear winner was taken, or the person picked one or said none of these. */
@@ -241,6 +244,12 @@ class RecognitionEngine @Inject constructor(
         var searched: Boolean = false,
     )
     private var mix: ActiveMix? = null
+
+    /**
+     * Pieces of mashups this run already answered for, so the same mashup heard again, or going on
+     * after a quiet spell ended it, is not asked about a second time.
+     */
+    private val answered = mutableSetOf<String>()
 
     /** Playlist rows this run wrote, song id to playlist id, so a piece of a mashup can come out. */
     private val written = mutableListOf<Pair<String, String>>()
@@ -299,6 +308,7 @@ class RecognitionEngine @Inject constructor(
         confirmed.clear()
         mixWatch.clear()
         mix = null
+        answered.clear()
         _mixChoice.value = null
         synchronized(written) { written.clear() }
         synchronized(owned) { owned.clear() }
@@ -525,10 +535,16 @@ class RecognitionEngine @Inject constructor(
                     // straight on used to refresh it on every window and so stayed blocked for as
                     // long as it played; now it is confirmed as usual once the cuts stop.
                     mix?.takeIf { key in it.keys }?.let {
-                        Log.i(TAG, "'${outcome.track.title}' is part of a mashup, not adding it")
-                        pending = null
-                        pendingVariant = null
-                        return
+                        // Heard keeps the mashup alive; held back only for a while after the last
+                        // cut. A piece that plays on well past that is confirmed as usual, and if the
+                        // mashup cuts away and back again, onMix takes it out once more.
+                        it.lastHeardMs = heardAtMs
+                        if (heardAtMs - it.lastCutMs <= MIX_HOLD_MS) {
+                            Log.i(TAG, "'${outcome.track.title}' is part of a mashup, not adding it")
+                            pending = null
+                            pendingVariant = null
+                            return
+                        }
                     }
                 }
 
@@ -734,15 +750,26 @@ class RecognitionEngine @Inject constructor(
     private suspend fun onMix(found: MixWatch.Mix, now: Long, returning: String) {
         val songs = MixSearch.distinctSongs(found.pieces)
         if (songs.size < 2) return
-        // Something in between that was confirmed, over two listens moving at the speed of the
-        // clock, was a song that played: somebody skipped back, or a playlist came round.
-        if (found.pieces.any { it.key != returning && it.key in confirmed }) return
-
         val keys = found.pieces.map { it.key }
+        // A song confirmed in between, over two listens moving at the speed of the clock, was a
+        // song that played: somebody skipped back, or a playlist came round. Only for a first, weak
+        // detection. Inside a mashup a piece can play long enough to be confirmed too, and ruling
+        // out every later return because of it meant the mashup was never found.
+        if (mix == null && !found.strong && found.pieces.any { it.key != returning && it.key in confirmed }) return
+
+        // The same mashup again after a quiet spell ended it: already answered, so its pieces only
+        // come back out.
+        if (mix == null && answered.containsAll(keys)) {
+            mix = ActiveMix(keys.toMutableSet(), now, now, strong = true, settled = true, searched = true)
+            retract(found.pieces)
+            return
+        }
+
         val active = mix
         if (active != null && (active.settled || (active.searched && active.keys.containsAll(keys) && (active.strong || !found.strong)))) {
             active.keys += keys
             active.lastHeardMs = now
+            active.lastCutMs = now
             // Answered already, so a new piece is only taken out of the list, not asked about.
             if (active.settled) retract(found.pieces)
             return
@@ -768,6 +795,7 @@ class RecognitionEngine @Inject constructor(
         val current = (active ?: ActiveMix().also { mix = it }).apply {
             this.keys += keys
             lastHeardMs = now
+            lastCutMs = now
             strong = strong || found.strong
             searched = true
         }
@@ -776,6 +804,7 @@ class RecognitionEngine @Inject constructor(
         when {
             winner != null && autoAdd -> {
                 current.settled = true
+                answered += current.keys
                 current.found = winner
                 _mixChoice.value = null
                 add(winner)
@@ -831,13 +860,13 @@ class RecognitionEngine @Inject constructor(
 
     /** The person picked the mashup it was, from [mixChoice]. */
     fun acceptMix(song: SongItem) {
-        mix?.apply { found = song; settled = true }
+        mix?.apply { found = song; settled = true; answered += keys }
         _mixChoice.value = null
         add(song)
     }
 
     fun dismissMix() {
-        mix?.settled = true
+        mix?.apply { settled = true; answered += keys }
         _mixChoice.value = null
     }
 
@@ -902,5 +931,11 @@ class RecognitionEngine @Inject constructor(
 
         /** A mashup ends once none of its pieces has been heard for this long. */
         private const val MIX_QUIET_MS = 90_000L
+
+        /**
+         * How long after a cut its pieces are held back. Longer than a section of a mashup: the
+         * Damage run played Faint straight through for over two minutes before its first cut.
+         */
+        private const val MIX_HOLD_MS = 180_000L
     }
 }
