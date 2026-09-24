@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
 import androidx.compose.foundation.shape.CircleShape
@@ -629,6 +631,10 @@ fun BottomSheetPlayer(
                 SleepTimerDialog(playerConnection) { showSleepTimerDialog = false }
             }
 
+            // Glass for the connected buttons whenever the player has it, grouped controls or not:
+            // they are separate buttons either way.
+            val buttonBackdrop = if (liquidGlass) playerBackdrop else null
+
             val shareSong: () -> Unit = {
                 mediaMetadata?.let { song ->
                     ActivityLog.note(context, database, song.id, SignalKind.SHARE)
@@ -710,6 +716,8 @@ fun BottomSheetPlayer(
                             container = MaterialTheme.colorScheme.secondaryContainer,
                             content = MaterialTheme.colorScheme.onSecondaryContainer,
                             onClick = shareSong,
+                            backdrop = buttonBackdrop,
+                            glassIntensity = glassIntensity,
                         )
                     }
                     PlayerActionSegment(
@@ -719,6 +727,8 @@ fun BottomSheetPlayer(
                         container = MaterialTheme.colorScheme.primary,
                         content = MaterialTheme.colorScheme.onPrimary,
                         onClick = playerConnection::toggleLike,
+                        backdrop = buttonBackdrop,
+                        glassIntensity = glassIntensity,
                     )
                 }
             }
@@ -742,8 +752,11 @@ fun BottomSheetPlayer(
                         contentDescription = stringResource(R.string.toggle_lyrics),
                         shape = connectedShape(first = true, last = false),
                         container = if (showLyrics) MaterialTheme.colorScheme.primary else inactive,
+                        filled = showLyrics,
                         content = if (showLyrics) MaterialTheme.colorScheme.onPrimary else onBackgroundColor,
                         width = QuickActionWidth,
+                        backdrop = buttonBackdrop,
+                        glassIntensity = glassIntensity,
                         onClick = {
                             if (!showLyrics) mediaMetadata?.id?.let { ActivityLog.note(context, database, it, SignalKind.LYRICS) }
                             showLyrics = !showLyrics
@@ -754,9 +767,12 @@ fun BottomSheetPlayer(
                         contentDescription = stringResource(R.string.sleep_timer),
                         shape = connectedShape(first = false, last = false),
                         container = if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else inactive,
+                        filled = sleepTimerOn,
                         content = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else onBackgroundColor,
                         width = QuickActionWidth,
                         label = if (sleepTimerOn && sleepTimerLeft > 0) makeTimeString(sleepTimerLeft) else null,
+                        backdrop = buttonBackdrop,
+                        glassIntensity = glassIntensity,
                         onClick = {
                             if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
                             else showSleepTimerDialog = true
@@ -767,8 +783,11 @@ fun BottomSheetPlayer(
                         contentDescription = stringResource(R.string.options),
                         shape = connectedShape(first = false, last = true),
                         container = inactive,
+                        filled = false,
                         content = onBackgroundColor,
                         width = QuickActionWidth,
+                        backdrop = buttonBackdrop,
+                        glassIntensity = glassIntensity,
                         onClick = showPlayerMenu,
                     )
                 }
@@ -1390,13 +1409,14 @@ fun BottomSheetPlayer(
  */
 private val TabletQueueHandleReserve = 48.dp
 
-private val ConnectedButtonGap = 2.dp
-private val QuickActionWidth = 72.dp
+// Wide enough apart to read as separate buttons that belong together, not one slab with a seam.
+private val ConnectedButtonGap = 6.dp
+private val QuickActionWidth = 56.dp
 
-/** Material 3 Expressive connected buttons: fully round on the group's outer ends, 6dp between. */
+/** Material 3 Expressive connected buttons: fully round on the group's outer ends, 8dp between. */
 private fun connectedShape(first: Boolean, last: Boolean): RoundedCornerShape {
     val round = CornerSize(50)
-    val inner = CornerSize(6.dp)
+    val inner = CornerSize(8.dp)
     return RoundedCornerShape(
         topStart = if (first) round else inner,
         bottomStart = if (first) round else inner,
@@ -1441,8 +1461,12 @@ private fun PlayerActionSegment(
     container: Color,
     content: Color,
     onClick: () -> Unit,
-    width: Dp = 52.dp,
+    width: Dp = 44.dp,
     label: String? = null,
+    backdrop: LayerBackdrop? = null,
+    glassIntensity: Float = 1f,
+    /** Whether [container] is a real fill (on, or a primary action) rather than the idle wash. */
+    filled: Boolean = true,
 ) {
     Row(
         horizontalArrangement = Arrangement.Center,
@@ -1451,9 +1475,31 @@ private fun PlayerActionSegment(
             .height(40.dp)
             .widthIn(min = width)
             .clip(shape)
-            .background(container)
+            .then(
+                // Frosted, with no lens, highlight or shadow. Those draw a bright rim, and at this
+                // size the rim made the buttons read as empty outlines. So this is only the blur and
+                // vibrancy, clipped to the shape, under the button's colour: a filled button keeps
+                // most of its fill, an idle one gets a wash.
+                if (backdrop != null) Modifier
+                    .drawBackdrop(
+                        backdrop = backdrop,
+                        shape = { shape },
+                        effects = {
+                            vibrancy()
+                            blur(lerp(16f, 6f, glassIntensity.coerceIn(0f, 1f)).dp.toPx())
+                        },
+                        // The library's default highlight and shadow are the rim.
+                        highlight = { null },
+                        shadow = { null },
+                    )
+                    .background(
+                        if (filled) container.copy(alpha = lerp(0.95f, 0.8f, glassIntensity.coerceIn(0f, 1f)))
+                        else content.copy(alpha = 0.16f)
+                    )
+                else Modifier.background(container)
+            )
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp)
+            .padding(horizontal = 10.dp)
     ) {
         Icon(
             painter = painter,
