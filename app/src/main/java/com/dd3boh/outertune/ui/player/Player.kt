@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune.ui.player
 
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import com.dd3boh.outertune.ui.component.SleepTimerDialog
 import androidx.compose.material.icons.rounded.Timer
 import com.dd3boh.outertune.LocalDatabase
@@ -773,6 +775,7 @@ fun BottomSheetPlayer(
                     }
                 }
 
+                val seekInteraction = remember { MutableInteractionSource() }
                 Slider(
                     value = (sliderPosition ?: position).toFloat(),
                     valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
@@ -789,11 +792,21 @@ fun BottomSheetPlayer(
                         sliderPosition = null
                         haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                     },
-                    thumb = { Spacer(modifier = Modifier.size(0.dp)) },
+                    // Material 3 Expressive: a bar thumb standing clear of a thick track, with the
+                    // stop dot at the end, the same slider the backup settings already use.
+                    interactionSource = seekInteraction,
+                    thumb = {
+                        SliderDefaults.Thumb(
+                            interactionSource = seekInteraction,
+                            thumbSize = DpSize(4.dp, 36.dp),
+                        )
+                    },
                     track = { sliderState ->
-                        PlayerSliderTrack(
+                        SliderDefaults.Track(
                             sliderState = sliderState,
-                            colors = SliderDefaults.colors()
+                            modifier = Modifier.height(14.dp),
+                            thumbTrackGapSize = 5.dp,
+                            trackInsideCornerSize = 4.dp,
                         )
                     },
                     modifier = Modifier.padding(horizontal = hPadding)
