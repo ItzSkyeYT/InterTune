@@ -102,7 +102,9 @@ class RecognitionService : Service() {
         }
 
         val notification = build(engine.added.value.size)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        // The microphone type exists from Android 11. On 10 the two-argument call already takes the
+        // types declared in the manifest, which is the same microphone flag, so nothing changes there.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
         } else {
             startForeground(NOTIFICATION_ID, notification)
