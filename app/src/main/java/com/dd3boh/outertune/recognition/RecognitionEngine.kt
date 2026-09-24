@@ -16,6 +16,7 @@ import android.content.Context
 import androidx.annotation.RequiresPermission
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Playlist
+import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.zionhuang.innertube.YouTube
@@ -172,6 +173,31 @@ class RecognitionEngine @Inject constructor(
      */
     private val _recognised = MutableStateFlow<List<SongItem>>(emptyList())
     val recognised = _recognised.asStateFlow()
+
+    /**
+     * The playlist the screen's list is also being written into, once somebody created one from it
+     * or added it to one. Every song recognised after that goes straight in, so a Keep listening run
+     * left on a table fills the playlist by itself. Here rather than in the screen's view model
+     * because the run outlives the screen.
+     */
+    private val _following = MutableStateFlow<PlaylistEntity?>(null)
+    val following = _following.asStateFlow()
+
+    private var followWatch: Job? = null
+
+    /** Sends every song recognised from now on into [playlist] as well, or stops, given null. */
+    fun follow(playlist: PlaylistEntity?) {
+        followWatch?.cancel()
+        _following.value = playlist
+        if (playlist == null) return
+        // Deleted from the library while followed: the screen stops claiming new songs go there,
+        // and the writes, which would all fail on the missing playlist, stop being attempted. Both
+        // callers follow a playlist already in the database, so the first value is never null.
+        followWatch = scope.launch {
+            database.playlist(playlist.id).first { it == null }
+            _following.compareAndSet(playlist, null)
+        }
+    }
 
     private var job: Job? = null
     private var playlist: Playlist? = null
@@ -491,9 +517,45 @@ class RecognitionEngine @Inject constructor(
         }
     }
 
-    /** Adds [song] to [recognised] unless a song with its id is already there. */
+    /**
+     * Adds [song] to [recognised] unless a song with its id is already there, and to the playlist
+     * being [following] if it is new.
+     */
     private fun record(song: SongItem) {
-        _recognised.update { list -> if (list.any { it.id == song.id }) list else list + song }
+        var appended = false
+        _recognised.update { list ->
+            // Set on every attempt, since update runs this again if another write got in first.
+            appended = list.none { it.id == song.id }
+            if (appended) list + song else list
+        }
+        if (appended) _following.value?.let { writeInto(it, song) }
+    }
+
+    /** Puts [song] at the end of [playlist], unless it is in there already. */
+    private fun writeInto(playlist: PlaylistEntity, song: SongItem) {
+        scope.launch(Dispatchers.IO) {
+            val added = runCatching {
+                database.transactionNow {
+                    if (playlistDuplicates(playlist.id, listOf(song.id)).isNotEmpty()) return@transactionNow false
+                    insert(song.toMediaMetadata())
+                    insert(
+                        PlaylistSongMap(
+                            songId = song.id,
+                            playlistId = playlist.id,
+                            position = nextPlaylistPosition(playlist.id),
+                        )
+                    )
+                    true
+                }
+            }.onFailure { Log.w(TAG, "Could not add '${song.title}' to ${playlist.name}", it) }
+                .getOrDefault(false)
+            if (added && !playlist.isLocal) {
+                playlist.browseId?.let { browseId ->
+                    YouTube.addToPlaylist(browseId, song.id)
+                        .onFailure { Log.w(TAG, "Could not push '${song.title}' to ${playlist.name}", it) }
+                }
+            }
+        }
     }
 
     /** Adds a song and remembers it, from either the automatic path or a person's choice. */
@@ -561,6 +623,8 @@ class RecognitionEngine @Inject constructor(
      */
     fun clearRecognised() {
         _recognised.value = emptyList()
+        // A fresh list is not the one that playlist was made from, so it stops filling it.
+        follow(null)
     }
 
     companion object {

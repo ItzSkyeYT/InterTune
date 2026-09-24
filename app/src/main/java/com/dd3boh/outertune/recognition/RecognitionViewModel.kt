@@ -25,8 +25,6 @@ import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -61,13 +59,8 @@ class RecognitionViewModel @Inject constructor(
     /** Everything ever heard, across restarts, newest first. */
     val heard = history.entries
 
-    /**
-     * The song ids last saved as a playlist, in the order saved, so the button can say it is done.
-     * Compared with the whole list rather than kept as a flag, so a song heard after saving brings
-     * the button back instead of leaving it claiming a list it no longer matches.
-     */
-    private val _savedIds = MutableStateFlow<List<String>?>(null)
-    val savedIds = _savedIds.asStateFlow()
+    /** The playlist new songs are going into, once the list was saved as one or added to one. */
+    val following = engine.following
 
     /**
      * A name for the playlist that no playlist in the library already has.
@@ -109,9 +102,28 @@ class RecognitionViewModel @Inject constructor(
         }.onFailure {
             Log.w(TAG, "Could not save the recognised songs as a playlist", it)
         }.onSuccess {
-            _savedIds.value = songs.map { it.id }
+            engine.follow(playlist)
         }.isSuccess
     }
+
+    /**
+     * For the playlist picker: puts [songs] in the song table, which the playlist's foreign key
+     * needs and a YouTube search result has never been in, and hands back the ids for the picker to
+     * add. Its own duplicate check then deals with any already there. Following waits for [follow],
+     * which the picker calls only once it has added: a cancelled duplicates prompt used to leave a
+     * playlist followed that had received none of the list.
+     */
+    suspend fun prepareForPlaylist(playlist: Playlist, songs: List<SongItem>): List<String> =
+        withContext(Dispatchers.IO) {
+            database.transactionNow { songs.forEach { insert(it.toMediaMetadata()) } }
+            songs.map { it.id }
+        }
+
+    /** Sends every song recognised from now on into [playlist] too. Once the picker has added. */
+    fun follow(playlist: PlaylistEntity) = engine.follow(playlist)
+
+    /** New songs stay in the list but stop going into the playlist. */
+    fun stopFollowing() = engine.follow(null)
 
     /**
      * The one guarded way in.

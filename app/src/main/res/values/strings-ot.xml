@@ -691,7 +691,9 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="recognise_clear_history_explain">The list is only kept while the app is running. Nothing on it reaches your library or your history unless you save it as a playlist. This empties it now.</string>
     <string name="recognise_play">Play</string>
     <string name="recognise_save_as_playlist">Save as playlist</string>
-    <string name="recognise_saved">Saved</string>
+    <!-- %1$s is the playlist's name. -->
+    <string name="recognise_following">New songs go into %1$s</string>
+    <string name="recognise_stop_following">Stop adding to this playlist</string>
     <!-- The name a saved list starts with. %1$s is today's date. -->
     <string name="recognise_playlist_name">Heard on %1$s</string>
     <string name="recognise_save_failed">Could not save the playlist</string>

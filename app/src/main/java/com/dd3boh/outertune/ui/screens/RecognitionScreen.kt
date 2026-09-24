@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.ui.screens
 
+import androidx.compose.material.icons.rounded.LibraryAdd
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.ui.text.style.TextOverflow
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.TopBarActions
 
@@ -163,9 +166,8 @@ fun RecognitionScreen(
     val running by viewModel.running.collectAsState()
     val continuous by viewModel.continuous.collectAsState()
     val skipped by viewModel.skipped.collectAsState()
-    val nowPlaying by viewModel.nowPlaying.collectAsState()
     val recognised by viewModel.recognised.collectAsState()
-    val savedIds by viewModel.savedIds.collectAsState()
+    val following by viewModel.following.collectAsState()
 
     // Held only while it is actually listening, and released the moment it stops or the screen
     // leaves. Listening itself survives the screen going off, since the service holds a foreground
@@ -182,6 +184,7 @@ fun RecognitionScreen(
     val (pauseOnSpeaker) = rememberPreference(RecognisePauseOnSpeakerKey, defaultValue = true)
 
     var addToPlaylistFor by remember { mutableStateOf<SongItem?>(null) }
+    var addAllToPlaylist by remember { mutableStateOf(false) }
     var pendingContinuous by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -222,7 +225,9 @@ fun RecognitionScreen(
 
     fun listen(keepGoing: Boolean) {
         if (running) {
-            viewModel.stop()
+            // The mode that is running stops it. The other one switches the run over without
+            // closing the microphone: the engine reads the mode afresh on every window.
+            if (keepGoing == continuous) viewModel.stop() else viewModel.setContinuous(keepGoing)
             return
         }
         // Only stop the music when the music is in the room. On headphones the microphone hears
@@ -251,6 +256,18 @@ fun RecognitionScreen(
             navController = navController,
             songIds = listOf(song.id),
             onDismiss = { addToPlaylistFor = null },
+        )
+    }
+
+    if (addAllToPlaylist) {
+        AddToPlaylistDialog(
+            navController = navController,
+            // Null, so the picker takes the ids from onPreAdd, which runs once a playlist is picked
+            // and so sees every song heard while the picker was open.
+            songIds = null,
+            onPreAdd = { playlist -> viewModel.prepareForPlaylist(playlist, recognised) },
+            onAdded = { playlist -> viewModel.follow(playlist.playlist) },
+            onDismiss = { addAllToPlaylist = false },
         )
     }
 
@@ -308,7 +325,8 @@ fun RecognitionScreen(
                 level = level,
                 compact = recognised.isNotEmpty() || skipped.isNotEmpty() ||
                         state is RecognitionEngine.State.Found,
-                onClick = { listen(keepListeningDefault) },
+                // The big button always stops a run, whichever mode it is in.
+                onClick = { if (running) viewModel.stop() else listen(keepListeningDefault) },
             )
         }
 
@@ -333,35 +351,6 @@ fun RecognitionScreen(
                     onClick = { listen(true) },
                     modifier = Modifier.weight(1f),
                 )
-            }
-        }
-
-        // What is playing in the room, which is the question the screen is named after. Shazam
-        // answers it on its own, before YouTube is consulted at all, so this survives the search
-        // coming back with nothing. Without it a run that recognised the song perfectly well
-        // showed a blank screen, because everything below here needs a YouTube match to render.
-        nowPlaying?.let { playing ->
-            item(key = "now_playing") {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                ) {
-                    Text(
-                        text = playing.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                    )
-                    playing.artist?.let { artist ->
-                        Text(
-                            text = artist,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                        )
-                    }
-                }
             }
         }
 
@@ -470,9 +459,10 @@ fun RecognitionScreen(
         }
 
         // No heading over an empty list. Before anything has been heard the button is the whole
-        // screen, because a title with nothing under it is a promise the screen has not kept.
-        // One song is not a list either, so the heading, and the button to save it, wait for two.
-        if (recognised.size > 1) {
+        // screen, because a title with nothing under it is a promise the screen has not kept. From
+        // the first song on, it is where every song lands: there is no separate "now playing"
+        // line under the cards any more, which only repeated what was about to appear here.
+        if (recognised.isNotEmpty()) {
             item(key = "heard_header") {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -491,25 +481,59 @@ fun RecognitionScreen(
             }
 
             item(key = "save_playlist") {
-                // Done only while the list is the one that was saved. A song heard afterwards
-                // brings the button back, since the playlist no longer holds everything shown.
-                val saved = savedIds == recognised.map { it.id }
-                FilledTonalButton(
-                    onClick = { proposeSave() },
-                    enabled = !saved,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                ) {
-                    Icon(
-                        imageVector = if (saved) Icons.Rounded.Check else Icons.AutoMirrored.Rounded.PlaylistAdd,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        stringResource(
-                            if (saved) R.string.recognise_saved else R.string.recognise_save_as_playlist
+                val target = following
+                if (target == null) {
+                    // Either makes the list a playlist or puts it in one, and from then on every
+                    // new song goes in as well, so a run left going fills it by itself.
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    ) {
+                        FilledTonalButton(onClick = { proposeSave() }, modifier = Modifier.weight(1f)) {
+                            Icon(
+                                Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.create_playlist), maxLines = 1)
+                        }
+                        FilledTonalButton(onClick = { addAllToPlaylist = true }, modifier = Modifier.weight(1f)) {
+                            Icon(
+                                Icons.Rounded.LibraryAdd,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.add_to_playlist), maxLines = 1)
+                        }
+                    }
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
+                    ) {
+                        Icon(
+                            Icons.Rounded.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp),
                         )
-                    )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.recognise_following, target.name),
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = { viewModel.stopFollowing() }) {
+                            Icon(
+                                Icons.Rounded.Close,
+                                contentDescription = stringResource(R.string.recognise_stop_following),
+                            )
+                        }
+                    }
                 }
             }
         }
