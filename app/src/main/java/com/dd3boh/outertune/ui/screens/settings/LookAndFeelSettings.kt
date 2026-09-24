@@ -29,6 +29,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.screens.settings.fragments.AppearanceMiscFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.PlayerButtonsFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SwipeGesturesFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.TabArrangementFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.TabExtrasFrag
@@ -69,6 +70,7 @@ fun LookAndFeelSettings(
             modifier = Modifier.fillMaxWidth()
         ) {
             ThemePlayerFrag()
+            PlayerButtonsFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))
 

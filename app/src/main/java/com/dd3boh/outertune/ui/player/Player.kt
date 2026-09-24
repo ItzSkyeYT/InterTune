@@ -9,6 +9,22 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.constants.PlayerButtonsStyle
+import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
+import androidx.compose.foundation.shape.CircleShape
+import android.content.Intent
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import com.dd3boh.outertune.ui.component.rememberSleepTimerState
+import androidx.compose.material3.Icon
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import com.dd3boh.outertune.ui.component.SleepTimerDialog
@@ -168,7 +184,6 @@ import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.BottomSheet
 import com.dd3boh.outertune.ui.component.BottomSheetState
-import com.dd3boh.outertune.ui.component.PlayerSliderTrack
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.menu.PlayerMenu
@@ -259,7 +274,8 @@ fun BottomSheetPlayer(
             }
     }
 
-    val showLyrics by rememberPreference(ShowLyricsKey, defaultValue = false)
+    var showLyrics by rememberPreference(ShowLyricsKey, defaultValue = false)
+    val buttonsStyle by rememberEnumPreference(PlayerButtonsStyleKey, defaultValue = PlayerButtonsStyle.CLASSIC)
 
     var position by rememberSaveable(playbackState) {
         mutableLongStateOf(playerConnection.player.currentPosition)
@@ -605,83 +621,155 @@ fun BottomSheetPlayer(
                 else -> 72.dp
             }
 
-            // The sleep timer one tap away on the player itself, not only inside the menu
-            // (yuuichi-s #54). The timer's fields are Compose state, so the button follows it.
-            val sleepTimerOn = playerConnection.service.sleepTimer.isActive
+            // Sleep timer, lyrics and the menu one tap away on the player itself, not only inside
+            // the menu (yuuichi-s #54). The timer's fields are Compose state, so the buttons follow it.
+            val (sleepTimerOn, sleepTimerLeft) = rememberSleepTimerState(playerConnection)
             var showSleepTimerDialog by remember { mutableStateOf(false) }
             if (showSleepTimerDialog) {
                 SleepTimerDialog(playerConnection) { showSleepTimerDialog = false }
             }
 
-            val actionButtons: @Composable RowScope.() -> Unit = {
+            val shareSong: () -> Unit = {
+                mediaMetadata?.let { song ->
+                    ActivityLog.note(context, database, song.id, SignalKind.SHARE)
+                    val intent = Intent().apply {
+                        action = Intent.ACTION_SEND
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, "https://music.youtube.com/watch?v=${song.id}")
+                    }
+                    context.startActivity(Intent.createChooser(intent, null))
+                }
+            }
+
+            val showPlayerMenu: () -> Unit = {
+                menuState.show {
+                    PlayerMenu(
+                        mediaMetadata = mediaMetadata,
+                        navController = navController,
+                        playerBottomSheetState = state,
+                        onDismiss = menuState::dismiss
+                    )
+                }
+            }
+
+            // Classic: three circles beside the title. Tertiary on the timer while it runs, and a
+            // tap then cancels it, as the menu's entry does.
+            val classicButtons: @Composable RowScope.() -> Unit = {
                 Log.v(TAG, "PLR-3.xa")
                 Spacer(modifier = Modifier.width(10.dp))
 
-                // Tertiary while a timer runs, and a tap then cancels it, as the menu's entry does.
-                Box(
-                    modifier = Modifier
-                        .offset(y = 5.dp)
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary)
+                PlayerCircleButton(
+                    painter = rememberVectorPainter(Icons.Rounded.Timer),
+                    contentDescription = stringResource(R.string.sleep_timer),
+                    container = if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                    content = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
+                    onClick = {
+                        if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
+                        else showSleepTimerDialog = true
+                    }
+                )
+
+                Spacer(modifier = Modifier.width(7.dp))
+
+                PlayerCircleButton(
+                    painter = painterResource(if (currentSong?.song?.liked == true) R.drawable.favorite else R.drawable.favorite_border),
+                    contentDescription = null,
+                    container = MaterialTheme.colorScheme.primary,
+                    content = MaterialTheme.colorScheme.onPrimary,
+                    onClick = playerConnection::toggleLike
+                )
+
+                Spacer(modifier = Modifier.width(7.dp))
+
+                PlayerCircleButton(
+                    painter = rememberVectorPainter(Icons.Rounded.MoreVert),
+                    contentDescription = stringResource(R.string.options),
+                    container = MaterialTheme.colorScheme.primary,
+                    content = MaterialTheme.colorScheme.onPrimary,
+                    onClick = showPlayerMenu
+                )
+            }
+
+            // Connected: share and like beside the title as one pair, round on the outside and
+            // nearly square where they meet. A local file has no link to share, so it gets like alone.
+            val connectedButtons: @Composable RowScope.() -> Unit = {
+                Log.v(TAG, "PLR-3.xa")
+                Spacer(modifier = Modifier.width(10.dp))
+
+                val canShare = mediaMetadata?.isLocal == false
+                val liked = currentSong?.song?.liked == true
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap),
+                    modifier = Modifier.offset(y = 4.dp)
                 ) {
-                    ResizableIconButton(
-                        icon = Icons.Rounded.Timer,
-                        color = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(24.dp),
+                    if (canShare) {
+                        PlayerActionSegment(
+                            painter = rememberVectorPainter(Icons.Rounded.Share),
+                            contentDescription = stringResource(R.string.share),
+                            shape = connectedShape(first = true, last = false),
+                            container = MaterialTheme.colorScheme.secondaryContainer,
+                            content = MaterialTheme.colorScheme.onSecondaryContainer,
+                            onClick = shareSong,
+                        )
+                    }
+                    PlayerActionSegment(
+                        painter = painterResource(if (liked) R.drawable.favorite else R.drawable.favorite_border),
+                        contentDescription = null,
+                        shape = connectedShape(first = !canShare, last = true),
+                        container = MaterialTheme.colorScheme.primary,
+                        content = MaterialTheme.colorScheme.onPrimary,
+                        onClick = playerConnection::toggleLike,
+                    )
+                }
+            }
+
+            val actionButtons = if (buttonsStyle == PlayerButtonsStyle.CONNECTED) connectedButtons else classicButtons
+
+            // Lyrics, the sleep timer and the menu under the transport controls, filled while the
+            // thing they control is on. The timer shows what is left, so a running timer is visible
+            // without opening anything, and a tap on it cancels, as the menu's entry does.
+            val quickActions: @Composable () -> Unit = {
+                val inactive = onBackgroundColor.copy(alpha = 0.12f)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap, Alignment.CenterHorizontally),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = hPadding)
+                        .padding(top = 16.dp)
+                ) {
+                    PlayerActionSegment(
+                        painter = rememberVectorPainter(Icons.Rounded.Lyrics),
+                        contentDescription = stringResource(R.string.toggle_lyrics),
+                        shape = connectedShape(first = true, last = false),
+                        container = if (showLyrics) MaterialTheme.colorScheme.primary else inactive,
+                        content = if (showLyrics) MaterialTheme.colorScheme.onPrimary else onBackgroundColor,
+                        width = QuickActionWidth,
+                        onClick = {
+                            if (!showLyrics) mediaMetadata?.id?.let { ActivityLog.note(context, database, it, SignalKind.LYRICS) }
+                            showLyrics = !showLyrics
+                        },
+                    )
+                    PlayerActionSegment(
+                        painter = rememberVectorPainter(Icons.Rounded.Timer),
+                        contentDescription = stringResource(R.string.sleep_timer),
+                        shape = connectedShape(first = false, last = false),
+                        container = if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else inactive,
+                        content = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else onBackgroundColor,
+                        width = QuickActionWidth,
+                        label = if (sleepTimerOn && sleepTimerLeft > 0) makeTimeString(sleepTimerLeft) else null,
                         onClick = {
                             if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
                             else showSleepTimerDialog = true
-                        }
+                        },
                     )
-                }
-
-                Spacer(modifier = Modifier.width(7.dp))
-
-                Box(
-                    modifier = Modifier
-                        .offset(y = 5.dp)
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(MaterialTheme.colorScheme.primary)
-                ) {
-                    ResizableIconButton(
-                        icon = if (currentSong?.song?.liked == true) R.drawable.favorite else R.drawable.favorite_border,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(24.dp),
-                        onClick = playerConnection::toggleLike
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(7.dp))
-
-                Box(
-                    modifier = Modifier
-                        .offset(y = 5.dp)
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(MaterialTheme.colorScheme.primary)
-                ) {
-                    ResizableIconButton(
-                        icon = Icons.Rounded.MoreVert,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .align(Alignment.Center),
-                        onClick = {
-                            menuState.show {
-                                PlayerMenu(
-                                    mediaMetadata = mediaMetadata,
-                                    navController = navController,
-                                    playerBottomSheetState = state,
-                                    onDismiss = menuState::dismiss
-                                )
-                            }
-                        }
+                    PlayerActionSegment(
+                        painter = rememberVectorPainter(Icons.Rounded.MoreVert),
+                        contentDescription = stringResource(R.string.options),
+                        shape = connectedShape(first = false, last = true),
+                        container = inactive,
+                        content = onBackgroundColor,
+                        width = QuickActionWidth,
+                        onClick = showPlayerMenu,
                     )
                 }
             }
@@ -1001,6 +1089,8 @@ fun BottomSheetPlayer(
                         )
                     }
                 }
+
+                if (buttonsStyle == PlayerButtonsStyle.CONNECTED) quickActions()
             }
 
 
@@ -1299,3 +1389,86 @@ fun BottomSheetPlayer(
  * tablet does not need because the queue is permanently beside the player.
  */
 private val TabletQueueHandleReserve = 48.dp
+
+private val ConnectedButtonGap = 2.dp
+private val QuickActionWidth = 72.dp
+
+/** Material 3 Expressive connected buttons: fully round on the group's outer ends, 6dp between. */
+private fun connectedShape(first: Boolean, last: Boolean): RoundedCornerShape {
+    val round = CornerSize(50)
+    val inner = CornerSize(6.dp)
+    return RoundedCornerShape(
+        topStart = if (first) round else inner,
+        bottomStart = if (first) round else inner,
+        topEnd = if (last) round else inner,
+        bottomEnd = if (last) round else inner,
+    )
+}
+
+/** The classic player button: a 36dp circle, sitting a little low to line up with the title. */
+@Composable
+private fun PlayerCircleButton(
+    painter: Painter,
+    contentDescription: String?,
+    container: Color,
+    content: Color,
+    onClick: () -> Unit,
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .offset(y = 5.dp)
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(container)
+            .clickable(onClick = onClick)
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = contentDescription,
+            tint = content,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+/** One segment of a connected group: an icon, and a short label beside it when there is one. */
+@Composable
+private fun PlayerActionSegment(
+    painter: Painter,
+    contentDescription: String?,
+    shape: Shape,
+    container: Color,
+    content: Color,
+    onClick: () -> Unit,
+    width: Dp = 52.dp,
+    label: String? = null,
+) {
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .height(40.dp)
+            .widthIn(min = width)
+            .clip(shape)
+            .background(container)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp)
+    ) {
+        Icon(
+            painter = painter,
+            contentDescription = contentDescription,
+            tint = content,
+            modifier = Modifier.size(22.dp)
+        )
+        if (label != null) {
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = content,
+                maxLines = 1
+            )
+        }
+    }
+}

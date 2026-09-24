@@ -249,6 +249,9 @@ val SwipeToDismissPlayerKey = booleanPreferencesKey("swipeToDismissPlayer")
  */
 val GroupedPlayerControlsKey = booleanPreferencesKey("groupedPlayerControls")
 
+/** Which set of buttons the player shows. See [PlayerButtonsStyle]. */
+val PlayerButtonsStyleKey = stringPreferencesKey("playerButtonsStyle")
+
 
 /**
  * Non-settings UI preferences

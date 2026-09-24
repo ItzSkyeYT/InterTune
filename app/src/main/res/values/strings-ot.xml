@@ -265,6 +265,10 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="swipe_to_dismiss_player_description">Swiping the mini player downwards closes it and stops the music. Turn this off and it stays put instead, so the song keeps playing and you cannot close it by accident.</string>
     <string name="grouped_player_controls">Group the player buttons</string>
     <string name="grouped_player_controls_description">Puts shuffle, skip, play and repeat together inside one glass bar. Turn it off to have the buttons sit on their own over the artwork. Needs Liquid glass to be on.</string>
+    <string name="player_buttons_style">Player buttons</string>
+    <string name="player_buttons_style_description">Connected puts share and like together by the title, with lyrics, the sleep timer and the menu in a row under the controls.</string>
+    <string name="player_buttons_classic">Classic</string>
+    <string name="player_buttons_connected">Connected</string>
     <string name="loudness_repair">Fix song volumes</string>
     <string name="loudness_repair_none">Looks up the right volume for songs that are missing it, so nothing suddenly blares out louder than the rest. All your songs already have it.</string>
     <string name="loudness_repair_available">Looks up the right volume for songs that are missing it, so nothing suddenly blares out louder than the rest. %1$d songs still need it. Tap to start.</string>

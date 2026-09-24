@@ -17,6 +17,18 @@ enum class PlayerBackgroundStyle {
 }
 
 /**
+ * The buttons around the player's title and transport controls.
+ *
+ * CLASSIC is the three round buttons beside the title: sleep timer, like and the menu. CONNECTED
+ * puts share and like together beside the title and adds a row under the controls for lyrics, the
+ * sleep timer and the menu. CLASSIC is the default because it is what the player has always looked
+ * like; the other is there for anyone who wants lyrics and share without opening the menu.
+ */
+enum class PlayerButtonsStyle {
+    CLASSIC, CONNECTED
+}
+
+/**
  * Where the Quick picks row gets its songs, and nothing else.
  *
  * YOUTUBE is the shelf YouTube Music puts at the top of its own home feed, picked for your account.
