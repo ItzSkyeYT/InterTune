@@ -6,7 +6,7 @@
 
 package com.dd3boh.outertune.constants
 
-import com.dd3boh.outertune.BuildConfig
+import com.dd3boh.outertune.utils.BuiltInKeys
 
 /**
  * Where polls come from and where answers go.
@@ -29,7 +29,7 @@ object Polls {
      * Use the revision-less raw URL (gist.githubusercontent.com/<user>/<id>/raw/polls.json) so that
      * editing the gist is picked up without changing anything here.
      */
-    val POLLS_URL: String by lazy { reveal(BuildConfig.POLLS_URL) }
+    val POLLS_URL: String get() = BuiltInKeys.pollsUrl
 
     /**
      * Umami base, no trailing slash.
@@ -44,10 +44,10 @@ object Polls {
      * to cloud.umami.is does not fail loudly, it fails to connect at all, so taking the dashboard
      * address at face value would have meant answers silently going nowhere forever.
      */
-    val UMAMI_URL: String by lazy { reveal(BuildConfig.POLLS_UMAMI_URL) }
+    val UMAMI_URL: String get() = BuiltInKeys.umamiUrl
 
     /** Umami website id that poll answers are recorded against. */
-    val UMAMI_WEBSITE_ID: String by lazy { reveal(BuildConfig.POLLS_UMAMI_WEBSITE_ID) }
+    val UMAMI_WEBSITE_ID: String get() = BuiltInKeys.umamiWebsiteId
 
     /**
      * Sent as the Umami `hostname`, which is a required field.
@@ -62,18 +62,9 @@ object Polls {
 
     /** True once the placeholders above have been filled in. Nothing runs until they are. */
     /**
-     * Undoes the build-time obfuscation. Same scheme and the same caveat as the Last.fm
-     * credentials: this defeats a plain strings sweep of the apk and nothing more.
+     * True once the build supplied all three and this is the app signed with the release key (see
+     * BuiltInKeys). Nothing runs until then, so a clone does not post its answers into these polls.
      */
-    private fun reveal(masked: IntArray): String {
-        if (masked.isEmpty()) return ""
-        val mask = "InterTune".toByteArray()
-        return String(
-            ByteArray(masked.size) { i -> (masked[i] xor mask[i % mask.size].toInt()).toByte() }
-        )
-    }
-
-    /** True once local.properties supplied all three. Nothing runs until it has. */
     val isConfigured: Boolean
         get() = POLLS_URL.isNotEmpty() && UMAMI_URL.isNotEmpty() && UMAMI_WEBSITE_ID.isNotEmpty()
 }

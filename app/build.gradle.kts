@@ -22,17 +22,27 @@ if (keystorePropertiesFile.exists()) {
 }
 
 /**
- * Last.fm credentials, from last.fm/api/account/create.
+ * Credentials for the maintainer's services: the Last.fm API account and the polls' gist and Umami
+ * site.
  *
- * Kept in local.properties, which is gitignored, so the fork's key never lands in a public repo.
- * Absent is a supported state: the build works, and the Last.fm setting hides itself rather than
- * offering a login that cannot succeed.
+ * In services.properties, which is committed. They used to live in the gitignored local.properties,
+ * and that made a reproducible F-Droid build impossible: a build from source could never contain
+ * what the published APK did. They only work in the app signed with the release key, see
+ * BuiltInKeys.kt. local.properties is still read as a fallback, for a checkout whose
+ * services.properties has not been filled in. Absent is a supported state: the build works, and
+ * the features hide themselves rather than offering what cannot succeed.
  */
+val servicesProperties = Properties()
+rootProject.file("services.properties").takeIf { it.exists() }?.let { file ->
+    FileInputStream(file).use { servicesProperties.load(it) }
+}
 val localPropertiesFile = rootProject.file("local.properties")
 val localProperties = Properties()
 if (localPropertiesFile.exists()) {
     localProperties.load(FileInputStream(localPropertiesFile))
 }
+fun service(key: String): String =
+    servicesProperties.getProperty(key)?.takeIf { it.isNotBlank() } ?: localProperties.getProperty(key, "")
 
 android {
     namespace = "com.dd3boh.outertune"
@@ -53,7 +63,8 @@ android {
         //
         // The only real fix is a server relaying the calls, which this app does not have. A leaked
         // Last.fm key costs a rate limit, not an account, and is revocable, so this is the right
-        // amount of effort for what is at stake.
+        // amount of effort for what is at stake. The values are in the public source now, for
+        // reproducible builds, and what keeps them to this app is BuiltInKeys' signature check.
         fun obfuscated(value: String): String {
             // An empty int array, not an empty string. These fields are declared int[], so
             // returning "\"\"" emitted `public static final int[] X = "";` and the whole app
@@ -71,12 +82,12 @@ android {
         buildConfigField(
             "int[]",
             "LASTFM_API_KEY",
-            obfuscated(localProperties.getProperty("lastfm.apiKey", ""))
+            obfuscated(service("lastfm.apiKey"))
         )
         buildConfigField(
             "int[]",
             "LASTFM_API_SECRET",
-            obfuscated(localProperties.getProperty("lastfm.apiSecret", ""))
+            obfuscated(service("lastfm.apiSecret"))
         )
 
         // Polls, same treatment and the same honesty about it. None of these is a secret, but the
@@ -85,17 +96,17 @@ android {
         buildConfigField(
             "int[]",
             "POLLS_URL",
-            obfuscated(localProperties.getProperty("polls.gistUrl", ""))
+            obfuscated(service("polls.gistUrl"))
         )
         buildConfigField(
             "int[]",
             "POLLS_UMAMI_URL",
-            obfuscated(localProperties.getProperty("polls.umamiUrl", ""))
+            obfuscated(service("polls.umamiUrl"))
         )
         buildConfigField(
             "int[]",
             "POLLS_UMAMI_WEBSITE_ID",
-            obfuscated(localProperties.getProperty("polls.umamiWebsiteId", ""))
+            obfuscated(service("polls.umamiWebsiteId"))
         )
     }
 

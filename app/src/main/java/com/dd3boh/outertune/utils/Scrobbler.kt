@@ -4,7 +4,6 @@ import android.util.Log
 import com.dd3boh.lastfm.LastFm
 import com.dd3boh.lastfm.LastFmException
 import com.dd3boh.lastfm.SimilarTrack
-import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.LastFmScrobbleKey
 import com.dd3boh.outertune.constants.LastFmSessionKey
 import com.dd3boh.outertune.constants.LastFmUsernameKey
@@ -30,28 +29,16 @@ import javax.inject.Singleton
 class Scrobbler @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    /**
-     * Undoes the obfuscation applied at build time. See the note in app/build.gradle.kts: this
-     * hides the credentials from a plain `strings` sweep of the apk and from nothing else.
-     */
-    private fun reveal(masked: IntArray): String {
-        if (masked.isEmpty()) return ""
-        val mask = "InterTune".toByteArray()
-        return String(
-            ByteArray(masked.size) { i -> (masked[i] xor mask[i % mask.size].toInt()).toByte() }
-        )
-    }
+    // Empty in a build without them and in any copy not signed with the release key. See BuiltInKeys.
+    private val apiKey get() = BuiltInKeys.lastFmApiKey
+    private val apiSecret get() = BuiltInKeys.lastFmApiSecret
 
-    private val apiKey by lazy { reveal(BuildConfig.LASTFM_API_KEY) }
-    private val apiSecret by lazy { reveal(BuildConfig.LASTFM_API_SECRET) }
-
-    private val configured =
-        BuildConfig.LASTFM_API_KEY.isNotEmpty() && BuildConfig.LASTFM_API_SECRET.isNotEmpty()
+    private val configured get() = apiKey.isNotEmpty() && apiSecret.isNotEmpty()
 
     val isAvailable get() = configured
 
     /** Similar tracks are a public read: the key is enough, with or without an account. */
-    val canFindSimilar get() = BuildConfig.LASTFM_API_KEY.isNotEmpty()
+    val canFindSimilar get() = apiKey.isNotEmpty()
 
     private val api by lazy { LastFm(apiKey, apiSecret) }
 

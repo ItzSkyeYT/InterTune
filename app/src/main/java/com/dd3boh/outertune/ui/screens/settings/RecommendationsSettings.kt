@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import com.dd3boh.outertune.utils.BuiltInKeys
 import androidx.compose.ui.platform.LocalContext
 import com.dd3boh.outertune.constants.RestsEverywhereKey
 import com.dd3boh.outertune.constants.RestSongsISkipKey
@@ -17,7 +18,6 @@ import com.dd3boh.outertune.engine.Calibration
 import com.dd3boh.outertune.constants.LearnFromListeningKey
 import com.dd3boh.outertune.constants.NewSongsOnlyKey
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
-import com.dd3boh.outertune.BuildConfig
 import androidx.compose.material3.Slider
 import com.dd3boh.outertune.engine.quotas
 import com.dd3boh.outertune.engine.Lane
@@ -183,9 +183,10 @@ fun RecommendationsSettings(
             checked = newSongsOnly,
             onCheckedChange = onNewSongsOnlyChange,
         )
-        // Needs the Last.fm key built into the app. A build without one (F-Droid's) has nothing
-        // to ask with, so the switch is not shown rather than shown doing nothing.
-        if (BuildConfig.LASTFM_API_KEY.isNotEmpty()) {
+        // Needs the Last.fm key built into the app. A build without one, or a copy not signed with
+        // the release key, has nothing to ask with, so the switch is not shown rather than shown
+        // doing nothing.
+        if (BuiltInKeys.lastFmApiKey.isNotEmpty()) {
             ExplainedSwitchPreference(
                 title = stringResource(R.string.similar_from_lastfm),
                 explanation = stringResource(R.string.similar_from_lastfm_info),

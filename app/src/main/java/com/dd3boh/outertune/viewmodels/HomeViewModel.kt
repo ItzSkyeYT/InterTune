@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.engine.PastSeeds
 import com.dd3boh.outertune.constants.EngineOverridesKey
 import com.dd3boh.outertune.engine.EngineTuning
@@ -51,7 +52,6 @@ import com.dd3boh.outertune.constants.QuickPicksSourceKey
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
 import com.dd3boh.outertune.utils.LastFmSimilar
 import com.dd3boh.outertune.db.entities.RelatedSongMap
-import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.db.entities.RowBuild
@@ -301,7 +301,7 @@ class HomeViewModel @Inject constructor(
 
     /** YouTube's related lists, or Last.fm's similar tracks when chosen and this build has a key to ask with. */
     private fun similarSource(): Int =
-        if (BuildConfig.LASTFM_API_KEY.isNotEmpty() && context.dataStore.get(SimilarFromLastFmKey, false)) RelatedSongMap.SOURCE_LASTFM
+        if (BuiltInKeys.lastFmApiKey.isNotEmpty() && context.dataStore.get(SimilarFromLastFmKey, false)) RelatedSongMap.SOURCE_LASTFM
         else RelatedSongMap.SOURCE_YOUTUBE
 
     /** The engine's input, read at most every few minutes: the biggest read on Home is the song table. */

@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.BuiltInKeys
 import android.app.Application
 import android.content.Context
 import android.util.Log
@@ -72,6 +73,8 @@ class App : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         // First, so a crash anywhere below is kept for the next launch to offer. See CrashLog.
         CrashLog.install(this)
+        // Before anything can read a built-in key: until it has run they all read as empty.
+        BuiltInKeys.verify(this)
 
         if (BuildConfig.DEBUG) {
             System.setProperty("kotlinx.coroutines.debug", "on")
