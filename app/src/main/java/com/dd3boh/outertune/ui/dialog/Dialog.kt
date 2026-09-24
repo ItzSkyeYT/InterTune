@@ -259,9 +259,13 @@ fun TextFieldDialog(
                 keyboardType = keyboardType
             ),
             keyboardActions = KeyboardActions(
+                // The same check as the confirm button, which is disabled for anything it rejects.
+                // Without it the keyboard's Done key saved a blank playlist name.
                 onDone = {
-                    onDone(textFieldValue.text)
-                    onDismiss()
+                    if (isInputValid(textFieldValue.text)) {
+                        onDone(textFieldValue.text)
+                        onDismiss()
+                    }
                 }
             ),
             modifier = Modifier
