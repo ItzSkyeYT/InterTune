@@ -9,17 +9,13 @@
     <string name="queue_remote_history">Tarixçə (tək)</string>
     <string name="remote_history">Tək</string>
     <string name="create_queue">Yeni növbə</string>
-    <string name="queue_searched_songs_ot">Axtarış:</string>
     <string name="song_added_to_queue">\"%s\" növbəyə əlavə edildi</string>
     <string name="song_added_to_queue_end">\"%s\" növbənin sonuna əlavə edildi</string>
     <string name="auto_playlist">Avtomatik pleylist</string>
-    <string name="select">Seçmə üsulu</string>
-    <string name="like_all">Hamısı kimi</string>
     <string name="delete_lyric_confirm">Siz həqiqətən \"%s\" üçün saxlanmış lirikanı silmək istəyirsiniz?</string>
     <string name="err_play_next_on_error">Xəta baş verdi. Növbəti səslənir</string>
     <string name="err_stop_on_error">Xəta baş verdi. Səslənmə dayandırıldı</string>
     <string name="wait_to_reconnect">Təkrar qoşulmağı gözləyin</string>
-    <string name="special_thanks">Xüsusi təşəkkürlər</string>
     <string name="grp_extra_scanner_settings">Əlavə yoxlayıcı tənzimləmələri</string>
     <string name="sort_by_like_date">Bəyənilmə tarixi</string>
     <string name="create_sync_playlist_description">Qeyd: Bu, YouTube Music ilə sinxronizasiya etməyə imkan verir. Bu sonra dəyişdirilə bilməz. Sinxronlaşdırılan səslənmə siyahılarına yerli mahnılar əlavə edə bilməzsiniz.</string>
@@ -29,13 +25,10 @@
     <string name="play_count">Səslənmə sayı</string>
     <string name="sync_progress_active">YouTube hesabı ilə sinxronizasiya edilir…</string>
     <string name="sync_progress_success">Sinxronizasiya tamamlandı</string>
-    <string name="grp_interface">Görünüş</string>
     <string name="grp_layout">Tərtibat</string>
     <string name="grp_localization">Yerləşmə</string>
     <string name="grp_lyrics_format">Formatlama</string>
     <string name="grp_lyrics_parser">Təhlil</string>
-    <string name="grp_proxy">Proxy</string>
-    <string name="attrib_zhuang">InnerTune üçün Zion Huang</string>
     <string name="player_background_blur">Bulanıq</string>
     <string name="player_background_default">Temaya uyğun</string>
     <string name="player_background_gradient">Dəyişkən</string>
@@ -50,7 +43,6 @@
     <string name="grp_general">Ümumi</string>
     <string name="grp_lyrics_source">Lirik mənbələr</string>
     <string name="grp_manual_scanner">Əl ilə yoxlama</string>
-    <string name="new_interface">Yeni görünüş tərtibatı</string>
     <string name="android_auto">Android Auto</string>
     <string name="more_settings">Daha çox ayarlar</string>
     <string name="tap_show_more">Daha çox məlumat üçün klikləyin</string>
@@ -129,7 +121,6 @@
     <string name="grp_polls">Suallar</string>
     <string name="polls_enabled">Ara-sıra mənə bir sual ver</string>
     <string name="polls_enabled_description">InterTune vaxtaşırı sual olub-olmadığını yoxlayır və onu ana ekranın yuxarısında göstərir. Susmaya görə sönülüdür. Cavablar anonimdir: yalnız sual, seçiminiz və tətbiqin versiyası göndərilir. Bu sönülü olduqca heç nə endirilmir.</string>
-    <string name="polls_check_now">İndi sual yoxla</string>
     <string name="polls_none">Hazırda sual yoxdur</string>
     <string name="polls_one_waiting">Sizi bir sual gözləyir</string>
     <string name="polls_forget">Yenidən soruşulmağa icazə ver</string>

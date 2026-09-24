@@ -11,19 +11,15 @@
     <string name="min_playback_duration_description">La duración mínima que debe reproducirse una canción para que se considere «reproducida»</string>
     <string name="lyrics_prefer_local">Preferir archivos de letra locales</string>
     <string name="grp_manual_scanner">Escaneado manual</string>
-    <string name="attrib_zhuang">Zion Huang para InnerTune</string>
     <string name="recent_activity">Actividad reciente</string>
     <string name="local_history">Local</string>
     <string name="queue_remote_history">Historial (remoto)</string>
     <string name="remote_history">Remoto</string>
     <string name="queues_title">Colas</string>
     <string name="create_queue">Nueva cola</string>
-    <string name="queue_searched_songs_ot">Buscar:</string>
     <string name="song_added_to_queue">\"%s\" se insertó en la cola</string>
     <string name="song_added_to_queue_end">\"%s\" se añadió al final de la cola</string>
     <string name="auto_playlist">Lista de reproducción automática</string>
-    <string name="select">Modo de selección</string>
-    <string name="like_all">Me gusta a todo</string>
     <string name="err_stop_on_too_many_errors">Han ocurrido muchos errores. Reproducción detenida</string>
     <string name="wait_to_reconnect">Espere para reconectar</string>
     <string name="sort_by_date_modified">Fecha de modificación</string>
@@ -39,13 +35,10 @@
     <string name="grp_audio">Audio</string>
     <string name="grp_extra_scanner_settings">Ajustes adicionales de escaneo</string>
     <string name="grp_general">General</string>
-    <string name="grp_interface">Interfaz</string>
     <string name="grp_layout">Disposición</string>
     <string name="grp_localization">Ubicación</string>
     <string name="grp_lyrics_format">Formato</string>
     <string name="grp_lyrics_parser">Intérprete</string>
-    <string name="special_thanks">Agradecimiento especial</string>
-    <string name="new_interface">Nueva disposición de interfaz</string>
     <string name="show_liked_and_downloaded_playlist">Mostrar listas de reproducción de canciones que te gustan y que has descargado en la biblioteca</string>
     <string name="slim_navbar_title">Barra de navegación delgada</string>
     <string name="tab_arrangement">Organizar pestañas</string>
@@ -75,11 +68,9 @@
     <string name="scan_paths_incl">Rutas de escaneo</string>
     <string name="scan_paths_excl">Rutas de escaneo excluidas</string>
     <string name="scanner_local_title">Escáner local</string>
-    <string name="scanner_missing_ffmpeg">Extractor FFmpeg no detectado</string>
     <string name="scanner_missing_storage_perm">El escáner de medios local requiere permisos de almacenamiento para funcionar</string>
     <string name="scanner_btn_idle">Escanear</string>
     <string name="scanner_progress_complete">Escaneo completo</string>
-    <string name="scanner_progress_scanning">Escaneando…</string>
     <string name="scanner_scan_fail">El escaneo falló</string>
     <string name="scanner_ytm_link_fail">Error en la tarea de vinculación de artistas de YouTube</string>
     <string name="scanner_ytm_link_success">Tarea de vinculación de artistas de YouTube completa</string>
@@ -102,7 +93,6 @@
     <string name="action_back">Atrás</string>
     <string name="action_skip">Saltar</string>
     <string name="action_cancel">Cancelar</string>
-    <string name="info">Información</string>
     <string name="folders">Carpetas</string>
     <string name="library">Biblioteca</string>
     <string name="queue_local_history">Historial (local)</string>
@@ -122,13 +112,11 @@
     </plurals>
     <string name="scanner_progress_syncing">Sincronizando…</string>
     <string name="scanner_strict_file_name_description">Cuando esté habilitado, los nombres de los archivos NO serán ignorados. Por ejemplo, Song.ogg será una canción diferente de Song.flac. Se seguirá aplicando la preferencia de sensibilidad del escáner</string>
-    <string name="experimental_settings_title">Experimental</string>
     <string name="scanner_type_title">Extractor de metadatos</string>
     <string name="scanner_online_artist_linking">Intenta vincular los artistas de los archivos locales con los de YouTube Music</string>
     <string name="dev_settings_description">Revela ajustes avanzadas adicionales destinadas al uso en desarrollo</string>
     <string name="oobe_complete">InterTune está configurado y listo para usar. ¡Explora tu música, descubre nuevas pistas y disfruta de la experiencia!</string>
     <string name="action_next">Siguiente</string>
-    <string name="grp_proxy">Proxy</string>
     <string name="player_background_blur">Desenfoque</string>
     <string name="slim_navbar_description">Eliminar etiquetas de texto para reducir la altura de la barra de navegación</string>
     <string name="tab_arrangement_disable_tip">--- Arrastra aquí abajo para desactivar ---</string>
@@ -187,9 +175,7 @@
     <string name="dl_main_path_title">Configurar directorio de descarga…</string>
     <string name="speed_slow">Lento</string>
     <string name="speed_medium">Medio</string>
-    <string name="speed_very_slow">Muy lento</string>
     <string name="speed_fast">Rápido</string>
-    <string name="speed_very_fast">Muy rápido</string>
     <string name="disable_lm_confirm">¿Está seguro de que desea desactivar las funciones multimedia locales? El contenido de su biblioteca no se verá afectado.</string>
     <string name="scanner_rejected_dir">Selección no válida. Una carpeta de escaneo no puede ser un subdirectorio de la carpeta de descargas ni la propia carpeta de descargas</string>
     <string name="clear_downloads_confirm">¿Estás seguro que quieres eliminar todas las descargas? Solo se eliminarán las descargas de la carpeta de descargas principal.</string>
@@ -257,9 +243,7 @@
     <string name="action_logout_tooltip">Para cerrar sesión completamente, sal de tu cuenta de YouTube en el portal web antes de utilizar este botón de cierre de sesión.</string>
     <string name="max_queues_title">Número máximo de colas</string>
     <string name="oobe_welcome_tip">Para disfrutar de la mejor experiencia, te recomendamos completar una configuración rápida para personalizar ajustes clave como el tema, la cuenta de YouTube, los medios locales y las descargas.</string>
-    <string name="oobe_cache_title">Caché de canciones</string>
     <string name="oobe_cache_subtitle">Elige un tamaño para el caché de canciones. Esto puede ayudar a reducir los problemas de reproducción de Internet o de la API de YouTube</string>
-    <string name="grp_more_settings">Más ajustes</string>
     <string name="auto_scanner_tooltip">En el caso de los medios locales, el escaneo automático no vuelve a cargar los metadatos de las canciones existentes. Utilice el escáner manual con la casilla de verificación «Volver a escanear» seleccionada si también desea actualizar los metadatos.</string>
     <string name="scanner_auto_end">¡Actualización completa de medios locales y descargas de canciones!</string>
     <string name="scanner_auto_start">Actualizando los medios locales y las carpetas de descarga de canciones…</string>
@@ -330,7 +314,6 @@
     <string name="grp_polls">Preguntas</string>
     <string name="polls_enabled">Hazme alguna pregunta de vez en cuando</string>
     <string name="polls_enabled_description">InterTune comprueba de vez en cuando si hay una pregunta y la muestra arriba en Inicio. Desactivado por defecto. Las respuestas son anónimas: solo se envían la pregunta, tu elección y la versión de la aplicación. Mientras esto esté desactivado no se descarga nada en absoluto.</string>
-    <string name="polls_check_now">Buscar una pregunta ahora</string>
     <string name="polls_none">Ninguna pregunta por ahora</string>
     <string name="polls_one_waiting">Hay una pregunta esperando</string>
     <string name="polls_forget">Permitir que me vuelvan a preguntar</string>

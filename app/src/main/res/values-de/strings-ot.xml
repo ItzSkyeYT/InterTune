@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="err_stop_on_error">Ein Fehler ist aufgetreten. Wiedergabe angehalten</string>
-    <string name="queue_searched_songs_ot">Suche:</string>
     <string name="recent_activity">Letzte Aktivität</string>
     <string name="folders">Ordner</string>
     <string name="library">Bibliothek</string>
@@ -15,11 +14,9 @@
     <string name="song_added_to_queue_end">\"%s\" wurde an das Ende der Warteschlange hinzugefügt</string>
     <string name="queues_empty">Keine Warteschlangen</string>
     <string name="auto_playlist">Automatische Playlist</string>
-    <string name="like_all">Allen „Mag ich“ geben</string>
     <string name="delete_lyric_confirm">Möchtest du wirklich den gespeicherten Songtext für \"%s\" löschen?</string>
     <string name="err_play_next_on_error">Ein Fehler ist aufgetreten. Nächstes Lied wird wiedergegeben</string>
     <string name="android_auto">Android Auto</string>
-    <string name="select">Auswahlmodus</string>
     <string name="show_liked_and_downloaded_playlist">Zeige die Wiedergabelisten für Favoriten und heruntergeladene Titel in der Bibliothek</string>
     <string name="playlist_missing_note">Playlist fehlt? Klicke hier, um den \"Read-Write\"-Modus der Synchronisation in den Einstellungen zu aktivieren</string>
     <string name="player_background_default">Farbschema folgen</string>
@@ -46,12 +43,10 @@
     <string name="grp_lyrics_format">Formatierung</string>
     <string name="grp_lyrics_parser">Parser</string>
     <string name="grp_lyrics_source">Songtextquellen</string>
-    <string name="special_thanks">Besonderen Dank</string>
     <string name="slim_navbar_title">Schmale Navigationsleiste</string>
     <string name="token_hidden">Antippen, um Token zu zeigen</string>
     <string name="wifi_only">Nur über WLAN</string>
     <string name="grp_behavior">Verhalten</string>
-    <string name="grp_interface">Benutzeroberfläche</string>
     <string name="player_background_style">Player Hintergrundstil</string>
     <string name="sort_by_date_released">Erscheinungsdatum</string>
     <string name="sort_by_like_date">Zuletzt gefallen</string>
@@ -65,13 +60,11 @@
     <string name="tab_arrangement">Navigationselemente anordnen</string>
     <string name="sync_progress_success">Synchronisation abgeschlossen</string>
     <string name="create_sync_playlist_description">Hinweis: Dies ermöglicht die Synchronisierung mit YouTube Music. Dies ist später NICHT änderbar.Du kannst keine lokalen Songs zu synchronisierten Playlists hinzufügen.</string>
-    <string name="attrib_zhuang">Zion Huang für InnerTune</string>
     <string name="player_background_gradient">Farbverlauf</string>
     <string name="token_shown">Erneut antippen, um es zu kopieren oder zu bearbeiten</string>
     <string name="playlist_add_local_to_synced_note">Hinweis: Das Hinzufügen von lokalen Songs zu synchronisierten/online Playlists wird nicht unterstützt. Jede andere Kombination ist möglich</string>
     <string name="sync_progress_active">Synchronisiere mit YouTube Konto…</string>
     <string name="grp_localization">Lokalisierung</string>
-    <string name="grp_proxy">Proxy</string>
     <string name="tab_arrangement_disable_tip">--- Zum Deaktivieren hier hinunterziehen ---</string>
     <string name="wait_to_reconnect">Warte auf Verbindung</string>
     <string name="grp_general">Allgemein</string>
@@ -88,7 +81,6 @@
     <string name="oss_licenses_title">Open Source-Lizenzen</string>
     <string name="wiki">Wiki</string>
     <string name="attribution_title">Mitwirkende</string>
-    <string name="new_interface">Neues Layout</string>
     <string name="tablet_ui_title">Tabletmodus erzwingen</string>
     <string name="tablet_ui_title_description">Aktiviere eine für größere Bildschirme optimierte Querformatansicht unabhängig von der Bildschirmgröße</string>
     <string name="audio_offload">Offload aktivieren</string>
@@ -120,7 +112,6 @@
     <string name="scanner_progress_complete">Scannen abgeschossen</string>
     <string name="scanner_progress_discovering">Durchsuchen…</string>
     <string name="scanner_progress_processing">Verarbeiten…</string>
-    <string name="scanner_progress_scanning">Scannen…</string>
     <string name="scanner_progress_syncing">Synchronisieren…</string>
     <string name="scanner_scan_fail">Scannen fehlgeschlagen</string>
     <string name="scanner_ytm_link_fail">YouTube-Künstler-Verknüpfung fehlgeschlagen</string>
@@ -143,7 +134,6 @@
     <string name="local_library_enable_description">Deaktivieren blockiert den Zugriff der App auf die lokale Medienbibliothek</string>
     <string name="scan_paths_title">Scanorte einstellen…</string>
     <string name="scan_paths_add_folder">Neuen Ordner hinzufügen</string>
-    <string name="scanner_missing_ffmpeg">FFmpeg-Extractor nicht gefunden</string>
     <string name="scanner_missing_storage_perm">Der lokale Medien-Scanner benötigt Speicherzugriff.</string>
     <string name="scanner_type_title">Metadaten-Extraktor</string>
     <string name="scanner_variant_rescan">Gesamte Medienbibliothek erneut scannen und alle Metadaten neu laden</string>
@@ -198,7 +188,6 @@
     <string name="pause_remote_listen_history">Teilen des Hörverlaufs mit YouTube Music pausieren</string>
     <string name="err_restore_incompatible_database">Inkompatible Datenbank konnte nicht wiederhergestellt werden</string>
     <string name="import_innertune_tooltip">Wiederherstellung von InnerTune-Backups wird unterstützt, es kann jedoch aufgrund technischer Einschränkungen zu Abweichungen kommen</string>
-    <string name="experimental_settings_title">Experimentell</string>
     <string name="dev_settings_title">Entwickleroptionen aktivieren</string>
     <string name="dev_settings_description">Zeigt zusätzliche erweiterte Einstellungen für Entwicklerzwecke an</string>
     <string name="swipe_to_skip_title">Horizontal wischen, um den Song zu wechseln</string>
@@ -233,25 +222,20 @@
     <string name="action_next">Weiter</string>
     <string name="action_skip">Überspringen</string>
     <string name="action_cancel">Abbrechen</string>
-    <string name="info">Information</string>
-    <string name="speed_very_slow">Sehr langsam</string>
     <string name="speed_slow">Langsam</string>
     <string name="speed_medium">Mittel</string>
     <string name="speed_fast">Schnell</string>
-    <string name="speed_very_fast">Sehr schnell</string>
     <string name="ffmpeg_lgpl">Diese Software verwendet Bibliotheken aus dem FFmpeg-Projekt unter der LGPLv2.1</string>
     <plurals name="second">
         <item quantity="one">%d Sekunde</item>
         <item quantity="other">%d Sekunden</item>
     </plurals>
     <string name="seek_increment">Sprungintervall</string>
-    <string name="grp_more_settings">Mehr Einstellungen</string>
     <string name="audio_decoder_ffmpeg_only">Priorisiere FFmpeg-Decoder</string>
     <string name="audio_decoder_preference">Audio Decoder</string>
     <string name="audio_decoder_system_only">Nur System Decoder</string>
     <string name="audio_decoder_system_with_ffmpeg">Priorisiere System Decoder</string>
     <string name="max_queues_title">Maximale Anzahl an Warteschlangen</string>
-    <string name="oobe_cache_title">Song-Cache</string>
     <string name="toggle_lyrics">Liedtext -ein/ausschalten</string>
     <string name="oobe_welcome_tip">Für ein optimales Erlebnis empfehlen wir Ihnen, eine schnelle Einrichtung durchzuführen, um wichtige Einstellungen wie Design, YouTube-Konto, lokale Medien und Downloads anzupassen.</string>
     <string name="oobe_cache_subtitle">Wählen Sie eine Song-Cache-Größe. Dies kann dazu beitragen, Probleme bei der Wiedergabe über das Internet oder die YouTube-API zu reduzieren.</string>
@@ -319,7 +303,6 @@
     <string name="grp_polls">Fragen</string>
     <string name="polls_enabled">Mir gelegentlich eine Frage stellen</string>
     <string name="polls_enabled_description">InterTune sieht ab und zu nach, ob es eine Frage gibt, und zeigt sie oben auf der Startseite. Standardmäßig aus. Antworten sind anonym: gesendet werden nur die Frage, deine Wahl und die App-Version. Solange dies aus ist, wird überhaupt nichts abgerufen.</string>
-    <string name="polls_check_now">Jetzt nach einer Frage suchen</string>
     <string name="polls_none">Gerade keine Frage</string>
     <string name="polls_one_waiting">Es wartet eine Frage</string>
     <string name="polls_forget">Mich erneut fragen lassen</string>

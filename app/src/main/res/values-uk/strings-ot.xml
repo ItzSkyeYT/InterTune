@@ -2,10 +2,7 @@
 <resources>
     <string name="recent_activity">Нещодавна активність</string>
     <string name="sort_by_like_date">Коли сподобалося</string>
-    <string name="attrib_zhuang">Zion Huang за InnerTune</string>
     <string name="auto_scanner_description">Періодично оновлювати папки локальних медіафайлів та користувацьких завантажень під час відкриття програми</string>
-    <string name="experimental_settings_title">Експериментальні</string>
-    <string name="info">Інформація</string>
     <string name="scanner_sensitivity_L3">Збіг назви, виконавця та альбому</string>
     <string name="oobe_welcome_message">Вітаємо в InterTune</string>
     <string name="ytm_sync">Автоматично синхронізуватися з вашим обліковим записом YouTube Music</string>
@@ -16,19 +13,14 @@
     <string name="local_history">Локальна</string>
     <string name="remote_history">Віддалена</string>
     <string name="create_queue">Нова черга</string>
-    <string name="queue_searched_songs_ot">Шукати:</string>
     <string name="song_added_to_queue">«%s» додано до черги</string>
     <string name="song_added_to_queue_end">«%s» додано в кінець черги</string>
-    <string name="select">Режим вибору</string>
     <string name="delete_lyric_confirm">Ви дійсно хочете видалити збережені тексти для «%s»?</string>
     <string name="sort_by_date_modified">Дата зміни</string>
     <string name="sort_by_date_released">Дата випуску</string>
-    <string name="like_all">Подобається все</string>
     <string name="play_count">Кількість відтворень</string>
-    <string name="grp_interface">Інтерфейс</string>
     <string name="grp_layout">Макет</string>
     <string name="create_sync_playlist">Синхронізувати плейлист</string>
-    <string name="new_interface">Новий макет інтерфейсу</string>
     <string name="player_background_blur">Розмиття</string>
     <string name="player_background_default">Як у системі</string>
     <string name="player_background_gradient">Градієнт</string>
@@ -82,13 +74,11 @@
     <string name="keep_alive_title">Заборонити системі вивантажувати застосунок з пам\'яті</string>
     <string name="scanner_warning">За замовчуванням сканер НЕ перезавантажуватиме жодних метаданих існуючих пісень, якщо ви не вкажете інше вище. Залежно від розміру вашої бібліотеки, це може зайняти деякий час.</string>
     <string name="settings_debug">Налагодження</string>
-    <string name="special_thanks">Особлива подяка</string>
     <string name="token_adv_login_description">Це РОЗШИРЕНИЙ метод входу. Як альтернатива вебпорталу, ви можете безпосередньо ввести або оновити свій токен для входу тут. Наприклад, це може прискорити вхід на декількох пристроях. Зверніть увагу, що будь-які недійсні формати токенів, які застосунок не зможе розпізнати, не будуть прийняті</string>
     <string name="grp_audio">Звук</string>
     <string name="lyrics_prefer_local">Надавати перевагу локальним файлам текстів пісень</string>
     <string name="keep_alive_description">Використовуйте постійну службу переднього плану, щоб запобігти закриттю InterTune у фоновому режимі</string>
     <string name="auto_scanner_title">Автоматично сканувати</string>
-    <string name="grp_proxy">Проксі</string>
     <string name="lyrics_prefer_local_description">Надавати пріоритет локальним файлам текстів пісень перед використанням усіх хмарних провайдерів. Вимкніть це, щоби визначити пріоритетність хмарних провайдерів</string>
     <string name="scanner_strict_file_name_description">Якщо увімкнено, назви файлів НЕ ігноруватимуться. Наприклад, «Song.ogg» буде відрізнятися від «Song.flac». Налаштування чутливості сканера все одно буде застосовано</string>
     <string name="scanner_type_ffmpeg_ext">Використовуйте екстрактор метаданих FFmpeg. Будь ласка, використовуйте лише повну версію програми. Базова версія може спричинити проблеми з відстеженням пісень</string>
@@ -104,9 +94,7 @@
     <string name="tab_arrangement_disable_tip">--- Перетягніть нижче, щоби вимкнути ---</string>
     <string name="swipe2Queue_description">Проведіть по пісні, щоби додати її до черги одразу після пісні, яка відтворюється зараз</string>
     <string name="swipe2Queue">Проведіть для додавання в чергу</string>
-    <string name="scanner_missing_ffmpeg">Витягувач FFmpeg не виявлено</string>
     <string name="scanner_missing_storage_perm">Для роботи локального сканера медіа потрібні дозволи на зберігання</string>
-    <string name="scanner_progress_scanning">Сканування…</string>
     <string name="scanner_scan_fail">Не вдалося просканувати</string>
     <string name="scanner_ytm_link_fail">Не вдалося пов\'язати з виконавцем на YouTube</string>
     <string name="scanner_ytm_link_start">Початок пов\'язування з виконавцем на YouTube…</string>
@@ -174,11 +162,9 @@
     <string name="lyrics_karaoke_description">Дозволяє синхронізувати тексти пісень послівно. Потрібна підтримка формату текстів пісень.</string>
     <string name="tablet_ui_title_description">Увімкнути альбомний інтерфейс, оптимізований для більших екранів, незалежно від поточного розміру екрана</string>
     <string name="m3u_ytm_lookup">Пошук у YouTube Music пісень, яких немає в базі даних програми</string>
-    <string name="speed_very_slow">Дуже повільно</string>
     <string name="speed_slow">Повільно</string>
     <string name="speed_medium">Середній</string>
     <string name="speed_fast">Швидкий</string>
-    <string name="speed_very_fast">Дуже швидко</string>
     <string name="scanner_progress_processing">Обробка…</string>
     <string name="scanner_rejected_dir">Недійсний вибір. Папка сканування не може бути підкаталогом папки завантажень або самою папкою завантажень</string>
     <string name="scanner_progress_discovering">Відкриття…</string>
@@ -259,10 +245,8 @@
     <string name="audio_decoder_system_with_ffmpeg">Пріоритет системних декодерів</string>
     <string name="max_queues_title">Максимальна кількість черг</string>
     <string name="oobe_welcome_tip">Для найкращого досвіду рекомендуємо виконати швидке налаштування, щоб персоналізувати ключові параметри, такі як тема, обліковий запис YouTube, локальні медіа та завантаження.</string>
-    <string name="oobe_cache_title">Кеш пісень</string>
     <string name="oobe_cache_subtitle">Виберіть розмір кешу пісні. Це може допомогти зменшити проблеми з відтворенням через Інтернет або YouTube API</string>
     <string name="action_logout_tooltip">Щоб повністю вийти, вийдіть зі свого облікового запису YouTube на веб-порталі, перш ніж використовувати цю кнопку виходу</string>
-    <string name="grp_more_settings">Більше налаштувань</string>
     <string name="auto_scanner_tooltip">Для локальних медіа автоматичне сканування не перезавантажує метадані наявних пісень. Скористайтеся ручним сканером із вибраним прапорцем повторного сканування, якщо ви також бажаєте оновити метадані.</string>
     <string name="scanner_auto_end">Оновлення завантажень локальних медіафайлів та пісень завершено!</string>
     <string name="scanner_auto_start">Оновлення папок локальних медіафайлів та завантаження пісень…</string>
@@ -334,7 +318,6 @@
     <string name="grp_polls">Питання</string>
     <string name="polls_enabled">Інколи ставити мені питання</string>
     <string name="polls_enabled_description">InterTune час від часу перевіряє, чи є питання, і показує його вгорі головного екрана. Типово вимкнено. Відповіді анонімні: надсилаються лише питання, ваш вибір і версія застосунку. Поки це вимкнено, нічого взагалі не завантажується.</string>
-    <string name="polls_check_now">Перевірити питання зараз</string>
     <string name="polls_none">Наразі питань немає</string>
     <string name="polls_one_waiting">На вас чекає питання</string>
     <string name="polls_forget">Дозволити питати знову</string>

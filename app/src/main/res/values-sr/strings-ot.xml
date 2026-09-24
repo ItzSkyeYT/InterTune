@@ -12,13 +12,10 @@
     <string name="missing_media_permission_warning">Za lokalne medije su potrebne dozvole za skladištenje. Kliknite da biste dali dozvolu.</string>
     <string name="queues_title">Liste</string>
     <string name="create_queue">Nova lista</string>
-    <string name="queue_searched_songs_ot">Pretraga:</string>
     <string name="song_added_to_queue">\"%s\" ubačeno u listu</string>
     <string name="song_added_to_queue_end">\"%s\" dodato na kraj liste</string>
     <string name="queues_empty">Nema listi</string>
     <string name="auto_playlist">Auto plejlista</string>
-    <string name="select">Režim selekcije</string>
-    <string name="like_all">Svidi sve</string>
     <string name="more_settings">Više podešavanja</string>
     <string name="delete_lyric_confirm">Da li zaista želite da obrišete sačuvane tekstove pesama za \"%s\"?</string>
     <string name="tap_show_more">Dodirni za više informacija</string>
@@ -44,7 +41,6 @@
     <string name="grp_behavior">Ponašanje</string>
     <string name="grp_extra_scanner_settings">Dodatna podešavanja skeniranja</string>
     <string name="grp_general">Opšte</string>
-    <string name="grp_interface">Interfejs</string>
     <string name="grp_layout">Raspored</string>
     <string name="grp_library_and_content">Biblioteka i sadržaj</string>
     <string name="grp_localization">Lokalizacija</string>
@@ -52,7 +48,6 @@
     <string name="grp_lyrics_parser">Parser</string>
     <string name="grp_lyrics_source">Izvori za tekstove pesama</string>
     <string name="grp_manual_scanner">Ručno skeniranje</string>
-    <string name="grp_proxy">Proksi</string>
     <string name="grp_sync">Sinhronizacija</string>
     <string name="app_info_title">Informacije o aplikaciji</string>
     <string name="check_for_update">Proveri ažuriranja</string>
@@ -70,10 +65,7 @@
     <string name="att_maintainer">Održavalac</string>
     <string name="att_project_support">Podrška projektu</string>
     <string name="att_translator">Prevodilac (%s)</string>
-    <string name="attrib_zhuang">Zion Huang za InnerTune</string>
     <string name="attribution_title">Pripisivanje</string>
-    <string name="special_thanks">Specijalna zahvalnost</string>
-    <string name="new_interface">Novi raspored interfejsa</string>
     <string name="player_background_blur">Zamućenje</string>
     <string name="player_background_default">Prati temu</string>
     <string name="player_background_gradient">Gradijent</string>
@@ -137,13 +129,11 @@
     <string name="scanner_manual_btn">Pokreni ručnu sinhronizaciju</string>
     <string name="scanner_rejected_dir">Nevažeći izbor. Fasikla za skeniranje ne može biti poddirektorijum fascikle za preuzimanje, niti sama fascikla za preuzimanje</string>
     <string name="scanner_warning">Podrazumevano, skener NEČE ponovo učitati metapodatke postojećih pesama osim ako gore ne navedete drugačije. U zavisnosti od veličine vaše biblioteke, to može potrajati neko vreme.</string>
-    <string name="scanner_missing_ffmpeg">FFmpeg ekstraktor ne postoji</string>
     <string name="scanner_missing_storage_perm">Lokalni skener medija zahteva dozvole za skladištenje da bi funkcionisao</string>
     <string name="scanner_btn_idle">Skeniranje</string>
     <string name="scanner_progress_complete">Skeniranje završeno</string>
     <string name="scanner_progress_discovering">Traženje…</string>
     <string name="scanner_progress_processing">Obrada…</string>
-    <string name="scanner_progress_scanning">Skeniranje…</string>
     <string name="scanner_progress_syncing">Sinhronizovanje…</string>
     <string name="scanner_scan_fail">Skener nije uspeo</string>
     <string name="scanner_ytm_link_fail">Povezivanje izvođača na YouTube-u nije uspelo</string>
@@ -194,7 +184,6 @@
     <string name="pause_remote_listen_history">Pauziraj deljenje istorije slušanja sa YouTube Music</string>
     <string name="err_restore_incompatible_database">Nije moguće vratiti nekompatibilnu bazu podataka</string>
     <string name="import_innertune_tooltip">Vraćanje rezervnih kopija InnerTune-a je podržano, mada postoji mogućnost anomalija zbog tehničkih ograničenja</string>
-    <string name="experimental_settings_title">Eksperimentalno</string>
     <string name="dev_settings_title">Omogući podešavanja za programere</string>
     <string name="dev_settings_description">Otkriva dodatna napredna podešavanja namenjena za razvojnu upotrebu</string>
     <string name="swipe_to_skip_title">Prevuci vodoravno za promenu pesme</string>
@@ -229,12 +218,9 @@
     <string name="action_next">Sledeće</string>
     <string name="action_skip">Preskoči</string>
     <string name="action_cancel">otkaži</string>
-    <string name="info">Informacije</string>
-    <string name="speed_very_slow">Veoma sporo</string>
     <string name="speed_slow">Sporo</string>
     <string name="speed_medium">Srednje</string>
     <string name="speed_fast">Brzo</string>
-    <string name="speed_very_fast">Veoma brzo</string>
     <string name="action_done">Gotovo</string>
     <string name="download_on_wifi_only_description">Čeka vezu bez naplate podataka pre preuzimanja. Preuzimanja zatražena na mobilnim podacima idu na čekanje i sama počinju kada se Wi-Fi vrati</string>
     <string name="download_on_wifi_only_title">Preuzimaj samo preko Wi-Fi</string>
@@ -299,7 +285,6 @@
     <string name="grp_polls">Питања</string>
     <string name="polls_enabled">Питај ме понекад</string>
     <string name="polls_enabled_description">InterTune с времена на време проверава да ли постоји питање и приказује га на врху почетног екрана. Подразумевано искључено. Одговори су анонимни: шаљу се само питање, ваш избор и верзија апликације. Док је ово искључено, ништа се уопште не преузима.</string>
-    <string name="polls_check_now">Провери питање сада</string>
     <string name="polls_none">Тренутно нема питања</string>
     <string name="polls_one_waiting">Чека вас питање</string>
     <string name="polls_forget">Дозволи да ме поново питају</string>

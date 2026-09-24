@@ -8,7 +8,6 @@
     <string name="queues_title">תורות</string>
     <string name="queues_empty">אין תורות</string>
     <string name="auto_playlist">פלייליסט אוטומטי</string>
-    <string name="like_all">לייק להכל</string>
     <string name="more_settings">הגדרות נוספות</string>
     <string name="err_play_next_on_error">אירעה שגיאה. מתנגן בתור</string>
     <string name="err_stop_on_error">אירעה שגיאה. פלייבק נעצר.</string>
@@ -25,7 +24,6 @@
     <string name="grp_audio">שמע</string>
     <string name="grp_extra_scanner_settings">הגדרות סריקה נוספות</string>
     <string name="grp_general">ראשי</string>
-    <string name="grp_interface">ממשק</string>
     <string name="grp_layout">פריסה</string>
     <string name="grp_library_and_content">ספריות ותוכן</string>
     <string name="grp_localization">תרגום</string>
@@ -33,10 +31,6 @@
     <string name="grp_lyrics_parser">ניתוח</string>
     <string name="grp_lyrics_source">מקורות מילים</string>
     <string name="grp_manual_scanner">סריקה ידנית</string>
-    <string name="grp_proxy">פרוקסי</string>
-    <string name="attrib_zhuang">ציון הואנג ל- InnerTune</string>
-    <string name="special_thanks">תודה מיוחדת</string>
-    <string name="new_interface">ממשק פריסה חדש</string>
     <string name="player_background_blur">טשטוש</string>
     <string name="player_background_default">מעקב עיצוב</string>
     <string name="player_background_gradient">Gradient</string>
@@ -63,13 +57,11 @@
     <string name="sort_by_date_modified">תאריך שינוי</string>
     <string name="local_history">מקומי</string>
     <string name="missing_media_permission_warning">נדרשות הרשאות אחסון עבור מדיה מקומית. לחץ כדי להעניק הרשאה.</string>
-    <string name="select">מצב בחירה</string>
     <string name="create_queue">תור חדש</string>
     <string name="create_sync_playlist_description">הערה: פעולה זו מאפשרת סנכרון עם YouTube Music. לא ניתן לשנות זאת מאוחר יותר. לא ניתן להוסיף שירים מקומיים לפלייליסטים מסונכרנים.</string>
     <string name="err_stop_on_too_many_errors">יותר מידי שגיאות. פלייבק נעצר</string>
     <string name="playlist_add_local_to_synced_note">הערה: הוספת שירים מקומיים לרשימות השמעה מסונכרנות/מרוחקות אינה נתמכת. כל שילוב אחר אפשרי</string>
     <string name="tab_arrangement_home_required">לשונית הבית נדרשת.</string>
-    <string name="queue_searched_songs_ot">חיפוש:</string>
     <string name="token_adv_login_description">זוהי שיטת התחברות מתקדמת. כחלופה לפורטל האינטרנט, ניתן להזין או לעדכן את אסימון ההתחברות שלך ישירות כאן. לדוגמה, פעולה זו יכולה להאיץ את ההתחברות במספר מכשירים. שימו לב שכל פורמט טוקן לא חוקי שהאפליקציה לא מצליחה לנתח לא יתקבל.</string>
     <string name="grp_sync">סנכרון</string>
     <string name="song_added_to_queue">\"%s\" נוסף לתור</string>
@@ -90,7 +82,6 @@
     <string name="pause_remote_listen_history">השהיית שיתוף היסטוריית האזנה עם YouTube Music</string>
     <string name="err_restore_incompatible_database">לא ניתן היה לשחזר מסד נתונים שאינו תואם</string>
     <string name="import_innertune_tooltip">שחזור גיבויים של InnerTune נתמך, אם כי קיימת אפשרות של אנומליות עקב מגבלות טכניות.</string>
-    <string name="experimental_settings_title">נסיוני</string>
     <string name="dev_settings_title">הפעלת הגדרות למפתחים</string>
     <string name="dev_settings_description">חושף הגדרות מתקדמות נוספות המיועדות לשימוש בפיתוח</string>
     <string name="swipe_to_skip_title">החלק אופקית כדי לשנות שיר</string>
@@ -125,12 +116,9 @@
     <string name="action_next">קדימה</string>
     <string name="action_skip">דילוג</string>
     <string name="action_cancel">ביטול</string>
-    <string name="info">מידע</string>
-    <string name="speed_very_slow">איטי מאוד</string>
     <string name="speed_slow">לאט</string>
     <string name="speed_medium">בינוני</string>
     <string name="speed_fast">מהיר</string>
-    <string name="speed_very_fast">מהיר מאוד</string>
     <string name="playlist_missing_note">חסרות רשימות השמעה? לחץ כאן כדי להפעיל את מצב קריאה-כתיבה של סנכרון בהגדרות</string>
     <string name="grp_behavior">התנהגות</string>
     <string name="app_info_title">מידע על הבקשה</string>
@@ -193,13 +181,11 @@
     <string name="scanner_manual_btn">הפעל סנכרון ידני</string>
     <string name="scanner_rejected_dir">בחירה לא חוקית. תיקיית סריקה אינה יכולה להיות ספריית משנה של תיקיית ההורדות, או תיקיית ההורדה עצמה</string>
     <string name="scanner_warning">כברירת מחדל, הסורק לא יטען מחדש מטא נתונים של שירים קיימים, אלא אם כן תציין אחרת לעיל. בהתאם לגודל הספרייה שלך, זה יכול לקחת זמן.</string>
-    <string name="scanner_missing_ffmpeg">מחלץ FFmpeg לא זוהה</string>
     <string name="scanner_missing_storage_perm">סורק המדיה המקומי דורש הרשאות אחסון כדי לעבוד</string>
     <string name="scanner_btn_idle">סרוק</string>
     <string name="scanner_progress_complete">סריקה הושלמה</string>
     <string name="scanner_progress_discovering">מגלה…</string>
     <string name="scanner_progress_processing">מעבד…</string>
-    <string name="scanner_progress_scanning">סורק…</string>
     <string name="scanner_progress_syncing">מסנכרן…</string>
     <string name="scanner_scan_fail">הסריקה נכשלה</string>
     <string name="scanner_ytm_link_fail">קישור אמן YouTube נכשל</string>
@@ -310,7 +296,6 @@
     <string name="grp_polls">שאלות</string>
     <string name="polls_enabled">שאל אותי שאלה מדי פעם</string>
     <string name="polls_enabled_description">InterTune בודק מדי פעם אם יש שאלה ומציג אותה בראש מסך הבית. כבוי כברירת מחדל. התשובות אנונימיות: נשלחים רק השאלה, הבחירה שלך וגרסת האפליקציה. כל עוד זה כבוי, שום דבר לא נטען.</string>
-    <string name="polls_check_now">בדוק אם יש שאלה עכשיו</string>
     <string name="polls_none">אין שאלה כרגע</string>
     <string name="polls_one_waiting">יש שאלה שמחכה</string>
     <string name="polls_forget">אפשר לשאול אותי שוב</string>

@@ -12,13 +12,10 @@
     <string name="missing_media_permission_warning">As permissões de armazenamento são necessárias para a média local. Toque para conceder a permissão.</string>
     <string name="queues_title">Filas</string>
     <string name="create_queue">Nova fila</string>
-    <string name="queue_searched_songs_ot">Pesquisa:</string>
     <string name="song_added_to_queue">\"%s\" foi adicionado à fila</string>
     <string name="song_added_to_queue_end">\"%s\" foi adicionado ao final da fila</string>
     <string name="queues_empty">Sem filas</string>
     <string name="auto_playlist">Playlist automática</string>
-    <string name="select">Modo de seleção</string>
-    <string name="like_all">Gostar de todas</string>
     <string name="more_settings">Mais configurações</string>
     <string name="delete_lyric_confirm">Tem certeza que deseja apagar a letra gravada de \"%s\"?</string>
     <string name="tap_show_more">Toque para mostrar mais informações</string>
@@ -50,7 +47,6 @@
     <string name="grp_behavior">Comportamento</string>
     <string name="grp_extra_scanner_settings">Configurações de análise adicionais</string>
     <string name="grp_general">Geral</string>
-    <string name="grp_interface">Interface</string>
     <string name="grp_layout">Layout</string>
     <string name="grp_library_and_content">Biblioteca e conteúdos</string>
     <string name="grp_localization">Localização</string>
@@ -58,7 +54,6 @@
     <string name="grp_lyrics_parser">Interpretador</string>
     <string name="grp_lyrics_source">Fontes de letras</string>
     <string name="grp_manual_scanner">Análise manual</string>
-    <string name="grp_proxy">Proxy</string>
     <string name="grp_sync">Sincronização</string>
     <string name="app_info_title">Informações da aplicação</string>
     <string name="check_for_update">Procurar por atualizações</string>
@@ -76,10 +71,7 @@
     <string name="att_maintainer">Mantenedor</string>
     <string name="att_project_support">Apoio ao projeto</string>
     <string name="att_translator">Tradutor (%s)</string>
-    <string name="attrib_zhuang">Zion Huang pelo InnerTune</string>
     <string name="attribution_title">Atribuições</string>
-    <string name="special_thanks">Agradecimentos especiais</string>
-    <string name="new_interface">Nova organização do layout</string>
     <string name="player_background_blur">Desfocado</string>
     <string name="player_background_default">Seguir o tema</string>
     <string name="player_background_gradient">Gradiente</string>
@@ -143,13 +135,11 @@
     <string name="scanner_manual_btn">Executar sincronização manual</string>
     <string name="scanner_rejected_dir">Seleção inválida. A pasta de análise não pode ser uma subpasta da pasta de descargas, ou ser a própria pasta de descargas</string>
     <string name="scanner_warning">Por padrão, a análise NÃO recarregará os metadados de músicas existentes, exceto que especificar que o queira. Dependendo no tamanho da sua biblioteca, pode demorar um pouco.</string>
-    <string name="scanner_missing_ffmpeg">O extrator FFmpeg não foi detetado</string>
     <string name="scanner_missing_storage_perm">A análise de média local requer permissões de armazenamento</string>
     <string name="scanner_btn_idle">Analisar</string>
     <string name="scanner_progress_complete">Análise concluída</string>
     <string name="scanner_progress_discovering">A descobrir…</string>
     <string name="scanner_progress_processing">A processar…</string>
-    <string name="scanner_progress_scanning">A analisar…</string>
     <string name="scanner_progress_syncing">A sincronizar…</string>
     <string name="scanner_scan_fail">A análise falhou</string>
     <string name="scanner_ytm_link_fail">O processo de vínculo de artistas do YouTube falhou</string>
@@ -200,7 +190,6 @@
     <string name="pause_remote_listen_history">Pausar o compartilhamento do histórico de reprodução com o YouTube Music</string>
     <string name="err_restore_incompatible_database">Não foi possível restaurar a base de dados incompatível</string>
     <string name="import_innertune_tooltip">Restaurar backups do InnerTune é suportado, mas há uma possibilidade de anomalias devido à limitações técnicas</string>
-    <string name="experimental_settings_title">Experimental</string>
     <string name="dev_settings_title">Ativar configurações de programador</string>
     <string name="dev_settings_description">Revela configurações avançadas adicionais utilizadas no desenvolvimento</string>
     <string name="swipe_to_skip_title">Deslizar horizontalmente para mudar de música</string>
@@ -235,12 +224,9 @@
     <string name="action_next">Avançar</string>
     <string name="action_skip">Pular</string>
     <string name="action_cancel">Cancelar</string>
-    <string name="info">Informação</string>
-    <string name="speed_very_slow">Muito lento</string>
     <string name="speed_slow">Lento</string>
     <string name="speed_medium">Médio</string>
     <string name="speed_fast">Rápido</string>
-    <string name="speed_very_fast">Muito rápido</string>
     <string name="library_filter">Filtro de biblioteca</string>
     <string name="toggle_lyrics">Alternar letras</string>
     <string name="ffmpeg_lgpl">Este software utiliza bibliotecas do projeto FFmpeg sob a licença LGPLv2.1</string>
@@ -257,9 +243,7 @@
     <string name="action_logout_tooltip">Para sair completamente, saia da sua conta do YouTube no portal da web antes de usar este botão de saída</string>
     <string name="max_queues_title">Número máximo de filas</string>
     <string name="oobe_welcome_tip">Para uma melhor experiência, recomendamos concluir uma configuração rápida para personalizar as principais definições, como tema, conta do YouTube, mídia local e transferências.</string>
-    <string name="oobe_cache_title">Cache de músicas</string>
     <string name="oobe_cache_subtitle">Escolha um tamanho para o cache de músicas. Isso pode ajudar a reduzir problemas de reprodução da Internet ou da API do YouTube</string>
-    <string name="grp_more_settings">Mais definições</string>
     <string name="auto_scanner_tooltip">Para mídias locais, a análise automática não recarrega os metadados das músicas existentes. Use o scanner manual com a opção re-verificar marcada se também desejar atualizar os metadados.</string>
     <string name="scanner_auto_end">Atualização completa dos downloads de mídia local e músicas!</string>
     <string name="scanner_auto_start">Atualizando mídia local e pastas de transferências…</string>
@@ -331,7 +315,6 @@
     <string name="grp_polls">Perguntas</string>
     <string name="polls_enabled">Fazer-me uma pergunta de vez em quando</string>
     <string name="polls_enabled_description">O InterTune verifica de vez em quando se há uma pergunta e mostra-a no topo do ecrã inicial. Desativado por predefinição. As respostas são anónimas: só são enviados a pergunta, a sua escolha e a versão da aplicação. Enquanto isto estiver desativado, nada é transferido.</string>
-    <string name="polls_check_now">Procurar uma pergunta agora</string>
     <string name="polls_none">Nenhuma pergunta de momento</string>
     <string name="polls_one_waiting">Há uma pergunta à espera</string>
     <string name="polls_forget">Deixar que me perguntem de novo</string>

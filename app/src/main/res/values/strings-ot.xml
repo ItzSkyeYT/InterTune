@@ -30,7 +30,6 @@ while also allowing users to translate our app as well. New, specific strings to
 <!-- Queue -->
     <string name="queues_title">Queues</string>
     <string name="create_queue">New queue</string>
-    <string name="queue_searched_songs_ot">Search: </string>
     <string name="song_added_to_queue">\"%s\" inserted into queue</string>
     <string name="song_added_to_queue_end">\"%s\" added to the end of queue</string>
     <string name="queues_empty">No queues</string>
@@ -42,8 +41,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="auto_playlist">Auto playlist</string>
 
 <!-- Menu -->
-    <string name="select">Selection mode</string>
-    <string name="like_all">Like all</string>
     <string name="more_settings">More settings</string>
     <string name="delete_lyric_confirm">Do you really want to delete the stored lyrics for \"%s\"?</string>
     <string name="tap_show_more">Tap to show more information</string>
@@ -68,7 +65,6 @@ Headphones does it in the app, so it works on any phone. Surround upmix asks you
     <string name="stage_width_explain">How far apart the two virtual speakers are. 30 degrees is what stereo is mixed for.
 
 Wider separates the instruments more. Too wide leaves a gap in the middle.</string>
-    <string name="stage_width_description">Thirty is what stereo is mixed for. Wider pulls the instruments apart at the cost of a hole in the middle.</string>
     <string name="head_tracking">Head tracking</string>
     <string name="head_tracking_description">The music stays where it is when you turn your head.</string>
     <string name="head_tracking_report_prompt">Your headphones have head tracking and this still says they do not? Tell me about it.</string>
@@ -93,13 +89,11 @@ Quick and Instant feel immediate but can overshoot when you stop turning. Smooth
 
 It judges distance from Bluetooth signal strength, which is rough, so it changes slowly and only a little. It never mutes.</string>
     <string name="proximity_probe">Bluetooth signal log</string>
-    <string name="proximity_probe_start">Start logging</string>
     <string name="proximity_probe_stop">Stop logging</string>
     <string name="proximity_probe_description">Check how well distance can be measured where you are.</string>
     <string name="proximity_probe_explain">A 100 second test to check this works where you are. It reads each step out loud, so you can put the phone down and follow along.
 
 If turning on the spot moves the signal as much as walking away does, distance cannot be measured here.</string>
-    <string name="proximity_probe_running">Logging: %1$d seconds, %2$d readings.</string>
     <string name="proximity_probe_step">%1$s  (%2$d s left, %3$d readings)</string>
     <string name="proximity_step_still">Sit still, phone beside you.</string>
     <string name="proximity_step_turn">Stay where you are and turn slowly on the spot.</string>
@@ -107,7 +101,6 @@ If turning on the spot moves the signal as much as walking away does, distance c
     <string name="proximity_step_far">Stay there and keep still.</string>
     <string name="proximity_step_back">Walk back to the phone.</string>
     <string name="proximity_step_done">Finished. You can pick the phone up.</string>
-    <string name="proximity_probe_saved">Saved to %1$s</string>
     <string name="head_tracking_3d">Follow tilting too</string>
     <string name="head_tracking_3d_description">Looking up, down or sideways moves the sound as well.</string>
     <string name="head_tracking_3d_explain">Looking up and down moves the sound too, not just turning.
@@ -129,7 +122,6 @@ Sit still and look straight ahead for 30 seconds. It measures your drift and cor
 
 Play something, turn your head, and drag until the sound stays put.</string>
     <string name="head_tracking_lead_value">Aiming %1$d ms ahead</string>
-    <string name="head_tracking_lead_description">Should match the real delay to your ears. Too little lags behind your head, too much swings past and settles back.</string>
     <string name="high_precision_audio">32-bit audio processing</string>
     <string name="high_precision_audio_description">Process volume and effects in 32-bit instead of 16-bit.</string>
     <string name="high_precision_audio_explain">Volume normalisation multiplies every sample. In 16-bit the result is rounded back down to 16-bit afterwards, on every track, which is avoidable.
@@ -197,7 +189,6 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="grp_behavior">Behavior</string>
     <string name="grp_extra_scanner_settings">Additional scanner settings</string>
     <string name="grp_general">General</string>
-    <string name="grp_interface">Interface</string>
     <string name="grp_layout">Layout</string>
     <string name="grp_library_and_content">Library and content</string>
 	<string name="grp_localization">Localization</string>
@@ -205,8 +196,6 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="grp_lyrics_parser">Parser</string>
     <string name="grp_lyrics_source">Lyric sources</string>
     <string name="grp_manual_scanner">Manual scanner</string>
-    <string name="grp_more_settings">More settings</string>
-    <string name="grp_proxy">Proxy</string>
     <string name="proxy_examples">Format is host:port, for example 127.0.0.1:8118.\n\nRunning Tor on this phone through Orbot gives you 127.0.0.1:8118 for HTTP or 127.0.0.1:9050 for SOCKS. A Shadowsocks or WireGuard client on the phone works the same way, on whichever port it tells you.\n\nPublic proxy lists are not worth using: whoever runs one sees everything you fetch, and most are slow or gone by next week. Use one you run, one your VPN gives you, or none.</string>
     <string name="grp_sync">Sync</string>
 
@@ -231,12 +220,9 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="att_maintainer">Maintainer</string>
     <string name="att_project_support">Project support</string>
     <string name="att_translator">Translator (%s)</string>
-    <string name="attrib_zhuang">Zion Huang for InnerTune</string>
     <string name="attribution_title">Attribution</string>
-    <string name="special_thanks">Special thanks</string>
 
 <!-- Appearance settings -->
-    <string name="new_interface">New interface layout</string>
     <string name="high_contrast" translatable="false">High contrast mode compatibility</string>
     <string name="high_contrast_description" translatable="false">Enable to fix some visual issues when Android\'s high contrast mode is enabled</string>
     <string name="player_background_blur">Blur</string>
@@ -308,7 +294,6 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="grp_polls">Questions</string>
     <string name="polls_enabled">Questions and announcements</string>
     <string name="polls_enabled_description">InterTune checks now and then for a question or a short announcement and shows it at the top of Home. Off by default. Answers are anonymous: only the question, your choice, and the app version are sent. Announcements send nothing at all. Nothing is fetched while this is off.</string>
-    <string name="polls_check_now">Check for a question now</string>
     <string name="polls_none">No question right now</string>
     <string name="polls_one_waiting">There is a question waiting</string>
     <string name="polls_forget">Let me be asked again</string>
@@ -408,7 +393,6 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="scanner_warning">By default, the scanner will NOT reload any metadata of existing songs unless you specify otherwise above. Depending on the size of your library, it may take a while.</string>
 
 <!-- Scanner progress strings-->
-	<string name="scanner_missing_ffmpeg">FFmpeg extractor not detected</string>
     <string name="scanner_missing_storage_perm">The local media scanner requires storage permissions to function</string>
 
     <string name="scanner_auto_end">Local media and song downloads refresh complete!</string>
@@ -418,7 +402,6 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="scanner_progress_complete">Scan complete</string>
     <string name="scanner_progress_discovering">Discovering…</string>
     <string name="scanner_progress_processing">Processing…</string>
-	<string name="scanner_progress_scanning">Scanning…</string>
     <string name="scanner_progress_syncing">Syncing…</string>
 	<string name="scanner_scan_fail">Scanner failed</string>
 
@@ -513,7 +496,6 @@ Anything in the file this version does not recognise is skipped, so a file from 
 	<string name="restore_lm_tooltip">For fresh installs of the app, custom download and local media scan paths may not work. To resolve this, remove and add them again.</string>
 
 <!-- Experimental settings -->
-    <string name="experimental_settings_title">Experimental</string>
     <string name="dev_settings_title">Enable developer settings</string>
     <string name="dev_settings_description">Reveals additional advanced settings intended for development use</string>
 
@@ -556,7 +538,6 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="oobe_local_media_subtitle">Choose folders that contain your music. We\'ll scan them for songs to import.</string>
 
     <!-- Downloads -->
-    <string name="oobe_cache_title">Song cache</string>
     <string name="oobe_cache_subtitle">Choose a song cache size. This can help reduce internet or YouTube API playback issues</string>
     <string name="oobe_downloads_title">Song downloads</string>
     <string name="oobe_downloads_subtitle">Choose a folder where downloaded songs will be saved.</string>
@@ -586,16 +567,13 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="action_next">Next</string>
     <string name="action_skip">Skip</string>
     <string name="action_cancel">Cancel</string>
-    <string name="info">Information</string>
     <plurals name="second">
         <item quantity="one">%d second</item>
         <item quantity="other">%d seconds</item>
     </plurals>
-    <string name="speed_very_slow">Very slow</string>
     <string name="speed_slow">Slow</string>
     <string name="speed_medium">Medium</string>
     <string name="speed_fast">Fast</string>
-    <string name="speed_very_fast">Very fast</string>
     <!-- Settings refactor: screen and group names -->
     <string name="look_and_feel">Look and feel</string>
     <string name="grp_privacy_and_history">Privacy and history</string>
@@ -661,32 +639,13 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
 
     <!-- Song recognition -->
     <string name="recognise">What\'s playing?</string>
-    <string name="recognise_listening">Listening</string>
     <!-- Cycled while it listens, one every couple of seconds. Ten seconds of a spinner and one
          unchanging word feels a lot longer than ten seconds. -->
-    <string-array name="recognise_listening_lines">
-        <item>Listening</item>
-        <item>Ear to the ground</item>
-        <item>Trying to place it</item>
-        <item>Humming along</item>
-        <item>Asking around</item>
-    </string-array>
     <!--
         One in a thousand. Shown instead of an ordinary line, so somebody who uses this a lot will
         eventually see one and nobody has to be told they exist.
     -->
-    <string-array name="recognise_listening_rare">
-        <item>I know this one, don\'t tell me</item>
-        <item>Hearing colours</item>
-        <item>Was that a kazoo?</item>
-        <item>Humming it back to myself</item>
-        <item>Pretending to think about it</item>
-    </string-array>
     <string name="recognise_no_match">Could not place that one. Try again somewhere quieter, or closer to the speaker.</string>
-    <string name="recognise_failed">Could not reach the service. Check your connection and try again.</string>
-    <string name="recognise_no_mic">InterTune needs the microphone to hear what is playing. Nothing is recorded or kept.</string>
-    <string name="recognise_allow">Allow</string>
-    <string name="recognise_stop">Stop</string>
     <string name="recognise_once">Listen once</string>
     <string name="recognise_keep_listening">Keep listening</string>
     <string name="recognise_once_desc">Names one song, then stops.</string>
@@ -698,18 +657,14 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="recognise_settings">Song recognition</string>
 
     <!-- Walkthrough -->
-    <string name="walkthrough_title">What\'s new</string>
     <string name="walkthrough_title_first">Welcome to InterTune</string>
     <string name="walkthrough_description">A quick run through the app, and through anything added since you last opened it.</string>
     <string name="walkthrough_progress">%1$d of %2$d</string>
     <string name="walkthrough_skip">Skip</string>
     <string name="walkthrough_not_now">Not now</string>
     <string name="walkthrough_start">Show me around</string>
-    <string name="walkthrough_back">Back</string>
     <string name="walkthrough_next">Next</string>
     <string name="walkthrough_done">Done</string>
-    <string name="walkthrough_action_open">Take me there</string>
-    <string name="walkthrough_action_try">Try it</string>
     <string name="tour_search_title">Find anything</string>
     <string name="tour_search_body">Search your library and YouTube Music from the same box.</string>
     <string name="tour_quickpicks_title">Quick picks</string>
@@ -719,25 +674,9 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="tour_library_body">Playlists, albums, artists and everything saved to this device.</string>
     <string name="tour_settings_body">Nothing here is compulsory. All of it can be turned off in these settings.</string>
 
-    <string name="walkthrough_library_title">Your music, wherever it is</string>
-    <string name="walkthrough_library_body">Files on the phone and songs from YouTube Music play from the same queue. Point the scanner at your folders and it will find the rest.</string>
-    <string name="walkthrough_home_title">Home learns what you play</string>
-    <string name="walkthrough_home_body">Quick picks, forgotten favourites and what you were listening to. Pull down to refresh it, and use the chips to change what it draws from.</string>
-    <string name="walkthrough_backup_title">Back it up</string>
-    <string name="walkthrough_backup_body">Your library, playlists, settings and history in one file. Set it to run on its own, because an uninstall takes everything with it.</string>
 
-    <string name="walkthrough_recommendations_title">Picks built from your listening</string>
-    <string name="walkthrough_recommendations_body">A new Quick picks source that reads what you finish, search for and come back to. Every part of it is a switch, and it can show you why it chose something.</string>
     <string name="walkthrough_recognition_title">Name what is playing</string>
-    <string name="walkthrough_recognition_body">Hold the phone towards the room and it will tell you the song. It can keep listening with the screen off and fill a playlist while it does.</string>
-    <string name="walkthrough_spatial_title">Spatial audio</string>
-    <string name="walkthrough_spatial_body">Puts the music on a stage in front of you instead of between your ears, on any headphones. On ones that report their orientation, the stage stays put when you turn your head.</string>
-    <string name="walkthrough_widget_title">A widget for the home screen</string>
-    <string name="walkthrough_widget_body">What is playing, with controls and a list under it. Add it from the launcher the way you add any widget, then set up what it shows.</string>
-    <string name="walkthrough_announcements_title">Questions, now and then</string>
-    <string name="walkthrough_announcements_body">The app can ask the occasional question or show a short announcement at the top of Home. Off unless you turn it on, and answers are anonymous.</string>
     <string name="walkthrough_settings_title">All of it is a setting</string>
-    <string name="walkthrough_settings_body">Nothing here is compulsory. Anything you have just been shown can be turned off, and the "i" beside a setting says what it actually does.</string>
     <string name="recognise_settings_description">What happens when you ask InterTune to name what is playing.</string>
     <string name="recognise_keep_listening_desc">Keeps going until you stop it, instead of naming one song and finishing.</string>
     <string name="recognise_keep_listening_explain">A single listen takes about ten seconds and then stops. Keep listening carries on, adding each new song it hears to the list. It works with the screen off. It also uses the microphone and the network the whole time it is running, so it costs battery.</string>
@@ -746,16 +685,9 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="recognise_pause_explain">The microphone is a few centimetres from the speaker, so with the sound coming out of the phone it hears this app and nothing else, and would name the song already playing. On headphones nothing is paused, because your music never reaches the microphone.</string>
     <string name="recognise_clear_history_desc">Forget the songs recognised so far.</string>
     <string name="recognise_clear_history_explain">The list is only kept while the app is running and is never written to your library or your history. This empties it now.</string>
-    <string name="recognise_again">Listen again</string>
     <string name="recognise_play">Play</string>
-    <string name="recognise_search">Find it</string>
-    <string name="recognise_explain">Listens for ten seconds and asks what is playing. The audio becomes a fingerprint on your phone and only the fingerprint is sent, never the recording, and nothing is saved.</string>
     <string name="lastfm_connect">Connect a Last.fm account</string>
     <string name="lastfm_connect_description">Sign in to Last.fm and approve InterTune. The page is Last.fm&#8217;s own, so your password is never typed into this app or seen by it.</string>
-    <string name="lastfm_connect_failed">Could not reach Last.fm. Check your connection and try again.</string>
-    <string name="lastfm_finish">Finish connecting</string>
-    <string name="lastfm_finish_description">Tap once you have approved InterTune on the last.fm page.</string>
-    <string name="lastfm_not_approved">Last.fm has not approved this yet. Open the page again and allow access, then come back.</string>
     <string name="lastfm_connected_as">Connected as %1$s</string>
     <string name="lastfm_disconnect_description">Tap to disconnect. Nothing already scrobbled is removed.</string>
     <string name="lastfm_scrobble">Scrobble what I play</string>
@@ -777,7 +709,6 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="recognition_pick_version">Pick the version to add. Searching by name can turn up live takes and covers.</string>
     <string name="recognition_not_on_youtube">Nothing on YouTube matched that name.</string>
     <string name="recognise_listen_seconds">How long to listen</string>
-    <string name="recognise_listen_seconds_explain">Each attempt records this much audio before asking Shazam. Longer gives it more to work with in a noisy room, at the cost of waiting longer for an answer. Twelve seconds is what Shazam itself uses.</string>
     <string name="recognise_seconds">%1$d seconds</string>
     <string name="recognise_auto_add">Add matches to the playlist</string>
     <string name="recognise_auto_add_explain">While listening from a playlist, a song it is sure about is added without asking. Turn this off to be shown what it heard and choose yourself. Songs it is unsure about are never added either way.</string>
@@ -792,14 +723,11 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="recognition_no_match">Shazam did not recognise that.</string>
     <string name="recognition_heard_nothing">The microphone heard nothing. Try holding the phone closer to the speaker.</string>
     <string name="recognition_failed">That did not work. Check your connection and try again.</string>
-    <string name="recognition_seconds">%1$d s</string>
     <string name="recognition_stop">Stop and identify</string>
     <string name="recognition_try_again">Try again</string>
     <string name="recognition_listen_again">Listen again</string>
     <string name="recognition_add">Add</string>
     <string name="recognition_identify_song">Identify a song</string>
-    <string name="recognition_waiting">Listening again in</string>
-    <string name="recognition_stop_continuous">Stop listening</string>
     <string name="recognition_keep_listening">Keep listening</string>
     <string name="recognition_keep_listening_desc">Carry on adding songs until you stop it. Only adds a song when the match is unambiguous.</string>
     <string name="recognition_added_count">Added %1$d so far</string>

@@ -69,7 +69,6 @@
     <string name="grp_polls">Frågor</string>
     <string name="polls_enabled">Ställ en fråga till mig då och då</string>
     <string name="polls_enabled_description">InterTune kollar då och då om det finns en fråga och visar den högst upp på startskärmen. Av som standard. Svaren är anonyma: bara frågan, ditt val och appens version skickas. Så länge detta är av hämtas ingenting alls.</string>
-    <string name="polls_check_now">Leta efter en fråga nu</string>
     <string name="polls_none">Ingen fråga just nu</string>
     <string name="polls_one_waiting">Det väntar en fråga</string>
     <string name="polls_forget">Låt mig tillfrågas igen</string>

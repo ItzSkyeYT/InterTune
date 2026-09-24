@@ -12,11 +12,8 @@
     <string name="missing_media_permission_warning">स्थानीय मीडिया के लिए स्टोरेज अनुमति आवश्यक है। अनुमति देने के लिए क्लिक करें।</string>
     <string name="queues_title">कतार</string>
     <string name="create_queue">नई कतार</string>
-    <string name="queue_searched_songs_ot">खोजें:</string>
     <string name="queues_empty">कतार खाली है</string>
     <string name="auto_playlist">ऑटो प्लेलिस्ट</string>
-    <string name="select">चयन मोड</string>
-    <string name="like_all">सभी को लाइक करें</string>
     <string name="more_settings">अधिक सेटिंग्स</string>
     <string name="err_play_next_on_error">त्रुटि आई, अगला गाना चला रहे हैं</string>
     <string name="err_stop_on_error">त्रुटि हुई। गाना रुक गया</string>
@@ -40,7 +37,6 @@
     <string name="grp_behavior">व्यवहार</string>
     <string name="grp_extra_scanner_settings">अतिरिक्त स्कैनर सेटिंग्स</string>
     <string name="grp_general">सामान्य</string>
-    <string name="grp_interface">इंटरफेस</string>
     <string name="grp_layout">लेआउट</string>
     <string name="grp_library_and_content">संग्रह और सामग्री</string>
     <string name="grp_localization">स्थानीयकरण</string>
@@ -50,15 +46,12 @@
     <string name="grp_lyrics_parser">विश्लेषक</string>
     <string name="grp_lyrics_source">गीत स्रोत</string>
     <string name="grp_manual_scanner">मैनुअल स्कैनर</string>
-    <string name="grp_proxy">प्रॉक्सी</string>
     <string name="grp_sync">सिंक</string>
     <string name="check_for_update">अपडेट जांचें</string>
     <string name="checking_for_update">अपडेट की जांच की जा रही है</string>
     <string name="attribution_title">श्रेय</string>
     <string name="no_updates_available">कोई अपडेट उपलब्ध नहीं है</string>
     <string name="oss_licenses_title">ओपन सोर्स लाइसेंस</string>
-    <string name="special_thanks">विशेष धन्यवाद</string>
-    <string name="new_interface">विशेष धन्यवाद</string>
     <string name="player_background_blur">धुंधला करें</string>
     <string name="player_background_default">थीम अपनाएं</string>
     <string name="player_background_gradient">ग्रेडिएंट</string>
@@ -94,7 +87,6 @@
     <string name="lyrics_font_Size">अक्षर आकार</string>
     <string name="swipe2Queue_description">किसी गाने पर स्वाइप करके उसे वर्तमान में चल रहे गाने के तुरंत बाद प्ले होने के लिए जोड़ें</string>
     <string name="audio_offload_description">ऑडियो प्लेबैक के लिए ऑफ़लोड ऑडियो पथ का उपयोग करें। इसे सक्षम करने से पावर की खपत कम हो सकती है, लेकिन इससे ऑडियो प्लेबैक या पोस्ट-प्रोसेसिंग में समस्याएँ आ सकती हैं। यह विकल्प उन कोडेक्स या डिवाइस पर असर नहीं डालता जो समर्थित नहीं हैं।</string>
-    <string name="attrib_zhuang">InnerTune के लिए ज़ायन हुआंग</string>
     <string name="lyrics_karaoke_title">कराओके स्टाइल लिरिक्स।</string>
     <string name="lyrics_karaoke_description">शब्द दर शब्द बोल सिंकिंग सक्षम करता है। इसके लिए बोल के फ़ॉर्मेट का समर्थन आवश्यक है।</string>
     <string name="lyrics_karaoke_hz_title">कराओके बोलों की अपडेट गति समायोजित करें</string>
@@ -122,13 +114,11 @@
     <string name="scan_paths_excl">बहिष्कृत स्कैन पथ</string>
     <string name="scanner_rejected_dir">अमान्य चयन। स्कैन फ़ोल्डर डाउनलोड फ़ोल्डर का उप-फ़ोल्डर या स्वयं डाउनलोड फ़ोल्डर नहीं हो सकता</string>
     <string name="scanner_warning">डिफ़ॉल्ट रूप से, स्कैनर मौजूदा गानों का कोई मेटाडेटा पुनः लोड नहीं करेगा जब तक कि आप ऊपर कोई अन्य विकल्प न चुनें। आपकी लाइब्रेरी के आकार के अनुसार, इसमें कुछ समय लग सकता है।</string>
-    <string name="scanner_missing_ffmpeg">FFmpeg एक्सट्रैक्टर नहीं मिला</string>
     <string name="scanner_missing_storage_perm">लोकल मीडिया स्कैनर को स्टोरेज अनुमतियों की आवश्यकता है</string>
     <string name="scanner_btn_idle">स्कैन करें</string>
     <string name="scanner_progress_complete">स्कैन पूर्ण हुआ</string>
     <string name="scanner_progress_discovering">खोजा जा रहा है…</string>
     <string name="scanner_progress_processing">प्रसंस्करण हो रहा है…</string>
-    <string name="scanner_progress_scanning">स्कैन किया जा रहा है…</string>
     <string name="scanner_progress_syncing">सिंक किया जा रहा है…</string>
     <string name="scanner_scan_fail">स्कैनर फेल हो गया</string>
     <string name="scanner_ytm_link_fail">YouTube कलाकार लिंक करने की प्रक्रिया विफल हुई</string>
@@ -245,7 +235,6 @@
     <string name="grp_polls">प्रश्न</string>
     <string name="polls_enabled">मुझसे कभी-कभी एक प्रश्न पूछें</string>
     <string name="polls_enabled_description">InterTune बीच-बीच में देखता है कि कोई प्रश्न है या नहीं, और उसे होम के ऊपर दिखाता है। डिफ़ॉल्ट रूप से बंद। जवाब गुमनाम हैं: सिर्फ़ प्रश्न, आपकी पसंद और ऐप का संस्करण भेजा जाता है। जब तक यह बंद है, कुछ भी नहीं लाया जाता।</string>
-    <string name="polls_check_now">अभी कोई प्रश्न देखें</string>
     <string name="polls_none">अभी कोई प्रश्न नहीं</string>
     <string name="polls_one_waiting">एक प्रश्न प्रतीक्षा में है</string>
     <string name="polls_forget">मुझसे दोबारा पूछा जा सकता है</string>

@@ -9,12 +9,9 @@
     <string name="recent_activity">最近的活动</string>
     <string name="local_history">本地</string>
     <string name="remote_history">远程</string>
-    <string name="queue_searched_songs_ot">搜索：</string>
     <string name="song_added_to_queue">“%s” 已插入队列</string>
     <string name="song_added_to_queue_end">“%s” 已添加到队列末尾</string>
     <string name="auto_playlist">自动播放列表</string>
-    <string name="select">选择模式</string>
-    <string name="like_all">喜欢所有</string>
     <string name="delete_lyric_confirm">您真的要删除“%s”的存储歌词吗？</string>
     <string name="err_play_next_on_error">发生错误。播放下一首</string>
     <string name="err_stop_on_error">发生错误。播放暂停</string>
@@ -32,17 +29,12 @@
     <string name="grp_audio">音频</string>
     <string name="grp_extra_scanner_settings">其他扫描设置</string>
     <string name="grp_general">常规</string>
-    <string name="grp_interface">接口</string>
     <string name="grp_layout">布局</string>
     <string name="grp_localization">本地化</string>
     <string name="grp_lyrics_format">格式</string>
     <string name="grp_lyrics_parser">解析器</string>
     <string name="grp_lyrics_source">歌词来源</string>
     <string name="grp_manual_scanner">手动扫描</string>
-    <string name="grp_proxy">代理</string>
-    <string name="attrib_zhuang">Zion Huang 为 InnerTune</string>
-    <string name="special_thanks">特别鸣谢</string>
-    <string name="new_interface">新的界面布局</string>
     <string name="player_background_blur">模糊</string>
     <string name="player_background_default">跟随主题</string>
     <string name="player_background_gradient">渐变</string>
@@ -86,8 +78,6 @@
     <string name="scan_paths_excl">排除的扫描路径</string>
     <string name="scanner_local_title">本地扫描</string>
     <string name="scanner_manual_btn">触发手动同步</string>
-    <string name="scanner_missing_ffmpeg">未检测到 FFmpeg 提取器</string>
-    <string name="scanner_progress_scanning">扫描..…</string>
     <string name="scanner_progress_syncing">同步..…</string>
     <string name="scanner_scan_fail">扫描失败</string>
     <string name="scanner_ytm_link_fail">YouTube 音乐人链接任务失败</string>
@@ -117,12 +107,10 @@
     <string name="action_back">返回</string>
     <string name="action_next">下一个</string>
     <string name="action_skip">跳过</string>
-    <string name="info">信息</string>
     <string name="playlist_add_local_to_synced_note">注意：不支持将本地歌曲添加到同步/远程播放列表。任何其他组合均有效</string>
     <string name="player_background_style">播放器背景样式</string>
     <string name="scanner_missing_storage_perm">扫描需要存储权限</string>
     <string name="local_library_enable_title">启用本地媒体</string>
-    <string name="experimental_settings_title">实验功能</string>
     <string name="auto_scanner_description">在打开应用时，定期更新本地歌曲和自定义下载的文件夹</string>
     <string name="scanner_warning">默认情况下，扫描不会重新加载现有歌曲的任何元数据，除非你在上面另行指定。根据你的音乐库大小，可能需要一些时间。</string>
     <string name="scanner_strict_file_name_title">严格的文件名</string>
@@ -133,7 +121,6 @@
     <string name="pause_remote_listen_history">与 YouTube Music 分享收听记录</string>
     <string name="queues_empty">无播放队列</string>
     <string name="speed_fast">快速</string>
-    <string name="speed_very_fast">非常快速</string>
     <string name="android_auto">Android Auto</string>
     <string name="err_restore_incompatible_database">无法恢复不兼容的数据库</string>
     <string name="grp_library_and_content">音乐库和内容</string>
@@ -175,7 +162,6 @@
     <string name="oobe_complete_title">全部设置完毕！</string>
     <string name="oobe_local_media_subtitle">选择拥有你的音乐的文件夹。我们将扫描并导入这些文件夹中的曲目.</string>
     <string name="oobe_downloads_subtitle">选择保存下载的文件夹。</string>
-    <string name="speed_very_slow">非常缓慢</string>
     <string name="queues_title">播放队列</string>
     <string name="tap_show_more">点击以显示更多信息</string>
     <string name="err_invalid_ytm_song">播放歌曲失败。只能播放在 YouTube Music 上可用的内容</string>
@@ -244,7 +230,6 @@
     <string name="bits_per_sample">采样深度</string>
     <string name="disc_number">碟号</string>
     <string name="track_number">曲目编号</string>
-    <string name="grp_more_settings">更多设置</string>
     <string name="action_logout_tooltip">要完全退出登录，请先在网页上退出您的 YouTube 帐户，然后再点击此退出按钮。</string>
     <string name="seek_increment">快进/快退间隔</string>
     <string name="auto_scanner_tooltip">对于本地媒体，自动扫描不会重新载入已有歌曲的元数据。如需刷新元数据，请勾选“重新扫描”选项后使用手动扫描功能。</string>
@@ -258,7 +243,6 @@
     <string name="dl_storage_tooltip">内部下载保存在应用的私有存储空间，没有 root 权限将无法访问。外部下载保存在您设备的外部存储空间（例如，/sdcard 或 micro SD 卡），可以使用文件管理器直接访问或编辑。对于“外部下载”文件夹，我们建议您选择一个专门用于歌曲下载的空文件夹，因为 InterTune 可能会修改或删除该文件夹中的文件。\n\n额外导入文件夹是只读的，用于加载额外的歌曲。InterTune 绝不会更改或删除这些文件夹中的文件。您可以在高级设置部分选择这些文件夹。\n\n当您清除下载时，只有内部歌曲会被删除。外部下载和额外导入的歌曲必须手动移除，可以通过歌曲菜单操作，也可以通过文件管理器手动删除。\n\n重新扫描下载文件夹： “外部下载”和“额外导入”文件夹中的歌曲不会自动更新。如果您使用文件管理器手动添加、移除或更改了文件，您可能需要重新扫描下载文件夹来更新应用的数据库。此选项可在高级设置部分找到。</string>
     <string name="max_queues_title">最大播放队列数</string>
     <string name="oobe_welcome_tip">为了获得最佳体验，我们建议您立即完成快速设置，以便对主题、YouTube 帐户、本地媒体和下载等关键功能进行个性化配置。</string>
-    <string name="oobe_cache_title">歌曲缓存</string>
     <string name="oobe_cache_subtitle">设置歌曲缓存容量。此操作有助于解决网络或 YouTube API 播放时出现的问题</string>
     <string name="action_done">完成</string>
     <string name="download_on_wifi_only_description">下载前等待不限流量的网络。使用移动数据时发起的下载会先排队，回到 Wi-Fi 后自动开始</string>
@@ -324,7 +308,6 @@
     <string name="grp_polls">问题</string>
     <string name="polls_enabled">偶尔问我一个问题</string>
     <string name="polls_enabled_description">InterTune 会不时查看是否有问题，并显示在主页顶部。默认关闭。回答是匿名的：只发送问题、你的选择和应用版本。关闭时不会获取任何内容。</string>
-    <string name="polls_check_now">立即查看是否有问题</string>
     <string name="polls_none">目前没有问题</string>
     <string name="polls_one_waiting">有一个问题在等你</string>
     <string name="polls_forget">让我可以再次被询问</string>

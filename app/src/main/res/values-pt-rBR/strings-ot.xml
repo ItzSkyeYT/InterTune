@@ -22,22 +22,16 @@
     <string name="folders">Pastas</string>
     <string name="local_history">Local</string>
     <string name="remote_history">Remoto</string>
-    <string name="queue_searched_songs_ot">Pesquisa:</string>
     <string name="song_added_to_queue">\"%s\" foi adicionado à fila</string>
     <string name="song_added_to_queue_end">\"%s\" foi adicionado ao final da fila</string>
     <string name="auto_playlist">Lista automática</string>
-    <string name="like_all">Favoritar tudo</string>
     <string name="delete_lyric_confirm">Você tem certeza que deseja apagar a letra salva de \"%s\"?</string>
     <string name="sort_by_date_modified">Última modificação</string>
     <string name="sort_by_date_released">Data de lançamento</string>
     <string name="sort_by_like_date">Quando favoritado</string>
     <string name="play_count">Número de reproduções</string>
-    <string name="grp_interface">Interface</string>
     <string name="grp_layout">Organização</string>
     <string name="settings_debug">Depuração</string>
-    <string name="attrib_zhuang">Zion Huang pelo InnerTune</string>
-    <string name="special_thanks">Agradecimentos especiais</string>
-    <string name="new_interface">Nova organização da interface</string>
     <string name="player_background_blur">Borrado</string>
     <string name="player_background_style">Estilo do fundo do reprodutor</string>
     <string name="show_liked_and_downloaded_playlist">Mostrar listas de músicas favoritas e baixadas na biblioteca</string>
@@ -55,7 +49,6 @@
     <string name="keep_alive_description">Usar um serviço de primeiro plano persistente para evitar que o InterTune seja encerrado em segundo plano</string>
     <string name="persistent_queue_desc_ot">Restaurar fila(s) aberta(s) previamente ao iniciar o app</string>
     <string name="min_playback_duration">Duração mínima de reprodução</string>
-    <string name="grp_proxy">Proxy</string>
     <string name="lyrics_settings_title">Letra</string>
     <string name="lyrics_multiline_title">Ler letras multi-linhas</string>
     <string name="lyrics_trim_title">Remover espaços entre letras</string>
@@ -80,7 +73,6 @@
     <string name="scanner_type_title">Extrator de metadados</string>
     <string name="scanner_type_ffmpeg_ext">Usar o extrator de metadados do FFmpeg. Por favor use a versão full do app. A versão core pode levar a problemas com o rastreamento de músicas</string>
     <string name="scanner_online_artist_linking">Tentar sincronizar os artistas dos arquivos locais com os no YouTube Music</string>
-    <string name="experimental_settings_title">Experimentais</string>
     <string name="dev_settings_title">Ativar configurações de desenvolvedor</string>
     <string name="dev_settings_description">Revela configurações avançadas adicionais utilizadas no desenvolvimento</string>
     <string name="oobe_complete">O InterTune está configurado e pronto pra ser usado. Explore suas músicas, descubra novas faixas, e aproveite a experiência!</string>
@@ -88,17 +80,14 @@
     <string name="action_back">Voltar</string>
     <string name="action_next">Avançar</string>
     <string name="action_skip">Pular</string>
-    <string name="info">Informação</string>
     <string name="recent_activity">Atividade recente</string>
     <string name="create_queue">Nova fila</string>
     <string name="scanner_warning">Por padrão, a busca NÃO recarregará os metadados de músicas existentes, exceto que você especificar que quer isso. Dependendo no tamanho da sua biblioteca, isso pode demorar um pouco.</string>
-    <string name="select">Modo de seleção</string>
     <string name="sort_by_play_count">Número de reproduções</string>
     <string name="scan_paths_tooltip">Todas as subpastas também serão afetadas</string>
     <string name="token_adv_login_description">Esse é um método AVANÇADO de conectar à sua conta. Como uma alternativa ao portal web, você pode digitar ou atualizar seu token de login diretamente aqui. Por exemplo, isso pode fazer com que se conectar em vários dispositivos seja mais rápido. Note que qualquer formato de token inválido qual o app não consegue entender não será aceitado</string>
     <string name="min_playback_duration_description">A duração mínima que uma música deve ser tocada antes que seja considerada</string>
     <string name="scan_paths_add_folder">Adicionar uma nova pasta</string>
-    <string name="scanner_progress_scanning">Buscando…</string>
     <string name="tab_arrangement_disable_tip">--- Arraste abaixo disso para desativar ---</string>
     <string name="sync_progress_success">A sincronização foi concluída</string>
     <string name="swipe2Queue_description">Deslize em uma música para adicioná-la à fila após a música em reprodução no momento</string>
@@ -121,7 +110,6 @@
         <item quantity="many">%d de músicas encontradas</item>
         <item quantity="other">%d músicas encontradas</item>
     </plurals>
-    <string name="scanner_missing_ffmpeg">O extrator FFmpeg não foi detectado</string>
     <string name="sync_progress_active">Sincronizando com a conta do YouTube…</string>
     <string name="grp_lyrics_format">Formatação</string>
     <string name="grp_lyrics_source">Fontes das letras</string>
@@ -170,11 +158,9 @@
     <string name="lyrics_karaoke_hz_title">Ajustar velocidade de recarregamento da letra de karaoke</string>
     <string name="import_success_songs">Importadas com sucesso</string>
     <string name="m3u_export">Exportar como um arquivo M3U</string>
-    <string name="speed_very_slow">Muito lento</string>
     <string name="speed_slow">Lento</string>
     <string name="speed_medium">Médio</string>
     <string name="speed_fast">Rápido</string>
-    <string name="speed_very_fast">Muito rápido</string>
     <string name="lyrics_karaoke_title">Letra em estilo karaoke.</string>
     <string name="attribution_title">Atribuições</string>
     <string name="scanner_rejected_dir">Seleção inválida. A pasta de busca não pode ser uma subpasta da pasta de downloads, ou ser a própria pasta de downloads</string>
@@ -256,10 +242,8 @@
     <string name="audio_decoder_system_with_ffmpeg">Priorizar decodificadores do sistema</string>
     <string name="max_queues_title">Número máximo de filas</string>
     <string name="oobe_welcome_tip">Para uma melhor experiência, recomendamos concluir uma configuração rápida para personalizar configurações principais, como o tema, conta do YouTube, mídia local, e downloads.</string>
-    <string name="oobe_cache_title">Cache de músicas</string>
     <string name="oobe_cache_subtitle">Selecione um tamanho para a cache de músicas. Isso pode ajudar a reduzir problemas com a internet ou reprodução com a API do YouTube</string>
     <string name="action_logout_tooltip">Para desconectar-se totalmente, desconecte-se da sua conta do YouTube pelo portal web antes de usar este botão</string>
-    <string name="grp_more_settings">Mais configurações</string>
     <string name="auto_scanner_tooltip">Para a mídia local, a busca automática não recarrega os metadados das músicas existentes. Use a busca manual com a opção de buscar novamente selecionada se quer recarregar os metadados.</string>
     <string name="scanner_auto_end">Recarregamento da mídia local e downloads de músicas concluído!</string>
     <string name="scanner_auto_start">Recarregando mídia local e pastas de download de música…</string>
@@ -331,7 +315,6 @@
     <string name="grp_polls">Perguntas</string>
     <string name="polls_enabled">Me fazer uma pergunta de vez em quando</string>
     <string name="polls_enabled_description">O InterTune verifica de vez em quando se há uma pergunta e mostra ela no topo da tela inicial. Desativado por padrão. As respostas são anônimas: só são enviados a pergunta, sua escolha e a versão do app. Enquanto isso estiver desativado, nada é baixado.</string>
-    <string name="polls_check_now">Procurar uma pergunta agora</string>
     <string name="polls_none">Nenhuma pergunta no momento</string>
     <string name="polls_one_waiting">Há uma pergunta esperando</string>
     <string name="polls_forget">Deixar que me perguntem de novo</string>

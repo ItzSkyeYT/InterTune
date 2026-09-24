@@ -10,13 +10,10 @@
     <string name="missing_media_permission_warning">ตัวแอพต้องการสิทธิ์เข้าถึงการจัดเก็บข้อมูลของเพลงในเครื่อง คลิกเพื่ออนุญาต</string>
     <string name="queues_title">คิวเพลง</string>
     <string name="create_queue">สร้างคิวเพลงใหม่</string>
-    <string name="queue_searched_songs_ot">เพลงในคิว</string>
     <string name="song_added_to_queue">%sเพิ่มเพลงนี้ในคิว</string>
     <string name="song_added_to_queue_end">%sเพิ่มเพลงลงในคิว</string>
     <string name="queues_empty">ไม่มีเพลงในคิว</string>
     <string name="auto_playlist">เพลย์ลิสต์อัตโนมัติ</string>
-    <string name="select">เลือกโหมด</string>
-    <string name="like_all">เพลงที่ชอบทั้งหมด</string>
     <string name="more_settings">ตั้งค่าเพิ่มเติม</string>
     <string name="delete_lyric_confirm">คุณต้องการลบเพลงนี้จริงหรือไม่? %s</string>
     <string name="tap_show_more">แตะเพื่อดูข้อมูลเพิ่มเติม</string>
@@ -99,7 +96,6 @@
     <string name="grp_polls">คำถาม</string>
     <string name="polls_enabled">ถามฉันสักคำถามเป็นครั้งคราว</string>
     <string name="polls_enabled_description">InterTune จะตรวจดูเป็นครั้งคราวว่ามีคำถามหรือไม่ และแสดงไว้ด้านบนของหน้าแรก ปิดไว้เป็นค่าเริ่มต้น คำตอบไม่ระบุตัวตน ส่งไปเพียงคำถาม ตัวเลือกของคุณ และเวอร์ชันของแอป ขณะที่ปิดอยู่จะไม่มีการดึงข้อมูลใดเลย</string>
-    <string name="polls_check_now">ตรวจหาคำถามตอนนี้</string>
     <string name="polls_none">ตอนนี้ยังไม่มีคำถาม</string>
     <string name="polls_one_waiting">มีคำถามรออยู่</string>
     <string name="polls_forget">ให้ถามฉันได้อีก</string>

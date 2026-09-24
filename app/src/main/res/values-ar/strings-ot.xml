@@ -9,7 +9,6 @@
     <string name="queue_remote_history">السجل (بعيد)</string>
     <string name="remote_history">بعيد</string>
     <string name="library_empty">ستظهر محتويات مكتبتك هنا</string>
-    <string name="select">وضع الاختيار</string>
     <string name="sync_progress_success">اكتملت المزامنة</string>
     <string name="grp_audio">الصوت</string>
     <string name="token_hidden">انقر لإظهار الرمز</string>
@@ -37,12 +36,10 @@
     <string name="missing_media_permission_warning">أذونات التخزين مطلوبة للوسائط المحلية. انقر لمنح الإذن.</string>
     <string name="queues_title">قوائم الانتظار</string>
     <string name="create_queue">قائمة انتظار جديدة</string>
-    <string name="queue_searched_songs_ot">بحث:</string>
     <string name="song_added_to_queue">\"%s\" أدرجت لقائمة الإنتظار</string>
     <string name="song_added_to_queue_end">\"%s\" أضيفت لأسفل قائمة الإنتظار</string>
     <string name="queues_empty">لا توجد قوائم انتظار</string>
     <string name="auto_playlist">قائمة تشغيل تلقائية</string>
-    <string name="like_all">إعجاب بالكل</string>
     <string name="more_settings">المزيد من الإعدادات</string>
     <string name="delete_lyric_confirm">هل ترغب بالفعل بحذف الكلمات المحفوظة ل \"%s\"?</string>
     <string name="err_play_next_on_error">حدث خطأ. جارٍ تشغيل التالي</string>
@@ -64,7 +61,6 @@
     <string name="grp_behavior">السلوك</string>
     <string name="grp_extra_scanner_settings">إعدادات الماسح الإضافية</string>
     <string name="grp_general">عام</string>
-    <string name="grp_interface">الواجهة</string>
     <string name="grp_layout">التخطيط</string>
     <string name="grp_library_and_content">المكتبة والمحتوى</string>
     <string name="grp_localization">التوطين</string>
@@ -72,14 +68,10 @@
     <string name="grp_lyrics_parser">المحلل</string>
     <string name="grp_lyrics_source">مصادر كلمات الأغاني</string>
     <string name="grp_manual_scanner">الماسح اليدوي</string>
-    <string name="grp_proxy">الوكيل</string>
     <string name="grp_sync">المزامنة</string>
-    <string name="attrib_zhuang">زيون هوانغ لـ InnerTune</string>
     <string name="check_for_update">التحقق من التحديثات</string>
     <string name="checking_for_update">جارٍ التحقق من التحديثات</string>
     <string name="no_updates_available">لا توجد تحديثات متاحة</string>
-    <string name="special_thanks">شكر خاص</string>
-    <string name="new_interface">تخطيط واجهة جديد</string>
     <string name="player_background_blur">ضبابية</string>
     <string name="player_background_default">اتباع السمة</string>
     <string name="player_background_gradient">تدرج</string>
@@ -132,11 +124,9 @@
     <string name="scanner_manual_btn">تشغيل المزامنة اليدوية</string>
     <string name="scanner_local_title">الماسح المحلي</string>
     <string name="scanner_warning">بشكل افتراضي، لن يقوم المسح بإعادة تحميل أي بيانات وصفية للأغاني الموجودة ما لم تحدد خلاف ذلك أعلاه. اعتمادًا على حجم مكتبتك، يستغرق الأمر بعض الوقت.</string>
-    <string name="scanner_missing_ffmpeg">لم يتم اكتشاف مستخرج FFmpeg</string>
     <string name="scanner_missing_storage_perm">يتطلب الماسح أذونات التخزين</string>
     <string name="scanner_btn_idle">مسح</string>
     <string name="scanner_progress_complete">اكتمل المسح</string>
-    <string name="scanner_progress_scanning">جارٍ المسح…</string>
     <string name="scanner_progress_syncing">جارٍ المزامنة…</string>
     <string name="scanner_scan_fail">فشل الماسح</string>
     <string name="scanner_ytm_link_fail">فشلت مهمة ربط فنان YouTube</string>
@@ -154,7 +144,6 @@
     <string name="pause_remote_listen_history">إيقاف مؤقت لمشاركة سجل الاستماع مع YouTube Music</string>
     <string name="scanner_variant_rescan">اعادة فحص كامل المكتبة وتحديث \' metadata</string>
     <string name="scanner_online_artist_linking">محاولة ربط ملف\' فنان مع YouTube Music</string>
-    <string name="experimental_settings_title">تجريبي</string>
     <string name="dev_settings_title">تمكين إعدادات المطور</string>
     <string name="dev_settings_description">يكشف عن إعدادات متقدمة إضافية مخصصة للاستخدام التطويري</string>
     <string name="swipe_to_skip_title">اسحب أفقيًا لتغيير الأغنية</string>
@@ -164,7 +153,6 @@
     <string name="action_next">التالي</string>
     <string name="action_skip">تخطي</string>
     <string name="action_cancel">إلغاء</string>
-    <string name="info">معلومات</string>
     <string name="tap_show_more">إضغط لعرض المزيد من المعلومات</string>
     <string name="err_invalid_ytm_song">فشل تشغيل الأغنية ، فقط المحتوى المتاح في YouTube Music يمكن تشغيله</string>
     <string name="app_info_title">معلومات التطبيق</string>
@@ -281,7 +269,6 @@
     <string name="grp_polls">الأسئلة</string>
     <string name="polls_enabled">اسألني سؤالاً بين الحين والآخر</string>
     <string name="polls_enabled_description">يتحقق InterTune من حين لآخر إن كان هناك سؤال، ويعرضه أعلى الشاشة الرئيسية. مُعطَّل افتراضياً. الإجابات مجهولة المصدر: لا يُرسل سوى السؤال واختيارك وإصدار التطبيق. وما دام هذا معطلاً فلا يُجلب أي شيء إطلاقاً.</string>
-    <string name="polls_check_now">ابحث عن سؤال الآن</string>
     <string name="polls_none">لا يوجد سؤال حالياً</string>
     <string name="polls_one_waiting">هناك سؤال في انتظارك</string>
     <string name="polls_forget">اسمح بسؤالي مجدداً</string>

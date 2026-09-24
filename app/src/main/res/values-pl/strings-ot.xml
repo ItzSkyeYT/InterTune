@@ -2,7 +2,6 @@
 <resources>
     <string name="queues_title">Kolejki</string>
     <string name="auto_playlist">Playlista automatyczna</string>
-    <string name="like_all">Polub wszystkie</string>
     <string name="sort_by_like_date">Data polubienia</string>
     <string name="create_sync_playlist_description">Uwaga: To pozwala na synchronizację z YouTube Music. Jest to nieodwracalne. Nie możesz dodać lokalnych utworów do synchronizowanej playlisty.</string>
     <string name="recent_activity">Ostatnia aktywność</string>
@@ -18,10 +17,8 @@
     <string name="slim_navbar_description">Usuń etykiety aby zmniejszyć wysokość paska nawigacji</string>
     <string name="filter_arrangement">Ułóż filtry</string>
     <string name="audio_offload_description">Użyj zewnętrznej drogi audio do odtwarzania dźwięku. Włączenie tej funkcji może zmniejszyć zużycie baterii, ale może też powodować problemy z odtwarzaniem dźwięku lub post processingiem. Ta preferencja nie ma żadnego efektu dla nie wspieranych algorytmów lub urządzeń</string>
-    <string name="attrib_zhuang">Zion Huang dla InnerTune</string>
     <string name="library">Biblioteka</string>
     <string name="queue_local_history">Historia (lokalne)</string>
-    <string name="queue_searched_songs_ot">Szukaj:</string>
     <string name="song_added_to_queue">Dodano \"%s\" do kolejki</string>
     <string name="delete_lyric_confirm">Czy na pewno chcesz usunąć zapisany tekst \"%s\"?</string>
     <string name="err_play_next_on_error">Wystąpił błąd. Odtwarzanie następnego</string>
@@ -32,8 +29,6 @@
     <string name="sort_by_date_released">Data wydania</string>
     <string name="sync_progress_success">Synchronizacja zakończona</string>
     <string name="grp_localization">Lokalizacja</string>
-    <string name="special_thanks">Specjalne podziękowania</string>
-    <string name="new_interface">Nowy układ interfejsu</string>
     <string name="player_background_blur">Rozmycie</string>
     <string name="player_background_default">Jak motyw</string>
     <string name="show_liked_and_downloaded_playlist">Pokaż playlisty polubionych i pobranych utworów w bibliotece</string>
@@ -50,7 +45,6 @@
     <string name="create_queue">Nowa kolejka</string>
     <string name="sync_progress_active">Synchronizowanie z kontem YouTube…</string>
     <string name="song_added_to_queue_end">Dodano \"%s\" na koniec kolejki</string>
-    <string name="select">Tryb wyboru</string>
     <string name="playlist_add_local_to_synced_note">Uwaga: Dodawanie lokalnych piosenek do synchronizowanej/zdalnej playlisty nie jest wspierane. Każda inna konfiguracja jest poprawna</string>
     <string name="grp_extra_scanner_settings">Dodatkowe ustawienia skanera</string>
     <string name="player_background_gradient">Gradient kolorów</string>
@@ -63,7 +57,6 @@
     <string name="local_player_settings_title">Media lokalne</string>
     <string name="lyrics_prefer_local_description">Priorytetyzuj rozwiązanie lokalnych plików tekstowych przed użyciem wszystkich dostawców z chmury. Wyłącz tę opcję aby priorytetyzować dostawców z chmury</string>
     <string name="scanner_progress_syncing">Synchronizacja…</string>
-    <string name="scanner_missing_ffmpeg">Nie wykryto ekstraktora FFmpeg</string>
     <string name="grp_lyrics_source">Źródła tekstów</string>
     <plurals name="scanner_n_song_processed">
         <item quantity="one">%d piosenki przetworzone</item>
@@ -75,7 +68,6 @@
     <string name="grp_general">Ogólne</string>
     <string name="action_back">Powrót</string>
     <string name="sort_by_play_count">Ilość odtworzeń</string>
-    <string name="grp_interface">Interfejs</string>
     <string name="restart_to_apply_changes">Włącz aplikację ponownie aby wprowadzić zmiany</string>
     <string name="settings_debug">Debuguj</string>
     <string name="swipe_to_skip_title">Przeciągnij poziomo aby zmienić utwór</string>
@@ -86,9 +78,7 @@
     <string name="grp_manual_scanner">Skaner ręczny</string>
     <string name="swipe2Queue">Przeciągnij by zakolejkować</string>
     <string name="action_next">Następne</string>
-    <string name="grp_proxy">Proxy</string>
     <string name="slim_navbar_title">Wąski pasek nawigacji</string>
-    <string name="info">Informacja</string>
     <string name="min_playback_duration_description">Najmniejsza długość piosenki jaka musi być odtworzona aby uznać ją za \"odtworzoną\"</string>
     <string name="lyrics_multiline_description">Traktuj wszystkie wersy między punktami synchronizacji jako jeden kawałek tekstu</string>
     <string name="tab_arrangement_home_required">Karta główna jest niezbędna.</string>
@@ -104,7 +94,6 @@
     <string name="ytm_sync">Automatycznie synchronizuj swoje konto YouTube Music</string>
     <string name="audio_offload">Włącz offload</string>
     <string name="scan_paths_add_folder">Dodaj nowy folder</string>
-    <string name="scanner_progress_scanning">Skanowanie…</string>
     <string name="scanner_missing_storage_perm">Do działania lokalnego skanera multimediów wymagane są uprawnienia do przechowywania danych</string>
     <string name="action_cancel">Anuluj</string>
     <string name="scanner_local_title">Skaner lokalny</string>
@@ -142,7 +131,6 @@
     <string name="scanner_type_taglib">Używaj zintegrowanego wykrywacza metadanych TagLib</string>
     <string name="scanner_type_ffmpeg_ext">Używaj wykrywacza danych FFmpeg. Proszę używać tylko pełnej wersji aplikacji. Rdzeniowy wariant może powodować problemy ze śledzeniem piosenek</string>
     <string name="pause_remote_listen_history">Zatrzymaj udostępnianie historii odtwarzania z YouTube Music</string>
-    <string name="experimental_settings_title">Eksperymentalne</string>
     <string name="dev_settings_description">Odkrywa dodatkowe ustawienia przeznaczone do użycia podczas programowania</string>
     <string name="swipe_to_skip_description">Włącz zmienianie utworów za pomocą przeciągnięcia poziomo</string>
     <string name="oobe_complete">Konfiguracja aplikacji została zakończona sukcesem. Przeglądaj swoją muzykę, odkrywaj nowe ścieżki muzyczne i ciesz się doświadczeniami!</string>
@@ -179,7 +167,6 @@
     <string name="oobe_local_music_support">Ekstensywne ­wsparcie lokalnej muzyki</string>
     <string name="oobe_local_media_title">Lokalne media</string>
     <string name="oobe_downloads_subtitle">Wybierz folder, w którym będą przechowywane pobrane piosenki.</string>
-    <string name="speed_very_slow">Bardzo powolna</string>
     <string name="speed_slow">Wolna</string>
     <string name="speed_medium">Średnia</string>
     <string name="speed_fast">Szybka</string>
@@ -197,7 +184,6 @@
     <string name="dl_extra_path_title">Konfiguruje dodatkowe lokalizację importu…</string>
     <string name="m3u_export">Eksportuj plik jako M3U</string>
     <string name="import_success_songs">Import zakończony sukcesem</string>
-    <string name="speed_very_fast">Bardzo szybka</string>
     <string name="oobe_local_music_support_description">Słuchaj swoich plików muzycznych(np MP3, OGG, FLAC, itd.)</string>
     <string name="oobe_cross_platform_sync_description">Zachowaj swoją muzykę niezależnie od urządzenia</string>
     <string name="library_empty">Zawartość twojej biblioteki zostanie wyświetlona tutaj</string>
@@ -254,7 +240,6 @@
     <string name="seek_increment">Szukaj przyrostu</string>
     <string name="max_queues_title">Maksymalna liczba kolejek</string>
     <string name="oobe_welcome_tip">Dla najlepszego doświadczenia, rekomendujemy wypełnienie quick setup by spersonalizować kluczowe ustawienia takie jak motyw, konto YouTube, lokalne media i pobrania.</string>
-    <string name="oobe_cache_title">Cache piosenek</string>
     <string name="oobe_cache_subtitle">Wybierz rozmiar cache piosenek. Może to pomoc w redukcji zużycia internetu albo problemów z odtwarzanie za pomocą YouTube API</string>
     <plurals name="second">
         <item quantity="one">%d jeden</item>
@@ -262,7 +247,6 @@
         <item quantity="many">%d wiele</item>
         <item quantity="other">%d wiele</item>
     </plurals>
-    <string name="grp_more_settings">Więcej ustawień</string>
     <string name="auto_scanner_tooltip">Dla utworów w pamięci, skanowanie automatyczne nie wczytuje ponownie metadanych. Użyj skanowania manualnego z włączoną funkcją skanowania jeśli chcesz odświeżyć metadane.</string>
     <string name="scanner_auto_end">Media lokalne i pobrane piosenki wczytanie pomyślnie!</string>
     <string name="action_done">Gotowe</string>
@@ -329,7 +313,6 @@
     <string name="grp_polls">Pytania</string>
     <string name="polls_enabled">Zadawaj mi od czasu do czasu pytanie</string>
     <string name="polls_enabled_description">InterTune co jakiś czas sprawdza, czy jest pytanie, i pokazuje je na górze ekranu głównego. Domyślnie wyłączone. Odpowiedzi są anonimowe: wysyłane są tylko pytanie, Twój wybór i wersja aplikacji. Gdy to jest wyłączone, nic nie jest pobierane.</string>
-    <string name="polls_check_now">Sprawdź pytanie teraz</string>
     <string name="polls_none">Na razie brak pytań</string>
     <string name="polls_one_waiting">Czeka na Ciebie pytanie</string>
     <string name="polls_forget">Pozwól pytać mnie ponownie</string>

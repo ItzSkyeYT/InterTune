@@ -64,7 +64,6 @@
     <string name="grp_polls">Mga tanong</string>
     <string name="polls_enabled">Tanungin mo ako paminsan-minsan</string>
     <string name="polls_enabled_description">Paminsan-minsan, tinitingnan ng InterTune kung may tanong at ipinapakita ito sa itaas ng home. Naka-off bilang default. Anonymous ang mga sagot: ang tanong, ang pinili mo, at ang bersyon ng app lang ang ipinapadala. Habang naka-off ito, wala talagang kinukuha.</string>
-    <string name="polls_check_now">Tumingin ng tanong ngayon</string>
     <string name="polls_none">Walang tanong sa ngayon</string>
     <string name="polls_one_waiting">May tanong na naghihintay</string>
     <string name="polls_forget">Payagang tanungin ako ulit</string>

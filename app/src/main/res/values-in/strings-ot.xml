@@ -12,13 +12,10 @@
     <string name="missing_media_permission_warning">Izin penyimpanan diperlukan untuk media lokal. Klik untuk memberikan izin.</string>
     <string name="queues_title">Antrian</string>
     <string name="create_queue">Antrian Baru</string>
-    <string name="queue_searched_songs_ot">Cari:</string>
     <string name="song_added_to_queue">\"%s\" ditambahkan ke antrian</string>
     <string name="song_added_to_queue_end">\"%s\" ditambahkan ke akhir antrian</string>
     <string name="queues_empty">Tidak ada antrian</string>
     <string name="auto_playlist">Daftar putar otomatis</string>
-    <string name="select">Mode pemilihan</string>
-    <string name="like_all">Sukai semua</string>
     <string name="more_settings">Pengaturan lanjutan</string>
     <string name="delete_lyric_confirm">Apakah Anda yakin ingin menghapus lirik yang tersimpan untuk \"%s\"?</string>
     <string name="tap_show_more">Ketuk untuk menampilkan informasi lebih lanjut</string>
@@ -50,7 +47,6 @@
     <string name="grp_behavior">Respon</string>
     <string name="grp_extra_scanner_settings">Pengaturan pemindaian lanjutan</string>
     <string name="grp_general">Umum</string>
-    <string name="grp_interface">Antarmuka</string>
     <string name="grp_layout">Tata letak</string>
     <string name="grp_library_and_content">Pustaka dan konten</string>
     <string name="grp_localization">Lokalisasi</string>
@@ -58,7 +54,6 @@
     <string name="grp_lyrics_parser">Analisis lirik</string>
     <string name="grp_lyrics_source">Sumber lirik</string>
     <string name="grp_manual_scanner">Pemindai manual</string>
-    <string name="grp_proxy">Proxy</string>
     <string name="grp_sync">Sinkronisasi</string>
     <string name="app_info_title">Informasi aplikasi</string>
     <string name="check_for_update">Periksa pembaruan</string>
@@ -77,7 +72,6 @@
     <string name="att_project_support">Dukungan proyek</string>
     <string name="att_translator">Penerjemah (%s)</string>
     <string name="attribution_title">Atribusi</string>
-    <string name="new_interface">Tata letak antarmuka baru</string>
     <string name="player_background_blur">Buram</string>
     <string name="player_background_default">Ikuti tema</string>
     <string name="player_background_gradient">Gradasi</string>
@@ -141,13 +135,11 @@
     <string name="scanner_manual_btn">Mulai sinkronisasi manual</string>
     <string name="scanner_rejected_dir">Pilihan tidak valid. Folder pemindaian tidak dapat menjadi subfolder dari folder unduhan, atau folder unduhan itu sendiri</string>
     <string name="scanner_warning">Secara bawaan, pemindai TIDAK akan memuat ulang metadata dari lagu-lagu yang sudah ada, kecuali jika Anda menentukannya sebaliknya di bagian atas. Tergantung pada ukuran koleksi Anda, proses ini mungkin akan memakan waktu.</string>
-    <string name="scanner_missing_ffmpeg">Ekstraktor FFmpeg tidak terdeteksi</string>
     <string name="scanner_missing_storage_perm">Pemindai media lokal memerlukan izin penyimpanan agar berfungsi</string>
     <string name="scanner_btn_idle">Pindai</string>
     <string name="scanner_progress_complete">Pemindaian selesai</string>
     <string name="scanner_progress_discovering">Mencari…</string>
     <string name="scanner_progress_processing">Memproses…</string>
-    <string name="scanner_progress_scanning">Memindai…</string>
     <string name="scanner_progress_syncing">Menyinkronkan…</string>
     <string name="scanner_scan_fail">Gagal memindai</string>
     <string name="scanner_ytm_link_fail">Pekerjaan penautan artis YouTube gagal</string>
@@ -194,7 +186,6 @@
     <string name="pause_remote_listen_history">Jeda berbagi riwayat mendengarkan dengan YouTube Music</string>
     <string name="err_restore_incompatible_database">Basis data tidak kompatibel, tidak dapat dipulihkan</string>
     <string name="import_innertune_tooltip">Pemulihan cadangan InnerTune didukung, meskipun ada kemungkinan masalah karena keterbatasan teknis</string>
-    <string name="experimental_settings_title">Eksperimental</string>
     <string name="dev_settings_title">Aktifkan pengaturan pengembang</string>
     <string name="dev_settings_description">Menampilkan pengaturan lanjutan tambahan yang ditujukan untuk penggunaan pengembangan</string>
     <string name="swipe_to_skip_title">Geser horizontal untuk mengganti lagu</string>
@@ -229,14 +220,9 @@
     <string name="action_next">Selanjutnya</string>
     <string name="action_skip">Lewati</string>
     <string name="action_cancel">Batal</string>
-    <string name="info">Informasi</string>
-    <string name="speed_very_slow">Sangat lambat</string>
     <string name="speed_slow">Lambat</string>
     <string name="speed_medium">Sedang</string>
     <string name="speed_fast">Cepat</string>
-    <string name="speed_very_fast">Sangat cepat</string>
-    <string name="attrib_zhuang">Zion Huang untuk InterTune</string>
-    <string name="special_thanks">Ucapan terima kasih</string>
     <string name="ffmpeg_lgpl">Perangkat lunak ini menggunakan pustaka dari proyek FFmpeg di bawah lisensi LGPLv2.1</string>
     <string name="seek_increment">Loncat waktu</string>
     <plurals name="second">
@@ -244,7 +230,6 @@
     </plurals>
     <string name="library_filter">Filter koleksi</string>
     <string name="toggle_lyrics">Lirik</string>
-    <string name="grp_more_settings">Pengaturan lebih lanjut</string>
     <string name="action_logout_tooltip">Untuk keluar sepenuhnya, silahkan logout akun YouTube-mu lewat web terlebih dahulu sebelum memakai tombol logout ini</string>
     <string name="audio_decoder_ffmpeg_only">Prioritaskan dekoder FFmpeg</string>
     <string name="audio_decoder_preference">Dekoder Audio</string>
@@ -259,7 +244,6 @@
     <string name="restore_lm_tooltip">Untuk yang menginstall aplikasi ini secara baru, download custom dan pemindai media lokal mungkin tidak bekerja. Untuk memperbaikinya, hapus izin lalu tambahkan lagi</string>
     <string name="max_queues_title">Jumlah maksimal daftar lagu</string>
     <string name="oobe_welcome_tip">Untuk pengalaman terbaik, Kami merekomendasikan menyelesaikan pengaturan cepat untuk pengaturan lebih lanjut seperti tema, akun YouTube, media lokal, Dan unduhan.</string>
-    <string name="oobe_cache_title">Cache lagu</string>
     <string name="oobe_cache_subtitle">Pilih ukuran cache untuk lagu anda, ini bisa membantu mengurangi penggunaan internet atau masalah playback API YouTube</string>
     <string name="action_done">Selesai</string>
     <string name="download_on_wifi_only_description">Tunggu sambungan tanpa kuota sebelum mengunduh. Unduhan yang diminta saat memakai data seluler akan diantrekan dan mulai sendiri begitu Wi-Fi tersedia lagi</string>
@@ -325,7 +309,6 @@
     <string name="grp_polls">Pertanyaan</string>
     <string name="polls_enabled">Sesekali tanyakan sesuatu kepada saya</string>
     <string name="polls_enabled_description">InterTune sesekali memeriksa apakah ada pertanyaan dan menampilkannya di bagian atas layar utama. Mati secara bawaan. Jawaban bersifat anonim: yang dikirim hanya pertanyaan, pilihan Anda, dan versi aplikasi. Selama ini mati, tidak ada apa pun yang diambil.</string>
-    <string name="polls_check_now">Periksa pertanyaan sekarang</string>
     <string name="polls_none">Belum ada pertanyaan</string>
     <string name="polls_one_waiting">Ada pertanyaan yang menunggu</string>
     <string name="polls_forget">Izinkan saya ditanya lagi</string>

@@ -17,17 +17,11 @@
     <string name="missing_media_permission_warning">Pels mitjans locals es necessiten permisos d\'emmagatzematge. Clica per donar permisos.</string>
     <string name="queues_title">Cua</string>
     <string name="create_queue">Nova cua</string>
-    <string name="queue_searched_songs_ot">Cerca:</string>
     <string name="auto_playlist">Llista automàtica</string>
-    <string name="select">Mode de selecció</string>
-    <string name="like_all">Agradar a tot</string>
     <string name="tap_show_more">Clica per mostrar més informació</string>
-    <string name="speed_very_fast">Molt ràpid</string>
     <string name="speed_fast">Ràpid</string>
     <string name="speed_medium">Mitjà</string>
     <string name="speed_slow">Lent</string>
-    <string name="speed_very_slow">Molt lent</string>
-    <string name="info">Informació</string>
     <string name="action_cancel">Cancelar</string>
     <string name="action_skip">Saltar</string>
     <string name="action_next">Següent</string>
@@ -119,7 +113,6 @@
     <string name="grp_polls">Preguntes</string>
     <string name="polls_enabled">Fes-me alguna pregunta de tant en tant</string>
     <string name="polls_enabled_description">InterTune comprova de tant en tant si hi ha alguna pregunta i la mostra a dalt de l’inici. Desactivat per defecte. Les respostes són anònimes: només s’envien la pregunta, la teva tria i la versió de l’aplicació. Mentre això estigui desactivat no es baixa absolutament res.</string>
-    <string name="polls_check_now">Cerca una pregunta ara</string>
     <string name="polls_none">Ara mateix no hi ha cap pregunta</string>
     <string name="polls_one_waiting">Hi ha una pregunta esperant</string>
     <string name="polls_forget">Permet que em tornin a preguntar</string>

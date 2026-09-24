@@ -7,11 +7,7 @@
     <string name="folders">Папки</string>
     <string name="lyrics_prefer_local">Предпочитане на локални текстови файлове</string>
     <string name="library">Библиотека</string>
-    <string name="queue_searched_songs_ot">Търси:</string>
     <string name="auto_playlist">Автоматичен плейлист</string>
-    <string name="new_interface">Ново оформление на интерфейса</string>
-    <string name="grp_proxy">Прокси</string>
-    <string name="special_thanks">Специални благодарности</string>
     <string name="sort_by_date_modified">Датата е сменена</string>
     <string name="sort_by_like_date">Дата на харесване</string>
     <string name="grp_audio">Аудио</string>
@@ -24,7 +20,6 @@
     <string name="scanner_sensitivity_L3">Съпоставете заглавие, изпълнители, албуми</string>
     <string name="oobe_welcome_message">Добре дошли в InterTune</string>
     <string name="scanner_type_ffmpeg_ext">Използвайте инструмент за извличане на FFmpeg метаданни. Моля, използвайте само пълния вариант на приложението. Основният вариант може да причини проблеми с проследяването на песните</string>
-    <string name="grp_interface">Интерфейс</string>
     <string name="grp_layout">Оформление</string>
     <string name="grp_lyrics_parser">Анализатор</string>
     <string name="grp_manual_scanner">Ръчно сканиране</string>
@@ -55,7 +50,6 @@
     <string name="ytm_sync">Автоматично синхронизиране с вашия профил в YouTube Music</string>
     <string name="tab_arrangement_home_required">Разделът Начало е задължителен.</string>
     <string name="lyrics_prefer_local_description">Дайте приоритет на разрешаването на локални текстови файлове, преди да използвате всички доставчици на облачни услуги. Изключете тази опция, за да дадете приоритет на доставчиците на облачни услуги</string>
-    <string name="scanner_missing_ffmpeg">FFmpeg екстракторът не е открит</string>
     <string name="scanner_type_taglib">Използвайте интегриран инструмент за извличане на метаданни TagLib</string>
     <string name="recent_activity">Скорошна дейнист</string>
     <string name="local_history">Локално</string>
@@ -63,8 +57,6 @@
     <string name="queue_remote_history">История (дистанционна)</string>
     <string name="remote_history">Дистанционно</string>
     <string name="song_added_to_queue">\"%s\" вмъкнато в опашката</string>
-    <string name="select">Режим на избор</string>
-    <string name="like_all">Харесай всички</string>
     <string name="delete_lyric_confirm">Наистина ли искате да изтриете запазените текстове за \"%s\"?</string>
     <string name="err_stop_on_too_many_errors">Прекалено много грешки. Възпроизвеждането е спряно</string>
     <string name="wait_to_reconnect">Изчакай за повторно свързване</string>
@@ -89,7 +81,6 @@
     <string name="scan_paths_tooltip">Всички поддиректории също ще бъдат засегнати</string>
     <string name="scan_paths_add_folder">Добавяне на нова папка</string>
     <string name="scanner_progress_complete">Сканирането е завършено</string>
-    <string name="scanner_progress_scanning">Сканиране…</string>
     <string name="scanner_progress_syncing">Синхронизиране…</string>
     <string name="scanner_scan_fail">Неуспешно сканиране</string>
     <plurals name="scanner_n_song_processed">
@@ -110,8 +101,6 @@
     <string name="action_next">Следващ</string>
     <string name="action_skip">Пропускане</string>
     <string name="action_cancel">Отказ</string>
-    <string name="info">Информация</string>
-    <string name="attrib_zhuang">Zion Huang за InnerTune</string>
     <string name="keep_alive_title">Предотвратяване на опцията за спиране на приложението</string>
     <string name="scanner_variant_rescan">Сканирайте отново цялата библиотека и презаредете метаданните на всички песни</string>
     <string name="scanner_local_title">Локално сканиране</string>
@@ -122,7 +111,6 @@
     <string name="tab_arrangement_disable_tip">--- Плъзнете тук отдолу, за да деактивирате ---</string>
     <string name="scan_paths_excl">Изключени пътища за сканиране</string>
     <string name="scanner_ytm_link_fail">Неуспешна задача за свързване на изпълнител в YouTube</string>
-    <string name="experimental_settings_title">Експериментални</string>
     <string name="dev_settings_title">Активирайте настройките за програмисти</string>
     <string name="oobe_use_backup">Имам резервно копие</string>
     <string name="grp_lyrics_source">Източници на текстовете</string>
@@ -205,8 +193,6 @@
     <string name="dl_rescan_description">Актуализирайте базата данни и обновете регистъра за изтегляния, ако някои файлове или папки са се променили</string>
     <string name="dl_rescan_confirm">Да се сканират ли отново всички папки за изтегляне сега? Това може да отнеме няколко минути в зависимост от размера на вашата библиотека.</string>
     <string name="restart_to_apply_changes">Необходимо е рестартиране на приложението, за да влязат в сила промените</string>
-    <string name="speed_very_fast">Много бързо</string>
-    <string name="speed_very_slow">Много бавно</string>
     <string name="speed_slow">Бавно</string>
     <string name="speed_medium">Средно</string>
     <string name="speed_fast">Бързо</string>
@@ -254,9 +240,7 @@
     <string name="action_logout_tooltip">За да излезете напълно, моля, излезте от профила си в YouTube в уеб портала, преди да използвате този бутон за излизане</string>
     <string name="max_queues_title">Максимален брой опашки</string>
     <string name="oobe_welcome_tip">За най-добро изживяване препоръчваме да извършите бърза настройка, за да персонализирате ключови настройки, като тема, YouTube акаунт, локални медии и изтегляния.</string>
-    <string name="oobe_cache_title">Кеш на песен</string>
     <string name="oobe_cache_subtitle">Изберете размер на кеша на песента. Това може да помогне за намаляване на проблеми с възпроизвеждането с интернет или YouTube API</string>
-    <string name="grp_more_settings">Още настройки</string>
     <string name="auto_scanner_tooltip">За локални медии автоматичното сканиране не презарежда метаданните на съществуващите песни. Използвайте ръчното сканиране с отметнато квадратче за повторно сканиране, ако искате да обновите и метаданните.</string>
     <string name="scanner_auto_end">Обновяването на изтеглянията на локални медии и песни е завършено!</string>
     <string name="scanner_auto_start">Опресняване на локални папки за медийни файлове и изтегляне на песни…</string>
@@ -328,7 +312,6 @@
     <string name="grp_polls">Въпроси</string>
     <string name="polls_enabled">Питай ме от време на време</string>
     <string name="polls_enabled_description">InterTune от време на време проверява дали има въпрос и го показва най-горе на началния екран. Изключено по подразбиране. Отговорите са анонимни: изпращат се само въпросът, вашият избор и версията на приложението. Докато това е изключено, не се изтегля нищо.</string>
-    <string name="polls_check_now">Провери за въпрос сега</string>
     <string name="polls_none">В момента няма въпрос</string>
     <string name="polls_one_waiting">Има въпрос, който ви чака</string>
     <string name="polls_forget">Позволи да ме питат отново</string>

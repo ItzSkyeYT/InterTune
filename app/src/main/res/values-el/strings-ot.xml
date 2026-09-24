@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="select">Λειτουργία επιλογής</string>
-    <string name="queue_searched_songs_ot">Αναζήτηση:</string>
     <string name="local_history">Τοπικό</string>
     <string name="queue_local_history">Ιστορικό (τοπικό)</string>
     <string name="queue_remote_history">Ιστορικό (απομακρυσμένο)</string>
@@ -10,7 +8,6 @@
     <string name="song_added_to_queue">Το «%s» εισήχθη στην ουρά</string>
     <string name="song_added_to_queue_end">Το «%s» προστέθηκε στο τέλος της ουράς</string>
     <string name="auto_playlist">Αυτόματη λίστα αναπαραγωγής</string>
-    <string name="like_all">Μου αρέσουν όλα</string>
     <string name="folders">Φάκελοι</string>
     <string name="library">Βιβλιοθήκη</string>
     <string name="recent_activity">Πρόσφατη δραστηριότητα</string>
@@ -34,16 +31,11 @@
     <string name="grp_audio">Ήχος</string>
     <string name="grp_extra_scanner_settings">Πρόσθετες ρυθμίσεις σάρωσης</string>
     <string name="grp_general">Γενικά</string>
-    <string name="grp_interface">Διεπαφή</string>
     <string name="grp_layout">Διάταξη</string>
     <string name="grp_localization">Τοπικοποίηση</string>
     <string name="grp_lyrics_format">Μορφοποίηση</string>
     <string name="grp_lyrics_parser">Αναλυτής</string>
     <string name="grp_lyrics_source">Πηγές στίχων</string>
-    <string name="grp_proxy">Διαμεσολάβηση</string>
-    <string name="attrib_zhuang">Zion Huang για το InnerTune</string>
-    <string name="special_thanks">Ειδικές ευχαριστίες</string>
-    <string name="new_interface">Νέα διάταξη διεπαφής</string>
     <string name="player_background_blur">Θόλωμα</string>
     <string name="player_background_default">Ίδιο με θέμα</string>
     <string name="player_background_gradient">Διαβάθμιση</string>
@@ -88,7 +80,6 @@
     <string name="att_contributor">Συντελεστής</string>
     <string name="att_lead_developer">Κύριος προγραμματιστής</string>
     <string name="library_filter">Φίλτρο Βιβλιοθήκης</string>
-    <string name="grp_more_settings">Περισσότερες Ρυθμίσεις</string>
     <string name="att_maintainer">Συντηρητής</string>
     <string name="att_translator">Μεταφραστής (%s)</string>
     <string name="action_logout_tooltip">Για πλήρη έξοδο, παρακαλώ εξέλθετε απο τον λογαριασμό σας στο YouTube στη διαδικτυακή πύλη του YouTube πρωτού εξέλθετε απο εδώ</string>
@@ -156,7 +147,6 @@
     <string name="grp_polls">Ερωτήσεις</string>
     <string name="polls_enabled">Να μου κάνετε πού και πού μια ερώτηση</string>
     <string name="polls_enabled_description">Το InterTune ελέγχει πού και πού αν υπάρχει ερώτηση και τη δείχνει στην κορυφή της αρχικής. Απενεργοποιημένο από προεπιλογή. Οι απαντήσεις είναι ανώνυμες: στέλνονται μόνο η ερώτηση, η επιλογή σας και η έκδοση της εφαρμογής. Όσο αυτό είναι ανενεργό, δεν λαμβάνεται απολύτως τίποτα.</string>
-    <string name="polls_check_now">Έλεγχος για ερώτηση τώρα</string>
     <string name="polls_none">Καμία ερώτηση αυτή τη στιγμή</string>
     <string name="polls_one_waiting">Υπάρχει μια ερώτηση που περιμένει</string>
     <string name="polls_forget">Να μπορούν να με ρωτήσουν ξανά</string>

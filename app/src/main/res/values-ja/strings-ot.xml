@@ -1,15 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="grp_interface">インターフェイス</string>
     <string name="playlist_add_local_to_synced_note">注: 同期/リモートの再生リストに端末内の曲の追加はできません。その他の組み合わせは有効です</string>
     <string name="local_history">端末内</string>
     <string name="create_queue">新しいキュー</string>
-    <string name="queue_searched_songs_ot">検索:</string>
     <string name="song_added_to_queue">\"%s\"をキューに追加しました</string>
     <string name="song_added_to_queue_end">\"%s\"をキューの最後に追加しました</string>
     <string name="auto_playlist">自動再生リスト</string>
-    <string name="select">選択モード</string>
-    <string name="like_all">すべてにいいね</string>
     <string name="err_play_next_on_error">エラーが発生しました。次の曲を再生します</string>
     <string name="err_stop_on_error">エラーが発生しました。再生を停止しました</string>
     <string name="err_stop_on_too_many_errors">エラーが多すぎます。再生を停止しました</string>
@@ -46,9 +42,7 @@
     <string name="scanner_local_title">端末内スキャン</string>
     <string name="scanner_manual_btn">手動で同期する</string>
     <string name="scanner_warning">初期設定では、上記で指定しない限り、スキャンは既存の曲のメタデータを再読み込みしません。ライブラリの量によっては、時間がかかります。</string>
-    <string name="scanner_missing_ffmpeg">FFmpeg 抽出プログラムが検出されませんでした</string>
     <string name="scanner_missing_storage_perm">端末内メディアをスキャンするにはストレージの権限が必要</string>
-    <string name="scanner_progress_scanning">スキャン中…</string>
     <string name="folders">フォルダ</string>
     <string name="recent_activity">最近のアクティビティ</string>
     <string name="remote_history">リモート</string>
@@ -66,7 +60,6 @@
     <string name="library">ライブラリ</string>
     <string name="grp_extra_scanner_settings">ほかのスキャン設定</string>
     <string name="grp_lyrics_source">歌詞の提供元</string>
-    <string name="grp_proxy">プロキシ</string>
     <string name="tab_arrangement_disable_tip">--- ここにドラッグして無効化 ---</string>
     <string name="like_autodownload">いいねした曲を自動でダウンロード</string>
     <string name="wifi_only">Wi-Fiのみ</string>
@@ -76,8 +69,6 @@
     <string name="ytm_sync">YouTube Music アカウントと自動で同期</string>
     <string name="token_hidden">タップしてトークンを表示</string>
     <string name="grp_manual_scanner">手動でスキャン</string>
-    <string name="attrib_zhuang">Zion Huang の InnerTune</string>
-    <string name="special_thanks">謝辞</string>
     <string name="player_background_blur">ぼかし</string>
     <string name="player_background_default">テーマに従う</string>
     <string name="player_background_gradient">グラデーション効果</string>
@@ -119,14 +110,11 @@
     <string name="action_back">戻る</string>
     <string name="action_next">次へ</string>
     <string name="action_skip">スキップ</string>
-    <string name="info">情報</string>
     <string name="player_background_style">プレーヤーの背景スタイル</string>
     <string name="oobe_use_backup">バックアップがある</string>
     <string name="token_adv_login_description">これは高度なログイン方法です。ウェブポータルの代わりに、ここでログイントークンを直接入力または更新することもできます。たとえば、これにより複数の端末でのログインが高速化されます</string>
     <string name="scanner_type_ffmpeg_ext">FFmpeg メタデータ抽出ツールを使用します。完全版のみをご利用ください。コア版では曲の操作に問題を起こすことがあります</string>
     <string name="scanner_variant_rescan">ライブラリ全体を再スキャンし、すべての曲のメタデータを再読み込み</string>
-    <string name="new_interface">新しいレイアウト</string>
-    <string name="experimental_settings_title">実験的な設定</string>
     <string name="grp_general">一般</string>
     <string name="queue_remote_history">履歴 (リモート)</string>
     <string name="queue_local_history">履歴 (端末内)</string>
@@ -159,10 +147,8 @@
     <string name="speed_slow">遅い</string>
     <string name="lyrics_karaoke_title">カラオケ風の歌詞。</string>
     <string name="m3u_export">M3Uファイルで保存する</string>
-    <string name="speed_very_slow">とても遅い</string>
     <string name="speed_medium">普通</string>
     <string name="speed_fast">速い</string>
-    <string name="speed_very_fast">とても速い</string>
     <string name="tablet_ui_title">タブレット用のUIを強制的に使用</string>
     <string name="library_empty">ライブラリの内容がここに表示されます</string>
     <string name="oss_licenses_title">オープンソースライセンス</string>
@@ -249,7 +235,6 @@
     <string name="audio_decoder_system_with_ffmpeg">システムのデコーダーを優先</string>
     <string name="action_logout_tooltip">完全にログアウトするには、このログアウトボタンを使う前に、ウェブポータルでYouTubeアカウントからサインアウトしてください</string>
     <string name="max_queues_title">キューの最大数</string>
-    <string name="oobe_cache_title">曲のキャッシュ</string>
     <string name="oobe_welcome_tip">快適に使用するには、テーマ、YouTubeアカウント、端末内メディア、ダウンロードなど自分向けにするための主な設定を簡単に設定することをお勧めします。</string>
     <string name="oobe_cache_subtitle">曲のキャッシュのサイズを選択。ネット接続やYouTube APIの再生に関する問題を軽減します</string>
     <string name="library_filter">ライブラリを絞り込み</string>
@@ -319,7 +304,6 @@
     <string name="grp_polls">質問</string>
     <string name="polls_enabled">ときどき質問する</string>
     <string name="polls_enabled_description">InterTune はときどき質問があるかを確認し、ホームの上部に表示します。既定ではオフです。回答は匿名で、送信されるのは質問、選んだ内容、アプリのバージョンだけです。オフの間は何も取得しません。</string>
-    <string name="polls_check_now">今すぐ質問を確認</string>
     <string name="polls_none">今のところ質問はありません</string>
     <string name="polls_one_waiting">質問があります</string>
     <string name="polls_forget">もう一度質問できるようにする</string>

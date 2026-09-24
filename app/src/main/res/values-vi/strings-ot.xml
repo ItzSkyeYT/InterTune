@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="select">Chế độ lựa chọn</string>
     <string name="grp_lyrics_format">Định dạng</string>
     <string name="sort_by_date_released">Ngày phát hành</string>
     <string name="sync_progress_success">Đồng bộ hoàn tất</string>
@@ -18,17 +17,12 @@
     <string name="sort_by_like_date">Ngày bạn đã thích</string>
     <string name="queue_local_history">Lịch sử (cục bộ)</string>
     <string name="player_background_gradient">Theo màu sắc</string>
-    <string name="queue_searched_songs_ot">Tìm kiếm:</string>
     <string name="song_added_to_queue_end">\"%s\" đã được thêm vào cuối hàng chờ</string>
     <string name="queues_empty">Không có hàng chờ nào</string>
-    <string name="like_all">Yêu thích tất cả</string>
     <string name="err_stop_on_too_many_errors">Quá nhiều lỗi đã xảy ra. Đã dừng trình phát nhạc</string>
     <string name="wait_to_reconnect">Đang chờ kết nối lại</string>
     <string name="sync_progress_active">Đang đồng bộ với tài khoản YouTube của bạn…</string>
     <string name="grp_lyrics_parser">Trình bày</string>
-    <string name="grp_proxy">Proxy</string>
-    <string name="special_thanks">Đặc biệt cảm ơn</string>
-    <string name="new_interface">Bố cục giao diện mới</string>
     <string name="player_background_blur">Làm mờ</string>
     <string name="slim_navbar_title">Làm thanh điều chỉnh mỏng hơn</string>
     <string name="tab_arrangement">Sắp xếp các tab</string>
@@ -48,11 +42,9 @@
     <string name="err_play_next_on_error">Đã xảy ra lỗi. Đang phát bài tiếp theo</string>
     <string name="err_stop_on_error">Đã xảy ra lỗi. Đã dừng trình phát nhạc</string>
     <string name="sort_by_play_count">Số lần nghe</string>
-    <string name="attrib_zhuang">Zion Huang về InnerTune</string>
     <string name="filter_arrangement">Sắp xếp bộ lọc</string>
     <string name="settings_debug">Gỡ lỗi</string>
     <string name="playlist_add_local_to_synced_note">Note: Thêm bài hát có sẵn ở trong máy vào danh sách phát đã được đồng bộ / từ bên ngoài (remote) sẽ không được hỗ trợ. Còn lại đều là hợp lệ</string>
-    <string name="grp_interface">Giao diện</string>
     <string name="player_background_default">Theo chủ đề</string>
     <string name="slim_navbar_description">Xóa nhãn chữ để giảm độ dày của thanh điều chỉnh</string>
     <string name="grp_localization">Vị trí</string>
@@ -99,7 +91,6 @@
     <string name="file_path">Đường dẫn của tệp</string>
     <string name="extra_details">Thông tin thêm</string>
     <string name="library_filter">Bộ lọc thư viện</string>
-    <string name="grp_more_settings">Thêm cài đặt</string>
     <string name="import_success_songs">Nhập thành công</string>
     <string name="lyrics_font_Size">Cỡ chữ</string>
     <string name="lyrics_karaoke_title">Kiểu lời bài hát karaoke</string>
@@ -180,7 +171,6 @@
     <string name="grp_polls">Câu hỏi</string>
     <string name="polls_enabled">Thỉnh thoảng hỏi tôi một câu</string>
     <string name="polls_enabled_description">InterTune thỉnh thoảng kiểm tra xem có câu hỏi nào không và hiện nó ở đầu màn hình chính. Mặc định tắt. Câu trả lời là ẩn danh: chỉ gửi câu hỏi, lựa chọn của bạn và phiên bản ứng dụng. Khi tắt thì không tải về bất cứ thứ gì.</string>
-    <string name="polls_check_now">Kiểm tra câu hỏi ngay</string>
     <string name="polls_none">Hiện chưa có câu hỏi nào</string>
     <string name="polls_one_waiting">Có một câu hỏi đang chờ</string>
     <string name="polls_forget">Cho phép hỏi tôi lại</string>
