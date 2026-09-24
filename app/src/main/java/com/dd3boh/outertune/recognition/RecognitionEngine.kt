@@ -6,6 +6,10 @@
 
 package com.dd3boh.outertune.recognition
 
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
+import com.dd3boh.outertune.R
 import android.Manifest
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -185,11 +189,17 @@ class RecognitionEngine @Inject constructor(
 
     private var followWatch: Job? = null
 
-    /** Sends every song recognised from now on into [playlist] as well, or stops, given null. */
-    fun follow(playlist: PlaylistEntity?) {
+    /**
+     * Sends every song recognised from now on into [playlist] as well, or stops, given null.
+     *
+     * @param wrote the songs the save or the picker itself just put in [playlist], which are this
+     * run's to take out again if one turns out to be a piece of a mashup.
+     */
+    fun follow(playlist: PlaylistEntity?, wrote: Collection<String> = emptyList()) {
         followWatch?.cancel()
         _following.value = playlist
         if (playlist == null) return
+        synchronized(written) { wrote.forEach { written += it to playlist.id } }
         // Deleted from the library while followed: the screen stops claiming new songs go there,
         // and the writes, which would all fail on the missing playlist, stop being attempted. Both
         // callers follow a playlist already in the database, so the first value is never null.
@@ -202,6 +212,54 @@ class RecognitionEngine @Inject constructor(
     private var job: Job? = null
     private var playlist: Playlist? = null
     private var known = mutableSetOf<String>()
+
+    /**
+     * What this run confirmed, by Shazam key. A song carrying on is then just carrying on: before
+     * this, a run with no playlist had nothing to remember it by and confirmed the same song every
+     * two windows for as long as it played, and when the pick flipped between the original and a
+     * sped-up upload of it, both ended up in the list.
+     */
+    private val confirmed = mutableMapOf<String, SongItem>()
+
+    /** The speed the last pair of listens measured, when it was not the original's. */
+    private var pendingVariant: PlaybackVariant? = null
+
+    private val mixWatch = MixWatch()
+
+    /**
+     * A mashup being heard: the keys of its pieces, which are not added while it lasts, and what it
+     * was found to be, if anything. Ends once none of its pieces has been heard for a while.
+     */
+    private class ActiveMix(
+        val keys: MutableSet<String> = mutableSetOf(),
+        var lastHeardMs: Long = 0,
+        var strong: Boolean = false,
+        var found: SongItem? = null,
+        /** Answered: a clear winner was taken, or the person picked one or said none of these. */
+        var settled: Boolean = false,
+        /** A search went through. A failed one is tried again the next time a piece comes back. */
+        var searched: Boolean = false,
+    )
+    private var mix: ActiveMix? = null
+
+    /** Playlist rows this run wrote, song id to playlist id, so a piece of a mashup can come out. */
+    private val written = mutableListOf<Pair<String, String>>()
+
+    /**
+     * Songs this run put in the list or a playlist itself. Taking a piece of a mashup out only
+     * touches these: the list lasts across runs, and a song an earlier run placed is not this run's
+     * to remove.
+     */
+    private val owned = mutableSetOf<String>()
+
+    /**
+     * A mashup that was heard but could not be told apart from another on YouTube, with the uploads
+     * it could be. For the person to pick, since two mashups of the same songs sound alike to a
+     * search that only knows the songs.
+     */
+    data class MixChoice(val pieces: List<String>, val candidates: List<SongItem>)
+    private val _mixChoice = MutableStateFlow<MixChoice?>(null)
+    val mixChoice = _mixChoice.asStateFlow()
 
     /**
      * The first sighting of a track, held until a second one confirms it.
@@ -237,6 +295,13 @@ class RecognitionEngine @Inject constructor(
         _added.value = emptyList()
         _skipped.value = emptyList()
         pending = null
+        pendingVariant = null
+        confirmed.clear()
+        mixWatch.clear()
+        mix = null
+        _mixChoice.value = null
+        synchronized(written) { written.clear() }
+        synchronized(owned) { owned.clear() }
 
         job = scope.launch {
             running.value = true
@@ -348,6 +413,17 @@ class RecognitionEngine @Inject constructor(
             }
 
             is RecognitionOutcome.Match -> {
+                // Every window, with where in the track it landed and Shazam's own speed and pitch
+                // estimates, so a run over something odd can be read back afterwards. The mashup
+                // run of 24 Sep had only titles to go on.
+                outcome.track.let { t ->
+                    Log.i(
+                        TAG,
+                        "Window: '${t.title}' by '${t.artist}' key=${t.shazamKey} " +
+                                "offset=${"%.1f".format(t.offsetSeconds)} " +
+                                "skew=${"%.4f".format(t.timeSkew)}/${"%.4f".format(t.frequencySkew)}",
+                    )
+                }
                 // A different song from the one on show, so the old one comes down now rather
                 // than after the YouTube search below, which takes a second or two that were
                 // spent counting through a track the room had left. The new one goes up without
@@ -438,14 +514,33 @@ class RecognitionEngine @Inject constructor(
                     )
                 )
 
+                // A piece of a mashup is not added, and neither is anything while it is being
+                // worked out. Only in Keep listening, the one mode that hears enough windows.
+                val key = outcome.track.shazamKey
+                if (keepGoing && key != null) {
+                    mix?.let { if (heardAtMs - it.lastHeardMs > MIX_QUIET_MS) mix = null }
+                    mixWatch.observe(MixWatch.Sighting(key, outcome.track.title, outcome.track.artist, heardAtMs))
+                        ?.let { onMix(it, heardAtMs, key) }
+                    // Only a return after a cut keeps a mashup going (onMix). A piece playing
+                    // straight on used to refresh it on every window and so stayed blocked for as
+                    // long as it played; now it is confirmed as usual once the cuts stop.
+                    mix?.takeIf { key in it.keys }?.let {
+                        Log.i(TAG, "'${outcome.track.title}' is part of a mashup, not adding it")
+                        pending = null
+                        pendingVariant = null
+                        return
+                    }
+                }
+
                 // The setting is about adding to a playlist. A run with no playlist adds nothing
                 // either way, and reading it there sent every confident match to the unsure list,
                 // so with it off the screen never listed a single song it had placed.
                 val autoAdd = context.dataStore.data.first()[RecogniseAutoAddKey] ?: true
                 if (keepGoing && certain && best != null && (autoAdd || playlist == null)) {
-                    if (best.id in known) {
+                    if (best.id in known || (key != null && key in confirmed)) {
                         Log.i(TAG, "Still '${best.title}', carrying on")
                         pending = null
+                        pendingVariant = null
                         return
                     }
 
@@ -457,12 +552,41 @@ class RecognitionEngine @Inject constructor(
                         // measure the playback rate against.
                         Log.i(TAG, "Heard '${outcome.track.title}', listening again to confirm")
                         pending = outcome.track to heardAtMs
+                        // A speed read off another song says nothing about this one.
+                        pendingVariant = null
                         _state.value = State.Confirming(outcome.track)
                         return
                     }
 
                     val apart = (heardAtMs - waiting.second) / 1000.0
+                    val advanced = outcome.track.offsetSeconds - waiting.first.offsetSeconds
+                    // Sure means the two listens agree. If the track moved on by far more or far
+                    // less than the clock did, or went backwards, the room is not playing it from
+                    // start to end: a mashup or an edit cutting between its sections, or a repeated
+                    // chorus matched at the wrong one. Neither is a second listen, so this one
+                    // starts a confirmation of its own.
+                    if (advanced < apart * STEADY_MIN || advanced > apart * STEADY_MAX) {
+                        Log.i(
+                            TAG,
+                            "'${outcome.track.title}' moved ${"%.1f".format(advanced)}s in " +
+                                    "${"%.1f".format(apart)}s, listening again",
+                        )
+                        pending = outcome.track to heardAtMs
+                        pendingVariant = null
+                        _state.value = State.Confirming(outcome.track)
+                        return
+                    }
                     val variant = PlaybackVariant.between(waiting.first, outcome.track, apart)
+                    // A slowed or sped-up copy has to measure so twice in a row. The Damage mashup
+                    // measured Faint as sped up once and as the original after, and the sped-up
+                    // reading alone would have picked the wrong upload.
+                    if (variant != PlaybackVariant.ORIGINAL && pendingVariant != variant) {
+                        Log.i(TAG, "'${outcome.track.title}' measured $variant once, listening again")
+                        pending = outcome.track to heardAtMs
+                        pendingVariant = variant
+                        _state.value = State.Confirming(outcome.track)
+                        return
+                    }
                     val chosen = pickBest(outcome.track, candidates, variant) ?: best
                     Log.i(
                         TAG,
@@ -470,6 +594,8 @@ class RecognitionEngine @Inject constructor(
                                 "variant=$variant, adding '${chosen.title}'"
                     )
                     pending = null
+                    pendingVariant = null
+                    key?.let { confirmed[it] = chosen }
                     add(chosen)
                     return
                 }
@@ -528,7 +654,9 @@ class RecognitionEngine @Inject constructor(
             appended = list.none { it.id == song.id }
             if (appended) list + song else list
         }
-        if (appended) _following.value?.let { writeInto(it, song) }
+        if (!appended) return
+        synchronized(owned) { owned += song.id }
+        _following.value?.let { writeInto(it, song) }
     }
 
     /** Puts [song] at the end of [playlist], unless it is in there already. */
@@ -545,6 +673,7 @@ class RecognitionEngine @Inject constructor(
                             position = nextPlaylistPosition(playlist.id),
                         )
                     )
+                    synchronized(written) { written += song.id to playlist.id }
                     true
                 }
             }.onFailure { Log.w(TAG, "Could not add '${song.title}' to ${playlist.name}", it) }
@@ -564,6 +693,7 @@ class RecognitionEngine @Inject constructor(
         // records nothing there: its songs went into that playlist already.
         val target = playlist ?: return record(song)
         if (!known.add(song.id)) return
+        synchronized(owned) { owned += song.id }
         _added.value += Added(song.title, song.artists.joinToString { it.name }, auto = continuous.value)
         Log.i(TAG, "Added '${song.title}'")
 
@@ -583,9 +713,132 @@ class RecognitionEngine @Inject constructor(
                         position = nextPlaylistPosition(target.id),
                     )
                 )
+                synchronized(written) { written += song.id to target.id }
             }
             target.playlist.browseId?.let { runCatching { YouTube.addToPlaylist(it, song.id) } }
         }
+    }
+
+    /**
+     * A song came back after being interrupted by others: see [MixWatch]. Looks for the mashup on
+     * YouTube, and only if that finds one naming two of the pieces does anything happen: the pieces
+     * come back out, and the mashup goes in, or is offered to pick from when two uploads tie.
+     *
+     * The order alone was too little. Skipping back to the previous song, a playlist that repeats,
+     * a DJ blending two tracks and one recording under two Shazam keys all come back to a song in
+     * the same way, and each of them took correctly named songs out of the list.
+     *
+     * Inline on the listening loop rather than launched, because it reads and writes the same state
+     * the loop does. The microphone keeps capturing meanwhile, so no audio is lost to the search.
+     */
+    private suspend fun onMix(found: MixWatch.Mix, now: Long, returning: String) {
+        val songs = MixSearch.distinctSongs(found.pieces)
+        if (songs.size < 2) return
+        // Something in between that was confirmed, over two listens moving at the speed of the
+        // clock, was a song that played: somebody skipped back, or a playlist came round.
+        if (found.pieces.any { it.key != returning && it.key in confirmed }) return
+
+        val keys = found.pieces.map { it.key }
+        val active = mix
+        if (active != null && (active.settled || (active.searched && active.keys.containsAll(keys) && (active.strong || !found.strong)))) {
+            active.keys += keys
+            active.lastHeardMs = now
+            // Answered already, so a new piece is only taken out of the list, not asked about.
+            if (active.settled) retract(found.pieces)
+            return
+        }
+
+        val ranked = searchMix(songs)
+        // Stopped or cleared while the search ran: YouTube.search catches the cancellation, so
+        // without this the rest would carry on against a run that no longer exists.
+        currentCoroutineContext().ensureActive()
+        val winner = ranked?.let { MixSearch.clearWinner(it) }
+        val titles = songs.map { it.title }
+        Log.i(
+            TAG,
+            "Mashup of ${titles.joinToString(" + ")}? strong=${found.strong}, " +
+                    (ranked?.take(3)?.joinToString { "'${it.first.title}' ${it.second}" } ?: "search failed") +
+                    ", taking ${winner?.title?.let { "'$it'" } ?: "nothing"}",
+        )
+        // Nothing on YouTube names two of the pieces, so there is no mashup to point at, and the
+        // songs heard stay as they are. One odd window with only a toss-up is left alone too.
+        // A failed search changes nothing either; the next time a piece comes back it runs again.
+        if (ranked.isNullOrEmpty() || (winner == null && !found.strong)) return
+
+        val current = (active ?: ActiveMix().also { mix = it }).apply {
+            this.keys += keys
+            lastHeardMs = now
+            strong = strong || found.strong
+            searched = true
+        }
+        retract(found.pieces)
+        val autoAdd = playlist == null || (context.dataStore.data.first()[RecogniseAutoAddKey] ?: true)
+        when {
+            winner != null && autoAdd -> {
+                current.settled = true
+                current.found = winner
+                _mixChoice.value = null
+                add(winner)
+            }
+            // The choice is drawn by the screen, whose runs have no playlist. The sheet shows the
+            // unsure list instead, so a playlist's run notes the mashup there.
+            winner == null && playlist == null ->
+                _mixChoice.value = MixChoice(titles, ranked.take(3).map { it.first })
+            else -> {
+                val name = winner?.title ?: titles.joinToString(" + ")
+                if (_skipped.value.none { it.title == name }) {
+                    _skipped.value += Added(name, context.getString(R.string.recognise_mashup), auto = false)
+                }
+            }
+        }
+    }
+
+    /** Ranked mashups naming two of [songs], or null when a search failed and found nothing. */
+    private suspend fun searchMix(songs: List<MixWatch.Sighting>): List<Pair<SongItem, Int>>? {
+        var failed = false
+        val results = MixSearch.queries(songs).map { query ->
+            YouTube.search(query, YouTube.SearchFilter.FILTER_VIDEO)
+                .onFailure {
+                    failed = true
+                    Log.w(TAG, "Mashup search for '$query' failed", it)
+                }
+                .getOrNull()?.items?.filterIsInstance<SongItem>()?.take(10).orEmpty()
+        }
+        return MixSearch.rank(songs, results).takeUnless { failed && it.isEmpty() }
+    }
+
+    /**
+     * Takes the songs this run added for [pieces] back out of the list and out of any playlist it
+     * put them in. Only what this run placed: a song that was in the list or the playlist before
+     * stays. A YouTube playlist keeps its copy, which the API here has no way to remove.
+     */
+    private suspend fun retract(pieces: List<MixWatch.Sighting>) {
+        val songs = pieces.mapNotNull { confirmed.remove(it.key) }
+        val ids = synchronized(owned) { songs.map { it.id }.filter { it in owned }.toSet().also { owned.removeAll(it) } }
+        if (ids.isEmpty()) return
+        Log.i(TAG, "Taking out ${songs.filter { it.id in ids }.joinToString { "'${it.title}'" }}, pieces of a mashup")
+        _recognised.update { list -> list.filterNot { it.id in ids } }
+        _added.update { list -> list.filterNot { added -> songs.any { it.id in ids && it.title == added.title } } }
+        known.removeAll(ids)
+        val rows = synchronized(written) { written.filter { it.first in ids }.also { written.removeAll(it) } }
+        if (rows.isEmpty()) return
+        withContext(Dispatchers.IO) {
+            runCatching {
+                database.transactionNow { rows.forEach { (songId, playlistId) -> removeSongFromPlaylist(playlistId, songId) } }
+            }.onFailure { Log.w(TAG, "Could not take the mashup's pieces out of the playlist", it) }
+        }
+    }
+
+    /** The person picked the mashup it was, from [mixChoice]. */
+    fun acceptMix(song: SongItem) {
+        mix?.apply { found = song; settled = true }
+        _mixChoice.value = null
+        add(song)
+    }
+
+    fun dismissMix() {
+        mix?.settled = true
+        _mixChoice.value = null
     }
 
     fun stop() {
@@ -606,11 +859,13 @@ class RecognitionEngine @Inject constructor(
         job = null
         running.value = false
         pending = null
+        pendingVariant = null
         publish(null)
     }
 
     fun reset() {
         stop()
+        _mixChoice.value = null
         _added.value = emptyList()
         // Cleared with the rest, because the button that calls this sits over the list of what
         // was heard, and a clear that left the near misses standing did not clear anything.
@@ -623,6 +878,7 @@ class RecognitionEngine @Inject constructor(
      */
     fun clearRecognised() {
         _recognised.value = emptyList()
+        _mixChoice.value = null
         // A fresh list is not the one that playlist was made from, so it stops filling it.
         follow(null)
     }
@@ -635,5 +891,16 @@ class RecognitionEngine @Inject constructor(
          * one window later; three leaves room for a failed request or a slow search in between.
          */
         private const val PENDING_LIFETIME_WINDOWS = 3
+
+        /**
+         * How far a second listen may have moved through the track for the clock that passed, as
+         * a ratio. Wide enough for any slowed or sped-up edit, which run between about 0.7 and 1.4,
+         * and nothing like a cut to another section.
+         */
+        private const val STEADY_MIN = 0.6
+        private const val STEADY_MAX = 1.6
+
+        /** A mashup ends once none of its pieces has been heard for this long. */
+        private const val MIX_QUIET_MS = 90_000L
     }
 }

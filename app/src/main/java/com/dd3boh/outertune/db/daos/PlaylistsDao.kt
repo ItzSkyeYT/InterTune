@@ -260,6 +260,26 @@ interface PlaylistsDao {
     @Query("DELETE FROM playlist_song_map WHERE playlistId = :playlistId")
     fun clearPlaylist(playlistId: String)
 
+    /**
+     * Takes one song out of one playlist. For recognition, which only calls it on rows it wrote
+     * itself, when a song it added turns out to have been a piece of a mashup.
+     *
+     * Moved to the end first and then deleted, as the playlist screen removes songs, so the
+     * positions after it close up. A plain delete left a gap, and a later drag, which moves by
+     * position, then moved the wrong song.
+     */
+    @Transaction
+    fun removeSongFromPlaylist(playlistId: String, songId: String) {
+        songMapsToPlaylist(playlistId, 0)
+            .filter { it.songId == songId }
+            .sortedByDescending { it.position }
+            .forEach { map ->
+                move(playlistId, map.position, Int.MAX_VALUE)
+                // @Delete matches on the generated id, so the position it held no longer matters.
+                delete(map)
+            }
+    }
+
     @Delete
     fun delete(playlistSongMap: PlaylistSongMap)
     // endregion

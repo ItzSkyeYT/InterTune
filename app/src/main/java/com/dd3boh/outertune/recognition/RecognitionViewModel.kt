@@ -62,6 +62,13 @@ class RecognitionViewModel @Inject constructor(
     /** The playlist new songs are going into, once the list was saved as one or added to one. */
     val following = engine.following
 
+    /** A mashup it could not tell from another, with the uploads it could be. */
+    val mixChoice = engine.mixChoice
+
+    fun acceptMix(song: SongItem) = engine.acceptMix(song)
+
+    fun dismissMix() = engine.dismissMix()
+
     /**
      * A name for the playlist that no playlist in the library already has.
      *
@@ -102,7 +109,8 @@ class RecognitionViewModel @Inject constructor(
         }.onFailure {
             Log.w(TAG, "Could not save the recognised songs as a playlist", it)
         }.onSuccess {
-            engine.follow(playlist)
+            // A new playlist, so every row in it is this save's.
+            engine.follow(playlist, songs.map { it.id })
         }.isSuccess
     }
 
@@ -115,12 +123,18 @@ class RecognitionViewModel @Inject constructor(
      */
     suspend fun prepareForPlaylist(playlist: Playlist, songs: List<SongItem>): List<String> =
         withContext(Dispatchers.IO) {
+            val ids = songs.map { it.id }
             database.transactionNow { songs.forEach { insert(it.toMediaMetadata()) } }
-            songs.map { it.id }
+            // Only the ones not there already are the picker's to write, and so this run's to take
+            // out again should one turn out to be a piece of a mashup.
+            pickerWrote = ids - database.playlistDuplicates(playlist.id, ids).toSet()
+            ids
         }
 
+    private var pickerWrote: List<String> = emptyList()
+
     /** Sends every song recognised from now on into [playlist] too. Once the picker has added. */
-    fun follow(playlist: PlaylistEntity) = engine.follow(playlist)
+    fun follow(playlist: PlaylistEntity) = engine.follow(playlist, pickerWrote)
 
     /** New songs stay in the list but stop going into the playlist. */
     fun stopFollowing() = engine.follow(null)

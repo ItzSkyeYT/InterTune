@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens
 
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.ui.text.style.TextOverflow
@@ -168,6 +169,7 @@ fun RecognitionScreen(
     val skipped by viewModel.skipped.collectAsState()
     val recognised by viewModel.recognised.collectAsState()
     val following by viewModel.following.collectAsState()
+    val mixChoice by viewModel.mixChoice.collectAsState()
 
     // Held only while it is actually listening, and released the moment it stops or the screen
     // leaves. Listening itself survives the screen going off, since the service holds a foreground
@@ -455,6 +457,39 @@ fun RecognitionScreen(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                 )
+            }
+        }
+
+        // A mashup it heard but could not tell from another mashup of the same songs, which a search
+        // that only knows the songs cannot. The pieces are already out of the list; picking one puts
+        // the mashup in it like any recognised song.
+        mixChoice?.let { choice ->
+            item(key = "mix_choice") {
+                Text(
+                    text = stringResource(R.string.recognise_mix_title, choice.pieces.joinToString(" + ")),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+            items(choice.candidates, key = { "mix/${it.id}" }) { song ->
+                YouTubeListItem(
+                    item = song,
+                    trailingContent = {
+                        IconButton(onClick = { viewModel.acceptMix(song) }) {
+                            Icon(Icons.Rounded.Add, contentDescription = null)
+                        }
+                    },
+                    modifier = Modifier.clickable { viewModel.acceptMix(song) },
+                )
+            }
+            item(key = "mix_dismiss") {
+                TextButton(
+                    onClick = { viewModel.dismissMix() },
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                ) {
+                    Text(stringResource(R.string.recognise_mix_dismiss))
+                }
             }
         }
 

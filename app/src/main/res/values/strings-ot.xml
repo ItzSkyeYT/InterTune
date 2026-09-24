@@ -694,6 +694,11 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <!-- %1$s is the playlist's name. -->
     <string name="recognise_following">New songs go into %1$s</string>
     <string name="recognise_stop_following">Stop adding to this playlist</string>
+    <!-- Shown after the pieces a mashup was heard to contain, where a song would show its artist. -->
+    <string name="recognise_mashup">mashup</string>
+    <!-- %1$s is the songs heard in it, joined with " + ". -->
+    <string name="recognise_mix_title">Sounds like a mashup of %1$s. Which one is it?</string>
+    <string name="recognise_mix_dismiss">None of these</string>
     <!-- The name a saved list starts with. %1$s is today's date. -->
     <string name="recognise_playlist_name">Heard on %1$s</string>
     <string name="recognise_save_failed">Could not save the playlist</string>
