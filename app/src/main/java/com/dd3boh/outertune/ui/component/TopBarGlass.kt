@@ -212,9 +212,9 @@ fun Modifier.topBarSurface(shape: Shape = CircleShape): Modifier {
  */
 @Composable
 fun Modifier.floatingGlass(glass: GlassSpec, shape: Shape, tint: Color = glass.tint(min = 0.66f, max = 0.98f)): Modifier {
-    // One provider for the node's lifetime that reads the shape as it is now. The node keeps the
-    // first provider it was given, so a `{ shape }` made on each recomposition froze the search
-    // pill's glass at the rectangle it had while open, and every close left square corners.
+    // One provider for the node's lifetime that reads the shape as it is now, so the search pill,
+    // which recomposes on every frame of its open and close, does not hand the node a new lambda
+    // each time. Not a fix: the node already re-reads its provider whenever its size changes.
     val currentShape = rememberUpdatedState(shape)
     val shapeProvider = remember { { currentShape.value } }
     return this
