@@ -201,7 +201,10 @@ interface PlaylistsDao {
 
     @Transaction
     fun addSongToPlaylist(playlist: Playlist, songIds: List<String>) {
-        var position = playlist.songCount
+        // From the table, inside the transaction, not from the Playlist handed in: that is a
+        // snapshot, and anything written since (a recognised song going into a followed playlist
+        // while the duplicates prompt was open) would share a position with these.
+        var position = nextPlaylistPosition(playlist.id)
         songIds.forEach { id ->
             insert(
                 PlaylistSongMap(

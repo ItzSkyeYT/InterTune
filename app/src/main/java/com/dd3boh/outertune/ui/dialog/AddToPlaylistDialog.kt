@@ -47,6 +47,7 @@ import com.dd3boh.outertune.ui.component.items.PlaylistListItem
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.YouTube
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -58,6 +59,8 @@ fun AddToPlaylistDialog(
     initialTextFieldValue: String? = null,
     songIds: List<String>?, // song ids to insert.
     onPreAdd: (suspend (Playlist) -> List<String>)? = null,
+    /** Called once songs have actually gone into the playlist, and not when the person cancels. */
+    onAdded: ((Playlist) -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     val database = LocalDatabase.current
@@ -80,6 +83,10 @@ fun AddToPlaylistDialog(
     var selectedPlaylist by remember {
         mutableStateOf<Playlist?>(null)
     }
+    // A caller that passes no ids gets them from onPreAdd on every pick, not only the first: the
+    // recognition screen's list grows while the picker is open, and a second pick after a cancelled
+    // duplicates prompt used the list as it was the first time.
+    val idsFromPreAdd = songIds == null
     var songIds by remember {
         mutableStateOf<List<String>?>(songIds) // list is not saveable
     }
@@ -183,7 +190,7 @@ fun AddToPlaylistDialog(
                     coroutineScope.launch(Dispatchers.IO) {
                         if (onPreAdd != null) {
                             val result = onPreAdd(playlist)
-                            if (songIds == null) {
+                            if (idsFromPreAdd || songIds == null) {
                                 songIds = result
                             }
                         }
@@ -193,14 +200,8 @@ fun AddToPlaylistDialog(
                         } else {
                             onDismiss()
                             database.addSongToPlaylist(playlist, songIds!!)
-
-                            if (!playlist.playlist.isLocal) {
-                                playlist.playlist.browseId?.let { plist ->
-                                    songIds?.forEach {
-                                        YouTube.addToPlaylist(plist, it)
-                                    }
-                                }
-                            }
+                            onAdded?.invoke(playlist)
+                            pushToYouTube(playlist, songIds!!)
                         }
                     }
                 }
@@ -243,14 +244,11 @@ fun AddToPlaylistDialog(
                     onClick = {
                         showDuplicateDialog = false
                         onDismiss()
-                        database.transaction {
-                            addSongToPlaylist(
-                                selectedPlaylist!!,
-                                songIds!!.filter {
-                                    !duplicates.contains(it)
-                                }
-                            )
-                        }
+                        val playlist = selectedPlaylist!!
+                        val ids = songIds!!.filter { !duplicates.contains(it) }
+                        database.transaction { addSongToPlaylist(playlist, ids) }
+                        onAdded?.invoke(playlist)
+                        pushToYouTube(playlist, ids)
                     }
                 ) {
                     Text(stringResource(R.string.skip_duplicates))
@@ -260,9 +258,11 @@ fun AddToPlaylistDialog(
                     onClick = {
                         showDuplicateDialog = false
                         onDismiss()
-                        database.transaction {
-                            addSongToPlaylist(selectedPlaylist!!, songIds!!)
-                        }
+                        val playlist = selectedPlaylist!!
+                        val ids = songIds!!
+                        database.transaction { addSongToPlaylist(playlist, ids) }
+                        onAdded?.invoke(playlist)
+                        pushToYouTube(playlist, ids)
                     }
                 ) {
                     Text(stringResource(R.string.add_anyway))
@@ -290,5 +290,19 @@ fun AddToPlaylistDialog(
                 modifier = Modifier.align(Alignment.Start)
             )
         }
+    }
+}
+
+/**
+ * Mirrors an add to a YouTube playlist. On a scope of its own, because the dialog's goes when the
+ * dialog closes, which is straight after the add, and a push cut short leaves the songs local only,
+ * where the next sync takes them out again. The duplicates prompt's two add buttons used to push
+ * nothing at all.
+ */
+private fun pushToYouTube(playlist: Playlist, songIds: List<String>) {
+    if (playlist.playlist.isLocal) return
+    val browseId = playlist.playlist.browseId ?: return
+    CoroutineScope(Dispatchers.IO).launch {
+        songIds.forEach { YouTube.addToPlaylist(browseId, it) }
     }
 }
