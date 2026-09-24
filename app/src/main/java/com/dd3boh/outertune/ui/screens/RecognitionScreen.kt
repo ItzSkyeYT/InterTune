@@ -466,7 +466,11 @@ fun RecognitionScreen(
         mixChoice?.let { choice ->
             item(key = "mix_choice") {
                 Text(
-                    text = stringResource(R.string.recognise_mix_title, choice.pieces.joinToString(" + ")),
+                    text = stringResource(
+                        // One song, cut up: it could be a remix as easily as a mashup.
+                        if (choice.pieces.size == 1) R.string.recognise_edit_title else R.string.recognise_mix_title,
+                        choice.pieces.joinToString(" + "),
+                    ),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),

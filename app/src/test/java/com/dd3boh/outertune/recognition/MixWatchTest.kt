@@ -154,6 +154,212 @@ class MixWatchTest {
         assertEquals(damageLyrics.id, MixSearch.clearWinner(ranked)?.id)
     }
 
+    /** Faint's windows from the second Damage run, 24 Sep 12:56: offset, skew, seconds in. */
+    private val faintCuts = listOf(
+        Triple(-2.2, -0.0016, 0), Triple(31.1, -0.0002, 12), Triple(43.1, 0.0003, 24),
+        Triple(12.4, 0.0008, 36), Triple(24.4, 0.0018, 48), Triple(36.5, 0.0005, 60),
+        Triple(87.5, 0.0008, 72), Triple(60.4, 0.0018, 84),
+    )
+
+    @Test
+    fun theDamageRunIsCutUpAMinuteIn() {
+        val watch = CutWatch()
+        val verdicts = faintCuts.map { (offset, skew, at) -> watch.observe("faint", offset, skew, at * 1000L) }
+        // Two cuts that held, from 31 s and from 12 s: known at the fifth window, 48 s in, where the
+        // mashup check needed three and a half minutes and a second song.
+        assertEquals(CutWatch.Verdict.FIRST, verdicts[4])
+        assertTrue(verdicts.subList(0, 4).all { it == CutWatch.Verdict.NONE })
+    }
+
+    @Test
+    fun aSongPlayedStraightIsNeverCut() {
+        val watch = CutWatch()
+        assertTrue((0..15).all { i -> watch.observe("a", 10.0 + i * 12, 0.0, i * 12_000L) == CutWatch.Verdict.NONE })
+    }
+
+    @Test
+    fun aChorusPlacedAtTheWrongRepeatIsNotACut() {
+        val watch = CutWatch()
+        // 60, 72, then the second chorus matched as the first at 45, then back on time at 96.
+        val windows = listOf(60.0 to 0, 72.0 to 12, 45.0 to 24, 96.0 to 36, 108.0 to 48)
+        assertTrue(windows.all { (offset, at) -> watch.observe("a", offset, 0.0, at * 1000L) == CutWatch.Verdict.NONE })
+    }
+
+    @Test
+    fun aRadioEditsTwoCutsMinutesApartAreNotAnEdit() {
+        val watch = CutWatch()
+        val windows = listOf(10.0 to 0, 22.0 to 12, 60.0 to 24, 72.0 to 36, 84.0 to 48, 96.0 to 60,
+            108.0 to 72, 120.0 to 84, 132.0 to 96, 144.0 to 108, 156.0 to 120, 200.0 to 132, 212.0 to 144)
+        assertTrue(windows.all { (offset, at) -> watch.observe("a", offset, 0.0, at * 1000L) == CutWatch.Verdict.NONE })
+    }
+
+    @Test
+    fun aSpedUpCopyMovesFasterWithoutCutting() {
+        val watch = CutWatch()
+        // Nightcore at 1.25: Shazam matches the original and reports the speed as its skew.
+        assertTrue((0..10).all { i -> watch.observe("a", 5.0 + i * 15, 0.25, i * 12_000L) == CutWatch.Verdict.NONE })
+    }
+
+    @Test
+    fun remixesAndMashupsThatNameTheSongAreOffered() {
+        val piece = sighting(faint, 0)
+        assertEquals(listOf("Faint LINKIN PARK mashup", "Faint LINKIN PARK remix").map { it.lowercase() },
+            MixSearch.singleQueries(piece.copy(artist = "LINKIN PARK")).map { it.lowercase() })
+        val plain = video("2mXNRsyTitA", "Faint", "Linkin Park")
+        val skillet = video("2rE9qdUKAGM", "Skillet X Linkin Park - Monster/Faint [MASHUP]", "BlueDragonCody Productions")
+        val choices = MixSearch.rankSingle(piece, listOf(listOf(damage, skillet, plain), listOf(damage)))
+        // The plain song is not a remix of itself; the rest keep YouTube's order, each once.
+        assertEquals(listOf(damage.id, skillet.id), choices.map { it.id })
+    }
+
+    @Test
+    fun aReturnPartwayIntoTheSongIsSure() {
+        // The second run of 24 Sep, 13:04:50 on: Party Rock Anthem, Memories three times, and Party
+        // Rock Anthem back 76 s in. One other song in the gap, which alone would be a skip back.
+        val watch = MixWatch()
+        val party = "party" to ("Party Rock Anthem (feat. Lauren Bennett & GoonRock)" to "LMFAO")
+        val memories = "memories" to ("Memories (feat. Kid Cudi)" to "David Guetta")
+        fun at(song: Pair<String, Pair<String, String?>>, second: Int, offset: Double) =
+            MixWatch.Sighting(song.first, song.second.first, song.second.second, second * 1000L, offset)
+        listOf(at(party, 0, 23.5), at(party, 12, 35.5), at(memories, 24, 91.8), at(memories, 36, 36.4),
+            at(memories, 48, 43.1)).forEach { assertNull(watch.observe(it)) }
+        assertTrue(watch.observe(at(party, 60, 76.2))!!.strong)
+    }
+
+    @Test
+    fun goingBackATrackStartsItAgain() {
+        val watch = MixWatch()
+        val a = "a" to ("A" to "x"); val b = "b" to ("B" to "y")
+        listOf(a to 0, a to 12, b to 24, b to 36).forEach { (s, at) -> watch.observe(sighting(s, at)) }
+        val back = MixWatch.Sighting("a", "A", "x", 48_000L, offsetSeconds = 4.0)
+        assertFalse(watch.observe(back)!!.strong)
+    }
+
+    @Test
+    fun kendricksDnaPlayedStraightIsNotCut() {
+        // 13:01 to 13:04 on 24 Sep, including two windows Shazam read at -3 % speed, the first one
+        // 2 s off at the very start, and a restart from the top at 13:03:26.
+        val windows = listOf(
+            Triple(-5.9, -0.0294, 0), Triple(3.8, 0.0005, 12), Triple(15.9, -0.0004, 24),
+            Triple(29.1, -0.0273, 36), Triple(39.9, 0.0001, 48), Triple(51.9, -0.0002, 60),
+            Triple(63.8, -0.0006, 72), Triple(75.8, 0.0002, 84), Triple(87.9, 0.0003, 96),
+            Triple(99.8, 0.0001, 108), Triple(2.1, -0.0001, 120), Triple(14.1, 0.0002, 132),
+            Triple(26.1, 0.0, 144), Triple(38.1, -0.0003, 156), Triple(50.1, -0.0006, 168),
+        )
+        val watch = CutWatch()
+        assertTrue(windows.all { (offset, skew, at) -> watch.observe("dna", offset, skew, at * 1000L) == CutWatch.Verdict.NONE })
+    }
+
+    @Test
+    fun memoriesInTheSecondMashupIsCutUpAtItsThirdWindow() {
+        val watch = CutWatch()
+        assertEquals(CutWatch.Verdict.NONE, watch.observe("m", 91.8, 0.0001, 0))
+        assertEquals(CutWatch.Verdict.NONE, watch.observe("m", 36.4, 0.0011, 12_000))
+        assertEquals(CutWatch.Verdict.FIRST, watch.observe("m", 43.1, 0.0001, 24_000))
+    }
+
+    /**
+     * The R3hab remix of Pray to God, replayed from a file on 24 Sep: Shazam named the remix, with
+     * the original (5 to 7 % faster) and Better Off Alone, a sample, in between. Seconds in, key,
+     * offset, skew.
+     */
+    private val r3hab = listOf(
+        Triple(0, "remix", 9.6 to -0.0013), Triple(12, "remix", 21.6 to -0.0002), Triple(24, "remix", 33.6 to 0.0),
+        Triple(36, "original", 12.9 to 0.0533), Triple(48, "remix", 57.6 to -0.0001), Triple(60, "original", 38.4 to 0.0484),
+        Triple(72, "remix", 81.6 to 0.0), Triple(84, "remix", 93.6 to 0.0), Triple(96, "remix", 105.6 to 0.0001),
+        Triple(108, "remix", 117.6 to 0.0), Triple(120, "sample", 128.1 to -0.0183), Triple(132, "original", 79.2 to 0.0668),
+        Triple(144, "original", 92.0 to 0.0669), Triple(156, "original", 125.7 to 0.0313), Triple(168, "remix", 177.6 to 0.0001),
+        Triple(180, "remix", 189.6 to 0.0002),
+    )
+
+    private fun r3habSighting(at: Int, key: String, offset: Double, skew: Double) = MixWatch.Sighting(
+        key, when (key) { "remix" -> "Pray to God (feat. HAIM) [R3hab Remix]"; "original" -> "Pray to God (feat. HAIM)"; else -> "Better Off Alone" },
+        if (key == "sample") "Alice Deejay" else "Calvin Harris", at * 1000L, offset, skew,
+    )
+
+    @Test
+    fun aRemixPlayingStraightIsNotAMashupOfWhatIsInIt() {
+        val watch = MixWatch()
+        val verdicts = r3hab.map { (at, key, os) -> watch.observe(r3habSighting(at, key, os.first, os.second)) }
+        assertTrue(verdicts.all { it == null })
+    }
+
+    @Test
+    fun theRemixIsTheSteadySongUnderTheOriginal() {
+        val watch = MixWatch()
+        r3hab.take(13).forEach { (at, key, os) -> watch.observe(r3habSighting(at, key, os.first, os.second)) }
+        // At 132 s, when the original is back: the remix has played straight for the last minute.
+        assertEquals("remix", watch.steadyHost(132_000))
+    }
+
+    @Test
+    fun aSwitchUnderASteadySongCountsOnceItDoesNotGoOn() {
+        // A for two windows, B straight for four, then A back 90 s in and on from there. B never
+        // goes on, so after the wait the return is a switch after all.
+        val watch = MixWatch()
+        val a = listOf(0 to 10.0, 12 to 22.0)
+        val b = listOf(24 to 30.0, 36 to 42.0, 48 to 54.0, 60 to 66.0)
+        a.forEach { (at, o) -> assertNull(watch.observe(MixWatch.Sighting("a", "A", "x", at * 1000L, o))) }
+        b.forEach { (at, o) -> assertNull(watch.observe(MixWatch.Sighting("b", "B", "y", at * 1000L, o))) }
+        val after = listOf(72 to 90.0, 84 to 102.0, 96 to 114.0, 108 to 126.0, 120 to 138.0)
+            .map { (at, o) -> watch.observe(MixWatch.Sighting("a", "A", "x", at * 1000L, o)) }
+        assertTrue(after.take(4).all { it == null })
+        assertNotNull(after[4])
+    }
+
+    @Test
+    fun aNewSongAfterTheReturnDropsWhatWasHeld() {
+        val watch = MixWatch()
+        listOf(0 to 10.0, 12 to 22.0).forEach { (at, o) -> watch.observe(MixWatch.Sighting("a", "A", "x", at * 1000L, o)) }
+        listOf(24 to 30.0, 36 to 42.0, 48 to 54.0, 60 to 66.0).forEach { (at, o) -> watch.observe(MixWatch.Sighting("b", "B", "y", at * 1000L, o)) }
+        watch.observe(MixWatch.Sighting("a", "A", "x", 72_000, 90.0))
+        // The next track starts; whatever was waiting on A and B is not about it.
+        val next = (0..5).map { i -> watch.observe(MixWatch.Sighting("c", "C", "z", 84_000L + i * 12_000, 2.0 + i * 12)) }
+        assertTrue(next.all { it == null })
+    }
+
+    @Test
+    fun lengthPutsTheUploadThatWasPlayingFirst() {
+        fun v(id: String, seconds: Int) = SongItem(id = id, title = id, artists = emptyList(), thumbnail = "", duration = seconds)
+        // Memories Anthem, heard for about 192 s, against mashups of the same two songs.
+        val candidates = listOf(v("rosac", 342), v("aethel", 515), v("paris", 140), v("mix2026", 350), v("dasonrz", 207))
+        val ordered = MixSearch.byLength(candidates, 192.0).map { it.id }
+        assertEquals("dasonrz", ordered.first())
+        assertFalse("paris" in ordered)
+        // An hour-long compilation is never what was playing.
+        assertFalse(MixSearch.couldBe(v("best of", 6144), 60.0))
+    }
+
+    @Test
+    fun beggingForDnaGivesItselfAwayByGoingBackToTheTop() {
+        // "I'm Beggin' For DNA" as the phone heard it: DNA. from its start to 99.8 s, twelve seconds
+        // a window, then back to 2.1 s. DNA. is 186 s long, so this is not a replay at its end.
+        val straight = listOf(-5.9, 3.8, 15.9, 29.1, 39.9, 51.9, 63.8, 75.8, 87.9, 99.8)
+        val watch = CutWatch()
+        assertTrue(straight.withIndex().all { (i, offset) -> watch.observe("dna", offset, 0.0, i * 12_000L, 186) == CutWatch.Verdict.NONE })
+        // Known once the restart holds for a second window.
+        assertEquals(CutWatch.Verdict.NONE, watch.observe("dna", 2.1, 0.0, 120_000, 186))
+        assertEquals(CutWatch.Verdict.FIRST, watch.observe("dna", 14.1, 0.0, 132_000, 186))
+    }
+
+    @Test
+    fun aDanceTrackPlacedOnePhraseEarlyIsNotAnEdit() {
+        // Blasterjaxx & DBSTF, Beautiful World, replayed from a file on 24 Sep: a radio edit of the
+        // version Shazam knows (one real cut at 60 s), and twice a window placed one 29 s phrase
+        // early, each put right by the window after.
+        val windows = listOf(26.6, 38.6, 50.6, 62.6, 74.6, 94.0, 106.0, 88.7, 130.0, 112.7, 154.0, 166.0, 178.0, 190.0, 202.0, 214.0)
+        val watch = CutWatch()
+        assertTrue(windows.withIndex().all { (i, offset) -> watch.observe("bw", offset, 0.0, i * 12_000L, 214) == CutWatch.Verdict.NONE })
+    }
+
+    @Test
+    fun aSongReplayedAtItsEndIsNotAnEdit() {
+        val watch = CutWatch()
+        val offsets = (0..15).map { 2.0 + it * 12 }  // 2 to 182 s of a 186 s song
+        assertTrue(offsets.withIndex().all { (i, offset) -> watch.observe("a", offset, 0.0, i * 12_000L, 186) == CutWatch.Verdict.NONE })
+        assertEquals(CutWatch.Verdict.NONE, watch.observe("a", 3.0, 0.0, 192_000, 186))
+    }
+
     @Test
     fun creditsComeDownToTheFirstName() {
         assertEquals("Eminem", MixSearch.primaryArtist("Eminem feat. Lil Wayne"))

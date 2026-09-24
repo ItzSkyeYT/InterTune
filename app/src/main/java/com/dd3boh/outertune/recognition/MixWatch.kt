@@ -28,8 +28,19 @@ import com.zionhuang.innertube.models.SongItem
  */
 internal class MixWatch(private val spanMs: Long = SPAN_MS) {
 
-    /** One window Shazam named, by its key, whether or not it was confident on YouTube. */
-    data class Sighting(val key: String, val title: String, val artist: String?, val atMs: Long)
+    /**
+     * One window Shazam named, by its key, whether or not it was confident on YouTube, and where in
+     * the song it landed.
+     */
+    data class Sighting(
+        val key: String,
+        val title: String,
+        val artist: String?,
+        val atMs: Long,
+        val offsetSeconds: Double = 0.0,
+        /** Shazam's speed estimate for this one window. */
+        val skew: Double = 0.0,
+    )
 
     /**
      * A song heard, left for something else, and heard again.
@@ -38,15 +49,48 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
      * often heard first and otherwise oldest first. The search is built from the head of this, so a
      * one-window oddity in the middle, which the 24 Sep run had in "Lliving Life Mix", does not end
      * up in the query.
-     * @param strong whether the interruption is too long, or too often, to be one wrong window.
+     * @param strong whether the interruption is too long, too often, or the return too far into the
+     * song to be one wrong window or somebody going back a track.
      */
     data class Mix(val pieces: List<Sighting>, val strong: Boolean)
 
     private val seen = ArrayDeque<Sighting>()
 
+    /** A return held back because another song was playing steadily through it. See [observe]. */
+    private class Deferred(val mix: Mix, val hostKey: String, val atMs: Long)
+    private var deferred: Deferred? = null
+
+    /**
+     * A song that came back with something else in between is only a mashup if nothing was playing
+     * straight through it. A remix Shazam knows keeps its own timeline from start to end, and Shazam
+     * names the original in it now and then, or a sample; on 24 Sep the R3hab remix of Pray to God
+     * came through as the remix with the original and Better Off Alone in between, five "returns" in
+     * three minutes, while the remix never missed a second of its timeline. In the three mashups
+     * played that day nothing kept a timeline: Faint, Party Rock Anthem and Memories all jumped.
+     *
+     * So when some song has been playing steadily, a return waits for it. If the steady song goes on
+     * where it should, what came back was part of it. If it does not within [DEFER_MS], something
+     * switched, and the return counts after all.
+     */
     fun observe(sighting: Sighting): Mix? {
         seen.addLast(sighting)
         while (sighting.atMs - seen.first().atMs > spanMs) seen.removeFirst()
+
+        deferred?.let { held ->
+            val previous = seen.toList().dropLast(1).lastOrNull { it.key == held.hostKey }
+            when {
+                // The steady song went on where it should have: the return was part of it.
+                sighting.key == held.hostKey && previous != null && Timeline.continues(previous, sighting) ->
+                    deferred = null
+                // Something new altogether: the track changed, and nothing held is about it.
+                held.mix.pieces.none { it.key == sighting.key } && sighting.key != held.hostKey ->
+                    deferred = null
+                sighting.atMs - held.atMs >= DEFER_MS -> {
+                    deferred = null
+                    return held.mix
+                }
+            }
+        }
 
         val list = seen.toList()
         val previous = list.subList(0, list.size - 1).indexOfLast { it.key == sighting.key }
@@ -63,19 +107,46 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
             i > 0 && span[i].key != sighting.key && span[i - 1].key == sighting.key
         }
         val counts = span.groupingBy { it.key }.eachCount()
-        return Mix(
+        val found = Mix(
             // sortedByDescending is stable, so equal counts keep the order they were heard in.
             pieces = span.distinctBy { it.key }.sortedByDescending { counts[it.key] ?: 0 },
-            // Two different songs in one gap, or a second gap. Two windows of one other song is
-            // also what skipping back to the previous song looks like, so it does not count alone.
+            // Two different songs in one gap, or a second gap, or a return partway into the song.
+            // Two windows of one other song is also what skipping back to the previous song looks
+            // like, but going back a track starts it again from the top; a mashup cuts back in
+            // wherever it likes. The second run of 24 Sep came back to Party Rock Anthem 76 s in.
             // Counted as songs, not keys: Shazam can give one recording two.
             strong = (interruption.size >= 2 && MixSearch.distinctSongs(interruption).size >= 2) ||
-                    interruptions >= 2,
+                    interruptions >= 2 ||
+                    sighting.offsetSeconds > RESTART_S,
         )
+        return when (val host = steadyHost(sighting.atMs)) {
+            // The song that came back never left its timeline: one window of something else.
+            sighting.key -> null
+            null -> found
+            else -> {
+                deferred = deferred?.let { Deferred(found, it.hostKey, it.atMs) } ?: Deferred(found, host, sighting.atMs)
+                null
+            }
+        }
     }
 
-    /** Forgets everything, for a new run. */
-    fun clear() = seen.clear()
+    /**
+     * The song, if any, playing straight through the last [HOST_SPAN_MS]: heard at least three
+     * times in that time, every window where the one before says it should be. The most heard, if
+     * more than one.
+     */
+    fun steadyHost(atMs: Long): String? = seen
+        .filter { atMs - it.atMs <= HOST_SPAN_MS }
+        .groupBy { it.key }
+        .filterValues { windows -> windows.size >= 3 && windows.zipWithNext().all { (a, b) -> Timeline.continues(a, b) } }
+        .maxByOrNull { it.value.size }
+        ?.key
+
+    /** Forgets everything, for a new run or once a mashup is over. */
+    fun clear() {
+        seen.clear()
+        deferred = null
+    }
 
     companion object {
         /**
@@ -84,6 +155,145 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
          * repeats, and the next song along would have ended the first long before this.
          */
         const val SPAN_MS = 150_000L
+
+        /**
+         * Further into the song than this, a return is not a restart. A window of a song that has
+         * just been started again lands in its first few seconds; twenty leaves room for a listen
+         * that began a little after the song did.
+         */
+        const val RESTART_S = 20.0
+
+        /** How far back a song has to have been playing straight to count as what is playing. */
+        const val HOST_SPAN_MS = 72_000L
+
+        /**
+         * How long a return waits for the steady song to go on. The original ran for three windows
+         * inside the R3hab remix before the remix was named again.
+         */
+        const val DEFER_MS = 48_000L
+    }
+}
+
+/**
+ * Whether one window of a song carries on from an earlier one: as far into the song as the clock
+ * has moved on, at the ordinary speed or at the speed Shazam read off the later window. Shazam's
+ * offsets for a song played straight agree to a tenth of a second or two, and to about two when a
+ * window catches the very start of a song; two and a half is room for that and nowhere near a cut,
+ * which in the mashups heard so far moved by twenty or more. The share per second covers a speed
+ * slightly off, over a long gap.
+ */
+internal object Timeline {
+    private const val TOLERANCE_S = 2.5
+    private const val TOLERANCE_PER_S = 0.01
+
+    fun continues(earlierOffset: Double, earlierAtMs: Long, offset: Double, atMs: Long, skew: Double): Boolean {
+        val apart = (atMs - earlierAtMs) / 1000.0
+        val tolerance = TOLERANCE_S + apart * TOLERANCE_PER_S
+        return kotlin.math.abs(offset - (earlierOffset + apart)) <= tolerance ||
+                kotlin.math.abs(offset - (earlierOffset + apart * (1.0 + skew))) <= tolerance
+    }
+
+    fun continues(earlier: MixWatch.Sighting, later: MixWatch.Sighting): Boolean =
+        continues(earlier.offsetSeconds, earlier.atMs, later.offsetSeconds, later.atMs, later.skew)
+}
+
+/**
+ * Tells an edit, a remix or a mashup from the song itself, by checking where in the song each
+ * window lands against where it should.
+ *
+ * Shazam says where in its recording every window matched. Played straight through, twelve seconds
+ * of listening moves that on by twelve seconds (times the speed, which Shazam also reports as its
+ * time skew), to within a fraction of a second. On 24 Sep the Damage mashup put Faint at -2 s, then
+ * 31 s, 43 s, 12 s, 24 s, 36 s, 87 s, 60 s: its sections cut up and rearranged. The first two cuts
+ * came within a minute of it starting, two and a half minutes before the first window of another
+ * song gave it away, and a remix or an edit of one song never offers another song at all.
+ *
+ * A song Shazam places wrongly for a window or two, a repeated chorus matched to the first one,
+ * comes back to its own timeline afterwards, and a return like that undoes the detour rather than
+ * counting it. A radio edit that drops the intro and a bridge cuts twice, minutes apart. So what
+ * counts is two cuts within a minute, or three at all.
+ */
+internal class CutWatch {
+
+    enum class Verdict { NONE, FIRST, AGAIN }
+
+    /** A stretch of the song heard in order: where it last was, how many windows, and how it began. */
+    private class Run(var offset: Double, var atMs: Long, val startedMs: Long, var windows: Int = 1, val restart: Boolean = false)
+
+    private var key: String? = null
+    private val runs = mutableListOf<Run>()
+    /** Windows in a row that each landed somewhere none of the others lead to. */
+    private var loose = 0
+    private var counted = 0
+    private var reported = false
+
+    /**
+     * One window of [key], matched at [offset] seconds with Shazam's time [skew], heard at [atMs],
+     * of a song [durationS] long if that is known. FIRST the moment the song turns out to be cut up,
+     * AGAIN on every cut after that, NONE otherwise. Another song resets it: consecutive windows of
+     * one song are what it compares.
+     *
+     * A jump only counts once it holds: the next window has to go on from where it landed. Shazam
+     * places a single window in the wrong repeat of a chorus, or one phrase early in a dance track
+     * whose sixteen bars come round every thirty seconds, and the window after is back where it
+     * belongs. Blasterjaxx's Beautiful World did that twice in a minute, and counted on the spot it
+     * read as an edit. A song chopped so hard that no two windows ever line up, as Memories was in
+     * Memories Anthem, is caught another way: three windows in a row that each land somewhere new.
+     */
+    fun observe(key: String, offset: Double, skew: Double, atMs: Long, durationS: Int? = null): Verdict {
+        if (key != this.key) {
+            this.key = key
+            runs.clear()
+            runs += Run(offset, atMs, atMs)
+            loose = 1
+            counted = 0
+            reported = false
+            return Verdict.NONE
+        }
+        val back = runs.indexOfLast { Timeline.continues(it.offset, it.atMs, offset, atMs, skew) }
+        if (back >= 0) {
+            // Back on a stretch already heard. Anything after it was a detour, and is forgotten.
+            while (runs.size > back + 1) runs.removeAt(runs.lastIndex)
+            runs[back].apply { this.offset = offset; this.atMs = atMs; windows++ }
+            loose = 0
+        } else {
+            // Back to the top partway through. The second mashup of 24 Sep, "I'm Beggin' For DNA",
+            // was DNA. to Shazam from start to end, and gave itself away only by going back to
+            // DNA.'s first seconds a hundred seconds into a 186 second song. Somebody replaying a
+            // song does it at the end, not two thirds of the way in.
+            val previous = runs.last()
+            val reached = previous.offset + (atMs - previous.atMs) / 1000.0
+            val restart = offset < MixWatch.RESTART_S && durationS != null &&
+                    reached > MixWatch.RESTART_S + 10 && reached < durationS - 20
+            runs += Run(offset, atMs, atMs, restart = restart)
+            loose++
+        }
+
+        // Stretches after the first that held for two windows or more: the cuts.
+        val cuts = runs.drop(1).filter { it.windows >= 2 }
+        val cutUp = loose >= 3 || cuts.any { it.restart } || cuts.size >= 3 ||
+                (cuts.size >= 2 && cuts[cuts.lastIndex].startedMs - cuts[cuts.lastIndex - 1].startedMs <= PAIR_MS)
+        val fresh = cuts.size > counted || loose >= 3
+        counted = cuts.size
+        return when {
+            !cutUp -> Verdict.NONE
+            !reported -> { reported = true; Verdict.FIRST }
+            fresh -> Verdict.AGAIN
+            else -> Verdict.NONE
+        }
+    }
+
+    fun clear() {
+        key = null
+        runs.clear()
+        loose = 0
+        counted = 0
+        reported = false
+    }
+
+    companion object {
+        /** Two cuts closer together than this are an edit, not a radio version. */
+        private const val PAIR_MS = 60_000L
     }
 }
 
@@ -139,6 +349,52 @@ internal object MixSearch {
     }
 
     /**
+     * For one song that turned out to be cut up: remixes and mashups that name it, in YouTube's own
+     * order, which for "Faint Linkin Park mashup" put the Damage upload first. Never taken without
+     * asking, since one song has many of them.
+     */
+    fun singleQueries(piece: MixWatch.Sighting): List<String> {
+        val base = listOfNotNull(bareTitle(piece.title), piece.artist?.let(::primaryArtist))
+            .filter { it.isNotBlank() }.joinToString(" ")
+        return if (base.isBlank()) emptyList() else listOf("$base mashup", "$base remix")
+    }
+
+    fun rankSingle(piece: MixWatch.Sighting, results: List<List<SongItem>>): List<SongItem> {
+        val title = words(bareTitle(piece.title))
+        val artist = piece.artist?.let { words(primaryArtist(it)) }.orEmpty()
+        return results.flatten().distinctBy { it.id }.filter { item ->
+            val text = " " + words(item.title + " " + item.artists.joinToString(" ") { it.name }) + " "
+            val named = (title.length >= 3 && " $title " in text) || (artist.length >= 3 && " $artist " in text)
+            named && MIX_WORDS.containsMatchIn(item.title)
+        }
+    }
+
+    /**
+     * Whether [item] could be what has been playing for [heardS] seconds: not an hour-long
+     * compilation, which a search for two artists and "mashup" turns up plenty of, and not shorter
+     * than what has already been heard of it.
+     */
+    fun couldBe(item: SongItem, heardS: Double): Boolean {
+        val length = item.duration ?: return true
+        return length <= MAX_LENGTH_S && length >= heardS - 10
+    }
+
+    /**
+     * [candidates] reordered by how well their length fits a mashup heard for [heardS] seconds from
+     * its first recognised window to its last. What plays before the first window, an intro Shazam
+     * does not know, is unknown, so the real length is guessed a little longer, and anything more
+     * than a minute longer only follows the ones that fit. On 24 Sep this put the uploads that were
+     * actually playing first: Memories Anthem (207 s, heard for 192) over mashups of the same two
+     * songs at 140, 342, 350 and 515, and I'm Beggin' For DNA (199 s) over three others.
+     */
+    fun byLength(candidates: List<SongItem>, heardS: Double): List<SongItem> {
+        val target = heardS + LEAD_GUESS_S
+        val (fit, rest) = candidates.filter { couldBe(it, heardS) }
+            .partition { it.duration != null && it.duration!! <= heardS + MAX_LEAD_S }
+        return fit.sortedBy { kotlin.math.abs(it.duration!! - target) } + rest
+    }
+
+    /**
      * The pieces as songs rather than as Shazam keys. Shazam can give one recording two keys, and
      * two keys for one song flipping back and forth is not a mashup of it with itself.
      */
@@ -189,4 +445,9 @@ internal object MixSearch {
     /** Two titles and a mix word, or two titles and both artists. */
     private const val CLEAR_SCORE = 5
     private const val CLEAR_LEAD = 2
+
+    /** Longer than this is a compilation or a DJ set, not a mashup. */
+    private const val MAX_LENGTH_S = 600
+    private const val LEAD_GUESS_S = 10
+    private const val MAX_LEAD_S = 60
 }

@@ -699,6 +699,10 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <!-- %1$s is the songs heard in it, joined with " + ". -->
     <string name="recognise_mix_title">Sounds like a mashup of %1$s. Which one is it?</string>
     <string name="recognise_mix_dismiss">None of these</string>
+    <!-- Shown after a song heard cut up and rearranged, where a song would show its artist. -->
+    <string name="recognise_edit">remix or mashup</string>
+    <!-- %1$s is the song heard, cut up and rearranged. -->
+    <string name="recognise_edit_title">Sounds like a remix or mashup of %1$s. Which one is it?</string>
     <!-- The name a saved list starts with. %1$s is today's date. -->
     <string name="recognise_playlist_name">Heard on %1$s</string>
     <string name="recognise_save_failed">Could not save the playlist</string>
