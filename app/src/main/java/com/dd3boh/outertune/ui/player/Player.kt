@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
@@ -579,7 +580,10 @@ fun BottomSheetPlayer(
         },
         // Transparent under glass: the collapsed sheet otherwise paints a solid fill over
         // exactly the region the dock refracts, so ~70% of what the dock would show is flat colour.
-        collapsedBackgroundColor = if (liquidGlass) Color.Transparent
+        // Only when the app backdrop exists, though, not whenever the setting is on: the rail
+        // layout and anything below API 33 have none, the mini player then draws no panel of its
+        // own, and a transparent sheet left its title lying over the list underneath.
+        collapsedBackgroundColor = if (liquidGlass && LocalAppBackdrop.current != null) Color.Transparent
         else MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
         // performFling only dismisses when this is non-null and falls back to collapse() when it
         // is not, so withholding the callback is what actually prevents the dismiss. BottomSheet
