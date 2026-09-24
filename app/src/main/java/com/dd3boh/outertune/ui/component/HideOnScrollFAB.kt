@@ -44,26 +44,7 @@ fun BoxScope.HideOnScrollFAB(
     lazyListState: LazyListState,
     @DrawableRes icon: Int,
     onClick: () -> Unit,
-) {
-    AnimatedVisibility(
-        visible = visible && lazyListState.isScrollingUp(),
-        enter = slideInVertically { it },
-        exit = slideOutVertically { it },
-        modifier = Modifier
-            .align(Alignment.BottomEnd)
-            .windowInsetsPadding(
-                LocalPlayerAwareWindowInsets.current
-                    .only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
-            )
-    ) {
-        FloatingButton(onClick = onClick) {
-            Icon(
-                painter = painterResource(icon),
-                contentDescription = null
-            )
-        }
-    }
-}
+) = HideOnScrollFAB(visible && lazyListState.isScrollingUp(), onClick) { Icon(painter = painterResource(icon), contentDescription = null) }
 
 @Composable
 fun BoxScope.HideOnScrollFAB(
@@ -71,27 +52,7 @@ fun BoxScope.HideOnScrollFAB(
     lazyListState: LazyGridState,
     @DrawableRes icon: Int,
     onClick: () -> Unit,
-) {
-    AnimatedVisibility(
-        visible = visible && lazyListState.isScrollingUp(),
-        enter = slideInVertically { it },
-        exit = slideOutVertically { it },
-        modifier = Modifier
-            .align(Alignment.BottomEnd)
-            .windowInsetsPadding(
-                LocalPlayerAwareWindowInsets.current
-                    .only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
-            )
-    ) {
-        FloatingButton(onClick = onClick) {
-            Icon(
-                painter = painterResource(icon),
-                contentDescription = null
-            )
-        }
-    }
-}
-
+) = HideOnScrollFAB(visible && lazyListState.isScrollingUp(), onClick) { Icon(painter = painterResource(icon), contentDescription = null) }
 
 @Composable
 fun BoxScope.HideOnScrollFAB(
@@ -99,26 +60,7 @@ fun BoxScope.HideOnScrollFAB(
     lazyListState: LazyGridState,
     icon: ImageVector,
     onClick: () -> Unit,
-) {
-    AnimatedVisibility(
-        visible = visible && lazyListState.isScrollingUp(),
-        enter = slideInVertically { it },
-        exit = slideOutVertically { it },
-        modifier = Modifier
-            .align(Alignment.BottomEnd)
-            .windowInsetsPadding(
-                LocalPlayerAwareWindowInsets.current
-                    .only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
-            )
-    ) {
-        FloatingButton(onClick = onClick) {
-            Icon(
-                icon,
-                contentDescription = null
-            )
-        }
-    }
-}
+) = HideOnScrollFAB(visible && lazyListState.isScrollingUp(), onClick) { Icon(imageVector = icon, contentDescription = null) }
 
 @Composable
 fun BoxScope.HideOnScrollFAB(
@@ -126,26 +68,7 @@ fun BoxScope.HideOnScrollFAB(
     scrollState: ScrollState,
     @DrawableRes icon: Int,
     onClick: () -> Unit,
-) {
-    AnimatedVisibility(
-        visible = visible && scrollState.isScrollingUp(),
-        enter = slideInVertically { it },
-        exit = slideOutVertically { it },
-        modifier = Modifier
-            .align(Alignment.BottomEnd)
-            .windowInsetsPadding(
-                LocalPlayerAwareWindowInsets.current
-                    .only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
-            )
-    ) {
-        FloatingButton(onClick = onClick) {
-            Icon(
-                painter = painterResource(icon),
-                contentDescription = null
-            )
-        }
-    }
-}
+) = HideOnScrollFAB(visible && scrollState.isScrollingUp(), onClick) { Icon(painter = painterResource(icon), contentDescription = null) }
 
 @Composable
 fun BoxScope.HideOnScrollFAB(
@@ -153,26 +76,7 @@ fun BoxScope.HideOnScrollFAB(
     lazyListState: LazyListState,
     icon: ImageVector,
     onClick: () -> Unit,
-) {
-    AnimatedVisibility(
-        visible = visible && lazyListState.isScrollingUp(),
-        enter = slideInVertically { it },
-        exit = slideOutVertically { it },
-        modifier = Modifier
-            .align(Alignment.BottomEnd)
-            .windowInsetsPadding(
-                LocalPlayerAwareWindowInsets.current
-                    .only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
-            )
-    ) {
-        FloatingButton(onClick = onClick) {
-            Icon(
-                icon,
-                contentDescription = null
-            )
-        }
-    }
-}
+) = HideOnScrollFAB(visible && lazyListState.isScrollingUp(), onClick) { Icon(imageVector = icon, contentDescription = null) }
 
 @Composable
 fun BoxScope.HideOnScrollFAB(
@@ -180,9 +84,16 @@ fun BoxScope.HideOnScrollFAB(
     scrollState: ScrollState,
     icon: ImageVector,
     onClick: () -> Unit,
-) {
+) = HideOnScrollFAB(visible && scrollState.isScrollingUp(), onClick) { Icon(imageVector = icon, contentDescription = null) }
+
+/**
+ * The one implementation behind the overloads above, which only differ in what they read "scrolling
+ * up" from and how the icon is given. Slides in at the bottom end, above the player and the tabs.
+ */
+@Composable
+private fun BoxScope.HideOnScrollFAB(visible: Boolean, onClick: () -> Unit, icon: @Composable () -> Unit) {
     AnimatedVisibility(
-        visible = visible && scrollState.isScrollingUp(),
+        visible = visible,
         enter = slideInVertically { it },
         exit = slideOutVertically { it },
         modifier = Modifier
@@ -192,12 +103,7 @@ fun BoxScope.HideOnScrollFAB(
                     .only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
             )
     ) {
-        FloatingButton(onClick = onClick) {
-            Icon(
-                icon,
-                contentDescription = null
-            )
-        }
+        FloatingButton(onClick = onClick, content = icon)
     }
 }
 
