@@ -57,43 +57,31 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_audio_off">Off</string>
     <string name="spatial_audio_headphones">Headphones</string>
     <string name="spatial_audio_surround">Surround upmix</string>
-    <string name="spatial_audio_explain">Headphones put the music inside your head. This puts it in front of you instead.
-
-Headphones does it in the app, so it works on any phone. Surround upmix asks your phone to do it, which only helps if your phone supports it.</string>
+    <string name="spatial_audio_explain">Headphones put the music inside your head. This puts it in front of you instead.\n\nHeadphones does it in the app, so it works on any phone. Surround upmix asks your phone to do it, which only helps if your phone supports it.</string>
     <string name="stage_width">Stage width</string>
     <string name="stage_width_value">Speakers at %1$d degrees either side</string>
-    <string name="stage_width_explain">How far apart the two virtual speakers are. 30 degrees is what stereo is mixed for.
-
-Wider separates the instruments more. Too wide leaves a gap in the middle.</string>
+    <string name="stage_width_explain">How far apart the two virtual speakers are. 30 degrees is what stereo is mixed for.\n\nWider separates the instruments more. Too wide leaves a gap in the middle.</string>
     <string name="head_tracking">Head tracking</string>
     <string name="head_tracking_description">The music stays where it is when you turn your head.</string>
     <string name="head_tracking_report_prompt">Your headphones have head tracking and this still says they do not? Tell me about it.</string>
     <string name="link_wiki">Wiki</string>
     <string name="link_report">Report it</string>
     <string name="head_tracking_none">No head tracker on this phone.</string>
-    <string name="head_tracking_explain">The music stays where it is when you turn your head.
-
-Needs headphones that report which way they are facing, and a phone that shares it. Most phones do not, so this is hidden unless yours does.</string>
+    <string name="head_tracking_explain">The music stays where it is when you turn your head.\n\nNeeds headphones that report which way they are facing, and a phone that shares it. Most phones do not, so this is hidden unless yours does.</string>
     <string name="head_tracking_response">Tracking response</string>
     <string name="head_tracking_response_description">How far ahead of your head the sound aims.</string>
     <string name="head_tracking_response_smooth">Smooth</string>
     <string name="head_tracking_response_balanced">Balanced</string>
     <string name="head_tracking_response_quick">Quick</string>
     <string name="head_tracking_response_instant">Instant</string>
-    <string name="head_tracking_response_explain">Sound takes time to reach your ears, so the app aims slightly ahead of your head.
-
-Quick and Instant feel immediate but can overshoot when you stop turning. Smooth never overshoots but feels slightly behind.</string>
+    <string name="head_tracking_response_explain">Sound takes time to reach your ears, so the app aims slightly ahead of your head.\n\nQuick and Instant feel immediate but can overshoot when you stop turning. Smooth never overshoots but feels slightly behind.</string>
     <string name="proximity_volume">Quieter as you walk away</string>
     <string name="proximity_volume_description">Treats your phone as where the music is coming from.</string>
-    <string name="proximity_volume_explain">Your phone becomes where the music comes from. Walk away and it gets quieter.
-
-It judges distance from Bluetooth signal strength, which is rough, so it changes slowly and only a little. It never mutes.</string>
+    <string name="proximity_volume_explain">Your phone becomes where the music comes from. Walk away and it gets quieter.\n\nIt judges distance from Bluetooth signal strength, which is rough, so it changes slowly and only a little. It never mutes.</string>
     <string name="proximity_probe">Bluetooth signal log</string>
     <string name="proximity_probe_stop">Stop logging</string>
     <string name="proximity_probe_description">Check how well distance can be measured where you are.</string>
-    <string name="proximity_probe_explain">A 100 second test to check this works where you are. It reads each step out loud, so you can put the phone down and follow along.
-
-If turning on the spot moves the signal as much as walking away does, distance cannot be measured here.</string>
+    <string name="proximity_probe_explain">A 100 second test to check this works where you are. It reads each step out loud, so you can put the phone down and follow along.\n\nIf turning on the spot moves the signal as much as walking away does, distance cannot be measured here.</string>
     <string name="proximity_probe_step">%1$s  (%2$d s left, %3$d readings)</string>
     <string name="proximity_step_still">Sit still, phone beside you.</string>
     <string name="proximity_step_turn">Stay where you are and turn slowly on the spot.</string>
@@ -103,9 +91,7 @@ If turning on the spot moves the signal as much as walking away does, distance c
     <string name="proximity_step_done">Finished. You can pick the phone up.</string>
     <string name="head_tracking_3d">Follow tilting too</string>
     <string name="head_tracking_3d_description">Looking up, down or sideways moves the sound as well.</string>
-    <string name="head_tracking_3d_explain">Looking up and down moves the sound too, not just turning.
-
-Uses a bit more battery, and restarts the current song when you switch it on.</string>
+    <string name="head_tracking_3d_explain">Looking up and down moves the sound too, not just turning.\n\nUses a bit more battery, and restarts the current song when you switch it on.</string>
     <string name="head_tracking_recentre">Recentre</string>
     <string name="head_tracking_calibrate">Calibrate</string>
     <string name="head_tracking_calibrate_never">Not calibrated. Tap, then look straight ahead and keep still.</string>
@@ -114,26 +100,16 @@ Uses a bit more battery, and restarts the current song when you switch it on.</s
         <item quantity="other">Keep still and look straight ahead. %1$d seconds left.</item>
     </plurals>
     <string name="head_tracking_calibrate_done">Correcting %1$.2f degrees per second of drift.</string>
-    <string name="head_tracking_calibrate_explain">Your headphones slowly lose track of which way is forward, so the music drifts to one side.
-
-Sit still and look straight ahead for 30 seconds. It measures your drift and corrects it from then on.</string>
+    <string name="head_tracking_calibrate_explain">Your headphones slowly lose track of which way is forward, so the music drifts to one side.\n\nSit still and look straight ahead for 30 seconds. It measures your drift and corrects it from then on.</string>
     <string name="head_tracking_lead">Tracking lead</string>
-    <string name="head_tracking_lead_full_explain">How far ahead the sound aims, in milliseconds. It should match the delay to your ears, which depends on your Bluetooth codec.
-
-Play something, turn your head, and drag until the sound stays put.</string>
+    <string name="head_tracking_lead_full_explain">How far ahead the sound aims, in milliseconds. It should match the delay to your ears, which depends on your Bluetooth codec.\n\nPlay something, turn your head, and drag until the sound stays put.</string>
     <string name="head_tracking_lead_value">Aiming %1$d ms ahead</string>
     <string name="high_precision_audio">32-bit audio processing</string>
     <string name="high_precision_audio_description">Process volume and effects in 32-bit instead of 16-bit.</string>
-    <string name="high_precision_audio_explain">Volume normalisation multiplies every sample. In 16-bit the result is rounded back down to 16-bit afterwards, on every track, which is avoidable.
-
-The cost is battery: in this mode the phone cannot hand playback to its low-power audio path. The difference is small, so this is a preference rather than a better setting.</string>
+    <string name="high_precision_audio_explain">Volume normalisation multiplies every sample. In 16-bit the result is rounded back down to 16-bit afterwards, on every track, which is avoidable.\n\nThe cost is battery: in this mode the phone cannot hand playback to its low-power audio path. The difference is small, so this is a preference rather than a better setting.</string>
     <string name="import_engine_data">Import learned weights</string>
     <string name="import_engine_data_description">Take back a file exported from here.</string>
-    <string name="import_engine_data_info">Restores what the engine had learned from a file exported on this or another device.
-
-Only the weights. Your listening history, likes and playlists are untouched: this brings back what the engine concluded, not what it concluded from.
-
-Anything in the file this version does not recognise is skipped, so a file from an older build still works as far as it goes.</string>
+    <string name="import_engine_data_info">Restores what the engine had learned from a file exported on this or another device.\n\nOnly the weights. Your listening history, likes and playlists are untouched: this brings back what the engine concluded, not what it concluded from.\n\nAnything in the file this version does not recognise is skipped, so a file from an older build still works as far as it goes.</string>
     <string name="engine_data_export_done">Exported.</string>
     <plurals name="engine_data_import_done">
         <item quantity="one">Imported %1$d weight.</item>
@@ -486,12 +462,7 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="dl_size_used_cache">Internal: %s used</string>
     <string name="dl_size_used_main">External: %s used</string>
     <string name="dl_size_used_extra">Extra imports: %s used</string>
-    <string name="dl_storage_tooltip">Internal Downloads are saved in the app’s private storage and aren’t accessible without root.
-        \n\nExternal Downloads are saved to your device’s external storage (e.g., /sdcard or micro SD cards) and can be accessed or edited directly with a file explorer. For the External Downloads folder, we recommend choosing an empty folder specifically for song downloads, as InterTune may modify or delete files in that folder.
-        \n\nExtra Import folders are read-only and used for loading additional songs. InterTune will never change or delete files in these folders. You can select these folders in the advanced section.
-        \n\nWhen you clear downloads, only internal songs are deleted. External Downloads and Extra Import songs must be removed manually, either through the song’s menu or manually via a file explorer.
-        \n\nRescan download folders: Song downloads in the External Downloads and Extra Imports folders are NOT updated automatically. If you manually add, remove, or change files using a file explorer, you may need to rescan the download folders to update the app’s database. This option is available in the advanced section.
-    </string>
+    <string name="dl_storage_tooltip">Internal Downloads are saved in the app’s private storage and aren’t accessible without root.\n\n\nExternal Downloads are saved to your device’s external storage (e.g., /sdcard or micro SD cards) and can be accessed or edited directly with a file explorer. For the External Downloads folder, we recommend choosing an empty folder specifically for song downloads, as InterTune may modify or delete files in that folder.\n\n\nExtra Import folders are read-only and used for loading additional songs. InterTune will never change or delete files in these folders. You can select these folders in the advanced section.\n\n\nWhen you clear downloads, only internal songs are deleted. External Downloads and Extra Import songs must be removed manually, either through the song’s menu or manually via a file explorer.\n\n\nRescan download folders: Song downloads in the External Downloads and Extra Imports folders are NOT updated automatically. If you manually add, remove, or change files using a file explorer, you may need to rescan the download folders to update the app’s database. This option is available in the advanced section.\n</string>
     <string name="restart_to_apply_changes">An app restart is required for changes to take effect</string>
 
 <!-- Privacy settings -->
@@ -632,9 +603,7 @@ Anything in the file this version does not recognise is skipped, so a file from 
     </plurals>
     <string name="share_audio_focus">Let other apps play at the same time</string>
     <string name="share_audio_focus_description">Play music over another app\'s sound instead of stopping it.</string>
-    <string name="share_audio_focus_explain">Normally, starting music here stops other apps. With this on, both play at once.
-
-InterTune also stops lowering itself for navigation and alarms. Calls mute it either way.</string>
+    <string name="share_audio_focus_explain">Normally, starting music here stops other apps. With this on, both play at once.\n\nInterTune also stops lowering itself for navigation and alarms. Calls mute it either way.</string>
     <string name="sleep_timer_notif_end_of_song">The music stops at the end of this song</string>
     <string name="sleep_timer_notif_chip">%1$d min</string>
     <plurals name="sleep_timer_notif_minutes">
@@ -837,9 +806,7 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="spatial_audio_status_platform_off">The phone has its own spatial audio, switched off.</string>
     <string name="spatial_audio_status_platform_on">The phone has its own spatial audio, switched on.</string>
     <string name="spatial_audio_status_unreadable">Could not read: %1$s</string>
-    <string name="spatial_audio_status_explain">The first line is what InterTune can use. It needs your phone to share which way your head is facing, and most phones do not.
-
-The second line is your phone\'s own spatial audio. It is separate and does not affect InterTune.</string>
+    <string name="spatial_audio_status_explain">The first line is what InterTune can use. It needs your phone to share which way your head is facing, and most phones do not.\n\nThe second line is your phone\'s own spatial audio. It is separate and does not affect InterTune.</string>
     <string name="spatial_audio_needs_13">Needs Android 13 or later.</string>
     <string name="recommendations">Recommendations</string>
     <string name="queue_learn_off">Don\'t learn from this</string>
