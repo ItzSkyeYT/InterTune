@@ -123,6 +123,12 @@ data class MultiQueueObject(
      */
     fun getSize() = queue.size
 
+    /**
+     * This queue with its own copy of the song list, for a save that runs on another thread while
+     * the player keeps changing the queue. Take it on the thread that changes the queue.
+     */
+    fun snapshot() = copy(queue = ArrayList(queue))
+
     fun replaceAll(mediaList: List<MediaMetadata>) {
         queue.clear()
         queue.addAll(mediaList)
