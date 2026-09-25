@@ -275,9 +275,10 @@ internal class CutWatch {
     /**
      * One place in the song, followed in order: where it last was, how many windows in a row have
      * been on it now, whether the song has ever held it for two, whether it has counted as a cut,
-     * and whether it began as a restart.
+     * whether it began as a restart, and where the one window that restart was reckoned from put
+     * the song, if the song had not held anywhere before it.
      */
-    private class Place(var offset: Double, var atMs: Long, val restart: Boolean) {
+    private class Place(var offset: Double, var atMs: Long, val restart: Boolean, val loneFrom: Double? = null) {
         var inARow = 1
         var runStartedMs = atMs
         var hasHeld = false
@@ -295,6 +296,13 @@ internal class CutWatch {
     private var reported = false
     /** Where the last window the stall rule let through landed, and when. */
     private var stall: Pair<Double, Long>? = null
+
+    /**
+     * Where the window before the last RESTART put the song, when that one window is all the
+     * restart was reckoned from, and null when the song had held somewhere first. See [observe].
+     */
+    var restartedFrom: Double? = null
+        private set
 
     /**
      * One window of [key], matched at [offset] seconds with Shazam's time [skew], heard at [atMs],
@@ -360,12 +368,20 @@ internal class CutWatch {
             // from the window before, which can be a wrong repeat: the radio edit of Duke Dumont's
             // Won't Look Back, replayed on 25 Sep, had its first window placed at 30 s, and its
             // real start twelve seconds later read as going back to the top. Mr. Probz's Waves did
-            // the same from 51 s. A song that has not held anywhere yet has not been anywhere to
-            // go back from.
-            val reached = places.filter { it.hasHeld }.maxByOrNull { it.atMs }?.let { it.offset + (atMs - it.atMs) / 1000.0 }
+            // the same from 51 s. A song that has held nowhere yet has only that one window to go
+            // by, and Keep listening can catch a single window of DNA. before the jump, so that
+            // still counts, but whether the window was right shows only later: Won't Look Back
+            // played on past 30 s, while DNA. stopped at 62 s, short of the 99.8 s its one window
+            // said. So the restart is reported with that window's place for the engine to settle
+            // (see RecognitionEngine.stoppedShort), and meanwhile the song's top is its home, not
+            // a cut: there was nowhere held to cut from.
+            val lastHeld = places.filter { it.hasHeld }.maxByOrNull { it.atMs }
+            val from = lastHeld ?: previous
+            val reached = from?.let { it.offset + (atMs - it.atMs) / 1000.0 }
             val restart = at < MixWatch.RESTART_S && durationS != null && reached != null &&
                     reached > MixWatch.RESTART_S + 10 && reached < durationS - 20
-            current = Place(at, atMs, restart).also { places += it }
+            val loneFrom = if (restart && lastHeld == null) from?.offset else null
+            current = Place(at, atMs, restart, loneFrom).also { places += it }
             loose++
         }
 
@@ -374,14 +390,17 @@ internal class CutWatch {
         var justCounted = false
         if (held.inARow >= 2) {
             held.hasHeld = true
-            if (home == null && !held.restart) home = held
-            else if (held !== home && !held.counted) {
+            if (home == null && (!held.restart || held.loneFrom != null)) {
+                home = held
+                restarted = held.restart
+            } else if (held !== home && !held.counted) {
                 held.counted = true
                 held.countedMs = held.runStartedMs
                 justCounted = true
                 cuts += held
                 restarted = held.restart
             }
+            if (restarted) restartedFrom = held.loneFrom
         }
         // A restart counts as a cut like any other once there is another cut; on its own it is
         // reported as what it is, and the engine waits to see whether the song plays through.
@@ -418,6 +437,7 @@ internal class CutWatch {
         cuts.clear()
         reported = false
         stall = null
+        restartedFrom = null
     }
 
     companion object {

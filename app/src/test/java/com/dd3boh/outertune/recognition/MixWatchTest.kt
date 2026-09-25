@@ -514,6 +514,22 @@ class MixWatchTest {
         // shows only when the song stops short of its end, which the engine watches for.
         assertEquals(CutWatch.Verdict.NONE, watch.observe("dna", 2.1, 0.0, 120_000, 186))
         assertEquals(CutWatch.Verdict.RESTART, watch.observe("dna", 14.1, 0.0, 132_000, 186))
+        // Reckoned from a place the song held, so it stands however far DNA. then gets.
+        assertNull(watch.restartedFrom)
+    }
+
+    @Test
+    fun oneWindowOfDnaBeforeItsTopIsStillARestart() {
+        // The same, with Keep listening catching only one window of DNA. before the jump: 99.8 s
+        // in, then from 2.1 s to 62.1 s, where Beggin' took over. The restart rests on that one
+        // window, and DNA. never got back to where it said, so it stopped short: an edit.
+        val watch = CutWatch()
+        assertEquals(CutWatch.Verdict.NONE, watch.observe("dna", 99.8, 0.0, 0, 186))
+        assertEquals(CutWatch.Verdict.NONE, watch.observe("dna", 2.1, 0.0, 12_000, 186))
+        assertEquals(CutWatch.Verdict.RESTART, watch.observe("dna", 14.1, 0.0, 24_000, 186))
+        assertEquals(99.8, watch.restartedFrom!!, 0.01)
+        assertTrue((3..6).all { watch.observe("dna", 2.1 + (it - 1) * 12, 0.0, it * 12_000L, 186) == CutWatch.Verdict.NONE })
+        assertTrue(RecognitionEngine.stoppedShort(62.1, 12.0, 186, watch.restartedFrom))
     }
 
     /**
@@ -534,13 +550,22 @@ class MixWatchTest {
     )
 
     @Test
-    fun aFirstWindowOnALaterRepeatIsNoRestart() {
-        val watch = CutWatch()
-        val verdicts = wontLookBack.map { (offset, skew, at) -> watch.observe("wlb", offset, skew, at * 1000L, durationS = 202) }
-        assertTrue(verdicts.toString(), verdicts.all { it == CutWatch.Verdict.NONE })
-        val wavesWatch = CutWatch()
-        val wavesVerdicts = waves.map { (offset, skew, at) -> wavesWatch.observe("waves", offset, skew, at * 1000L, durationS = 208) }
-        assertTrue(wavesVerdicts.toString(), wavesVerdicts.all { it == CutWatch.Verdict.NONE })
+    fun aFirstWindowOnALaterRepeatIsNoEdit() {
+        // Each reads as going back to the top once its real start holds, with only the first window
+        // to say where it had been, and then plays on past that place: that window was the repeat,
+        // and the song is no edit, even against an upload long enough that stopping where these
+        // did would otherwise be stopping short. Nothing else about either is a cut.
+        for ((windows, durationS) in listOf(wontLookBack to 202, waves to 208)) {
+            val watch = CutWatch()
+            val verdicts = windows.map { (offset, skew, at) -> watch.observe("song", offset, skew, at * 1000L, durationS) }
+            assertEquals(verdicts.toString(), listOf(2), verdicts.indices.filter { verdicts[it] != CutWatch.Verdict.NONE })
+            assertEquals(CutWatch.Verdict.RESTART, verdicts[2])
+            val first = windows.first()
+            assertEquals(first.first / (1.0 + first.second), watch.restartedFrom!!, 0.01)
+            val furthest = windows.drop(2).maxOf { it.first }
+            assertFalse(RecognitionEngine.stoppedShort(furthest, 12.0, 300, watch.restartedFrom))
+            assertTrue(RecognitionEngine.stoppedShort(furthest, 12.0, 300, null))
+        }
     }
 
     @Test

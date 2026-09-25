@@ -296,8 +296,10 @@ class RecognitionEngine @Inject constructor(
      * top. Not the last window's place: a song replayed to its end can have its last window put in
      * an earlier chorus, and Delirious went from its restart back onto its usual timeline fifty
      * seconds ahead, and following the restart's own timeline read both as stopping short.
+     * @param loneFrom where the one window the restart was reckoned from put the song, when it had
+     * not held anywhere before: CutWatch.restartedFrom.
      */
-    private class Restart(val sighting: MixWatch.Sighting, var furthest: Double, var atMs: Long, val durationS: Int)
+    private class Restart(val sighting: MixWatch.Sighting, var furthest: Double, var atMs: Long, val durationS: Int, val loneFrom: Double?)
     private val restarts = mutableMapOf<String, Restart>()
 
     /** Windows in a row with nothing Shazam knows, while a mashup is on. */
@@ -668,7 +670,7 @@ class RecognitionEngine @Inject constructor(
                             }
                         }
                         CutWatch.Verdict.RESTART -> length?.let {
-                            restarts[key] = Restart(sighting, outcome.track.offsetSeconds, heardAtMs, it)
+                            restarts[key] = Restart(sighting, outcome.track.offsetSeconds, heardAtMs, it, cutWatch.restartedFrom)
                         }
                         CutWatch.Verdict.NONE -> {}
                     }
@@ -1194,7 +1196,7 @@ class RecognitionEngine @Inject constructor(
         for ((key, r) in over) {
             restarts.remove(key)
             val reached = r.furthest + windowMs / 1000.0
-            if (reached < r.durationS - EARLY_END_S) {
+            if (stoppedShort(r.furthest, windowMs / 1000.0, r.durationS, r.loneFrom)) {
                 Log.i(TAG, "'${r.sighting.title}' went back to its top and stopped at ${"%.0f".format(reached)} s of ${r.durationS}: an edit")
                 onCuts(r.sighting.copy(atMs = r.atMs), r.atMs)
             }
@@ -1381,6 +1383,20 @@ class RecognitionEngine @Inject constructor(
 
         /** A song that went back to its top and then stopped this far short of its end was an edit. */
         private const val EARLY_END_S = 30
+
+        /**
+         * Whether a song that went back to its top partway through, and has stopped, was an edit:
+         * the furthest any window put it, [furthest] seconds in, and one [windowS] listen more fall
+         * well short of its [durationS] end. Not when the restart was reckoned from one window the
+         * song had not held, [loneFrom], and the song then played on to where that window had put
+         * it: the window was a phrase that comes round again, heard early, and the song never went
+         * back at all. Won't Look Back and Waves, replayed on 25 Sep, played on past 30 and 51 s.
+         * Caught once at 99.8 s before its jump, DNA. in I'm Beggin' For DNA stopped at 62 s, and
+         * is still an edit. A mashup that plays its song from the top past that one window is
+         * missed this way.
+         */
+        internal fun stoppedShort(furthest: Double, windowS: Double, durationS: Int, loneFrom: Double?): Boolean =
+            furthest + windowS < durationS - EARLY_END_S && (loneFrom == null || furthest < loneFrom)
 
         /**
          * How long after a cut its pieces are held back. Longer than a section of a mashup: the
