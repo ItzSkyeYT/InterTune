@@ -248,6 +248,13 @@ class RecognitionEngine @Inject constructor(
 
     /** Whether this run adds what it hears to a playlist, or only lists it on the screen. */
     val addsToPlaylist: Boolean get() = playlist != null
+
+    /**
+     * The playlist this run adds to, or the last run's once it has stopped, and null for the
+     * screen's, which adds to none. For the playlist sheet, which shows a run for its own playlist
+     * and must not pass anybody else's off as its own.
+     */
+    val runPlaylist: Playlist? get() = playlist
     private var known = mutableSetOf<String>()
 
     /**

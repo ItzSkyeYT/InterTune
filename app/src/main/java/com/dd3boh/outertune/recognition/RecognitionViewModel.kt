@@ -162,6 +162,33 @@ class RecognitionViewModel @Inject constructor(
         engine.start(playlist, continuous.value)
     }
 
+    /**
+     * What the playlist sheet opened on [playlist] finds the engine doing: see [SheetRun].
+     *
+     * Asked again rather than kept, since which playlist a run is for is not a flow. The sheet asks
+     * whenever a run starts or stops, passing the [running] it has seen so the two agree, and once
+     * more as it closes.
+     */
+    fun sheetRun(playlist: Playlist, running: Boolean = this.running.value): SheetRun {
+        val run = engine.runPlaylist
+        return SheetRun.of(running, run?.id, run?.title, playlist.id)
+    }
+
+    /**
+     * Stops the run that is going and starts one for [playlist] in its place. For the playlist
+     * sheet opened while the What's playing? screen or another playlist was listening, and only
+     * from the button it shows for that.
+     *
+     * Not [stop] and then [start]. [stop] also sends the service its stop, which arrives after the
+     * new run has begun and ends that one as well. Only the engine is stopped here, and started
+     * again in the same moment, so the service carries on as it would through one long run. Should
+     * the start be refused, the service sees the engine stopped and goes, as after any stop.
+     */
+    fun listenInstead(playlist: Playlist) {
+        engine.stop()
+        start(playlist)
+    }
+
     /** Picked by hand from the candidate list. */
     fun accept(song: SongItem, playlist: Playlist?) {
         engine.add(song)
@@ -199,5 +226,54 @@ class RecognitionViewModel @Inject constructor(
 
     private companion object {
         const val TAG = "RecognitionViewModel"
+    }
+}
+
+/**
+ * What the playlist sheet finds the engine doing, and so what it shows and whether closing it may
+ * put the engine down.
+ *
+ * The sheet used to join whatever run was going. Opened while the What's playing? screen was keeping
+ * listening, it showed that run as its own: nothing it heard went into the playlist, Add on one of
+ * its answers put the song in the screen's list, and closing the sheet stopped the screen's run.
+ */
+sealed interface SheetRun {
+    /**
+     * This playlist's run, going, or stopped with its answer on show. The sheet shows it as its own,
+     * as it always has, which is what lets a Keep listening run be left and come back to.
+     */
+    data object Own : SheetRun
+
+    /**
+     * Nothing is running, and whatever is left on show is another run's, or nobody's. The sheet
+     * starts its own and shows none of that meanwhile: an answer the screen stopped on, picked here,
+     * would go into the screen's list.
+     */
+    data object Idle : SheetRun
+
+    /**
+     * Somebody else's run is going: the What's playing? screen's when [playlist] is null, otherwise
+     * the one for the playlist of that name. Said plainly rather than joined, and left running when
+     * the sheet closes.
+     */
+    data class Other(val playlist: String?) : SheetRun
+
+    /** Whether closing the sheet may stop the engine and clear it: never over somebody else's run. */
+    val resetOnClose: Boolean get() = this !is Other
+
+    companion object {
+        /**
+         * @param running whether the engine is listening.
+         * @param runId the playlist the engine's run adds to, or its last run's once stopped. Null for
+         * the screen's, which adds to none, and before anything has run.
+         * @param runName that playlist's name, null with [runId].
+         * @param sheetId the playlist the sheet was opened on. By id, since two playlists can share a
+         * name.
+         */
+        fun of(running: Boolean, runId: String?, runName: String?, sheetId: String): SheetRun = when {
+            runId == sheetId -> Own
+            !running -> Idle
+            else -> Other(runName)
+        }
     }
 }
