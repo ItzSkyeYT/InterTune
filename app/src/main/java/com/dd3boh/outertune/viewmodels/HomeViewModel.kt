@@ -263,6 +263,10 @@ class HomeViewModel @Inject constructor(
         discoverVarietyOnNextBuild = true
         moreOnNextLoad = true
         engineInputCache = null
+        // At once, not when the pass starts: a pull that lands while a load is still running is
+        // queued behind it, and the spinner used to bounce back and leave the row to change a few
+        // seconds later with no sign anything was loading.
+        refreshIndicator.value = true
         refresh(force = true)
     }
 
@@ -658,6 +662,10 @@ class HomeViewModel @Inject constructor(
             keepListening.value = keepListeningPool
             similarRecommendations.value = similarPool
             homePage.value = homePagePool
+            // The widget's lists come from here whichever way the rows were settled; with the
+            // tidy pass off they used to stay empty or frozen.
+            fillWidget(WidgetList.FORGOTTEN_FAVOURITES, forgottenFavorites.value.orEmpty().map { it.toMediaMetadata() })
+            fillWidget(WidgetList.KEEP_LISTENING, keepListening.value.orEmpty().filterIsInstance<Song>().map { it.toMediaMetadata() })
             return
         }
         val now = System.currentTimeMillis()
@@ -719,7 +727,14 @@ class HomeViewModel @Inject constructor(
         // moment: what is on screen, whatever source it came from. This is deliberately outside
         // the history switch below, since a widget is a display and not a record of listening.
         fillWidget(WidgetList.QUICK_PICKS, songs)
-        if (context.dataStore.get(PauseListenHistoryKey, false)) return
+        // Paused, nothing is recorded, and the last build has to go with it: left standing, a tap
+        // after unpausing was logged against the old list's song in that slot, and the new
+        // song's listen was graded as if it had been that one.
+        if (context.dataStore.get(PauseListenHistoryKey, false)) {
+            currentBuildId = 0L
+            currentBuildSongs = ids
+            return
+        }
         val now = System.currentTimeMillis()
         database.transaction {
             runCatching {
@@ -865,7 +880,7 @@ class HomeViewModel @Inject constructor(
      */
     private var lifted: QuickPicksShelf.Lift? = null
 
-    private var pendingRefresh = false
+    @Volatile private var pendingRefresh = false
     private var pendingRefreshForce = false
     private val previousHomePage = MutableStateFlow<HomePage?>(null)
     val explorePage = MutableStateFlow<ExplorePage?>(null)
@@ -1003,7 +1018,8 @@ class HomeViewModel @Inject constructor(
             if (!localOnly) Log.d("HomeViewModel", "Skipping remote home load, backing off")
             noteShown()
             quickPicksLoading.value = false
-            refreshIndicator.value = false
+            // Unless a pull is waiting behind this pass, whose spinner is already turning.
+            if (!pendingRefresh) refreshIndicator.value = false
             isLoading.value = false
             return
         }
@@ -1081,7 +1097,8 @@ class HomeViewModel @Inject constructor(
 
         // And the spinner stops here, with the row it was pulled for. What follows is the explore
         // page, the activity sync and the similar lookups, none of which the listener is watching.
-        refreshIndicator.value = false
+        // A pull queued behind this load keeps it turning until its own row is in.
+        if (!pendingRefresh) refreshIndicator.value = false
 
         // Only now: the row the listener pulled for has already settled above, and the rows
         // further down can arrive late without anybody minding.
@@ -1341,12 +1358,20 @@ class HomeViewModel @Inject constructor(
             // No spinner for the restore on open. Nothing is being fetched, so a spinner would be
             // claiming work that is not happening, and the rule is that it turns when and only
             // when something is loading.
-            refreshIndicator.value = !localOnly
             try {
                 var nextForce = force
+                // Only the opening pass is local. A pass queued behind it was asked for while it
+                // ran (a pull, signing in, another source) and has to go out. The check used to be
+                // `localOnly && !pendingRefreshForce` after pendingRefreshForce had been cleared,
+                // so every queued pass stayed local too, and a pull during the seconds of the
+                // opening load never fetched anything: the spinner bounced back and it took a
+                // second pull.
+                var passLocal = localOnly
                 do {
                     pendingRefresh = false
-                    load(nextForce, localOnly && !pendingRefreshForce)
+                    refreshIndicator.value = !passLocal
+                    load(nextForce, passLocal)
+                    passLocal = false
                     nextForce = pendingRefreshForce
                     pendingRefreshForce = false
                 } while (pendingRefresh)
