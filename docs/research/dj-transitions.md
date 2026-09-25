@@ -1,5 +1,7 @@
 # DJ-style transitions: research
 
+For transitions people make themselves (Spotify's Mix, and what the same would take here), see [user-transitions.md](user-transitions.md).
+
 Asked 25 Sep 2026: find out what Spotify's transitions and DJ actually do, whether InterTune can do any of it, and what each part would cost. Research only, no code changed. It starts from TODO section 9 and does not re-argue the three routes that section rules out.
 
 ## What Spotify does
