@@ -311,9 +311,10 @@ class HomeViewModel @Inject constructor(
         val row = if (standing != null && !force && now - lastDiscoverBuildAt < 3 * 3_600_000L && session == lastDiscoverSession) standing
         else {
             val input = engineInput(now)
-            // Nothing Quick picks is showing, and after a pull nothing this row has just shown.
+            // Nothing Quick picks is showing, and after a pull nothing this row has just shown:
+            // what was on screen, which the pool filled in where tidying took cards out.
             val taken = quickPicksPool.take(20).mapTo(HashSet()) { it.id }
-            if (variety) standing!!.cards.forEach { taken += it.songId }
+            if (variety) { standing!!.cards.forEach { taken += it.songId }; taken += discoverShownIds }
             val familiarity = context.dataStore.get(FamiliarityKey, 25)
             EngineRow.build(
                 input.copy(banned = input.banned + taken, notSeeds = rejectedSeeds.toSet(), chip = ContextChip.AUTO),
@@ -342,11 +343,25 @@ class HomeViewModel @Inject constructor(
      */
     private val discoverBuilding = java.util.concurrent.atomic.AtomicInteger(0)
 
-    /** Builds the Discover row beside a load rather than inside it, so Quick picks never waits for it. */
+    /** One build at a time, so the last one asked for is the one whose row, pool and captions stand. */
+    private val discoverLock = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * Builds the Discover row beside a load rather than inside it, so Quick picks never waits for
+     * it. With the row off, or held back in this build, nothing runs at all.
+     */
     private fun refreshDiscover(force: Boolean) {
+        if (!discoverWanted()) {
+            lastDiscoverRow = null
+            discoverPool = emptyList()
+            discover.value = null
+            return
+        }
         discoverBuilding.incrementAndGet()
         viewModelScope.launch(Dispatchers.IO) {
-            discoverPool = runCatching { buildDiscoverRow(force) }.onFailure { reportException(it) }.getOrDefault(emptyList())
+            discoverLock.withLock {
+                discoverPool = runCatching { buildDiscoverRow(force) }.onFailure { reportException(it) }.getOrDefault(emptyList())
+            }
             discoverBuilding.decrementAndGet()
             tidyRows()
         }
@@ -354,6 +369,8 @@ class HomeViewModel @Inject constructor(
 
     private var discoverShownIds: List<String> = emptyList()
     private var discoverBuildId = 0L
+    /** The songs of [discoverBuildId], set with it, so a slot is always read against the build it was seen in. */
+    private var discoverBuildSongs: List<String> = emptyList()
     private val discoverLogged = HashSet<Int>()
     private val discoverImpressionIds = HashMap<Int, Long>()
 
@@ -362,7 +379,8 @@ class HomeViewModel @Inject constructor(
         val ids = songs.map { it.id }
         if (ids.isEmpty() || ids == discoverShownIds) return
         discoverShownIds = ids
-        if (context.dataStore.get(PauseListenHistoryKey, false)) return
+        // Paused: nothing recorded against this list, and nothing against the last one either.
+        if (context.dataStore.get(PauseListenHistoryKey, false)) { discoverBuildId = 0L; return }
         val now = System.currentTimeMillis()
         val row = lastDiscoverRow
         database.transaction {
@@ -376,6 +394,7 @@ class HomeViewModel @Inject constructor(
                     cards = row?.let { RowBuildCodec.encode(it.cards) },
                     shownIds = ids.joinToString("\n"),
                 ))
+                discoverBuildSongs = ids
                 discoverLogged.clear()
                 discoverImpressionIds.clear()
             }.onFailure { Log.w("HomeViewModel", "Could not record the Discover build", it) }
@@ -391,7 +410,7 @@ class HomeViewModel @Inject constructor(
         val now = System.currentTimeMillis()
         database.transaction {
             runCatching {
-                val songId = discoverShownIds.getOrNull(slot) ?: return@transaction
+                val songId = discoverBuildSongs.getOrNull(slot) ?: return@transaction
                 if (discoverBuildId == 0L || !discoverLogged.add(slot)) return@transaction
                 insertImpressions(listOf(discoverImpression(songId, slot, now))).firstOrNull()?.let { discoverImpressionIds[slot] = it }
             }.onFailure { Log.w("HomeViewModel", "Could not record an impression", it) }
@@ -403,7 +422,7 @@ class HomeViewModel @Inject constructor(
         if (context.dataStore.get(PauseListenHistoryKey, false) || !context.dataStore.get(LearnFromListeningKey, true)) return
         database.transaction {
             runCatching {
-                val songId = discoverShownIds.getOrNull(slot) ?: return@transaction
+                val songId = discoverBuildSongs.getOrNull(slot) ?: return@transaction
                 if (discoverBuildId == 0L) return@transaction
                 val id = discoverImpressionIds[slot] ?: run {
                     discoverLogged.add(slot)
@@ -620,7 +639,16 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private suspend fun tidyRows() = withContext(Dispatchers.IO) {
+    /**
+     * One pass at a time. The Discover row's build ends in a pass of its own, beside a load's, and
+     * one that read the last refresh's just-played list could otherwise finish after the load's
+     * and put back a song that had just been played.
+     */
+    private val tidyLock = kotlinx.coroutines.sync.Mutex()
+
+    private suspend fun tidyRows() = withContext(Dispatchers.IO) { tidyLock.withLock { tidyRowsNow() } }
+
+    private suspend fun tidyRowsNow() {
         val tidy = context.dataStore.get(TidyHomeRowsKey, true)
         if (!tidy) {
             quickPicks.value = quickPicksPool.take(20)
@@ -630,7 +658,7 @@ class HomeViewModel @Inject constructor(
             keepListening.value = keepListeningPool
             similarRecommendations.value = similarPool
             homePage.value = homePagePool
-            return@withContext
+            return
         }
         val now = System.currentTimeMillis()
         if (justPlayedSnapshot == null) snapshotJustPlayed()
@@ -882,17 +910,21 @@ class HomeViewModel @Inject constructor(
         // first. Shuffling all 100 of them threw that away and gave the 100th the same odds as the
         // 1st. Shuffle inside the strongest 40 instead: still different on each refresh, but drawn
         // from the good end.
-        quickPicksPool = database.quickPicks()
+        // Into the pool once, when it is settled: the Discover row's pass can run at any moment of
+        // a load, and it used to find the library's songs standing in while the engine built.
+        val libraryPicks = database.quickPicks()
             .first().take(60).shuffled()
         if (source == QuickPicksSource.ENGINE || source == QuickPicksSource.COMPARE) {
             val engine = runCatching { buildEngineRow(force) }.onFailure { reportException(it) }.getOrDefault(emptyList())
             enginePoolForCompare = engine
+            quickPicksPool = engine.ifEmpty { libraryPicks }
             engineFallback.value = when {
-                engine.isNotEmpty() -> { quickPicksPool = engine; 0 }
-                quickPicksPool.size >= EngineParams.DEFAULT.minCards -> 1
+                engine.isNotEmpty() -> 0
+                libraryPicks.size >= EngineParams.DEFAULT.minCards -> 1
                 else -> 2
             }
         } else {
+            quickPicksPool = libraryPicks
             engineFallback.value = 0
             shadowBuild()
         }
@@ -910,7 +942,8 @@ class HomeViewModel @Inject constructor(
         val keepListeningArtists = database.mostPlayedArtists(0, 1)
             .first().filter { it.artist.isYouTubeArtist && it.artist.thumbnailUrl != null }.shuffled().take(5)
         keepListeningPool = (keepListeningSongs + keepListeningAlbums + keepListeningArtists).shuffled()
-        refreshDiscover(force)
+        // Rebuilt on a pull only, not on every forced load (a chip, a turned-down seed, signing in).
+        refreshDiscover(force = discoverVarietyOnNextBuild)
         snapshotJustPlayed()
         tidyRows()
 

@@ -468,8 +468,12 @@ fun HomeScreen(
         }
     }
 
-    // The Discover row is recorded and watched the same way, as a row of its own.
-    LaunchedEffect(discover) { discover?.let { viewModel.discoverShown(it) } }
+    // The Discover row is recorded and watched the same way, as a row of its own, and a new list
+    // starts from its first column, as Quick picks does.
+    LaunchedEffect(discover) {
+        discover?.let { viewModel.discoverShown(it) }
+        discoverLazyGridState.scrollToItem(0)
+    }
     LaunchedEffect(discover, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             snapshotFlow {
