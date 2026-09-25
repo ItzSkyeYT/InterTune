@@ -107,8 +107,8 @@ class CorrespondenceTest {
     }
 
     /** One track as Shazam places it, [offsetSeconds] into the reference recording. */
-    private fun heard(offsetSeconds: Double, key: String? = "k") = Recognised(
-        title = "Children",
+    private fun heard(offsetSeconds: Double, key: String? = "k", title: String = "Children") = Recognised(
+        title = title,
         artist = "Robert Miles",
         artworkUrl = null,
         isrc = null,
@@ -154,6 +154,19 @@ class CorrespondenceTest {
         assertFalse(isSecondListen(heard(60.0, key = null), 0L, heard(72.0, key = null), 12_000L, lifetime))
         assertFalse(isSecondListen(heard(60.0, key = "a"), 0L, heard(72.0, key = null), 12_000L, lifetime))
         assertFalse(isSecondListen(heard(60.0, key = null), 0L, heard(72.0, key = "a"), 12_000L, lifetime))
-        assertFalse(isSecondListen(heard(60.0, key = "a"), 0L, heard(72.0, key = "b"), 12_000L, lifetime))
+        assertFalse(isSecondListen(heard(60.0, key = "a"), 0L, heard(72.0, key = "b", title = "Fable"), 12_000L, lifetime))
+    }
+
+    /**
+     * Shazam knows some recordings under several entries and flips between them. The same song
+     * carrying on along its timeline under another entry is the second listen; a remix of it, which
+     * lands somewhere else, is not.
+     */
+    @Test
+    fun oneRecordingUnderAnotherEntryIsTheSecondListen() {
+        val lifetime = 3 * 12 * 1000L
+        assertTrue(isSecondListen(heard(60.0, key = "a"), 0L, heard(72.4, key = "b", title = "Children (Dream Version)"), 12_000L, lifetime))
+        assertFalse("a remix elsewhere in it", isSecondListen(heard(60.0, key = "a"), 0L, heard(80.0, key = "b", title = "Children (Remix)"), 12_000L, lifetime))
+        assertFalse("too late", isSecondListen(heard(60.0, key = "a"), 0L, heard(1260.0, key = "b"), 1_200_000L, lifetime))
     }
 }

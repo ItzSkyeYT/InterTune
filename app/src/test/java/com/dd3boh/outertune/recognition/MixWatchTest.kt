@@ -487,6 +487,68 @@ class MixWatchTest {
     }
 
     @Test
+    fun aRemixShazamDoesNotKnowComesThroughAsThreeVersions() {
+        // The Averez remix of Lean On, replayed from a file on 24 Sep: Shazam named another song,
+        // then the ATAX remix, the Robin Schulz edit twice, and the original.
+        fun v(key: String, title: String, at: Int, offset: Double, skew: Double) =
+            MixWatch.Sighting(key, title, "Major Lazer & DJ Snake", at * 1000L, offset, skew)
+        val watch = VersionWatch()
+        val windows = listOf(
+            v("wlto", "When Love Takes Over (feat. Kelly Rowland)", 0, 42.0, -0.0002),
+            v("atax", "Lean On (ATAX Remix)", 24, 28.3, 0.0154),
+            v("rs", "Lean On (feat. MØ) [Robin Schulz Edit]", 36, 44.8, -0.0368),
+            v("rs", "Lean On (feat. MØ) [Robin Schulz Edit]", 48, 56.4, -0.0374),
+            v("orig", "Lean On", 60, 131.6, 0.0133),
+        )
+        val verdicts = windows.map { watch.observe(it) }
+        assertTrue(verdicts.subList(0, 4).all { it == null })
+        assertEquals(setOf("atax", "rs", "orig"), verdicts[4]!!.map { it.key }.toSet())
+        // Once per song.
+        assertNull(watch.observe(v("pbh", "Lean On (Pbh & Jack Shizzle Remix)", 144, 70.3, 0.0295)))
+    }
+
+    @Test
+    fun oneRecordingUnderThreeEntriesIsOneVersion() {
+        // Album cut, radio edit and remaster of the same audio: every window lands on one timeline.
+        val watch = VersionWatch()
+        val windows = listOf("album" to "Song", "radio" to "Song (Radio Edit)", "album" to "Song", "remaster" to "Song (Remastered 2011)")
+        assertTrue(windows.withIndex().all { (i, e) ->
+            watch.observe(MixWatch.Sighting(e.first, e.second, "Artist", i * 12_000L, 50.0 + i * 12)) == null
+        })
+    }
+
+    @Test
+    fun anotherVersionElsewhereOnTheTimelineIsARival() {
+        fun v(key: String, title: String, at: Int, offset: Double, skew: Double = 0.0) =
+            MixWatch.Sighting(key, title, "Major Lazer & DJ Snake", at * 1000L, offset, skew)
+        val watch = VersionWatch()
+        watch.observe(v("atax", "Lean On (ATAX Remix)", 24, 28.3, 0.0154))
+        watch.observe(v("rs", "Lean On (feat. MØ) [Robin Schulz Edit]", 36, 44.8, -0.0368))
+        watch.observe(v("rs", "Lean On (feat. MØ) [Robin Schulz Edit]", 48, 56.4, -0.0374))
+        assertTrue(watch.rivalled("rs"))
+        assertFalse("nothing else of it heard", VersionWatch().apply { observe(v("rs", "Lean On", 0, 10.0)) }.rivalled("rs"))
+    }
+
+    @Test
+    fun anotherEntryOnTheSameTimelineIsATwinNotARival() {
+        val watch = VersionWatch()
+        watch.observe(MixWatch.Sighting("album", "Song", "Artist", 0L, 50.0))
+        watch.observe(MixWatch.Sighting("radio", "Song (Radio Edit)", "Artist", 12_000L, 62.1))
+        assertFalse(watch.rivalled("radio"))
+        assertEquals("album", watch.twinOf("radio", setOf("album")))
+        assertNull("not confirmed, so not a twin to carry on from", watch.twinOf("radio", emptySet()))
+        watch.observe(MixWatch.Sighting("remix", "Song (Remix)", "Artist", 24_000L, 20.0))
+        assertNull(watch.twinOf("remix", setOf("album", "radio")))
+    }
+
+    @Test
+    fun aRemixShazamKnowsIsTwoVersionsAtMost() {
+        val watch = VersionWatch()
+        val sightings = r3hab.map { (at, key, os) -> r3habSighting(at, key, os.first, os.second) }
+        assertTrue(sightings.all { watch.observe(it) == null })
+    }
+
+    @Test
     fun creditsComeDownToTheFirstName() {
         assertEquals("Eminem", MixSearch.primaryArtist("Eminem feat. Lil Wayne"))
         assertEquals("Linkin Park", MixSearch.primaryArtist("Linkin Park & Jay-Z"))

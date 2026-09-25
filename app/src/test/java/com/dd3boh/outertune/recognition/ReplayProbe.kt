@@ -72,6 +72,7 @@ class ReplayProbe {
         println("REPLAY ===== $name (${lengthS}s) =====")
         val mixWatch = MixWatch()
         val cutWatch = CutWatch()
+        val versionWatch = VersionWatch()
         val window = seconds * SIGNATURE_SAMPLE_RATE_HZ
         var start = 0
         var verdicts = 0
@@ -98,6 +99,13 @@ class ReplayProbe {
                     verdicts++
                     line.append("  CUT $cut")
                 }
+                versionWatch.observe(sighting)?.let { versions ->
+                    if (versions.none { it.key == host }) {
+                        verdicts++
+                        line.append("  VERSIONS ${versions.joinToString { it.title }}")
+                    }
+                }
+                if (versionWatch.rivalled(match.key)) line.append("  (rivalled)")
             }
             println(line)
             start += window

@@ -402,6 +402,88 @@ internal class CutWatch {
 }
 
 /**
+ * Tells a version of a song that Shazam does not know from the song itself.
+ *
+ * Shazam matches an unknown remix against the versions it does know, and cannot settle on one:
+ * the Averez remix of Lean On, replayed from a file on 24 Sep, came through as the ATAX remix, the
+ * Robin Schulz edit twice, the original, and the Pbh and Jack Shizzle remix inside two minutes, each
+ * a few percent off speed, with the Robin Schulz edit steady for two windows, which would have added
+ * it. So three different versions of one song inside [SPAN_MS] means none of them is playing.
+ *
+ * Versions are counted by where they land, not by name. Shazam can also know one recording under
+ * several entries, an album cut, a radio edit, a remaster, and flipping between those lands every
+ * window on one timeline, since it is the same audio. Only matches that disagree on the timeline are
+ * different versions.
+ */
+internal class VersionWatch(private val spanMs: Long = SPAN_MS) {
+
+    private val seen = ArrayDeque<MixWatch.Sighting>()
+    private val reported = mutableSetOf<String>()
+
+    /** The versions heard, the first time this window makes it three of one song; null otherwise. */
+    fun observe(sighting: MixWatch.Sighting): List<MixWatch.Sighting>? {
+        seen.addLast(sighting)
+        while (sighting.atMs - seen.first().atMs > spanMs) seen.removeFirst()
+        val song = MixSearch.titleOf(sighting)
+        if (song.isEmpty() || song in reported) return null
+        val versions = seen.filter { MixSearch.titleOf(it) == song }
+        if (versions.distinctBy { it.key }.size < 3) return null
+        // One timeline per version: a window joins the first timeline it carries on from.
+        val timelines = mutableListOf<MixWatch.Sighting>()
+        for (window in versions) {
+            val on = timelines.indexOfFirst { Timeline.continues(it, window) }
+            if (on >= 0) timelines[on] = window else timelines += window
+        }
+        if (timelines.size < 3) return null
+        reported += song
+        return versions.distinctBy { it.key }
+    }
+
+    /**
+     * Whether another version of [key]'s song was heard lately somewhere else on its timeline. Two
+     * windows of [key] agreeing are then not enough to say it is the one playing: the Robin Schulz
+     * edit of Lean On agreed with itself twice inside the Averez remix, a window after the ATAX
+     * remix, and the original that would have made three versions came a window later.
+     */
+    fun rivalled(key: String): Boolean {
+        val last = seen.lastOrNull { it.key == key } ?: return false
+        val song = MixSearch.titleOf(last)
+        if (song.isEmpty()) return false
+        return seen.filter { it.key != key && MixSearch.titleOf(it) == song }
+            .groupBy { it.key }.values.map { it.last() }
+            .any { !Timeline.continues(it, last) }
+    }
+
+    /**
+     * The key among [keys] that is the same recording as the latest window of [key]: the same
+     * song, on the same timeline. Shazam knows some recordings under several entries and flips
+     * between them, which is still the one song carrying on.
+     */
+    fun twinOf(key: String, keys: Set<String>): String? {
+        val last = seen.lastOrNull { it.key == key } ?: return null
+        val song = MixSearch.titleOf(last)
+        if (song.isEmpty()) return null
+        return seen.lastOrNull {
+            it.key != key && it.key in keys && it.atMs < last.atMs &&
+                    MixSearch.titleOf(it) == song && Timeline.continues(it, last)
+        }?.key
+    }
+
+    fun clear() {
+        seen.clear()
+        reported.clear()
+    }
+
+    fun forget(keys: Set<String>) {
+        seen.removeAll { it.key in keys }
+    }
+
+    companion object {
+        const val SPAN_MS = 150_000L
+    }
+}
+
+/**
  * Finding the mashup on YouTube from the pieces Shazam heard in it.
  *
  * Searched as videos, because that is where mashups live: under the song filter the same queries
@@ -504,6 +586,12 @@ internal object MixSearch {
      */
     fun distinctSongs(pieces: List<MixWatch.Sighting>): List<MixWatch.Sighting> =
         pieces.distinctBy { words(bareTitle(it.title)) to it.artist?.let { a -> words(primaryArtist(a)) } }
+
+    /** A piece's bare title as words: what its versions have in common. */
+    fun titleOf(piece: MixWatch.Sighting): String = words(bareTitle(piece.title))
+
+    /** Whether two titles name the same song, whatever edit or entry each is. */
+    fun sameSong(a: String, b: String): Boolean = words(bareTitle(a)).let { it.isNotEmpty() && it == words(bareTitle(b)) }
 
     /** Whether [item] names [piece], by its title or its artist. */
     fun names(piece: MixWatch.Sighting, item: SongItem): Boolean {

@@ -227,8 +227,12 @@ class RecognitionEngine @Inject constructor(
     /** The speed the last pair of listens measured, when it was not the original's. */
     private var pendingVariant: PlaybackVariant? = null
 
+    /** The [pending] listen already held back once for another version of its song. */
+    private var heldForRival: Pair<Recognised, Long>? = null
+
     private val mixWatch = MixWatch()
     private val cutWatch = CutWatch()
+    private val versionWatch = VersionWatch()
 
     /**
      * A mashup being heard: the keys of its pieces, which are not added while it lasts, and what it
@@ -365,6 +369,7 @@ class RecognitionEngine @Inject constructor(
         confirmed.clear()
         mixWatch.clear()
         cutWatch.clear()
+        versionWatch.clear()
         mix = null
         answered.clear()
         answeredAlone.clear()
@@ -480,6 +485,7 @@ class RecognitionEngine @Inject constructor(
                     endMix("silence")
                     mixWatch.clear()
                     cutWatch.clear()
+                    versionWatch.clear()
                 }
                 // Nothing to say in continuous mode. A quiet stretch or one refused request is not
                 // a reason to stop listening or to ask somebody to press try again.
@@ -654,6 +660,16 @@ class RecognitionEngine @Inject constructor(
                         }
                         CutWatch.Verdict.NONE -> {}
                     }
+                    // A version Shazam does not know: it keeps matching the ones it does. Unless one
+                    // of those is playing straight through, which makes it the one playing.
+                    versionWatch.observe(sighting)?.let { versions ->
+                        val host = mixWatch.steadyHost(heardAtMs)
+                        if (versions.none { it.key == host }) {
+                            Log.i(TAG, "'${outcome.track.title}' comes through as ${versions.size} versions: one Shazam does not know")
+                            val first = versions.first()
+                            onCuts(first.copy(title = MixSearch.bareTitle(first.title)), heardAtMs, versions)
+                        }
+                    }
                     // Only a return after a cut keeps a mashup going (onMix). A piece playing
                     // straight on used to refresh it on every window and so stayed blocked for as
                     // long as it played; now it is confirmed as usual once the cuts stop.
@@ -675,6 +691,13 @@ class RecognitionEngine @Inject constructor(
                 // Already confirmed this run, so a search that came back empty this time says nothing
                 // about the song. Noting it as unsure put a song that was in the list into the unsure
                 // list as well, which the Damage run of 24 Sep did at 12:58.
+                // The same recording under another of its Shazam entries is the same song carrying on.
+                if (keepGoing && key != null && key !in confirmed) {
+                    versionWatch.twinOf(key, confirmed.keys)?.let { twin ->
+                        confirmed[key] = confirmed.getValue(twin)
+                        confirmedAt[key] = confirmedAt[twin] ?: heardAtMs
+                    }
+                }
                 if (keepGoing && key != null && key in confirmed) {
                     Log.i(TAG, "Still '${outcome.track.title}', carrying on")
                     pending = null
@@ -737,6 +760,15 @@ class RecognitionEngine @Inject constructor(
                         _state.value = State.Confirming(outcome.track)
                         return
                     }
+                    // Another version of the song somewhere else on its timeline lately: one more window
+                    // on this one first. A third version in the meantime means neither is playing.
+                    if (key != null && waiting !== heldForRival && versionWatch.rivalled(key)) {
+                        Log.i(TAG, "Another version of '${outcome.track.title}' came through lately, listening again")
+                        pending = outcome.track to heardAtMs
+                        heldForRival = pending
+                        _state.value = State.Confirming(outcome.track)
+                        return
+                    }
                     val chosen = pickBest(outcome.track, candidates, variant) ?: best
                     Log.i(
                         TAG,
@@ -754,7 +786,8 @@ class RecognitionEngine @Inject constructor(
                             endMix("'${outcome.track.title}' started from the top")
                         }
                     }
-                    key?.let {
+                    // Both entries, when the pair was one recording under two of them.
+                    listOfNotNull(key, waiting.first.shazamKey).forEach {
                         confirmed[it] = chosen
                         confirmedAt[it] = heardAtMs
                     }
@@ -988,7 +1021,10 @@ class RecognitionEngine @Inject constructor(
      * back, and the remixes and mashups that name it are offered to pick from. Unless a mashup is
      * already being worked out from other songs, whose search knows more than this one can.
      */
-    private suspend fun onCuts(piece: MixWatch.Sighting, now: Long) {
+    private suspend fun onCuts(piece: MixWatch.Sighting, now: Long, versions: List<MixWatch.Sighting> = emptyList()) {
+        // The piece and, for a version Shazam does not know, every version it was matched as.
+        val all = (listOf(piece) + versions).distinctBy { it.key }
+        val allKeys = all.map { it.key }
         mix?.let { m ->
             // Another song cut up, while a mashup already answered is on. If which upload it is,
             // and so its length, is known and not yet run out, this is more of it. Otherwise it is
@@ -1001,27 +1037,27 @@ class RecognitionEngine @Inject constructor(
         if (mix == null && piece.key in answered) {
             // Answered as an edit of itself: settled. Answered as part of a mashup: held back, and the
             // mashup check says which mashup this is once another piece shows up.
-            mix = ActiveMix(mutableSetOf(piece.key), now, now, strong = true, settled = piece.key in answeredAlone, searched = true, startedMs = startOf(listOf(piece.key), now))
-            retract(listOf(piece))
+            mix = ActiveMix(allKeys.toMutableSet(), now, now, strong = true, settled = piece.key in answeredAlone, searched = true, startedMs = startOf(allKeys, now))
+            retract(all)
             return
         }
         val active = mix
-        if (active != null && piece.key in active.keys) {
+        if (active != null && active.keys.containsAll(allKeys)) {
             active.lastHeardMs = now
             active.lastCutMs = now
             return
         }
         Log.i(TAG, "'${piece.title}' keeps landing in other parts of the song: an edit, a remix or a mashup")
         val current = (active ?: ActiveMix().also { mix = it }).apply {
-            keys += piece.key
+            keys += allKeys
             lastHeardMs = now
             lastCutMs = now
             strong = true
             sure = true
-            pieces = (pieces + piece).distinctBy { it.key }
-            if (startedMs == 0L) startedMs = startOf(listOf(piece.key), now)
+            pieces = (pieces + all).distinctBy { it.key }
+            if (startedMs == 0L) startedMs = startOf(allKeys, now)
         }
-        retract(listOf(piece))
+        retract(all)
         if (current.settled || current.searched) return
 
         var failed = false
@@ -1067,6 +1103,7 @@ class RecognitionEngine @Inject constructor(
         // pieces of the next mashup, is what the next verdict needs.
         mixWatch.forget(over.keys)
         cutWatch.forget(over.keys)
+        versionWatch.forget(over.keys)
         unmatchedRun = 0
         over.keys.forEach { firstHeard.remove(it); lastHeard.remove(it) }
         if (!over.settled && over.candidates.isNotEmpty()) {

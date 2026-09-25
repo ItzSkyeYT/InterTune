@@ -123,6 +123,11 @@ enum class PlaybackVariant { ORIGINAL, FASTER, SLOWER;
  * first sighting could be confirmed by a different song entirely, and that song added with a rate
  * measured across two tracks. An unkeyed match is now never confirmed and so never added unasked,
  * which is the same side [corresponds] errs on.
+ *
+ * A different key can still be the second listen, when it is the same recording: Shazam knows some
+ * under several entries, an album cut, a radio edit, a remaster, and flips between them window by
+ * window, which kept a song like that from ever being confirmed. The same song on the same
+ * timeline, to within Shazam's own precision, is the same audio. A remix of it lands elsewhere.
  */
 internal fun isSecondListen(
     first: Recognised,
@@ -132,7 +137,10 @@ internal fun isSecondListen(
     lifetimeMs: Long,
 ): Boolean {
     val key = second.shazamKey ?: return false
-    return first.shazamKey == key && secondAtMs - firstAtMs <= lifetimeMs
+    val firstKey = first.shazamKey ?: return false
+    if (secondAtMs - firstAtMs > lifetimeMs) return false
+    return firstKey == key || MixSearch.sameSong(first.title, second.title) &&
+            Timeline.continues(first.offsetSeconds, firstAtMs, second.offsetSeconds, secondAtMs, second.timeSkew)
 }
 
 private val SLOWED = Regex("slowed|slow(ed)? ?\\+ ?reverb|daycore|screwed", RegexOption.IGNORE_CASE)
