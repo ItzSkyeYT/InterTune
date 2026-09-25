@@ -1669,6 +1669,14 @@ class MusicService : MediaLibraryService(),
             // the cache serves by the song's id whatever address comes back from here: the old
             // bytes kept playing while the row below was rewritten to the new quality, and the
             // song never counted as stale again.
+            // And only for a stream that answered its status check: the last fallback client's is
+            // taken unchecked, and one of those failing partway would have cost the offline copy.
+            // Without the check the cached copy plays, as if the upgrade had never been asked
+            // for, and nothing about the song is rewritten.
+            if (staleQuality && !playbackData.validated) {
+                Log.d(TAG, "PLAYING: remote song (cache kept, the new stream was not checked)")
+                return@Factory dataSpec
+            }
             if (staleQuality) {
                 runCatching { playerCache.removeResource(mediaId) }
                     .onFailure { Log.w(TAG, "Could not drop the lower-quality copy of $mediaId", it) }
