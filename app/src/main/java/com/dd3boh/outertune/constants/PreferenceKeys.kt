@@ -171,7 +171,7 @@ val ShowReasonsKey = booleanPreferencesKey("showReasons")
 val AdventurousnessKey = intPreferencesKey("adventurousness")
 /** The engine row holds only songs new to the listener. */
 val NewSongsOnlyKey = booleanPreferencesKey("newSongsOnly")
-/** A second engine row on Home, under Quick picks, of songs never played. */
+/** A second engine row on Home, under Quick picks, of songs never played. On unless turned off. */
 val DiscoverRowKey = booleanPreferencesKey("discoverRow")
 /** Familiarity 0 to 60: the share of the engine row given to songs heard well lately. */
 val FamiliarityKey = intPreferencesKey("familiarity")

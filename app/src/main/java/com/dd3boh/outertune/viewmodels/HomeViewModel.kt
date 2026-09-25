@@ -282,7 +282,7 @@ class HomeViewModel @Inject constructor(
     private var lastDiscoverSession = -1L
     @Volatile private var discoverVarietyOnNextBuild = false
 
-    private fun discoverWanted(): Boolean = Unreleased.ENGINE && context.dataStore.get(DiscoverRowKey, false)
+    private fun discoverWanted(): Boolean = Unreleased.ENGINE && context.dataStore.get(DiscoverRowKey, true)
 
     /** The last Discover build from the database, when it is still fresh, as [restoreEngineRow] does for Quick picks. */
     private suspend fun restoreDiscoverRow(now: Long): BuiltRow? = withContext(Dispatchers.IO) {
@@ -1385,7 +1385,7 @@ class HomeViewModel @Inject constructor(
         // The Discover row appears or goes the moment its switch is turned, not at the next refresh.
         viewModelScope.launch {
             context.dataStore.data
-                .map { it[DiscoverRowKey] ?: false }
+                .map { it[DiscoverRowKey] ?: true }
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { refreshDiscover(force = false) }

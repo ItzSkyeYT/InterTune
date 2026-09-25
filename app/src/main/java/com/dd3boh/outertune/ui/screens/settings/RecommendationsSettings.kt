@@ -97,7 +97,7 @@ fun RecommendationsSettings(
     val (showReasons, onShowReasonsChange) = rememberPreference(ShowReasonsKey, defaultValue = true)
     val (adventurousness, onAdventurousnessChange) = rememberPreference(AdventurousnessKey, defaultValue = 15)
     val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
-    val (discoverRow, onDiscoverRowChange) = rememberPreference(DiscoverRowKey, defaultValue = false)
+    val (discoverRow, onDiscoverRowChange) = rememberPreference(DiscoverRowKey, defaultValue = true)
     val (familiarity, onFamiliarityChange) = rememberPreference(FamiliarityKey, defaultValue = 25)
     val (similarFromLastFm, onSimilarFromLastFmChange) = rememberPreference(SimilarFromLastFmKey, defaultValue = false)
     val activeExclusions by viewModel.activeExclusions.collectAsState(initial = 0)
