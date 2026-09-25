@@ -679,6 +679,16 @@ fun HomeScreen(
                         modifier = Modifier.animateItem()
                     )
                 }
+                // The engine's chips stay put while its row builds, so they do not drop in with the
+                // songs and push the page down, and a chip can be picked before the row arrives.
+                if ((quickPicksSource == QuickPicksSource.ENGINE || quickPicksSource == QuickPicksSource.COMPARE) && engineFallback == 0) {
+                    item(key = "context_chips") {
+                        ContextChipRow(
+                            viewModel = viewModel,
+                            modifier = Modifier.animateItem().tourTarget(Tour.QUICK_PICKS_CHIPS),
+                        )
+                    }
+                }
                 item {
                     LazyHorizontalGrid(
                         rows = GridCells.Fixed(4),

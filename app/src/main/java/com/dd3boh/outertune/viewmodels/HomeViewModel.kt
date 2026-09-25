@@ -838,8 +838,11 @@ class HomeViewModel @Inject constructor(
      * picks are decided, which for the library source is as soon as the query returns and for the
      * YouTube source is after its shelf has been looked for. The row shows a skeleton while it is
      * true, so a refresh replaces the songs rather than leaving the old ones sitting there.
+     *
+     * True to begin with: init starts the first load straight away, and the moment before it has
+     * read the source showed the empty text for a frame on every cold start.
      */
-    val quickPicksLoading = MutableStateFlow(false)
+    val quickPicksLoading = MutableStateFlow(true)
     val forgottenFavorites = MutableStateFlow<List<Song>?>(null)
     val keepListening = MutableStateFlow<List<LocalItem>?>(null)
     val similarRecommendations = MutableStateFlow<List<SimilarRecommendation>?>(null)
@@ -902,9 +905,15 @@ class HomeViewModel @Inject constructor(
         }
         lastQuickPicksSource = source
 
-        // Only the YouTube source has anything to wait for, and only when there is nothing to
-        // show. A shimmer over a row that already has songs in it is the same lie as blanking it.
-        quickPicksLoading.value = source == QuickPicksSource.YOUTUBE && ytQuickPicks.value == null
+        // Only while there is nothing to show. A shimmer over a row that already has songs in it
+        // is the same lie as blanking it. YouTube waits on the network. The engine waits on its
+        // build, seconds on a phone when no fresh row can be restored, and with only the empty
+        // text in the meantime the row told someone with thousands of listens to listen to songs.
+        quickPicksLoading.value = when (source) {
+            QuickPicksSource.YOUTUBE -> ytQuickPicks.value == null
+            QuickPicksSource.ENGINE, QuickPicksSource.COMPARE -> quickPicks.value.isNullOrEmpty()
+            else -> false
+        }
 
         // The query already ranks by how many of your seed songs point at each result, strongest
         // first. Shuffling all 100 of them threw that away and gave the 100th the same odds as the
@@ -946,6 +955,9 @@ class HomeViewModel @Inject constructor(
         refreshDiscover(force = discoverVarietyOnNextBuild)
         snapshotJustPlayed()
         tidyRows()
+        // The engine's row is in, or the library standing in for it; only YouTube's still has the
+        // network ahead of it.
+        if (source != QuickPicksSource.YOUTUBE) quickPicksLoading.value = false
 
         allLocalItems.value =
             (quickPicks.value.orEmpty() + forgottenFavorites.value.orEmpty() + keepListening.value.orEmpty())
@@ -1343,6 +1355,9 @@ class HomeViewModel @Inject constructor(
                 // Backstop. load() drops it as soon as Quick picks settles; this catches the
                 // paths that return before reaching that point.
                 refreshIndicator.value = false
+                // The same for the skeleton, which would otherwise shimmer for good over a row a
+                // failed load never filled.
+                quickPicksLoading.value = false
             }
         }
     }
