@@ -77,6 +77,27 @@ class ProximityVolume(private val context: Context) {
     /** When the scan last stopped, so a restart moments later can keep what it had learned. */
     private var stoppedAt = 0L
 
+    /** Whether this scan has heard the headphones yet; see [widenIfSilent]. */
+    @Volatile private var heard = false
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /**
+     * The name filters match exactly, and headphones that advertise under some other pattern than
+     * the two tried (a suffix, another prefix) would never be heard at all. So a filtered scan that
+     * hears nothing within [WIDEN_AFTER_MS] is swapped for the unfiltered one this used before: it
+     * pauses with the screen off, but it works with the screen on, as it always did.
+     */
+    private val widenIfSilent = Runnable {
+        if (!running || heard) return@Runnable
+        runCatching {
+            @SuppressLint("MissingPermission")
+            val scanner = adapter?.bluetoothLeScanner ?: return@runCatching
+            scanner.stopScan(callback)
+            scanner.startScan(null, ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_BALANCED).setReportDelay(0).build(), callback)
+            Log.i(TAG, "nothing heard under the paired name, scanning without a filter")
+        }.onFailure { Log.w(TAG, "could not widen the scan: ${it.message}") }
+    }
+
     val isAvailable: Boolean
         get() = adapter?.isEnabled == true && hasPermission()
 
@@ -148,8 +169,13 @@ class ProximityVolume(private val context: Context) {
         // names are the one it pairs under and the one it advertises under ("WH-1000XM5" and
         // "LE_WH-1000XM5"); the callback still checks by containment.
         val filters = listOf(target, "LE_$target").map { ScanFilter.Builder().setDeviceName(it).build() }
+        heard = false
         runCatching { scanner.startScan(filters, settings, callback) }
             .onFailure { Log.w(TAG, "scan refused: ${it.message}"); running = false }
+        if (running) {
+            handler.removeCallbacks(widenIfSilent)
+            handler.postDelayed(widenIfSilent, WIDEN_AFTER_MS)
+        }
         return running
     }
 
@@ -158,6 +184,7 @@ class ProximityVolume(private val context: Context) {
         if (!running) return
         running = false
         stoppedAt = SystemClock.elapsedRealtime()
+        handler.removeCallbacks(widenIfSilent)
         runCatching { adapter?.bluetoothLeScanner?.stopScan(callback) }
         factor.value = 1f
     }
@@ -200,6 +227,7 @@ class ProximityVolume(private val context: Context) {
             val name = result.scanRecord?.deviceName ?: return
             // "WH-1000XM5" pairs, "LE_WH-1000XM5" advertises. Contains rather than equals.
             if (!name.contains(target, ignoreCase = true)) return
+            heard = true
             accept(result.rssi)
         }
 
@@ -228,5 +256,8 @@ class ProximityVolume(private val context: Context) {
 
         /** How long a stopped scan keeps its readings for a restart with the same headphones. */
         const val RESUME_WINDOW_MS = 120_000L
+
+        /** How long a filtered scan may hear nothing before it is widened. */
+        const val WIDEN_AFTER_MS = 15_000L
     }
 }
