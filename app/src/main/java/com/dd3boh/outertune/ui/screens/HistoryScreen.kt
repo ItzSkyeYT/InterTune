@@ -377,6 +377,9 @@ fun HistoryScreen(
                     val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
                     itemsIndexed(
                         items = eventsGroup,
+                        // By play, not by place: a new play lands at the top and shifts every row,
+                        // and without keys the rows under a finger or a swipe moved with it.
+                        key = { _, event -> event.event.id },
                     ) { index, event ->
                         SongListItem(
                             song = event.song,
