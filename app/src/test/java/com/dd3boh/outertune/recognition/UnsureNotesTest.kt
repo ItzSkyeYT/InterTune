@@ -21,13 +21,15 @@ class UnsureNotesTest {
 
     private val kidLaroi = "The Kid LAROI & Justin Bieber"
 
-    private fun note(title: String, artist: String, second: Int) =
-        RecognitionEngine.Added(title, artist, auto = false, heardAtMs = second * 1000L)
+    private fun note(title: String, artist: String, second: Int) = noteAt(title, artist, second * 1000L)
+
+    private fun noteAt(title: String, artist: String, ms: Long) =
+        RecognitionEngine.Added(title, artist, auto = false, heardAtMs = ms)
 
     private fun piece(title: String, artist: String?) = MixWatch.Sighting("key", title, artist, 0L)
 
-    /** The mashup's Stay was first heard at 600 s, and retract looks back a window from there. */
-    private val appeared = 588_000L
+    /** The mashup's Stay was first heard at 600 s, in windows of 12 s. */
+    private val appeared = RecognitionEngine.appearanceStart(600_000L, 12_000L)
 
     @Test
     fun `a note of the piece from this appearance of it goes`() {
@@ -47,7 +49,18 @@ class UnsureNotesTest {
     @Test
     fun `a note from the window before the piece was first heard goes`() {
         // Noted under another entry of the song, one window before this entry was first heard.
-        assertTrue(RecognitionEngine.isNoteOf(note("Stay", kidLaroi, 588), piece("Stay", kidLaroi), appeared))
+        // Windows are timed from the clock, so they come a few milliseconds over a window apart
+        // or under it, never exactly. Allowed one window to the millisecond, 12.005 s stayed.
+        for (before in listOf(11_990L, 12_000L, 12_005L, 12_100L)) {
+            assertTrue("$before ms before", RecognitionEngine.isNoteOf(noteAt("Stay", kidLaroi, 600_000L - before), piece("Stay", kidLaroi), appeared))
+        }
+    }
+
+    @Test
+    fun `a note from two windows before the piece was first heard stays`() {
+        for (before in listOf(23_990L, 24_000L, 24_010L)) {
+            assertFalse("$before ms before", RecognitionEngine.isNoteOf(noteAt("Stay", kidLaroi, 600_000L - before), piece("Stay", kidLaroi), appeared))
+        }
     }
 
     @Test

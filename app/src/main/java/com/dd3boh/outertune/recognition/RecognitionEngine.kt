@@ -1252,12 +1252,8 @@ class RecognitionEngine @Inject constructor(
     private fun startOf(keys: Collection<String>, now: Long): Long =
         keys.mapNotNull { firstHeard[it] }.minOrNull() ?: now
 
-    /**
-     * When [piece] was first heard this time round, less a window: where [retract] starts taking
-     * things back. The window is for another entry of the same song, which can have been noted or
-     * confirmed the window before this one was first heard.
-     */
-    private fun appearedAt(piece: MixWatch.Sighting): Long = (appeared[piece.key] ?: 0L) - windowMs
+    /** Where [retract] starts taking things back for [piece]: see [appearanceStart]. */
+    private fun appearedAt(piece: MixWatch.Sighting): Long = appearanceStart(appeared[piece.key] ?: 0L, windowMs)
 
     /** From the first window of it to the end of the last, in seconds. */
     private fun heardSeconds(startedMs: Long, lastMs: Long): Double = (lastMs - startedMs + windowMs) / 1000.0
@@ -1417,6 +1413,16 @@ class RecognitionEngine @Inject constructor(
         internal fun isNoteOf(note: Added, piece: MixWatch.Sighting, sinceMs: Long): Boolean =
             note.heardAtMs >= sinceMs && MixSearch.sameSong(piece.title, note.title) &&
                     MixSearch.artistsAgree(piece.artist, note.artist)
+
+        /**
+         * Where [retract] starts taking back what was noted or confirmed of a song first heard at
+         * [firstHeardMs] this time round: a window and a half before. The window is for another
+         * entry of the same song, which can have been noted or confirmed the window before this one
+         * was first heard. The half is because windows are never exactly [windowMs] apart, each
+         * being timed from the clock when it was cut: allowed one window to the millisecond, a note
+         * from 12.005 s before stayed.
+         */
+        internal fun appearanceStart(firstHeardMs: Long, windowMs: Long): Long = firstHeardMs - windowMs * 3 / 2
 
         /**
          * Listen windows a first sighting stays confirmable for. The second listen normally lands
