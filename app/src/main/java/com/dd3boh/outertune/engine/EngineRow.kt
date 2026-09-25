@@ -73,6 +73,12 @@ object EngineRow {
         /** Adventurousness in [0, 1]; the explore share follows it. */
         dial: Double = 0.15,
         newOnly: Boolean = false,
+        /**
+         * Only songs with no listen at all, the Discover something new row. Stricter than
+         * [newOnly], which counts a song as new until it is heard well, so a song skipped ten
+         * seconds in stays new there and would be offered here as something never heard.
+         */
+        neverPlayed: Boolean = false,
         random: Random = Random.Default,
     ): BuiltRow {
         val stats = LibraryStats(input, p)
@@ -198,16 +204,23 @@ object EngineRow {
             else -> p
         }
         val chipDial = if (input.chip == ContextChip.DISCOVER) 1.5 else dial   // past the dial's end: explore share 0.50
-        val quotasNow = quotas(p.rowSize, chipDial.coerceIn(0.0, 1.5), newOnly, chipParams).let { q ->
-            if (input.chip == ContextChip.DISCOVER) quotas(p.rowSize, 1.0, newOnly, p.copy(exploreBase = 0.50, exploreSpan = 0.0)) else q
+        val onlyNew = newOnly || neverPlayed
+        val quotasNow = quotas(p.rowSize, chipDial.coerceIn(0.0, 1.5), onlyNew, chipParams).let { q ->
+            if (input.chip == ContextChip.DISCOVER) quotas(p.rowSize, 1.0, onlyNew, p.copy(exploreBase = 0.50, exploreSpan = 0.0)) else q
         }
         var explore = exploreAll.filter { it.x[Features.NOVEL] >= 1.0 }.sortedByDescending { it.z }
         if (explore.size < 2 * (quotasNow[Lane.EXPLORE] ?: 0)) {
             explore = (explore + exploreAll.filter { it.x[Features.NOVEL] == 0.5 }.sortedByDescending { it.z })
         }
 
-        val lanes = if (newOnly) mapOf(Lane.EXPLORE to explore.filter { it.x[Features.NOVEL] >= 0.5 }, Lane.RELATED to related.filter { it.x[Features.NOVEL] >= 0.5 })
-        else mapOf(Lane.RELATED to related, Lane.AGAIN to again, Lane.ARTIST to artistLane, Lane.REDISCOVER to rediscover, Lane.EXPLORE to explore)
+        // Never played: no listen of any length, which the stats hold for every listen there is,
+        // the event log backfilled from earlier versions included.
+        fun unheard(c: Candidate) = stats.songs[c.songId] == null
+        val lanes = when {
+            neverPlayed -> mapOf(Lane.EXPLORE to explore.filter(::unheard), Lane.RELATED to related.filter(::unheard))
+            newOnly -> mapOf(Lane.EXPLORE to explore.filter { it.x[Features.NOVEL] >= 0.5 }, Lane.RELATED to related.filter { it.x[Features.NOVEL] >= 0.5 })
+            else -> mapOf(Lane.RELATED to related, Lane.AGAIN to again, Lane.ARTIST to artistLane, Lane.REDISCOVER to rediscover, Lane.EXPLORE to explore)
+        }
         val placed = Assembly(lanes, quotasNow, weights, p, random).run()
         val inRow = placed.mapTo(HashSet()) { it.first.songId }
         val cards = placed.mapIndexed { slot, (c, sampled) ->

@@ -183,6 +183,29 @@ class EngineRowTest {
     }
 
     @Test
+    fun `never played means no listen at all, not no good listen`() {
+        val w = bigWorld()
+        // Artists 12 to 15 were skipped ten seconds in, every song: new by New songs only's measure,
+        // since none was heard well, but not something the listener has never heard.
+        val skipped = (12..15).flatMap { a -> (0 until 8).map { "a${a}s$it" } }
+        skipped.forEachIndexed { i, id -> w.play(id, hoursAgo = 48.0 + i, ratio = 0.05, session = 500L + i, ended = EndReason.SKIPPED) }
+        val heard = w.listens.mapTo(HashSet()) { it.songId }
+        val row = EngineRow.build(w.input(), neverPlayed = true, random = Random(5))
+        assertTrue("a row to show", row.cards.size >= EngineParams.DEFAULT.minCards)
+        (row.cards + row.pool).forEach { assertTrue("${it.songId} has been played", it.songId !in heard) }
+        val newOnly = EngineRow.build(w.input(), newOnly = true, random = Random(5))
+        assertTrue("New songs only still counts a skip as new", (newOnly.cards + newOnly.pool).any { it.songId in skipped })
+    }
+
+    @Test
+    fun `never played leaves out what the input bans, such as the cards already in Quick picks`() {
+        val w = bigWorld()
+        val quickPicks = EngineRow.build(w.input(), neverPlayed = true, random = Random(5)).cards.map { it.songId }.toSet()
+        val row = EngineRow.build(w.input().copy(banned = quickPicks), neverPlayed = true, random = Random(5))
+        assertTrue(row.cards.none { it.songId in quickPicks })
+    }
+
+    @Test
     fun `the same seed gives the same row`() {
         val w = bigWorld()
         val a = EngineRow.build(w.input(), random = Random(7)).cards.map { it.songId }

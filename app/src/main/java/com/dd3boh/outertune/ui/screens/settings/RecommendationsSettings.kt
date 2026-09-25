@@ -17,6 +17,9 @@ import com.dd3boh.outertune.engine.Features
 import com.dd3boh.outertune.engine.Calibration
 import com.dd3boh.outertune.constants.LearnFromListeningKey
 import com.dd3boh.outertune.constants.NewSongsOnlyKey
+import com.dd3boh.outertune.constants.DiscoverRowKey
+import com.dd3boh.outertune.viewmodels.DISCOVER_ROW_KEY
+import com.dd3boh.outertune.viewmodels.DISCOVER_TEAM
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
 import androidx.compose.material3.Slider
 import com.dd3boh.outertune.engine.quotas
@@ -94,6 +97,7 @@ fun RecommendationsSettings(
     val (showReasons, onShowReasonsChange) = rememberPreference(ShowReasonsKey, defaultValue = true)
     val (adventurousness, onAdventurousnessChange) = rememberPreference(AdventurousnessKey, defaultValue = 15)
     val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
+    val (discoverRow, onDiscoverRowChange) = rememberPreference(DiscoverRowKey, defaultValue = false)
     val (familiarity, onFamiliarityChange) = rememberPreference(FamiliarityKey, defaultValue = 25)
     val (similarFromLastFm, onSimilarFromLastFmChange) = rememberPreference(SimilarFromLastFmKey, defaultValue = false)
     val activeExclusions by viewModel.activeExclusions.collectAsState(initial = 0)
@@ -137,6 +141,16 @@ fun RecommendationsSettings(
             checked = rankWithListening,
             onCheckedChange = onRankWithListeningChange,
         )
+        // Built by the engine, so held back with it.
+        if (Unreleased.ENGINE) {
+            ExplainedSwitchPreference(
+                title = stringResource(R.string.discover_something_new),
+                explanation = stringResource(R.string.discover_row_info),
+                description = stringResource(R.string.discover_row_description),
+                checked = discoverRow,
+                onCheckedChange = onDiscoverRowChange,
+            )
+        }
         Spacer(Modifier.height(16.dp))
 
         // Held back for 0.11 with the row they steer: see Unreleased. What stays visible without
@@ -231,7 +245,7 @@ fun RecommendationsSettings(
             checked = learnFromListening,
             onCheckedChange = onLearnFromListeningChange,
         )
-        val teamNames = mapOf(1 to stringResource(R.string.recommendations_team_engine), 2 to stringResource(R.string.recommendations_team_library), 3 to stringResource(R.string.recommendations_team_youtube))
+        val teamNames = mapOf(1 to stringResource(R.string.recommendations_team_engine), 2 to stringResource(R.string.recommendations_team_library), 3 to stringResource(R.string.recommendations_team_youtube), DISCOVER_TEAM to stringResource(R.string.discover_something_new))
         val scored = gradedByTeam.filter { it.outcome in 1..3 }.groupBy { it.team }
         val winsLine = stringResource(R.string.recommendations_wins_line)
         ExplainedPreference(
@@ -249,7 +263,7 @@ fun RecommendationsSettings(
             checked = shadowComparison,
             onCheckedChange = onShadowComparisonChange,
         )
-        val rowNames = mapOf(1 to stringResource(R.string.recommendations_team_engine), 2 to stringResource(R.string.recommendations_team_library), 3 to stringResource(R.string.recommendations_team_youtube), 4 to stringResource(R.string.recommendations_row_shadow))
+        val rowNames = mapOf(1 to stringResource(R.string.recommendations_team_engine), 2 to stringResource(R.string.recommendations_team_library), 3 to stringResource(R.string.recommendations_team_youtube), 4 to stringResource(R.string.recommendations_row_shadow), DISCOVER_ROW_KEY to stringResource(R.string.discover_something_new))
         val heldLine = stringResource(R.string.recommendations_held_line)
         ExplainedPreference(
             title = stringResource(R.string.recommendations_held),

@@ -84,7 +84,7 @@ class ReplayProbe {
             if (match == null) {
                 line.append("-- no match --")
             } else {
-                line.append("%-34s %7.1f  skew %+.4f".format(match.title.take(34), match.offset, match.skew))
+                line.append("%-34s %7.1f  skew %+.4f".format(match.title, match.offset, match.skew))
                 val sighting = MixWatch.Sighting(match.key, match.title, match.artist, atMs, match.offset, match.skew)
                 mixWatch.observe(sighting)?.let {
                     verdicts++

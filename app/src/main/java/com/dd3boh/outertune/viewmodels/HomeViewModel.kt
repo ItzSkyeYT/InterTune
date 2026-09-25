@@ -15,6 +15,8 @@ import com.dd3boh.outertune.engine.dayPartBucket
 import com.dd3boh.outertune.engine.quotas
 import com.dd3boh.outertune.engine.RowBuildCodec
 import com.dd3boh.outertune.constants.FamiliarityKey
+import com.dd3boh.outertune.constants.DiscoverRowKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.LearnFromListeningKey
 import com.dd3boh.outertune.engine.EngineLearning
 import com.dd3boh.outertune.constants.NewSongsOnlyKey
@@ -95,6 +97,10 @@ import javax.inject.Inject
 private const val SESSION_GAP_MS = 30L * 60 * 1000
 /** How long the engine's input is kept before being read again. */
 private const val ENGINE_INPUT_TTL_MS = 5L * 60 * 1000
+
+/** Discover something new in the build log: its own row key beside 1 to 5, and its own team beside 1 to 3. */
+const val DISCOVER_ROW_KEY = 6
+const val DISCOVER_TEAM = 4
 
 /** How long a load will wait for the "Similar to" rows before giving up on them for this pass. */
 private const val SIMILAR_WAIT_MS = 20_000L
@@ -254,6 +260,7 @@ class HomeViewModel @Inject constructor(
     /** Pull to refresh: a new row, not the same one again. */
     fun pullToRefresh() {
         varietyOnNextBuild = true
+        discoverVarietyOnNextBuild = true
         moreOnNextLoad = true
         engineInputCache = null
         refresh(force = true)
@@ -263,6 +270,142 @@ class HomeViewModel @Inject constructor(
     fun chipChanged() {
         lastEngineBuildAt = 0L
         refresh(force = true)
+    }
+
+    // ---- Discover something new: a second engine row under Quick picks, of songs never played.
+    val discover = MutableStateFlow<List<Song>?>(null)
+    private var discoverPool: List<Song> = emptyList()
+    private var lastDiscoverRow: BuiltRow? = null
+    private var lastDiscoverBuildAt = 0L
+    private var lastDiscoverSession = -1L
+    @Volatile private var discoverVarietyOnNextBuild = false
+
+    private fun discoverWanted(): Boolean = Unreleased.ENGINE && context.dataStore.get(DiscoverRowKey, false)
+
+    /** The last Discover build from the database, when it is still fresh, as [restoreEngineRow] does for Quick picks. */
+    private suspend fun restoreDiscoverRow(now: Long): BuiltRow? = withContext(Dispatchers.IO) {
+        val last = database.lastBuild(DISCOVER_ROW_KEY) ?: return@withContext null
+        if (!rowIsFresh(last.builtAt, last.sessionId, last.bucket, now)) return@withContext null
+        val cards = RowBuildCodec.decode(last.cards)
+        if (cards.size < EngineParams.DEFAULT.minCards) return@withContext null
+        BuiltRow(cards, EngineLoader.parseSeeds(last.seeds), RowBuildCodec.decode(last.pool), emptyMap()).also {
+            lastDiscoverRow = it; lastDiscoverBuildAt = last.builtAt; lastDiscoverSession = last.sessionId
+        }
+    }
+
+    /**
+     * The Discover row's songs followed by its pool. Built by the engine like Quick picks, from
+     * songs with no listen at all rather than none heard well, so a song skipped once is not
+     * offered as something new. Kept on the same terms as the engine's Quick picks: until a new
+     * session, three hours, or a pull to refresh, which asks for other songs than the last row.
+     */
+    private suspend fun buildDiscoverRow(force: Boolean): List<Song> = withContext(Dispatchers.Default) {
+        if (!discoverWanted()) { lastDiscoverRow = null; return@withContext emptyList() }
+        val now = System.currentTimeMillis()
+        val session = currentSessionOf(now)
+        val standing = lastDiscoverRow ?: if (!force) restoreDiscoverRow(now) else null
+        val variety = discoverVarietyOnNextBuild && standing != null
+        discoverVarietyOnNextBuild = false
+        val row = if (standing != null && !force && now - lastDiscoverBuildAt < 3 * 3_600_000L && session == lastDiscoverSession) standing
+        else {
+            val input = engineInput(now)
+            // Nothing Quick picks is showing, and after a pull nothing this row has just shown.
+            val taken = quickPicksPool.take(20).mapTo(HashSet()) { it.id }
+            if (variety) standing!!.cards.forEach { taken += it.songId }
+            val familiarity = context.dataStore.get(FamiliarityKey, 25)
+            EngineRow.build(
+                input.copy(banned = input.banned + taken, notSeeds = rejectedSeeds.toSet(), chip = ContextChip.AUTO),
+                weights = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS),
+                p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0),
+                dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0,
+                neverPlayed = true,
+            ).also {
+                lastDiscoverRow = it; lastDiscoverBuildAt = now; lastDiscoverSession = session
+                Log.d("HomeViewModel", "discover row: ${it.cards.size} cards, ${it.pool.size} in the pool, in ${System.currentTimeMillis() - now} ms")
+            }
+        }
+        if (row.cards.size < EngineParams.DEFAULT.minCards) return@withContext emptyList()
+        val wanted = (row.cards + row.pool).map { it.songId }
+        val byId = database.songsByIds(wanted).first().associateBy { it.id }
+        wanted.mapNotNull { byId[it] }
+    }
+
+    /**
+     * Builds that are running. While one is, the tidy pass leaves the row as it is: a pull used to
+     * show the old row without the song just played, and then the new row a few seconds later.
+     */
+    private val discoverBuilding = java.util.concurrent.atomic.AtomicInteger(0)
+
+    /** Builds the Discover row beside a load rather than inside it, so Quick picks never waits for it. */
+    private fun refreshDiscover(force: Boolean) {
+        discoverBuilding.incrementAndGet()
+        viewModelScope.launch(Dispatchers.IO) {
+            discoverPool = runCatching { buildDiscoverRow(force) }.onFailure { reportException(it) }.getOrDefault(emptyList())
+            discoverBuilding.decrementAndGet()
+            tidyRows()
+        }
+    }
+
+    private var discoverShownIds: List<String> = emptyList()
+    private var discoverBuildId = 0L
+    private val discoverLogged = HashSet<Int>()
+    private val discoverImpressionIds = HashMap<Int, Long>()
+
+    /** The Discover row on screen changed: recorded as its own build, with the engine's cards, so it is scored and restored on its own. */
+    fun discoverShown(songs: List<Song>) {
+        val ids = songs.map { it.id }
+        if (ids.isEmpty() || ids == discoverShownIds) return
+        discoverShownIds = ids
+        if (context.dataStore.get(PauseListenHistoryKey, false)) return
+        val now = System.currentTimeMillis()
+        val row = lastDiscoverRow
+        database.transaction {
+            runCatching {
+                discoverBuildId = insert(RowBuild(
+                    builtAt = now, rowKey = DISCOVER_ROW_KEY, sessionId = lastListen()?.sessionId ?: now, bucket = dayPartBucket(now),
+                    dial = context.dataStore.get(AdventurousnessKey, 15), contextChip = ContextChip.AUTO,
+                    seeds = EngineLoader.seedsJson(row?.seeds.orEmpty()),
+                    weights = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS).asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" },
+                    pool = row?.let { RowBuildCodec.encode(it.pool) },
+                    cards = row?.let { RowBuildCodec.encode(it.cards) },
+                    shownIds = ids.joinToString("\n"),
+                ))
+                discoverLogged.clear()
+                discoverImpressionIds.clear()
+            }.onFailure { Log.w("HomeViewModel", "Could not record the Discover build", it) }
+        }
+    }
+
+    private fun discoverImpression(songId: String, slot: Int, at: Long): Impression =
+        impressionOf(discoverBuildId, songId, slot, DISCOVER_TEAM, at, lastDiscoverRow?.let { r -> (r.cards + r.pool).firstOrNull { it.songId == songId } })
+
+    /** A Discover card was seen, on the same terms as [quickPickSeen]. */
+    fun discoverSeen(slot: Int) {
+        if (context.dataStore.get(PauseListenHistoryKey, false) || !context.dataStore.get(LearnFromListeningKey, true)) return
+        val now = System.currentTimeMillis()
+        database.transaction {
+            runCatching {
+                val songId = discoverShownIds.getOrNull(slot) ?: return@transaction
+                if (discoverBuildId == 0L || !discoverLogged.add(slot)) return@transaction
+                insertImpressions(listOf(discoverImpression(songId, slot, now))).firstOrNull()?.let { discoverImpressionIds[slot] = it }
+            }.onFailure { Log.w("HomeViewModel", "Could not record an impression", it) }
+        }
+    }
+
+    /** A Discover card was tapped, on the same terms as [quickPickTapped]. */
+    fun discoverTapped(slot: Int, tappedAt: Long) {
+        if (context.dataStore.get(PauseListenHistoryKey, false) || !context.dataStore.get(LearnFromListeningKey, true)) return
+        database.transaction {
+            runCatching {
+                val songId = discoverShownIds.getOrNull(slot) ?: return@transaction
+                if (discoverBuildId == 0L) return@transaction
+                val id = discoverImpressionIds[slot] ?: run {
+                    discoverLogged.add(slot)
+                    insertImpressions(listOf(discoverImpression(songId, slot, tappedAt))).first().also { discoverImpressionIds[slot] = it }
+                }
+                markImpressionTapped(id, tappedAt)
+            }.onFailure { Log.w("HomeViewModel", "Could not record a tap", it) }
+        }
     }
 
     /** Not this one: the seed is left out and the row built again. */
@@ -476,6 +619,7 @@ class HomeViewModel @Inject constructor(
         if (!tidy) {
             quickPicks.value = quickPicksPool.take(20)
             ytQuickPicks.value = ytQuickPicksPool?.take(20)
+            if (discoverBuilding.get() == 0) discover.value = discoverPool.take(20).takeIf { discoverWanted() }
             forgottenFavorites.value = forgottenPool.take(20)
             keepListening.value = keepListeningPool
             similarRecommendations.value = similarPool
@@ -513,6 +657,9 @@ class HomeViewModel @Inject constructor(
             quickPicks.value = songs(quickPicksPool, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST).take(20)
             ytQuickPicks.value = ytQuickPicksPool?.take(20)
         }
+        // Under Quick picks, so it gives way to it; nothing just played, like Quick picks.
+        // Held while a build is running, and claiming nothing then, as it is not what will be shown.
+        if (discoverBuilding.get() == 0) discover.value = if (discoverWanted()) songs(discoverPool, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST).take(20) else null
         forgottenFavorites.value = songs(forgottenPool).take(20)
         keepListening.value = local(keepListeningPool)
         similarRecommendations.value = similarPool?.map { it.copy(items = yt(it.items)) }?.filter { it.items.isNotEmpty() }
@@ -578,13 +725,15 @@ class HomeViewModel @Inject constructor(
     private fun impression(songId: String, slot: Int, at: Long): Impression {
         val team = if (currentTeam == 5) compareTeams[songId] ?: 1 else currentTeam
         val card = lastEngineRow?.takeIf { team == 1 }?.let { r -> (r.cards + r.pool).firstOrNull { it.songId == songId } }
-        return Impression(
-            buildId = currentBuildId, songId = songId, slot = slot, team = team, visibleAt = at,
-            lane = card?.lane?.ordinal?.plus(1) ?: 0, sampled = card?.sampled ?: false, p = card?.p?.toFloat(),
-            features = card?.features?.joinToString(",") { String.format(java.util.Locale.ROOT, "%.4f", it) },
-            reasons = card?.reasons?.joinToString(","),
-        )
+        return impressionOf(currentBuildId, songId, slot, team, at, card)
     }
+
+    private fun impressionOf(buildId: Long, songId: String, slot: Int, team: Int, at: Long, card: Card?): Impression = Impression(
+        buildId = buildId, songId = songId, slot = slot, team = team, visibleAt = at,
+        lane = card?.lane?.ordinal?.plus(1) ?: 0, sampled = card?.sampled ?: false, p = card?.p?.toFloat(),
+        features = card?.features?.joinToString(",") { String.format(java.util.Locale.ROOT, "%.4f", it) },
+        reasons = card?.reasons?.joinToString(","),
+    )
 
     /** A card has been at least half visible for long enough to count as seen. */
     fun quickPickSeen(slot: Int) {
@@ -755,6 +904,7 @@ class HomeViewModel @Inject constructor(
         val keepListeningArtists = database.mostPlayedArtists(0, 1)
             .first().filter { it.artist.isYouTubeArtist && it.artist.thumbnailUrl != null }.shuffled().take(5)
         keepListeningPool = (keepListeningSongs + keepListeningAlbums + keepListeningArtists).shuffled()
+        refreshDiscover(force)
         snapshotJustPlayed()
         tidyRows()
 
@@ -1192,6 +1342,14 @@ class HomeViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { on -> if (!on) { lastEngineBuildAt = 0L; refresh(force = true) } }
+        }
+        // The Discover row appears or goes the moment its switch is turned, not at the next refresh.
+        viewModelScope.launch {
+            context.dataStore.data
+                .map { it[DiscoverRowKey] ?: false }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { refreshDiscover(force = false) }
         }
         viewModelScope.launch {
             lastFmSimilar.caughtUpAt.drop(1).collect {

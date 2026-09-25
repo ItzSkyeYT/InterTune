@@ -207,6 +207,7 @@ fun HomeScreen(
     }
     val ytQuickPicks by viewModel.ytQuickPicks.collectAsState()
     val quickPicksLoading by viewModel.quickPicksLoading.collectAsState()
+    val discover by viewModel.discover.collectAsState()
     val forgottenFavorites by viewModel.forgottenFavorites.collectAsState()
     val keepListening by viewModel.keepListening.collectAsState()
     val similarRecommendations by viewModel.similarRecommendations.collectAsState()
@@ -228,6 +229,7 @@ fun HomeScreen(
 
 
     val quickPicksLazyGridState = rememberLazyGridState()
+    val discoverLazyGridState = rememberLazyGridState()
     val forgottenFavoritesLazyGridState = rememberLazyGridState()
 
     val localLibEnable by rememberPreference(LocalLibraryEnableKey, defaultValue = true)
@@ -465,6 +467,28 @@ fun HomeScreen(
         }
     }
 
+    // The Discover row is recorded and watched the same way, as a row of its own.
+    LaunchedEffect(discover) { discover?.let { viewModel.discoverShown(it) } }
+    LaunchedEffect(discover, lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            snapshotFlow {
+                val outer = lazylistState.layoutInfo
+                val holder = outer.visibleItemsInfo.firstOrNull { it.key == "discover_grid" }
+                    ?: return@snapshotFlow emptySet()
+                val info = discoverLazyGridState.layoutInfo
+                seenSlots(
+                    cards = info.visibleItemsInfo.map { CardBox(it.index, it.offset.x, it.offset.y, it.size.width, it.size.height) },
+                    rowViewportStart = info.viewportStartOffset, rowViewportEnd = info.viewportEndOffset,
+                    rowTop = holder.offset, screenTop = outer.viewportStartOffset, screenBottom = outer.viewportEndOffset,
+                )
+            }.collectLatest { slots ->
+                if (slots.isEmpty()) return@collectLatest
+                delay(500)
+                slots.forEach(viewModel::discoverSeen)
+            }
+        }
+    }
+
     LaunchedEffect(forgottenFavorites) {
         forgottenFavoritesLazyGridState.scrollToItem(0)
     }
@@ -507,6 +531,14 @@ fun HomeScreen(
         val quickPicksSnapLayoutInfoProvider = remember(quickPicksLazyGridState) {
             SnapLayoutInfoProvider(
                 lazyGridState = quickPicksLazyGridState,
+                positionInLayout = { layoutSize, itemSize ->
+                    (layoutSize * horizontalLazyGridItemWidthFactor / 2f - itemSize / 2f)
+                }
+            )
+        }
+        val discoverSnapLayoutInfoProvider = remember(discoverLazyGridState) {
+            SnapLayoutInfoProvider(
+                lazyGridState = discoverLazyGridState,
                 positionInLayout = { layoutSize, itemSize ->
                     (layoutSize * horizontalLazyGridItemWidthFactor / 2f - itemSize / 2f)
                 }
@@ -801,6 +833,64 @@ fun HomeScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.padding(horizontal = 32.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            discover?.takeIf { it.isNotEmpty() }?.let { discover ->
+                item(key = "discover_title") {
+                    NavigationTitle(
+                        title = stringResource(R.string.discover_something_new),
+                        modifier = Modifier.animateItem()
+                    )
+                }
+
+                item(key = "discover_grid") {
+                    val rows = min(4, discover.size)
+                    LazyHorizontalGrid(
+                        state = discoverLazyGridState,
+                        rows = GridCells.Fixed(rows),
+                        flingBehavior = rememberSnapFlingBehavior(discoverSnapLayoutInfoProvider),
+                        contentPadding = WindowInsets.systemBars
+                            .only(WindowInsetsSides.Horizontal)
+                            .asPaddingValues(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(ListItemHeight * rows)
+                            .animateItem()
+                    ) {
+                        itemsIndexed(
+                            items = discover,
+                            key = { _, song -> song.id }
+                        ) { slot, originalSong ->
+                            SongListItem(
+                                song = originalSong,
+                                navController = navController,
+
+                                isActive = originalSong.id == mediaMetadata?.id,
+                                isPlaying = isPlaying,
+                                inSelectMode = null,
+                                isSelected = false,
+                                onSelectedChange = {},
+                                swipeEnabled = false,
+
+                                thumbnailSize = listThumbnailSize,
+                                onExclude = if (Unreleased.ENGINE) ({ kind, reason -> viewModel.excludeSong(originalSong, kind, reason) }) else null,
+                                // A radio from the song, as Quick picks starts one.
+                                onPlay = {
+                                    val tappedAt = System.currentTimeMillis()
+                                    viewModel.discoverTapped(slot, tappedAt)
+                                    playerConnection.playQueue(
+                                        YouTubeQueue.radio(originalSong.toMediaMetadata()),
+                                        isRadio = true,
+                                        origin = PlayOrigin.DISCOVER,
+                                        originSlot = slot,
+                                        tappedAt = tappedAt,
+                                    )
+                                },
+                                modifier = Modifier.width(horizontalLazyGridItemWidth)
                             )
                         }
                     }

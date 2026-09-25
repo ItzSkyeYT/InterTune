@@ -36,7 +36,9 @@ enum class PlayOrigin(val code: Int) {
     /** A song the listener identified by ear, which is as deliberate as a search. */
     RECOGNISED(16),
     /** A card tapped on the home screen widget: the Quick picks row, outside the app. */
-    WIDGET(17);
+    WIDGET(17),
+    /** A card tapped in Discover something new, the row of songs never played. */
+    DISCOVER(18);
 
     companion object {
         fun fromCode(code: Int): PlayOrigin = entries.firstOrNull { it.code == code } ?: UNKNOWN
