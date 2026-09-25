@@ -94,6 +94,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
@@ -117,6 +120,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.navigation.navOptions
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.R
@@ -222,7 +226,14 @@ fun SetupWizard(
                 applyNewInstallDefaults(it)
                 it[OobeStatusKey] = OOBE_VERSION
             }
-            navController.navigateUp()
+            // Nothing under the wizard to go back to left its exit page on screen, now with the
+            // app's own bars over it and no control of its own. Home instead.
+            if (!navController.navigateUp()) {
+                navController.navigate(
+                    navController.graph.startDestinationId, null,
+                    navOptions { popUpTo("setup_wizard") { inclusive = true } },
+                )
+            }
         }
         Unit
     }
@@ -437,6 +448,17 @@ fun SetupWizard(
             val stepScrollState = rememberSaveable(oobeStatus, saver = ScrollState.Saver) {
                 ScrollState(0)
             }
+
+            // The page scrolls under the status bar by design, with a spacer at its top, but
+            // nothing was behind the bar, so text scrolled up ran through the clock and icons. A
+            // strip of the page's own colour sits over it, above the page.
+            Box(
+                Modifier
+                    .zIndex(1f)
+                    .fillMaxWidth()
+                    .windowInsetsTopHeight(WindowInsets.statusBars)
+                    .background(MaterialTheme.colorScheme.background)
+            )
 
             Column(
                 modifier = Modifier

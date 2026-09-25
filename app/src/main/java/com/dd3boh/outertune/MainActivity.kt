@@ -1314,7 +1314,9 @@ class MainActivity : ComponentActivity() {
                             // recurses until the native stack overflows and the process dies. The
                             // sheet's collapsed fill is transparent under glass anyway (Player.kt),
                             // so there is nothing of it worth capturing.
-                            if (oobeStatus >= OOBE_VERSION) {
+                            // Not over setup either, even once it is marked done: its exit page stays on
+                            // screen for a moment after, and the configurator runs it again later.
+                            if (oobeStatus >= OOBE_VERSION && navBackStackEntry?.destination?.route != "setup_wizard") {
                                 BottomSheetPlayer(
                                     state = playerBottomSheetState,
                                     navController = navController
