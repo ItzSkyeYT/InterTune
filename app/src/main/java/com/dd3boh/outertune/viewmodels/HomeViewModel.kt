@@ -274,6 +274,8 @@ class HomeViewModel @Inject constructor(
 
     // ---- Discover something new: a second engine row under Quick picks, of songs never played.
     val discover = MutableStateFlow<List<Song>?>(null)
+    /** Which played song led to each Discover card, where one did: "New to you" would only repeat the heading. */
+    val discoverReasons = MutableStateFlow<Map<String, CardReason>>(emptyMap())
     private var discoverPool: List<Song> = emptyList()
     private var lastDiscoverRow: BuiltRow? = null
     private var lastDiscoverBuildAt = 0L
@@ -326,7 +328,11 @@ class HomeViewModel @Inject constructor(
         }
         if (row.cards.size < EngineParams.DEFAULT.minCards) return@withContext emptyList()
         val wanted = (row.cards + row.pool).map { it.songId }
-        val byId = database.songsByIds(wanted).first().associateBy { it.id }
+        val seeds = (row.cards + row.pool).mapNotNull { it.seedId }.distinct()
+        val byId = database.songsByIds(wanted + seeds).first().associateBy { it.id }
+        discoverReasons.value = (row.cards + row.pool).mapNotNull { c ->
+            c.seedId?.let { byId[it]?.song?.title }?.let { c.songId to CardReason("x_seed", it) }
+        }.toMap()
         wanted.mapNotNull { byId[it] }
     }
 

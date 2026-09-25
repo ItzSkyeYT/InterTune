@@ -208,6 +208,7 @@ fun HomeScreen(
     val ytQuickPicks by viewModel.ytQuickPicks.collectAsState()
     val quickPicksLoading by viewModel.quickPicksLoading.collectAsState()
     val discover by viewModel.discover.collectAsState()
+    val discoverReasons by viewModel.discoverReasons.collectAsState()
     val forgottenFavorites by viewModel.forgottenFavorites.collectAsState()
     val keepListening by viewModel.keepListening.collectAsState()
     val similarRecommendations by viewModel.similarRecommendations.collectAsState()
@@ -877,6 +878,7 @@ fun HomeScreen(
                                 swipeEnabled = false,
 
                                 thumbnailSize = listThumbnailSize,
+                                caption = if (showReasons) discoverReasons[originalSong.id]?.let { reasonText(it) } else null,
                                 onExclude = if (Unreleased.ENGINE) ({ kind, reason -> viewModel.excludeSong(originalSong, kind, reason) }) else null,
                                 // A radio from the song, as Quick picks starts one.
                                 onPlay = {
