@@ -115,7 +115,7 @@ class CorrespondenceTest {
             "Summer Megamix 2015",
             "Ibiza Non-Stop Mix",
             "Yearmix 2016",
-        ).forEach { assertTrue(it, isDjMix(it)) }
+        ).forEach { assertTrue(it, isDjMix(it, 0.0)) }
         listOf(
             "What About Us (Radio Mix)",
             "Party Crasher (feat. Mayra Veronica) [Original Extended Mix]",
@@ -124,7 +124,7 @@ class CorrespondenceTest {
             "Club Mix",
             "Mixed Emotions",
             "Frozen (Remixed by Stuart Price)",
-        ).forEach { assertFalse(it, isDjMix(it)) }
+        ).forEach { assertFalse(it, isDjMix(it, 0.0)) }
     }
 
     /**

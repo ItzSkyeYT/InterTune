@@ -66,8 +66,11 @@ private val DJ_MIX = Regex(
  * song. No other window of the 61 files replayed so far landed past 400 s. A song over ten minutes
  * long heard from its start is confirmed well before then and carries on; only one joined past
  * that point is noted instead of added, which is one tap.
+ *
+ * The offset has no default on purpose. A call with the title alone, as the engine made before,
+ * would compile and pass every test while the megamix went back to being added.
  */
-internal fun isDjMix(title: String, offsetSeconds: Double = 0.0): Boolean =
+internal fun isDjMix(title: String, offsetSeconds: Double): Boolean =
     DJ_MIX.containsMatchIn(title) || offsetSeconds > LONGEST_SONG_S
 
 /** Ten minutes, the length past which MixSearch also takes an upload for a compilation. */
