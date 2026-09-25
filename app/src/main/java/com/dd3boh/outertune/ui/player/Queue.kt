@@ -987,7 +987,10 @@ fun BoxScope.QueueContent(
                                             contentDescription = null
                                         )
                                     }
-                                    if (!lockQueue && !detachedHead) {
+                                    // Not over search results, as in a playlist: the results are not redrawn
+                                    // after a move, so a second drag started from rows that were no longer
+                                    // where they showed.
+                                    if (!lockQueue && !detachedHead && !isSearching) {
                                         Icon(
                                             imageVector = Icons.Rounded.DragHandle,
                                             contentDescription = null,
