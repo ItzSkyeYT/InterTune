@@ -562,6 +562,10 @@ class RecognitionEngine @Inject constructor(
                 // match has to be resolved against YouTube before it can be played or added.
                 val query = outcome.track.searchQuery
                 val found = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG)
+                // Stopped while the search ran. YouTube.search catches the cancellation, as onMix
+                // allows for, so the rest went on for a run that was over: the song went back up as
+                // playing after stop had taken it down, and stayed, with no length to run out.
+                currentCoroutineContext().ensureActive()
                 val items = found.getOrNull()?.items
                 val candidates = items?.filterIsInstance<SongItem>()?.take(4).orEmpty()
                 // An empty list here was one line in the log and three different bugs underneath
