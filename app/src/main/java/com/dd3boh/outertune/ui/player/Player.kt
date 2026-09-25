@@ -272,9 +272,11 @@ fun BottomSheetPlayer(
         Pair(around(-1), around(1))
     }
     // Keyed by song in the strip, so a neighbour that is the same song as this one (a queue with a
-    // song twice in a row, or either side of this one) is left out rather than crashing it.
-    val previousInStrip = previousMediaMetadata?.takeIf { it.id != mediaMetadata?.id }
-    val nextInStrip = nextMediaMetadata?.takeIf { it.id != mediaMetadata?.id && it.id != previousInStrip?.id }
+    // song twice in a row, or either side of this one) is left out rather than crashing it. When
+    // both neighbours are one song, a two-song queue on repeat, next is the one kept: forward is
+    // the swipe people make, and dropping it left that queue with no working swipe at all.
+    val nextInStrip = nextMediaMetadata?.takeIf { it.id != mediaMetadata?.id }
+    val previousInStrip = previousMediaMetadata?.takeIf { it.id != mediaMetadata?.id && it.id != nextInStrip?.id }
     val mediaItems = listOfNotNull(previousInStrip, mediaMetadata, nextInStrip)
     val currentMediaIndex = if (previousInStrip != null) 1 else 0
 
@@ -1503,10 +1505,16 @@ private fun SwipeableArtwork(
     val latestIndex by rememberUpdatedState(currentIndex)
     val latestOnSkip by rememberUpdatedState(onSkip)
 
+    // Whether the strip is on its way to the song after a change. Cleared only when it gets there,
+    // so a touch that stops it partway can be told from a swipe.
+    val following = remember { booleanArrayOf(false) }
+
     // Follows the song: when it changes, the strip moves to it. Animated only while the player is
     // open, where the animation can run.
     LaunchedEffect(mediaItems.getOrNull(currentIndex)?.id, currentIndex) {
+        following[0] = true
         if (expanded) gridState.animateScrollToItem(currentIndex) else gridState.scrollToItem(currentIndex)
+        following[0] = false
     }
 
     LaunchedEffect(gridState) {
@@ -1515,10 +1523,24 @@ private fun SwipeableArtwork(
             gridState.interactionSource.interactions.collect { if (it is DragInteraction.Start) dragged = true }
         }
         snapshotFlow { gridState.isScrollInProgress }.collect { scrolling ->
-            if (scrolling || !dragged) return@collect
+            if (scrolling) return@collect
+            val wasDrag = dragged
             dragged = false
             val landed = gridState.firstVisibleItemIndex
-            if (landed != latestIndex) latestOnSkip(landed > latestIndex)
+            when {
+                // A touch landing while the strip followed a song change, a tap on the cover just
+                // after next was pressed, stopped it partway. Counted as a swipe, it went back.
+                wasDrag && following[0] -> {
+                    following[0] = false
+                    launch { gridState.animateScrollToItem(latestIndex) }
+                }
+                wasDrag && landed != latestIndex -> latestOnSkip(landed > latestIndex)
+                // Moved by something other than a finger, TalkBack's scroll or a mouse wheel: back
+                // to the song that is playing, rather than another's cover left on screen. In a
+                // child job, so a drag cancelling it cannot end this collector.
+                landed != latestIndex || gridState.firstVisibleItemScrollOffset != 0 ->
+                    launch { gridState.animateScrollToItem(latestIndex) }
+            }
         }
     }
 
