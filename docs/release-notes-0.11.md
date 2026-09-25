@@ -28,6 +28,7 @@ InterTune can count this install once a day: one short message with a random nam
 - **Listen once** names one song, and gives up after about half a minute if it hears nothing it knows. **Keep listening** carries on in the background, with the screen off, and lists everything it hears. Switching between the two does not stop it.
 - From that list, **Create playlist** or **Add to playlist**. Every song it hears after that goes into the same playlist.
 - The notification shows the song playing around you and how far into it the room is, and goes back to "Listening" as soon as the song changes.
+- When Shazam stops answering (no network, or too many requests), Keep listening waits longer between tries, says so, and carries on by itself once Shazam answers again.
 - It knows which version is playing. A sped-up or slowed edit is measured by how fast it plays rather than guessed from a title.
 - **Mashups and remixes.** In Keep listening it notices when a song is being cut up with others, or when Shazam keeps naming different versions of it, and looks for the mashup or remix on YouTube instead of adding the pieces. When two uploads are equally likely, it asks.
 - On headphones your music keeps playing while it listens. Only the phone's own speaker pauses, whether you listen from the search bar or from a playlist.
