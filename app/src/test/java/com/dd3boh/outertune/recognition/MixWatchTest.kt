@@ -111,55 +111,6 @@ class MixWatchTest {
         assertTrue(sightings.all { (key, at) -> watch.observe(MixWatch.Sighting(key, key, "x", at * 1000L)) == null })
     }
 
-    /**
-     * Raveon & Christian Tanz, Take Me Alive, replayed from a file on 25 Sep: seconds in, the key,
-     * the title Shazam gave, offset, skew. The file plays straight; Shazam names its breakdowns as
-     * whatever it can guess, and in the second one it guessed Reload twice.
-     */
-    private val takeMeAlive = listOf(
-        Triple(0, "tma", -0.7 to -0.0), Triple(12, "tma", 11.3 to -0.0002), Triple(24, "launch", 315.1 to -0.0101),
-        Triple(36, "launch", 316.7 to -0.0025), Triple(48, "tma", 47.3 to 0.0002), Triple(60, "tma", 59.3 to -0.0),
-        Triple(72, "tma", 71.3 to -0.0001), Triple(84, "tma", 83.3 to 0.0002), Triple(96, "tma", 95.3 to 0.0001),
-        Triple(108, "tma", 107.3 to 0.0003), Triple(120, "mount", 319.3 to 0.0061), Triple(132, "somebody", 92.7 to -0.0026),
-        Triple(144, "cage", 142.5 to 0.0033), Triple(156, "feel", 84.6 to -0.0087), Triple(168, "tma", 167.3 to -0.0001),
-        Triple(180, "tma", 179.3 to 0.0002), Triple(192, "tma", 191.3 to -0.0), Triple(204, "tma", 203.3 to 0.0003),
-        Triple(216, "lay", 7.0 to 0.0066), Triple(228, "reload", 195.7 to -0.0035), Triple(240, "titanium", 156.5 to -0.0032),
-        Triple(252, "reload", 195.3 to 0.0026), Triple(264, "mariachi", 270.4 to -0.0005), Triple(276, "tma", 275.3 to -0.0001),
-        Triple(288, "tma", 287.3 to -0.0001),
-    )
-    private val takeMeAliveTitles = mapOf(
-        "tma" to "Take Me Alive (feat. Jonny Rose)", "launch" to "Launch", "mount" to "The Mount of King (Original Mix)",
-        "somebody" to "Somebody That I Used To Know (feat. Gotye & Kimbra) [ARTBAT x David Guetta Mix]",
-        "cage" to "Cage (Ad Brown Dub Mix)", "feel" to "Feel Of The Night", "lay" to "Lay It On The Line",
-        "reload" to "Reload (Instrumental/Extended)", "titanium" to "Titanium (feat. Sia) [David Guetta & MORTEN Future Rave Extended Mix]",
-        "mariachi" to "Canción del Mariachi (Club Mix)",
-    )
-
-    @Test
-    fun aSongThatKeepsItsTimeThroughABreakdownIsNotAMashup() {
-        // Back at 275.3 s after a minute of guesses, to the tenth where it was due: it never left.
-        val watch = MixWatch()
-        val verdicts = takeMeAlive.map { (at, key, os) ->
-            watch.observe(MixWatch.Sighting(key, takeMeAliveTitles.getValue(key), null, at * 1000L, os.first, os.second))
-        }
-        assertTrue(verdicts.toString(), verdicts.all { it == null })
-    }
-
-    @Test
-    fun aSongPlayingInTheGapIsStillAReturnToWaitOn() {
-        // The same, but what comes between is a song playing along its own timeline, a vocal over
-        // Take Me Alive's instrumental, say: that is no breakdown misnamed, and the return counts
-        // once the vocal does not go on.
-        val watch = MixWatch()
-        val before = takeMeAlive.filter { it.first <= 204 }
-        val vocal = (0 until 5).map { Triple(216 + it * 12, "vocal", (40.0 + it * 12) to 0.0) }
-        val after = (0 until 6).map { Triple(276 + it * 12, "tma", (275.3 + it * 12) to 0.0) }
-        val verdicts = (before + vocal + after).map { (at, key, os) ->
-            watch.observe(MixWatch.Sighting(key, takeMeAliveTitles[key] ?: "Vocal", null, at * 1000L, os.first, os.second))
-        }
-        assertNotNull(verdicts.toString(), verdicts.filterNotNull().firstOrNull())
-    }
-
     @Test
     fun aPlaylistMovingOnIsNeverAMix() {
         val watch = MixWatch()
@@ -498,6 +449,25 @@ class MixWatchTest {
             "h" to (48 to 198.0), "x" to (60 to 26.0), "h" to (72 to 222.0), "x" to (84 to 50.0), "x" to (96 to 62.0),
             "x" to (108 to 74.0), "x" to (120 to 86.0), "x" to (132 to 98.0), "x" to (144 to 110.0))
         assertTrue(windows.all { (key, w) -> watch.observe(MixWatch.Sighting(key, key, key, w.first * 1000L, w.second)) == null })
+    }
+
+    @Test
+    fun aPieceNamedOncePerGapOverASongThatPlaysOnIsSure() {
+        // Faint straight under a mashup, No Love named for one window at a time, 72 s apart, and
+        // Faint back where it was heading after a stretch where nothing matched. Faint keeping its
+        // time does not make No Love a passage of it misnamed: No Love moves along its own
+        // timeline, 75 s further into itself 72 s later at the 4 % speed Shazam read, as it did in
+        // the Damage run of 24 Sep. The songs have taken turns twice.
+        val watch = MixWatch()
+        fun at(key: String, second: Int, offset: Double, skew: Double = 0.0) = MixWatch.Sighting(key, key, "x", second * 1000L, offset, skew)
+        listOf(at("faint", 0, 35.1), at("faint", 12, 47.1), at("faint", 24, 59.1), at("nolove", 36, 181.8, 0.042),
+            at("faint", 48, 83.1), at("faint", 60, 95.1)).forEach { assertNull(watch.observe(it)) }
+        val fromNoLove = watch.observe(at("nolove", 108, 256.8, 0.042))!!
+        assertTrue(fromNoLove.strong)
+        assertFalse(fromNoLove.sure)
+        val mix = watch.observe(at("faint", 132, 167.1))!!
+        assertTrue(mix.sure)
+        assertEquals(setOf("faint", "nolove"), mix.pieces.map { it.key }.toSet())
     }
 
     @Test

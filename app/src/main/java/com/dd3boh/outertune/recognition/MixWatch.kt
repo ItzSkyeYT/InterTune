@@ -142,7 +142,6 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
         // The song that came back never left its own timeline: what came between was inside it,
         // or two songs blending, each on its own timeline, as a DJ does from one to the next.
         if (sighting.key in steadyKeys(sighting.atMs)) return null
-        if (neverLeft(sighting.key, between)) return null
         return when (val host = steadyHost(sighting.atMs)) {
             null -> {
                 deferred = null
@@ -153,29 +152,6 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
                 null
             }
         }
-    }
-
-    /**
-     * Whether [key] kept its own time through a stretch too long for [steadyKeys] to see across,
-     * while nothing heard in that stretch, [between], was being played.
-     *
-     * Raveon and Christian Tanz's Take Me Alive, replayed from a file on 25 Sep, played straight
-     * for five minutes. Shazam could not name its minute-long breakdown and guessed five tracks for
-     * it, Reload twice, and the song came back at 275.3 s, where it was due to the tenth. That was
-     * taken for a mashup of Take Me Alive and Reload, one YouTube search away from a question
-     * about an upload nobody played. A mashup cuts back into its song wherever it likes: in the
-     * Damage and Memories Anthem runs of 24 Sep, every return to a song heard three times or more
-     * landed seven seconds or more from where that song had been heading.
-     *
-     * Only when nothing in the gap moved on with the clock. Reload's two windows matched the same
-     * second of it, 195.7 and 195.3, twenty-four seconds apart: a sound in the breakdown that
-     * resembles one moment of Reload, not Reload playing. A song that does play there, a vocal
-     * laid over this one's instrumental, is still a return to wait on (see [observe]).
-     */
-    private fun neverLeft(key: String, between: List<Sighting>): Boolean {
-        val own = seen.filter { it.key == key }
-        if (own.size < 3 || !own.zipWithNext().all { (a, b) -> Timeline.continues(a, b) }) return false
-        return between.groupBy { it.key }.values.none { windows -> windows.zipWithNext().any { (a, b) -> Timeline.continues(a, b) } }
     }
 
     /** When [key] was last heard, if it is still in view. */
