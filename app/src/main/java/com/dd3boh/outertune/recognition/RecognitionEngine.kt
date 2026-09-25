@@ -674,10 +674,21 @@ class RecognitionEngine @Inject constructor(
                     // of those is playing straight through, which makes it the one playing.
                     versionWatch.observe(sighting)?.let { versions ->
                         val host = mixWatch.steadyHost(heardAtMs)
-                        if (versions.none { it.key == host }) {
-                            Log.i(TAG, "'${outcome.track.title}' comes through as ${versions.size} versions: one Shazam does not know")
-                            val first = versions.first()
-                            onCuts(first.copy(title = MixSearch.bareTitle(first.title)), heardAtMs, versions)
+                        when {
+                            // One of its versions has played straight through for a minute: the song
+                            // itself, the original after the remix, say. Held as part of the remix it
+                            // would wait out the remix's whole hold and usually end before being added.
+                            // Three windows are not enough: a known version can run that long inside
+                            // the remix Shazam does not know.
+                            versionWatch.playsStraight(key) -> {
+                                versionWatch.release(sighting)
+                                mix?.takeIf { key in it.keys }?.let { endMix("'${outcome.track.title}' plays straight on") }
+                            }
+                            versions.none { it.key == host } -> {
+                                Log.i(TAG, "'${outcome.track.title}' comes through as ${versions.size} versions: one Shazam does not know")
+                                val first = versions.first()
+                                onCuts(first.copy(title = MixSearch.bareTitle(first.title)), heardAtMs, versions)
+                            }
                         }
                     }
                     // Only a return after a cut keeps a mashup going (onMix). A piece playing
@@ -1075,6 +1086,9 @@ class RecognitionEngine @Inject constructor(
             if (versions.isNotEmpty()) unknownVersion = true
         }
         retract(all)
+        // A question already asked about it covers the keys that joined since, so answering it
+        // answers for every version heard.
+        updateChoice(current.id) { it.copy(keys = it.keys + allKeys) }
         if (current.settled || current.searched) return
 
         var failed = false
@@ -1092,6 +1106,8 @@ class RecognitionEngine @Inject constructor(
         val heard = heardSeconds(current.startedMs, now)
         val found = MixSearch.rankSingle(piece, results, remixFirst = current.unknownVersion).filter { MixSearch.couldBe(it, heard) }
         current.candidates = found.take(MAX_CANDIDATES)
+        // Searched once: every new version key of an unknown remix came back here and searched again.
+        current.searched = !failed
         val choices = found.take(CHOICES)
         Log.i(TAG, "Remixes and mashups of '${piece.title}': ${found.take(MAX_CANDIDATES).joinToString { "'${it.title}' ${it.duration}s" }}")
         when {
@@ -1218,7 +1234,13 @@ class RecognitionEngine @Inject constructor(
     private suspend fun retract(pieces: List<MixWatch.Sighting>) {
         // Noted as heard but not added before it turned out to be part of this: the question about
         // the mashup or remix covers it now, and listing it twice reads as two different things.
-        _skipped.update { list -> list.filterNot { heard -> pieces.any { it.title == heard.title } } }
+        // By song, since a remix's first piece is kept under its bare title: "Lean On", where the
+        // list said "Lean On (ATAX Remix)".
+        // Not the notes this makes itself about a remix or a mashup it could not find.
+        val notes = setOf(context.getString(R.string.recognise_edit), context.getString(R.string.recognise_mashup))
+        _skipped.update { list ->
+            list.filterNot { heard -> heard.artist !in notes && pieces.any { MixSearch.sameSong(it.title, heard.title) } }
+        }
         // Only what was confirmed during this appearance of the song. The same song played on its
         // own earlier in the evening was a real play, and stays.
         val songs = pieces.mapNotNull { piece ->

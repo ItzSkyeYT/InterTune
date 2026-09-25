@@ -585,6 +585,55 @@ class MixWatchTest {
     }
 
     @Test
+    fun aSongThatPausesTwiceWithAChorusMisplacedIsNotCutUp() {
+        // From the second review of 25 Sep: two six second pauses and a window placed on a chorus.
+        val windows = listOf(0 to 30.0, 12 to 42.0, 24 to 54.0, 36 to 60.0, 48 to 72.0, 60 to 84.0, 72 to 40.0,
+            84 to 108.0, 96 to 114.0, 108 to 126.0, 120 to 138.0, 132 to 40.0, 144 to 162.0, 156 to 174.0)
+        val watch = CutWatch()
+        val verdicts = windows.map { (at, offset) -> watch.observe("song", offset, 0.0, at * 1000L, durationS = 240) }
+        assertTrue(verdicts.toString(), verdicts.none { it == CutWatch.Verdict.FIRST || it == CutWatch.Verdict.AGAIN })
+    }
+
+    @Test
+    fun aVersionPlayingStraightIsReleased() {
+        fun v(key: String, title: String, at: Int, offset: Double) = MixWatch.Sighting(key, title, "Major Lazer", at * 1000L, offset)
+        val watch = VersionWatch()
+        watch.observe(v("atax", "Lean On (ATAX Remix)", 0, 28.3))
+        watch.observe(v("rs", "Lean On [Robin Schulz Edit]", 12, 44.8))
+        assertNotNull(watch.observe(v("orig", "Lean On", 24, 131.6)))
+        watch.release(v("orig", "Lean On", 36, 143.6))
+        assertNull("the original playing on is the song", watch.observe(v("orig", "Lean On", 48, 155.6)))
+        // Released only after about a minute straight: four windows of one version are not enough.
+        val straight = VersionWatch()
+        (0 until 4).forEach { straight.observe(v("pbh", "Lean On (Pbh Remix)", 100 + it * 12, 70.0 + it * 12)) }
+        assertFalse(straight.playsStraight("pbh"))
+        straight.observe(v("pbh", "Lean On (Pbh Remix)", 148, 118.0))
+        assertTrue(straight.playsStraight("pbh"))
+    }
+
+    @Test
+    fun namesAreMatchedAsWholeWordsAndALoneXIsOneSong() {
+        val pieces = listOf(
+            MixWatch.Sighting("hideaway", "Hideaway", "Kiesza", 0L),
+            MixWatch.Sighting("reallove", "Real Love", "Clean Bandit & Jess Glynne", 24_000L),
+        )
+        assertFalse(MixSearch.namesUnheard(pieces, video("m", "Mashup: Hideaway x Real Love", "someone")))
+        assertFalse(MixSearch.namesUnheard(pieces, video("k", "Kiesza's Hideaway x Real Love", "someone")))
+        assertFalse(MixSearch.namesSeveral(video("a", "Major Lazer x DJ Snake - Lean On (Averez Remix)", "someone")))
+        assertTrue(MixSearch.namesSeveral(video("b", "Lean On x Sorry (Mashup)", "someone")))
+    }
+
+    @Test
+    fun aRemixCreditedToItsRemixerIsStillTheSameSong() {
+        val pieces = listOf(
+            MixWatch.Sighting("rs", "Lean On (feat. MØ) [Robin Schulz Extended Remix]", "Major Lazer & DJ Snake", 0L),
+            MixWatch.Sighting("sunny", "Lean On", "DjSunnymega", 12_000L),
+        )
+        assertEquals(1, MixSearch.distinctSongs(pieces).size)
+        assertEquals(2, MixSearch.distinctSongs(pieces + MixWatch.Sighting("sorry", "Sorry", "Justin Bieber", 24_000L)).size)
+    }
+
+    @Test
     fun aVersionShazamDoesNotKnowOffersRemixesBeforeMashups() {
         fun item(id: String, title: String) = SongItem(id = id, title = title, artists = listOf(Artist(name = "someone", id = null)), thumbnail = "", duration = 200)
         val piece = MixWatch.Sighting("lean", "Lean On", "Major Lazer & DJ Snake", 0L)

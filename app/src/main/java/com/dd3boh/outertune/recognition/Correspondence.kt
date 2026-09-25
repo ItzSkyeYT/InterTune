@@ -47,7 +47,7 @@ internal fun corresponds(track: Recognised, candidate: SongItem): Boolean {
 }
 
 private val DJ_MIX = Regex(
-    "contin[ui]+ous mix|non-?stop mix|mixed by|megamix|\\bhit ?mix\\b|\\bdj mix\\b|year ?mix",
+    "contin[ui]+ous mix|non-?stop mix|\\bmixed by|megamix|\\bhit ?mix\\b|\\bdj mix\\b|year ?mix",
     RegexOption.IGNORE_CASE,
 )
 

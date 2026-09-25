@@ -123,6 +123,7 @@ class CorrespondenceTest {
             "Lean On (Averez Remix)",
             "Club Mix",
             "Mixed Emotions",
+            "Frozen (Remixed by Stuart Price)",
         ).forEach { assertFalse(it, isDjMix(it)) }
     }
 

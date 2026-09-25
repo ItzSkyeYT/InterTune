@@ -291,6 +291,8 @@ internal class CutWatch {
     private var loose = 0
     private val cuts = mutableListOf<Place>()
     private var reported = false
+    /** Where the last window the stall rule let through landed, and when. */
+    private var stall: Pair<Double, Long>? = null
 
     /**
      * One window of [key], matched at [offset] seconds with Shazam's time [skew], heard at [atMs],
@@ -327,8 +329,18 @@ internal class CutWatch {
         // matched one phrase early looks like, so it neither moves the place's line nor counts
         // as holding it: moved, Hideaway's line went eight seconds astray and its own timeline
         // then looked like somewhere new.
-        val stalledOn = if (place == null) previous?.takeIf { stalled(it, at, atMs) } else null
-        if (place != null) {
+        // After a real pause the song carries on from where the stalled window landed: the second
+        // window to agree on that line moves the place there, as the first alone must not.
+        val resumed = if (place == null) previous?.takeIf { stall?.let { (o, t) -> Timeline.continues(o, t, at, atMs, 0.0) } == true } else null
+        val stalledOn = if (place == null && resumed == null) previous?.takeIf { stalled(it, at, atMs) } else null
+        stall = if (stalledOn != null) at to atMs else null
+        if (resumed != null) {
+            resumed.inARow++
+            resumed.offset = at
+            resumed.atMs = atMs
+            loose = 0
+            current = resumed
+        } else if (place != null) {
             if (place === previous) place.inARow++ else { place.inARow = 1; place.runStartedMs = atMs }
             place.offset = at
             place.atMs = atMs
@@ -396,6 +408,7 @@ internal class CutWatch {
         loose = 0
         cuts.clear()
         reported = false
+        stall = null
     }
 
     companion object {
@@ -501,10 +514,28 @@ internal class VersionWatch(private val spanMs: Long = SPAN_MS) {
 
     fun forget(keys: Set<String>) {
         seen.removeAll { it.key in keys }
+        // The report stays for its span: a remix's breakdown, two windows Shazam knows nothing of,
+        // ends the mashup but not the remix, and one version steady after it is still the remix.
+        // What ends a report is the song playing straight through as itself; see [release].
+    }
+
+    /** Whether the last [windows] windows heard were all [key], each where the one before says it should be. */
+    fun playsStraight(key: String, windows: Int = STRAIGHT_WINDOWS): Boolean {
+        val last = seen.takeLast(windows)
+        return last.size == windows && last.all { it.key == key } && last.zipWithNext().all { (a, b) -> Timeline.continues(a, b) }
+    }
+
+    /** [sighting]'s song is playing as itself after all: no longer a version Shazam does not know. */
+    fun release(sighting: MixWatch.Sighting) {
+        val song = MixSearch.titleOf(sighting)
+        reported.remove(song)
+        seen.removeAll { MixSearch.titleOf(it) == song && it.key != sighting.key }
     }
 
     companion object {
         const val SPAN_MS = 150_000L
+        /** About a minute at the usual twelve second windows. */
+        const val STRAIGHT_WINDOWS = 5
     }
 }
 
@@ -619,9 +650,14 @@ internal object MixSearch {
     /**
      * The pieces as songs rather than as Shazam keys. Shazam can give one recording two keys, and
      * two keys for one song flipping back and forth is not a mashup of it with itself.
+     *
+     * By title alone, not title and artist: Shazam credits a remix to whoever made it, and on the
+     * emulator on 25 Sep the Averez remix of Lean On, heard as "Lean On" by DjSunnymega beside
+     * Major Lazer's Robin Schulz remix, was asked about as a mashup of Lean On with itself. Two
+     * different songs of one name in one mashup is far the rarer thing.
      */
     fun distinctSongs(pieces: List<MixWatch.Sighting>): List<MixWatch.Sighting> =
-        pieces.distinctBy { words(bareTitle(it.title)) to it.artist?.let { a -> words(primaryArtist(a)) } }
+        pieces.distinctBy { words(bareTitle(it.title)).ifEmpty { it.key } }
 
     /** A piece's bare title as words: what its versions have in common. */
     fun titleOf(piece: MixWatch.Sighting): String = words(bareTitle(piece.title))
@@ -669,8 +705,10 @@ internal object MixSearch {
     internal fun namesUnheard(pieces: List<MixWatch.Sighting>, item: SongItem): Boolean {
         val titles = distinctSongs(pieces).map { words(bareTitle(it.title)) }.filter { it.isNotEmpty() }
         val artists = pieces.mapNotNull { it.artist }.flatMap { it.split(CREDIT) }.map(::words).filter { it.isNotEmpty() }
-        fun heardTitle(name: String) = titles.any { name == it || name.startsWith("$it ") }
-        fun known(name: String) = heardTitle(name) || artists.any { name == it || name.startsWith("$it ") }
+        // As whole words anywhere in the name: "Mashup: Hideaway" and "Kiesza's Hideaway" name it.
+        fun has(name: String, part: String) = " $name ".contains(" $part ")
+        fun heardTitle(name: String) = titles.any { has(name, it) }
+        fun known(name: String) = heardTitle(name) || artists.any { has(name, it) }
         // A list of titles, which has one of the heard songs in it. A list of artists is credits:
         // Damage's upload lists Slipknot beside Linkin Park and Eminem, and Shazam can miss a piece.
         return item.title.replace(Regex("\\([^)]*\\)|\\[[^]]*]"), " ")
@@ -706,7 +744,8 @@ internal object MixSearch {
     private val LIST = Regex("\\s*/\\s*|\\s+x\\s+|\\s+vs\\.?\\s+|\\s+\\+\\s+", RegexOption.IGNORE_CASE)
     private val CREDIT = Regex("\\s*(,|&| feat\\.? | ft\\.? | featuring | x | with )\\s*", RegexOption.IGNORE_CASE)
 
-    private val SEVERAL = Regex("mash ?up|medley|megamix|\\bx\\b|\\bvs\\.?(\\s|$)", RegexOption.IGNORE_CASE)
+    // Not a lone x: "Major Lazer x DJ Snake - Lean On (Averez Remix)" is one song. Mashups say so.
+    private val SEVERAL = Regex("mash ?up|medley|megamix|\\bvs\\.?(\\s|$)", RegexOption.IGNORE_CASE)
 
     private val MIX_WORDS = Regex("mash ?up|medley|megamix|\\bmix\\b|remix|\\bvs\\.?\\b", RegexOption.IGNORE_CASE)
 
