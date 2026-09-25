@@ -21,7 +21,9 @@ import com.zionhuang.innertube.models.SongItem
  * How sure that makes it depends on the interruption. One window of something else could be Shazam
  * getting a single window wrong, which does happen on a noisy room, so that alone only earns a look
  * for the mashup. Two windows of it in a row, or a second interruption, is not a mistake repeated,
- * and the pieces come out of the list whether or not the mashup is found.
+ * and the pieces come out of the list whether or not the mashup is found. A song that lands at one
+ * place in itself every time it is named earns nothing, however often it comes: that is one passage
+ * of the song playing, which Shazam names the same wrong way each time it comes round.
  *
  * Pure and fed by the engine, one call per window Shazam named, so it can be tested on the timeline
  * the real run produced.
@@ -105,6 +107,10 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
         // simply carrying on.
         val between = list.subList(previous + 1, list.size - 1)
         if (between.isEmpty()) return null
+        // Landing at one place in itself every time, however far the clock has moved on, this song
+        // is not playing: it is one passage of what is, which Shazam names the same wrong way each
+        // time it comes round. See [inOnePlace].
+        if (inOnePlace(sighting.key)) return null
 
         val first = list.indexOfFirst { it.key == sighting.key }
         val allOfSpan = list.subList(first, list.size)
@@ -113,7 +119,7 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
         // window and never again are noise; 2 Faced Funks' Powerbass had five of them in a row in
         // its breakdown, each a different track, and read as a mashup of all five.
         val heard = allOfSpan.groupingBy { it.key }.eachCount()
-        val recurring = heard.filter { (key, times) -> key != sighting.key && times >= 2 }.keys
+        val recurring = heard.filter { (key, times) -> key != sighting.key && times >= 2 && !inOnePlace(key) }.keys
         if (recurring.isEmpty()) return null
         val span = allOfSpan.filter { it.key == sighting.key || it.key in recurring }
         val interruption = between.filter { it.key in recurring }
@@ -152,6 +158,26 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
                 null
             }
         }
+    }
+
+    /**
+     * Whether two or more windows of [key] are in view and every one of them landed within
+     * [ONE_PLACE_S] of one place in it. A piece of a mashup moves along as the mashup plays: in
+     * Damage No Love was 181.8 s in at 132 s and 231.9 s in at 180 s. A passage Shazam misnames
+     * lands wherever the song it names has that passage, every time. Krept & Konan's Freak of the
+     * Week (Radio Edit), replayed from a file on 25 Sep, was Jamie xx's I Know There's Gonna Be at
+     * 72 s and again at 132 s, 185.6 and 185.0 s into it, and the return at 144 s was sure: the
+     * other song twice, each time between windows of this one. In Take Me Alive, Reload came at
+     * 195.7 and 195.3 s, and the return at 276 s was strong.
+     *
+     * Not whether the song around it carries on. A mashup can lay one song over another that keeps
+     * playing, and a piece that only ever comes one window at a time, as No Love did in Damage, would
+     * then never count. A mashup that loops one passage of a song does land at one place, and is
+     * missed.
+     */
+    private fun inOnePlace(key: String): Boolean {
+        val offsets = seen.filter { it.key == key }.map { it.offsetSeconds }
+        return offsets.size >= 2 && offsets.max() - offsets.min() <= ONE_PLACE_S
     }
 
     /** When [key] was last heard, if it is still in view. */
@@ -221,6 +247,13 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
 
         /** Past the wait by more than this, what was held is dropped rather than counted. */
         const val DEFER_GRACE_MS = 24_000L
+
+        /**
+         * How far apart a song's windows can land and still be one place in it. Shazam put the same
+         * passage 0.6 s apart in Freak of the Week and 0.4 s apart in Take Me Alive; a song playing
+         * on moves twelve seconds a window.
+         */
+        private const val ONE_PLACE_S = 3.0
     }
 }
 
@@ -274,11 +307,14 @@ internal class CutWatch {
 
     /**
      * One place in the song, followed in order: where it last was, how many windows in a row have
-     * been on it now, whether it has counted as a cut, and whether it began as a restart.
+     * been on it now, whether the song has ever held it for two, whether it has counted as a cut,
+     * whether it began as a restart, and where the one window that restart was reckoned from put
+     * the song, if the song had not held anywhere before it.
      */
-    private class Place(var offset: Double, var atMs: Long, val restart: Boolean) {
+    private class Place(var offset: Double, var atMs: Long, val restart: Boolean, val loneFrom: Double? = null) {
         var inARow = 1
         var runStartedMs = atMs
+        var hasHeld = false
         var counted = false
         var countedMs = 0L
     }
@@ -293,6 +329,13 @@ internal class CutWatch {
     private var reported = false
     /** Where the last window the stall rule let through landed, and when. */
     private var stall: Pair<Double, Long>? = null
+
+    /**
+     * Where the window before the last RESTART put the song, when that one window is all the
+     * restart was reckoned from, and null when the song had held somewhere first. See [observe].
+     */
+    var restartedFrom: Double? = null
+        private set
 
     /**
      * One window of [key], matched at [offset] seconds with Shazam's time [skew], heard at [atMs],
@@ -354,10 +397,24 @@ internal class CutWatch {
             // was DNA. to Shazam from start to end, and gave itself away only by going back to
             // DNA.'s first seconds a hundred seconds into a 186 second song. Somebody replaying a
             // song does it at the end, not two thirds of the way in.
-            val reached = previous?.let { it.offset + (atMs - it.atMs) / 1000.0 }
+            // How far it got is reckoned from the last place it held for two windows in a row, not
+            // from the window before, which can be a wrong repeat: the radio edit of Duke Dumont's
+            // Won't Look Back, replayed on 25 Sep, had its first window placed at 30 s, and its
+            // real start twelve seconds later read as going back to the top. Mr. Probz's Waves did
+            // the same from 51 s. A song that has held nowhere yet has only that one window to go
+            // by, and Keep listening can catch a single window of DNA. before the jump, so that
+            // still counts, but whether the window was right shows only later: Won't Look Back
+            // played on past 30 s, while DNA. stopped at 62 s, short of the 99.8 s its one window
+            // said. So the restart is reported with that window's place for the engine to settle
+            // (see RecognitionEngine.stoppedShort), and meanwhile the song's top is its home, not
+            // a cut: there was nowhere held to cut from.
+            val lastHeld = places.filter { it.hasHeld }.maxByOrNull { it.atMs }
+            val from = lastHeld ?: previous
+            val reached = from?.let { it.offset + (atMs - it.atMs) / 1000.0 }
             val restart = at < MixWatch.RESTART_S && durationS != null && reached != null &&
                     reached > MixWatch.RESTART_S + 10 && reached < durationS - 20
-            current = Place(at, atMs, restart).also { places += it }
+            val loneFrom = if (restart && lastHeld == null) from?.offset else null
+            current = Place(at, atMs, restart, loneFrom).also { places += it }
             loose++
         }
 
@@ -365,14 +422,18 @@ internal class CutWatch {
         var restarted = false
         var justCounted = false
         if (held.inARow >= 2) {
-            if (home == null && !held.restart) home = held
-            else if (held !== home && !held.counted) {
+            held.hasHeld = true
+            if (home == null && (!held.restart || held.loneFrom != null)) {
+                home = held
+                restarted = held.restart
+            } else if (held !== home && !held.counted) {
                 held.counted = true
                 held.countedMs = held.runStartedMs
                 justCounted = true
                 cuts += held
                 restarted = held.restart
             }
+            if (restarted) restartedFrom = held.loneFrom
         }
         // A restart counts as a cut like any other once there is another cut; on its own it is
         // reported as what it is, and the engine waits to see whether the song plays through.
@@ -409,6 +470,7 @@ internal class CutWatch {
         cuts.clear()
         reported = false
         stall = null
+        restartedFrom = null
     }
 
     companion object {
