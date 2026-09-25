@@ -20,6 +20,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.isActive
@@ -69,6 +70,12 @@ class MicrophoneListener @Inject constructor() {
         seconds: Int = DEFAULT_SECONDS,
         onProgress: (elapsedMs: Long, level: Float) -> Unit = { _, _ -> },
     ): ShortArray = withContext(Dispatchers.IO) {
+        // The same stand-in as Keep listening's, its first window, as long as a listen would take.
+        debugRoom()?.let { room ->
+            val started = System.currentTimeMillis()
+            return@withContext replay(room, seconds) { level -> onProgress(System.currentTimeMillis() - started, level) }
+                .firstOrNull()?.samples ?: ShortArray(0)
+        }
         val minBuffer = AudioRecord.getMinBufferSize(
             SIGNATURE_SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
