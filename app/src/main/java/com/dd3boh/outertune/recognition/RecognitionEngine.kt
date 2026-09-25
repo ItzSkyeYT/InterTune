@@ -455,6 +455,18 @@ class RecognitionEngine @Inject constructor(
                 // meant the person was told "StandaloneCoroutine was cancelled" each time they
                 // pressed stop. Rethrown so the parent scope still unwinds properly.
                 throw t
+            } catch (t: MicrophoneListener.RecordingEnded) {
+                // Debug builds only: the recording standing in for the room has run out. That is
+                // the end of the run, as if stop had been pressed. The stream used to just end, and
+                // the state went on saying it was listening, to nothing, with the song it last named
+                // still up. A single listen's answer stays, as it does when the run halts on one.
+                // Unless the run was stopped meanwhile, which has already put everything down.
+                currentCoroutineContext().ensureActive()
+                Log.i(TAG, "The stand-in recording has ended, stopping")
+                pending = null
+                pendingVariant = null
+                publish(null)
+                _state.update { if (it is State.Listening || it is State.Confirming) State.Idle else it }
             } catch (t: Throwable) {
                 Log.w(TAG, "Listening failed", t)
                 _state.value = State.Failed(t.message ?: "microphone", heardNothing = false)
