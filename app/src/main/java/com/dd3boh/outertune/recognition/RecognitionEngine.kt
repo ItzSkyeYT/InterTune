@@ -1138,8 +1138,13 @@ class RecognitionEngine @Inject constructor(
 
     /** Shows the choice for [active], in place of one it already had, alongside any others. */
     private fun offerChoice(active: ActiveMix, titles: List<String>) {
-        val choice = MixChoice(active.id, active.keys.toSet(), titles, active.candidates.take(CHOICES))
-        _mixChoices.update { list -> listOf(choice) + list.filterNot { it.id == active.id || active.keys.containsAll(it.keys) } }
+        _mixChoices.update { list ->
+            // The same remix or mashup asked about before a pause ended it: one question, and its
+            // answer covers every key either was heard under. Two cards for Lean On is one too many.
+            val same = list.filter { it.id == active.id || active.keys.containsAll(it.keys) || it.pieces == titles }
+            val choice = MixChoice(active.id, active.keys + same.flatMap { it.keys }, titles, active.candidates.take(CHOICES))
+            listOf(choice) + list.filterNot { it in same }
+        }
     }
 
     private fun updateChoice(id: Long, change: (MixChoice) -> MixChoice) {
@@ -1210,6 +1215,10 @@ class RecognitionEngine @Inject constructor(
                 confirmed.remove(piece.key)
             } else null
         }
+        // And the same song under its other Shazam entries, or heard under one of them later it
+        // would be "still playing" and never added back.
+        val gone = songs.mapTo(HashSet()) { it.id }
+        confirmed.filterValues { it.id in gone }.keys.forEach { twin -> confirmed.remove(twin); confirmedAt.remove(twin) }
         val ids = synchronized(owned) { songs.map { it.id }.filter { it in owned }.toSet().also { owned.removeAll(it) } }
         if (ids.isEmpty()) return
         Log.i(TAG, "Taking out ${songs.filter { it.id in ids }.joinToString { "'${it.title}'" }}, pieces of a mashup")

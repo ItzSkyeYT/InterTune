@@ -503,8 +503,13 @@ class MixWatchTest {
         val verdicts = windows.map { watch.observe(it) }
         assertTrue(verdicts.subList(0, 4).all { it == null })
         assertEquals(setOf("atax", "rs", "orig"), verdicts[4]!!.map { it.key }.toSet())
-        // Once per song.
-        assertNull(watch.observe(v("pbh", "Lean On (Pbh & Jack Shizzle Remix)", 144, 70.3, 0.0295)))
+        // Every version after that is the same remix: a fourth one joins the others.
+        assertEquals(setOf("atax", "rs", "orig", "pbh"), watch.observe(v("pbh", "Lean On (Pbh & Jack Shizzle Remix)", 72, 70.3, 0.0295))!!.map { it.key }.toSet())
+        // Other songs in between are nothing to do with it.
+        assertNull(watch.observe(v("kos", "kOs", 84, 180.6, 0.0148)))
+        // Still the remix after a quiet stretch, and not after one longer than the span.
+        assertTrue(watch.observe(v("rs", "Lean On (feat. MØ) [Robin Schulz Edit]", 200, 111.5, -0.037))!!.any { it.key == "rs" })
+        assertNull(watch.observe(v("rs", "Lean On (feat. MØ) [Robin Schulz Edit]", 400, 111.5, -0.037)))
     }
 
     @Test

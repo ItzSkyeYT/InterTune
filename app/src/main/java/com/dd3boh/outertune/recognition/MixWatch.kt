@@ -418,15 +418,28 @@ internal class CutWatch {
 internal class VersionWatch(private val spanMs: Long = SPAN_MS) {
 
     private val seen = ArrayDeque<MixWatch.Sighting>()
-    private val reported = mutableSetOf<String>()
 
-    /** The versions heard, the first time this window makes it three of one song; null otherwise. */
+    /** Songs found to be playing as a version Shazam does not know, and when one of their versions was last heard. */
+    private val reported = HashMap<String, Long>()
+
+    /**
+     * The versions heard, when this window makes it three of one song, and on every window of that
+     * song after, for as long as its versions keep coming: a fourth version, or one of the three
+     * again after a quiet stretch, is the same remix and must not be added as itself. Null otherwise.
+     */
     fun observe(sighting: MixWatch.Sighting): List<MixWatch.Sighting>? {
         seen.addLast(sighting)
         while (sighting.atMs - seen.first().atMs > spanMs) seen.removeFirst()
         val song = MixSearch.titleOf(sighting)
-        if (song.isEmpty() || song in reported) return null
+        if (song.isEmpty()) return null
         val versions = seen.filter { MixSearch.titleOf(it) == song }
+        reported[song]?.let { last ->
+            if (sighting.atMs - last <= spanMs) {
+                reported[song] = sighting.atMs
+                return versions.distinctBy { it.key }
+            }
+            reported.remove(song)
+        }
         if (versions.distinctBy { it.key }.size < 3) return null
         // One timeline per version: a window joins the first timeline it carries on from.
         val timelines = mutableListOf<MixWatch.Sighting>()
@@ -435,7 +448,7 @@ internal class VersionWatch(private val spanMs: Long = SPAN_MS) {
             if (on >= 0) timelines[on] = window else timelines += window
         }
         if (timelines.size < 3) return null
-        reported += song
+        reported[song] = sighting.atMs
         return versions.distinctBy { it.key }
     }
 
