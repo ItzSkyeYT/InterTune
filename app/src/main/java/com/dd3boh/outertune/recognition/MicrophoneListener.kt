@@ -8,6 +8,7 @@ package com.dd3boh.outertune.recognition
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
@@ -15,6 +16,7 @@ import android.util.Log
 import androidx.annotation.RequiresPermission
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.fingerprint.SIGNATURE_SAMPLE_RATE_HZ
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -44,7 +46,9 @@ import kotlin.math.abs
  * still matches most of the time and no recording never does.
  */
 @Singleton
-class MicrophoneListener @Inject constructor() {
+class MicrophoneListener @Inject constructor(
+    @ApplicationContext private val context: Context,
+) {
 
     /**
      * One window of audio and the wall-clock time its first sample was heard.
@@ -218,7 +222,7 @@ class MicrophoneListener @Inject constructor() {
      */
     private fun debugRoom(): File? {
         if (!BuildConfig.DEBUG) return null
-        val file = File("/data/data/${BuildConfig.APPLICATION_ID}/files/room.pcm")
+        val file = File(context.filesDir, "room.pcm")
         return file.takeIf { runCatching { it.canRead() && it.length() > 0 }.getOrDefault(false) }
     }
 
