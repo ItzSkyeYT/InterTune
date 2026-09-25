@@ -110,6 +110,7 @@ InterTune can count this install once a day: one short message with a random nam
 - **Not this song** hid every other song with the same name, for good.
 - Saving an album, then hearing a song from it, unsaved the album.
 - An album with no songs kept its loading shimmer forever.
+- Playing one of your most played songs from Stats started the first one in the list instead.
 - Dragging songs with the add panel open moved the wrong rows.
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
 - **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
