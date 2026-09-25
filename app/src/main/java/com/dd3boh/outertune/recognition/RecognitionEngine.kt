@@ -306,6 +306,9 @@ class RecognitionEngine @Inject constructor(
     /** The length of one listen, for how long something has been heard up to its last window. */
     private var windowMs = MicrophoneListener.DEFAULT_SECONDS * 1000L
 
+    /** Windows in this Listen once that named nothing. See [ONCE_MAX_MISSES]. */
+    private var onceMisses = 0
+
     /** Playlist rows this run wrote, song id to playlist id, so a piece of a mashup can come out. */
     private val written = mutableListOf<Pair<String, String>>()
 
@@ -370,6 +373,7 @@ class RecognitionEngine @Inject constructor(
         if (job?.isActive == true) return
         this.playlist = playlist
         this.continuous.value = continuous
+        onceMisses = 0
         _added.value = emptyList()
         _skipped.value = emptyList()
         pending = null
@@ -426,6 +430,16 @@ class RecognitionEngine @Inject constructor(
                     }
                 }.collect { window ->
                     identify(window)
+                    // Listen once gives up after a few windows that named nothing, as the button
+                    // says it stops. It used to show "the microphone heard nothing" and go on
+                    // listening, the microphone and the foreground service with it, until somebody
+                    // came back and pressed stop: two minutes on the emulator before it was noticed.
+                    if (!this@RecognitionEngine.continuous.value &&
+                        (_state.value is State.Failed || _state.value == State.NoMatch) &&
+                        ++onceMisses >= ONCE_MAX_MISSES
+                    ) {
+                        return@collect halt()
+                    }
                     if (!this@RecognitionEngine.continuous.value && _state.value is State.Found) {
                         // Single shot stops on a result and waits for the person to choose. halt,
                         // not stop: stop ends by writing Idle, so it replaced the Found it was meant
@@ -1346,6 +1360,13 @@ class RecognitionEngine @Inject constructor(
     }
 
     companion object {
+        /**
+         * How many windows Listen once tries before it gives up: long enough to wait out a quiet
+         * intro or one refused request, about half a minute at the default window, and short
+         * enough that a forgotten listen does not keep the microphone for good.
+         */
+        const val ONCE_MAX_MISSES = 3
+
         private const val TAG = "RecognitionEngine"
 
         /**
