@@ -90,6 +90,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,6 +99,8 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
@@ -141,6 +144,7 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.component.button.IconLabelButton
+import com.dd3boh.outertune.ui.component.floatingGlass
 import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.screens.Screens.LibraryFilter
@@ -149,12 +153,17 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.LocalScannerFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalizationFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.ThemeAppFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.ThemePlayerFrag
+import com.dd3boh.outertune.ui.utils.GlassSpec
+import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.rememberGlassSpec
 import com.dd3boh.outertune.utils.dlCoroutine
 import com.dd3boh.outertune.utils.formatFileSize
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.scanners.stringFromUriList
 import com.dd3boh.outertune.utils.scanners.uriListFromString
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.zionhuang.innertube.utils.parseCookieString
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -177,6 +186,24 @@ fun SetupWizard(
     }
     val layoutDirection = LocalLayoutDirection.current
     val uriHandler = LocalUriHandler.current
+
+    // Glass for the back and forward buttons. The wizard is inside the nav host, so it can never
+    // read the app backdrop (see TopBarGlass.kt). Instead the page records a backdrop of its own,
+    // and the buttons, which sit in the bottom bar outside that recording, read it. Recorded over
+    // the scaffold's colour, as the app backdrop is over the page's, so the blur has something
+    // between the cards. Only whether glass is on is read here: the intensity is read by the
+    // buttons alone, so dragging the slider recomposes them rather than the whole wizard.
+    val glassOn = LocalAppBackdrop.current != null
+    val pageColor = rememberUpdatedState(MaterialTheme.colorScheme.background)
+    val pageBackdrop = rememberLayerBackdrop(
+        onDraw = remember {
+            val draw: ContentDrawScope.() -> Unit = {
+                drawRect(pageColor.value)
+                drawContent()
+            }
+            draw
+        }
+    )
 
     var oobeStatus by rememberPreference(OobeStatusKey, defaultValue = 0)
 
@@ -243,6 +270,9 @@ fun SetupWizard(
     val navBar = @Composable {
         val onFinalStep = oobeStatus == OOBE_VERSION - 1
         val canGoBack = oobeStatus > 0
+        // The intensity is the one the slider on the look page writes, so the buttons change while
+        // it is being dragged, not once the page is left.
+        val glass = rememberGlassSpec()?.let { GlassSpec(pageBackdrop, it.intensity) }
 
         // Back, progress, forward: one row, one centre line, the two buttons the same shape at
         // either end of the content column rather than at the screen's edges.
@@ -259,19 +289,15 @@ fun SetupWizard(
             // Present but dead on the welcome page. There is nowhere back to from the first step,
             // and removing it there would leave the row lopsided on exactly the screen that sets
             // the first impression.
-            FloatingActionButton(
+            OobeNavButton(
+                glass = glass,
+                enabled = canGoBack,
                 onClick = {
                     if (canGoBack) {
                         oobeStatus -= 1
                         haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                     }
                 },
-                containerColor = if (canGoBack) FloatingActionButtonDefaults.containerColor
-                else MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation),
-                contentColor = if (canGoBack) contentColorFor(FloatingActionButtonDefaults.containerColor)
-                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-                elevation = if (canGoBack) FloatingActionButtonDefaults.elevation()
-                else FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -288,17 +314,43 @@ fun SetupWizard(
                 label = "oobeProgress"
             )
 
-            LinearProgressIndicator(
-                progress = { stepProgress },
-                strokeCap = StrokeCap.Round,
-                drawStopIndicator = {},
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 20.dp)
-                    .height(4.dp),
-            )
+            if (glass == null) {
+                LinearProgressIndicator(
+                    progress = { stepProgress },
+                    strokeCap = StrokeCap.Round,
+                    drawStopIndicator = {},
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 20.dp)
+                        .height(4.dp),
+                )
+            } else {
+                // With glass the page runs on under this row, and the bare line drew straight
+                // across whatever text was behind it. On a pill of the same glass it stays
+                // readable, and the row matches the top bar's circle and pill.
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 12.dp)
+                        .height(28.dp)
+                        .floatingGlass(glass, CircleShape)
+                        .padding(horizontal = 14.dp)
+                ) {
+                    LinearProgressIndicator(
+                        progress = { stepProgress },
+                        strokeCap = StrokeCap.Round,
+                        drawStopIndicator = {},
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp),
+                    )
+                }
+            }
 
-            FloatingActionButton(
+            OobeNavButton(
+                glass = glass,
+                enabled = true,
                 onClick = {
                     if (oobeStatus == 1) {
                         filter = LibraryFilter.ALL // hax
@@ -359,6 +411,10 @@ fun SetupWizard(
         modifier = Modifier
             .fillMaxSize()
     ) { paddingValues ->
+        // With glass, the page carries on under the buttons, since glass over the bare page colour
+        // shows nothing, and a spacer at the end of the scroll lets the last card clear them.
+        // Without glass the page stops at the bar, as it always has.
+        val barHeight = paddingValues.calculateBottomPadding()
         Box(
             modifier = Modifier
                 .padding(
@@ -366,10 +422,14 @@ fun SetupWizard(
                         start = paddingValues.calculateStartPadding(layoutDirection),
                         top = 0.dp,
                         end = paddingValues.calculateEndPadding(layoutDirection),
-                        bottom = paddingValues.calculateBottomPadding()
+                        bottom = if (glassOn) 0.dp else barHeight
                     )
                 )
                 .fillMaxSize()
+                // The page in a layer of its own under the recorder, as a destination's screen is,
+                // so a change inside it re-records that layer once rather than running the
+                // recorder's passes over the whole page.
+                .then(if (glassOn) Modifier.layerBackdrop(pageBackdrop).graphicsLayer() else Modifier)
         ) {
             // Keyed on the step. One shared ScrollState only clamps to the new step's maximum
             // rather than resetting, so advancing from a scrolled page landed you part way down a
@@ -896,12 +956,58 @@ fun SetupWizard(
                         }
                     }
                 }
+
+                if (glassOn) Spacer(Modifier.height(barHeight))
             }
 
         }
     }
 }
 
+
+/**
+ * The back or forward button. Glass when the app is drawing glass, made the way the list screens'
+ * floating button is, and otherwise the plain floating button the wizard has always had.
+ *
+ * [glass] reads the wizard's own page backdrop, which is safe only because these buttons are in
+ * the scaffold's bottom bar, outside the layer that records the page. A disabled button keeps the
+ * glass but loses the button colour, as the flat one drops to the bar's grey.
+ */
+@Composable
+private fun OobeNavButton(
+    glass: GlassSpec?,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val disabledContent = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    if (glass == null) {
+        FloatingActionButton(
+            onClick = onClick,
+            containerColor = if (enabled) FloatingActionButtonDefaults.containerColor
+            else MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation),
+            contentColor = if (enabled) contentColorFor(FloatingActionButtonDefaults.containerColor)
+            else disabledContent,
+            elevation = if (enabled) FloatingActionButtonDefaults.elevation()
+            else FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
+            content = content,
+        )
+        return
+    }
+    val shape = FloatingActionButtonDefaults.shape
+    FloatingActionButton(
+        onClick = onClick,
+        modifier = if (enabled) Modifier.floatingGlass(glass, shape, glass.buttonTint())
+        else Modifier.floatingGlass(glass, shape),
+        shape = shape,
+        containerColor = Color.Transparent,
+        contentColor = if (enabled) MaterialTheme.colorScheme.onPrimaryContainer else disabledContent,
+        // The glass carries its own rim and shadow; the stock elevation would draw a second,
+        // square-ish shadow under a transparent container.
+        elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
+        content = content,
+    )
+}
 
 /**
  * The hero for one setup step: a badged icon, a headline and a line of explanation.
