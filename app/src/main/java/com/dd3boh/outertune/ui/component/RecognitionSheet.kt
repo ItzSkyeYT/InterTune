@@ -124,8 +124,11 @@ fun RecognitionSheet(
     val view = LocalView.current
     DisposableEffect(running, keepAwake) {
         val on = running && keepAwake
+        // Put back what was there rather than off: the player keeps the screen on for lyrics
+        // through the same flag, and switching it off here took that away too.
+        val before = view.keepScreenOn
         if (on) view.keepScreenOn = true
-        onDispose { if (on) view.keepScreenOn = false }
+        onDispose { if (on) view.keepScreenOn = before }
     }
     // And music started on the speaker mid-run stops it, as on the screen.
     LaunchedEffect(playerConnection, running, pauseOnSpeaker) {
