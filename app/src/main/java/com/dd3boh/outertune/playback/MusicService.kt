@@ -1611,7 +1611,10 @@ class MusicService : MediaLibraryService(),
             // the bytes are already here. Downloads are left alone whatever the setting says,
             // because someone who downloaded a song asked for it to work offline, and quietly
             // streaming instead would break the one thing they wanted.
-            val staleQuality = isCache && !isDownload && shouldUpgradeCached(mediaId)
+            //
+            // Only from the start of the song. Mid-song, a new stream would fill the gaps of a
+            // cache entry that holds the old one, two encodings in one file.
+            val staleQuality = isCache && !isDownload && dataSpec.position == 0L && shouldUpgradeCached(mediaId)
             if ((isDownload || isCache) && !staleQuality) {
                 Log.d(TAG, "PLAYING: remote song (cache = ${isCache}, download = ${isDownload})")
                 offloadScope.launch { recoverSong(mediaId) }
@@ -1660,6 +1663,16 @@ class MusicService : MediaLibraryService(),
                 }
             }
             val format = playbackData.format
+
+            // The lower-quality copy goes now that the new stream is in hand, not before, so a
+            // failed fetch never costs the copy that plays offline. It has to go at all because
+            // the cache serves by the song's id whatever address comes back from here: the old
+            // bytes kept playing while the row below was rewritten to the new quality, and the
+            // song never counted as stale again.
+            if (staleQuality) {
+                runCatching { playerCache.removeResource(mediaId) }
+                    .onFailure { Log.w(TAG, "Could not drop the lower-quality copy of $mediaId", it) }
+            }
 
             database.query {
                 upsertFormatKeepingLoudness(
