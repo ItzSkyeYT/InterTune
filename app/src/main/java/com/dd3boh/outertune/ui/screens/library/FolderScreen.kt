@@ -529,11 +529,15 @@ fun FolderScreen(
 
                     thumbnailSize = thumbnailSize,
                     onPlay = {
+                        // While searching, the rows come from every folder below this one, and this
+                        // folder's own files may not hold the song tapped at all, so the queue is
+                        // built from the rows on screen.
+                        val shownSongs = if (isSearching) filteredSongs else mutableSongs
                         playerConnection.playQueue(
                             ListQueue(
                                 title = currDir.currentDir.substringAfterLast('/'),
-                                items = mutableSongs.map { it.toMediaMetadata() },
-                                startIndex = mutableSongs.indexOf(song)
+                                items = shownSongs.map { it.toMediaMetadata() },
+                                startIndex = shownSongs.indexOf(song)
                             ),
                             origin = PlayOrigin.LIBRARY,
                         )
@@ -595,15 +599,19 @@ fun FolderScreen(
         }
 
         FloatingFooter(inSelectMode) {
+            // While searching, the rows are the results from every folder below this one: Select
+            // all takes those and nothing hidden, and a selected result from a subfolder is looked
+            // up there, since this folder's own files do not hold it and it was silently dropped.
+            val shownSongs = if (isSearching) filteredSongs else mutableSongs
             SelectHeader(
                 navController = navController,
                 selectedItems = selection.mapNotNull { songId ->
-                    mutableSongs.find { it.id == songId }
+                    shownSongs.find { it.id == songId }
                 }.map { it.toMediaMetadata() },
-                totalItemCount = mutableSongs.size,
+                totalItemCount = shownSongs.size,
                 onSelectAll = {
                     selection.clear()
-                    selection.addAll(mutableSongs.map { it.id }.distinctBy { it })
+                    selection.addAll(shownSongs.map { it.id }.distinctBy { it })
                 },
                 onDeselectAll = { selection.clear() },
                 menuState = menuState,
