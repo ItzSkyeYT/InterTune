@@ -911,14 +911,16 @@ class QueueBoard(
 
     private fun saveQueueSongs(mq: MultiQueueObject) {
         if (player.persistentQueue) {
-            // Copied here, on the player's thread: the save walks the song list on IO, and the
-            // live list shrinking under it crashed with an index past its end (24 Sep).
-            val snapshot = mq.snapshot()
+            // The songs are copied here, on the player's thread: the save walks the list on IO, and
+            // the live list shrinking under it crashed with an index past its end (24 Sep). Only
+            // the songs. The position is read when the save runs, as before, or a save that lands
+            // after a quicker position update would write the older position back over it.
+            val songs = mq.songsSnapshot()
             queueSongMap.add(
                 PriorityJob(
                     0,
                     coroutineScope.launch(start = CoroutineStart.DEFAULT) {
-                        player.database.saveQueue(snapshot)
+                        player.database.saveQueue(mq.copy(queue = songs))
                     }
                 )
             )

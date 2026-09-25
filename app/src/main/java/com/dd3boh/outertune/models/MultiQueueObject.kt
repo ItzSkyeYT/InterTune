@@ -131,7 +131,10 @@ data class MultiQueueObject(
      * place when one is removed, and a save still writing shared songs could store the new
      * numbers against the old order, which restores as a shuffle with gaps or repeats.
      */
-    fun snapshot() = copy(queue = queue.mapTo(ArrayList(queue.size)) { it.copy() })
+    fun snapshot() = copy(queue = songsSnapshot())
+
+    /** The song list alone, copied the same way, for a save that reads the rest when it runs. */
+    fun songsSnapshot(): MutableList<MediaMetadata> = queue.mapTo(ArrayList(queue.size)) { it.copy() }
 
     fun replaceAll(mediaList: List<MediaMetadata>) {
         queue.clear()
