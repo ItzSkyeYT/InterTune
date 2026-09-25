@@ -13,14 +13,18 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
 import androidx.annotation.RequiresPermission
+import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.fingerprint.SIGNATURE_SAMPLE_RATE_HZ
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
@@ -148,6 +152,10 @@ class MicrophoneListener @Inject constructor() {
         seconds: Int = DEFAULT_SECONDS,
         onProgress: (level: Float) -> Unit = {},
     ): Flow<Window> = flow {
+        debugRoom()?.let { room ->
+            emitAll(replay(room, seconds, onProgress))
+            return@flow
+        }
         val minBuffer = AudioRecord.getMinBufferSize(
             SIGNATURE_SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
@@ -188,6 +196,56 @@ class MicrophoneListener @Inject constructor() {
             Log.i(TAG, "Microphone stream closed")
         }
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * Debug builds only: a recording standing in for the room, so Keep listening can be run end to
+     * end on an emulator, which has no microphone, against real Shazam and real YouTube searches.
+     * 16 kHz mono signed 16-bit little-endian, the fingerprinter's own shape, as room.pcm in the
+     * app's own files, where run-as can put it (a file pushed to Android/data belongs to the shell
+     * and the app cannot read it):
+     *
+     *     ffmpeg -i song.mp3 -ac 1 -ar 16000 -f s16le room.pcm
+     *     adb shell run-as dev.skye.intertune.debug sh -c 'cat > files/room.pcm' < room.pcm
+     *
+     * Delete it (run-as ... rm files/room.pcm) to have the microphone back. A release build never looks.
+     */
+    private fun debugRoom(): File? {
+        if (!BuildConfig.DEBUG) return null
+        val file = File("/data/data/${BuildConfig.APPLICATION_ID}/files/room.pcm")
+        return file.takeIf { runCatching { it.canRead() && it.length() > 0 }.getOrDefault(false) }
+    }
+
+    /** [room] window by window at the pace of the clock, as the microphone would hear it, until it ends. */
+    private fun replay(room: File, seconds: Int, onProgress: (level: Float) -> Unit): Flow<Window> = flow {
+        Log.i(TAG, "Debug: listening to ${room.path} instead of the microphone")
+        val windowSize = SIGNATURE_SAMPLE_RATE_HZ * seconds
+        val bytes = ByteArray(CHUNK_SAMPLES * 2)
+        room.inputStream().buffered().use { input ->
+            while (currentCoroutineContext().isActive) {
+                val window = ShortArray(windowSize)
+                var written = 0
+                while (written < windowSize) {
+                    val want = minOf(bytes.size, (windowSize - written) * 2)
+                    var read = 0
+                    while (read < want) read += input.read(bytes, read, want - read).takeIf { it > 0 } ?: break
+                    if (read < 2) {
+                        Log.i(TAG, "Debug: the recording has ended")
+                        return@flow
+                    }
+                    var peak = 0
+                    for (i in 0 until read / 2) {
+                        val sample = ((bytes[2 * i + 1].toInt() shl 8) or (bytes[2 * i].toInt() and 0xFF)).toShort()
+                        window[written + i] = sample
+                        peak = maxOf(peak, abs(sample.toInt()))
+                    }
+                    written += read / 2
+                    onProgress(peak / 32768f)
+                    delay(read / 2 * 1000L / SIGNATURE_SAMPLE_RATE_HZ)
+                }
+                emit(Window(window, System.currentTimeMillis() - seconds * 1000L))
+            }
+        }
+    }
 
     companion object {
         private const val TAG = "MicrophoneListener"
