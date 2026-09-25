@@ -28,6 +28,12 @@ object Outcome {
     const val IGNORED = 3
     /** The listen it produced asked not to teach; graded so it is never looked at again, weighing nothing. */
     const val DROPPED = 6
+    /**
+     * Tapped, but no listen of it was ever found. Settled a day after the tap, weighing nothing:
+     * never an ignored card, which is the promise below, and no longer pending, where it was read
+     * again on every run for good.
+     */
+    const val LOST = 7
 }
 
 data class Graded(val impressionId: Long, val outcome: Int, val y: Double, val u: Double)
@@ -57,7 +63,20 @@ object Grading {
         for (imp in impressions) {
             val tapped = imp.tappedAt
             if (tapped != null) {
-                val listen = byImpression[imp.id] ?: continue          // still playing, or lost: never an ignored card
+                // The link is made when the listen opens, from the tap's moment carried through the
+                // player, and some ways of starting a song lose that moment. On his phone on 25 Sep,
+                // 73 tapped cards more than two days old had no listen linked, 19 of them with the
+                // same song starting within a minute of the tap. So that song's own play, started
+                // just after the tap from a queue and not claimed by another card, stands in.
+                val listen = byImpression[imp.id]
+                    ?: byGroup[groups.groupOf(imp.songId)].orEmpty()
+                        .filter { it.impressionId == null && it.autoplayDepth == 0 && it.startedAt in (tapped - TAP_BEFORE_MS)..(tapped + TAP_AFTER_MS) }
+                        .minByOrNull { kotlin.math.abs(it.startedAt - tapped) }
+                if (listen == null) {
+                    // Still starting, or lost: never an ignored card. Settled once the day is over.
+                    if (now - tapped >= window) out += Graded(imp.id, Outcome.LOST, 0.0, 0.0)
+                    continue
+                }
                 if (listen.endReason == EndReason.OPEN) continue
                 if (!listen.learn) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
                 val liked = songs[listen.songId]?.likedAt
@@ -78,6 +97,10 @@ object Grading {
         }
         return out
     }
+
+    /** How far before and after a tap its song's play may start and still be that tap's. */
+    private const val TAP_BEFORE_MS = 5_000L
+    private const val TAP_AFTER_MS = 60_000L
 
     /** The features column as stored: comma-separated, four decimals. */
     /**
