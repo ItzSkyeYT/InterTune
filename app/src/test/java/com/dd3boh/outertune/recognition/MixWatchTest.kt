@@ -236,6 +236,26 @@ class MixWatchTest {
     )
 
     @Test
+    fun theDamageRunWithItsRealOffsetsIsStillSure() {
+        // The second Damage run with the offsets and speeds the phone logged. One window of No Love
+        // between two of Faint, twice, is the shape of a misnamed window, but Faint came back 52 s
+        // and 14 s from where it had been heading.
+        val windows = faintCuts.map { (offset, skew, at) -> Triple(faint, at, offset to skew) } + listOf(
+            Triple(noLove, 132, 181.8 to 0.0420), Triple(faint, 144, 31.6 to 0.0008), Triple(faint, 156, 29.4 to 0.0006),
+            Triple(faint, 168, 34.3 to 0.0013), Triple(noLove, 180, 231.9 to 0.0419), Triple(faint, 192, 44.1 to 0.0016),
+        )
+        val watch = MixWatch()
+        val verdicts = windows.map { (song, at, os) ->
+            watch.observe(MixWatch.Sighting(song.first, song.second.first, song.second.second, at * 1000L, os.first, os.second))
+        }
+        assertTrue(verdicts.subList(0, 15).all { it == null })
+        assertNotNull(verdicts[15])
+        val mix = verdicts[16]!!
+        assertTrue(mix.sure)
+        assertEquals(listOf("faint", "nolove"), mix.pieces.map { it.key })
+    }
+
+    @Test
     fun theDamageRunIsCutUpAMinuteIn() {
         val watch = CutWatch()
         val verdicts = faintCuts.map { (offset, skew, at) -> watch.observe("faint", offset, skew, at * 1000L) }
@@ -413,6 +433,62 @@ class MixWatchTest {
         r3hab.take(13).forEach { (at, key, os) -> watch.observe(r3habSighting(at, key, os.first, os.second)) }
         // At 132 s, when the original is back: the remix has played straight for the last minute.
         assertEquals("remix", watch.steadyHost(132_000))
+    }
+
+    /**
+     * Krept & Konan's Freak of the Week (Radio Edit), replayed from a file on 25 Sep: seconds in,
+     * key, offset, skew. Played straight, but Shazam named Hello for the first window, named the
+     * same passage as Jamie xx's I Know There's Gonna Be at 72 s and at 132 s, and placed the
+     * windows at 144 and 156 s elsewhere in the song before it was back on its timeline at 168 s.
+     */
+    private val freakOfTheWeek = listOf(
+        Triple(0, "hello", 245.3 to 0.0007), Triple(12, "freak", 12.6 to 0.0001), Triple(24, "freak", 24.5 to 0.0001),
+        Triple(36, "freak", 36.6 to 0.0), Triple(48, "freak", 48.5 to -0.0001), Triple(60, "freak", 60.6 to 0.0001),
+        Triple(72, "goodtimes", 185.6 to 0.0503), Triple(84, "freak", 84.5 to 0.0001), Triple(96, "freak", 96.5 to 0.0003),
+        Triple(108, "freak", 108.6 to -0.0001), Triple(120, "freak", 120.5 to 0.0), Triple(132, "goodtimes", 185.0 to 0.0456),
+        Triple(144, "freak", 185.0 to 0.0), Triple(156, "freak", 136.4 to 0.0002), Triple(168, "freak", 168.6 to 0.0),
+    )
+
+    private fun freakSighting(at: Int, key: String, offset: Double, skew: Double) = MixWatch.Sighting(
+        key, when (key) {
+            "freak" -> "Freak of the Week (feat. Jeremih)"
+            "goodtimes" -> "I Know There's Gonna Be (Good Times) [feat. Young Thug & Popcaan] [Rinse Edit]"
+            else -> "Hello"
+        }, null, at * 1000L, offset, skew,
+    )
+
+    @Test
+    fun oneWindowMisnamedInASongThatPlaysOnIsNotAMashup() {
+        // The return at 144 s was sure: the other song twice, each time between two windows of this
+        // one. The first time, this one went on at 84 s exactly where it should have been.
+        val watch = MixWatch()
+        val verdicts = freakOfTheWeek.map { (at, key, os) -> watch.observe(freakSighting(at, key, os.first, os.second)) }
+        assertTrue(verdicts.toString(), verdicts.all { it == null })
+    }
+
+    @Test
+    fun aPieceAlreadyHeardCountsForOneWindowWhileTheSongPlaysOn() {
+        // A cut to B for two windows and back into A partway, then B again for a single window with
+        // A going on where it should: B is a piece by then, and that is the songs taking turns.
+        val watch = MixWatch()
+        fun at(key: String, second: Int, offset: Double) = MixWatch.Sighting(key, key.uppercase(), key, second * 1000L, offset)
+        listOf(at("a", 0, 10.0), at("a", 12, 22.0), at("b", 24, 50.0), at("b", 36, 62.0)).forEach { assertNull(watch.observe(it)) }
+        assertFalse(watch.observe(at("a", 48, 100.0))!!.sure)
+        assertNull(watch.observe(at("a", 60, 112.0)))
+        assertFalse(watch.observe(at("b", 72, 90.0))?.sure ?: false)
+        assertTrue(watch.observe(at("a", 84, 136.0))!!.sure)
+    }
+
+    @Test
+    fun aSongCarriesOnAcrossTwoReferencesAndAMisreadSpeed() {
+        fun w(at: Int, offset: Double, skew: Double) = MixWatch.Sighting("a", "A", "x", at * 1000L, offset, skew)
+        // 210 s into the song against a reference it runs 1.5 % fast against, then 234 s at speed.
+        assertFalse(Timeline.continues(w(0, 213.15, 0.015), w(24, 234.0, 0.0)))
+        assertTrue(Timeline.carriesOn(w(0, 213.15, 0.015), w(24, 234.0, 0.0)))
+        // Where it should be, in a window Shazam read as 3 % slow.
+        assertTrue(Timeline.carriesOn(w(0, 150.0, 0.0), w(24, 174.0, -0.03)))
+        // Faint coming back in Damage is still somewhere else.
+        assertFalse(Timeline.carriesOn(w(0, 59.1, -0.0013), w(24, 31.6, 0.0008)))
     }
 
     @Test

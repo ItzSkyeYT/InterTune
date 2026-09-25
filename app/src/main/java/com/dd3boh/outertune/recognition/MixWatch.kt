@@ -20,8 +20,9 @@ import com.zionhuang.innertube.models.SongItem
  *
  * How sure that makes it depends on the interruption. One window of something else could be Shazam
  * getting a single window wrong, which does happen on a noisy room, so that alone only earns a look
- * for the mashup. Two windows of it in a row, or a second interruption, is not a mistake repeated,
- * and the pieces come out of the list whether or not the mashup is found.
+ * for the mashup, and none at all when the song then goes on exactly where it should be. Two
+ * windows of it in a row, or a second interruption, is not a mistake repeated, and the pieces come
+ * out of the list whether or not the mashup is found.
  *
  * Pure and fed by the engine, one call per window Shazam named, so it can be tested on the timeline
  * the real run produced.
@@ -59,6 +60,13 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
 
     private val seen = ArrayDeque<Sighting>()
 
+    /**
+     * Windows that turned out to be Shazam misnaming the song playing; see [observe]. They stay in
+     * [seen], which is what was heard and what [steadyHost] reads, but are never a piece, a gap or
+     * a return.
+     */
+    private val misnamed = HashSet<Sighting>()
+
     /** A return held back because another song was playing steadily through it. See [observe]. */
     private class Deferred(val mix: Mix, val hostKey: String, val atMs: Long)
     private var deferred: Deferred? = null
@@ -77,7 +85,7 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
      */
     fun observe(sighting: Sighting): Mix? {
         seen.addLast(sighting)
-        while (sighting.atMs - seen.first().atMs > spanMs) seen.removeFirst()
+        while (sighting.atMs - seen.first().atMs > spanMs) misnamed.remove(seen.removeFirst())
 
         deferred?.let { held ->
             val previous = seen.toList().dropLast(1).lastOrNull { it.key == held.hostKey }
@@ -98,13 +106,31 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
             }
         }
 
-        val list = seen.toList()
+        val list = seen.filter { it !in misnamed }
         val previous = list.subList(0, list.size - 1).indexOfLast { it.key == sighting.key }
         if (previous < 0) return null
         // What came between this sighting and the last one of the same song. Empty is the song
         // simply carrying on.
         val between = list.subList(previous + 1, list.size - 1)
         if (between.isEmpty()) return null
+        // One window of a song not heard before, and this one back where its own timeline says it
+        // should be by now: it never stopped, so that window was Shazam misnaming a bit of it and
+        // is no sighting of anything, now or later. Krept & Konan's Freak of the Week (Radio Edit),
+        // replayed on 25 Sep, was Jamie xx's I Know There's Gonna Be for the window at 72 s and went
+        // on at 84 s where it should have been. The same passage misnamed the same way at 132 s
+        // then made that song a piece heard twice, and the return at 144 s was sure, which takes
+        // the song out of the list as soon as a search turns up anything naming both. Only made
+        // weak, that window would still have made the other song a piece, and the return at 144 s,
+        // 185 s into the song, strong. A mashup cutting away comes back somewhere else: in Damage
+        // Faint came back 52 s and 14 s away from where it had been heading. But one laid over a
+        // song that plays on reads just the same, and No Love kept its own timeline under three
+        // windows of Faint, so only a single window counts as a mistake, and only of a song not
+        // otherwise heard lately: once it is a piece, its windows are the mashup's.
+        val odd = between.singleOrNull()
+        if (odd != null && list.count { it.key == odd.key } == 1 && Timeline.carriesOn(list[previous], sighting)) {
+            misnamed += odd
+            return null
+        }
 
         val first = list.indexOfFirst { it.key == sighting.key }
         val allOfSpan = list.subList(first, list.size)
@@ -183,6 +209,7 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
     /** Forgets everything, for a new run or after silence. */
     fun clear() {
         seen.clear()
+        misnamed.clear()
         deferred = null
     }
 
@@ -192,6 +219,7 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
      */
     fun forget(keys: Set<String>) {
         seen.removeAll { it.key in keys }
+        misnamed.removeAll { it.key in keys }
         deferred?.let { held -> if (held.hostKey in keys || held.mix.pieces.any { it.key in keys }) deferred = null }
     }
 
@@ -245,6 +273,20 @@ internal object Timeline {
 
     fun continues(earlier: MixWatch.Sighting, later: MixWatch.Sighting): Boolean =
         continues(earlier.offsetSeconds, earlier.atMs, later.offsetSeconds, later.atMs, later.skew)
+
+    /**
+     * [continues], or the same in the song's own time, each window's offset divided by its own
+     * speed as [CutWatch] reads it. Shazam can match one song against two references at different
+     * speeds, Hideaway at 1.5 % fast and at speed, and two windows either side of a gap can each
+     * come from a different one, which three and a half minutes in is more than the tolerance. Not
+     * the song's own time alone: a window whose speed Shazam misreads, as it did twice at 3 % in
+     * DNA. played straight, lands that much off in it.
+     */
+    fun carriesOn(earlier: MixWatch.Sighting, later: MixWatch.Sighting): Boolean =
+        continues(earlier, later) || continues(
+            earlier.offsetSeconds / (1.0 + earlier.skew), earlier.atMs,
+            later.offsetSeconds / (1.0 + later.skew), later.atMs, 0.0,
+        )
 }
 
 /**
