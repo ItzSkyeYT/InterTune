@@ -123,6 +123,14 @@ interface SongsDao {
     @Query("SELECT * FROM song WHERE id IN (:songIds)")
     fun songsByIds(songIds: List<String>): Flow<List<Song>>
 
+    /**
+     * The stored rows, for a change to be made on them rather than on a row rebuilt from
+     * metadata, which lacks the library and download dates. Keep [songIds] to a few hundred:
+     * SQLite before Android 12 takes at most 999 arguments.
+     */
+    @Query("SELECT * FROM song WHERE id IN (:songIds)")
+    fun songEntitiesByIds(songIds: List<String>): List<SongEntity>
+
     @Transaction
     @Query("SELECT * FROM song WHERE inLibrary IS NOT NULL ORDER BY date")
     fun songsByReleaseDateAsc(): Flow<List<Song>>
