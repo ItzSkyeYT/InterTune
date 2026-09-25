@@ -67,7 +67,8 @@ class MicrophoneListener @Inject constructor(
      *
      * Thrown rather than ending the stream quietly, which is what the microphone does when a read
      * fails, so that the engine can tell the two apart: a recording played to its end is a run that
-     * is over, and the engine ends it as if stop had been pressed.
+     * is over, and the engine ends it as if stop had been pressed. Only once the collector has had
+     * every window: see [stream].
      */
     class RecordingEnded : Exception("The stand-in recording has ended")
 
@@ -174,12 +175,22 @@ class MicrophoneListener @Inject constructor(
         seconds: Int = DEFAULT_SECONDS,
         onProgress: (level: Float) -> Unit = {},
     ): Flow<Window> = flow {
-        debugRoom()?.let { room ->
-            emitAll(replay(room, seconds, onProgress = onProgress))
-            // Played to its end. A stop is a cancellation, which threw on the way here or throws now.
-            currentCoroutineContext().ensureActive()
-            throw RecordingEnded()
-        }
+        val room = withContext(Dispatchers.IO) { debugRoom() }
+        if (room == null) return@flow emitAll(listen(seconds, onProgress))
+        // Read on the IO thread, ahead of the collector, as the microphone is, and the end thrown
+        // here, on the collector's side, once it has handled the last window. Thrown where the
+        // recording is read, it cancelled the collector at once, and the window being identified
+        // went with it: the last one, whenever the recording ran out less than an identify after it.
+        emitAll(replay(room, seconds, onProgress = onProgress).flowOn(Dispatchers.IO))
+        // Played to its end. A stop is a cancellation, which threw on the way here or throws now.
+        currentCoroutineContext().ensureActive()
+        throw RecordingEnded()
+    }
+
+    /** The microphone's side of [stream]: the recorder opened once, windows cut from it until stopped. */
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    @SuppressLint("MissingPermission")
+    private fun listen(seconds: Int, onProgress: (level: Float) -> Unit): Flow<Window> = flow {
         val minBuffer = AudioRecord.getMinBufferSize(
             SIGNATURE_SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,

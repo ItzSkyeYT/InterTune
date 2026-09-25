@@ -7,6 +7,8 @@
 package com.dd3boh.outertune.recognition
 
 import android.content.ContextWrapper
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectIndexed
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
@@ -59,6 +61,25 @@ class StandInRecordingTest {
         assertTrue("ended with $ended", ended is MicrophoneListener.RecordingEnded)
         assertEquals(1, windows.size)
         assertArrayEquals(room.copyOf(16_000), windows.single().samples)
+    }
+
+    @Test
+    fun `a listener still busy with the last window hears it out before the end`() = runBlocking {
+        // Two whole windows, the second still being identified when the recording runs out: right
+        // at its end, and with a twentieth of a second left over. The end used to be thrown where
+        // the recording is read, ahead of the listener, and that cancelled the second window
+        // halfway through.
+        for (size in listOf(32_000, 32_800)) {
+            val finished = mutableListOf<Int>()
+            val ended = runCatching {
+                listening(samples(size)).stream(seconds = 1).collectIndexed { i, _ ->
+                    delay(300)
+                    finished += i
+                }
+            }.exceptionOrNull()
+            assertTrue("$size samples ended with $ended", ended is MicrophoneListener.RecordingEnded)
+            assertEquals("$size samples", listOf(0, 1), finished)
+        }
     }
 
     @Test
