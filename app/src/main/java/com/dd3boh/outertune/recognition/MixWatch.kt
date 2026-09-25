@@ -313,27 +313,39 @@ internal class CutWatch {
             this.key = key
         }
         val previous = current
+        // Where in the song itself this window is. Shazam gives the offset in its reference
+        // recording, which runs at 1 + skew to the room, and it can match one song against two
+        // references at different speeds: Kiesza's Hideaway came through 1.5 % fast against one and
+        // at speed against the other, which two minutes in is three seconds apart, beyond the
+        // tolerance, and going back to the song's own timeline counted as a cut.
+        val at = offset / (1.0 + skew)
         val place = places.sortedByDescending { it.atMs }
-            .firstOrNull { Timeline.continues(it.offset, it.atMs, offset, atMs, skew) }
-            // A little behind where it should be is the same place after a stall or a pause: the
-            // song carries on from where it stopped while the clock did not. An edit that cuts back
-            // a few seconds looks the same, and is let go.
-            ?: previous?.takeIf { stalled(it, offset, atMs) }
+            .firstOrNull { Timeline.continues(it.offset, it.atMs, at, atMs, 0.0) }
+        // A little behind where it should be is the same place after a stall or a pause: the song
+        // carries on from where it stopped while the clock did not. An edit that cuts back a few
+        // seconds looks the same, and is let go. It is also what a dance track's repeated phrase
+        // matched one phrase early looks like, so it neither moves the place's line nor counts
+        // as holding it: moved, Hideaway's line went eight seconds astray and its own timeline
+        // then looked like somewhere new.
+        val stalledOn = if (place == null) previous?.takeIf { stalled(it, at, atMs) } else null
         if (place != null) {
             if (place === previous) place.inARow++ else { place.inARow = 1; place.runStartedMs = atMs }
-            place.offset = offset
+            place.offset = at
             place.atMs = atMs
             loose = 0
             current = place
+        } else if (stalledOn != null) {
+            loose = 0
+            current = stalledOn
         } else {
             // Back to the top partway through. The second mashup of 24 Sep, "I'm Beggin' For DNA",
             // was DNA. to Shazam from start to end, and gave itself away only by going back to
             // DNA.'s first seconds a hundred seconds into a 186 second song. Somebody replaying a
             // song does it at the end, not two thirds of the way in.
             val reached = previous?.let { it.offset + (atMs - it.atMs) / 1000.0 }
-            val restart = offset < MixWatch.RESTART_S && durationS != null && reached != null &&
+            val restart = at < MixWatch.RESTART_S && durationS != null && reached != null &&
                     reached > MixWatch.RESTART_S + 10 && reached < durationS - 20
-            current = Place(offset, atMs, restart).also { places += it }
+            current = Place(at, atMs, restart).also { places += it }
             loose++
         }
 

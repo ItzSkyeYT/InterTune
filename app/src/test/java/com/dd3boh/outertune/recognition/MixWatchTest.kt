@@ -229,6 +229,27 @@ class MixWatchTest {
         assertTrue(verdicts.subList(0, 9).all { it == CutWatch.Verdict.NONE })
     }
 
+    /**
+     * Kiesza's Hideaway (Radio Edit), replayed from a file on 25 Sep: offset, skew, seconds in.
+     * Shazam matched it against two references of the song, one it runs 1.5 % fast against and
+     * one at speed, and placed its repeated phrases one to four phrases off, so it jumps about
+     * while the file plays straight.
+     */
+    private val hideaway = listOf(
+        Triple(-0.5, 0.0149, 0), Triple(13.7, 0.0149, 12), Triple(23.9, 0.0149, 24), Triple(36.1, 0.0148, 36),
+        Triple(40.6, 0.0151, 48), Triple(62.4, 0.0152, 60), Triple(88.2, 0.0148, 72), Triple(92.8, 0.0147, 84),
+        Triple(95.5, 0.0001, 96), Triple(107.5, 0.0, 108), Triple(144.8, 0.0152, 120), Triple(156.9, 0.0150, 132),
+        Triple(169.1, 0.0153, 144), Triple(159.8, 0.0149, 156), Triple(172.0, 0.0146, 168), Triple(205.7, 0.0149, 180),
+        Triple(191.5, -0.0003, 192), Triple(237.8, 0.0150, 204),
+    )
+
+    @Test
+    fun aRadioEditMatchedAgainstTwoReferencesIsNotCutUp() {
+        val watch = CutWatch()
+        val verdicts = hideaway.map { (offset, skew, at) -> watch.observe("hideaway", offset, skew, at * 1000L, durationS = 250) }
+        assertTrue(verdicts.toString(), verdicts.none { it == CutWatch.Verdict.FIRST || it == CutWatch.Verdict.AGAIN })
+    }
+
     @Test
     fun aSongPlayedStraightIsNeverCut() {
         val watch = CutWatch()
