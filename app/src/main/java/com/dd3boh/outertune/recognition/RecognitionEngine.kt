@@ -70,6 +70,8 @@ class RecognitionEngine @Inject constructor(
          * out of that list spares a note from before the mashup: see [retract]. Zero in [added].
          */
         val heardAtMs: Long = 0L,
+        /** The song that went into the playlist, for [added], so taking it out takes out only it. */
+        val songId: String? = null,
     )
 
     /**
@@ -925,7 +927,7 @@ class RecognitionEngine @Inject constructor(
         val target = playlist ?: return record(song)
         if (!known.add(song.id)) return
         synchronized(owned) { owned += song.id }
-        _added.value += Added(song.title, song.artists.joinToString { it.name }, auto = continuous.value)
+        _added.value += Added(song.title, song.artists.joinToString { it.name }, auto = continuous.value, songId = song.id)
         Log.i(TAG, "Added '${song.title}'")
 
         scope.launch(Dispatchers.IO) {
@@ -1277,7 +1279,9 @@ class RecognitionEngine @Inject constructor(
         if (ids.isEmpty()) return
         Log.i(TAG, "Taking out ${songs.filter { it.id in ids }.joinToString { "'${it.title}'" }}, pieces of a mashup")
         _recognised.update { list -> list.filterNot { it.id in ids } }
-        _added.update { list -> list.filterNot { added -> songs.any { it.id in ids && it.title == added.title } } }
+        // By the song, not its title: Rihanna's Stay, added earlier, went from the list along with
+        // the Kid LAROI's once a mashup took his out, though it was still in the playlist.
+        _added.update { list -> list.filterNot { it.songId in ids } }
         known.removeAll(ids)
         val rows = synchronized(written) { written.filter { it.first in ids }.also { written.removeAll(it) } }
         if (rows.isEmpty()) return
