@@ -880,6 +880,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="similar_source">Similar songs from</string>
     <string name="login_reassurance">This is Google\'s own sign-in page. InterTune never sees your password. It keeps only the sign-in YouTube Music hands back.</string>
     <string name="login_secure">Secure connection</string>
+    <string name="login_signing_in_as">Signing in as %1$s</string>
+    <string name="login_no_account_picked">No account from this phone</string>
+    <string name="login_switch_account">Switch</string>
+    <string name="login_pick_account">Pick one</string>
+    <string name="login_another_account">Another account</string>
     <string name="login_not_secure">Not a secure connection</string>
     <string name="lastfm_opt_in_title">Similar songs from Last.fm too?</string>
     <string name="lastfm_opt_in_body">Best recommendations finds songs like the ones you play. It can ask Last.fm as well as YouTube, then lean toward whichever finds you more that you keep. For that it sends Last.fm the title and artist of each song you play, and nothing else. No account. You can change this later in Settings, under Recommendations.</string>

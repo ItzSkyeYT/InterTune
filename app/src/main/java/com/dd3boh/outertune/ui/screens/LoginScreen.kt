@@ -1,6 +1,9 @@
 package com.dd3boh.outertune.ui.screens
 
+import android.accounts.Account
+import android.accounts.AccountManager
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
@@ -10,6 +13,8 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,13 +31,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -74,13 +83,72 @@ fun LoginScreen(
     // Google's; the address and its lock are what a browser would show you.
     var currentUrl by remember { mutableStateOf(LOGIN_URL) }
 
+    // Most people signing in already have their Google account on this phone. The app cannot use
+    // that session itself, since YouTube Music takes only a sign-in made on Google's page, but it
+    // can ask Android which account to use, with the system's own picker (no permission, and no
+    // Play services), and open Google's page with that address already filled in. Google then
+    // mostly offers to confirm on this same phone, or a password manager fills the rest.
+    // Null until the picker has answered; empty when it was dismissed or there is nothing to pick,
+    // which opens the page as it always was.
+    val context = LocalContext.current
+    var pickedAccount by rememberSaveable { mutableStateOf<String?>(null) }
+    val accountPicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        pickedAccount = if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME).orEmpty()
+        } else ""
+    }
+    // A phone without Google's services has no such account type, and would be sent to an empty
+    // picker. Asking which types exist needs no permission.
+    val canPick = remember {
+        runCatching { AccountManager.get(context).authenticatorTypes.any { it.type == GOOGLE_ACCOUNT_TYPE } }
+            .getOrDefault(false)
+    }
+    // Always shown, even with a single account on the phone: somebody who keeps two accounts, or
+    // is here to switch, picks every time rather than being signed in as whichever one is there.
+    fun openPicker() {
+        val intent = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                AccountManager.newChooseAccountIntent(null, null, arrayOf(GOOGLE_ACCOUNT_TYPE), null, null, null, null)
+                    .putExtra("alwaysPromptForAccount", true)
+            } else {
+                @Suppress("DEPRECATION")
+                AccountManager.newChooseAccountIntent(null, null as ArrayList<Account>?, arrayOf(GOOGLE_ACCOUNT_TYPE), true, null, null, null, null)
+            }
+        }.getOrNull()
+        if (intent == null) pickedAccount = pickedAccount ?: ""
+        else runCatching { accountPicker.launch(intent) }.onFailure { pickedAccount = pickedAccount ?: "" }
+    }
+    LaunchedEffect(Unit) {
+        if (pickedAccount != null) return@LaunchedEffect
+        if (canPick) openPicker() else pickedAccount = ""
+    }
+
     Column(
         modifier = Modifier
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
             .fillMaxSize(),
     ) {
         LoginAddressBar(currentUrl)
-        AndroidView(
+        val email = pickedAccount
+        if (canPick && email != null) {
+            LoginAccountRow(
+                email = email,
+                onSwitch = { openPicker() },
+                onAnotherAccount = { pickedAccount = "" },
+            )
+        }
+        // The page is created once, with the first answer. A later one, from Switch or Another
+        // account, loads Google's page again with the new address, or with none.
+        var loadedFor by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(email) {
+            val view = webView ?: return@LaunchedEffect
+            if (email != null && loadedFor != null && email != loadedFor) {
+                loadedFor = email
+                view.loadUrl(loginUrl(email))
+            }
+        }
+        // Held back until the picker has answered, so the page loads once, with the address in it.
+        if (email != null) AndroidView(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
@@ -140,7 +208,8 @@ fun LoginScreen(
                         }
                     }, "Android")
                     webView = this
-                    loadUrl(LOGIN_URL)
+                    loadedFor = email
+                    loadUrl(loginUrl(email))
                 }
             }
         )
@@ -154,6 +223,11 @@ fun LoginScreen(
 }
 
 private const val LOGIN_URL = "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fmusic.youtube.com"
+private const val GOOGLE_ACCOUNT_TYPE = "com.google"
+
+/** Google's sign-in, with the address to sign in as filled in when one was picked. */
+private fun loginUrl(email: String): String =
+    if (email.isEmpty()) LOGIN_URL else LOGIN_URL + "&Email=" + Uri.encode(email)
 
 /**
  * The address of the page being shown, with a lock when the connection is encrypted, and one line
@@ -196,6 +270,39 @@ private fun LoginAddressBar(url: String) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
             )
+        }
+    }
+}
+
+/**
+ * Which account the page was opened for, with the two ways out of it: Switch opens the phone's
+ * account picker again, Another account opens Google's page with nothing filled in, for an account
+ * that is not on this phone. Nothing is said when the picker was dismissed, since the page is then
+ * Google's own, blank, as it always was.
+ */
+@Composable
+private fun LoginAccountRow(email: String, onSwitch: () -> Unit, onAnotherAccount: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 24.dp, end = 12.dp),
+    ) {
+        Text(
+            text = if (email.isNotEmpty()) stringResource(R.string.login_signing_in_as, email)
+            else stringResource(R.string.login_no_account_picked),
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        TextButton(onClick = onSwitch) {
+            Text(stringResource(if (email.isNotEmpty()) R.string.login_switch_account else R.string.login_pick_account))
+        }
+        if (email.isNotEmpty()) {
+            TextButton(onClick = onAnotherAccount) {
+                Text(stringResource(R.string.login_another_account))
+            }
         }
     }
 }
