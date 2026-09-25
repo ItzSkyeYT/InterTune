@@ -133,6 +133,9 @@ fun ColumnScope.PlayerGeneralFrag() {
  */
 @Composable
 fun ColumnScope.ProximityVolumeFrag() {
+    // Android 12 and up. Below that a scan needs permissions the manifest does not ask for, so the
+    // switch did nothing and the probe under it threw on reading the adapter.
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
     val (enabled, onEnabledChange) = rememberPreference(ProximityVolumeKey, defaultValue = false)
     val scanPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
