@@ -20,7 +20,7 @@ InterTune can count this install once a day: one short message with a random nam
 - Your play history from earlier versions is converted once at first start, so recommendations begin from everything you have played.
 
 - **Discover something new** (on by default): a second row under Quick picks, of songs you have never played at all, picked the way Best recommendations picks. A song you skipped after a few seconds counts as played. Pull to refresh for other songs.
-- **Similar songs from Last.fm** (off by default): the similar songs in Best recommendations come from what Last.fm's listeners play alongside a song, instead of what YouTube lists beside it. Songs Last.fm does not know keep YouTube's list.
+- **Similar songs from Last.fm and YouTube**: Best recommendations starts with similar songs from both, what Last.fm's listeners play alongside a song and what YouTube lists beside it, and leans toward whichever you actually play, never more than four in five either way so it can swing back. Or pick one. With Last.fm, the title and artist of what you play are sent to Last.fm, and nothing else.
 
 ## Song recognition
 
