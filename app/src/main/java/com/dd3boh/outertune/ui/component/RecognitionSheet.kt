@@ -43,6 +43,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -151,13 +153,15 @@ fun RecognitionSheet(
     // Asked when listening starts, not at launch. A run already going is joined rather than
     // restarted, so reopening the sheet on a continuous run does not interrupt it.
     //
-    // Only with nothing on show. The effect runs again whenever the activity is recreated, and a
-    // rotation or a theme change while a result waited to be chosen used to open the microphone
-    // again and replace that result a window later.
+    // Once per opening of the sheet, remembered across a rotation. The effect runs again whenever
+    // the activity is recreated, and a rotation or a theme change while a result waited to be
+    // chosen used to open the microphone again and replace that result a window later. Not keyed
+    // on the engine's state, which the What's playing? screen can leave holding its own last result.
+    var asked by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        if (!viewModel.running.value && viewModel.state.value is RecognitionEngine.State.Idle) {
-            permission.launch(Manifest.permission.RECORD_AUDIO)
-        }
+        if (asked) return@LaunchedEffect
+        asked = true
+        if (!viewModel.running.value) permission.launch(Manifest.permission.RECORD_AUDIO)
     }
 
     ModalBottomSheet(
