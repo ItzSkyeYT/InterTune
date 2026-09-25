@@ -199,13 +199,13 @@ android {
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
     kotlin {
-        jvmToolchain(17)
+        jvmToolchain(21)
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
+            jvmTarget.set(JvmTarget.JVM_21)
             freeCompilerArgs.add("-Xannotation-default-target=param-property")
 
         }
@@ -363,4 +363,11 @@ afterEvaluate {
     dependencies {
         add("fullImplementation", project(":ffMetadataEx"))
     }
+}
+
+// Hilt's generated Java is compiled by its own task, which takes the JDK that runs Gradle rather
+// than the toolchain above, so a machine whose Gradle runs on 17 failed on "invalid source
+// release: 21". Every Java compile here uses the same JDK 21 as the Kotlin, as F-Droid's server does.
+tasks.withType<JavaCompile>().configureEach {
+    javaCompiler.set(javaToolchains.compilerFor { languageVersion.set(JavaLanguageVersion.of(21)) })
 }
