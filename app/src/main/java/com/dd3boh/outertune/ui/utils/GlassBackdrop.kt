@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
@@ -86,6 +87,20 @@ data class GlassSpec(
     @Composable
     fun tint(elevation: Dp = 6.dp, min: Float = 0.52f, max: Float = 0.97f): Color =
         MaterialTheme.colorScheme.surfaceColorAtElevation(elevation).copy(alpha = tintAlpha(min, max))
+
+    /**
+     * Tint for a button made of glass: the floating button's own container colour, so it still
+     * reads as a button rather than as one more pill. Shared so the list screens' floating button
+     * and the setup wizard's back and forward buttons cannot drift apart.
+     *
+     * In dark theme the icon is light, so a thin tint over a pale cover lost it: 0.55 there left it
+     * under 3:1. 0.75 keeps it readable over white; light theme's dark icon is fine at 0.55.
+     */
+    @Composable
+    fun buttonTint(): Color {
+        val floor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) 0.75f else 0.55f
+        return MaterialTheme.colorScheme.primaryContainer.copy(alpha = tintAlpha(min = floor, max = 0.95f))
+    }
 }
 
 /**
