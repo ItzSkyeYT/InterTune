@@ -172,8 +172,10 @@ class ActiveCount @Inject constructor(
      * new pings, and this makes sure that turning it back on later is a new person rather than the
      * same one resumed.
      */
-    suspend fun forget() = withContext(Dispatchers.IO) {
+    suspend fun forget() = withContext(Dispatchers.IO + NonCancellable) {
         // After any ping still out, so it cannot write its name back once this has cleared it.
+        // Not cancellable, since that wait can outlast the settings screen that asked for it,
+        // and a forget cancelled on the way out would leave the name in place.
         sending.withLock {
             context.dataStore.edit {
                 it.remove(UsageCountIdKey)
