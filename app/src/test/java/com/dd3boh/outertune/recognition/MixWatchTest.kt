@@ -546,6 +546,33 @@ class MixWatchTest {
         assertEquals(CutWatch.Verdict.RESTART, watch.observe("dna", 14.1, 0.0, 132_000, 186))
     }
 
+    /**
+     * Duke Dumont's Won't Look Back (radio edit) and Mr. Probz's Waves (Robin Schulz radio edit),
+     * replayed from files on 25 Sep: offset, skew, seconds in. Each first window was placed on a
+     * phrase that comes round again later, 30 s and 51 s into the song, and the song's real start
+     * came after it. Waves then came through as its remix's own entry once, at 108 s.
+     */
+    private val wontLookBack = listOf(
+        Triple(30.3, 0.0, 0), Triple(13.0, 0.0005, 12), Triple(25.0, 0.0001, 24), Triple(37.0, 0.0001, 36),
+        Triple(49.0, -0.0002, 48), Triple(61.0, 0.0001, 60), Triple(73.0, 0.0002, 72), Triple(114.3, 0.0002, 84),
+        Triple(126.3, 0.0, 96), Triple(109.0, -0.0002, 108), Triple(121.0, 0.0002, 120), Triple(133.0, 0.0, 132),
+        Triple(145.0, 0.0001, 144), Triple(186.3, -0.0001, 156), Triple(169.0, -0.0002, 168), Triple(181.0, 0.0001, 180),
+    )
+    private val waves = listOf(
+        Triple(50.7, -0.0014, 0), Triple(2.7, -0.0018, 12), Triple(14.7, 0.0, 24), Triple(26.7, 0.0002, 36),
+        Triple(38.7, 0.0, 48), Triple(50.7, 0.0, 60), Triple(62.7, 0.0, 72), Triple(74.7, 0.0, 84), Triple(86.7, 0.0, 96),
+    )
+
+    @Test
+    fun aFirstWindowOnALaterRepeatIsNoRestart() {
+        val watch = CutWatch()
+        val verdicts = wontLookBack.map { (offset, skew, at) -> watch.observe("wlb", offset, skew, at * 1000L, durationS = 202) }
+        assertTrue(verdicts.toString(), verdicts.all { it == CutWatch.Verdict.NONE })
+        val wavesWatch = CutWatch()
+        val wavesVerdicts = waves.map { (offset, skew, at) -> wavesWatch.observe("waves", offset, skew, at * 1000L, durationS = 208) }
+        assertTrue(wavesVerdicts.toString(), wavesVerdicts.all { it == CutWatch.Verdict.NONE })
+    }
+
     @Test
     fun aSongPausedTwiceIsNotAnEdit() {
         // Stalls of 5 s at 40 s and at 88 s: the song carries on from where it stopped each time,

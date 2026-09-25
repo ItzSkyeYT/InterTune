@@ -298,11 +298,13 @@ internal class CutWatch {
 
     /**
      * One place in the song, followed in order: where it last was, how many windows in a row have
-     * been on it now, whether it has counted as a cut, and whether it began as a restart.
+     * been on it now, whether the song has ever held it for two, whether it has counted as a cut,
+     * and whether it began as a restart.
      */
     private class Place(var offset: Double, var atMs: Long, val restart: Boolean) {
         var inARow = 1
         var runStartedMs = atMs
+        var hasHeld = false
         var counted = false
         var countedMs = 0L
     }
@@ -378,7 +380,13 @@ internal class CutWatch {
             // was DNA. to Shazam from start to end, and gave itself away only by going back to
             // DNA.'s first seconds a hundred seconds into a 186 second song. Somebody replaying a
             // song does it at the end, not two thirds of the way in.
-            val reached = previous?.let { it.offset + (atMs - it.atMs) / 1000.0 }
+            // How far it got is reckoned from the last place it held for two windows in a row, not
+            // from the window before, which can be a wrong repeat: the radio edit of Duke Dumont's
+            // Won't Look Back, replayed on 25 Sep, had its first window placed at 30 s, and its
+            // real start twelve seconds later read as going back to the top. Mr. Probz's Waves did
+            // the same from 51 s. A song that has not held anywhere yet has not been anywhere to
+            // go back from.
+            val reached = places.filter { it.hasHeld }.maxByOrNull { it.atMs }?.let { it.offset + (atMs - it.atMs) / 1000.0 }
             val restart = at < MixWatch.RESTART_S && durationS != null && reached != null &&
                     reached > MixWatch.RESTART_S + 10 && reached < durationS - 20
             current = Place(at, atMs, restart).also { places += it }
@@ -389,6 +397,7 @@ internal class CutWatch {
         var restarted = false
         var justCounted = false
         if (held.inARow >= 2) {
+            held.hasHeld = true
             if (home == null && !held.restart) home = held
             else if (held !== home && !held.counted) {
                 held.counted = true
