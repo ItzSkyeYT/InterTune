@@ -134,15 +134,16 @@ interface ListenDao {
     @Query(EngineSql.SONGS)
     fun engineSongs(): List<EngineSongRow>
 
-    @Query("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId, impressionId, contextChip FROM listen")
+    @Query("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId, impressionId, contextChip, id FROM listen")
     fun engineListens(): List<com.dd3boh.outertune.engine.ListenRow>
 
     // ---- The loop: grading what was shown, applying what was graded, keeping the weights.
     @Query("SELECT * FROM impression WHERE gradedAt IS NULL AND visibleAt IS NOT NULL ORDER BY id")
     fun pendingImpressions(): List<Impression>
 
-    @Query("UPDATE impression SET outcome = :outcome, y = :y, u = :u, gradedAt = :at WHERE id = :id")
-    fun markGraded(id: Long, outcome: Int, y: Float, u: Float, at: Long)
+    /** [listenId] is the play the grade came from, when there was one; null leaves the column as it is. */
+    @Query("UPDATE impression SET outcome = :outcome, y = :y, u = :u, gradedAt = :at, listenId = COALESCE(:listenId, listenId) WHERE id = :id")
+    fun markGraded(id: Long, outcome: Int, y: Float, u: Float, at: Long, listenId: Long?)
 
     /** Graded examples the engine placed, not yet applied, oldest first. */
     @Query("SELECT * FROM impression WHERE gradedAt IS NOT NULL AND appliedAt IS NULL AND features IS NOT NULL AND u > 0 ORDER BY gradedAt, id")
@@ -217,7 +218,9 @@ interface ListenDao {
     @Query("UPDATE listen SET learn = 0 WHERE startedAt >= :from AND startedAt < :to")
     fun forgetBetween(from: Long, to: Long)
 
-    @Query("UPDATE impression SET u = 0, outcome = 6 WHERE id IN (SELECT impressionId FROM listen WHERE learn = 0 AND impressionId IS NOT NULL)")
+    // Also by the play a grade recorded: a tap whose link was lost is graded by its song's play just
+    // after it (Grading), and only the impression knows which play that was.
+    @Query("UPDATE impression SET u = 0, outcome = 6 WHERE id IN (SELECT impressionId FROM listen WHERE learn = 0 AND impressionId IS NOT NULL) OR listenId IN (SELECT id FROM listen WHERE learn = 0)")
     fun dropForgottenExamples()
 
     @Query("SELECT COUNT(*) FROM event WHERE songId = :songId")

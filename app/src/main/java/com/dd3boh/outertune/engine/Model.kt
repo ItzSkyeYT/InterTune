@@ -31,6 +31,8 @@ data class ListenRow(
     val impressionId: Long? = null,
     /** The [ContextChip] on when the play started. */
     val contextChip: Int = 0,
+    /** The listen's own row id, so a grade can record which play it came from. */
+    val id: Long = 0,
 )
 
 data class SongRow(

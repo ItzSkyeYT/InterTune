@@ -36,7 +36,7 @@ object Outcome {
     const val LOST = 7
 }
 
-data class Graded(val impressionId: Long, val outcome: Int, val y: Double, val u: Double)
+data class Graded(val impressionId: Long, val outcome: Int, val y: Double, val u: Double, val listenId: Long? = null)
 
 /**
  * Wins are graded by engagement, never by the tap: a tap abandoned after twenty seconds grades 0,
@@ -80,7 +80,7 @@ object Grading {
                 if (listen.endReason == EndReason.OPEN) continue
                 if (!listen.learn) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
                 val liked = songs[listen.songId]?.likedAt
-                out += Graded(imp.id, Outcome.PLAYED, Signals.engagement(listen, liked, p), 1.0)
+                out += Graded(imp.id, Outcome.PLAYED, Signals.engagement(listen, liked, p), 1.0, listen.id.takeIf { it > 0 })
                 continue
             }
             if (now - imp.visibleAt < window) continue                 // the day is not over

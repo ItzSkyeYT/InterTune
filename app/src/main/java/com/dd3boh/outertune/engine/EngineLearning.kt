@@ -122,7 +122,7 @@ class EngineLearning(private val context: Context, private val database: MusicDa
         val graded = Grading.grade(rows, recent, songs, groups, now)
         if (graded.isEmpty()) return
         database.transactionNow {
-            graded.forEach { markGraded(it.impressionId, it.outcome, it.y.toFloat(), it.u.toFloat(), now) }
+            graded.forEach { markGraded(it.impressionId, it.outcome, it.y.toFloat(), it.u.toFloat(), now, it.listenId) }
         }
         Log.d(TAG, "graded ${graded.size} of ${pending.size} pending impressions")
     }
