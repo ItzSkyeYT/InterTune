@@ -93,7 +93,6 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRa
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
-import com.dd3boh.outertune.constants.HighPrecisionAudioKey
 import com.dd3boh.outertune.constants.HeadTracking3dKey
 import com.dd3boh.outertune.constants.HeadTrackingCalibrateKey
 import com.dd3boh.outertune.constants.HeadTrackingDriftKey
@@ -392,12 +391,18 @@ class MusicService : MediaLibraryService(),
     private val audioDecoder = dataStore.get(AudioDecoderKey, DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
 
     /**
-     * 32 bit float through the processor chain, when asked for.
+     * 32 bit float through the processor chain. Off for now, whatever the stored setting says.
      *
-     * Read once at construction like [audioDecoder], because changing it means rebuilding the
-     * renderers, which means rebuilding the player.
+     * media3 1.8.0 cannot do it. With float output on, DefaultAudioSink.configure builds the
+     * pipeline from trimming, channel mapping and the float conversion and jumps past
+     * audioProcessorChain.getAudioProcessors() (checked in the 1.8.0 bytecode, 25 Sep), and it
+     * stops applying speed and pitch through processors as well. So the switch did the opposite of
+     * its name: volume normalisation, spatial audio, the upmix, skip silence and tempo all stopped,
+     * for every song whose decoder took the float request. The media3 sources in `media/` keep the
+     * chain on float output, so this can come back with a media3 that does. The row is hidden in
+     * PlayerSettings until then, and the key is kept so nothing has to be migrated.
      */
-    private val highPrecisionAudio = dataStore.get(HighPrecisionAudioKey, false)
+    private val highPrecisionAudio = false
 
     /**
      * Stereo to 5.1, so the platform spatialiser has something it will act on. Off by default.

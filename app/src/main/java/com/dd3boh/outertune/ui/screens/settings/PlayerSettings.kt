@@ -58,7 +58,6 @@ import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.screens.settings.fragments.AudioEffectsFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.AudioQualityFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.AdaptiveQueueFrag
-import com.dd3boh.outertune.ui.screens.settings.fragments.HighPrecisionAudioFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.HeadTrackingFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.StageWidthFrag
@@ -188,7 +187,8 @@ fun PlayerSettings(
                     icon = { Icon(Icons.Rounded.Queue, null) },
                     onClick = { showMaxQueuesDialog = true }
                 )
-                HighPrecisionAudioFrag()
+                // Not offered while media3 1.8.0 skips the whole processor chain on float output;
+                // see MusicService.highPrecisionAudio.
                 PlaybackAuthFrag()
                 // Audio tuning, not recommendation tuning. These were on the engine developer
                 // screen because that is where the sliders happened to live, which is no reason
