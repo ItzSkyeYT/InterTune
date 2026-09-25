@@ -8,7 +8,9 @@ package com.dd3boh.outertune.engine
 
 import com.dd3boh.outertune.constants.EndReason
 import com.dd3boh.outertune.db.RecommendationSql
+import com.dd3boh.outertune.db.RelatedSql
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.File
@@ -79,6 +81,14 @@ class EngineReplayTest {
                 if (i == 0) true else { val prev = session[i - 1]; r.startedAt - prev.endedAt > maxOf(prev.durationMs, 60_000L) }
             }
             data class Score(var picks: Int = 0, var hits: Int = 0, var repeatHits: Int = 0, var newHits: Int = 0, var engaged: Double = 0.0, var artists: Int = 0, var collisions: Int = 0, var sessions: Int = 0)
+
+            // ENGINE_REPLAY_MIX, with QUICK: the similar-songs sources as arms over the same sessions
+            // and the same dice, instead of the one engine row. Unset, nothing below changes.
+            val mixArms = System.getenv("ENGINE_REPLAY_MIX")
+            if (System.getenv("ENGINE_REPLAY_QUICK") == "1" && !mixArms.isNullOrBlank()) {
+                mixReplay(db, System.getenv("ENGINE_REPLAY_LABEL") ?: File(path).name, mixArms, songs, links, groups, all, sessions, ::picks, ::toListen)
+                return@use
+            }
 
             // ENGINE_REPLAY_QUICK=1: the engine row alone, plus the three cheap baselines, for comparing
             // two databases that differ only in their related edges. The full run builds nine rows a
@@ -227,5 +237,154 @@ class EngineReplayTest {
             println("  held-out sessions (last 40%): priors vs warm start"); line("priors", priorsOnHeldOut); line("warmed", warmed); line("warmed+", warmedPositive)
             assertEquals(0, engine.collisions)
         }
+    }
+
+    /**
+     * The similar-songs mix against each source alone. Arms, from ENGINE_REPLAY_MIX ("all" or a
+     * comma list): youtube (the app's ENGINE_EDGES with source 0), lastfm (source 1, with YouTube's
+     * list for a seed Last.fm has none for), half and fixed:<s> (both lists merged, a fixed split),
+     * and adaptive (both lists, the split learned from how this replay's own rows fared). Every
+     * session and draw uses the same dice in every arm, so a difference is the arm, not the luck.
+     *
+     * Every arm goes through MixRow, the test-only copy of the engine with the ledger, and the two
+     * single-source arms are checked card for card against EngineRow.build on each session's first
+     * draw, so the copy cannot quietly drift from the engine it stands in for.
+     *
+     * The adaptive arm grades its own cards the way the app would grade impressions, but only the
+     * cards the app counts as evidence: a card whose version group the session went on to pick is
+     * PLAYED at that pick's engagement, any other IGNORED. Picks are a proxy for taps, and the
+     * history was shaped by YouTube's rows, so this shows that the mechanism works and what it
+     * costs or gains here, not where his phone would settle.
+     */
+    private fun mixReplay(
+        db: Connection, label: String, arms: String, songs: Map<String, SongRow>, links: List<VersionLink>, groups: VersionGroups,
+        all: List<Row>, sessions: List<List<Row>>, picks: (List<Row>) -> List<Row>, toListen: (Row) -> ListenRow,
+    ) {
+        val names = if (arms == "all") listOf("youtube", "lastfm", "half", "adaptive") else arms.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        // The app's query with its WHERE untouched, reading each edge's source as a bit.
+        val single = RelatedSql.ENGINE_EDGES.replace("SELECT songId, relatedSongId FROM", "SELECT songId, relatedSongId, CASE r.source WHEN 1 THEN 2 ELSE 1 END AS sources FROM")
+        check(single != RelatedSql.ENGINE_EDGES) { "ENGINE_EDGES changed shape, so the replay no longer reads what the app reads" }
+        // Both lists merged: a pair both sources list is one edge carrying both bits, so it counts
+        // once as a referrer, as it would in the app.
+        val union = """SELECT songId, relatedSongId,
+            MAX(CASE source WHEN 0 THEN 1 ELSE 0 END) + MAX(CASE source WHEN 1 THEN 2 ELSE 0 END) AS sources
+            FROM related_song_map WHERE source IN (0, 1) GROUP BY songId, relatedSongId"""
+        val loaded = HashMap<String, Pair<List<Edge>, Map<Edge, Int>>>()
+        fun edges(kind: String) = loaded.getOrPut(kind) {
+            val sql = when (kind) { "youtube" -> single.replace(":source", "0"); "lastfm" -> single.replace(":source", "1"); else -> union }
+            val rows = db.rows(sql).map { Edge(it["songId"] as String, it["relatedSongId"] as String) to (it["sources"] as Number).toInt() }
+            rows.map { it.first } to rows.toMap()
+        }
+        class Arm(val name: String, val edges: List<Edge>, val bits: Map<Edge, Int>, val fixed: Double?, val adaptive: Boolean) {
+            var picks = 0; var hits = 0; var repeat = 0; var fresh = 0; var engaged = 0.0; var collisions = 0
+            val lanes = HashMap<Lane, IntArray>()   // cards, hits, new hits
+            val kinds = Array(4) { IntArray(2) }    // youtube only, lastfm only, both, none: cards, hits
+            var edgeCards = 0; var lastFmOnly = 0; var ledgerPlaces = 0; var ledgerLastFm = 0
+            val perSession = ArrayList<Int>()
+        }
+        val armList = names.map { n ->
+            when {
+                n == "youtube" || n == "lastfm" -> edges(n).let { Arm(n, it.first, it.second, null, false) }
+                n == "half" -> edges("union").let { Arm(n, it.first, it.second, 0.5, false) }
+                n.startsWith("fixed:") -> edges("union").let { Arm(n, it.first, it.second, n.removePrefix("fixed:").toDouble(), false) }
+                n == "adaptive" -> edges("union").let { Arm(n, it.first, it.second, null, true) }
+                else -> error("unknown arm $n; use youtube, lastfm, half, fixed:<s> or adaptive")
+            }
+        }
+        val reps = System.getenv("ENGINE_REPLAY_SEEDS")?.toIntOrNull() ?: 1
+        val evidence = Array(reps) { ArrayList<MixEvidence>() }
+        val shares = ArrayList<DoubleArray>()   // per scored session, the adaptive share of each draw
+        val finalStates = arrayOfNulls<MixShare.State>(reps)
+        var scored = 0; var checked = 0
+        val t0 = System.nanoTime()
+        for ((i, session) in sessions.withIndex()) {
+            if (i < 5) continue
+            val t = session.first().startedAt
+            val before = all.filter { it.endedAt <= t }
+            if (before.isEmpty()) continue
+            val sessionPicks = picks(session).filter { Signals.engagement(toListen(it), null) >= 0.5 }
+            if (sessionPicks.isEmpty()) continue
+            scored++
+            val heard = before.map { it.songId }.toSet()
+            val tz = session.first().tz
+            val base = EngineInput(t, songs, before.map(toListen), emptyList(), links, bucket = dayPartBucket(t, tz), tzOffsetMin = tz)
+            val pickGroups = sessionPicks.associateBy { groups.groupOf(it.songId) }
+            val sessionShares = DoubleArray(reps)
+            for (arm in armList) {
+                val input = base.copy(edges = arm.edges)
+                var sessionHits = 0
+                for (rep in 0 until reps) {
+                    val seed = i.toLong() + rep * 100_003L
+                    val share = if (arm.adaptive) {
+                        val state = MixShare.share(evidence[rep].filter { it.visibleAt >= t - MixShare.WINDOW_MS }, tz)
+                        finalStates[rep] = state; sessionShares[rep] = state.share
+                        state.share
+                    } else arm.fixed
+                    val built = MixRow.build(input, arm.bits, random = Random(seed), lastFmShare = share)
+                    if (rep == 0 && share == null) {
+                        val plain = EngineRow.build(input, random = Random(seed))
+                        assertEquals("${arm.name}, session $i: the test copy drew differently from EngineRow.build",
+                            plain.cards.map { it.songId to it.lane }, built.row.cards.map { it.songId to it.lane })
+                        checked++
+                    }
+                    val g = built.row.cards.map { groups.groupOf(it.songId) }
+                    arm.collisions += g.size - g.toSet().size
+                    for (pk in sessionPicks) {
+                        arm.picks++
+                        if (groups.groupOf(pk.songId) in g) {
+                            arm.hits++; sessionHits++; arm.engaged += Signals.engagement(toListen(pk), null)
+                            if (pk.songId in heard) arm.repeat++ else arm.fresh++
+                        }
+                    }
+                    for ((k, c) in built.row.cards.withIndex()) {
+                        val bits = built.bits[k]
+                        val pk = pickGroups[groups.groupOf(c.songId)]
+                        val lane = arm.lanes.getOrPut(c.lane) { IntArray(3) }
+                        lane[0]++
+                        if (pk != null) { lane[1]++; if (pk.songId !in heard) lane[2]++ }
+                        val kind = when (bits and MixBits.SOURCES) { MixBits.YOUTUBE -> 0; MixBits.LASTFM -> 1; MixBits.SOURCES -> 2; else -> 3 }
+                        arm.kinds[kind][0]++; if (pk != null) arm.kinds[kind][1]++
+                        val edgePlace = (c.lane == Lane.RELATED || c.lane == Lane.EXPLORE) && bits and MixBits.SOURCES != 0
+                        if (edgePlace) { arm.edgeCards++; if (bits and MixBits.SOURCES == MixBits.LASTFM) arm.lastFmOnly++ }
+                        if (built.credited[k] != 0) { arm.ledgerPlaces++; if (built.credited[k] == MixBits.LASTFM) arm.ledgerLastFm++ }
+                        if (arm.adaptive && edgePlace && MixBits.isEvidence(bits)) {
+                            val y = pk?.let { Signals.engagement(toListen(it), null) }
+                            evidence[rep] += MixEvidence(c.songId, 1, c.lane.ordinal + 1, bits, t, if (y != null) Outcome.PLAYED else Outcome.IGNORED, (y ?: 0.0).toFloat())
+                        }
+                    }
+                }
+                arm.perSession += sessionHits
+            }
+            if (armList.any { it.adaptive }) shares += sessionShares
+        }
+        val seconds = (System.nanoTime() - t0) / 1e9
+        println("mix replay [$label]: ${sessions.size} sessions, $scored scored, $reps draws each, ${seconds.toInt()} s; $checked single-source rows matched EngineRow.build card for card")
+        for (arm in armList) {
+            println("  %-10s %6d edges, hit@20 %.4f (repeat %d, new %d of %d picks), engaged %.1f, collisions %d".format(
+                arm.name, arm.edges.size, arm.hits.toDouble() / maxOf(1, arm.picks), arm.repeat, arm.fresh, arm.picks, arm.engaged, arm.collisions))
+            println("    lanes: " + Lane.entries.mapNotNull { l -> arm.lanes[l]?.let { (c, h, f) -> "%s %d/%d (%d new)".format(l.name.lowercase(), h, c, f) } }.joinToString(", "))
+            println("    cards by source: " + listOf("youtube only", "lastfm only", "both", "none").withIndex().joinToString(", ") { (k, n) -> "%s %d/%d".format(n, arm.kinds[k][1], arm.kinds[k][0]) })
+            val ledger = if (arm.ledgerPlaces > 0) ", ledger gave Last.fm %.1f%% of %d split places".format(100.0 * arm.ledgerLastFm / arm.ledgerPlaces, arm.ledgerPlaces) else ""
+            println("    Last.fm-only cards %.1f%% of %d edge cards".format(100.0 * arm.lastFmOnly / maxOf(1, arm.edgeCards), arm.edgeCards) + ledger)
+        }
+        if (shares.isNotEmpty()) {
+            val means = shares.map { it.average() }
+            println("  adaptive share, mean over draws: " + listOf(0.25, 0.5, 0.75, 1.0).joinToString(", ") { q ->
+                val k = maxOf(0, kotlin.math.ceil(q * means.size).toInt() - 1); "%d%% of sessions %.3f".format((q * 100).toInt(), means[k])
+            } + "; range over all sessions and draws %.3f to %.3f".format(shares.minOf { it.min() }, shares.maxOf { it.max() }))
+            for ((rep, st) in finalStates.withIndex()) st?.let {
+                println("    draw %d final: share %.3f, Last.fm %.1f heard per 100 of %.1f cards, YouTube %.1f per 100 of %.1f, %d days".format(
+                    rep, it.share, it.lastFm.per100, it.lastFm.cards, it.youTube.per100, it.youTube.cards, it.days))
+            }
+            for (s in shares) for (v in s) assertTrue("adaptive share $v outside [0.2, 0.8]", v in 0.2..0.8)
+        }
+        armList.firstOrNull { it.adaptive }?.let { a ->
+            for (b in armList) if (b !== a && !b.adaptive) {
+                val d = a.perSession.indices.map { (a.perSession[it] - b.perSession[it]).toDouble() }
+                val mean = d.average(); val sd = kotlin.math.sqrt(d.sumOf { (it - mean) * (it - mean) } / maxOf(1, d.size - 1))
+                println("  adaptive - %-8s %+.3f +- %.3f hits per session (summed over %d draws, %d sessions)".format(b.name, mean, 1.96 * sd / kotlin.math.sqrt(d.size.toDouble()), reps, d.size))
+            }
+        }
+        for (arm in armList) assertEquals("${arm.name} collisions", 0, arm.collisions)
     }
 }
