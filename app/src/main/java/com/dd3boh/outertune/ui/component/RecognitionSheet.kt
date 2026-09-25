@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
@@ -62,6 +63,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.delay
 import coil3.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.constants.RecogniseKeepAwakeKey
+import com.dd3boh.outertune.constants.RecognisePauseOnSpeakerKey
+import com.dd3boh.outertune.recognition.AudioRoute
+import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.recognition.RecognitionEngine
@@ -103,10 +111,40 @@ fun RecognitionSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    // The screen's two listening settings apply here too; the sheet used to ignore both. On the
+    // phone's own speaker the music and the microphone share the air, so without the pause it
+    // named the song already playing and added it to the playlist.
+    val context = LocalContext.current
+    val playerConnection = LocalPlayerConnection.current
+    val (pauseOnSpeaker) = rememberPreference(RecognisePauseOnSpeakerKey, defaultValue = true)
+    val (keepAwake) = rememberPreference(RecogniseKeepAwakeKey, defaultValue = false)
+    val view = LocalView.current
+    DisposableEffect(running, keepAwake) {
+        val on = running && keepAwake
+        if (on) view.keepScreenOn = true
+        onDispose { if (on) view.keepScreenOn = false }
+    }
+    // And music started on the speaker mid-run stops it, as on the screen.
+    LaunchedEffect(playerConnection, running, pauseOnSpeaker) {
+        if (!running || !pauseOnSpeaker) return@LaunchedEffect
+        val playing = playerConnection?.isPlaying ?: return@LaunchedEffect
+        var was = playing.value
+        playing.collect { now ->
+            if (now && !was && !AudioRoute.playbackIsPrivate(context)) viewModel.stop()
+            was = now
+        }
+    }
+    fun start() {
+        if (pauseOnSpeaker && playerConnection?.player?.isPlaying == true && !AudioRoute.playbackIsPrivate(context)) {
+            playerConnection.player.pause()
+        }
+        viewModel.start(playlist)
+    }
+
     val permission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) viewModel.start(playlist)
+        if (granted) start()
         else viewModel.reset()
     }
 
@@ -172,12 +210,12 @@ fun RecognitionSheet(
                         viewModel.accept(song, playlist)
                         if (!continuous) onDismiss()
                     },
-                    onRetry = { viewModel.start(playlist) },
+                    onRetry = { start() },
                 )
 
                 RecognitionEngine.State.NoMatch -> Problem(
                     text = stringResource(R.string.recognition_no_match),
-                    onRetry = { viewModel.start(playlist) },
+                    onRetry = { start() },
                 )
 
                 is RecognitionEngine.State.Failed -> Problem(
@@ -185,7 +223,7 @@ fun RecognitionSheet(
                         if (s.heardNothing) R.string.recognition_heard_nothing
                         else R.string.recognition_failed
                     ),
-                    onRetry = { viewModel.start(playlist) },
+                    onRetry = { start() },
                 )
             }
 
