@@ -15,13 +15,12 @@ AutoName: InterTune
 
 RepoType: git
 Repo: https://github.com/ItzSkyeYT/InterTune
-Binaries: 
-  https://github.com/ItzSkyeYT/InterTune/releases/download/v%v/InterTune-%v-core-release-%c.apk
+Binaries: https://github.com/ItzSkyeYT/InterTune/releases/download/v%v/InterTune-%v-core-release-%c.apk
 
 Builds:
-  - versionName: 0.10.8.5
-    versionCode: 86
-    commit: 2d4bb66d248c2878546dc23326b7f1981875b170
+  - versionName: 0.10.9.1
+    versionCode: 88
+    commit: 21ace54b5f49dad63dc8fbd8843ad572e409bf23
     subdir: app
     submodules: true
     gradle:
@@ -35,5 +34,5 @@ AllowedAPKSigningKeys: 69c6b5fbf1220a44206e8a3a098f41c78af7f94d2fa56eb3165ca40b9
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v
-CurrentVersion: 0.10.8.5
-CurrentVersionCode: 86
+CurrentVersion: 0.10.9.1
+CurrentVersionCode: 88
