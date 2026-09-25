@@ -51,6 +51,14 @@ object LikedCatchUp {
     data class Tally(val landed: Int, val failed: Int, val removed: Int, val open: Int) {
         /** Nothing left to wait for, which ends the run whether or not all of it arrived. */
         val settled: Boolean get() = open == 0
+
+        /**
+         * Somebody took songs off the queue before they arrived, most often all of them at once
+         * with the cancel on the download notification, which never goes through the row's own
+         * stop. A run like that should read as stopped: finishing it quietly left the row saying
+         * "Downloaded 3 liked songs." with nothing about the other 296.
+         */
+        val cutShort: Boolean get() = removed > 0
     }
 
     /**
@@ -58,7 +66,9 @@ object LikedCatchUp {
      *
      * Completed, failed and removing are endings. Any other state means media3 is working on the
      * song again, typically because it was queued by hand after failing, so an earlier ending no
-     * longer holds. Songs outside the batch belong to somebody else's download and are left alone.
+     * longer holds. That is what lets [tally] trust a recorded ending over the map: while one is
+     * there, the last thing the listener heard about the song was that it ended. Songs outside the
+     * batch belong to somebody else's download and are left alone.
      */
     fun afterUpdate(ends: Map<String, End>, batch: Set<String>, id: String, state: Int): Map<String, End> {
         if (id !in batch) return ends
@@ -81,14 +91,22 @@ object LikedCatchUp {
     /**
      * Counts the batch.
      *
-     * The map comes first, because it says what media3 is doing now: a real timestamp is a song that
-     * has landed, and STATE_DOWNLOADING is one queued or in flight, whatever happened to it before.
-     * Only when the map has nothing useful does the listener's record of how the song ended decide.
+     * The recorded ending comes first and the map only speaks for a song without one. The listener
+     * hears every change in order and clears an ending as soon as media3 takes the song up again,
+     * so a recorded ending is always the latest word. The map is not: a download scan replaces all
+     * of it with a snapshot it read from the database before walking the download folders, which
+     * is slow, and that snapshot marks every song media3 still had queued as STATE_DOWNLOADING. A
+     * song that lands or fails during the walk gets its ending, and then the snapshot puts it back
+     * as downloading. media3 never reports on a finished download again, so with the map first
+     * that song stayed open for good and the row stuck one short, just as it did before endings
+     * were recorded, and the only way out was a stop that removed the song that had landed. For
+     * this to hold, the listener writes the ending before the map, so the moment between the two
+     * can only show an ending that is already true.
      *
-     * A song with neither is still open rather than done. The enqueue goes through the download
-     * service and media3 answers a moment later, so right after the enqueue loop most of a large
-     * batch looks exactly like this, and counting it as settled would end the run before it had
-     * started.
+     * Without an ending, a real timestamp is a song that has landed and anything else is open.
+     * Open rather than done, because the enqueue goes through the download service and media3
+     * answers a moment later, so right after the enqueue loop most of a large batch has neither,
+     * and counting it as settled would end the run before it had started.
      */
     fun tally(batch: Set<String>, downloads: Map<String, LocalDateTime>, ends: Map<String, End>): Tally {
         var landed = 0
@@ -96,18 +114,31 @@ object LikedCatchUp {
         var removed = 0
         var open = 0
         for (id in batch) {
-            val live = downloads[id]
-            when {
-                live == STATE_DOWNLOADING -> open++
-                live != null && live != STATE_INVALID -> landed++
-                else -> when (ends[id]) {
-                    End.LANDED -> landed++
-                    End.FAILED -> failed++
-                    End.REMOVED -> removed++
-                    null -> open++
+            when (ends[id]) {
+                End.LANDED -> landed++
+                End.FAILED -> failed++
+                End.REMOVED -> removed++
+                null -> {
+                    val live = downloads[id]
+                    if (live != null && live != STATE_DOWNLOADING && live != STATE_INVALID) landed++ else open++
                 }
             }
         }
         return Tally(landed = landed, failed = failed, removed = removed, open = open)
     }
+
+    /**
+     * The songs a stop takes off media3's queue: the run's own that the map shows queued or in
+     * flight, and not one of them with a recorded ending.
+     *
+     * The ending check is there because the map can be a scan's stale snapshot, which still shows
+     * a song that has since landed as downloading (see [tally]). media3 applies a removal to a
+     * completed download too, deleting it, so trusting the map here threw away a song the run had
+     * just fetched. A song that failed or was already removed has nothing left to stop either.
+     */
+    fun toRemoveOnStop(
+        batch: Set<String>,
+        downloads: Map<String, LocalDateTime>,
+        ends: Map<String, End>,
+    ): Set<String> = batch.filterTo(mutableSetOf()) { downloads[it] == STATE_DOWNLOADING && it !in ends }
 }
