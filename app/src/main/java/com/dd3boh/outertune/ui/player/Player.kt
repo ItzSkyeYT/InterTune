@@ -9,6 +9,11 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.playback.PlayerConnection
+import androidx.compose.foundation.interaction.DragInteraction
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberUpdatedState
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.backdrops.LayerBackdrop
@@ -227,20 +232,51 @@ fun BottomSheetPlayer(
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
 
-    val swipeToSkip by rememberPreference(SwipeToSkipKey, defaultValue = false)
-    val previousMediaMetadata = if (swipeToSkip && playerConnection.player.hasPreviousMediaItem()) {
-        val previousIndex = playerConnection.player.previousMediaItemIndex
-        playerConnection.player.getMediaItemAt(previousIndex).metadata
-    } else null
-
     val qbInit by playerConnection.service.qbInit.collectAsState()
-    val nextMediaMetadata = if (swipeToSkip && playerConnection.player.hasNextMediaItem()) {
-        val nextIndex = playerConnection.player.nextMediaItemIndex
-        playerConnection.player.getMediaItemAt(nextIndex).metadata
-    } else null
-
-    val mediaItems = listOfNotNull(previousMediaMetadata, mediaMetadata, nextMediaMetadata)
-    val currentMediaIndex = mediaItems.indexOf(mediaMetadata)
+    val swipeToSkip by rememberPreference(SwipeToSkipKey, defaultValue = false)
+    val queueWindows by playerConnection.queueWindows.collectAsState()
+    val shuffleOn by playerConnection.shuffleModeEnabled.collectAsState()
+    // The songs either side of this one, for the artwork strip, worked out again whenever the queue,
+    // the song, shuffle or repeat changes. They used to be read straight off the player while the
+    // screen drew. With the music paused nothing redraws the screen once the queue has loaded after
+    // a launch, so the strip held the current song alone and a swipe had nowhere to go.
+    val (previousMediaMetadata, nextMediaMetadata) = remember(swipeToSkip, qbInit, queueWindows, mediaMetadata, shuffleOn, repeatMode) {
+        val none = Pair<MediaMetadata?, MediaMetadata?>(null, null)
+        if (!swipeToSkip) return@remember none
+        val player = playerConnection.player
+        val timeline = player.currentTimeline
+        // Repeat one would make the song its own neighbour; the player treats it as off when
+        // skipping, and so does the strip.
+        val mode = if (repeatMode == REPEAT_MODE_ONE) REPEAT_MODE_OFF else repeatMode
+        if (!timeline.isEmpty) {
+            val index = player.currentMediaItemIndex
+            fun at(i: Int): MediaMetadata? =
+                i.takeIf { it != C.INDEX_UNSET && it != index }?.let { player.getMediaItemAt(it).metadata }
+            return@remember Pair(at(timeline.getPreviousWindowIndex(index, mode, shuffleOn)), at(timeline.getNextWindowIndex(index, mode, shuffleOn)))
+        }
+        // After a cold start the player is empty until something is played: the restored queue
+        // sits in the queue board and only goes into the player on play. The neighbours come
+        // from there meanwhile.
+        val queue = playerConnection.service.queueBoard.getCurrentQueue() ?: return@remember none
+        val songs = queue.getCurrentQueueShuffled()
+        val position = queue.getQueuePosShuffled()
+        if (position !in songs.indices) return@remember none
+        fun around(step: Int): MediaMetadata? {
+            val i = position + step
+            return when {
+                i in songs.indices -> songs[i]
+                mode == REPEAT_MODE_ALL && songs.size > 1 -> songs[(i + songs.size) % songs.size]
+                else -> null
+            }
+        }
+        Pair(around(-1), around(1))
+    }
+    // Keyed by song in the strip, so a neighbour that is the same song as this one (a queue with a
+    // song twice in a row, or either side of this one) is left out rather than crashing it.
+    val previousInStrip = previousMediaMetadata?.takeIf { it.id != mediaMetadata?.id }
+    val nextInStrip = nextMediaMetadata?.takeIf { it.id != mediaMetadata?.id && it.id != previousInStrip?.id }
+    val mediaItems = listOfNotNull(previousInStrip, mediaMetadata, nextInStrip)
+    val currentMediaIndex = if (previousInStrip != null) 1 else 0
 
 
     val playerBackground by rememberEnumPreference(
@@ -1156,62 +1192,22 @@ fun BottomSheetPlayer(
                                 customMediaMetadata = mediaMetadata
                             )
                         } else {
-                            val thumbnailLazyGridState = rememberLazyGridState()
-                            val currentItem by remember { derivedStateOf { thumbnailLazyGridState.firstVisibleItemIndex } }
-                            val itemScrollOffset by remember { derivedStateOf { thumbnailLazyGridState.firstVisibleItemScrollOffset } }
-
-                            LaunchedEffect(itemScrollOffset) {
-                                if (!thumbnailLazyGridState.isScrollInProgress || itemScrollOffset != 0) return@LaunchedEffect
-
-                                if (currentItem > currentMediaIndex)
-                                    playerConnection.player.seekToNext()
-                                else if (currentItem < currentMediaIndex)
-                                    playerConnection.player.seekToPreviousMediaItem()
-                            }
-
-                            LaunchedEffect(mediaMetadata, canSkipPrevious, canSkipNext) {
-                                // When the media item changes, scroll to it
-                                val index = maxOf(0, currentMediaIndex)
-
-                                // Only animate scroll when player expanded, otherwise animated scroll won't work
-                                if (state.isExpanded)
-                                    thumbnailLazyGridState.animateScrollToItem(index)
-                                else
-                                    thumbnailLazyGridState.scrollToItem(index)
-                            }
-
-                            val horizontalLazyGridItemWidthFactor = 1f
-                            val thumbnailSnapLayoutInfoProvider = remember(thumbnailLazyGridState) {
-                                SnapLayoutInfoProvider(
-                                    lazyGridState = thumbnailLazyGridState,
-                                    positionInLayout = { layoutSize, itemSize ->
-                                        (layoutSize * horizontalLazyGridItemWidthFactor / 2f - itemSize / 2f)
-                                    }
-                                )
-                            }
-                            val horizontalLazyGridItemWidth = maxWidth * horizontalLazyGridItemWidthFactor
-
-
-                            LazyHorizontalGrid(
-                                state = thumbnailLazyGridState,
-                                rows = GridCells.Fixed(1),
+                            SwipeableArtwork(
+                                mediaItems = mediaItems,
+                                currentIndex = currentMediaIndex,
+                                scrollable = state.isExpanded,
+                                expanded = state.isExpanded,
                                 contentPadding = PaddingValues(vertical = 16.dp),
-                                flingBehavior = rememberSnapFlingBehavior(thumbnailSnapLayoutInfoProvider),
-                                userScrollEnabled = state.isExpanded && swipeToSkip
+                                onSkip = { forward -> skipFromArtwork(playerConnection, forward) },
                             ) {
-                                items(
-                                    items = mediaItems,
-                                    key = { it.id }
-                                ) {
-                                    Thumbnail(
-                                        sliderPositionProvider = { sliderPosition },
-                                        modifier = Modifier
-                                            .width(horizontalLazyGridItemWidth)
-                                            .animateContentSize(),
-                                        showLyricsOnClick = true,
-                                        customMediaMetadata = it
-                                    )
-                                }
+                                Thumbnail(
+                                    sliderPositionProvider = { sliderPosition },
+                                    modifier = Modifier
+                                        .width(maxWidth)
+                                        .animateContentSize(),
+                                    showLyricsOnClick = true,
+                                    customMediaMetadata = it
+                                )
                             }
                         }
                     }
@@ -1296,61 +1292,22 @@ fun BottomSheetPlayer(
                                 customMediaMetadata = mediaMetadata
                             )
                         } else {
-                            val thumbnailLazyGridState = rememberLazyGridState()
-                            val currentItem by remember { derivedStateOf { thumbnailLazyGridState.firstVisibleItemIndex } }
-                            val itemScrollOffset by remember { derivedStateOf { thumbnailLazyGridState.firstVisibleItemScrollOffset } }
-
-                            LaunchedEffect(itemScrollOffset) {
-                                if (!thumbnailLazyGridState.isScrollInProgress || itemScrollOffset != 0) return@LaunchedEffect
-
-                                if (currentItem > currentMediaIndex)
-                                    playerConnection.player.seekToNext()
-                                else if (currentItem < currentMediaIndex)
-                                    playerConnection.player.seekToPreviousMediaItem()
-                            }
-
-                            LaunchedEffect(mediaMetadata, canSkipPrevious, canSkipNext) {
-                                // When the media item changes, scroll to it
-                                val index = maxOf(0, currentMediaIndex)
-
-                                // Only animate scroll when player expanded, otherwise animated scroll won't work
-                                if (state.isExpanded)
-                                    thumbnailLazyGridState.animateScrollToItem(index)
-                                else
-                                    thumbnailLazyGridState.scrollToItem(index)
-                            }
-
-                            val horizontalLazyGridItemWidthFactor = 1f
-                            val thumbnailSnapLayoutInfoProvider = remember(thumbnailLazyGridState) {
-                                SnapLayoutInfoProvider(
-                                    lazyGridState = thumbnailLazyGridState,
-                                    positionInLayout = { layoutSize, itemSize ->
-                                        (layoutSize * horizontalLazyGridItemWidthFactor / 2f - itemSize / 2f)
-                                    }
-                                )
-                            }
-                            val horizontalLazyGridItemWidth = maxWidth * horizontalLazyGridItemWidthFactor
-
-                            LazyHorizontalGrid(
-                                state = thumbnailLazyGridState,
-                                rows = GridCells.Fixed(1),
-                                flingBehavior = rememberSnapFlingBehavior(thumbnailSnapLayoutInfoProvider),
-                                userScrollEnabled = swipeToSkip && state.isExpanded,
-                                modifier = Modifier.padding(vertical = QueuePeekHeight / 2)
+                            SwipeableArtwork(
+                                mediaItems = mediaItems,
+                                currentIndex = currentMediaIndex,
+                                scrollable = state.isExpanded,
+                                expanded = state.isExpanded,
+                                modifier = Modifier.padding(vertical = QueuePeekHeight / 2),
+                                onSkip = { forward -> skipFromArtwork(playerConnection, forward) },
                             ) {
-                                items(
-                                    items = mediaItems,
-                                    key = { it.id }
-                                ) {
-                                    Thumbnail(
-                                        modifier = Modifier
-                                            .width(horizontalLazyGridItemWidth)
-                                            .animateContentSize(),
-                                        sliderPositionProvider = { sliderPosition },
-                                        showLyricsOnClick = true,
-                                        customMediaMetadata = it
-                                    )
-                                }
+                                Thumbnail(
+                                    modifier = Modifier
+                                        .width(maxWidth)
+                                        .animateContentSize(),
+                                    sliderPositionProvider = { sliderPosition },
+                                    showLyricsOnClick = true,
+                                    customMediaMetadata = it
+                                )
                             }
                         }
                     }
@@ -1521,4 +1478,74 @@ private fun PlayerActionSegment(
             )
         }
     }
+}
+
+/**
+ * The artwork as a strip of this song and its neighbours, swiped sideways to change song.
+ *
+ * A drag that comes to rest on another song plays it. That is decided when the scroll stops after a
+ * drag, not from a frame-late look at the scroll offset, which could miss the moment the snap
+ * finished; and programmatic scrolls, the strip following a song change, never count.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun SwipeableArtwork(
+    mediaItems: List<MediaMetadata>,
+    currentIndex: Int,
+    scrollable: Boolean,
+    expanded: Boolean,
+    onSkip: (forward: Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
+    item: @Composable (MediaMetadata) -> Unit,
+) {
+    val gridState = rememberLazyGridState()
+    val latestIndex by rememberUpdatedState(currentIndex)
+    val latestOnSkip by rememberUpdatedState(onSkip)
+
+    // Follows the song: when it changes, the strip moves to it. Animated only while the player is
+    // open, where the animation can run.
+    LaunchedEffect(mediaItems.getOrNull(currentIndex)?.id, currentIndex) {
+        if (expanded) gridState.animateScrollToItem(currentIndex) else gridState.scrollToItem(currentIndex)
+    }
+
+    LaunchedEffect(gridState) {
+        var dragged = false
+        launch {
+            gridState.interactionSource.interactions.collect { if (it is DragInteraction.Start) dragged = true }
+        }
+        snapshotFlow { gridState.isScrollInProgress }.collect { scrolling ->
+            if (scrolling || !dragged) return@collect
+            dragged = false
+            val landed = gridState.firstVisibleItemIndex
+            if (landed != latestIndex) latestOnSkip(landed > latestIndex)
+        }
+    }
+
+    val snap = remember(gridState) {
+        SnapLayoutInfoProvider(
+            lazyGridState = gridState,
+            positionInLayout = { layoutSize, itemSize -> layoutSize / 2f - itemSize / 2f }
+        )
+    }
+    LazyHorizontalGrid(
+        state = gridState,
+        rows = GridCells.Fixed(1),
+        contentPadding = contentPadding,
+        flingBehavior = rememberSnapFlingBehavior(snap),
+        userScrollEnabled = scrollable,
+        modifier = modifier
+    ) {
+        items(items = mediaItems, key = { it.id }) { item(it) }
+    }
+}
+
+/**
+ * What a swipe on the artwork does: the next or the previous song. On a cold start the player is
+ * still empty, so the restored queue goes into it first, as the previous button does.
+ */
+private fun skipFromArtwork(playerConnection: PlayerConnection, forward: Boolean) {
+    val player = playerConnection.player
+    if (player.currentMediaItem == null) playerConnection.service.queueBoard.setCurrQueue()
+    if (forward) player.seekToNext() else player.seekToPreviousMediaItem()
 }
