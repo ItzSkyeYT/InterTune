@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.Poll
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.Button
@@ -42,6 +43,11 @@ import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AutoInstallUpdatesKey
 import com.dd3boh.outertune.constants.PollsEnabledKey
+import com.dd3boh.outertune.constants.SimilarFromLastFmKey
+import com.dd3boh.outertune.constants.SimilarSource
+import com.dd3boh.outertune.constants.SimilarSourceKey
+import com.dd3boh.outertune.engine.SimilarSources
+import com.dd3boh.outertune.utils.lastFmQuestionAskable
 import com.dd3boh.outertune.constants.UsageCountEnabledKey
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
@@ -295,6 +301,85 @@ fun UsageCountOptInCard() {
                 description = stringResource(R.string.oobe_usage_count_answered),
                 icon = { Icon(Icons.Rounded.Groups, null) },
                 checked = answered,
+                onCheckedChange = { answer(it) }
+            )
+        }
+    }
+}
+
+/**
+ * Asks, once, whether Best recommendations may find similar songs through Last.fm as well as
+ * YouTube, and afterwards shows the answer. The same two buttons and the same switch after as the
+ * cards above, for the same reasons.
+ *
+ * Asked because saying yes sends something: the title and artist of each song played go to
+ * Last.fm. That is not a thing to switch on for somebody, however much better the rows get. Until
+ * this is answered the app reads as YouTube only (SimilarSources.stored), so nothing leaves before
+ * the question does. A yes is Both, which leans toward whichever source's songs get played. A
+ * listener who already chose, through the old Last.fm switch or the setting, has answered, and
+ * the card is only the switch.
+ *
+ * Nothing at all in a build without a Last.fm key or while the engine is held back: there is
+ * nothing to ask for there.
+ */
+@Composable
+fun LastFmSimilarOptInCard() {
+    if (!lastFmQuestionAskable()) return
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val stored by rememberNullablePreference(SimilarSourceKey)
+    val oldSwitch by rememberNullablePreference(SimilarFromLastFmKey)
+
+    fun answer(useLastFm: Boolean) {
+        coroutineScope.launch {
+            context.dataStore.edit {
+                it[SimilarSourceKey] = (if (useLastFm) SimilarSource.BOTH else SimilarSource.YOUTUBE).name
+            }
+        }
+    }
+
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp)
+    ) {
+        if (!SimilarSources.asked(stored, oldSwitch)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.lastfm_opt_in_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = stringResource(R.string.lastfm_opt_in_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                ) {
+                    TextButton(onClick = { answer(false) }) {
+                        Text(stringResource(R.string.polls_opt_in_no))
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Button(onClick = { answer(true) }) {
+                        Text(stringResource(R.string.lastfm_opt_in_yes))
+                    }
+                }
+            }
+        } else {
+            SwitchPreference(
+                title = { Text(stringResource(R.string.lastfm_opt_in_enabled)) },
+                description = stringResource(R.string.oobe_lastfm_answered),
+                icon = { Icon(Icons.Rounded.Hub, null) },
+                checked = SimilarSources.stored(stored, oldSwitch) != SimilarSource.YOUTUBE,
                 onCheckedChange = { answer(it) }
             )
         }

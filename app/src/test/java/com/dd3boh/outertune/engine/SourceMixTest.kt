@@ -160,11 +160,21 @@ class SourceMixTest {
 
     @Test
     fun `the old Last-fm switch keeps its meaning until the new choice is made`() {
-        assertEquals(SimilarSource.BOTH, SimilarSources.stored(null, null))
+        // Never asked: nothing goes to Last.fm until the first-run question is answered.
+        assertEquals(SimilarSource.YOUTUBE, SimilarSources.stored(null, null))
         assertEquals(SimilarSource.LASTFM, SimilarSources.stored(null, true))
         assertEquals(SimilarSource.YOUTUBE, SimilarSources.stored(null, false))
         assertEquals(SimilarSource.BOTH, SimilarSources.stored("BOTH", true))
         assertEquals(SimilarSource.YOUTUBE, SimilarSources.stored("YOUTUBE", null))
         assertEquals(SimilarSource.LASTFM, SimilarSources.stored("nonsense", true))
+    }
+
+    @Test
+    fun `the Last-fm question counts as asked once anything was chosen`() {
+        assertEquals(false, SimilarSources.asked(null, null))
+        assertEquals(true, SimilarSources.asked(null, true))
+        assertEquals(true, SimilarSources.asked(null, false))
+        assertEquals(true, SimilarSources.asked("BOTH", null))
+        assertEquals(true, SimilarSources.asked("YOUTUBE", null))
     }
 }

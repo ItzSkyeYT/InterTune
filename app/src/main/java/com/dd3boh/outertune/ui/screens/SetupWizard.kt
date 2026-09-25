@@ -865,6 +865,8 @@ fun SetupWizard(
 
                                     UsageCountOptInCard()
 
+                                    LastFmSimilarOptInCard()
+
                                     Row(
                                         horizontalArrangement = Arrangement.Center,
                                         modifier = Modifier.padding(vertical = 16.dp)

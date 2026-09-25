@@ -877,6 +877,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_songs_only">New songs only</string>
     <string name="new_songs_only_description">Every card in the Best recommendations row is a song you have never played.</string>
     <string name="similar_source">Similar songs from</string>
+    <string name="lastfm_opt_in_title">Similar songs from Last.fm too?</string>
+    <string name="lastfm_opt_in_body">Best recommendations finds songs like the ones you play. It can ask Last.fm as well as YouTube, then lean toward whichever finds you more that you keep. For that it sends Last.fm the title and artist of each song you play, and nothing else. No account. You can change this later in Settings, under Recommendations.</string>
+    <string name="lastfm_opt_in_yes">Yes, use both</string>
+    <string name="lastfm_opt_in_enabled">Similar songs from Last.fm too</string>
+    <string name="oobe_lastfm_answered">You can change this any time in Settings, under Recommendations.</string>
     <string name="similar_source_both">Both, learning which you prefer</string>
     <string name="similar_source_youtube">YouTube only</string>
     <string name="similar_source_lastfm">Last.fm only</string>

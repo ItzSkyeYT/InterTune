@@ -33,8 +33,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.PollsEnabledKey
+import com.dd3boh.outertune.constants.SimilarFromLastFmKey
+import com.dd3boh.outertune.constants.SimilarSourceKey
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.constants.UsageCountEnabledKey
+import com.dd3boh.outertune.engine.SimilarSources
+import com.dd3boh.outertune.utils.lastFmQuestionAskable
 import com.dd3boh.outertune.utils.rememberNullablePreference
 
 /**
@@ -66,6 +70,9 @@ fun OptInCatchUp(onDone: () -> Unit) {
     val updateChoice by rememberNullablePreference(UpdateCheckEnabledKey)
     val pollChoice by rememberNullablePreference(PollsEnabledKey)
     val usageChoice by rememberNullablePreference(UsageCountEnabledKey)
+    val similarStored by rememberNullablePreference(SimilarSourceKey)
+    val similarOldSwitch by rememberNullablePreference(SimilarFromLastFmKey)
+    val lastFmAnswered = !lastFmQuestionAskable() || SimilarSources.asked(similarStored, similarOldSwitch)
 
     Dialog(
         onDismissRequest = { },
@@ -113,8 +120,10 @@ fun OptInCatchUp(onDone: () -> Unit) {
 
                 UsageCountOptInCard()
 
+                LastFmSimilarOptInCard()
+
                 Button(
-                    enabled = updateChoice != null && pollChoice != null && usageChoice != null,
+                    enabled = updateChoice != null && pollChoice != null && usageChoice != null && lastFmAnswered,
                     onClick = onDone,
                     modifier = Modifier
                         .fillMaxWidth()

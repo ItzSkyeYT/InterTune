@@ -119,13 +119,16 @@ object SimilarSources {
     /**
      * The mode as stored. Before the three-way choice there was a switch for Last.fm alone, and
      * a listener who turned it on chose Last.fm only, so that is what it still means; one who
-     * turned it back off chose YouTube. Nobody who never touched it had chosen anything, so they
-     * get Both.
+     * turned it back off chose YouTube. Nobody who never touched either has been asked yet, and
+     * until they are, nothing they play goes to Last.fm: YouTube only. The first-run questions
+     * ask, and a yes is Both.
      */
     fun stored(value: String?, oldLastFmSwitch: Boolean?): SimilarSource =
         SimilarSource.entries.firstOrNull { it.name == value } ?: when (oldLastFmSwitch) {
             true -> SimilarSource.LASTFM
-            false -> SimilarSource.YOUTUBE
-            null -> SimilarSource.BOTH
+            false, null -> SimilarSource.YOUTUBE
         }
+
+    /** Whether this install has chosen, either way, through the setting, the old switch or the question. */
+    fun asked(value: String?, oldLastFmSwitch: Boolean?): Boolean = value != null || oldLastFmSwitch != null
 }

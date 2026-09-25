@@ -35,6 +35,12 @@ import kotlin.coroutines.cancellation.CancellationException
  * a build without a Last.fm key, or a release while the engine is held back, never asks Last.fm
  * anything whatever the stored setting says.
  */
+/**
+ * Whether the first-run questions still owe the Last.fm one: only in a build that has a key and
+ * shows the engine, since anywhere else there is nothing to ask for.
+ */
+fun lastFmQuestionAskable(): Boolean = BuiltInKeys.lastFmApiKey.isNotEmpty() && Unreleased.ENGINE
+
 fun similarSourceOf(prefs: Preferences): SimilarSource = SimilarSources.effective(
     SimilarSources.stored(prefs[SimilarSourceKey], prefs[SimilarFromLastFmKey]),
     hasKey = BuiltInKeys.lastFmApiKey.isNotEmpty(),

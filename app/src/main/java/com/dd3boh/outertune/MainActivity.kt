@@ -165,6 +165,10 @@ import com.dd3boh.outertune.ui.screens.walkthrough.TourOverlay
 import com.dd3boh.outertune.ui.screens.walkthrough.TourState
 import com.dd3boh.outertune.ui.screens.walkthrough.tourFor
 import com.dd3boh.outertune.constants.WalkthroughSeenVersionKey
+import com.dd3boh.outertune.constants.SimilarFromLastFmKey
+import com.dd3boh.outertune.constants.SimilarSourceKey
+import com.dd3boh.outertune.engine.SimilarSources
+import com.dd3boh.outertune.utils.lastFmQuestionAskable
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
 import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
@@ -844,13 +848,17 @@ class MainActivity : ComponentActivity() {
                         val updateChoice by rememberNullablePreference(UpdateCheckEnabledKey)
                         val pollChoice by rememberNullablePreference(PollsEnabledKey)
                         val usageChoice by rememberNullablePreference(UsageCountEnabledKey)
+                        // Last.fm is owed only where it can be asked for; see LastFmSimilarOptInCard.
+                        val similarStored by rememberNullablePreference(SimilarSourceKey)
+                        val similarOldSwitch by rememberNullablePreference(SimilarFromLastFmKey)
+                        val lastFmOwed = lastFmQuestionAskable() && !SimilarSources.asked(similarStored, similarOldSwitch)
 
                         var catchUpOpen by rememberSaveable { mutableStateOf(false) }
                         var catchUpDone by rememberSaveable { mutableStateOf(false) }
 
-                        LaunchedEffect(updateChoice, pollChoice, usageChoice, oobeStatus) {
+                        LaunchedEffect(updateChoice, pollChoice, usageChoice, lastFmOwed, oobeStatus) {
                             if (!catchUpDone && oobeStatus >= OOBE_VERSION &&
-                                (updateChoice == null || pollChoice == null || usageChoice == null)
+                                (updateChoice == null || pollChoice == null || usageChoice == null || lastFmOwed)
                             ) {
                                 catchUpOpen = true
                             }
