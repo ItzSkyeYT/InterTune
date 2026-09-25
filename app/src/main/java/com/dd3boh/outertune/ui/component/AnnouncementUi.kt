@@ -178,7 +178,7 @@ fun AnnouncementDialog(
             }
             announcement.body?.let { body ->
                 Text(
-                    text = body,
+                    text = rememberLinkified(body),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
