@@ -27,9 +27,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.recognition.ShazamBackoff
 import kotlin.random.Random
 import kotlinx.coroutines.delay
 
@@ -146,6 +151,37 @@ fun rememberRecognitionPhrase(
         }
     }
     return phrase
+}
+
+/**
+ * What to say in place of the phrases while Keep listening waits for Shazam to answer again, with
+ * how long until it asks: see RecognitionEngine.retryAt. Null when [retryAt] is.
+ *
+ * Counts down by itself, and only while somebody can see it: the listening screen stays composed
+ * with the screen off, and a bare LaunchedEffect would tick through every wait in a pocket, which is
+ * what the throttle banner used to do.
+ */
+@Composable
+fun shazamWaitMessage(retryAt: Long?): String? {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(retryAt, lifecycleOwner) {
+        if (retryAt == null) return@LaunchedEffect
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                now = System.currentTimeMillis()
+                val left = retryAt - now
+                if (left <= 0) break
+                // Woken when the number on screen changes, which is when the time left reaches the
+                // whole second below it, and not in between.
+                delay((left % 1_000L).takeIf { it > 0 } ?: 1_000L)
+            }
+        }
+    }
+    if (retryAt == null) return null
+    val seconds = ShazamBackoff.secondsLeft(retryAt, now)
+    return if (seconds > 0) pluralStringResource(R.plurals.recognition_shazam_waiting, seconds, seconds)
+    else stringResource(R.string.recognition_shazam_retrying)
 }
 
 /**

@@ -98,6 +98,7 @@ fun RecognitionSheet(
     val running by viewModel.running.collectAsState()
     val startedAt by viewModel.startedAt.collectAsState()
     val nowPlaying by viewModel.nowPlaying.collectAsState()
+    val retryAt by viewModel.retryAt.collectAsState()
 
     // Ticks once a second so the sheet can show how long it has been listening. A run with nothing
     // to report otherwise looks identical to one that has died.
@@ -186,7 +187,14 @@ fun RecognitionSheet(
                     )
 
                 is RecognitionEngine.State.Listening -> {
-                    Listening(level = s.level, identifying = s.identifying, elapsed = elapsed)
+                    Listening(
+                        level = s.level,
+                        identifying = s.identifying,
+                        elapsed = elapsed,
+                        // Shazam not answering, said in place of the jokes, which would otherwise
+                        // carry on as if all were well.
+                        message = shazamWaitMessage(retryAt?.takeIf { continuous }),
+                    )
                     Spacer24()
                     OutlinedButton(onClick = { viewModel.stop(); onDismiss() }) {
                         Text(stringResource(R.string.recognition_stop))
