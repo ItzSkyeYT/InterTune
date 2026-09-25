@@ -21,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
@@ -155,7 +156,8 @@ class MicrophoneListener @Inject constructor(
      * and windows are cut from the running stream instead.
      *
      * The collector's work overlaps the next window, because AudioRecord keeps filling its buffer
-     * whether anyone reads it or not. A slow collector costs freshness, never coverage.
+     * whether anyone reads it or not. A collector slower than the windows misses some rather than
+     * falling behind the room: see [freshWindows].
      */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     @SuppressLint("MissingPermission")
@@ -210,7 +212,7 @@ class MicrophoneListener @Inject constructor(
             recorder.release()
             Log.i(TAG, "Microphone stream closed")
         }
-    }.flowOn(Dispatchers.IO)
+    }.freshWindows().flowOn(Dispatchers.IO)
 
     /**
      * Debug builds only: a recording standing in for the room, so Keep listening can be run end to
@@ -274,3 +276,17 @@ class MicrophoneListener @Inject constructor(
         )
     }
 }
+
+/**
+ * Windows as the engine should get them: the newest one waiting at most, never a queue.
+ *
+ * The microphone records on while a window is being identified, and flowOn on its own holds up to
+ * 64 windows for a collector that falls behind, thirteen minutes of audio and 25 MB of it at the
+ * usual twelve seconds. A request that hangs until it times out takes longer than a window, so a
+ * run on a network like that fell further behind with every window, and when the network came back
+ * it had the whole backlog to get through, minutes stale, asking Shazam about each window in a burst,
+ * which is what gets a phone refused in the first place. Now a window nobody got to is dropped for
+ * the one after it. The engine takes that as a gap, which it already allows for: every window carries
+ * the time it was heard.
+ */
+internal fun <T> Flow<T>.freshWindows(): Flow<T> = conflate()
