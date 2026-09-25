@@ -664,15 +664,18 @@ fun AutoPlaylistScreen(
                 .padding(LocalPlayerAwareWindowInsets.current.asPaddingValues()),
         )
         FloatingFooter(inSelectMode) {
+            // While searching, Select all takes the results only, never the songs the search is
+            // hiding: here that turned Remove like into unliking every liked song.
+            val shownSongs = if (isSearching) filteredSongs else songs
             SelectHeader(
                 navController = navController,
                 selectedItems = selection.mapNotNull { id ->
                     songs.find { it.song.id == id }
                 }.map { it.toMediaMetadata() },
-                totalItemCount = songs.size,
+                totalItemCount = shownSongs.size,
                 onSelectAll = {
                     selection.clear()
-                    selection.addAll(songs.map { it.song.id })
+                    selection.addAll(shownSongs.map { it.song.id })
                 },
                 onDeselectAll = { selection.clear() },
                 menuState = menuState,
