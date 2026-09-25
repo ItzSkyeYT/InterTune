@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -147,6 +148,12 @@ fun SettingsScreen(
                 description = stringResource(R.string.settings_storage_description),
                 icon = { Icon(Icons.Rounded.Storage, null) },
                 onClick = { navController.navigate("settings/storage") }
+            )
+            PreferenceEntry(
+                title = { Text(stringResource(R.string.backup_restore)) },
+                description = stringResource(R.string.settings_backup_description),
+                icon = { Icon(Icons.Rounded.Backup, null) },
+                onClick = { navController.navigate("settings/backup") }
             )
             PreferenceEntry(
                 title = { Text(stringResource(R.string.grp_privacy_and_history)) },

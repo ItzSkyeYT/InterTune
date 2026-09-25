@@ -575,7 +575,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="settings_look_and_feel_description">Theme and colours, the tabs along the bottom, and swipe gestures.</string>
     <string name="settings_player_description">Sound quality, audio effects, and how playback behaves.</string>
     <string name="settings_lyrics_description">Where lyrics are fetched from, and how they are shown.</string>
-    <string name="settings_storage_description">Downloads, how much space the cache may use, and backing up your library.</string>
+    <string name="settings_storage_description">Downloads, and how much space the caches may use.</string>
+    <string name="settings_backup_description">Save your library, playlists and settings to a file, bring them back, or back up by itself on a schedule.</string>
     <string name="settings_privacy_description">What the app records about you, and what it sends.</string>
     <string name="settings_updates_description">Check for a new version, and install it.</string>
     <string name="settings_advanced_description">Maintenance, and developer options.</string>

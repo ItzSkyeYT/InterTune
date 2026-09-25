@@ -70,6 +70,7 @@ import com.dd3boh.outertune.ui.screens.settings.PrivacySettings
 import com.dd3boh.outertune.ui.screens.settings.RecognitionSettings
 import com.dd3boh.outertune.ui.screens.settings.RecommendationsSettings
 import com.dd3boh.outertune.ui.screens.settings.SettingsScreen
+import com.dd3boh.outertune.ui.screens.settings.BackupSettings
 import com.dd3boh.outertune.ui.screens.settings.StorageSettings
 import com.dd3boh.outertune.ui.screens.settings.UpdateSettings
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
@@ -343,6 +344,9 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("settings/storage") {
             StorageSettings(navController, scrollBehavior)
+        }
+        screen("settings/backup") {
+            BackupSettings(navController, scrollBehavior)
         }
         screen("settings/local") {
             LocalPlayerSettings(navController, scrollBehavior)

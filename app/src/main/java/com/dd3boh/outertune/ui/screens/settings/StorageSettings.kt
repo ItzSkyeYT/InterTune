@@ -23,18 +23,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
-import com.dd3boh.outertune.ui.dialog.InfoLabel
-import com.dd3boh.outertune.ui.screens.settings.fragments.BackupAndRestoreFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.DownloadsFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.ImageCacheFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SongCacheFrag
-import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
 
 
 @SuppressLint("PrivateResource")
@@ -43,7 +39,6 @@ import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
 fun StorageSettings(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
-    viewModel: BackupRestoreViewModel = hiltViewModel(),
 ) {
 
     ColumnWithContentPadding(
@@ -86,19 +81,7 @@ fun StorageSettings(
         ) {
             ImageCacheFrag()
         }
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Was a screen of its own holding two rows. It is about a file on this device that holds
-        // your library, which is the same subject as everything above it.
-        PreferenceGroupTitle(
-            title = stringResource(R.string.backup_restore)
-        )
-
-        BackupAndRestoreFrag(viewModel)
-        Spacer(modifier = Modifier.height(16.dp))
-        InfoLabel(stringResource(R.string.import_innertune_tooltip))
-        Spacer(modifier = Modifier.height(8.dp))
-        InfoLabel(stringResource(R.string.restore_lm_tooltip))
+        // Backup and restore has its own category now: see BackupSettings.
     }
 
     FloatingTopBar(title = stringResource(R.string.grp_storage_and_downloads), navController = navController)
