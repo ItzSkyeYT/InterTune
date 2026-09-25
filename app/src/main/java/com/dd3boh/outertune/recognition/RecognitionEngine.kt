@@ -72,6 +72,11 @@ class RecognitionEngine @Inject constructor(
         val heardAtMs: Long = 0L,
         /** The song that went into the playlist, for [added], so taking it out takes out only it. */
         val songId: String? = null,
+        /**
+         * For a note a playlist's run makes about a mashup, in [skipped]: the Shazam keys of its
+         * pieces, so the mashup being added takes off every note about it: see [isMashupNoteOf].
+         */
+        val keys: Set<String> = emptySet(),
     )
 
     /**
@@ -280,8 +285,6 @@ class RecognitionEngine @Inject constructor(
          * then its remixes come before mashups of it with other songs. See [MixSearch.rankSingle].
          */
         var unknownVersion: Boolean = false,
-        /** What a playlist's run put in the unsure list about it, in place of the screen's choice. */
-        var noted: String? = null,
     ) { val id = ++mixIds }
     private var mix: ActiveMix? = null
 
@@ -1070,12 +1073,11 @@ class RecognitionEngine @Inject constructor(
                 current.found = winner
                 current.endsAtMs = endOf(current.startedMs, winner)
                 dropChoice(current.id)
-                // The sheet's stand-in for the choice goes the same way, and so does a note naming
-                // this very upload. Left, it listed the mashup as heard and not added right above
-                // the same mashup, added.
+                // The sheet's stand-in for the choice goes the same way, from every run of this
+                // mashup, and so does a note naming this very upload. Left, it listed the mashup as
+                // heard and not added right above the same mashup, added.
                 val mashup = context.getString(R.string.recognise_mashup)
-                val names = setOfNotNull(current.noted, winner.title)
-                _skipped.update { list -> list.filterNot { it.artist == mashup && it.title in names } }
+                _skipped.update { list -> list.filterNot { isMashupNoteOf(it, current.keys, winner.title, mashup) } }
                 add(winner)
             }
             // The choice is drawn by the screen, whose runs have no playlist. The sheet shows the
@@ -1083,9 +1085,8 @@ class RecognitionEngine @Inject constructor(
             playlist == null -> offerChoice(current, titles)
             else -> {
                 val name = winner?.title ?: titles.joinToString(" + ")
-                current.noted = name
                 if (_skipped.value.none { it.title == name }) {
-                    _skipped.value += Added(name, context.getString(R.string.recognise_mashup), auto = false, heardAtMs = now)
+                    _skipped.value += Added(name, context.getString(R.string.recognise_mashup), auto = false, heardAtMs = now, keys = current.keys.toSet())
                 }
             }
         }
@@ -1418,6 +1419,21 @@ class RecognitionEngine @Inject constructor(
          */
         internal fun isNoteOf(note: Added, piece: MixWatch.Sighting, sinceMs: Long): Boolean =
             note.heardAtMs >= sinceMs && MixSearch.sameSong(piece.title, note.title)
+
+        /**
+         * Whether [note], from the list of what was heard and not added, is a playlist's run's
+         * stand-in for the choice about a mashup of [keys], found to be [upload]: a [mashup] note
+         * naming that upload, or about pieces that are all among [keys].
+         *
+         * Not only by name. A quiet spell ends a mashup, and when it carries on, what comes next is
+         * a new one to the engine, which names its pieces in the order it now has them: a run noted
+         * "Stay + Peaches", then "Peaches + Stay", and taking off only the second left the first
+         * next to the mashup, added. The pieces must all be this mashup's, which is also how
+         * [answered] tells the same mashup heard again: one that shares a single song with it keeps
+         * its note.
+         */
+        internal fun isMashupNoteOf(note: Added, keys: Set<String>, upload: String, mashup: String): Boolean =
+            note.artist == mashup && (note.title == upload || (note.keys.isNotEmpty() && keys.containsAll(note.keys)))
 
         /**
          * Where [retract] starts taking back what was noted or confirmed of a song first heard at

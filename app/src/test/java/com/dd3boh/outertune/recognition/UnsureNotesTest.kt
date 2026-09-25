@@ -11,7 +11,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Which notes in the list of what was heard and not added a mashup's piece takes back out.
+ * Which notes in the list of what was heard and not added a mashup's piece takes back out, and which
+ * the mashup takes when it is added.
  *
  * Found to be part of a mashup, a piece's note goes, since the question about the mashup covers it.
  * It used to be every note with the piece's title, from any time in the run, so an unsure Stay by
@@ -78,5 +79,30 @@ class UnsureNotesTest {
         assertTrue(RecognitionEngine.isNoteOf(note("Lean On", "DjSunnymega", 588), robinSchulz, appeared))
         assertTrue(RecognitionEngine.isNoteOf(note("Lean On", "", 612), robinSchulz, appeared))
         assertTrue(RecognitionEngine.isNoteOf(note("Lean On", "Major Lazer", 612), piece("Lean On", null), appeared))
+    }
+
+    private fun mashupNote(title: String, vararg keys: String) =
+        RecognitionEngine.Added(title, "mashup", auto = false, keys = keys.toSet())
+
+    private fun isAbout(note: RecognitionEngine.Added, vararg keys: String) =
+        RecognitionEngine.isMashupNoteOf(note, keys.toSet(), "Stay x Peaches (Mashup)", "mashup")
+
+    @Test
+    fun `a mashup added takes every note a playlist's run made about it`() {
+        // A quiet spell ended it once, and the run noted it again with its pieces the other way round.
+        assertTrue(isAbout(mashupNote("Stay + Peaches", "stayk", "peaches"), "peaches", "stayk"))
+        assertTrue(isAbout(mashupNote("Peaches + Stay", "peaches", "stayk"), "peaches", "stayk"))
+        // Or heard under fewer of its pieces then.
+        assertTrue(isAbout(mashupNote("Stay + Peaches", "stayk", "peaches"), "stayk", "peaches", "peaches-alt"))
+        assertTrue(isAbout(mashupNote("Stay x Peaches (Mashup)"), "stayk", "peaches"))
+    }
+
+    @Test
+    fun `a mashup added leaves the notes about other things`() {
+        // Another mashup with one of its songs in it.
+        assertFalse(isAbout(mashupNote("Stay + Beggin'", "stayk", "beggin"), "stayk", "peaches"))
+        // A song that was unsure, which is a piece's to take, not the mashup's.
+        assertFalse(isAbout(RecognitionEngine.Added("Stay + Peaches", "someone", auto = false), "stayk", "peaches"))
+        assertFalse(isAbout(RecognitionEngine.Added("Peaches", "Justin Bieber", auto = false), "stayk", "peaches"))
     }
 }
