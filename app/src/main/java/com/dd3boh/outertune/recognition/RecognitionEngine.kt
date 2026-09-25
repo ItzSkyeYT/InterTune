@@ -301,6 +301,15 @@ class RecognitionEngine @Inject constructor(
     private val lastHeard = mutableMapOf<String, Long>()
 
     /**
+     * The same, except that a mashup ending does not reset it, only the song going unheard for as
+     * long as [firstHeard] allows. For [appearedAt]. Two windows Shazam does not know end a mashup,
+     * and the mashup often carries on after them. Read from [firstHeard], what was noted or confirmed
+     * of a piece before the gap counted as an earlier appearance of the song, and stayed in the lists
+     * next to the mashup once it was found.
+     */
+    private val appeared = mutableMapOf<String, Long>()
+
+    /**
      * Songs that went back to their top partway through (CutWatch's RESTART), watched to see whether
      * they then play to their end. One that stops well short was an edit.
      */
@@ -396,6 +405,7 @@ class RecognitionEngine @Inject constructor(
         answeredAlone.clear()
         firstHeard.clear()
         lastHeard.clear()
+        appeared.clear()
         restarts.clear()
         confirmedAt.clear()
         unmatchedRun = 0
@@ -661,8 +671,11 @@ class RecognitionEngine @Inject constructor(
                         }
                     }
                     // As far back as a return still counts, so a piece away that long is still the
-                    // same appearance to both.
-                    if (lastHeard[key]?.let { heardAtMs - it > MixWatch.SPAN_MS } != false) firstHeard[key] = heardAtMs
+                    // same appearance to both. A mashup ending starts firstHeard over, and not
+                    // appeared: see there.
+                    val back = lastHeard[key]?.let { heardAtMs - it <= MixWatch.SPAN_MS } == true
+                    if (!back) appeared[key] = heardAtMs
+                    if (!back || key !in firstHeard) firstHeard[key] = heardAtMs
                     lastHeard[key] = heardAtMs
                     checkRestarts(heardAtMs, ended = false, playing = key)
                     val sighting = MixWatch.Sighting(
@@ -1174,7 +1187,8 @@ class RecognitionEngine @Inject constructor(
         cutWatch.forget(over.keys)
         versionWatch.forget(over.keys)
         unmatchedRun = 0
-        over.keys.forEach { firstHeard.remove(it); lastHeard.remove(it) }
+        // When they were last heard stays, for appeared, which only a long enough gap resets.
+        over.keys.forEach { firstHeard.remove(it) }
         if (!over.settled && over.candidates.isNotEmpty()) {
             val heard = heardSeconds(over.startedMs, over.lastHeardMs)
             // A version Shazam does not know: its remixes still before mashups of it with others.
@@ -1243,7 +1257,7 @@ class RecognitionEngine @Inject constructor(
      * things back. The window is for another entry of the same song, which can have been noted or
      * confirmed the window before this one was first heard.
      */
-    private fun appearedAt(piece: MixWatch.Sighting): Long = (firstHeard[piece.key] ?: 0L) - windowMs
+    private fun appearedAt(piece: MixWatch.Sighting): Long = (appeared[piece.key] ?: 0L) - windowMs
 
     /** From the first window of it to the end of the last, in seconds. */
     private fun heardSeconds(startedMs: Long, lastMs: Long): Double = (lastMs - startedMs + windowMs) / 1000.0
