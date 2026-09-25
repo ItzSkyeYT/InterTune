@@ -691,7 +691,7 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="recognise_pause_desc">Only when the sound is coming from the phone itself.</string>
     <string name="recognise_pause_explain">The microphone is a few centimetres from the speaker, so with the sound coming out of the phone it hears this app and nothing else, and would name the song already playing. On headphones nothing is paused, because your music never reaches the microphone.</string>
     <string name="recognise_clear_history_desc">Forget the songs recognised so far.</string>
-    <string name="recognise_clear_history_explain">The list is only kept while the app is running. Nothing on it reaches your library or your history unless you save it as a playlist. This empties it now.</string>
+    <string name="recognise_clear_history_explain">Recognised songs are remembered under What you have heard, the last 200 of them. Nothing on it reaches your library or your listening history unless you save it as a playlist. This empties it now, along with this session\'s list, and stops any listening in progress.</string>
     <string name="recognise_play">Play</string>
     <string name="recognise_save_as_playlist">Save as playlist</string>
     <!-- %1$s is the playlist's name. -->

@@ -514,7 +514,9 @@ fun RecognitionScreen(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = { viewModel.reset(); viewModel.clearRecognised() }) {
+                    // Empties the list and leaves any listening alone. It went through reset, which
+                    // also stopped a Keep listening running in the background.
+                    TextButton(onClick = { viewModel.clearRecognised() }) {
                         Text(stringResource(R.string.recognise_clear_history))
                     }
                 }

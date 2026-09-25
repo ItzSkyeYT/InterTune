@@ -1369,6 +1369,9 @@ class RecognitionEngine @Inject constructor(
     fun clearRecognised() {
         _recognised.value = emptyList()
         _mixChoices.value = emptyList()
+        // The near misses are shown beside the list and went with it when Clear went through
+        // reset; they still do, now that Clear leaves a running listen alone.
+        _skipped.value = emptyList()
         // A fresh list is not the one that playlist was made from, so it stops filling it.
         follow(null)
     }
