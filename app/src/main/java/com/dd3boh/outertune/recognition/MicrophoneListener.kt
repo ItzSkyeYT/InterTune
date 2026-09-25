@@ -183,7 +183,9 @@ class MicrophoneListener @Inject constructor(
         // here, on the collector's side, once it has handled the last window. Thrown where the
         // recording is read, it cancelled the collector at once, and the window being identified
         // went with it: the last one, whenever the recording ran out less than an identify after it.
-        emitAll(replay(room, seconds, onProgress = onProgress).flowOn(Dispatchers.IO))
+        // Fresh windows here too, as on the microphone, and inside the emitAll rather than on the
+        // outer flow, which would drop the last window when the end is thrown.
+        emitAll(replay(room, seconds, onProgress = onProgress).freshWindows().flowOn(Dispatchers.IO))
         // Played to its end. A stop is a cancellation, which threw on the way here or throws now.
         currentCoroutineContext().ensureActive()
         throw RecordingEnded()
