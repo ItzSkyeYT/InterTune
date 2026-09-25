@@ -50,9 +50,9 @@ import javax.inject.Singleton
  * part it drives.
  *
  * Continuous mode does not stop for anything short of being told to. A song already in the playlist
- * is skipped in silence, a no-match is ignored, and a failed request is retried on the next window,
- * because none of those are worth waking somebody to tap a button. Single-shot mode still surfaces
- * everything, since there is a person looking at it.
+ * is skipped in silence, a no-match is ignored, and a failed request is tried again once Shazam has
+ * been left alone for a while ([ShazamBackoff]), because none of those are worth waking somebody to
+ * tap a button. Single-shot mode still surfaces everything, since there is a person looking at it.
  */
 @Singleton
 class RecognitionEngine @Inject constructor(
@@ -152,6 +152,23 @@ class RecognitionEngine @Inject constructor(
 
     /** When the current run began, so the sheet can show how long it has been listening. */
     val startedAt = MutableStateFlow(0L)
+
+    /**
+     * While Keep listening is leaving Shazam alone because it has stopped answering, when the window
+     * it will next ask about ends. Null while Shazam answers, before it has failed often enough to
+     * mention ([ShazamBackoff.notice]), and in Listen once, which says so after every failed listen.
+     *
+     * A run Shazam was refusing, or one on a network that wants a login first, used to look exactly
+     * like one listening to a quiet room, for as long as it was left.
+     */
+    private val _retryAt = MutableStateFlow<Long?>(null)
+    val retryAt = _retryAt.asStateFlow()
+
+    /** How long to leave Shazam alone after it stops answering. A new one for every run. */
+    private var backoff = ShazamBackoff()
+
+    /** When the last window that told the engine anything ended: an answer, or silence. */
+    private var lastKnownEndMs = 0L
 
     /**
      * Recognised, but not confidently enough to add without asking.
@@ -402,6 +419,11 @@ class RecognitionEngine @Inject constructor(
         this.playlist = playlist
         this.continuous.value = continuous
         onceMisses = 0
+        // Starting is somebody asking, and gets an answer straight away, whatever the last run
+        // was waiting out. The cheapest way to find out whether Shazam is back is to ask it once.
+        backoff = ShazamBackoff()
+        _retryAt.value = null
+        lastKnownEndMs = 0L
         _added.value = emptyList()
         _skipped.value = emptyList()
         pending = null
@@ -521,9 +543,18 @@ class RecognitionEngine @Inject constructor(
 
     private suspend fun identify(window: MicrophoneListener.Window) {
         val keepGoing = continuous.value
+        val endMs = window.startedAtMs + windowMs
+        // Keep listening leaves Shazam alone for a while once it stops answering, rather than asking
+        // again every window for as long as it is left. The window is simply not sent, and the
+        // watches take that as a gap, since every sighting carries its own time. Listen once asks
+        // every time: somebody is waiting on it, and it gives up after a few anyway.
+        if (keepGoing && !backoff.allows(endMs, windowMs)) return
         _state.value = State.Listening(0f, identifying = true)
         try {
-            respondTo(shazam.identify(window.samples), keepGoing, window.startedAtMs)
+            val outcome = shazam.identify(window.samples)
+            pace(outcome, endMs, keepGoing)
+            unwatchAcrossGap(outcome, endMs)
+            respondTo(outcome, keepGoing, window.startedAtMs)
         } finally {
             // Back to plain listening once the answer has been dealt with, unless dealing with it
             // moved the state somewhere else. Nothing used to clear this. Every arm that returns
@@ -537,6 +568,60 @@ class RecognitionEngine @Inject constructor(
                 if (it is State.Listening && it.identifying) it.copy(identifying = false) else it
             }
         }
+    }
+
+    /** Keeps [backoff] and [retryAt] up with what Shazam said about the window that ended at [endMs]. */
+    private fun pace(outcome: RecognitionOutcome, endMs: Long, keepGoing: Boolean) {
+        val refused = (outcome as? RecognitionOutcome.Failed)?.takeIf { ShazamBackoff.asked(it.reason) }
+        when {
+            refused != null -> {
+                val now = System.currentTimeMillis()
+                backoff.failed(now, endMs, windowMs, refused.retryAfterMs)
+                Log.w(
+                    TAG,
+                    "No answer from Shazam (${refused.reason}), ${backoff.failures} in a row: " +
+                            "next window sent in ${(backoff.retryAtMs - now) / 1000} s",
+                )
+            }
+            outcome !is RecognitionOutcome.Failed -> {
+                if (backoff.failures > 0) Log.i(TAG, "Shazam answered again after ${backoff.failures} failures")
+                backoff.answered()
+            }
+        }
+        // Silence and a failed fingerprint asked nothing, so they say nothing about Shazam either
+        // way. But whatever wait there was is over by the time one happens, so there is nothing
+        // left to count down to until the next request fails.
+        _retryAt.value = backoff.notice?.takeIf { keepGoing && refused != null }
+    }
+
+    /**
+     * A window never sent, dropped for a newer one, or sent and not answered is a gap in what was
+     * heard, not a stretch of the room with nothing in it. The watches mostly take it as one, since
+     * every sighting carries its own time, but not the watch on songs that went back to their top
+     * ([checkRestarts]): two windows without the song and it stopped short of its end, an edit,
+     * when all that happened is that nobody listened. So across a gap those songs are no longer
+     * watched, unless the window after it names the song, which then played on through the gap and
+     * is watched as before. Run through the harness, one window left out of the 25 Sep replay of
+     * Waves took the song, which played to its end, back out of the list.
+     *
+     * @param endMs when the window that brought [outcome] ended.
+     */
+    private fun unwatchAcrossGap(outcome: RecognitionOutcome, endMs: Long) {
+        if (outcome is RecognitionOutcome.Failed && outcome.reason != "silence") return
+        val unheardMs = endMs - windowMs - lastKnownEndMs
+        if (lastKnownEndMs > 0 && unheardMs >= windowMs / 2) {
+            val named = (outcome as? RecognitionOutcome.Match)?.track?.shazamKey
+            val unknown = restarts.filterKeys { it != named }
+            if (unknown.isNotEmpty()) {
+                Log.i(
+                    TAG,
+                    "Nothing heard for ${unheardMs / 1000} s, so no telling whether " +
+                            unknown.values.joinToString { "'${it.sighting.title}'" } + " stopped short",
+                )
+                unknown.keys.forEach { restarts.remove(it) }
+            }
+        }
+        lastKnownEndMs = endMs
     }
 
     /**
@@ -1414,6 +1499,7 @@ class RecognitionEngine @Inject constructor(
         pending = null
         pendingVariant = null
         publish(null)
+        _retryAt.value = null
     }
 
     fun reset() {

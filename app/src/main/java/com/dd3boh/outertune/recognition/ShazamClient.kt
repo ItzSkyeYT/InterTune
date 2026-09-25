@@ -64,7 +64,11 @@ sealed interface RecognitionOutcome {
     data class Match(val track: Recognised) : RecognitionOutcome
     /** The request worked and Shazam simply did not know it. */
     data object NoMatch : RecognitionOutcome
-    data class Failed(val reason: String) : RecognitionOutcome
+    /**
+     * @param retryAfterMs how long Shazam asked to be left alone, when it refused and said so. See
+     * [ShazamBackoff].
+     */
+    data class Failed(val reason: String, val retryAfterMs: Long? = null) : RecognitionOutcome
 }
 
 /**
@@ -131,16 +135,19 @@ class ShazamClient @Inject constructor() {
                     .header("User-Agent", USER_AGENT)
                     .post(payload.toRequestBody("application/json".toMediaType()))
                     .build()
-            ).execute().use { it.code to it.body?.string().orEmpty() }
+            ).execute().use { Triple(it.code, it.body?.string().orEmpty(), it.header("Retry-After")) }
         }.getOrElse {
             Log.w(TAG, "Recognition request failed", it)
             return@withContext RecognitionOutcome.Failed("network")
         }
 
-        val (code, text) = response
+        val (code, text, retryAfter) = response
         if (code !in 200..299) {
-            Log.w(TAG, "Recognition returned HTTP $code")
-            return@withContext RecognitionOutcome.Failed("http $code")
+            Log.w(TAG, "Recognition returned HTTP $code" + retryAfter?.let { ", Retry-After: $it" }.orEmpty())
+            return@withContext RecognitionOutcome.Failed(
+                "http $code",
+                ShazamBackoff.retryAfterMs(retryAfter, System.currentTimeMillis()),
+            )
         }
 
         parse(text)

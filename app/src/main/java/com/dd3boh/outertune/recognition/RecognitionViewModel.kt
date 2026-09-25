@@ -56,6 +56,9 @@ class RecognitionViewModel @Inject constructor(
     val nowPlaying = engine.nowPlaying
     val recognised = engine.recognised
 
+    /** When Keep listening next asks Shazam, while it waits out a run of failures. */
+    val retryAt = engine.retryAt
+
     /** Everything ever heard, across restarts, newest first. */
     val heard = history.entries
 

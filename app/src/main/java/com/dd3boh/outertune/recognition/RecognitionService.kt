@@ -106,6 +106,11 @@ class RecognitionService : Service() {
                 .drop(1)
                 .collect { if (engine.running.value) redraw() }
         }
+        // And Shazam no longer answering, or answering again, which is the first thing somebody
+        // picking the phone up needs to know about a run.
+        scope.launch {
+            engine.retryAt.drop(1).collect { if (engine.running.value) redraw() }
+        }
     }
 
     /**
@@ -167,6 +172,14 @@ class RecognitionService : Service() {
             else resources.getQuantityString(R.plurals.recognition_service_heard, heard, heard)
         }
 
+        // Keep listening that Shazam has stopped answering says so, where it used to look exactly
+        // like a run listening to a quiet room. The same words as the screen's.
+        val waiting = engine.retryAt.value?.takeIf { engine.continuous.value }?.let { retryAt ->
+            val seconds = ShazamBackoff.secondsLeft(retryAt, System.currentTimeMillis())
+            if (seconds > 0) resources.getQuantityString(R.plurals.recognition_shazam_waiting, seconds, seconds)
+            else getString(R.string.recognition_shazam_retrying)
+        }
+
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.small_icon)
             .setContentIntent(open)
@@ -176,10 +189,10 @@ class RecognitionService : Service() {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         if (playing == null) {
-            return builder
-                .setContentTitle(getString(R.string.recognition_service_title))
-                .setContentText(counted)
-                .build()
+            builder.setContentTitle(getString(R.string.recognition_service_title))
+            if (waiting != null) builder.setContentText(waiting).setSubText(counted)
+            else builder.setContentText(counted)
+            return builder.build()
         }
 
         val position = playing.positionSeconds()
@@ -196,6 +209,8 @@ class RecognitionService : Service() {
         } else {
             builder.setContentText(getString(R.string.recognition_service_title))
         }
+        // In place of the position, and the bar stays: the estimate runs on without Shazam.
+        waiting?.let { builder.setContentText(it) }
         return builder.build()
     }
 

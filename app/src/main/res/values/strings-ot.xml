@@ -739,6 +739,11 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$d song recognised</item>
         <item quantity="other">%1$d songs recognised</item>
     </plurals>
+    <plurals name="recognition_shazam_waiting">
+        <item quantity="one">Shazam is not answering. Trying again in %1$d second</item>
+        <item quantity="other">Shazam is not answering. Trying again in %1$d seconds</item>
+    </plurals>
+    <string name="recognition_shazam_retrying">Shazam is not answering. Trying again now</string>
     <string name="recognition_listening_hint">Leave this running and it will keep adding what it hears.</string>
     <string name="recognition_skipped_count">Heard but not added: %1$d</string>
     <string name="recognition_confirming">Heard %1$s, listening again to be sure</string>
