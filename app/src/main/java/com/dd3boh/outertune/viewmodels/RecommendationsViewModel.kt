@@ -11,6 +11,7 @@ import com.dd3boh.outertune.engine.EngineLearning
 import kotlinx.coroutines.launch
 import android.net.Uri
 import com.dd3boh.outertune.db.entities.EngineWeight
+import com.dd3boh.outertune.engine.Features
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -115,16 +116,21 @@ class RecommendationsViewModel @Inject constructor(
             } ?: error("no stream")
             val root = Json.parseToJsonElement(text).jsonObject
             val known = database.engineWeights().associateBy { it.name }
+            // Checked against this build's own list of weights, not the table: the table is empty
+            // until the loop first applies an example and again after Reset, which are exactly the
+            // two moments an import is for, and it then took nothing. The value is kept inside
+            // the weight's own bounds, and one that is not a number is skipped, since a NaN or a
+            // 1e40 from a hand-edited file would poison every build until the next reset.
             val rows = root["weights"]?.jsonObject.orEmpty().mapNotNull { (name, value) ->
-                val o = value.jsonObject
-                val existing = known[name] ?: return@mapNotNull null
+                val prior = Features.priors[name] ?: return@mapNotNull null
+                val v = value.jsonObject["value"]?.jsonPrimitive?.floatOrNull?.takeIf { it.isFinite() } ?: return@mapNotNull null
                 EngineWeight(
                     name = name,
-                    value = o["value"]?.jsonPrimitive?.floatOrNull ?: return@mapNotNull null,
-                    prior = o["prior"]?.jsonPrimitive?.floatOrNull ?: existing.prior,
-                    lo = o["lo"]?.jsonPrimitive?.floatOrNull ?: existing.lo,
-                    hi = o["hi"]?.jsonPrimitive?.floatOrNull ?: existing.hi,
-                    updates = existing.updates,
+                    value = v.coerceIn(prior.lo.toFloat(), prior.hi.toFloat()),
+                    prior = prior.value.toFloat(),
+                    lo = prior.lo.toFloat(),
+                    hi = prior.hi.toFloat(),
+                    updates = known[name]?.updates ?: 0,
                 )
             }
             if (rows.isNotEmpty()) database.upsertEngineWeights(rows)

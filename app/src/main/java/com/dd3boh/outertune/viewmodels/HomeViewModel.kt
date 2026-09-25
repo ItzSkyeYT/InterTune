@@ -1420,7 +1420,7 @@ class HomeViewModel @Inject constructor(
                 .map { it[SimilarFromLastFmKey] ?: false }
                 .distinctUntilChanged()
                 .drop(1)
-                .collect { on -> if (!on) { lastEngineBuildAt = 0L; refresh(force = true) } }
+                .collect { on -> if (!on) { lastEngineBuildAt = 0L; lastDiscoverBuildAt = 0L; refresh(force = true) } }
         }
         // The Discover row appears or goes the moment its switch is turned, not at the next refresh.
         viewModelScope.launch {
@@ -1434,6 +1434,9 @@ class HomeViewModel @Inject constructor(
             lastFmSimilar.caughtUpAt.drop(1).collect {
                 engineInputCache = null
                 lastEngineBuildAt = 0L
+                // Discover walks the same graph, and without this it kept the old source's row for
+                // up to three hours after the switch.
+                lastDiscoverBuildAt = 0L
                 refresh(force = true)
             }
         }
