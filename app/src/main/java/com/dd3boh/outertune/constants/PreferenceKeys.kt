@@ -353,6 +353,9 @@ val DismissedPollIdsKey = stringSetPreferencesKey("dismissedPollIds")
  */
 val DismissedAnnouncementIdsKey = stringSetPreferencesKey("dismissedAnnouncementIds")
 
+/** Poll and announcement ids whose opening has been counted, so each is counted once per install. */
+val ViewedPollIdsKey = stringSetPreferencesKey("viewedPollIds")
+
 /** Epoch millis of the last poll fetch, for the rate limit floor. */
 val LastPollFetchKey = longPreferencesKey("lastPollFetch")
 

@@ -1126,6 +1126,7 @@ fun HomeScreen(
     // announcement's text and link could not be reached at all.
     if (showAnnouncement) {
         pendingAnnouncement?.let { note ->
+            LaunchedEffect(note.id) { pollChecker.viewed(note.id, note.title, isAnnouncement = true) }
             AnnouncementDialog(
                 announcement = note,
                 onDismiss = {
@@ -1140,6 +1141,7 @@ fun HomeScreen(
     // Only ever opened by tapping the banner. Closing without answering leaves the question
     // unanswered rather than marking it dealt with, so the banner stays until it is dismissed.
     pendingPoll?.takeIf { showPoll }?.let { poll ->
+        LaunchedEffect(poll.id) { pollChecker.viewed(poll.id, poll.question, isAnnouncement = false) }
         PollDialog(
             poll = poll,
             onSubmit = { chosen ->

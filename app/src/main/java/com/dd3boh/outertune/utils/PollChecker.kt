@@ -13,6 +13,7 @@ import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.AnsweredPollIdsKey
 import com.dd3boh.outertune.constants.CachedPollsJsonKey
 import com.dd3boh.outertune.constants.DismissedAnnouncementIdsKey
+import com.dd3boh.outertune.constants.ViewedPollIdsKey
 import com.dd3boh.outertune.constants.DismissedPollIdsKey
 import com.dd3boh.outertune.constants.LastPollFetchKey
 import com.dd3boh.outertune.constants.Polls
@@ -45,6 +46,8 @@ import javax.inject.Singleton
  * says the answer is anonymous:
  *  - a GET for the poll list, which reveals only that some InterTune install looked
  *  - on answering, one POST carrying the poll id, the chosen option ids, and the app version
+ *  - on first opening a poll or an announcement, one POST carrying its id, its text, whether it
+ *    was a poll or an announcement, and the app version: once per install, never again for it
  * No account, no device id, no install id, no library, nothing derived from the hardware. Umami
  * works out its own visitor figure server side from a rotating hash it computes itself, so the app
  * has no need to identify anyone and does not.
@@ -322,29 +325,62 @@ class PollChecker @Inject constructor(
         markAnswered(poll.id)
 
         if (!Polls.isConfigured) return@withContext
+        send(
+            Polls.UMAMI_EVENT,
+            JSONObject()
+                // Readable first, because this is what the dashboard shows in a column and
+                // "widget-2026-09" tells you nothing months later. The ids are sent too:
+                // they are the stable key, they survive rewording a question, and grouping
+                // on the text would split the moment a typo is fixed.
+                .put("poll", poll.question.take(MAX_PROPERTY_CHARS))
+                .put("poll_id", poll.id)
+                .put(
+                    "answer",
+                    optionIds.mapNotNull { id -> poll.options.firstOrNull { it.id == id }?.label }
+                        .sorted()
+                        .joinToString(", ")
+                        .take(MAX_PROPERTY_CHARS)
+                )
+                .put("answer_id", optionIds.sorted().joinToString(","))
+                .put("version", BuildConfig.VERSION_NAME),
+        )
+    }
+
+    /**
+     * Counts the first opening of a poll or an announcement, once per install.
+     *
+     * Only ever reached with questions switched on, since nothing is fetched otherwise and so
+     * nothing can be opened. The record is written before sending, as with an answer: a failed
+     * request is one uncounted view, not a count that repeats.
+     */
+    suspend fun viewed(id: String, text: String, isAnnouncement: Boolean) = withContext(Dispatchers.IO) {
+        var first = false
+        context.dataStore.edit {
+            val seen = it[ViewedPollIdsKey].orEmpty()
+            if (id !in seen) {
+                it[ViewedPollIdsKey] = seen + id
+                first = true
+            }
+        }
+        if (!first || !Polls.isConfigured) return@withContext
+        send(
+            Polls.UMAMI_VIEW_EVENT,
+            JSONObject()
+                .put("poll", text.take(MAX_PROPERTY_CHARS))
+                .put("poll_id", id)
+                .put("type", if (isAnnouncement) "announcement" else "poll")
+                .put("version", BuildConfig.VERSION_NAME),
+        )
+    }
+
+    /** One Umami event, with the same fixed identity for every install. See [USER_AGENT]. */
+    private fun send(name: String, data: JSONObject) {
         runCatching {
             val payload = JSONObject()
                 .put("website", Polls.UMAMI_WEBSITE_ID)
                 .put("hostname", Polls.UMAMI_HOSTNAME)
-                .put("name", Polls.UMAMI_EVENT)
-                .put(
-                    "data", JSONObject()
-                        // Readable first, because this is what the dashboard shows in a column and
-                        // "widget-2026-09" tells you nothing months later. The ids are sent too:
-                        // they are the stable key, they survive rewording a question, and grouping
-                        // on the text would split the moment a typo is fixed.
-                        .put("poll", poll.question.take(MAX_PROPERTY_CHARS))
-                        .put("poll_id", poll.id)
-                        .put(
-                            "answer",
-                            optionIds.mapNotNull { id -> poll.options.firstOrNull { it.id == id }?.label }
-                                .sorted()
-                                .joinToString(", ")
-                                .take(MAX_PROPERTY_CHARS)
-                        )
-                        .put("answer_id", optionIds.sorted().joinToString(","))
-                        .put("version", BuildConfig.VERSION_NAME)
-                )
+                .put("name", name)
+                .put("data", data)
             val envelope = JSONObject().put("payload", payload).put("type", "event")
 
             client.newCall(
@@ -364,19 +400,18 @@ class PollChecker @Inject constructor(
                 if (!response.isSuccessful) {
                     Log.w(
                         TAG,
-                        "Umami refused the answer: HTTP ${response.code} ${
+                        "Umami refused $name: HTTP ${response.code} ${
                             response.body?.string()?.take(200)
                         }"
                     )
                 } else {
-                    Log.i(TAG, "Poll answer accepted by Umami")
+                    Log.i(TAG, "$name accepted by Umami")
                 }
                 response.isSuccessful
             }
         }.onFailure {
-            Log.w(TAG, "Poll answer could not be sent, recorded locally anyway: $it")
+            Log.w(TAG, "$name could not be sent, recorded locally anyway: $it")
         }
-        Unit
     }
 
     /** The banner's close button. Not answered, but not to be raised again either. */
