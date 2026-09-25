@@ -129,7 +129,7 @@ InterTune can count this install once a day: one short message with a random nam
 ## Updates
 
 - Installs from F-Droid update through F-Droid; the in-app updater steps aside for them.
-- **If InterTune reaches F-Droid**, its copy will be signed with F-Droid's key rather than mine, so it cannot install over this one and this one cannot install over it. Moving either way means uninstalling first, which loses your library unless you back it up. Settings > Backup and restore does that in one tap, and the restore puts everything back, including your play history.
+- **If InterTune reaches F-Droid**, its copy will be the same APK as the one here, built from the same source and signed with the same key, so you can move between F-Droid and GitHub updates without reinstalling or losing anything.
 
 ## Under the hood
 

@@ -15,7 +15,8 @@ AutoName: InterTune
 
 RepoType: git
 Repo: https://github.com/ItzSkyeYT/InterTune
-Binaries: https://github.com/ItzSkyeYT/InterTune/releases/download/v%v/InterTune-%v-core-release-%c.apk
+Binaries: 
+  https://github.com/ItzSkyeYT/InterTune/releases/download/v%v/InterTune-%v-core-release-%c.apk
 
 Builds:
   - versionName: 0.10.9.1
