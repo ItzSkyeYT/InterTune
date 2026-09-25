@@ -1,6 +1,5 @@
 package com.dd3boh.outertune.viewmodels
 
-import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.engine.PastSeeds
 import com.dd3boh.outertune.constants.EngineOverridesKey
 import com.dd3boh.outertune.engine.EngineTuning
@@ -51,9 +50,10 @@ import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.constants.QuickPicksSourceKey
-import com.dd3boh.outertune.constants.SimilarFromLastFmKey
+import com.dd3boh.outertune.constants.SimilarSource
+import com.dd3boh.outertune.engine.SourceMix
+import com.dd3boh.outertune.utils.similarSourceOf
 import com.dd3boh.outertune.utils.LastFmSimilar
-import com.dd3boh.outertune.db.entities.RelatedSongMap
 import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.db.entities.RowBuild
@@ -190,8 +190,8 @@ class HomeViewModel @Inject constructor(
     private var lastEngineSession = -1L
     private var lastEngineBucket = -1
     private var engineInputCache: Pair<Long, EngineInput>? = null
-    /** The similar-songs source the cached input was read with; a different one reads it again. */
-    private var engineInputSource = -1
+    /** The similar-songs mode the cached input was read with; a different one reads it again. */
+    private var engineInputMode: SimilarSource? = null
     private val learning by lazy { EngineLearning(context, database) }
     /** The weights the last build or ranking used, for the build record. */
     private var weightsInUse: Weights = Weights.PRIORS
@@ -294,7 +294,7 @@ class HomeViewModel @Inject constructor(
         if (!rowIsFresh(last.builtAt, last.sessionId, last.bucket, now)) return@withContext null
         val cards = RowBuildCodec.decode(last.cards)
         if (cards.size < EngineParams.DEFAULT.minCards) return@withContext null
-        BuiltRow(cards, EngineLoader.parseSeeds(last.seeds), RowBuildCodec.decode(last.pool), emptyMap()).also {
+        BuiltRow(cards, EngineLoader.parseSeeds(last.seeds), RowBuildCodec.decode(last.pool), emptyMap(), last.lastFmShare).also {
             lastDiscoverRow = it; lastDiscoverBuildAt = last.builtAt; lastDiscoverSession = last.sessionId
         }
     }
@@ -314,7 +314,8 @@ class HomeViewModel @Inject constructor(
         discoverVarietyOnNextBuild = false
         val row = if (standing != null && !force && now - lastDiscoverBuildAt < 3 * 3_600_000L && session == lastDiscoverSession) standing
         else {
-            val input = engineInput(now)
+            val mode = similarMode()
+            val input = engineInput(now, mode)
             // Nothing Quick picks is showing, and after a pull nothing this row has just shown:
             // what was on screen, which the pool filled in where tidying took cards out.
             val taken = quickPicksPool.take(20).mapTo(HashSet()) { it.id }
@@ -326,6 +327,7 @@ class HomeViewModel @Inject constructor(
                 p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0),
                 dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0,
                 neverPlayed = true,
+                lastFmShare = lastFmShare(mode, now),
             ).also {
                 lastDiscoverRow = it; lastDiscoverBuildAt = now; lastDiscoverSession = session
                 Log.d("HomeViewModel", "discover row: ${it.cards.size} cards, ${it.pool.size} in the pool, in ${System.currentTimeMillis() - now} ms")
@@ -397,6 +399,7 @@ class HomeViewModel @Inject constructor(
                     pool = row?.let { RowBuildCodec.encode(it.pool) },
                     cards = row?.let { RowBuildCodec.encode(it.cards) },
                     shownIds = ids.joinToString("\n"),
+                    lastFmShare = row?.lastFmShare,
                 ))
                 discoverBuildSongs = ids
                 discoverLogged.clear()
@@ -471,19 +474,28 @@ class HomeViewModel @Inject constructor(
 
     private val engineInputLock = kotlinx.coroutines.sync.Mutex()
 
-    /** YouTube's related lists, or Last.fm's similar tracks when chosen and this build has a key to ask with. */
-    private fun similarSource(): Int =
-        if (BuiltInKeys.lastFmApiKey.isNotEmpty() && context.dataStore.get(SimilarFromLastFmKey, false)) RelatedSongMap.SOURCE_LASTFM
-        else RelatedSongMap.SOURCE_YOUTUBE
+    /** Where similar songs come from, as the app acts on it: YouTube only in a build without a Last.fm key. */
+    private suspend fun similarMode(): SimilarSource = similarSourceOf(context.dataStore.data.first())
 
     /** The engine's input, read at most every few minutes: the biggest read on Home is the song table. */
-    private suspend fun engineInput(now: Long): EngineInput = withContext(Dispatchers.IO) {
+    private suspend fun engineInput(now: Long, mode: SimilarSource? = null): EngineInput = withContext(Dispatchers.IO) {
         engineInputLock.withLock {
-            val source = similarSource()
-            engineInputCache?.takeIf { now - it.first < ENGINE_INPUT_TTL_MS && engineInputSource == source }?.second
-                ?: EngineLoader.load(database, now, similarSource = source).also { engineInputCache = now to it; engineInputSource = source }
+            val m = mode ?: similarMode()
+            engineInputCache?.takeIf { now - it.first < ENGINE_INPUT_TTL_MS && engineInputMode == m }?.second
+                ?: EngineLoader.load(database, now, mode = m).also { engineInputCache = now to it; engineInputMode = m }
         }
     }
+
+    /**
+     * The Last.fm share a build in Both aims its similar songs at, from the impressions on disk;
+     * null in the single-source modes, which draw their rows exactly as before. Worked out at
+     * build time rather than cached with the input, so a play counts at the next build.
+     */
+    private fun lastFmShare(mode: SimilarSource, now: Long): Double? =
+        if (mode != SimilarSource.BOTH) null
+        else runCatching {
+            SourceMix.share(database.sourceEvidence(now - SourceMix.WINDOW_MS), java.util.TimeZone.getDefault().getOffset(now) / 60_000).share
+        }.onFailure { Log.w("HomeViewModel", "Could not work out the Last.fm share", it) }.getOrDefault(0.5)
 
     init {
         // Warmed up in the background as the app opens, so the first build or ranking does not wait for the read.
@@ -504,7 +516,7 @@ class HomeViewModel @Inject constructor(
         if (last.contextChip != context.dataStore.get(ContextChipKey, 0)) return@withContext null
         val cards = RowBuildCodec.decode(last.cards)
         if (cards.size < EngineParams.DEFAULT.minCards) return@withContext null
-        BuiltRow(cards, EngineLoader.parseSeeds(last.seeds), RowBuildCodec.decode(last.pool), quotas(20, last.dial / 100.0, false)).also {
+        BuiltRow(cards, EngineLoader.parseSeeds(last.seeds), RowBuildCodec.decode(last.pool), quotas(20, last.dial / 100.0, false), last.lastFmShare).also {
             lastEngineRow = it; lastEngineBuildAt = last.builtAt; lastEngineSession = last.sessionId; lastEngineBucket = last.bucket
             lastEngineNewOnly = context.dataStore.get(NewSongsOnlyKey, false); lastEngineFamiliarity = context.dataStore.get(FamiliarityKey, 25); lastEngineChip = last.contextChip
         }
@@ -524,10 +536,11 @@ class HomeViewModel @Inject constructor(
                 val now = System.currentTimeMillis()
                 val last = database.lastBuild(4)
                 if (last != null && rowIsFresh(last.builtAt, last.sessionId, last.bucket, now)) return@launch
-                val input = engineInput(now)
+                val mode = similarMode()
+                val input = engineInput(now, mode)
                 val weights = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS)
                 val familiarity = context.dataStore.get(FamiliarityKey, 25)
-                val row = EngineRow.build(input, weights = weights, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0)
+                val row = EngineRow.build(input, weights = weights, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, lastFmShare = lastFmShare(mode, now))
                 if (row.cards.isEmpty()) return@launch
                 database.transactionNow {
                     insert(RowBuild(
@@ -535,6 +548,7 @@ class HomeViewModel @Inject constructor(
                         seeds = EngineLoader.seedsJson(row.seeds), weights = weights.asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" },
                         pool = RowBuildCodec.encode(row.pool), cards = RowBuildCodec.encode(row.cards),
                         shownIds = row.cards.joinToString("\n") { it.songId },
+                        lastFmShare = row.lastFmShare,
                     ))
                 }
             }.onFailure { Log.w("HomeViewModel", "Shadow build failed", it) }
@@ -578,7 +592,8 @@ class HomeViewModel @Inject constructor(
             engineReasons.value = (restored.cards + restored.pool).associate { c -> c.songId to c.reasons.map { key -> when (key) { "x_seed" -> CardReason(key, c.seedId?.let { byId[it]?.song?.title }); "x_art" -> CardReason(key, byId[c.songId]?.artists?.firstOrNull()?.name); else -> CardReason(key, null) } } }
             return@withContext wanted.mapNotNull { byId[it] }
         }
-        val input = engineInput(now)
+        val mode = similarMode()
+        val input = engineInput(now, mode)
         val standing = lastEngineRow
         // A refresh asks for something else: the last row's songs sit this build out and its
         // seeds are damped as if they had just been used, which they were.
@@ -593,7 +608,7 @@ class HomeViewModel @Inject constructor(
         val chip = context.dataStore.get(ContextChipKey, ContextChip.AUTO)
         engineChipTagged.value = if (chip in ContextChip.MOODS) input.listens.count { it.contextChip == chip } else -1
         val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly && familiarity == lastEngineFamiliarity && chip == lastEngineChip) standing
-        else EngineRow.build(varied.copy(notSeeds = rejectedSeeds.toSet(), chip = chip), weights = weightsInUse, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly).also {
+        else EngineRow.build(varied.copy(notSeeds = rejectedSeeds.toSet(), chip = chip), weights = weightsInUse, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly, lastFmShare = lastFmShare(mode, now)).also {
             lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket; lastEngineNewOnly = newOnly; lastEngineFamiliarity = familiarity; lastEngineChip = chip
             Log.d("HomeViewModel", "engine row: ${it.cards.size} cards, ${it.pool.size} in the pool, ${it.seeds.size} seeds, from ${input.songs.size} songs, ${input.listens.size} listens, ${input.edges.size} edges in ${System.currentTimeMillis() - now} ms")
         }
@@ -757,6 +772,7 @@ class HomeViewModel @Inject constructor(
                     cards = engineRow?.let { RowBuildCodec.encode(it.cards) },
                     // Every source, not just the engine's, so all three can be scored the same way.
                     shownIds = ids.joinToString("\n"),
+                    lastFmShare = engineRow?.lastFmShare,
                 ))
                 currentBuildSongs = ids
                 currentTeam = rowKey
@@ -786,6 +802,7 @@ class HomeViewModel @Inject constructor(
         lane = card?.lane?.ordinal?.plus(1) ?: 0, sampled = card?.sampled ?: false, p = card?.p?.toFloat(),
         features = card?.features?.joinToString(",") { String.format(java.util.Locale.ROOT, "%.4f", it) },
         reasons = card?.reasons?.joinToString(","),
+        sources = card?.sources ?: 0,
     )
 
     /** A card has been at least half visible for long enough to count as seen. */
@@ -1417,16 +1434,17 @@ class HomeViewModel @Inject constructor(
                 .collect { refresh(force = true) }
         }
         // Where similar songs come from changes the engine's whole graph; the input cache notices
-        // the source by itself, and these are the rebuilds. Back to YouTube, at once. On to
-        // Last.fm, once the service has caught up: at the moment of the switch nothing has been
-        // asked yet, the row would come out of YouTube's lists anyway, and it would then stand
-        // for up to three hours looking as if the switch did nothing.
+        // the mode by itself, and these are the rebuilds, at once for any change, so the row on
+        // screen always matches the setting. A switch toward Last.fm rebuilds a second time once
+        // the service has caught up (below): at the moment of the switch little has been asked
+        // yet, and without that the row would stand for up to three hours looking as if the
+        // switch did nothing.
         viewModelScope.launch {
             context.dataStore.data
-                .map { it[SimilarFromLastFmKey] ?: false }
+                .map { similarSourceOf(it) }
                 .distinctUntilChanged()
                 .drop(1)
-                .collect { on -> if (!on) { lastEngineBuildAt = 0L; lastDiscoverBuildAt = 0L; refresh(force = true) } }
+                .collect { engineInputCache = null; lastEngineBuildAt = 0L; lastDiscoverBuildAt = 0L; refresh(force = true) }
         }
         // The Discover row appears or goes the moment its switch is turned, not at the next refresh.
         viewModelScope.launch {

@@ -91,7 +91,8 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleRepeatM
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleShuffle
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRadio
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
-import com.dd3boh.outertune.constants.SimilarFromLastFmKey
+import com.dd3boh.outertune.constants.LastFmCaughtUpAtKey
+import com.dd3boh.outertune.constants.SimilarSource
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.HeadTracking3dKey
 import com.dd3boh.outertune.constants.HeadTrackingCalibrateKey
@@ -154,6 +155,7 @@ import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.Scrobbler
 import com.dd3boh.outertune.utils.LastFmSimilar
+import com.dd3boh.outertune.utils.similarSourceOf
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.FailureMemo
 import com.dd3boh.outertune.utils.Throttle
@@ -320,7 +322,8 @@ class MusicService : MediaLibraryService(),
     @Volatile private var stoppedByError = false
 
     @Volatile private var listenHistoryPaused = false
-    @Volatile private var similarFromLastFm = false
+    /** Similar songs come from Both or Last.fm only, so a song played is asked about on Last.fm too. */
+    @Volatile private var asksLastFm = false
     @Volatile private var autoLoadMore = true
     @Volatile private var adaptiveQueueMode = AdaptiveQueueMode.AUTOPLAY_ONLY
 
@@ -706,20 +709,25 @@ class MusicService : MediaLibraryService(),
             // readers are the application looper and Room's executors.
             dataStore.data.map { it[PauseListenHistoryKey] ?: false }.distinctUntilChanged()
                 .collectLatest(scope) { listenHistoryPaused = it }
-            // Found on, or turned on, it unsettles the songs this process settled without asking
-            // Last.fm: the service can outlive the switch by days, and a song resumed at launch
-            // can settle before this first read. Turned on while running, it also catches up on
-            // the songs rows are built around; turned off, the catch-up stops.
+            // Found asking Last.fm, or switched to it, it unsettles the songs this process settled
+            // without asking: the service can outlive the switch by days, and a song resumed at
+            // launch can settle before this first read. Switched to Both or Last.fm only while
+            // running, it also catches up on the songs rows are built around, and it does so once
+            // for a listener who has never caught up, since Both is the default and nobody
+            // switches to a default. Switched back to YouTube only, the catch-up stops.
             var similarRead = false
-            dataStore.data.map { it[SimilarFromLastFmKey] ?: false }.distinctUntilChanged()
-                .collectLatest(scope) { on ->
-                    val switchedOn = on && similarRead && !similarFromLastFm
-                    if (on && !similarFromLastFm) recoverySettled.clear()
+            dataStore.data.map { similarSourceOf(it) }.distinctUntilChanged()
+                .collectLatest(scope) { mode ->
+                    val on = mode != SimilarSource.YOUTUBE
+                    val switchedOn = on && similarRead && !asksLastFm
+                    if (on && !asksLastFm) recoverySettled.clear()
                     similarRead = true
-                    similarFromLastFm = on
-                    if (switchedOn) withContext(Dispatchers.IO) {
+                    asksLastFm = on
+                    if (on) withContext(Dispatchers.IO) {
                         try {
-                            lastFmSimilar.catchUp()
+                            val never = dataStore.data.first()[LastFmCaughtUpAtKey] == null
+                            if ((switchedOn || never) && lastFmSimilar.catchUp())
+                                dataStore.edit { it[LastFmCaughtUpAtKey] = System.currentTimeMillis() }
                         } catch (e: Exception) {
                             if (e is kotlinx.coroutines.CancellationException) throw e
                             Log.w(TAG, "Last.fm catch-up failed", e)
@@ -1173,11 +1181,11 @@ class MusicService : MediaLibraryService(),
             if (existing == null) insert(mediaMetadata.copy(duration = duration))
             else if (existing == -1 && duration != -1) setSongDuration(mediaId, duration)
         }
-        // Last.fm's similar tracks, when the listener chose them over YouTube's related list.
-        // Asked first because YouTube's lookup below returns early when it fails, and the two do
-        // not depend on each other. YouTube's is still fetched either way: Quick picks and the
-        // version links come from it whichever source the engine reads.
-        val similarDone = !similarFromLastFm || lastFmSimilar.ensure(
+        // Last.fm's similar tracks, when similar songs come from Both or Last.fm only. Asked first
+        // because YouTube's lookup below returns early when it fails, and the two do not depend on
+        // each other. YouTube's is still fetched either way: Quick picks and the version links
+        // come from it whichever source the engine reads.
+        val similarDone = !asksLastFm || lastFmSimilar.ensure(
             mediaId,
             song?.song?.title ?: mediaMetadata.title,
             mediaMetadata.artists.firstOrNull()?.name,

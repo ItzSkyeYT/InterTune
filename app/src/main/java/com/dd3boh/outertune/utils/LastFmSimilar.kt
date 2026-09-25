@@ -8,11 +8,17 @@ package com.dd3boh.outertune.utils
 
 import android.os.SystemClock
 import android.util.Log
+import androidx.datastore.preferences.core.Preferences
 import com.dd3boh.lastfm.LastFmException
 import com.dd3boh.lastfm.SimilarTrack
 import com.dd3boh.outertune.constants.RELATED_RETRY_COOLDOWN_MS
+import com.dd3boh.outertune.constants.SimilarFromLastFmKey
+import com.dd3boh.outertune.constants.SimilarSource
+import com.dd3boh.outertune.constants.SimilarSourceKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.engine.SimilarMatch
+import com.dd3boh.outertune.engine.SimilarSources
 import com.dd3boh.outertune.engine.SongRow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,12 +31,23 @@ import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Last.fm's similar tracks for the songs being played, stored in related_song_map as source 1,
- * for a listener who has chosen Last.fm over YouTube for similar songs.
+ * Where similar songs come from, as the app acts on it. The only way app code reads the mode, so
+ * a build without a Last.fm key, or a release while the engine is held back, never asks Last.fm
+ * anything whatever the stored setting says.
+ */
+fun similarSourceOf(prefs: Preferences): SimilarSource = SimilarSources.effective(
+    SimilarSources.stored(prefs[SimilarSourceKey], prefs[SimilarFromLastFmKey]),
+    hasKey = BuiltInKeys.lastFmApiKey.isNotEmpty(),
+    engineOn = Unreleased.ENGINE,
+)
+
+/**
+ * Last.fm's similar tracks for the songs being played, stored in related_song_map as source 1.
  *
- * Needs only the API key built into the app, since track.getSimilar is a public read, so it works
- * with no account connected. A build without a key (F-Droid's) never gets here: the setting is
- * not shown.
+ * Runs when similar songs come from Both or Last.fm only. Needs only the API key built into the
+ * app, since track.getSimilar is a public read, so it works with no account connected. It never
+ * runs in a build without a key, or in a release while the engine is held back, because
+ * [similarSourceOf] reads as YouTube only there.
  */
 @Singleton
 class LastFmSimilar @Inject constructor(
@@ -78,18 +95,21 @@ class LastFmSimilar @Inject constructor(
      * been chosen. Without it the switch would do almost nothing for days: a song gets Last.fm's
      * list only when it is next played, and until then the engine uses YouTube's. Stops after a
      * few requests fail in a row rather than walking a dead network through hundreds of songs.
+     * False when it stopped for that reason, so the caller can try again another time.
      */
-    suspend fun catchUp() {
-        if (!isAvailable) return
+    suspend fun catchUp(): Boolean {
+        if (!isAvailable) return false
         var failing = 0
+        var gaveUp = false
         for (song in database.lastFmCatchUp(System.currentTimeMillis() - CATCH_UP_WINDOW_MS, CATCH_UP_LIMIT)) {
             when (attempt(song.id, song.title, song.artist)) {
-                Outcome.FAILED -> if (++failing >= 3) break
+                Outcome.FAILED -> if (++failing >= 3) { gaveUp = true; break }
                 Outcome.SETTLED -> failing = 0
                 Outcome.WAITING -> {}
             }
         }
         _caughtUpAt.value = System.currentTimeMillis()
+        return !gaveUp
     }
 
     private suspend fun attempt(songId: String, title: String, artist: String?): Outcome {

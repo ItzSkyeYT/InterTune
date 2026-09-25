@@ -21,6 +21,10 @@ package com.dd3boh.outertune.db
  * Quick picks, the classic row, already reads source 0 only (RecommendationSql.QUICK_PICKS), and
  * keeps doing so: the choice between the two applies to the engine's row, which is where it was
  * measured.
+ *
+ * Both, the third choice, merges the two lists ([ENGINE_EDGES_ALL]). A pair both sources list is
+ * one edge carrying both bits, so it counts once as a referrer and x_seed does not double for the
+ * songs the two agree on.
  */
 object RelatedSql {
 
@@ -98,9 +102,19 @@ object RelatedSql {
      * list until it has one of its own.
      */
     const val ENGINE_EDGES = """
-        SELECT songId, relatedSongId FROM related_song_map r
+        SELECT songId, relatedSongId, CASE r.source WHEN 1 THEN 2 ELSE 1 END AS sources FROM related_song_map r
         WHERE r.source = :source
            OR (r.source = 0 AND NOT EXISTS
                 (SELECT 1 FROM related_song_map c WHERE c.songId = r.songId AND c.source = :source))
+    """
+
+    /**
+     * Both lists merged for Both: one row per pair, with bit 1 when YouTube lists it and bit 2
+     * when Last.fm does. Grouping also folds a pair listed twice by one source into one edge.
+     */
+    const val ENGINE_EDGES_ALL = """
+        SELECT songId, relatedSongId,
+            MAX(CASE source WHEN 0 THEN 1 ELSE 0 END) + MAX(CASE source WHEN 1 THEN 2 ELSE 0 END) AS sources
+        FROM related_song_map WHERE source IN (0, 1) GROUP BY songId, relatedSongId
     """
 }

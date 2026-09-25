@@ -175,8 +175,16 @@ val NewSongsOnlyKey = booleanPreferencesKey("newSongsOnly")
 val DiscoverRowKey = booleanPreferencesKey("discoverRow")
 /** Familiarity 0 to 60: the share of the engine row given to songs heard well lately. */
 val FamiliarityKey = intPreferencesKey("familiarity")
-/** The engine's similar songs come from Last.fm's similar tracks instead of YouTube's related lists. */
+/**
+ * The old switch for Last.fm's similar tracks instead of YouTube's related lists. Nothing writes
+ * it any more; it is read only while [SimilarSourceKey] is unset, so a listener who turned it on
+ * keeps Last.fm only. See SimilarSources.stored.
+ */
 val SimilarFromLastFmKey = booleanPreferencesKey("similarFromLastFm")
+/** Where the engine's similar songs come from, a SimilarSource name. Unset means the old switch decides, and Both without it. */
+val SimilarSourceKey = stringPreferencesKey("similarSource")
+/** When the Last.fm catch-up last finished, so it runs once even for a listener who never changes the setting. */
+val LastFmCaughtUpAtKey = longPreferencesKey("lastFmCaughtUpAt")
 /** Build the engine row in the background while another source is showing, to compare a day later. */
 val ShadowComparisonKey = booleanPreferencesKey("shadowComparison")
 /** A skip before the middle of a liked or often-played song rests it from the engine row for a week. */

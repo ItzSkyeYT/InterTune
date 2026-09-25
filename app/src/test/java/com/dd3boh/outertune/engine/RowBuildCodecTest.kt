@@ -25,6 +25,22 @@ class RowBuildCodecTest {
     }
 
     @Test
+    fun `provenance bits survive the round trip, and a line from before them reads as none`() {
+        val cards = listOf(
+            Card("abc", Lane.RELATED, 1.5, 0.1234, DoubleArray(Features.COUNT), listOf("x_seed"), "seed1", false, Provenance.LASTFM or Provenance.CONTESTED),
+            Card("def", Lane.EXPLORE, 0.5, 0.05, DoubleArray(Features.COUNT), listOf("new_to_you"), null, true, Provenance.SOURCES),
+            Card("ghi", Lane.AGAIN, 0.2, 0.05, DoubleArray(Features.COUNT), listOf("x_act"), null, false),
+        )
+        val text = RowBuildCodec.encode(cards)
+        assertEquals(listOf(6, 3, 0), RowBuildCodec.decode(text).map { it.sources })
+        // Seven fields, as every build before version 24 wrote them.
+        val old = text.lines().joinToString("\n") { it.split("\t").take(7).joinToString("\t") }
+        val back = RowBuildCodec.decode(old)
+        assertEquals(listOf("abc", "def", "ghi"), back.map { it.songId })
+        assertEquals(listOf(0, 0, 0), back.map { it.sources })
+    }
+
+    @Test
     fun `nothing and rubbish decode to nothing`() {
         assertTrue(RowBuildCodec.decode(null).isEmpty())
         assertTrue(RowBuildCodec.decode("").isEmpty())

@@ -8,10 +8,11 @@ package com.dd3boh.outertune.engine
 
 import kotlin.math.ceil
 import kotlin.math.exp
+import kotlin.math.floor
 import kotlin.random.Random
 
-/** A candidate with everything the assembly needs to place it. */
-class Candidate(val songId: String, val lane: Lane, val x: DoubleArray, val z: Double, val seedId: String?, val artistId: String?, val group: String)
+/** A candidate with everything the assembly needs to place it; [sources] are its [Provenance] bits. */
+class Candidate(val songId: String, val lane: Lane, val x: DoubleArray, val z: Double, val seedId: String?, val artistId: String?, val group: String, val sources: Int = 0)
 
 /** How many cards each lane gets, by largest remainder over the row. */
 fun quotas(rowSize: Int, dial: Double, newOnly: Boolean, p: EngineParams = EngineParams.DEFAULT): Map<Lane, Int> {
@@ -39,6 +40,11 @@ fun quotas(rowSize: Int, dial: Double, newOnly: Boolean, p: EngineParams = Engin
  * next few times that many, so the row is different each time without being random. Never two
  * versions of a song, never more than two cards from one artist or two in one column, never more
  * than three related cards from one seed.
+ *
+ * With [lastFmShare], the related and explore places share one ledger: Last.fm is due a place
+ * whenever floor(share * (places + 1) + U) is more than it has had, with U drawn once per row, so
+ * over the first n places it holds floor(share * n + U) of them. A due source with nothing open
+ * gives its place to what the lane has, so the split never makes the row shorter.
  */
 class Assembly(
     private val lanes: Map<Lane, List<Candidate>>,
@@ -46,6 +52,7 @@ class Assembly(
     private val weights: Weights,
     private val p: EngineParams = EngineParams.DEFAULT,
     private val random: Random = Random.Default,
+    private val lastFmShare: Double? = null,
 ) {
     private val takenGroups = HashSet<String>()
     private val perArtist = HashMap<String, Int>()
@@ -54,6 +61,16 @@ class Assembly(
     private val used = HashMap<Lane, Int>()
     /** Lanes whose quota was handed on because they ran short. */
     private val effectiveQuotas = quotas.toMutableMap()
+    /** The source each placed card's place was credited to, [Provenance.LASTFM] or YOUTUBE, or 0 outside the split. */
+    val credited = ArrayList<Int>()
+
+    // Drawn once and only with a split, so a row without one uses exactly the dice it always did.
+    private val offset = if (lastFmShare != null) random.nextDouble() else 0.0
+    private var edgeCards = 0
+    private var lastFmCards = 0
+    private var lastDue = 0
+    private fun splits(l: Lane) = lastFmShare != null && (l == Lane.RELATED || l == Lane.EXPLORE)
+    private fun due() = if (floor(lastFmShare!! * (edgeCards + 1) + offset) > lastFmCards) Provenance.LASTFM else Provenance.YOUTUBE
 
     private fun columnOf(slot: Int) = slot / p.columns
     private fun artistsInColumn(col: Int): Set<String> =
@@ -76,12 +93,28 @@ class Assembly(
         c.artistId?.let { perArtist[it] = (perArtist[it] ?: 0) + 1 }
         if (c.lane == Lane.RELATED && c.seedId != null) perSeed[c.seedId] = (perSeed[c.seedId] ?: 0) + 1
         used[c.lane] = (used[c.lane] ?: 0) + 1
+        val bits = c.sources and Provenance.SOURCES
+        if (splits(c.lane) && bits != 0) {
+            edgeCards++
+            // A song both lists proposed fills whichever source was due, so agreement never costs
+            // the source that was owed the place.
+            val to = if (bits == Provenance.SOURCES) lastDue else bits
+            if (to == Provenance.LASTFM) lastFmCards++
+            credited += to
+        } else credited += 0
     }
 
     /** The lane's next card for [slot]: best by score for the first half of its quota, then sampled. */
     private fun pick(lane: Lane, slot: Int): Pair<Candidate, Boolean>? {
-        val open = lanes[lane].orEmpty().filter { allowed(it, slot) }
+        var open = lanes[lane].orEmpty().filter { allowed(it, slot) }
         if (open.isEmpty()) return null
+        if (splits(lane)) {
+            lastDue = due()
+            // Cards no list proposed stay in, so the split never pushes a library song out, and
+            // when the due source has nothing open the place goes to what the lane has.
+            val narrowed = open.filter { it.sources and lastDue != 0 || it.sources and Provenance.SOURCES == 0 }
+            if (narrowed.any { it.sources and lastDue != 0 }) open = narrowed
+        }
         val quota = effectiveQuotas[lane] ?: 0
         val soFar = used[lane] ?: 0
         val bestFirst = ceil(quota / 2.0).toInt()

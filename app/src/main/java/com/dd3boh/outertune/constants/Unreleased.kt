@@ -35,6 +35,11 @@ object Unreleased {
     /**
      * The engine as a Quick picks source: Best recommendations, Try both, the context chips that
      * only appear above its row, and the settings that only steer it.
+     *
+     * It also holds back Last.fm for similar songs: SimilarSources.effective reads every release
+     * as YouTube only while this is false, so no release sends anything to Last.fm. Before this
+     * gate goes in 0.11, decide whether releases default to Both, which sends the title and artist
+     * of what is played to Last.fm, and what that means for F-Droid's anti-features.
      */
     val ENGINE = BuildConfig.DEBUG
 }

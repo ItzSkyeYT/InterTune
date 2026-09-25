@@ -179,6 +179,14 @@ interface ListenDao {
     @Query(RelatedSql.ENGINE_EDGES)
     fun engineEdges(source: Int): List<EngineEdgeRow>
 
+    /** Both sources' edges merged, one per pair, for Both. */
+    @Query(RelatedSql.ENGINE_EDGES_ALL)
+    fun engineEdgesAll(): List<EngineEdgeRow>
+
+    /** What the Last.fm share in Both is learned from, see SourceMix. */
+    @Query(EngineSql.SOURCE_EVIDENCE)
+    fun sourceEvidence(since: Long): List<com.dd3boh.outertune.engine.SourceEvidence>
+
     @Query("SELECT songId, versionId, fetchedAt FROM song_version_map")
     fun engineVersionLinks(): List<SongVersionMap>
 

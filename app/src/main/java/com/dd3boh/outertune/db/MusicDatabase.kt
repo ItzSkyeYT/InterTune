@@ -78,7 +78,7 @@ class MusicDatabase(
     fun close() = delegate.close()
 
     companion object {
-        const val MUSIC_DATABASE_VERSION = 23
+        const val MUSIC_DATABASE_VERSION = 24
     }
 }
 
@@ -144,6 +144,13 @@ class MusicDatabase(
         // identity check and takes the app down on launch with nothing to do about it but wipe
         // their library. Unreleased means nobody has it in a release, not that nobody has it.
         AutoMigration(from = 22, to = 23),
+        // impression.sources and row_build.lastFmShare, so the similar-song mix can tell which
+        // list proposed a card and what split a build aimed at. Additive, with a 0 and a null
+        // default, which is also what a row written before them means: no provenance, no split.
+        //
+        // A new version rather than an edit to 23, for the same reason as 23 itself: 23 is on a
+        // phone, and a schema changed under an existing database fails the identity check.
+        AutoMigration(from = 23, to = 24),
     ]
 )
 @TypeConverters(Converters::class)

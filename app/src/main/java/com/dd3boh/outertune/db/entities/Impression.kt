@@ -54,4 +54,10 @@ data class Impression(
     val u: Float? = null,
     val gradedAt: Long? = null,
     val appliedAt: Long? = null,
+    /**
+     * [com.dd3boh.outertune.engine.Provenance] bits of the card: 1 YouTube's list proposed it, 2
+     * Last.fm's, 4 a song that proposed it had both. 0 for other cards and for rows written before
+     * version 24.
+     */
+    @ColumnInfo(defaultValue = "0") val sources: Int = 0,
 )
