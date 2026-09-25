@@ -1121,22 +1121,25 @@ fun HomeScreen(
         )
     }
 
+    // Its own dialog, not inside the poll's. Nested there it only ever drew while a poll was open,
+    // so with no poll pending, which is the usual case, tapping the banner did nothing and the
+    // announcement's text and link could not be reached at all.
+    if (showAnnouncement) {
+        pendingAnnouncement?.let { note ->
+            AnnouncementDialog(
+                announcement = note,
+                onDismiss = {
+                    showAnnouncement = false
+                    // Opening it is what deals with it; it does not come back tomorrow.
+                    scope.launch { pollChecker.dismissAnnouncement(note.id) }
+                },
+            )
+        }
+    }
+
     // Only ever opened by tapping the banner. Closing without answering leaves the question
     // unanswered rather than marking it dealt with, so the banner stays until it is dismissed.
     pendingPoll?.takeIf { showPoll }?.let { poll ->
-        if (showAnnouncement) {
-            pendingAnnouncement?.let { note ->
-                AnnouncementDialog(
-                    announcement = note,
-                    onDismiss = {
-                        showAnnouncement = false
-                        // Opening it is what deals with it; it does not come back tomorrow.
-                        scope.launch { pollChecker.dismissAnnouncement(note.id) }
-                    },
-                )
-            }
-        }
-
         PollDialog(
             poll = poll,
             onSubmit = { chosen ->

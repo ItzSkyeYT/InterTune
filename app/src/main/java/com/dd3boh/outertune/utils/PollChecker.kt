@@ -285,7 +285,10 @@ class PollChecker @Inject constructor(
                 // A label without an address, or an address without a label, would draw a button
                 // that does nothing or one nobody can read. Both or neither.
                 val label = o.optString("actionLabel").ifEmpty { null }
+                // Web links only. The document is written by hand, and "discord.gg/abc" with no
+                // scheme, or any scheme no installed app handles, made the button throw on tap.
                 val url = o.optString("actionUrl").ifEmpty { null }
+                    ?.takeIf { it.startsWith("https://", ignoreCase = true) || it.startsWith("http://", ignoreCase = true) }
 
                 Announcement(
                     id = o.optString("id").ifEmpty { return@runCatching null },
