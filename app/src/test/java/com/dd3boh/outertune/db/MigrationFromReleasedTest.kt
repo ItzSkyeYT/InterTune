@@ -76,7 +76,7 @@ class MigrationFromReleasedTest {
     @Test
     fun `the last release's database migrates to exactly the current schema`() {
         val old = SchemaDb.open(version = released)
-        val migrations = listOf(InternalDatabase_AutoMigration_21_22_Impl(), InternalDatabase_AutoMigration_22_23_Impl())
+        val migrations = listOf(InternalDatabase_AutoMigration_21_22_Impl(), InternalDatabase_AutoMigration_22_23_Impl(), InternalDatabase_AutoMigration_23_24_Impl())
         assertEquals("a migration for every step from the release to now", MusicDatabase.MUSIC_DATABASE_VERSION - released, migrations.size)
         var at = released
         for (m in migrations) {

@@ -51,4 +51,6 @@ data class RowBuild(
     val plays: Int? = null,
     val hits: Int? = null,
     val gradedAt: Long? = null,
+    /** The Last.fm share the build aimed its similar songs at; null when it drew on one source. */
+    val lastFmShare: Double? = null,
 )

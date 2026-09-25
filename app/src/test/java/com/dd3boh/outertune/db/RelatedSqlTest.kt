@@ -84,6 +84,63 @@ class RelatedSqlTest {
         assertEquals(setOf("seed" to "b", "other" to "c"), pairs(bind(RelatedSql.ENGINE_EDGES, source = 1)))
     }
 
+    private fun edgeBits(sql: String): Map<Pair<String, String>, Int> = db.createStatement().use { st ->
+        st.executeQuery(sql).use { rs -> buildMap { while (rs.next()) put(rs.getString("songId") to rs.getString("relatedSongId"), rs.getInt("sources")) } }
+    }
+
+    @Test
+    fun `the single-source query marks each edge with its source's bit`() {
+        edge("seed", "a", 0); edge("seed", "b", 1); edge("other", "c", 0)
+        assertEquals(mapOf(("seed" to "a") to 1, ("other" to "c") to 1), edgeBits(bind(RelatedSql.ENGINE_EDGES, source = 0)))
+        // Last.fm's own edge carries bit 2; the fallback to YouTube's list for a seed Last.fm has none for keeps bit 1.
+        assertEquals(mapOf(("seed" to "b") to 2, ("other" to "c") to 1), edgeBits(bind(RelatedSql.ENGINE_EDGES, source = 1)))
+    }
+
+    @Test
+    fun `Both merges the lists into one edge per pair, with a bit for each source that lists it`() {
+        edge("seed", "a", 0); edge("seed", "b", 1); edge("seed", "c", 0); edge("seed", "c", 1)
+        // Written twice by one source, which the duplicate sweep would remove later: still one edge.
+        edge("other", "a", 0); edge("other", "a", 0)
+        val bits = edgeBits(RelatedSql.ENGINE_EDGES_ALL)
+        assertEquals(mapOf(("seed" to "a") to 1, ("seed" to "b") to 2, ("seed" to "c") to 3, ("other" to "a") to 1), bits)
+        val rows = db.createStatement().use { st -> st.executeQuery(RelatedSql.ENGINE_EDGES_ALL).use { rs -> var n = 0; while (rs.next()) n++; n } }
+        assertEquals(4, rows)
+    }
+
+    @Test
+    fun `the share's evidence query returns exactly the qualifying impressions`() {
+        exec("""INSERT INTO row_build(id, builtAt, rowKey, sessionId, bucket, contextChip, dial, engineVersion, seeds, weights, shownIds)
+            VALUES (1, 1000, 1, 1, 0, 0, 15, 0, '[]', '{}', '')""")
+        var id = 0
+        fun impression(team: Int = 1, slot: Int = 0, lane: Int = 1, sources: Int = 5, outcome: Int = 3, visibleAt: Long = 5_000): Int {
+            id++
+            exec("""INSERT INTO impression(id, buildId, songId, slot, lane, team, outcome, visibleAt, y, sources)
+                VALUES ($id, 1, 'a', $slot, $lane, $team, $outcome, $visibleAt, 0.5, $sources)""")
+            return id
+        }
+        val wanted = listOf(
+            impression(),
+            impression(team = 4, lane = 4, sources = 6),
+            impression(outcome = 0),
+            impression(outcome = 1),
+            impression(outcome = 2),
+        )
+        // Each of these misses the filter by one condition.
+        impression(team = 2); impression(team = 3); impression(slot = -1)
+        impression(lane = 2); impression(lane = 3); impression(lane = 5)
+        impression(sources = 1); impression(sources = 2); impression(sources = 3); impression(sources = 7); impression(sources = 0); impression(sources = 4)
+        impression(outcome = 4); impression(outcome = 6); impression(outcome = 7)
+        impression(visibleAt = 3_999)
+        // The app's text as it is, and again with the id selected so the rows can be named.
+        val sql = com.dd3boh.outertune.engine.EngineSql.SOURCE_EVIDENCE.replace(":since", "4000")
+        val count = db.createStatement().use { st -> st.executeQuery(sql).use { rs -> var n = 0; while (rs.next()) n++; n } }
+        assertEquals(wanted.size, count)
+        val ids = db.createStatement().use { st ->
+            st.executeQuery(sql.replace("SELECT songId,", "SELECT id, songId,")).use { rs -> buildSet { while (rs.next()) add(rs.getInt("id")) } }
+        }
+        assertEquals(wanted.toSet(), ids)
+    }
+
     @Test
     fun `a Last-fm edge to a song that is gone is skipped, not thrown`() {
         fun insert(to: String) = exec(RelatedSql.INSERT_LASTFM_EDGE

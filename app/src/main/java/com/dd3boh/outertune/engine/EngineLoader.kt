@@ -7,8 +7,8 @@
 package com.dd3boh.outertune.engine
 
 import com.dd3boh.outertune.constants.EndReason
+import com.dd3boh.outertune.constants.SimilarSource
 import com.dd3boh.outertune.db.MusicDatabase
-import com.dd3boh.outertune.db.entities.RelatedSongMap
 import java.io.File
 import java.util.TimeZone
 
@@ -26,7 +26,8 @@ data class EngineSongRow(
     val localPath: String?,
 )
 
-data class EngineEdgeRow(val songId: String, val relatedSongId: String)
+/** [sources] is the edge's [Provenance] bits: 1 YouTube's list holds it, 2 Last.fm's, 3 both. */
+data class EngineEdgeRow(val songId: String, val relatedSongId: String, val sources: Int)
 data class EngineSeenRow(val songId: String, val visibleAt: Long)
 data class EngineExclusionRow(val kind: Int, val targetId: String, val label: String, val reason: Int = 1)
 data class EngineSeedsRow(val builtAt: Long, val seeds: String)
@@ -37,13 +38,13 @@ data class EngineSeedsRow(val builtAt: Long, val seeds: String)
  * the same shapes from a copy of a real database.
  */
 object EngineLoader {
-    /** [similarSource] is where similar songs come from, RelatedSongMap.SOURCE_YOUTUBE or SOURCE_LASTFM. */
+    /** [mode] is where similar songs come from; the caller has already applied similarSourceOf. */
     fun load(
         database: MusicDatabase,
         now: Long = System.currentTimeMillis(),
         bucket: Int? = null,
         chip: Int = ContextChip.AUTO,
-        similarSource: Int = RelatedSongMap.SOURCE_YOUTUBE,
+        mode: SimilarSource = SimilarSource.YOUTUBE,
     ): EngineInput {
         val tz = TimeZone.getDefault().getOffset(now) / 60_000
         val songs = HashMap<String, SongRow>()
@@ -61,7 +62,11 @@ object EngineLoader {
             now = now,
             songs = songs,
             listens = listens,
-            edges = database.engineEdges(similarSource).map { Edge(it.songId, it.relatedSongId) },
+            edges = when (mode) {
+                SimilarSource.YOUTUBE -> database.engineEdges(0)
+                SimilarSource.LASTFM -> database.engineEdges(1)
+                SimilarSource.BOTH -> database.engineEdgesAll()
+            }.map { Edge(it.songId, it.relatedSongId, it.sources) },
             versionLinks = database.engineVersionLinks().map { VersionLink(it.songId, it.versionId) },
             seen = database.engineSeen(now - 14 * day).map { SeenCard(it.songId, it.visibleAt) },
             exclusions = database.engineExclusions(now).map { ExclusionRow(it.kind, it.targetId) },

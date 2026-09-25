@@ -13,13 +13,15 @@ import java.util.Locale
  * row the moment it opens instead of building for seconds, a shadow build can be judged a day
  * later against what was played, and a pool pick can be graded against the features it had.
  * Fields are tab-separated: id, lane, p, sampled, seed id, reasons (comma-separated), features
- * (comma-separated, four decimals).
+ * (comma-separated, four decimals), and the card's [Provenance] bits. A line written before the
+ * bits existed has seven fields and reads as bits 0.
  */
 object RowBuildCodec {
     fun encode(cards: List<Card>): String = cards.joinToString("\n") { c ->
         listOf(
             c.songId, c.lane.name, String.format(Locale.ROOT, "%.4f", c.p), if (c.sampled) "1" else "0", c.seedId.orEmpty(),
             c.reasons.joinToString(","), c.features.joinToString(",") { String.format(Locale.ROOT, "%.4f", it) },
+            c.sources.toString(),
         ).joinToString("\t")
     }
 
@@ -33,6 +35,7 @@ object RowBuildCodec {
             Card(
                 songId = f[0], lane = lane, z = 0.0, p = f[2].toDoubleOrNull() ?: 0.0, features = features,
                 reasons = f[5].split(",").filter { it.isNotEmpty() }, seedId = f[4].ifEmpty { null }, sampled = f[3] == "1",
+                sources = f.getOrNull(7)?.toIntOrNull() ?: 0,
             )
         }.toList()
     }

@@ -21,6 +21,15 @@ import com.dd3boh.outertune.constants.DiscoverRowKey
 import com.dd3boh.outertune.viewmodels.DISCOVER_ROW_KEY
 import com.dd3boh.outertune.viewmodels.DISCOVER_TEAM
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
+import com.dd3boh.outertune.constants.SimilarSource
+import com.dd3boh.outertune.constants.SimilarSourceKey
+import com.dd3boh.outertune.engine.SimilarSources
+import com.dd3boh.outertune.ui.component.EnumListPreference
+import com.dd3boh.outertune.ui.component.ExplainButton
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
+import com.dd3boh.outertune.utils.rememberEnumPreference
+import kotlin.math.roundToInt
 import androidx.compose.material3.Slider
 import com.dd3boh.outertune.engine.quotas
 import com.dd3boh.outertune.engine.Lane
@@ -100,7 +109,6 @@ fun RecommendationsSettings(
     val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
     val (discoverRow, onDiscoverRowChange) = rememberPreference(DiscoverRowKey, defaultValue = true)
     val (familiarity, onFamiliarityChange) = rememberPreference(FamiliarityKey, defaultValue = 25)
-    val (similarFromLastFm, onSimilarFromLastFmChange) = rememberPreference(SimilarFromLastFmKey, defaultValue = false)
     val activeExclusions by viewModel.activeExclusions.collectAsState(initial = 0)
     val gradedByTeam by viewModel.gradedByTeam.collectAsState(initial = emptyList())
     val calibration by viewModel.calibration.collectAsState(initial = emptyList())
@@ -110,6 +118,10 @@ fun RecommendationsSettings(
     val (restSongsISkip, onRestSongsISkipChange) = rememberPreference(RestSongsISkipKey, defaultValue = false)
     val (restsEverywhere, onRestsEverywhereChange) = rememberPreference(RestsEverywhereKey, defaultValue = false)
     val context = LocalContext.current
+    // Unset, the old Last.fm switch decides, as it does everywhere else; see SimilarSources.stored.
+    val similarDefault = remember { SimilarSources.stored(null, context.dataStore[SimilarFromLastFmKey]) }
+    val (similarSource, onSimilarSourceChange) = rememberEnumPreference(SimilarSourceKey, similarDefault)
+    val sourceMix by viewModel.sourceMix.collectAsState(initial = null)
     val buildScores by viewModel.buildScores.collectAsState(initial = emptyList())
     val endReasonLabels = mapOf(
         EndReason.ENDED to stringResource(R.string.recommendations_ended),
@@ -199,15 +211,24 @@ fun RecommendationsSettings(
             onCheckedChange = onNewSongsOnlyChange,
         )
         // Needs the Last.fm key built into the app. A build without one, or a copy not signed with
-        // the release key, has nothing to ask with, so the switch is not shown rather than shown
-        // doing nothing.
+        // the release key, has nothing to ask with, so the choice is not shown rather than shown
+        // doing nothing, and the app acts as YouTube only.
         if (BuiltInKeys.lastFmApiKey.isNotEmpty()) {
-            ExplainedSwitchPreference(
-                title = stringResource(R.string.similar_from_lastfm),
-                explanation = stringResource(R.string.similar_from_lastfm_info),
-                description = stringResource(R.string.similar_from_lastfm_description),
-                checked = similarFromLastFm,
-                onCheckedChange = onSimilarFromLastFmChange,
+            val similarTitle = stringResource(R.string.similar_source)
+            val similarInfo = stringResource(R.string.similar_source_info)
+            EnumListPreference(
+                title = { Text(similarTitle) },
+                icon = null,
+                trailingContent = { ExplainButton(similarTitle, similarInfo) },
+                selectedValue = similarSource,
+                valueText = {
+                    when (it) {
+                        SimilarSource.BOTH -> stringResource(R.string.similar_source_both)
+                        SimilarSource.YOUTUBE -> stringResource(R.string.similar_source_youtube)
+                        SimilarSource.LASTFM -> stringResource(R.string.similar_source_lastfm)
+                    }
+                },
+                onValueSelected = onSimilarSourceChange,
             )
         }
         ExplainedPreference(
@@ -257,6 +278,27 @@ fun RecommendationsSettings(
                 String.format(winsLine, teamNames[team] ?: team.toString(), wins, seen, if (seen > 0) 100.0 * wins / seen else 0.0)
             }.ifBlank { stringResource(R.string.recommendations_nothing_yet) },
         )
+        // Only where the choice is offered: without a key there is one source and nothing to weigh.
+        if (BuiltInKeys.lastFmApiKey.isNotEmpty()) {
+            val mix = sourceMix
+            ExplainedPreference(
+                title = stringResource(R.string.similar_mix),
+                explanation = stringResource(R.string.similar_mix_info),
+                description = when {
+                    SimilarSources.effective(similarSource, hasKey = true, engineOn = Unreleased.ENGINE) != SimilarSource.BOTH -> stringResource(R.string.similar_mix_single)
+                    mix == null || !mix.compared -> stringResource(R.string.similar_mix_none)
+                    else -> {
+                        val lastFm = (mix.share * 100).roundToInt()
+                        listOf(
+                            stringResource(R.string.similar_mix_share, lastFm, 100 - lastFm),
+                            stringResource(R.string.similar_mix_lastfm_line, mix.lastFm.per100, mix.lastFm.cards.roundToInt()),
+                            stringResource(R.string.similar_mix_youtube_line, mix.youTube.per100, mix.youTube.cards.roundToInt()),
+                            pluralStringResource(R.plurals.similar_mix_days, mix.days, mix.days),
+                        ).joinToString("\n")
+                    }
+                },
+            )
+        }
         ExplainedSwitchPreference(
             title = stringResource(R.string.shadow_comparison),
             explanation = stringResource(R.string.shadow_comparison_info),

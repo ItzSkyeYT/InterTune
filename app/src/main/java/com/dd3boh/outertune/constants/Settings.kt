@@ -192,6 +192,16 @@ fun applyNewInstallDefaults(prefs: MutablePreferences) {
     }
 }
 
+/** Where the engine's similar songs come from. Read it through similarSourceOf, never directly. */
+enum class SimilarSource {
+    /** Both lists, with the similar-song places shared by how the listener takes to each. */
+    BOTH,
+    /** YouTube's related lists alone, which is what every build without a Last.fm key does. */
+    YOUTUBE,
+    /** Last.fm's similar tracks, with YouTube's list for a song Last.fm has none for. */
+    LASTFM,
+}
+
 enum class LibraryViewType {
     LIST, GRID;
 

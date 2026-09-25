@@ -49,8 +49,8 @@ data class SongRow(
     val playable: Boolean = true,
 )
 
-/** Seed to candidate, as YouTube (or later a second source) lists it. */
-data class Edge(val seedId: String, val songId: String)
+/** Seed to candidate, with the [Provenance] bits of the lists that hold it: YouTube's, Last.fm's or both. */
+data class Edge(val seedId: String, val songId: String, val sources: Int = Provenance.YOUTUBE)
 
 /** YouTube's word that two ids are performances of one song. */
 data class VersionLink(val songId: String, val versionId: String)
@@ -141,6 +141,8 @@ data class Card(
     val seedId: String? = null,
     /** True when temperature sampling rather than rank placed it. */
     val sampled: Boolean = false,
+    /** [Provenance] bits of a related or explore card; 0 for every other card. */
+    val sources: Int = 0,
 )
 
 data class BuiltRow(
@@ -149,6 +151,8 @@ data class BuiltRow(
     /** Survivors beyond the row, best first, for replacements between builds. */
     val pool: List<Card>,
     val quotas: Map<Lane, Int>,
+    /** The Last.fm share this build aimed its similar songs at, or null when it drew on one source. */
+    val lastFmShare: Double? = null,
 )
 
 /** Weekday or weekend, times night 0 to 5, morning 6 to 11, afternoon 12 to 17, evening 18 to 23. */

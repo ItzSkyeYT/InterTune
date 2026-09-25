@@ -8,6 +8,9 @@ package com.dd3boh.outertune.viewmodels
 
 import kotlinx.coroutines.withContext
 import com.dd3boh.outertune.engine.EngineLearning
+import com.dd3boh.outertune.engine.SourceMix
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import android.net.Uri
 import com.dd3boh.outertune.db.entities.EngineWeight
@@ -42,6 +45,11 @@ class RecommendationsViewModel @Inject constructor(
     val taps = database.tapCount()
     val activeExclusions = database.activeExclusionCount(System.currentTimeMillis())
     val gradedByTeam = database.gradedByTeam()
+    /** Where the Last.fm share stands and on what evidence, worked out again whenever a card is graded. */
+    val sourceMix = database.gradedByTeam().map {
+        val now = System.currentTimeMillis()
+        SourceMix.share(database.sourceEvidence(now - SourceMix.WINDOW_MS), java.util.TimeZone.getDefault().getOffset(now) / 60_000)
+    }.flowOn(Dispatchers.IO)
     val calibration = database.engineCalibration()
     val weights = database.engineWeightsFlow()
     val buildScores = database.buildScores()

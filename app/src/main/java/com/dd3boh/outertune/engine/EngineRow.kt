@@ -83,6 +83,11 @@ object EngineRow {
          */
         neverPlayed: Boolean = false,
         random: Random = Random.Default,
+        /**
+         * The share of the similar-song places Last.fm is aimed at, in Both; null draws the row
+         * as it always was, which is what YouTube only and Last.fm only do.
+         */
+        lastFmShare: Double? = null,
     ): BuiltRow {
         val stats = LibraryStats(input, p)
         val groups = VersionGroups(input.songs.values, input.versionLinks)
@@ -95,6 +100,24 @@ object EngineRow {
         val ctxAll = Features.Context(stats, groups, input, referrersAll, p)
         val seeds = SeedSampler(input, stats, ctxAll, p, random).sample()
         val seedSet = seeds.toHashSet()
+        val lightlyPlayed = stats.songs.entries.filter { it.value.goodListens in 1..2 }.map { it.key }
+
+        // Which lists proposed each related and explore candidate. A seed with lists from both
+        // sources is where the two compete for the same places, which is the only kind of card
+        // that says anything about which one the listener prefers. In YouTube only and Last.fm
+        // only no seed has both, so no card is ever marked contested.
+        val listsOf = HashMap<String, Int>()
+        for (e in input.edges) listsOf[e.seedId] = (listsOf[e.seedId] ?: 0) or (e.sources and Provenance.SOURCES)
+        fun proposedBy(from: Iterable<String>): Map<String, Int> {
+            val out = HashMap<String, Int>()
+            for (s in from) {
+                val c = if (listsOf[s] == Provenance.SOURCES) Provenance.CONTESTED else 0
+                for (e in edgesBySeed[s].orEmpty()) out[e.songId] = (out[e.songId] ?: 0) or (e.sources and Provenance.SOURCES) or c
+            }
+            return out
+        }
+        val relatedBits = proposedBy(seeds)
+        val exploreBits = proposedBy(seeds + lightlyPlayed)
 
         // What no card may share a group with: a seed, anything started this session, anything
         // heard well in the last few hours. Beyond those hours a song heard well is what the
@@ -153,7 +176,12 @@ object EngineRow {
             if (!eligible(id)) return null
             val f = x(id)
             val seed = referrers[id]?.maxByOrNull { stats.seedWeight(it) }
-            return Candidate(id, lane, f, Scorer.z(f, weights), seed, input.songs[id]?.artistId, groups.groupOf(id))
+            val sources = when (lane) {
+                Lane.RELATED -> relatedBits[id] ?: 0
+                Lane.EXPLORE -> exploreBits[id] ?: 0
+                else -> 0
+            }
+            return Candidate(id, lane, f, Scorer.z(f, weights), seed, input.songs[id]?.artistId, groups.groupOf(id), sources)
         }
 
         // Related: the seeds' candidates, distinct.
@@ -196,7 +224,6 @@ object EngineRow {
 
         // Explore: new to the listener, from the related rows of the seeds and of lightly played
         // songs, and library songs never played; topped up with new songs by known artists.
-        val lightlyPlayed = stats.songs.entries.filter { it.value.goodListens in 1..2 }.map { it.key }
         val exploreSource = HashSet<String>()
         (seeds + lightlyPlayed).forEach { s -> edgesBySeed[s]?.forEach { exploreSource += it.songId } }
         input.songs.values.filter { it.inLibrary && stats.songs[it.id] == null }.forEach { exploreSource += it.id }
@@ -224,7 +251,10 @@ object EngineRow {
             newOnly -> mapOf(Lane.EXPLORE to explore.filter { it.x[Features.NOVEL] >= 0.5 }, Lane.RELATED to related.filter { it.x[Features.NOVEL] >= 0.5 })
             else -> mapOf(Lane.RELATED to related, Lane.AGAIN to again, Lane.ARTIST to artistLane, Lane.REDISCOVER to rediscover, Lane.EXPLORE to explore)
         }
-        val placed = Assembly(lanes, quotasNow, weights, p, random).run()
+        // A graph with nothing from Last.fm in the similar-song lanes draws exactly as it would
+        // without a split: no ledger and no extra draw.
+        val split = lastFmShare?.takeIf { (lanes[Lane.RELATED].orEmpty() + lanes[Lane.EXPLORE].orEmpty()).any { it.sources and Provenance.LASTFM != 0 } }
+        val placed = Assembly(lanes, quotasNow, weights, p, random, split).run()
         val inRow = placed.mapTo(HashSet()) { it.first.songId }
         val cards = placed.mapIndexed { slot, (c, sampled) ->
             val reasons = when {
@@ -232,13 +262,13 @@ object EngineRow {
                 sampled -> listOf("wildcard") + Scorer.reasons(c.x, weights).take(1)
                 else -> Scorer.reasons(c.x, weights)
             }
-            Card(c.songId, c.lane, c.z, Scorer.p(c.x, weights, c.lane, slot, p.columns), c.x, reasons, c.seedId, sampled)
+            Card(c.songId, c.lane, c.z, Scorer.p(c.x, weights, c.lane, slot, p.columns), c.x, reasons, c.seedId, sampled, c.sources)
         }
         // Survivors, best first, one per version group, for replacements between builds.
         val poolGroups = HashSet<String>(placed.map { it.first.group })
         val pool = lanes.values.flatten().filter { it.songId !in inRow }.sortedByDescending { it.z }
             .filter { poolGroups.add(it.group) }.take(40)
-            .map { c -> Card(c.songId, c.lane, c.z, Scorer.p(c.x, weights, c.lane, p.rowSize, p.columns), c.x, Scorer.reasons(c.x, weights), c.seedId, false) }
-        return BuiltRow(cards, seeds, pool, quotasNow)
+            .map { c -> Card(c.songId, c.lane, c.z, Scorer.p(c.x, weights, c.lane, p.rowSize, p.columns), c.x, Scorer.reasons(c.x, weights), c.seedId, false, c.sources) }
+        return BuiltRow(cards, seeds, pool, quotasNow, split)
     }
 }
