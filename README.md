@@ -10,11 +10,13 @@ upstream 0.10.1, that plays every song to the end again and reworks the landscap
 <sub>InnerTune ∩ OuterTune</sub>
 
 [![release](https://img.shields.io/github/v/release/ItzSkyeYT/InterTune?label=release&color=ed5564&labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/releases/latest)
+[![discord](https://img.shields.io/badge/discord-join-5865f2?logo=discord&logoColor=white&labelColor=1b1f24)](https://discord.gg/68jmqhMjXk)
 
 [Download](#download) ·
 [Why playback breaks](docs/403.md) ·
 [Full changelog](docs/CHANGES.md) ·
-[Wiki](https://github.com/ItzSkyeYT/InterTune/wiki)
+[Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) ·
+[Discord](https://discord.gg/68jmqhMjXk)
 
 </div>
 
