@@ -1290,10 +1290,10 @@ class RecognitionEngine @Inject constructor(
         // By song, since a remix's first piece is kept under its bare title: "Lean On", where the
         // list said "Lean On (ATAX Remix)".
         // Not the notes this makes itself about a remix or a mashup it could not find.
-        // Only notes from this appearance of the song, as with what was confirmed below, and by
-        // the same artist when both name one. By title alone, an unsure Stay by Rihanna noted
-        // twenty minutes earlier went when a mashup with the Kid LAROI's Stay in it was found, and
-        // so did an earlier play of the same song on its own, which the question does not cover.
+        // Only notes from this appearance of the song, as with what was confirmed below. From any
+        // time, an unsure Stay by Rihanna noted twenty minutes earlier went when a mashup with the
+        // Kid LAROI's Stay in it was found, and so did an earlier play of the same song on its own,
+        // which the question does not cover.
         val notes = setOf(context.getString(R.string.recognise_edit), context.getString(R.string.recognise_mashup))
         _skipped.update { list ->
             list.filterNot { heard -> heard.artist !in notes && pieces.any { isNoteOf(heard, it, appearedAt(it)) } }
@@ -1408,11 +1408,16 @@ class RecognitionEngine @Inject constructor(
 
         /**
          * Whether [note], from the list of what was heard and not added, is [piece]: the same
-         * song, by the same artist when both name one, noted at or after [sinceMs].
+         * song, noted at or after [sinceMs].
+         *
+         * By title whoever each is credited to, since Shazam credits a remix to whoever made it: the
+         * Averez remix of Lean On came through as "Lean On" by DjSunnymega (see
+         * [MixSearch.distinctSongs]). Kept for its credit, that note stayed next to the Robin Schulz
+         * remix's, as if it were a second thing heard. [sinceMs] already spares an earlier play,
+         * and another song of the same name within a window of this one is the rarer thing.
          */
         internal fun isNoteOf(note: Added, piece: MixWatch.Sighting, sinceMs: Long): Boolean =
-            note.heardAtMs >= sinceMs && MixSearch.sameSong(piece.title, note.title) &&
-                    MixSearch.artistsAgree(piece.artist, note.artist)
+            note.heardAtMs >= sinceMs && MixSearch.sameSong(piece.title, note.title)
 
         /**
          * Where [retract] starts taking back what was noted or confirmed of a song first heard at

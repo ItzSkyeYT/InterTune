@@ -14,8 +14,9 @@ import org.junit.Test
  * Which notes in the list of what was heard and not added a mashup's piece takes back out.
  *
  * Found to be part of a mashup, a piece's note goes, since the question about the mashup covers it.
- * It used to be every note with the piece's title, from any time in the run and by anybody, so an
- * unsure Stay by Rihanna went when a mashup with the Kid LAROI's Stay in it turned up an hour on.
+ * It used to be every note with the piece's title, from any time in the run, so an unsure Stay by
+ * Rihanna went when a mashup with the Kid LAROI's Stay in it turned up an hour on. Only notes from
+ * the piece's present appearance go now, still by title whoever they are credited to.
  */
 class UnsureNotesTest {
 
@@ -37,8 +38,8 @@ class UnsureNotesTest {
     }
 
     @Test
-    fun `another song of the same name stays`() {
-        assertFalse(RecognitionEngine.isNoteOf(note("Stay", "Rihanna feat. Mikky Ekko", 612), piece("Stay", kidLaroi), appeared))
+    fun `another song of the same name from before this appearance stays`() {
+        assertFalse(RecognitionEngine.isNoteOf(note("Stay", "Rihanna feat. Mikky Ekko", 100), piece("Stay", kidLaroi), appeared))
     }
 
     @Test
@@ -69,18 +70,13 @@ class UnsureNotesTest {
     }
 
     @Test
-    fun `a missing credit is no disagreement`() {
-        assertTrue(RecognitionEngine.isNoteOf(note("Stay", "", 612), piece("Stay", kidLaroi), appeared))
-        assertTrue(RecognitionEngine.isNoteOf(note("Stay", "Rihanna", 612), piece("Stay", null), appeared))
-    }
-
-    @Test
-    fun `credits agree when they share a name`() {
-        assertTrue(MixSearch.artistsAgree("Rihanna feat. Mikky Ekko", "Rihanna"))
-        assertTrue(MixSearch.artistsAgree("Major Lazer & DJ Snake", "Major Lazer x DJ Snake feat. MØ"))
-        assertTrue(MixSearch.artistsAgree("Eminem", "EMINEM"))
-        assertFalse(MixSearch.artistsAgree("Rihanna", kidLaroi))
-        assertTrue(MixSearch.artistsAgree(null, "Rihanna"))
-        assertTrue(MixSearch.artistsAgree("", "Rihanna"))
+    fun `a remix credited to its remixer goes, whoever the credit names`() {
+        // The Averez remix of Lean On as Shazam credited it on 25 Sep, noted the window before the
+        // Robin Schulz entry was first heard. Kept for a credit that shares no name with the
+        // piece's, it stayed in the list next to the edit note, as if it were a second thing heard.
+        val robinSchulz = piece("Lean On (feat. MØ) [Robin Schulz Extended Remix]", "Major Lazer & DJ Snake")
+        assertTrue(RecognitionEngine.isNoteOf(note("Lean On", "DjSunnymega", 588), robinSchulz, appeared))
+        assertTrue(RecognitionEngine.isNoteOf(note("Lean On", "", 612), robinSchulz, appeared))
+        assertTrue(RecognitionEngine.isNoteOf(note("Lean On", "Major Lazer", 612), piece("Lean On", null), appeared))
     }
 }
