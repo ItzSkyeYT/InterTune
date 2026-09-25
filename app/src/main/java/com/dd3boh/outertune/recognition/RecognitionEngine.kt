@@ -151,6 +151,9 @@ class RecognitionEngine @Inject constructor(
     /** How long to leave Shazam alone after it stops answering. A new one for every run. */
     private var backoff = ShazamBackoff()
 
+    /** When the last window that told the engine anything ended: an answer, or silence. */
+    private var lastKnownEndMs = 0L
+
     /**
      * Recognised, but not confidently enough to add without asking.
      *
@@ -393,6 +396,7 @@ class RecognitionEngine @Inject constructor(
         // was waiting out. The cheapest way to find out whether Shazam is back is to ask it once.
         backoff = ShazamBackoff()
         _retryAt.value = null
+        lastKnownEndMs = 0L
         _added.value = emptyList()
         _skipped.value = emptyList()
         pending = null
@@ -509,6 +513,7 @@ class RecognitionEngine @Inject constructor(
         try {
             val outcome = shazam.identify(window.samples)
             pace(outcome, endMs, keepGoing)
+            unwatchAcrossGap(outcome, endMs)
             respondTo(outcome, keepGoing, window.startedAtMs)
         } finally {
             // Back to plain listening once the answer has been dealt with, unless dealing with it
@@ -547,6 +552,36 @@ class RecognitionEngine @Inject constructor(
         // way. But whatever wait there was is over by the time one happens, so there is nothing
         // left to count down to until the next request fails.
         _retryAt.value = backoff.notice?.takeIf { keepGoing && refused != null }
+    }
+
+    /**
+     * A window never sent, dropped for a newer one, or sent and not answered is a gap in what was
+     * heard, not a stretch of the room with nothing in it. The watches mostly take it as one, since
+     * every sighting carries its own time, but not the watch on songs that went back to their top
+     * ([checkRestarts]): two windows without the song and it stopped short of its end, an edit,
+     * when all that happened is that nobody listened. So across a gap those songs are no longer
+     * watched, unless the window after it names the song, which then played on through the gap and
+     * is watched as before. Run through the harness, one window left out of the 25 Sep replay of
+     * Waves took the song, which played to its end, back out of the list.
+     *
+     * @param endMs when the window that brought [outcome] ended.
+     */
+    private fun unwatchAcrossGap(outcome: RecognitionOutcome, endMs: Long) {
+        if (outcome is RecognitionOutcome.Failed && outcome.reason != "silence") return
+        val unheardMs = endMs - windowMs - lastKnownEndMs
+        if (lastKnownEndMs > 0 && unheardMs >= windowMs / 2) {
+            val named = (outcome as? RecognitionOutcome.Match)?.track?.shazamKey
+            val unknown = restarts.filterKeys { it != named }
+            if (unknown.isNotEmpty()) {
+                Log.i(
+                    TAG,
+                    "Nothing heard for ${unheardMs / 1000} s, so no telling whether " +
+                            unknown.values.joinToString { "'${it.sighting.title}'" } + " stopped short",
+                )
+                unknown.keys.forEach { restarts.remove(it) }
+            }
+        }
+        lastKnownEndMs = endMs
     }
 
     /**
