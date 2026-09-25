@@ -177,12 +177,14 @@ object WidgetStore {
                 )
                 // Recently played is kept here rather than queried: the song that just started is
                 // the newest there is, and the widget should not have to ask the database to know it.
-                val recent = (listOf(now.copy(artPath = pickArt(context, now))) + old.recent)
+                // The small picture is for a widget too, and cost a fetch, an encode and a write on
+                // every new song for everyone else.
+                val recent = (listOf(now.copy(artPath = if (widgets) pickArt(context, now) else now.artPath)) + old.recent)
                     .distinctBy { it.id }
                     .take(WidgetLayout.MAX_PICKS)
                 write(context, old.copy(nowPlaying = now, isPlaying = isPlaying, recent = recent, updatedAt = System.currentTimeMillis()))
             }
-            prune(context)
+            prune(context, read(context))
         }
         if (widgets) MusicWidget().updateAll(context)
     }
@@ -208,7 +210,7 @@ object WidgetStore {
                 )
             }
             write(context, old.withList(which, list).copy(updatedAt = System.currentTimeMillis()))
-            prune(context)
+            prune(context, read(context))
             changed = true
         }
         if (widgets && changed) MusicWidget().updateAll(context)
@@ -238,7 +240,7 @@ object WidgetStore {
                 })
             }
             write(context, snapshot)
-            prune(context)
+            prune(context, read(context))
         }
         MusicWidget().updateAll(context)
     }
@@ -319,11 +321,23 @@ object WidgetStore {
         }.onFailure { Log.w(TAG, "Could not cache the widget artwork", it) }.getOrNull()
     }
 
-    /** Artwork for songs the widget is no longer showing, oldest first. */
-    private fun prune(context: Context) = runCatching {
+    /**
+     * Artwork for songs the widget is no longer showing, oldest first.
+     *
+     * Never a file the snapshot still points at. Age alone threw away the art of list rows that had
+     * not changed in a while, since a cached file is not touched when it is reused: it went on
+     * showing from memory, and after the process died those rows had only the placeholder, with
+     * nothing to fetch it again because the path was still recorded.
+     */
+    private fun prune(context: Context, snapshot: WidgetSnapshot) = runCatching {
         val files = artDir(context).listFiles().orEmpty()
         if (files.size <= MAX_ART_FILES) return@runCatching
-        files.sortedBy { it.lastModified() }.dropLast(MAX_ART_FILES).forEach { it.delete() }
+        val inUse = (listOfNotNull(snapshot.nowPlaying) + snapshot.picks + snapshot.forgotten + snapshot.keepListening + snapshot.recent)
+            .mapNotNullTo(HashSet()) { it.artPath }
+        files.filter { it.absolutePath !in inUse }
+            .sortedBy { it.lastModified() }
+            .dropLast(MAX_ART_FILES)
+            .forEach { it.delete() }
     }.getOrDefault(Unit)
 
     private fun hash(id: String): String =

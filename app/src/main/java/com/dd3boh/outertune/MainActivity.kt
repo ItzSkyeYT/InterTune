@@ -251,9 +251,12 @@ private fun playFromWidget(
 ): Boolean {
     if (intent?.action != WidgetCommands.ACTION_PLAY_SONG) return false
     val id = intent.getStringExtra(WidgetCommands.EXTRA_SONG_ID) ?: return false
+    // Not until the player is connected. With the app closed, the tap creates the activity and the
+    // connection arrives a moment later, so the first call has none: taking the id out before
+    // this check threw it away, and the call that came with the connection found nothing to play.
+    val connection = playerConnection ?: return true
     // Taken out of the intent, or every recomposition and every rotation plays it again.
     intent.removeExtra(WidgetCommands.EXTRA_SONG_ID)
-    val connection = playerConnection ?: return true
     val title = intent.getStringExtra(WidgetCommands.EXTRA_SONG_TITLE).orEmpty()
     val artist = intent.getStringExtra(WidgetCommands.EXTRA_SONG_ARTIST).orEmpty()
     val thumbnail = intent.getStringExtra(WidgetCommands.EXTRA_SONG_THUMBNAIL)

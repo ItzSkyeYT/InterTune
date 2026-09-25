@@ -34,17 +34,31 @@ object WidgetCommands {
     fun mediaKey(context: Context, keyCode: Int) {
         val event = KeyEvent(KeyEvent.ACTION_DOWN, keyCode)
         val intent = Intent(Intent.ACTION_MEDIA_BUTTON).putExtra(Intent.EXTRA_KEY_EVENT, event)
+        // Only play and pause can start playback, and only playback calls startForeground, so only
+        // they may go through startForegroundService. Next and previous went that way too: sent to
+        // a service still alive after the paused foreground tail had ended, they left Android
+        // waiting for a startForeground that never came, which it answers by crashing the app.
+        // media3's own notification buttons follow the same rule.
+        val startsPlayback = keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE || keyCode == KeyEvent.KEYCODE_MEDIA_PLAY
         val sent = runCatching {
             if (MusicService.isRunning) {
                 intent.component = ComponentName(context, MusicService::class.java)
-                ContextCompat.startForegroundService(context, intent)
-            } else {
+                if (startsPlayback) ContextCompat.startForegroundService(context, intent)
+                // Refused in the background once the service has left the foreground; the catch
+                // below then opens the app instead.
+                else context.startService(intent)
+                true
+            } else if (startsPlayback) {
                 // Cold: the receiver starts the service and media3 waits for the session before it
                 // delivers the key, so the queue is back by the time play means anything.
                 intent.component = ComponentName(context, MediaButtonReceiver::class.java)
                 context.sendBroadcast(intent)
+                true
+            } else {
+                // The receiver drops every key but play from a cold start, so next and previous did
+                // nothing at all with the app closed. The app can do them.
+                false
             }
-            true
         }.onFailure { Log.w(TAG, "Could not send $keyCode to the player", it) }.getOrDefault(false)
 
         // Whatever went wrong, the tap must not be silence: the app can always do it.
