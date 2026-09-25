@@ -89,6 +89,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -895,6 +896,11 @@ fun BoxScope.QueueContent(
                 } else {
                     displayIndex
                 }
+                // The swipe state keeps the confirmValueChange from the row's first composition
+                // (Material3 remembers it with no inputs), so an index captured there goes stale.
+                // Removing a song shifts every later one down without changing its key, and a second
+                // swipe then removed the song after the one swiped. The lambda reads this instead.
+                val currentIndex by rememberUpdatedState(index)
                 ReorderableItem(
                     state = reorderableState,
                     key = window.hashCode()
@@ -904,22 +910,30 @@ fun BoxScope.QueueContent(
                             totalDistance
                         },
                         confirmValueChange = { dismissValue ->
+                            // Read once, so the removal and the log below agree on the row.
+                            val swipedIndex = currentIndex
+                            // A row whose song has already left the queue (a search result stays on
+                            // screen until the results refresh) has no place of its own any more,
+                            // and a swipe on it must not take another song with it.
+                            if (dismissValue != SwipeToDismissBoxValue.Settled && mutableSongs.getOrNull(swipedIndex) != window) {
+                                return@rememberSwipeToDismissBoxState false
+                            }
                             when (dismissValue) {
                                 SwipeToDismissBoxValue.StartToEnd -> {
-                                    if (qb.removeCurrentQueueSong(index)) {
-                                        mutableSongs.getOrNull(index)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        playerConnection.player.removeMediaItem(index)
-                                        mutableSongs.removeAt(index)
+                                    if (qb.removeCurrentQueueSong(swipedIndex)) {
+                                        mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
+                                        playerConnection.player.removeMediaItem(swipedIndex)
+                                        mutableSongs.removeAt(swipedIndex)
                                     }
                                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                                     return@rememberSwipeToDismissBoxState true
                                 }
 
                                 SwipeToDismissBoxValue.EndToStart -> {
-                                    if (qb.removeCurrentQueueSong(index)) {
-                                        mutableSongs.getOrNull(index)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        playerConnection.player.removeMediaItem(index)
-                                        mutableSongs.removeAt(index)
+                                    if (qb.removeCurrentQueueSong(swipedIndex)) {
+                                        mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
+                                        playerConnection.player.removeMediaItem(swipedIndex)
+                                        mutableSongs.removeAt(swipedIndex)
                                     }
                                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                                     return@rememberSwipeToDismissBoxState true
@@ -1420,13 +1434,15 @@ fun BoxScope.QueueContent(
                             Row {
                                 SelectHeader(
                                     navController = navController,
+                                    // This header only shows while searching, so it counts and
+                                    // selects the results, as the portrait one below does.
                                     selectedItems = selectedItems.mapNotNull { uidHash ->
-                                        mutableSongs.find { it.hashCode() == uidHash }
+                                        filteredSongs.find { it.hashCode() == uidHash }
                                     },
-                                    totalItemCount = mutableSongs.size,
+                                    totalItemCount = filteredSongs.size,
                                     onSelectAll = {
                                         selectedItems.clear()
-                                        selectedItems.addAll(mutableSongs.map { it.hashCode() })
+                                        selectedItems.addAll(filteredSongs.map { it.hashCode() })
                                     },
                                     onDeselectAll = { selectedItems.clear() },
                                     menuState = menuState,
