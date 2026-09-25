@@ -570,15 +570,26 @@ internal object MixSearch {
         return if (base.isBlank()) emptyList() else listOf("$base mashup", "$base remix")
     }
 
-    fun rankSingle(piece: MixWatch.Sighting, results: List<List<SongItem>>): List<SongItem> {
+    /**
+     * The uploads that could be the one song heard, cut up: named after it, and a remix, an edit or
+     * a mashup. With [remixFirst], when Shazam kept naming several versions of the song, remixes
+     * and edits come before uploads of several songs: on the emulator on 25 Sep the Averez remix
+     * of Lean On was offered three mashups of Lean On with Lush Life, I Took A Pill In Ibiza and
+     * Sorry, none of them heard. Not when the song was cut up or went back to its top, which is as
+     * often a mashup whose other half Shazam never names: I'm Beggin' For DNA was only ever DNA.
+     */
+    fun rankSingle(piece: MixWatch.Sighting, results: List<List<SongItem>>, remixFirst: Boolean = false): List<SongItem> {
         val title = words(bareTitle(piece.title))
         val artist = piece.artist?.let { words(primaryArtist(it)) }.orEmpty()
         return results.flatten().distinctBy { it.id }.filter { item ->
             val text = " " + words(item.title + " " + item.artists.joinToString(" ") { it.name }) + " "
             val named = (title.length >= 3 && " $title " in text) || (artist.length >= 3 && " $artist " in text)
             named && MIX_WORDS.containsMatchIn(item.title)
-        }
+        }.let { found -> if (remixFirst) found.sortedBy { namesSeveral(it) } else found }
     }
+
+    /** Whether an upload is of several songs, a mashup or a medley, rather than a remix or edit of one. */
+    fun namesSeveral(item: SongItem): Boolean = SEVERAL.containsMatchIn(item.title)
 
     /**
      * Whether [item] could be what has been playing for [heardS] seconds: not an hour-long
@@ -664,6 +675,8 @@ internal object MixSearch {
         .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
         .replace(Regex("\\s+"), " ")
         .trim()
+
+    private val SEVERAL = Regex("mash ?up|medley|megamix|\\bx\\b|\\bvs\\.?(\\s|$)", RegexOption.IGNORE_CASE)
 
     private val MIX_WORDS = Regex("mash ?up|medley|megamix|\\bmix\\b|remix|\\bvs\\.?\\b", RegexOption.IGNORE_CASE)
 

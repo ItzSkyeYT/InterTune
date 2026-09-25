@@ -568,6 +568,21 @@ class MixWatchTest {
     }
 
     @Test
+    fun aVersionShazamDoesNotKnowOffersRemixesBeforeMashups() {
+        fun item(id: String, title: String) = SongItem(id = id, title = title, artists = listOf(Artist(name = "someone", id = null)), thumbnail = "", duration = 200)
+        val piece = MixWatch.Sighting("lean", "Lean On", "Major Lazer & DJ Snake", 0L)
+        val results = listOf(
+            listOf(item("a", "LEAN ON X LUSH LIFE (Zara Larsson, Major Lazer) [Jr Stit Mashup]"), item("b", "Lean On x Sorry (Mashup)")),
+            listOf(item("c", "Major Lazer & DJ Snake - Lean On (Averez Remix)"), item("d", "Lean On vs Lose Yourself - Gustav Krantz Mashup"), item("e", "Lean On (Tiesto Remix)")),
+        )
+        assertEquals(listOf("c", "e", "a", "b", "d"), MixSearch.rankSingle(piece, results, remixFirst = true).map { it.id })
+        // Cut up rather than heard as several versions: as found, since that is as often a mashup.
+        assertEquals(listOf("a", "b", "c", "d", "e"), MixSearch.rankSingle(piece, results).map { it.id })
+        assertTrue(MixSearch.namesSeveral(item("x", "Oliver Heldens vs Major Lazer - Lean On Gecko (Sergio Rilo Mashup)")))
+        assertFalse(MixSearch.namesSeveral(item("y", "Lean On (Charli XCX Remix)")))
+    }
+
+    @Test
     fun aRemixShazamKnowsIsTwoVersionsAtMost() {
         val watch = VersionWatch()
         val sightings = r3hab.map { (at, key, os) -> r3habSighting(at, key, os.first, os.second) }

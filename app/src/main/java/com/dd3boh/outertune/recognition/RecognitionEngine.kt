@@ -264,6 +264,11 @@ class RecognitionEngine @Inject constructor(
         var endsAtMs: Long? = null,
         /** Everything the search found that it could be, best first, for the choice to be drawn from. */
         var candidates: List<SongItem> = emptyList(),
+        /**
+         * Given away by Shazam naming several versions of one song, rather than by one song cut up:
+         * then its remixes come before mashups of it with other songs. See [MixSearch.rankSingle].
+         */
+        var unknownVersion: Boolean = false,
     ) { val id = ++mixIds }
     private var mix: ActiveMix? = null
 
@@ -1067,6 +1072,7 @@ class RecognitionEngine @Inject constructor(
             sure = true
             pieces = (pieces + all).distinctBy { it.key }
             if (startedMs == 0L) startedMs = startOf(allKeys, now)
+            if (versions.isNotEmpty()) unknownVersion = true
         }
         retract(all)
         if (current.settled || current.searched) return
@@ -1084,7 +1090,7 @@ class RecognitionEngine @Inject constructor(
         // Answered while the search ran, or replaced by another: what the person said stands.
         if (current.settled || mix !== current) return
         val heard = heardSeconds(current.startedMs, now)
-        val found = MixSearch.rankSingle(piece, results).filter { MixSearch.couldBe(it, heard) }
+        val found = MixSearch.rankSingle(piece, results, remixFirst = current.unknownVersion).filter { MixSearch.couldBe(it, heard) }
         current.candidates = found.take(MAX_CANDIDATES)
         val choices = found.take(CHOICES)
         Log.i(TAG, "Remixes and mashups of '${piece.title}': ${found.take(MAX_CANDIDATES).joinToString { "'${it.title}' ${it.duration}s" }}")
@@ -1119,7 +1125,9 @@ class RecognitionEngine @Inject constructor(
         over.keys.forEach { firstHeard.remove(it); lastHeard.remove(it) }
         if (!over.settled && over.candidates.isNotEmpty()) {
             val heard = heardSeconds(over.startedMs, over.lastHeardMs)
+            // A version Shazam does not know: its remixes still before mashups of it with others.
             val reordered = MixSearch.byLength(over.candidates, heard).ifEmpty { over.candidates }
+                .let { if (over.unknownVersion) it.sortedBy(MixSearch::namesSeveral) else it }
             Log.i(TAG, "Heard it for ${"%.0f".format(heard)} s: ${reordered.take(CHOICES).joinToString { "'${it.title}' ${it.duration}s" }}")
             updateChoice(over.id) { it.copy(candidates = reordered.take(CHOICES)) }
         }
@@ -1208,6 +1216,9 @@ class RecognitionEngine @Inject constructor(
      * stays. A YouTube playlist keeps its copy, which the API here has no way to remove.
      */
     private suspend fun retract(pieces: List<MixWatch.Sighting>) {
+        // Noted as heard but not added before it turned out to be part of this: the question about
+        // the mashup or remix covers it now, and listing it twice reads as two different things.
+        _skipped.update { list -> list.filterNot { heard -> pieces.any { it.title == heard.title } } }
         // Only what was confirmed during this appearance of the song. The same song played on its
         // own earlier in the evening was a real play, and stays.
         val songs = pieces.mapNotNull { piece ->
