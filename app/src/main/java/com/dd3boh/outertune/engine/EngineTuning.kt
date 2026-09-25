@@ -31,7 +31,7 @@ object EngineTuning {
         Tunable("dormantAfterDays", "Days of quiet before a song counts as dormant", 45.0) { p, v -> p.copy(dormantAfterDays = v.toInt()) },
         Tunable("impressionScale", "Passed-over cards at which the penalty reaches about two thirds", 3.0) { p, v -> p.copy(impressionScale = v) },
         Tunable("exploreBase", "Explore share at adventurousness 0", 0.05) { p, v -> p.copy(exploreBase = v) },
-        Tunable("exploreSpan", "Explore share added at adventurousness 100", 0.30) { p, v -> p.copy(exploreSpan = v) },
+        Tunable("exploreSpan", "Explore share added at adventurousness 100", 0.10) { p, v -> p.copy(exploreSpan = v) },
         Tunable("relatedShare", "Related lane's share of the rest of the row", 0.40) { p, v -> p.copy(relatedShare = v) },
         Tunable("againShare", "Again lane's share (Familiarity overrides this)", 0.25) { p, v -> p.copy(againShare = v) },
         Tunable("artistShare", "Artist lane's share", 0.20) { p, v -> p.copy(artistShare = v) },

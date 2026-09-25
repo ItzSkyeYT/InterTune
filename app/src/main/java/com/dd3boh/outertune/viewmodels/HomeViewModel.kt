@@ -25,6 +25,7 @@ import com.dd3boh.outertune.engine.PlayedSong
 import com.dd3boh.outertune.engine.Lane
 import com.dd3boh.outertune.constants.RankWithListeningKey
 import com.dd3boh.outertune.constants.AdventurousnessKey
+import com.dd3boh.outertune.constants.DefaultAdventurousness
 import com.dd3boh.outertune.engine.Weights
 import com.dd3boh.outertune.engine.EngineRow
 import com.dd3boh.outertune.engine.EngineParams
@@ -324,7 +325,7 @@ class HomeViewModel @Inject constructor(
                 input.copy(banned = input.banned + taken, notSeeds = rejectedSeeds.toSet(), chip = ContextChip.AUTO),
                 weights = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS),
                 p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0),
-                dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0,
+                dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness) / 100.0,
                 neverPlayed = true,
             ).also {
                 lastDiscoverRow = it; lastDiscoverBuildAt = now; lastDiscoverSession = session
@@ -391,7 +392,7 @@ class HomeViewModel @Inject constructor(
             runCatching {
                 discoverBuildId = insert(RowBuild(
                     builtAt = now, rowKey = DISCOVER_ROW_KEY, sessionId = lastListen()?.sessionId ?: now, bucket = dayPartBucket(now),
-                    dial = context.dataStore.get(AdventurousnessKey, 15), contextChip = ContextChip.AUTO,
+                    dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness), contextChip = ContextChip.AUTO,
                     seeds = EngineLoader.seedsJson(row?.seeds.orEmpty()),
                     weights = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS).asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" },
                     pool = row?.let { RowBuildCodec.encode(it.pool) },
@@ -527,11 +528,11 @@ class HomeViewModel @Inject constructor(
                 val input = engineInput(now)
                 val weights = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS)
                 val familiarity = context.dataStore.get(FamiliarityKey, 25)
-                val row = EngineRow.build(input, weights = weights, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0)
+                val row = EngineRow.build(input, weights = weights, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness) / 100.0)
                 if (row.cards.isEmpty()) return@launch
                 database.transactionNow {
                     insert(RowBuild(
-                        builtAt = now, rowKey = 4, sessionId = currentSessionOf(now), bucket = input.bucket, dial = context.dataStore.get(AdventurousnessKey, 15),
+                        builtAt = now, rowKey = 4, sessionId = currentSessionOf(now), bucket = input.bucket, dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness),
                         seeds = EngineLoader.seedsJson(row.seeds), weights = weights.asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" },
                         pool = RowBuildCodec.encode(row.pool), cards = RowBuildCodec.encode(row.cards),
                         shownIds = row.cards.joinToString("\n") { it.songId },
@@ -593,7 +594,7 @@ class HomeViewModel @Inject constructor(
         val chip = context.dataStore.get(ContextChipKey, ContextChip.AUTO)
         engineChipTagged.value = if (chip in ContextChip.MOODS) input.listens.count { it.contextChip == chip } else -1
         val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly && familiarity == lastEngineFamiliarity && chip == lastEngineChip) standing
-        else EngineRow.build(varied.copy(notSeeds = rejectedSeeds.toSet(), chip = chip), weights = weightsInUse, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, 15) / 100.0, newOnly = newOnly).also {
+        else EngineRow.build(varied.copy(notSeeds = rejectedSeeds.toSet(), chip = chip), weights = weightsInUse, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness) / 100.0, newOnly = newOnly).also {
             lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket; lastEngineNewOnly = newOnly; lastEngineFamiliarity = familiarity; lastEngineChip = chip
             Log.d("HomeViewModel", "engine row: ${it.cards.size} cards, ${it.pool.size} in the pool, ${it.seeds.size} seeds, from ${input.songs.size} songs, ${input.listens.size} listens, ${input.edges.size} edges in ${System.currentTimeMillis() - now} ms")
         }
@@ -750,7 +751,7 @@ class HomeViewModel @Inject constructor(
                 val engineRow = lastEngineRow?.takeIf { source == 2 || source == 3 }
                 currentBuildId = insert(RowBuild(
                     builtAt = now, rowKey = rowKey, sessionId = sessionId, bucket = dayPartBucket(now),
-                    dial = context.dataStore.get(AdventurousnessKey, 15), contextChip = context.dataStore.get(ContextChipKey, 0),
+                    dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness), contextChip = context.dataStore.get(ContextChipKey, 0),
                     seeds = EngineLoader.seedsJson(engineRow?.seeds.orEmpty()),
                     weights = if (engineRow != null) weightsInUse.asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" } else "{}",
                     pool = engineRow?.let { RowBuildCodec.encode(it.pool) },

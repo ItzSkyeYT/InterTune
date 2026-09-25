@@ -25,6 +25,7 @@ import androidx.compose.material3.Slider
 import com.dd3boh.outertune.engine.quotas
 import com.dd3boh.outertune.engine.Lane
 import com.dd3boh.outertune.constants.AdventurousnessKey
+import com.dd3boh.outertune.constants.DefaultAdventurousness
 import com.dd3boh.outertune.constants.ShowReasonsKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.RankWithListeningKey
@@ -95,7 +96,7 @@ fun RecommendationsSettings(
     val (tidyHomeRows, onTidyHomeRowsChange) = rememberPreference(TidyHomeRowsKey, defaultValue = true)
     val (rankWithListening, onRankWithListeningChange) = rememberPreference(RankWithListeningKey, defaultValue = true)
     val (showReasons, onShowReasonsChange) = rememberPreference(ShowReasonsKey, defaultValue = true)
-    val (adventurousness, onAdventurousnessChange) = rememberPreference(AdventurousnessKey, defaultValue = 15)
+    val (adventurousness, onAdventurousnessChange) = rememberPreference(AdventurousnessKey, defaultValue = DefaultAdventurousness)
     val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
     val (discoverRow, onDiscoverRowChange) = rememberPreference(DiscoverRowKey, defaultValue = true)
     val (familiarity, onFamiliarityChange) = rememberPreference(FamiliarityKey, defaultValue = 25)

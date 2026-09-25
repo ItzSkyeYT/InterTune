@@ -124,9 +124,10 @@ class EngineRowTest {
 
     @Test
     fun `the dial sets the explore share by largest remainder`() {
-        assertEquals(mapOf(Lane.EXPLORE to 2, Lane.RELATED to 7, Lane.AGAIN to 4, Lane.ARTIST to 4, Lane.REDISCOVER to 3), quotas(20, 0.15, false))
+        assertEquals(mapOf(Lane.EXPLORE to 2, Lane.RELATED to 7, Lane.AGAIN to 4, Lane.ARTIST to 4, Lane.REDISCOVER to 3), quotas(20, 0.5, false))
         assertEquals(20, quotas(20, 1.0, false).values.sum())
-        assertEquals(7, quotas(20, 1.0, false)[Lane.EXPLORE])
+        // Never more than three explore cards, however far the slider goes.
+        assertEquals(3, quotas(20, 1.0, false)[Lane.EXPLORE])
         assertEquals(1, quotas(20, 0.0, false)[Lane.EXPLORE])
         assertEquals(20, quotas(20, 0.5, true)[Lane.EXPLORE])
     }

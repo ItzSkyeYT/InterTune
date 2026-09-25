@@ -11,6 +11,7 @@ import com.dd3boh.outertune.engine.ContextChip
 import com.dd3boh.outertune.constants.AppBarHeight
 import com.dd3boh.outertune.constants.ContextChipKey
 import com.dd3boh.outertune.constants.AdventurousnessKey
+import com.dd3boh.outertune.constants.DefaultAdventurousness
 import com.dd3boh.outertune.engine.Lane
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
@@ -1309,7 +1310,7 @@ private fun WhyTheseDialog(viewModel: HomeViewModel, navController: NavControlle
     val seeds by viewModel.engineSeeds.collectAsState()
     val quotas by viewModel.engineQuotas.collectAsState()
     val exclusions by viewModel.activeExclusions.collectAsState(initial = 0)
-    val adventurousness by rememberPreference(AdventurousnessKey, defaultValue = 15)
+    val adventurousness by rememberPreference(AdventurousnessKey, defaultValue = DefaultAdventurousness)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.why_these)) },

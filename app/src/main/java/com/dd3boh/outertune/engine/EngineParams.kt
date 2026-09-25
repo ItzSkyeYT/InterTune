@@ -80,9 +80,14 @@ data class EngineParams(
     // ---- The row
     val rowSize: Int = 20,
     val columns: Int = 4,
-    /** Explore share is [exploreBase] + [exploreSpan] times the dial in [0, 1]. */
+    /**
+     * Explore share is [exploreBase] + [exploreSpan] times the dial in [0, 1]: one card of twenty at
+     * 0, two at the default of 50 and three at 100. It used to reach seven, and on his phone the
+     * explore cards were played about one time in fifty against one in four for again, so the top
+     * of the slider was a third of the row nobody played.
+     */
     val exploreBase: Double = 0.05,
-    val exploreSpan: Double = 0.30,
+    val exploreSpan: Double = 0.10,
     /** The rest of the row after explore, split between the four other lanes. */
     val relatedShare: Double = 0.40,
     val againShare: Double = 0.25,

@@ -181,6 +181,9 @@ val RankWithListeningKey = booleanPreferencesKey("rankWithListening")
 val ShowReasonsKey = booleanPreferencesKey("showReasons")
 /** Adventurousness 0 to 100: how much of the engine row is new artists. */
 val AdventurousnessKey = intPreferencesKey("adventurousness")
+
+/** The middle of the slider, two explore cards of twenty: see EngineParams.exploreSpan. */
+const val DefaultAdventurousness = 50
 /** The engine row holds only songs new to the listener. */
 val NewSongsOnlyKey = booleanPreferencesKey("newSongsOnly")
 /** A second engine row on Home, under Quick picks, of songs never played. On unless turned off. */

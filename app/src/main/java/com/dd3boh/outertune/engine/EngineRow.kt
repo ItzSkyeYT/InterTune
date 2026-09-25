@@ -70,8 +70,11 @@ object EngineRow {
         input: EngineInput,
         weights: Weights = Weights.PRIORS,
         p: EngineParams = EngineParams.DEFAULT,
-        /** Adventurousness in [0, 1]; the explore share follows it. */
-        dial: Double = 0.15,
+        /**
+         * Adventurousness in [0, 1]; the explore share follows it. The default is the slider's
+         * default, the middle, two explore cards of twenty.
+         */
+        dial: Double = 0.5,
         newOnly: Boolean = false,
         /**
          * Only songs with no listen at all, the Discover something new row. Stricter than
