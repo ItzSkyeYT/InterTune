@@ -206,7 +206,7 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="device_info_title">Device information</string>
     <string name="ffmpeg_lgpl">This software uses libraries from the FFmpeg project under the LGPLv2.1</string>
     <string name="help_bug_report_action">Submit a bug report (Via GitHub)</string>
-    <string name="help_contact_email_inquiries">Other inquires (Tap to copy email)</string>
+    <string name="help_contact_email_inquiries">Other inquiries (Tap to copy email)</string>
     <string name="help_support_forum">Help and support (Via GitHub)</string>
     <string name="help_discord">Community chat (Via Discord)</string>
     <string name="no_updates_available">No updates available</string>
