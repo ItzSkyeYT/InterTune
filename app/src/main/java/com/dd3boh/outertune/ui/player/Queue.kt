@@ -482,11 +482,16 @@ fun BoxScope.QueueContent(
      * made yet.
      */
     val adaptiveTailActive by playerConnection.service.adaptiveTailActive.collectAsState()
-    val tailRevision by playerConnection.service.hiddenTailChanged.collectAsState()
-    val visibleSongs = remember(mutableSongs.size, currentWindowIndex, adaptiveTailActive, tailRevision, detachedQueue, isSearching) {
-        if (!adaptiveTailActive || isSearching || detachedQueue != null) mutableSongs.toList()
+
+    // Read from the live list on every composition, not remembered. A remembered copy keyed on the
+    // list's size went stale on a drag, which reorders without changing the count: the rows kept
+    // the old order while the queue had the new one, so swiping a row away removed the song that
+    // was now at that position rather than the one on screen, and tapping one played it. A change
+    // to the hidden tail needs no key either: dropping songs changes the player's timeline, which
+    // refills mutableSongs.
+    val visibleSongs: List<MediaMetadata> =
+        if (!adaptiveTailActive || isSearching || detachedQueue != null) mutableSongs
         else mutableSongs.take((currentWindowIndex + 1 + ADAPTIVE_VISIBLE_AHEAD).coerceIn(0, mutableSongs.size))
-    }
     val hiddenTailCount = if (isSearching) 0 else mutableSongs.size - visibleSongs.size
 
     LaunchedEffect(queueWindows, detachedQueue) { // add to songs list & scroll

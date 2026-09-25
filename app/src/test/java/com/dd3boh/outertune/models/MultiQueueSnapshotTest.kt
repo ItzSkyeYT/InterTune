@@ -40,4 +40,17 @@ class MultiQueueSnapshotTest {
         assertEquals(99L, saved.runId)
         assertEquals(40, live.getSize())
     }
+
+    @Test
+    fun renumberingTheLiveSongsLeavesTheSnapshotAlone() {
+        val songs = MutableList(5) { song(it).apply { shuffleIndex = 4 - it } }
+        val live = MultiQueueObject(id = 8, title = "Q", queue = songs, index = 0)
+        val saved = live.snapshot()
+
+        // What QueueBoard does to the shared songs when one is removed.
+        live.queue.forEachIndexed { i, s -> s.shuffleIndex = i }
+
+        assertEquals(listOf(4, 3, 2, 1, 0), saved.queue.map { it.shuffleIndex })
+        assertEquals(listOf("s0", "s1", "s2", "s3", "s4"), saved.queue.map { it.id })
+    }
 }
