@@ -169,14 +169,18 @@ fun YouTubePlaylistMenu(
             bottom = 8.dp + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
         )
     ) {
-        playlist.playEndpoint?.let {
+        playlist.playEndpoint?.let { playEndpoint ->
             GridMenuItem(
                 icon = Icons.Rounded.PlayArrow,
                 title = R.string.play
             ) {
+                // Only the playlist's own screen passes the songs it has loaded. Opened anywhere
+                // else (Home, Library, search, an artist) there are none, and a queue of nothing
+                // played nothing, leaving the old queue going. The playlist's endpoint plays it
+                // from YouTube instead, fetching the rest as it goes.
                 playerConnection.playQueue(
-                    ListQueue(
-                        playlistId = playlist.playEndpoint!!.playlistId,
+                    if (songs.isEmpty()) YouTubeQueue(playEndpoint) else ListQueue(
+                        playlistId = playEndpoint.playlistId,
                         title = playlist.title,
                         items = songs.map { it.toMediaMetadata() },
                     ),
@@ -192,9 +196,10 @@ fun YouTubePlaylistMenu(
                 icon = Icons.Rounded.Shuffle,
                 title = R.string.shuffle
             ) {
+                // As Play: with no songs passed, YouTube's own shuffle of the playlist.
                 playerConnection.playQueue(
-                    ListQueue(
-                        playlistId = playlist.playEndpoint!!.playlistId,
+                    if (songs.isEmpty()) YouTubeQueue(shuffleEndpoint) else ListQueue(
+                        playlistId = playlist.playEndpoint?.playlistId ?: shuffleEndpoint.playlistId,
                         title = playlist.title,
                         items = songs.map { it.toMediaMetadata() },
                         startShuffled = true,
