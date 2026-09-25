@@ -28,7 +28,7 @@ import com.dd3boh.outertune.BuildConfig
  * and `assembleCoreRelease` is what proves the gate still holds.
  *
  * For 0.11: the widget is on already (both components enabled in AndroidManifest.xml, with the
- * version at 89). What is left is to set [ENGINE] to true outright and delete this file along with
+ * version at 90). What is left is to set [ENGINE] to true outright and delete this file along with
  * the three `if (Unreleased.` checks that reference it.
  */
 object Unreleased {
