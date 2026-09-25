@@ -242,6 +242,10 @@ class RecognitionEngine @Inject constructor(
         /** When it last cut back to a piece. Pieces are held back for a while after each cut. */
         var lastCutMs: Long = 0,
         var strong: Boolean = false,
+        /** Sure enough to act on without asking: see [MixWatch.Mix.sure]. */
+        var sure: Boolean = false,
+        /** Its pieces as last seen, for taking out the ones a picked upload names. */
+        var pieces: List<MixWatch.Sighting> = emptyList(),
         var found: SongItem? = null,
         /** Answered: a clear winner was taken, or the person picked one or said none of these. */
         var settled: Boolean = false,
@@ -275,7 +279,13 @@ class RecognitionEngine @Inject constructor(
      * Songs that went back to their top partway through (CutWatch's RESTART), watched to see whether
      * they then play to their end. One that stops well short was an edit.
      */
-    private class Restart(val sighting: MixWatch.Sighting, var offset: Double, var atMs: Long, val durationS: Int) { var onTimelineMs = atMs }
+    /**
+     * @param furthest the furthest into the song any window has landed since it went back to its
+     * top. Not the last window's place: a song replayed to its end can have its last window put in
+     * an earlier chorus, and Delirious went from its restart back onto its usual timeline fifty
+     * seconds ahead, and following the restart's own timeline read both as stopping short.
+     */
+    private class Restart(val sighting: MixWatch.Sighting, var furthest: Double, var atMs: Long, val durationS: Int)
     private val restarts = mutableMapOf<String, Restart>()
 
     /** Windows in a row with nothing Shazam knows, while a mashup is on. */
@@ -618,9 +628,7 @@ class RecognitionEngine @Inject constructor(
                     val length = best?.duration ?: confirmed[key]?.duration
                     val verdict = cutWatch.observe(key, outcome.track.offsetSeconds, outcome.track.timeSkew, heardAtMs, length)
                     restarts[key]?.let {
-                        if (Timeline.continues(it.offset, it.onTimelineMs, outcome.track.offsetSeconds, heardAtMs, outcome.track.timeSkew)) {
-                            it.offset = outcome.track.offsetSeconds; it.onTimelineMs = heardAtMs
-                        }
+                        it.furthest = maxOf(it.furthest, outcome.track.offsetSeconds)
                         it.atMs = heardAtMs
                     }
                     when (verdict) {
@@ -909,7 +917,8 @@ class RecognitionEngine @Inject constructor(
         }
 
         val active = mix
-        if (active != null && (active.settled || (active.searched && active.keys.containsAll(keys) && (active.strong || !found.strong)))) {
+        if (active != null && (active.settled || (active.searched && active.keys.containsAll(keys) &&
+                    (active.strong || !found.strong) && (active.sure || !found.sure)))) {
             active.keys += keys
             active.lastHeardMs = now
             active.lastCutMs = now
@@ -941,15 +950,19 @@ class RecognitionEngine @Inject constructor(
             lastHeardMs = now
             lastCutMs = now
             strong = strong || found.strong
+            sure = sure || found.sure
+            pieces = (found.pieces + pieces).distinctBy { it.key }
             searched = true
             startedMs = started
             candidates = ranked.take(MAX_CANDIDATES).map { it.first }
         }
-        retract(found.pieces)
+        // Only when sure. Suspicious is somebody skipping about a playlist as easily as a mashup,
+        // and asking costs nothing; taking three right songs out of the list does.
+        if (current.sure) retract(found.pieces)
         val autoAdd = playlist == null || (context.dataStore.data.first()[RecogniseAutoAddKey] ?: true)
         if (current.settled) return
         when {
-            winner != null && autoAdd -> {
+            winner != null && autoAdd && current.sure -> {
                 current.settled = true
                 answered += current.keys
                 current.found = winner
@@ -959,7 +972,7 @@ class RecognitionEngine @Inject constructor(
             }
             // The choice is drawn by the screen, whose runs have no playlist. The sheet shows the
             // unsure list instead, so a playlist's run notes the mashup there.
-            winner == null && playlist == null -> offerChoice(current, titles)
+            playlist == null -> offerChoice(current, titles)
             else -> {
                 val name = winner?.title ?: titles.joinToString(" + ")
                 if (_skipped.value.none { it.title == name }) {
@@ -1004,6 +1017,8 @@ class RecognitionEngine @Inject constructor(
             lastHeardMs = now
             lastCutMs = now
             strong = true
+            sure = true
+            pieces = (pieces + piece).distinctBy { it.key }
             if (startedMs == 0L) startedMs = startOf(listOf(piece.key), now)
         }
         retract(listOf(piece))
@@ -1099,7 +1114,7 @@ class RecognitionEngine @Inject constructor(
         val over = restarts.filter { (key, r) -> key != playing && (ended || now - r.atMs >= 2 * windowMs) }
         for ((key, r) in over) {
             restarts.remove(key)
-            val reached = r.offset + (r.atMs - r.onTimelineMs + windowMs) / 1000.0
+            val reached = r.furthest + windowMs / 1000.0
             if (reached < r.durationS - EARLY_END_S) {
                 Log.i(TAG, "'${r.sighting.title}' went back to its top and stopped at ${"%.0f".format(reached)} s of ${r.durationS}: an edit")
                 onCuts(r.sighting.copy(atMs = r.atMs), r.atMs)
@@ -1178,6 +1193,8 @@ class RecognitionEngine @Inject constructor(
                 found = song
                 settled = true
                 endsAtMs = endOf(startedMs, song)
+                // Picked, so it was a mashup: the songs it names come out, and only those.
+                retract(pieces.filter { MixSearch.names(it, song) })
             }
             dropChoice(choice.id)
             add(song)

@@ -71,6 +71,36 @@ class MixWatchTest {
     }
 
     @Test
+    fun skippingThroughAPlaylistAndBackIsWorthAskingNotActingOn() {
+        // Two windows each of A, B and C, then back into A partway through: somebody skipping
+        // about, or a mashup. It asks, and only songs taking turns a second time make it sure.
+        val watch = MixWatch()
+        val a = "a" to ("A" to "x"); val b = "b" to ("B" to "y"); val c = "c" to ("C" to "z")
+        fun at(song: Pair<String, Pair<String, String?>>, second: Int, offset: Double) =
+            MixWatch.Sighting(song.first, song.second.first, song.second.second, second * 1000L, offset)
+        listOf(at(a, 0, 60.0), at(a, 12, 72.0), at(b, 24, 30.0), at(b, 36, 42.0), at(c, 48, 80.0), at(c, 60, 92.0))
+            .forEach { assertNull(watch.observe(it)) }
+        val mix = watch.observe(at(a, 72, 150.0))!!
+        assertTrue(mix.strong)
+        assertFalse(mix.sure)
+    }
+
+    @Test
+    fun songsTakingTurnsTwiceAreSure() {
+        val watch = MixWatch()
+        val mix = damage2.map { (song, at) -> watch.observe(sighting(song, at)) }[16]!!
+        assertTrue(mix.sure)
+    }
+
+    @Test
+    fun aPickNamesTheSongsItIsMadeOf() {
+        val pieces = listOf(sighting(faint, 0), sighting(noLove, 12), sighting(lliving, 24))
+        val named = pieces.filter { MixSearch.names(it, damageLyrics) }.map { it.key }
+        // Damage (Lyrics) names Faint and No Love, and has no idea what Lliving Life Mix is.
+        assertEquals(listOf("faint", "nolove"), named)
+    }
+
+    @Test
     fun aBreakdownFullOfOneWindowMatchesIsNotAMashup() {
         // 2 Faced Funks, Powerbass, replayed from a file on 24 Sep: in its breakdown Shazam named
         // five different tracks for a window each before Powerbass came back.

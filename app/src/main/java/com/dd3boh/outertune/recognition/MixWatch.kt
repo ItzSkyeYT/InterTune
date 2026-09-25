@@ -50,9 +50,12 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
      * one-window oddity in the middle, which the 24 Sep run had in "Lliving Life Mix", does not end
      * up in the query.
      * @param strong whether the interruption is too long, too often, or the return too far into the
-     * song to be one wrong window or somebody going back a track.
+     * song to be one wrong window or somebody going back a track: enough to ask about.
+     * @param sure whether the songs have interleaved, more than once or two of them in one gap:
+     * enough to act on. A single return partway into a song is also somebody skipping about a
+     * playlist and scrubbing back into a song, so on its own it only asks.
      */
-    data class Mix(val pieces: List<Sighting>, val strong: Boolean)
+    data class Mix(val pieces: List<Sighting>, val strong: Boolean, val sure: Boolean = strong)
 
     private val seen = ArrayDeque<Sighting>()
 
@@ -120,6 +123,11 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
             i > 0 && span[i].key != sighting.key && span[i - 1].key == sighting.key
         }
         val counts = span.groupingBy { it.key }.eachCount()
+        // Sure takes a second gap: songs taking turns. Two songs in one gap, or a return partway
+        // into a song, is also somebody skipping through a playlist and back, which is enough to
+        // ask about and not enough to take anything out of the list.
+        val interleaved = interruptions >= 2
+        val twoInOneGap = interruption.size >= 2 && MixSearch.distinctSongs(interruption).size >= 2
         val found = Mix(
             // sortedByDescending is stable, so equal counts keep the order they were heard in.
             pieces = span.distinctBy { it.key }.sortedByDescending { counts[it.key] ?: 0 },
@@ -128,9 +136,8 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
             // like, but going back a track starts it again from the top; a mashup cuts back in
             // wherever it likes. The second run of 24 Sep came back to Party Rock Anthem 76 s in.
             // Counted as songs, not keys: Shazam can give one recording two.
-            strong = (interruption.size >= 2 && MixSearch.distinctSongs(interruption).size >= 2) ||
-                    interruptions >= 2 ||
-                    sighting.offsetSeconds > RESTART_S,
+            strong = interleaved || twoInOneGap || sighting.offsetSeconds > RESTART_S,
+            sure = interleaved,
         )
         // The song that came back never left its own timeline: what came between was inside it,
         // or two songs blending, each on its own timeline, as a DJ does from one to the next.
@@ -497,6 +504,14 @@ internal object MixSearch {
      */
     fun distinctSongs(pieces: List<MixWatch.Sighting>): List<MixWatch.Sighting> =
         pieces.distinctBy { words(bareTitle(it.title)) to it.artist?.let { a -> words(primaryArtist(a)) } }
+
+    /** Whether [item] names [piece], by its title or its artist. */
+    fun names(piece: MixWatch.Sighting, item: SongItem): Boolean {
+        val text = " " + words(item.title + " " + item.artists.joinToString(" ") { it.name }) + " "
+        val title = words(bareTitle(piece.title))
+        val artist = piece.artist?.let { words(primaryArtist(it)) }.orEmpty()
+        return (title.length >= 3 && " $title " in text) || (artist.length >= 3 && " $artist " in text)
+    }
 
     /** Two points a title named, one an artist, one for a word saying it is a mix. Null under two pieces. */
     internal fun score(pieces: List<MixWatch.Sighting>, item: SongItem): Int? {
