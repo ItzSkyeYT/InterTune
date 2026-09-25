@@ -566,7 +566,9 @@ class RecognitionEngine @Inject constructor(
                     }
                 }
                 val best = candidates.firstOrNull()
-                val certain = best != null && corresponds(outcome.track, best)
+                // A DJ's continuous mix is never the song playing, only a record that holds it, so
+                // it is noted as heard and not added. The song itself usually comes through too.
+                val certain = best != null && corresponds(outcome.track, best) && !isDjMix(outcome.track.title)
 
                 // Recorded the moment Shazam names it, before anything is decided about adding
                 // it or even placing it on YouTube. The history is a record of what the room was

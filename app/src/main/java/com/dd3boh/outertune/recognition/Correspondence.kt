@@ -46,6 +46,21 @@ internal fun corresponds(track: Recognised, candidate: SongItem): Boolean {
             title.startsWithWord(candidateTitle)
 }
 
+private val DJ_MIX = Regex(
+    "contin[ui]+ous mix|non-?stop mix|mixed by|megamix|\\bhit ?mix\\b|\\bdj mix\\b|year ?mix",
+    RegexOption.IGNORE_CASE,
+)
+
+/**
+ * Whether Shazam's answer is a DJ's continuous mix, a whole compilation filed as one track, rather
+ * than the song. Its reference holds the song somewhere inside, so it matches, and steadily: the
+ * radio edit of Party Crasher came through as "Nils van Zandt Hitmix 2K16 (Mixed By Joost XXL)
+ * [Continious Mix]" for most of its windows, and that was added to the list as a song. A mix of
+ * one song, a radio mix, an extended mix or a track marked "(Mixed)" from a compilation, is still
+ * that song and does not count.
+ */
+internal fun isDjMix(title: String): Boolean = DJ_MIX.containsMatchIn(title)
+
 /** True when [prefix] is a whole-word prefix, so "children" matches "children dream" not "childrens". */
 private fun String.startsWithWord(prefix: String): Boolean =
     startsWith(prefix) && (length == prefix.length || this[prefix.length] == ' ')

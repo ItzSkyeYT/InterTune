@@ -106,6 +106,26 @@ class CorrespondenceTest {
         assertFalse(corresponds(shazam("Blinding Lights", ""), youtube("Blinding Lights", "The Weeknd")))
     }
 
+    /** A whole DJ mix filed as one track is not the song; a mix of one song is. */
+    @Test
+    fun aContinuousMixIsNotASong() {
+        listOf(
+            "Nils van Zandt Hitmix 2K16 (Mixed By Joost XXL) [Continious Mix]",
+            "Ministry of Sound Anthems (Continuous Mix)",
+            "Summer Megamix 2015",
+            "Ibiza Non-Stop Mix",
+            "Yearmix 2016",
+        ).forEach { assertTrue(it, isDjMix(it)) }
+        listOf(
+            "What About Us (Radio Mix)",
+            "Party Crasher (feat. Mayra Veronica) [Original Extended Mix]",
+            "Nobody To Love (Mixed)",
+            "Lean On (Averez Remix)",
+            "Club Mix",
+            "Mixed Emotions",
+        ).forEach { assertFalse(it, isDjMix(it)) }
+    }
+
     /** One track as Shazam places it, [offsetSeconds] into the reference recording. */
     private fun heard(offsetSeconds: Double, key: String? = "k", title: String = "Children") = Recognised(
         title = title,
