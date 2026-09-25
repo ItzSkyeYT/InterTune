@@ -19,6 +19,9 @@ import com.dd3boh.outertune.constants.UsageCountPeriodKey
 import com.dd3boh.outertune.extensions.isInternetConnected
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -70,9 +73,19 @@ class ActiveCount @Inject constructor(
      * Safe to call on every launch: the day is checked before anything else happens, so the usual
      * cost of this is one blocking preference read on a background thread.
      */
-    suspend fun ping() = withContext(Dispatchers.IO) {
-        if (!Polls.isConfigured) return@withContext
-        if (!context.dataStore.get(UsageCountEnabledKey, false)) return@withContext
+    suspend fun ping() = withContext(Dispatchers.IO) { sending.withLock { send() } }
+
+    /**
+     * One ping at a time. The launch ping runs in the activity's composition, so rotating or
+     * switching theme while it was out started a second one that decided before the first had
+     * written the day down: two events for the day, and on the first of a month two different
+     * random names, one phone counted as two people.
+     */
+    private val sending = Mutex()
+
+    private suspend fun send() {
+        if (!Polls.isConfigured) return
+        if (!context.dataStore.get(UsageCountEnabledKey, false)) return
 
         val ping = ActivePeriod.decide(
             nowMillis = System.currentTimeMillis(),
@@ -81,12 +94,12 @@ class ActiveCount @Inject constructor(
             storedPeriod = context.dataStore.get(UsageCountPeriodKey, ""),
             lastDay = context.dataStore.get(UsageCountLastDayKey, ""),
             freshId = { UUID.randomUUID().toString() },
-        ) ?: return@withContext
+        ) ?: return
 
         // Checked after the day, not before it: an offline launch should not be the thing that
         // decides whether today counts, and this way a day missed for want of signal is simply
         // tried again on the next launch.
-        if (!context.isInternetConnected()) return@withContext
+        if (!context.isInternetConnected()) return
 
         val payload = JSONObject()
             .put("website", Polls.UMAMI_WEBSITE_ID)
@@ -136,17 +149,20 @@ class ActiveCount @Inject constructor(
             // Written only once the server has taken it. A day that failed is a day worth trying
             // again on the next launch, and a name that was never sent is not worth keeping.
             if (landed == true) {
-                context.dataStore.edit {
-                    it[UsageCountIdKey] = ping.id
-                    it[UsageCountPeriodKey] = ping.period
-                    it[UsageCountLastDayKey] = ping.day
+                // Even if the caller has gone: the server has the event by now, and a record lost
+                // to a rotation meant sending the day again, under a new name if one was minted.
+                withContext(NonCancellable) {
+                    context.dataStore.edit {
+                        it[UsageCountIdKey] = ping.id
+                        it[UsageCountPeriodKey] = ping.period
+                        it[UsageCountLastDayKey] = ping.day
+                    }
                 }
                 Log.i(TAG, "Counted ${ping.day}${if (ping.rotated) ", new name for ${ping.period}" else ""}")
             }
         }.onFailure {
             Log.w(TAG, "Ping could not be sent, will try again next launch: $it")
         }
-        Unit
     }
 
     /**
@@ -157,10 +173,13 @@ class ActiveCount @Inject constructor(
      * same one resumed.
      */
     suspend fun forget() = withContext(Dispatchers.IO) {
-        context.dataStore.edit {
-            it.remove(UsageCountIdKey)
-            it.remove(UsageCountPeriodKey)
-            it.remove(UsageCountLastDayKey)
+        // After any ping still out, so it cannot write its name back once this has cleared it.
+        sending.withLock {
+            context.dataStore.edit {
+                it.remove(UsageCountIdKey)
+                it.remove(UsageCountPeriodKey)
+                it.remove(UsageCountLastDayKey)
+            }
         }
         Log.i(TAG, "Name forgotten")
     }
