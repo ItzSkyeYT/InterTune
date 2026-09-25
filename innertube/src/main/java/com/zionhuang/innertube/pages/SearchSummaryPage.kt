@@ -130,19 +130,26 @@ data class SearchSummaryPage(
                     val first = listRun.getOrNull(0)
                     val noArtist = first != null && first.size == 1 && first[0].navigationEndpoint == null &&
                         LENGTH.matches(first[0].text.trim())
+                    val episode = renderer.isPodcastEpisode
                     SongItem(
                         id = renderer.playlistItemData?.videoId ?: return null,
                         title = renderer.flexColumns.firstOrNull()
                             ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs
                             ?.firstOrNull()?.text ?: return null,
-                        artists = if (noArtist) listOfNotNull(cardArtist)
-                        else first?.oddElements()?.map {
-                            Artist(
-                                name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId
-                            )
-                        } ?: return null,
-                        album = listRun.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
+                        artists = when {
+                            // The show, not the date that comes first and read as the artist.
+                            episode -> listRun.drop(1).flatten().filter { it.navigationEndpoint?.browseEndpoint != null }.take(1).map {
+                                Artist(name = it.text, id = it.navigationEndpoint?.browseEndpoint?.browseId)
+                            }
+                            noArtist -> listOfNotNull(cardArtist)
+                            else -> first?.oddElements()?.map {
+                                Artist(
+                                    name = it.text,
+                                    id = it.navigationEndpoint?.browseEndpoint?.browseId
+                                )
+                            } ?: return null
+                        },
+                        album = listRun.getOrNull(1)?.firstOrNull()?.takeIf { !episode && it.navigationEndpoint?.browseEndpoint != null }?.let {
                             Album(
                                 name = it.text,
                                 id = it.navigationEndpoint?.browseEndpoint?.browseId!!

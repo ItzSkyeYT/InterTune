@@ -49,6 +49,21 @@ class SummaryCardProbe {
                     println("CARD   cols=$cols")
                 }
             }
+            // Podcast episodes in the plain results: what marks them, apart from a label in the
+            // listener's language.
+            for (s in sections) {
+                val item = s.jsonObject["itemSectionRenderer"]?.jsonObject ?: continue
+                item["contents"]?.jsonArray?.forEach { c ->
+                    val r = c.jsonObject["musicResponsiveListItemRenderer"]?.jsonObject ?: return@forEach
+                    val raw = r.toString()
+                    val type = Regex("\"musicVideoType\":\"([A-Z_]+)\"").findAll(raw).map { it.groupValues[1] }.toSet()
+                    val page = Regex("\"pageType\":\"([A-Z_]+)\"").findAll(raw).map { it.groupValues[1] }.toSet()
+                    val second = (r["flexColumns"]!!.jsonArray.getOrNull(1)?.jsonObject?.get("musicResponsiveListItemFlexColumnRenderer")?.jsonObject?.get("text") as? JsonObject)
+                        ?.get("runs")?.jsonArray?.joinToString("") { it.jsonObject["text"]!!.jsonPrimitive.content }
+                    if (second != null && (second.startsWith("Episode") || "PODCAST" in type.joinToString() || "PODCAST" in page.joinToString()))
+                        println("CARD   episode? second=\"$second\" videoTypes=$type pageTypes=$page")
+                }
+            }
             YouTube.searchSummary(q).getOrThrow().summaries.forEach { sum ->
                 sum.items.filterIsInstance<SongItem>().forEach {
                     println("CARD   parsed [${sum.title}] ${it.title} | artists=${it.artists.map { a -> a.name }} album=${it.album?.name} duration=${it.duration}")

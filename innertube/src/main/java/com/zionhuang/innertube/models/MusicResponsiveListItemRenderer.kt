@@ -29,6 +29,21 @@ data class MusicResponsiveListItemRenderer(
 ) {
     val isSong: Boolean
         get() = navigationEndpoint == null || navigationEndpoint.watchEndpoint != null || navigationEndpoint.watchPlaylistEndpoint != null
+
+    /**
+     * A podcast episode among the results. It passes for a song, but its second column is a date
+     * and the show ("Episode • 8 Sept • Some Podcast"), not an artist and an album. Told by the
+     * video type its play endpoints carry, which does not depend on the listener's language the
+     * way the "Episode" label does.
+     */
+    val isPodcastEpisode: Boolean
+        get() {
+            fun WatchEndpoint?.episode() = this?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType ==
+                WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.MUSIC_VIDEO_TYPE_PODCAST_EPISODE
+            return navigationEndpoint?.watchEndpoint.episode() ||
+                overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint.episode() ||
+                flexColumns.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs.orEmpty().any { it.navigationEndpoint?.watchEndpoint.episode() }
+        }
     val isPlaylist: Boolean
         get() = navigationEndpoint?.browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType == MUSIC_PAGE_TYPE_PLAYLIST
     val isAlbum: Boolean

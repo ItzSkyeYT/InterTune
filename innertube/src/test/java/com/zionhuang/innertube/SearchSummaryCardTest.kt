@@ -48,6 +48,23 @@ class SearchSummaryCardTest {
     }
 
     @Test
+    fun `a podcast episode takes its show as the artist, not its date`() {
+        val episode = json.decodeFromString<MusicResponsiveListItemRenderer>(
+            """
+            {"flexColumns": [
+              {"musicResponsiveListItemFlexColumnRenderer": {"text": {"runs": [{"text": "Daft Punk's RAM", "navigationEndpoint": {"watchEndpoint": {"videoId": "ep1", "watchEndpointMusicSupportedConfigs": {"watchEndpointMusicConfig": {"musicVideoType": "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"}}}}}]}}},
+              {"musicResponsiveListItemFlexColumnRenderer": {"text": {"runs": [{"text": "Episode"}, {"text": " • "}, {"text": "8 Sept"}, {"text": " • "}, {"text": "The Music Production Podcast", "navigationEndpoint": {"browseEndpoint": {"browseId": "MPSPPLshow"}}}]}}}
+            ],
+            "playlistItemData": {"videoId": "ep1"},
+            "thumbnail": {"musicThumbnailRenderer": {"thumbnail": {"thumbnails": [{"url": "https://i/x.jpg", "width": 60, "height": 60}]}}}}
+            """.trimIndent()
+        )
+        val song = SearchSummaryPage.fromMusicResponsiveListItemRenderer(episode) as SongItem
+        assertEquals(listOf("The Music Production Podcast"), song.artists.map { it.name })
+        assertEquals(null, song.album)
+    }
+
+    @Test
     fun `an ordinary row keeps its own artist`() {
         val withArtist = """[{"text": "Song"}, {"text": " • "}, {"text": "The Weeknd", "navigationEndpoint": {"browseEndpoint": {"browseId": "UClYV6hHlupm_S_ObS1W-DYw"}}}, {"text": " • "}, {"text": "3:22"}]"""
         val song = SearchSummaryPage.fromMusicResponsiveListItemRenderer(row(withArtist), Artist("Daft Punk", null)) as SongItem

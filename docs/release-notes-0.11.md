@@ -104,6 +104,7 @@ InterTune can count this install once a day: one short message with a random nam
 ## Fixes
 
 - Search could come back empty when YouTube added a section after the results.
+- Songs listed under an artist's top search result showed their length where the artist should be, and podcast episodes showed their date.
 - A song uploaded as "Artist - Track" could lose its name and keep the artist's.
 - Replaying a shuffled playlist that had lost songs started the wrong track, then turned shuffle off.
 - **Not this song** hid every other song with the same name, for good.
