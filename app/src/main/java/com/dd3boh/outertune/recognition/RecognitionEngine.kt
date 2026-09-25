@@ -62,7 +62,23 @@ class RecognitionEngine @Inject constructor(
     private val history: RecognitionHistory,
     @ApplicationContext private val context: Context,
 ) {
-    data class Added(val title: String, val artist: String, val auto: Boolean)
+    data class Added(
+        val title: String,
+        val artist: String,
+        val auto: Boolean,
+        /**
+         * When the window it was noted from was heard, for [skipped], so taking a mashup's pieces
+         * out of that list spares a note from before the mashup: see [retract]. Zero in [added].
+         */
+        val heardAtMs: Long = 0L,
+        /** The song that went into the playlist, for [added], so taking it out takes out only it. */
+        val songId: String? = null,
+        /**
+         * For a note a playlist's run makes about a mashup, in [skipped]: the Shazam keys of its
+         * pieces, so the mashup being added takes off every note about it: see [isMashupNoteOf].
+         */
+        val keys: Set<String> = emptySet(),
+    )
 
     /**
      * What the room is playing, and where in it.
@@ -289,6 +305,15 @@ class RecognitionEngine @Inject constructor(
     private val lastHeard = mutableMapOf<String, Long>()
 
     /**
+     * The same, except that a mashup ending does not reset it, only the song going unheard for as
+     * long as [firstHeard] allows. For [appearedAt]. Two windows Shazam does not know end a mashup,
+     * and the mashup often carries on after them. Read from [firstHeard], what was noted or confirmed
+     * of a piece before the gap counted as an earlier appearance of the song, and stayed in the lists
+     * next to the mashup once it was found.
+     */
+    private val appeared = mutableMapOf<String, Long>()
+
+    /**
      * Songs that went back to their top partway through (CutWatch's RESTART), watched to see whether
      * they then play to their end. One that stops well short was an edit.
      */
@@ -390,6 +415,7 @@ class RecognitionEngine @Inject constructor(
         answeredAlone.clear()
         firstHeard.clear()
         lastHeard.clear()
+        appeared.clear()
         restarts.clear()
         confirmedAt.clear()
         unmatchedRun = 0
@@ -471,6 +497,18 @@ class RecognitionEngine @Inject constructor(
                 // meant the person was told "StandaloneCoroutine was cancelled" each time they
                 // pressed stop. Rethrown so the parent scope still unwinds properly.
                 throw t
+            } catch (t: MicrophoneListener.RecordingEnded) {
+                // Debug builds only: the recording standing in for the room has run out. That is
+                // the end of the run, as if stop had been pressed. The stream used to just end, and
+                // the state went on saying it was listening, to nothing, with the song it last named
+                // still up. A single listen's answer stays, as it does when the run halts on one.
+                // Unless the run was stopped meanwhile, which has already put everything down.
+                currentCoroutineContext().ensureActive()
+                Log.i(TAG, "The stand-in recording has ended, stopping")
+                pending = null
+                pendingVariant = null
+                publish(null)
+                _state.update { if (it is State.Listening || it is State.Confirming) State.Idle else it }
             } catch (t: Throwable) {
                 Log.w(TAG, "Listening failed", t)
                 _state.value = State.Failed(t.message ?: "microphone", heardNothing = false)
@@ -579,6 +617,10 @@ class RecognitionEngine @Inject constructor(
                 // match has to be resolved against YouTube before it can be played or added.
                 val query = outcome.track.searchQuery
                 val found = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG)
+                // Stopped while the search ran. YouTube.search catches the cancellation, as onMix
+                // allows for, so the rest went on for a run that was over: the song went back up as
+                // playing after stop had taken it down, and stayed, with no length to run out.
+                currentCoroutineContext().ensureActive()
                 val items = found.getOrNull()?.items
                 val candidates = items?.filterIsInstance<SongItem>()?.take(4).orEmpty()
                 // An empty list here was one line in the log and three different bugs underneath
@@ -664,8 +706,11 @@ class RecognitionEngine @Inject constructor(
                         }
                     }
                     // As far back as a return still counts, so a piece away that long is still the
-                    // same appearance to both.
-                    if (lastHeard[key]?.let { heardAtMs - it > MixWatch.SPAN_MS } != false) firstHeard[key] = heardAtMs
+                    // same appearance to both. A mashup ending starts firstHeard over, and not
+                    // appeared: see there.
+                    val back = lastHeard[key]?.let { heardAtMs - it <= MixWatch.SPAN_MS } == true
+                    if (!back) appeared[key] = heardAtMs
+                    if (!back || key !in firstHeard) firstHeard[key] = heardAtMs
                     lastHeard[key] = heardAtMs
                     checkRestarts(heardAtMs, ended = false, playing = key)
                     val sighting = MixWatch.Sighting(
@@ -855,7 +900,7 @@ class RecognitionEngine @Inject constructor(
                     if (_skipped.value.none { it.title == name }) {
                         Log.i(TAG, "Unsure about '$name' (best was '${best?.title}' by " +
                                 "'${best?.artists?.joinToString { a -> a.name }}'), noting it")
-                        _skipped.value += Added(name, outcome.track.artist.orEmpty(), auto = false)
+                        _skipped.value += Added(name, outcome.track.artist.orEmpty(), auto = false, heardAtMs = heardAtMs)
                     }
                     return
                 }
@@ -948,7 +993,7 @@ class RecognitionEngine @Inject constructor(
         val target = playlist ?: return record(song)
         if (!known.add(song.id)) return
         synchronized(owned) { owned += song.id }
-        _added.value += Added(song.title, song.artists.joinToString { it.name }, auto = continuous.value)
+        _added.value += Added(song.title, song.artists.joinToString { it.name }, auto = continuous.value, songId = song.id)
         Log.i(TAG, "Added '${song.title}'")
 
         scope.launch(Dispatchers.IO) {
@@ -1060,6 +1105,11 @@ class RecognitionEngine @Inject constructor(
                 current.found = winner
                 current.endsAtMs = endOf(current.startedMs, winner)
                 dropChoice(current.id)
+                // The sheet's stand-in for the choice goes the same way, from every run of this
+                // mashup, and so does a note naming this very upload. Left, it listed the mashup as
+                // heard and not added right above the same mashup, added.
+                val mashup = context.getString(R.string.recognise_mashup)
+                _skipped.update { list -> list.filterNot { isMashupNoteOf(it, current.keys, winner.title, mashup) } }
                 add(winner)
             }
             // The choice is drawn by the screen, whose runs have no playlist. The sheet shows the
@@ -1068,7 +1118,7 @@ class RecognitionEngine @Inject constructor(
             else -> {
                 val name = winner?.title ?: titles.joinToString(" + ")
                 if (_skipped.value.none { it.title == name }) {
-                    _skipped.value += Added(name, context.getString(R.string.recognise_mashup), auto = false)
+                    _skipped.value += Added(name, context.getString(R.string.recognise_mashup), auto = false, heardAtMs = now, keys = current.keys.toSet())
                 }
             }
         }
@@ -1146,7 +1196,7 @@ class RecognitionEngine @Inject constructor(
             choices.isNotEmpty() && playlist == null -> offerChoice(current, listOf(piece.title))
             choices.isNotEmpty() || !failed -> {
                 if (_skipped.value.none { it.title == piece.title }) {
-                    _skipped.value += Added(piece.title, context.getString(R.string.recognise_edit), auto = false)
+                    _skipped.value += Added(piece.title, context.getString(R.string.recognise_edit), auto = false, heardAtMs = now)
                 }
             }
         }
@@ -1170,7 +1220,8 @@ class RecognitionEngine @Inject constructor(
         cutWatch.forget(over.keys)
         versionWatch.forget(over.keys)
         unmatchedRun = 0
-        over.keys.forEach { firstHeard.remove(it); lastHeard.remove(it) }
+        // When they were last heard stays, for appeared, which only a long enough gap resets.
+        over.keys.forEach { firstHeard.remove(it) }
         if (!over.settled && over.candidates.isNotEmpty()) {
             val heard = heardSeconds(over.startedMs, over.lastHeardMs)
             // A version Shazam does not know: its remixes still before mashups of it with others.
@@ -1234,6 +1285,9 @@ class RecognitionEngine @Inject constructor(
     private fun startOf(keys: Collection<String>, now: Long): Long =
         keys.mapNotNull { firstHeard[it] }.minOrNull() ?: now
 
+    /** Where [retract] starts taking things back for [piece]: see [appearanceStart]. */
+    private fun appearedAt(piece: MixWatch.Sighting): Long = appearanceStart(appeared[piece.key] ?: 0L, windowMs)
+
     /** From the first window of it to the end of the last, in seconds. */
     private fun heardSeconds(startedMs: Long, lastMs: Long): Double = (lastMs - startedMs + windowMs) / 1000.0
 
@@ -1269,15 +1323,18 @@ class RecognitionEngine @Inject constructor(
         // By song, since a remix's first piece is kept under its bare title: "Lean On", where the
         // list said "Lean On (ATAX Remix)".
         // Not the notes this makes itself about a remix or a mashup it could not find.
+        // Only notes from this appearance of the song, as with what was confirmed below. From any
+        // time, an unsure Stay by Rihanna noted twenty minutes earlier went when a mashup with the
+        // Kid LAROI's Stay in it was found, and so did an earlier play of the same song on its own,
+        // which the question does not cover.
         val notes = setOf(context.getString(R.string.recognise_edit), context.getString(R.string.recognise_mashup))
         _skipped.update { list ->
-            list.filterNot { heard -> heard.artist !in notes && pieces.any { MixSearch.sameSong(it.title, heard.title) } }
+            list.filterNot { heard -> heard.artist !in notes && pieces.any { isNoteOf(heard, it, appearedAt(it)) } }
         }
         // Only what was confirmed during this appearance of the song. The same song played on its
         // own earlier in the evening was a real play, and stays.
         val songs = pieces.mapNotNull { piece ->
-            val since = (firstHeard[piece.key] ?: 0L) - windowMs
-            if ((confirmedAt[piece.key] ?: Long.MIN_VALUE) >= since) {
+            if ((confirmedAt[piece.key] ?: Long.MIN_VALUE) >= appearedAt(piece)) {
                 confirmedAt.remove(piece.key)
                 confirmed.remove(piece.key)
             } else null
@@ -1290,7 +1347,9 @@ class RecognitionEngine @Inject constructor(
         if (ids.isEmpty()) return
         Log.i(TAG, "Taking out ${songs.filter { it.id in ids }.joinToString { "'${it.title}'" }}, pieces of a mashup")
         _recognised.update { list -> list.filterNot { it.id in ids } }
-        _added.update { list -> list.filterNot { added -> songs.any { it.id in ids && it.title == added.title } } }
+        // By the song, not its title: Rihanna's Stay, added earlier, went from the list along with
+        // the Kid LAROI's once a mashup took his out, though it was still in the playlist.
+        _added.update { list -> list.filterNot { it.songId in ids } }
         known.removeAll(ids)
         val rows = synchronized(written) { written.filter { it.first in ids }.also { written.removeAll(it) } }
         if (rows.isEmpty()) return
@@ -1389,6 +1448,44 @@ class RecognitionEngine @Inject constructor(
         const val ONCE_MAX_MISSES = 3
 
         private const val TAG = "RecognitionEngine"
+
+        /**
+         * Whether [note], from the list of what was heard and not added, is [piece]: the same
+         * song, noted at or after [sinceMs].
+         *
+         * By title whoever each is credited to, since Shazam credits a remix to whoever made it: the
+         * Averez remix of Lean On came through as "Lean On" by DjSunnymega (see
+         * [MixSearch.distinctSongs]). Kept for its credit, that note stayed next to the Robin Schulz
+         * remix's, as if it were a second thing heard. [sinceMs] already spares an earlier play,
+         * and another song of the same name within a window of this one is the rarer thing.
+         */
+        internal fun isNoteOf(note: Added, piece: MixWatch.Sighting, sinceMs: Long): Boolean =
+            note.heardAtMs >= sinceMs && MixSearch.sameSong(piece.title, note.title)
+
+        /**
+         * Whether [note], from the list of what was heard and not added, is a playlist's run's
+         * stand-in for the choice about a mashup of [keys], found to be [upload]: a [mashup] note
+         * naming that upload, or about pieces that are all among [keys].
+         *
+         * Not only by name. A quiet spell ends a mashup, and when it carries on, what comes next is
+         * a new one to the engine, which names its pieces in the order it now has them: a run noted
+         * "Stay + Peaches", then "Peaches + Stay", and taking off only the second left the first
+         * next to the mashup, added. The pieces must all be this mashup's, which is also how
+         * [answered] tells the same mashup heard again: one that shares a single song with it keeps
+         * its note.
+         */
+        internal fun isMashupNoteOf(note: Added, keys: Set<String>, upload: String, mashup: String): Boolean =
+            note.artist == mashup && (note.title == upload || (note.keys.isNotEmpty() && keys.containsAll(note.keys)))
+
+        /**
+         * Where [retract] starts taking back what was noted or confirmed of a song first heard at
+         * [firstHeardMs] this time round: a window and a half before. The window is for another
+         * entry of the same song, which can have been noted or confirmed the window before this one
+         * was first heard. The half is because windows are never exactly [windowMs] apart, each
+         * being timed from the clock when it was cut: allowed one window to the millisecond, a note
+         * from 12.005 s before stayed.
+         */
+        internal fun appearanceStart(firstHeardMs: Long, windowMs: Long): Long = firstHeardMs - windowMs * 3 / 2
 
         /**
          * Listen windows a first sighting stays confirmable for. The second listen normally lands
