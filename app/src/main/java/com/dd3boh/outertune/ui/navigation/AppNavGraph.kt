@@ -76,7 +76,9 @@ import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourState
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.tourAll
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
@@ -91,6 +93,8 @@ fun NavGraphBuilder.appDestinations(
     searchActive: () -> Boolean,
     onSearchActiveChange: (Boolean) -> Unit,
     tourState: TourState,
+    /** Outlives every destination, for work a destination starts and then pops itself before. */
+    appScope: CoroutineScope,
 ) {
         screen(Screens.Home.route) {
             HomeScreen(navController)
@@ -298,11 +302,19 @@ fun NavGraphBuilder.appDestinations(
                 // so a slow frame after popping back used to drop all
                 // of them, and the menu entry then did nothing at all
                 // with nothing on screen to say why.
-                withTimeoutOrNull(4000) {
-                    while (TourTargets[Tour.SEARCH_BAR] == null) delay(50)
+                //
+                // In the app's scope, not this effect's: this
+                // destination has just popped itself, and its effect
+                // is cancelled when its exit animation ends, a third
+                // of a second later, which a slow first frame on Home
+                // outlasts.
+                appScope.launch {
+                    withTimeoutOrNull(4000) {
+                        while (TourTargets[Tour.SEARCH_BAR] == null) delay(50)
+                    }
+                    delay(150)
+                    tourState.start(tourAll())
                 }
-                delay(150)
-                tourState.start(tourAll())
             }
         }
         screen("recognition") {

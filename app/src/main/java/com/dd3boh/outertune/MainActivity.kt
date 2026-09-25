@@ -994,6 +994,7 @@ class MainActivity : ComponentActivity() {
                                         searchActive = { searchActive },
                                         onSearchActiveChange = { searchActive = it },
                                         tourState = tourState,
+                                        appScope = coroutineScope,
                                     )
                                 }
                             }
