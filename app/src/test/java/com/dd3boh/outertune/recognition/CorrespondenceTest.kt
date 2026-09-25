@@ -127,6 +127,19 @@ class CorrespondenceTest {
         ).forEach { assertFalse(it, isDjMix(it)) }
     }
 
+    /**
+     * The Play & Win production of Inna's Club Rocker, replayed from a file on 25 Sep: every
+     * offset Shazam gave into "The Inna (Special Remix)", and the one window it named Club Rocker.
+     */
+    @Test
+    fun aRecordingLongerThanAnySongIsNotTheSong() {
+        val inna = listOf(646.7, 658.7, 670.7, 682.7, 694.7, 706.7, 718.7, 730.7, 742.7, 677.8, 652.3, 711.2, 723.2, 735.2, 652.3, 726.2)
+        assertTrue(inna.all { isDjMix("The Inna (Special Remix)", it) })
+        assertFalse(isDjMix("Club Rocker (feat. Florida)", 164.8))
+        // The furthest into a recording any other window of the replays landed, a long remix.
+        assertFalse(isDjMix("Back Down (Off Key Remix)", 387.2))
+    }
+
     /** One track as Shazam places it, [offsetSeconds] into the reference recording. */
     private fun heard(offsetSeconds: Double, key: String? = "k", title: String = "Children") = Recognised(
         title = title,
