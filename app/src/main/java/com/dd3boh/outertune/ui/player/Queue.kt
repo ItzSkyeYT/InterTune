@@ -403,20 +403,30 @@ fun BoxScope.QueueContent(
             WindowInsets(top = ListItemHeight, bottom = ListItemHeight)
         ).asPaddingValues()
     ) { from, to ->
+        // Positions in the queue, found by the rows' keys. The indices handed over are the list's,
+        // and the adaptive queue's note sits above the songs as a row of its own, so every move
+        // landed one song off, and dragging the last song up asked for a position past the end of
+        // the queue and crashed.
+        val fromIndex = mutableSongs.indexOfFirst { it.hashCode() == from.key }
+        val toIndex = mutableSongs.indexOfFirst { it.hashCode() == to.key }
+        if (fromIndex < 0 || toIndex < 0) return@rememberReorderableLazyListState
         val currentDragInfo = dragInfo
         dragInfo = if (currentDragInfo == null) {
-            from.index to to.index
+            fromIndex to toIndex
         } else {
-            currentDragInfo.first to to.index
+            currentDragInfo.first to toIndex
         }
-        mutableSongs.move(from.index, to.index)
+        mutableSongs.move(fromIndex, toIndex)
     }
     LaunchedEffect(reorderableState.isAnyItemDragging) {
         if (!reorderableState.isAnyItemDragging) {
             dragInfo?.let { (from, to) ->
-                if (from == to) return@LaunchedEffect
-                qb.moveSong(from, to)
-                playerConnection.player.moveMediaItem(from, to)
+                if (from != to) {
+                    qb.moveSong(from, to)
+                    playerConnection.player.moveMediaItem(from, to)
+                }
+                // Cleared either way. A drag dropped where it started used to leave it set, and
+                // the next drag then moved from where the last one had begun.
                 dragInfo = null
             }
         }
