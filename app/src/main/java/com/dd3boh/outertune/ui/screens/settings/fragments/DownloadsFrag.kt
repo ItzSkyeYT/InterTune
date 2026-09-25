@@ -188,12 +188,23 @@ fun ColumnScope.DownloadsFrag() {
     PreferenceEntry(
         title = { Text(stringResource(R.string.liked_autodownload_backfill_title)) },
         description = when (val st = likedDownloadState) {
+            // Failures are said out loud. A run with some failed ends short of its total, and
+            // without the count that reads as the app having lost track of them.
             is DownloadUtil.LikedDownloadState.Running ->
-                stringResource(R.string.liked_autodownload_running, st.done, st.total)
+                if (st.failed > 0) {
+                    stringResource(R.string.liked_autodownload_running_failed, st.done, st.total, st.failed)
+                } else {
+                    stringResource(R.string.liked_autodownload_running, st.done, st.total)
+                }
 
-            is DownloadUtil.LikedDownloadState.Finished ->
-                if (st.stoppedEarly) stringResource(R.string.liked_autodownload_stopped, st.done)
-                else stringResource(R.string.liked_autodownload_finished, st.done)
+            is DownloadUtil.LikedDownloadState.Finished -> when {
+                st.stoppedEarly && st.failed > 0 ->
+                    stringResource(R.string.liked_autodownload_stopped_failed, st.done, st.failed)
+                st.stoppedEarly -> stringResource(R.string.liked_autodownload_stopped, st.done)
+                st.failed > 0 ->
+                    stringResource(R.string.liked_autodownload_finished_failed, st.done, st.total, st.failed)
+                else -> stringResource(R.string.liked_autodownload_finished, st.done)
+            }
 
             DownloadUtil.LikedDownloadState.NeedsWifi ->
                 stringResource(R.string.liked_autodownload_needs_wifi)

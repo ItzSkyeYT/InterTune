@@ -466,6 +466,9 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="liked_autodownload_running">Downloading %1$d of %2$d. Tap to stop.</string>
     <string name="liked_autodownload_finished">Downloaded %1$d liked songs.</string>
     <string name="liked_autodownload_stopped">Stopped. %1$d downloaded, the rest were cancelled.</string>
+    <string name="liked_autodownload_running_failed">Downloading %1$d of %2$d, %3$d failed. Tap to stop.</string>
+    <string name="liked_autodownload_finished_failed">Downloaded %1$d of %2$d liked songs. %3$d failed.</string>
+    <string name="liked_autodownload_stopped_failed">Stopped. %1$d downloaded and %2$d failed, the rest were cancelled.</string>
     <string name="liked_autodownload_needs_wifi">You are not on Wi-Fi. Connect to Wi-Fi and try again.</string>
     <string name="liked_autodownload_nothing_to_do">Your liked songs are already downloaded.</string>
     <string name="liked_autodownload_blocked">Paused. YouTube has temporarily stopped serving music to this connection, so downloads are waiting rather than failing. They carry on by themselves.</string>
