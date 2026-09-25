@@ -653,7 +653,32 @@ internal object MixSearch {
         }
         if (named < 2) return null
         if (MIX_WORDS.containsMatchIn(item.title)) score += 1
+        if (namesUnheard(pieces, item)) score -= UNHEARD_PENALTY
         return score
+    }
+
+    /**
+     * Whether [item]'s title lists a song that none of [pieces] is. On the emulator on 25 Sep a
+     * mashup of Hideaway and Real Love took "Hideaway/Rather Be - Kiesza/Clean Bandit [Mashup]"
+     * without asking: named after Hideaway and after both artists, it scored as the one, though
+     * the other song in it is a different Clean Bandit song. Only a list counts, two or more names
+     * split by a slash, x, vs or plus: a mashup's own name, Damage or Rather Be A Giant, is not a
+     * song anybody could have heard, and neither is a list of artists. Kept as a candidate, since
+     * Shazam can miss a piece.
+     */
+    internal fun namesUnheard(pieces: List<MixWatch.Sighting>, item: SongItem): Boolean {
+        val titles = distinctSongs(pieces).map { words(bareTitle(it.title)) }.filter { it.isNotEmpty() }
+        val artists = pieces.mapNotNull { it.artist }.flatMap { it.split(CREDIT) }.map(::words).filter { it.isNotEmpty() }
+        fun heardTitle(name: String) = titles.any { name == it || name.startsWith("$it ") }
+        fun known(name: String) = heardTitle(name) || artists.any { name == it || name.startsWith("$it ") }
+        // A list of titles, which has one of the heard songs in it. A list of artists is credits:
+        // Damage's upload lists Slipknot beside Linkin Park and Eminem, and Shazam can miss a piece.
+        return item.title.replace(Regex("\\([^)]*\\)|\\[[^]]*]"), " ")
+            .split(Regex("\\s+-\\s+"))
+            .any { side ->
+                val names = side.split(LIST).map(::words).filter { it.isNotEmpty() }
+                names.size >= 2 && names.any(::heardTitle) && names.any { !known(it) }
+            }
     }
 
     /** "No Love (feat. Lil Wayne)" is "No Love", and so on. */
@@ -675,6 +700,11 @@ internal object MixSearch {
         .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
         .replace(Regex("\\s+"), " ")
         .trim()
+
+    /** Enough to keep an upload that names an unheard song from being taken without asking. */
+    private const val UNHEARD_PENALTY = 2
+    private val LIST = Regex("\\s*/\\s*|\\s+x\\s+|\\s+vs\\.?\\s+|\\s+\\+\\s+", RegexOption.IGNORE_CASE)
+    private val CREDIT = Regex("\\s*(,|&| feat\\.? | ft\\.? | featuring | x | with )\\s*", RegexOption.IGNORE_CASE)
 
     private val SEVERAL = Regex("mash ?up|medley|megamix|\\bx\\b|\\bvs\\.?(\\s|$)", RegexOption.IGNORE_CASE)
 

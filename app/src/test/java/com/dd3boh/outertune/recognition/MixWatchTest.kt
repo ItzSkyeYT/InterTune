@@ -210,6 +210,23 @@ class MixWatchTest {
         assertEquals(damageLyrics.id, MixSearch.clearWinner(ranked)?.id)
     }
 
+    @Test
+    fun aMashupNamingASongNobodyHeardIsNotTakenWithoutAsking() {
+        // Hideaway and Real Love cut back and forth, run on the emulator on 25 Sep.
+        val pieces = listOf(
+            MixWatch.Sighting("hideaway", "Hideaway", "Kiesza", 0L),
+            MixWatch.Sighting("reallove", "Real Love", "Clean Bandit & Jess Glynne", 24_000L),
+        )
+        val ratherBe = video("rb", "Hideaway/Rather Be - Kiesza/Clean Bandit [Mashup]", "someone")
+        val giant = video("giant", "Kiesza vs. Clean Bandit ft. Jess Glynne - Rather Be A Giant", "someone")
+        assertTrue(MixSearch.namesUnheard(pieces, ratherBe))
+        assertFalse("a mashup's own name is not a song", MixSearch.namesUnheard(pieces, giant))
+        assertNull(MixSearch.clearWinner(MixSearch.rank(pieces, listOf(listOf(ratherBe, giant), listOf(ratherBe)))))
+        // The Damage uploads list only artists and pieces that were heard.
+        val damagePieces = listOf(sighting(faint, 0), sighting(noLove, 12))
+        listOf(damage, damageLyrics, otherMashup).forEach { assertFalse(it.title, MixSearch.namesUnheard(damagePieces, it)) }
+    }
+
     /** Faint's windows from the second Damage run, 24 Sep 12:56: offset, skew, seconds in. */
     private val faintCuts = listOf(
         Triple(-2.2, -0.0016, 0), Triple(31.1, -0.0002, 12), Triple(43.1, 0.0003, 24),
