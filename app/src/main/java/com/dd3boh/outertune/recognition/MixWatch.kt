@@ -665,6 +665,21 @@ internal object MixSearch {
     /** Whether two titles name the same song, whatever edit or entry each is. */
     fun sameSong(a: String, b: String): Boolean = words(bareTitle(a)).let { it.isNotEmpty() && it == words(bareTitle(b)) }
 
+    /**
+     * Whether two credits could be one song's: they share a name, or one of them is missing and so
+     * has nothing to disagree with. A title alone is not enough to go on: Stay is a Rihanna song
+     * and a Kid LAROI one, and neither is the other because both are called Stay.
+     */
+    fun artistsAgree(a: String?, b: String?): Boolean {
+        val first = credits(a)
+        val second = credits(b)
+        return first.isEmpty() || second.isEmpty() || first.any { it in second }
+    }
+
+    /** Every name in a credit, as words: "Rihanna feat. Mikky Ekko" is Rihanna and Mikky Ekko. */
+    private fun credits(artist: String?): Set<String> =
+        artist.orEmpty().split(CREDIT).map(::words).filter { it.isNotEmpty() }.toSet()
+
     /** Whether [item] names [piece], by its title or its artist. */
     fun names(piece: MixWatch.Sighting, item: SongItem): Boolean {
         val text = " " + words(item.title + " " + item.artists.joinToString(" ") { it.name }) + " "

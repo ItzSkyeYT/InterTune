@@ -61,7 +61,16 @@ class RecognitionEngine @Inject constructor(
     private val history: RecognitionHistory,
     @ApplicationContext private val context: Context,
 ) {
-    data class Added(val title: String, val artist: String, val auto: Boolean)
+    data class Added(
+        val title: String,
+        val artist: String,
+        val auto: Boolean,
+        /**
+         * When the window it was noted from was heard, for [skipped], so taking a mashup's pieces
+         * out of that list spares a note from before the mashup: see [retract]. Zero in [added].
+         */
+        val heardAtMs: Long = 0L,
+    )
 
     /**
      * What the room is playing, and where in it.
@@ -823,7 +832,7 @@ class RecognitionEngine @Inject constructor(
                     if (_skipped.value.none { it.title == name }) {
                         Log.i(TAG, "Unsure about '$name' (best was '${best?.title}' by " +
                                 "'${best?.artists?.joinToString { a -> a.name }}'), noting it")
-                        _skipped.value += Added(name, outcome.track.artist.orEmpty(), auto = false)
+                        _skipped.value += Added(name, outcome.track.artist.orEmpty(), auto = false, heardAtMs = heardAtMs)
                     }
                     return
                 }
@@ -1036,7 +1045,7 @@ class RecognitionEngine @Inject constructor(
             else -> {
                 val name = winner?.title ?: titles.joinToString(" + ")
                 if (_skipped.value.none { it.title == name }) {
-                    _skipped.value += Added(name, context.getString(R.string.recognise_mashup), auto = false)
+                    _skipped.value += Added(name, context.getString(R.string.recognise_mashup), auto = false, heardAtMs = now)
                 }
             }
         }
@@ -1114,7 +1123,7 @@ class RecognitionEngine @Inject constructor(
             choices.isNotEmpty() && playlist == null -> offerChoice(current, listOf(piece.title))
             choices.isNotEmpty() || !failed -> {
                 if (_skipped.value.none { it.title == piece.title }) {
-                    _skipped.value += Added(piece.title, context.getString(R.string.recognise_edit), auto = false)
+                    _skipped.value += Added(piece.title, context.getString(R.string.recognise_edit), auto = false, heardAtMs = now)
                 }
             }
         }
@@ -1202,6 +1211,13 @@ class RecognitionEngine @Inject constructor(
     private fun startOf(keys: Collection<String>, now: Long): Long =
         keys.mapNotNull { firstHeard[it] }.minOrNull() ?: now
 
+    /**
+     * When [piece] was first heard this time round, less a window: where [retract] starts taking
+     * things back. The window is for another entry of the same song, which can have been noted or
+     * confirmed the window before this one was first heard.
+     */
+    private fun appearedAt(piece: MixWatch.Sighting): Long = (firstHeard[piece.key] ?: 0L) - windowMs
+
     /** From the first window of it to the end of the last, in seconds. */
     private fun heardSeconds(startedMs: Long, lastMs: Long): Double = (lastMs - startedMs + windowMs) / 1000.0
 
@@ -1237,15 +1253,18 @@ class RecognitionEngine @Inject constructor(
         // By song, since a remix's first piece is kept under its bare title: "Lean On", where the
         // list said "Lean On (ATAX Remix)".
         // Not the notes this makes itself about a remix or a mashup it could not find.
+        // Only notes from this appearance of the song, as with what was confirmed below, and by
+        // the same artist when both name one. By title alone, an unsure Stay by Rihanna noted
+        // twenty minutes earlier went when a mashup with the Kid LAROI's Stay in it was found, and
+        // so did an earlier play of the same song on its own, which the question does not cover.
         val notes = setOf(context.getString(R.string.recognise_edit), context.getString(R.string.recognise_mashup))
         _skipped.update { list ->
-            list.filterNot { heard -> heard.artist !in notes && pieces.any { MixSearch.sameSong(it.title, heard.title) } }
+            list.filterNot { heard -> heard.artist !in notes && pieces.any { isNoteOf(heard, it, appearedAt(it)) } }
         }
         // Only what was confirmed during this appearance of the song. The same song played on its
         // own earlier in the evening was a real play, and stays.
         val songs = pieces.mapNotNull { piece ->
-            val since = (firstHeard[piece.key] ?: 0L) - windowMs
-            if ((confirmedAt[piece.key] ?: Long.MIN_VALUE) >= since) {
+            if ((confirmedAt[piece.key] ?: Long.MIN_VALUE) >= appearedAt(piece)) {
                 confirmedAt.remove(piece.key)
                 confirmed.remove(piece.key)
             } else null
@@ -1347,6 +1366,14 @@ class RecognitionEngine @Inject constructor(
 
     companion object {
         private const val TAG = "RecognitionEngine"
+
+        /**
+         * Whether [note], from the list of what was heard and not added, is [piece]: the same
+         * song, by the same artist when both name one, noted at or after [sinceMs].
+         */
+        internal fun isNoteOf(note: Added, piece: MixWatch.Sighting, sinceMs: Long): Boolean =
+            note.heardAtMs >= sinceMs && MixSearch.sameSong(piece.title, note.title) &&
+                    MixSearch.artistsAgree(piece.artist, note.artist)
 
         /**
          * Listen windows a first sighting stays confirmable for. The second listen normally lands
