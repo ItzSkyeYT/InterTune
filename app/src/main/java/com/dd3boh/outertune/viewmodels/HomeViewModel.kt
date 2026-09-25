@@ -885,7 +885,7 @@ class HomeViewModel @Inject constructor(
     private var lifted: QuickPicksShelf.Lift? = null
 
     @Volatile private var pendingRefresh = false
-    private var pendingRefreshForce = false
+    @Volatile private var pendingRefreshForce = false
     private val previousHomePage = MutableStateFlow<HomePage?>(null)
     val explorePage = MutableStateFlow<ExplorePage?>(null)
     val playlists = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true)
@@ -1353,8 +1353,10 @@ class HomeViewModel @Inject constructor(
      */
     fun refresh(force: Boolean = false, localOnly: Boolean = false) {
         if (isRefreshing.value) {
-            pendingRefresh = true
+            // Force first: the loop reads pendingRefresh and then the force, so written the other way
+            // round a pull landing in between ran as an unforced pass, which the back-off can skip.
             pendingRefreshForce = pendingRefreshForce || force
+            pendingRefresh = true
             return
         }
         viewModelScope.launch(syncCoroutine) {
