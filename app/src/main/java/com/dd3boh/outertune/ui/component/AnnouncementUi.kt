@@ -145,7 +145,9 @@ fun AnnouncementDialog(
             // again, whether or not they followed the link.
             announcement.actionLabel?.let { label ->
                 TextButton(onClick = {
-                    announcement.actionUrl?.let(uriHandler::openUri)
+                    // A phone with no browser still throws on a good link; a missed link is not
+                    // worth the app.
+                    announcement.actionUrl?.let { runCatching { uriHandler.openUri(it) } }
                     onDismiss()
                 }) { Text(label) }
             }
