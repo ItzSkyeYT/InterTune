@@ -21,9 +21,10 @@ import java.sql.DriverManager
  * column changes.
  */
 object SchemaDb {
-    fun open(url: String = "jdbc:sqlite::memory:"): Connection {
+    /** At [version], an older one to test the migrations from what people are running. */
+    fun open(url: String = "jdbc:sqlite::memory:", version: Int = MUSIC_DATABASE_VERSION): Connection {
         val db = DriverManager.getConnection(url)
-        val schemaFile = File("schemas/com.dd3boh.outertune.db.InternalDatabase/$MUSIC_DATABASE_VERSION.json")
+        val schemaFile = File("schemas/com.dd3boh.outertune.db.InternalDatabase/$version.json")
         val schema = Json.parseToJsonElement(schemaFile.readText()).jsonObject["database"]!!.jsonObject
         db.createStatement().use { st ->
             st.execute("PRAGMA foreign_keys = ON")
@@ -33,6 +34,9 @@ object SchemaDb {
                 entity["indices"]?.jsonArray?.forEach { index ->
                     st.execute(index.jsonObject["createSql"]!!.jsonPrimitive.content.replace("\${TABLE_NAME}", table))
                 }
+            }
+            for (view in schema["views"]?.jsonArray.orEmpty().map { it.jsonObject }) {
+                st.execute(view["createSql"]!!.jsonPrimitive.content.replace("\${VIEW_NAME}", view["viewName"]!!.jsonPrimitive.content))
             }
         }
         return db
