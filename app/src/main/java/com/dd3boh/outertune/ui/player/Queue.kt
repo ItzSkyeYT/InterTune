@@ -912,6 +912,12 @@ fun BoxScope.QueueContent(
                         confirmValueChange = { dismissValue ->
                             // Read once, so the removal and the log below agree on the row.
                             val swipedIndex = currentIndex
+                            // A row whose song has already left the queue (a search result stays on
+                            // screen until the results refresh) has no place of its own any more,
+                            // and a swipe on it must not take another song with it.
+                            if (dismissValue != SwipeToDismissBoxValue.Settled && mutableSongs.getOrNull(swipedIndex) != window) {
+                                return@rememberSwipeToDismissBoxState false
+                            }
                             when (dismissValue) {
                                 SwipeToDismissBoxValue.StartToEnd -> {
                                     if (qb.removeCurrentQueueSong(swipedIndex)) {
