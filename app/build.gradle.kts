@@ -145,6 +145,15 @@ android {
             applicationIdSuffix = ".debug"
         }
 
+        // A debug build that installs beside the release and the debug build, for trying a
+        // release candidate on a fresh profile without touching the debug install that holds a
+        // real library. Its name and shortcuts are in src/preview.
+        create("preview") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".preview"
+            matchingFallbacks += listOf("debug")
+        }
+
         // userdebug is release builds without minify
         create("userdebug") {
             initWith(getByName("release"))
