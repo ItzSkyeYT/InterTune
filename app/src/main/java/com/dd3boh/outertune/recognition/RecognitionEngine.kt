@@ -280,6 +280,8 @@ class RecognitionEngine @Inject constructor(
          * then its remixes come before mashups of it with other songs. See [MixSearch.rankSingle].
          */
         var unknownVersion: Boolean = false,
+        /** What a playlist's run put in the unsure list about it, in place of the screen's choice. */
+        var noted: String? = null,
     ) { val id = ++mixIds }
     private var mix: ActiveMix? = null
 
@@ -1039,6 +1041,12 @@ class RecognitionEngine @Inject constructor(
                 current.found = winner
                 current.endsAtMs = endOf(current.startedMs, winner)
                 dropChoice(current.id)
+                // The sheet's stand-in for the choice goes the same way, and so does a note naming
+                // this very upload. Left, it listed the mashup as heard and not added right above
+                // the same mashup, added.
+                val mashup = context.getString(R.string.recognise_mashup)
+                val names = setOfNotNull(current.noted, winner.title)
+                _skipped.update { list -> list.filterNot { it.artist == mashup && it.title in names } }
                 add(winner)
             }
             // The choice is drawn by the screen, whose runs have no playlist. The sheet shows the
@@ -1046,6 +1054,7 @@ class RecognitionEngine @Inject constructor(
             playlist == null -> offerChoice(current, titles)
             else -> {
                 val name = winner?.title ?: titles.joinToString(" + ")
+                current.noted = name
                 if (_skipped.value.none { it.title == name }) {
                     _skipped.value += Added(name, context.getString(R.string.recognise_mashup), auto = false, heardAtMs = now)
                 }
