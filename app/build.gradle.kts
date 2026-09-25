@@ -22,17 +22,26 @@ if (keystorePropertiesFile.exists()) {
 }
 
 /**
- * Last.fm credentials, from last.fm/api/account/create.
+ * Credentials for the maintainer's services: the Last.fm API account and the polls' gist and Umami
+ * site.
  *
- * Kept in local.properties, which is gitignored, so the fork's key never lands in a public repo.
- * Absent is a supported state: the build works, and the Last.fm setting hides itself rather than
- * offering a login that cannot succeed.
+ * In services.properties, which is committed. They used to live in the gitignored local.properties,
+ * and that made a reproducible F-Droid build impossible: a build from source could never contain
+ * what the published APK did. local.properties is still read as a fallback, for a checkout whose
+ * services.properties has not been filled in. Absent is a supported state: the build works, and
+ * the features hide themselves rather than offering what cannot succeed.
  */
+val servicesProperties = Properties()
+rootProject.file("services.properties").takeIf { it.exists() }?.let { file ->
+    FileInputStream(file).use { servicesProperties.load(it) }
+}
 val localPropertiesFile = rootProject.file("local.properties")
 val localProperties = Properties()
 if (localPropertiesFile.exists()) {
     localProperties.load(FileInputStream(localPropertiesFile))
 }
+fun service(key: String): String =
+    servicesProperties.getProperty(key)?.takeIf { it.isNotBlank() } ?: localProperties.getProperty(key, "")
 
 android {
     namespace = "com.dd3boh.outertune"
@@ -42,8 +51,8 @@ android {
         applicationId = "dev.skye.intertune"
         minSdk = 24
         targetSdk = 36
-        versionCode = 87
-        versionName = "0.10.9"
+        versionCode = 88
+        versionName = "0.10.9.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Obfuscated, not encrypted, and the difference matters. Anything the app can read, so
@@ -71,12 +80,12 @@ android {
         buildConfigField(
             "int[]",
             "LASTFM_API_KEY",
-            obfuscated(localProperties.getProperty("lastfm.apiKey", ""))
+            obfuscated(service("lastfm.apiKey"))
         )
         buildConfigField(
             "int[]",
             "LASTFM_API_SECRET",
-            obfuscated(localProperties.getProperty("lastfm.apiSecret", ""))
+            obfuscated(service("lastfm.apiSecret"))
         )
 
         // Polls, same treatment and the same honesty about it. None of these is a secret, but the
@@ -85,17 +94,17 @@ android {
         buildConfigField(
             "int[]",
             "POLLS_URL",
-            obfuscated(localProperties.getProperty("polls.gistUrl", ""))
+            obfuscated(service("polls.gistUrl"))
         )
         buildConfigField(
             "int[]",
             "POLLS_UMAMI_URL",
-            obfuscated(localProperties.getProperty("polls.umamiUrl", ""))
+            obfuscated(service("polls.umamiUrl"))
         )
         buildConfigField(
             "int[]",
             "POLLS_UMAMI_WEBSITE_ID",
-            obfuscated(localProperties.getProperty("polls.umamiWebsiteId", ""))
+            obfuscated(service("polls.umamiWebsiteId"))
         )
     }
 
@@ -188,13 +197,13 @@ android {
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
     kotlin {
-        jvmToolchain(17)
+        jvmToolchain(21)
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
+            jvmTarget.set(JvmTarget.JVM_21)
             freeCompilerArgs.add("-Xannotation-default-target=param-property")
 
         }
@@ -349,4 +358,11 @@ afterEvaluate {
     dependencies {
         add("fullImplementation", project(":ffMetadataEx"))
     }
+}
+
+// Hilt's generated Java is compiled by its own task, which takes the JDK that runs Gradle rather
+// than the toolchain above, so a machine whose Gradle runs on 17 failed on "invalid source
+// release: 21". Every Java compile here uses the same JDK 21 as the Kotlin, as F-Droid's server does.
+tasks.withType<JavaCompile>().configureEach {
+    javaCompiler.set(javaToolchains.compilerFor { languageVersion.set(JavaLanguageVersion.of(21)) })
 }

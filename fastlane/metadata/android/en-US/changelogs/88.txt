@@ -1,0 +1,7 @@
+Version 0.10.9.1
+
+Nothing in the app changed. This is 0.10.9 built so that F-Droid can rebuild it from the source and get exactly this APK, which lets F-Droid ship the copy signed by us. Moving between the F-Droid and GitHub versions then works without reinstalling.
+
+If 0.10.9 works for you, this is the same app.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.10.9.1
