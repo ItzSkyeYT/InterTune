@@ -137,8 +137,15 @@ fun RecognitionSheet(
                 .padding(bottom = 32.dp)
         ) {
             when (val s = state) {
+                // Idle is only listening in the moment before a run's first update. Otherwise
+                // nothing is: after the microphone was refused, or a stop from the notification
+                // with the sheet still open, it pulsed at 0:00 with no button, looking like a run.
                 RecognitionEngine.State.Idle ->
-                    Listening(level = 0f, identifying = false, elapsed = elapsed)
+                    if (running) Listening(level = 0f, identifying = false, elapsed = elapsed)
+                    else Problem(
+                        text = stringResource(R.string.recognise_tap_to_listen),
+                        onRetry = { permission.launch(Manifest.permission.RECORD_AUDIO) },
+                    )
 
                 is RecognitionEngine.State.Listening -> {
                     Listening(level = s.level, identifying = s.identifying, elapsed = elapsed)
