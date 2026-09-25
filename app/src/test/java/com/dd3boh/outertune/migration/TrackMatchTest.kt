@@ -106,6 +106,19 @@ class TrackMatchTest {
     }
 
     @Test
+    fun `titles in other scripts are kept, not emptied`() {
+        assertEquals("がらくた", normalise("がらくた"))
+        assertEquals("группа крови", normalise("Группа крови"))
+
+        val best = match(
+            WantedTrack("夜に駆ける", "YOASOBI", 261),
+            listOf(song("夜に駆ける", "YOASOBI", 261), song("群青", "YOASOBI", 245)),
+        )!!
+        assertEquals("夜に駆ける", best.candidate.title)
+        assertTrue("an exact Japanese title should be confident, scored ${best.total}", best.confident)
+    }
+
+    @Test
     fun `an export with no duration can still match on name alone`() {
         // Some exporters omit the column. Refusing everything from those would be worse than
         // matching on two fields, so a missing duration is neutral rather than disqualifying.
