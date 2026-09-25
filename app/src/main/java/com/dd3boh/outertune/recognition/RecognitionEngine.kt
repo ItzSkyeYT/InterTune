@@ -211,6 +211,9 @@ class RecognitionEngine @Inject constructor(
 
     private var job: Job? = null
     private var playlist: Playlist? = null
+
+    /** Whether this run adds what it hears to a playlist, or only lists it on the screen. */
+    val addsToPlaylist: Boolean get() = playlist != null
     private var known = mutableSetOf<String>()
 
     /**
@@ -833,8 +836,14 @@ class RecognitionEngine @Inject constructor(
         val endsAt = playing?.endsAtMs() ?: return
         expiry = scope.launch {
             delay(endsAt - System.currentTimeMillis())
-            // Only if nothing has replaced it since, which a later match would have.
-            _nowPlaying.compareAndSet(playing, null)
+            // The length is the YouTube upload's, and the room's copy can run longer: an extended
+            // mix, a live intro. Taken down on the dot, a song like that vanished and came back a
+            // window later. So it stays without a length until the next window has had its say,
+            // which a match, a miss or silence all replace. Only if nothing has replaced it since.
+            val open = playing.copy(durationSeconds = null)
+            if (!_nowPlaying.compareAndSet(playing, open)) return@launch
+            delay(windowMs + LENGTH_GRACE_MS)
+            _nowPlaying.compareAndSet(open, null)
         }
     }
 
@@ -1306,6 +1315,8 @@ class RecognitionEngine @Inject constructor(
          * a ratio. Wide enough for any slowed or sped-up edit, which run between about 0.7 and 1.4,
          * and nothing like a cut to another section.
          */
+        /** How long past the next window a song outliving its upload's length stays up. */
+        private const val LENGTH_GRACE_MS = 5_000L
         private const val STEADY_MIN = 0.6
         private const val STEADY_MAX = 1.6
 

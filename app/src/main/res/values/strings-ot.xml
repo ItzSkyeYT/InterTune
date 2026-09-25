@@ -754,10 +754,15 @@ InterTune also stops lowering itself for navigation and alarms. Calls mute it ei
     <string name="recognition_service_channel">Song recognition</string>
     <string name="recognition_service_title">Listening for songs</string>
     <string name="recognition_service_none">Nothing added yet</string>
+    <string name="recognition_service_none_heard">Nothing recognised yet</string>
     <string name="recognition_service_stop">Stop</string>
     <plurals name="recognition_service_added">
         <item quantity="one">Added %1$d song</item>
         <item quantity="other">Added %1$d songs</item>
+    </plurals>
+    <plurals name="recognition_service_heard">
+        <item quantity="one">%1$d song recognised</item>
+        <item quantity="other">%1$d songs recognised</item>
     </plurals>
     <string name="recognition_listening_hint">Leave this running and it will keep adding what it hears.</string>
     <string name="recognition_skipped_count">Heard but not added: %1$d</string>

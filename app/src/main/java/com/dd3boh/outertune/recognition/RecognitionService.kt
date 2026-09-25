@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
@@ -98,6 +99,13 @@ class RecognitionService : Service() {
                 .drop(1)
                 .collect { if (engine.running.value) redraw() }
         }
+        // The count under it, for the same reason.
+        scope.launch {
+            combine(engine.added, engine.recognised) { added, heard -> added.size to heard.size }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { if (engine.running.value) redraw() }
+        }
     }
 
     /**
@@ -107,7 +115,7 @@ class RecognitionService : Service() {
     private fun redraw() {
         val notifier = NotificationManagerCompat.from(this)
         if (notifier.areNotificationsEnabled()) {
-            notifier.notify(NOTIFICATION_ID, build(engine.added.value.size))
+            notifier.notify(NOTIFICATION_ID, build())
         }
     }
 
@@ -121,7 +129,7 @@ class RecognitionService : Service() {
             return START_NOT_STICKY
         }
 
-        val notification = build(engine.added.value.size)
+        val notification = build()
         // The microphone type exists from Android 11. On 10 the two-argument call already takes the
         // types declared in the manifest, which is the same microphone flag, so nothing changes there.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -134,7 +142,7 @@ class RecognitionService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun build(added: Int): android.app.Notification {
+    private fun build(): android.app.Notification {
         val playing = engine.nowPlaying.value
         val open = PendingIntent.getActivity(
             this, 0,
@@ -147,9 +155,17 @@ class RecognitionService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
-        val counted =
+        // A playlist's run adds to it. The screen's run adds to no playlist and lists what it heard
+        // instead, where "Nothing added yet" sat under a list of songs for the whole run.
+        val counted = if (engine.addsToPlaylist) {
+            val added = engine.added.value.size
             if (added == 0) getString(R.string.recognition_service_none)
             else resources.getQuantityString(R.plurals.recognition_service_added, added, added)
+        } else {
+            val heard = engine.recognised.value.size
+            if (heard == 0) getString(R.string.recognition_service_none_heard)
+            else resources.getQuantityString(R.plurals.recognition_service_heard, heard, heard)
+        }
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.small_icon)
