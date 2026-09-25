@@ -118,6 +118,7 @@ InterTune can count this install once a day: one short message with a random nam
 - **Like all** and **Remove all likes** took the songs out of your library and made downloaded ones look not downloaded.
 - **Play** and **Shuffle** in a YouTube playlist's menu did nothing unless the playlist itself was open.
 - **Shuffle** on a local artist played three songs.
+- In a shuffled queue, moving or removing a song and then adding one to the queue jumped to a different song, and the wrong one came back after a restart.
 - Lyrics without timings started every line after the first with a comma.
 - Dragging songs with the add panel open moved the wrong rows.
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
