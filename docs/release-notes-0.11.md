@@ -33,7 +33,7 @@ InterTune can count this install once a day: one short message with a random nam
 - **Mashups and remixes.** In Keep listening it notices when a song is being cut up with others, or when Shazam keeps naming different versions of it, and looks for the mashup or remix on YouTube instead of adding the pieces. When two uploads are equally likely, it asks.
 - On headphones your music keeps playing while it listens. Only the phone's own speaker pauses, whether you listen from the search bar or from a playlist.
 - A **history** of everything it has recognised.
-- Your playlists have a listen button in their header, to fill one with what is playing around you.
+- Your playlists have a listen button in their header, to fill one with what is playing around you. If What's playing? is already listening, it says so and offers to switch, and closing it leaves that run going.
 - Settings for how long each listen lasts, whether matches are added by themselves, and whether the screen stays on.
 
 ## Home screen
@@ -112,6 +112,12 @@ InterTune can count this install once a day: one short message with a random nam
 - Saving an album, then hearing a song from it, unsaved the album.
 - An album with no songs kept its loading shimmer forever.
 - Playing one of your most played songs from Stats started the first one in the list instead.
+- Tapping a search result inside a YouTube playlist or a folder played a different song, and in a folder sometimes nothing. Remote history always played the first song of the day.
+- Searching the queue, then tapping or swiping a result, could play or remove a different song.
+- **Select all** during a search selected the whole list, so Remove like or Remove from playlist reached songs the search was hiding.
+- **Like all** and **Remove all likes** took the songs out of your library and made downloaded ones look not downloaded.
+- **Play** and **Shuffle** in a YouTube playlist's menu did nothing unless the playlist itself was open.
+- **Shuffle** on a local artist played three songs.
 - Lyrics without timings started every line after the first with a comma.
 - Dragging songs with the add panel open moved the wrong rows.
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
