@@ -94,6 +94,9 @@ class TidyPass(
         // costs the slot twice: once when it plays, again when they go and find the real one.
         if (SongTags.isPreview(itemTitle)) return@filter false
         if (freshOnly && !exemptFromJustPlayed(item) && (itemId in playedIds || key in playedKeys)) return@filter false
+        // A song already shown, or another version of one, before the artist cap: counted after,
+        // a duplicate that was about to be dropped anyway used up its artist's share.
+        if (key in seen) return@filter false
         // Order is preserved, so the ones that survive are the best of that artist rather than
         // whichever happened to come first.
         if (maxPerArtist < Int.MAX_VALUE) {

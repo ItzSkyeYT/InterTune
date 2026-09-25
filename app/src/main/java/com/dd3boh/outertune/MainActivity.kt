@@ -251,9 +251,12 @@ private fun playFromWidget(
 ): Boolean {
     if (intent?.action != WidgetCommands.ACTION_PLAY_SONG) return false
     val id = intent.getStringExtra(WidgetCommands.EXTRA_SONG_ID) ?: return false
+    // Not until the player is connected. With the app closed, the tap creates the activity and the
+    // connection arrives a moment later, so the first call has none: taking the id out before
+    // this check threw it away, and the call that came with the connection found nothing to play.
+    val connection = playerConnection ?: return true
     // Taken out of the intent, or every recomposition and every rotation plays it again.
     intent.removeExtra(WidgetCommands.EXTRA_SONG_ID)
-    val connection = playerConnection ?: return true
     val title = intent.getStringExtra(WidgetCommands.EXTRA_SONG_TITLE).orEmpty()
     val artist = intent.getStringExtra(WidgetCommands.EXTRA_SONG_ARTIST).orEmpty()
     val thumbnail = intent.getStringExtra(WidgetCommands.EXTRA_SONG_THUMBNAIL)
@@ -868,9 +871,15 @@ class MainActivity : ComponentActivity() {
                         val (walkthroughSeen, setWalkthroughSeen) =
                             rememberPreference(WalkthroughSeenVersionKey, defaultValue = 0)
                         val pendingStops = remember(walkthroughSeen) { tourFor(walkthroughSeen) }
+                        // Whether this launch opened on the wizard, read from the stored value at
+                        // the first frame. Both this and catchUpDone hold the tour back to the
+                        // next launch: keyed on them alone, the effect below ran again the moment
+                        // either closed and started the tour straight after, which every 0.10.9
+                        // upgrader would have met, since none has answered the usage count yet.
+                        val wizardThisLaunch = rememberSaveable { oobeStatus < OOBE_VERSION }
 
                         LaunchedEffect(oobeStatus, catchUpOpen, pendingStops, updatePromptVisible) {
-                            if (!catchUpOpen && !updatePromptVisible &&
+                            if (!catchUpOpen && !catchUpDone && !wizardThisLaunch && !updatePromptVisible &&
                                 oobeStatus >= OOBE_VERSION && pendingStops.isNotEmpty() &&
                                 !tourState.running
                             ) {
@@ -988,6 +997,7 @@ class MainActivity : ComponentActivity() {
                                         searchActive = { searchActive },
                                         onSearchActiveChange = { searchActive = it },
                                         tourState = tourState,
+                                        appScope = coroutineScope,
                                     )
                                 }
                             }

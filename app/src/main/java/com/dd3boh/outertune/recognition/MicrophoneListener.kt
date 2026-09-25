@@ -20,7 +20,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
@@ -62,6 +64,16 @@ class MicrophoneListener @Inject constructor(
     class Window(val samples: ShortArray, val startedAtMs: Long)
 
     /**
+     * Debug builds only: the recording standing in for the room has run out, which ends [stream].
+     *
+     * Thrown rather than ending the stream quietly, so that the engine puts the run down as if stop
+     * had been pressed: a recording played to its end is a run that is over. A class of its own
+     * because the microphone throws too, when a read fails, and that the engine reports as a
+     * failure. Only once the collector has had every window: see [stream].
+     */
+    class RecordingEnded : Exception("The stand-in recording has ended")
+
+    /**
      * Records up to [seconds], stopping early if the coroutine is cancelled.
      *
      * Returns whatever was captured before the stop rather than throwing it away, so a user who
@@ -75,9 +87,10 @@ class MicrophoneListener @Inject constructor(
         onProgress: (elapsedMs: Long, level: Float) -> Unit = { _, _ -> },
     ): ShortArray = withContext(Dispatchers.IO) {
         // The same stand-in as Keep listening's, its first window, as long as a listen would take.
+        // All of it when it is shorter than that, as a stop partway through a listen would be.
         debugRoom()?.let { room ->
             val started = System.currentTimeMillis()
-            return@withContext replay(room, seconds) { level -> onProgress(System.currentTimeMillis() - started, level) }
+            return@withContext replay(room, seconds, partial = true) { level -> onProgress(System.currentTimeMillis() - started, level) }
                 .firstOrNull()?.samples ?: ShortArray(0)
         }
         val minBuffer = AudioRecord.getMinBufferSize(
@@ -155,7 +168,8 @@ class MicrophoneListener @Inject constructor(
      * and windows are cut from the running stream instead.
      *
      * The collector's work overlaps the next window, because AudioRecord keeps filling its buffer
-     * whether anyone reads it or not. A slow collector costs freshness, never coverage.
+     * whether anyone reads it or not. A collector slower than the windows misses some rather than
+     * falling behind the room: see [freshWindows].
      */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     @SuppressLint("MissingPermission")
@@ -163,10 +177,24 @@ class MicrophoneListener @Inject constructor(
         seconds: Int = DEFAULT_SECONDS,
         onProgress: (level: Float) -> Unit = {},
     ): Flow<Window> = flow {
-        debugRoom()?.let { room ->
-            emitAll(replay(room, seconds, onProgress))
-            return@flow
-        }
+        val room = withContext(Dispatchers.IO) { debugRoom() }
+        if (room == null) return@flow emitAll(listen(seconds, onProgress))
+        // Read on the IO thread, ahead of the collector, as the microphone is, and the end thrown
+        // here, on the collector's side, once it has handled the last window. Thrown where the
+        // recording is read, it cancelled the collector at once, and the window being identified
+        // went with it: the last one, whenever the recording ran out less than an identify after it.
+        // Fresh windows here too, as on the microphone, and inside the emitAll rather than on the
+        // outer flow, which would drop the last window when the end is thrown.
+        emitAll(replay(room, seconds, onProgress = onProgress).freshWindows().flowOn(Dispatchers.IO))
+        // Played to its end. A stop is a cancellation, which threw on the way here or throws now.
+        currentCoroutineContext().ensureActive()
+        throw RecordingEnded()
+    }
+
+    /** The microphone's side of [stream]: the recorder opened once, windows cut from it until stopped. */
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    @SuppressLint("MissingPermission")
+    private fun listen(seconds: Int, onProgress: (level: Float) -> Unit): Flow<Window> = flow {
         val minBuffer = AudioRecord.getMinBufferSize(
             SIGNATURE_SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
@@ -185,8 +213,12 @@ class MicrophoneListener @Inject constructor(
                 while (written < windowSize && currentCoroutineContext().isActive) {
                     val read = recorder.read(chunk, 0, minOf(chunk.size, windowSize - written))
                     if (read <= 0) {
+                        // Thrown, not returned. Returning completed the stream as if it had been
+                        // stopped, so a dead audio server or a microphone that went away ended Keep
+                        // listening with no message at all; the engine only reports a failure it
+                        // is told about. The finally below still releases the recorder.
                         Log.w(TAG, "AudioRecord.read returned $read, ending the stream")
-                        return@flow
+                        throw java.io.IOException("AudioRecord.read returned $read")
                     }
                     chunk.copyInto(window, written, 0, read)
                     written += read
@@ -206,7 +238,7 @@ class MicrophoneListener @Inject constructor(
             recorder.release()
             Log.i(TAG, "Microphone stream closed")
         }
-    }.flowOn(Dispatchers.IO)
+    }.freshWindows().flowOn(Dispatchers.IO)
 
     /**
      * Debug builds only: a recording standing in for the room, so Keep listening can be run end to
@@ -226,8 +258,19 @@ class MicrophoneListener @Inject constructor(
         return file.takeIf { runCatching { it.canRead() && it.length() > 0 }.getOrDefault(false) }
     }
 
-    /** [room] window by window at the pace of the clock, as the microphone would hear it, until it ends. */
-    private fun replay(room: File, seconds: Int, onProgress: (level: Float) -> Unit): Flow<Window> = flow {
+    /**
+     * [room] window by window at the pace of the clock, as the microphone would hear it, until it
+     * ends. What is left at the end, short of a whole window, is dropped, as the microphone drops
+     * the part window it was in when stopped, unless [partial]: then it comes as one last, shorter
+     * window. [record] wants that: for a recording shorter than a window it is all there is, and
+     * dropping it made [record] come back empty.
+     */
+    private fun replay(
+        room: File,
+        seconds: Int,
+        partial: Boolean = false,
+        onProgress: (level: Float) -> Unit,
+    ): Flow<Window> = flow {
         Log.i(TAG, "Debug: listening to ${room.path} instead of the microphone")
         val windowSize = SIGNATURE_SAMPLE_RATE_HZ * seconds
         val bytes = ByteArray(CHUNK_SAMPLES * 2)
@@ -235,14 +278,11 @@ class MicrophoneListener @Inject constructor(
             while (currentCoroutineContext().isActive) {
                 val window = ShortArray(windowSize)
                 var written = 0
-                while (written < windowSize) {
+                fill@ while (written < windowSize) {
                     val want = minOf(bytes.size, (windowSize - written) * 2)
                     var read = 0
                     while (read < want) read += input.read(bytes, read, want - read).takeIf { it > 0 } ?: break
-                    if (read < 2) {
-                        Log.i(TAG, "Debug: the recording has ended")
-                        return@flow
-                    }
+                    if (read < 2) break@fill
                     var peak = 0
                     for (i in 0 until read / 2) {
                         val sample = ((bytes[2 * i + 1].toInt() shl 8) or (bytes[2 * i].toInt() and 0xFF)).toShort()
@@ -253,7 +293,16 @@ class MicrophoneListener @Inject constructor(
                     onProgress(peak / 32768f)
                     delay(read / 2 * 1000L / SIGNATURE_SAMPLE_RATE_HZ)
                 }
-                emit(Window(window, System.currentTimeMillis() - seconds * 1000L))
+                if (written == windowSize) {
+                    emit(Window(window, System.currentTimeMillis() - seconds * 1000L))
+                    continue
+                }
+                Log.i(TAG, "Debug: the recording has ended")
+                // Timed from its own length, not a whole window's.
+                if (partial && written > 0) {
+                    emit(Window(window.copyOf(written), System.currentTimeMillis() - written * 1000L / SIGNATURE_SAMPLE_RATE_HZ))
+                }
+                return@flow
             }
         }
     }
@@ -270,3 +319,17 @@ class MicrophoneListener @Inject constructor(
         )
     }
 }
+
+/**
+ * Windows as the engine should get them: the newest one waiting at most, never a queue.
+ *
+ * The microphone records on while a window is being identified, and flowOn on its own holds up to
+ * 64 windows for a collector that falls behind, thirteen minutes of audio and 25 MB of it at the
+ * usual twelve seconds. A request that hangs until it times out takes longer than a window, so a
+ * run on a network like that fell further behind with every window, and when the network came back
+ * it had the whole backlog to get through, minutes stale, asking Shazam about each window in a burst,
+ * which is what gets a phone refused in the first place. Now a window nobody got to is dropped for
+ * the one after it. The engine takes that as a gap, which it already allows for: every window carries
+ * the time it was heard.
+ */
+internal fun <T> Flow<T>.freshWindows(): Flow<T> = conflate()

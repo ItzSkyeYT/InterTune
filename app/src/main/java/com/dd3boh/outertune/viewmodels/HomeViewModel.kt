@@ -263,6 +263,10 @@ class HomeViewModel @Inject constructor(
         discoverVarietyOnNextBuild = true
         moreOnNextLoad = true
         engineInputCache = null
+        // At once, not when the pass starts: a pull that lands while a load is still running is
+        // queued behind it, and the spinner used to bounce back and leave the row to change a few
+        // seconds later with no sign anything was loading.
+        refreshIndicator.value = true
         refresh(force = true)
     }
 
@@ -565,7 +569,11 @@ class HomeViewModel @Inject constructor(
             engineReasons.value = (restored.cards + restored.pool).associate { c -> c.songId to c.reasons.map { CardReason(it, null) } }
             engineSeeds.value = restored.seeds.map { it to it }; engineQuotas.value = restored.quotas
             val wanted = (restored.cards + restored.pool).map { it.songId }
-            val byId = database.songsByIds(wanted).first().associateBy { it.id }
+            // The seeds are looked up as well. They are songs that were played, rarely among the
+            // row's own cards, so with only the cards read, Why these? listed video ids under
+            // "Built around" after every cold start, and the captions lost their "Because you
+            // played" song.
+            val byId = database.songsByIds((wanted + restored.seeds + (restored.cards + restored.pool).mapNotNull { it.seedId }).distinct()).first().associateBy { it.id }
             engineSeeds.value = restored.seeds.map { id -> id to (byId[id]?.song?.title ?: id) }
             engineReasons.value = (restored.cards + restored.pool).associate { c -> c.songId to c.reasons.map { key -> when (key) { "x_seed" -> CardReason(key, c.seedId?.let { byId[it]?.song?.title }); "x_art" -> CardReason(key, byId[c.songId]?.artists?.firstOrNull()?.name); else -> CardReason(key, null) } } }
             return@withContext wanted.mapNotNull { byId[it] }
@@ -658,6 +666,10 @@ class HomeViewModel @Inject constructor(
             keepListening.value = keepListeningPool
             similarRecommendations.value = similarPool
             homePage.value = homePagePool
+            // The widget's lists come from here whichever way the rows were settled; with the
+            // tidy pass off they used to stay empty or frozen.
+            fillWidget(WidgetList.FORGOTTEN_FAVOURITES, forgottenFavorites.value.orEmpty().map { it.toMediaMetadata() })
+            fillWidget(WidgetList.KEEP_LISTENING, keepListening.value.orEmpty().filterIsInstance<Song>().map { it.toMediaMetadata() })
             return
         }
         val now = System.currentTimeMillis()
@@ -719,7 +731,14 @@ class HomeViewModel @Inject constructor(
         // moment: what is on screen, whatever source it came from. This is deliberately outside
         // the history switch below, since a widget is a display and not a record of listening.
         fillWidget(WidgetList.QUICK_PICKS, songs)
-        if (context.dataStore.get(PauseListenHistoryKey, false)) return
+        // Paused, nothing is recorded, and the last build has to go with it: left standing, a tap
+        // after unpausing was logged against the old list's song in that slot, and the new
+        // song's listen was graded as if it had been that one.
+        if (context.dataStore.get(PauseListenHistoryKey, false)) {
+            currentBuildId = 0L
+            currentBuildSongs = ids
+            return
+        }
         val now = System.currentTimeMillis()
         database.transaction {
             runCatching {
@@ -838,8 +857,11 @@ class HomeViewModel @Inject constructor(
      * picks are decided, which for the library source is as soon as the query returns and for the
      * YouTube source is after its shelf has been looked for. The row shows a skeleton while it is
      * true, so a refresh replaces the songs rather than leaving the old ones sitting there.
+     *
+     * True to begin with: init starts the first load straight away, and the moment before it has
+     * read the source showed the empty text for a frame on every cold start.
      */
-    val quickPicksLoading = MutableStateFlow(false)
+    val quickPicksLoading = MutableStateFlow(true)
     val forgottenFavorites = MutableStateFlow<List<Song>?>(null)
     val keepListening = MutableStateFlow<List<LocalItem>?>(null)
     val similarRecommendations = MutableStateFlow<List<SimilarRecommendation>?>(null)
@@ -862,8 +884,8 @@ class HomeViewModel @Inject constructor(
      */
     private var lifted: QuickPicksShelf.Lift? = null
 
-    private var pendingRefresh = false
-    private var pendingRefreshForce = false
+    @Volatile private var pendingRefresh = false
+    @Volatile private var pendingRefreshForce = false
     private val previousHomePage = MutableStateFlow<HomePage?>(null)
     val explorePage = MutableStateFlow<ExplorePage?>(null)
     val playlists = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true)
@@ -902,9 +924,15 @@ class HomeViewModel @Inject constructor(
         }
         lastQuickPicksSource = source
 
-        // Only the YouTube source has anything to wait for, and only when there is nothing to
-        // show. A shimmer over a row that already has songs in it is the same lie as blanking it.
-        quickPicksLoading.value = source == QuickPicksSource.YOUTUBE && ytQuickPicks.value == null
+        // Only while there is nothing to show. A shimmer over a row that already has songs in it
+        // is the same lie as blanking it. YouTube waits on the network. The engine waits on its
+        // build, seconds on a phone when no fresh row can be restored, and with only the empty
+        // text in the meantime the row told someone with thousands of listens to listen to songs.
+        quickPicksLoading.value = when (source) {
+            QuickPicksSource.YOUTUBE -> ytQuickPicks.value == null
+            QuickPicksSource.ENGINE, QuickPicksSource.COMPARE -> quickPicks.value.isNullOrEmpty()
+            else -> false
+        }
 
         // The query already ranks by how many of your seed songs point at each result, strongest
         // first. Shuffling all 100 of them threw that away and gave the 100th the same odds as the
@@ -946,6 +974,9 @@ class HomeViewModel @Inject constructor(
         refreshDiscover(force = discoverVarietyOnNextBuild)
         snapshotJustPlayed()
         tidyRows()
+        // The engine's row is in, or the library standing in for it; only YouTube's still has the
+        // network ahead of it.
+        if (source != QuickPicksSource.YOUTUBE) quickPicksLoading.value = false
 
         allLocalItems.value =
             (quickPicks.value.orEmpty() + forgottenFavorites.value.orEmpty() + keepListening.value.orEmpty())
@@ -991,7 +1022,8 @@ class HomeViewModel @Inject constructor(
             if (!localOnly) Log.d("HomeViewModel", "Skipping remote home load, backing off")
             noteShown()
             quickPicksLoading.value = false
-            refreshIndicator.value = false
+            // Unless a pull is waiting behind this pass, whose spinner is already turning.
+            if (!pendingRefresh) refreshIndicator.value = false
             isLoading.value = false
             return
         }
@@ -1069,7 +1101,8 @@ class HomeViewModel @Inject constructor(
 
         // And the spinner stops here, with the row it was pulled for. What follows is the explore
         // page, the activity sync and the similar lookups, none of which the listener is watching.
-        refreshIndicator.value = false
+        // A pull queued behind this load keeps it turning until its own row is in.
+        if (!pendingRefresh) refreshIndicator.value = false
 
         // Only now: the row the listener pulled for has already settled above, and the rows
         // further down can arrive late without anybody minding.
@@ -1320,8 +1353,10 @@ class HomeViewModel @Inject constructor(
      */
     fun refresh(force: Boolean = false, localOnly: Boolean = false) {
         if (isRefreshing.value) {
-            pendingRefresh = true
+            // Force first: the loop reads pendingRefresh and then the force, so written the other way
+            // round a pull landing in between ran as an unforced pass, which the back-off can skip.
             pendingRefreshForce = pendingRefreshForce || force
+            pendingRefresh = true
             return
         }
         viewModelScope.launch(syncCoroutine) {
@@ -1329,12 +1364,20 @@ class HomeViewModel @Inject constructor(
             // No spinner for the restore on open. Nothing is being fetched, so a spinner would be
             // claiming work that is not happening, and the rule is that it turns when and only
             // when something is loading.
-            refreshIndicator.value = !localOnly
             try {
                 var nextForce = force
+                // Only the opening pass is local. A pass queued behind it was asked for while it
+                // ran (a pull, signing in, another source) and has to go out. The check used to be
+                // `localOnly && !pendingRefreshForce` after pendingRefreshForce had been cleared,
+                // so every queued pass stayed local too, and a pull during the seconds of the
+                // opening load never fetched anything: the spinner bounced back and it took a
+                // second pull.
+                var passLocal = localOnly
                 do {
                     pendingRefresh = false
-                    load(nextForce, localOnly && !pendingRefreshForce)
+                    refreshIndicator.value = !passLocal
+                    load(nextForce, passLocal)
+                    passLocal = false
                     nextForce = pendingRefreshForce
                     pendingRefreshForce = false
                 } while (pendingRefresh)
@@ -1343,6 +1386,9 @@ class HomeViewModel @Inject constructor(
                 // Backstop. load() drops it as soon as Quick picks settles; this catches the
                 // paths that return before reaching that point.
                 refreshIndicator.value = false
+                // The same for the skeleton, which would otherwise shimmer for good over a row a
+                // failed load never filled.
+                quickPicksLoading.value = false
             }
         }
     }
@@ -1380,7 +1426,7 @@ class HomeViewModel @Inject constructor(
                 .map { it[SimilarFromLastFmKey] ?: false }
                 .distinctUntilChanged()
                 .drop(1)
-                .collect { on -> if (!on) { lastEngineBuildAt = 0L; refresh(force = true) } }
+                .collect { on -> if (!on) { lastEngineBuildAt = 0L; lastDiscoverBuildAt = 0L; refresh(force = true) } }
         }
         // The Discover row appears or goes the moment its switch is turned, not at the next refresh.
         viewModelScope.launch {
@@ -1394,6 +1440,9 @@ class HomeViewModel @Inject constructor(
             lastFmSimilar.caughtUpAt.drop(1).collect {
                 engineInputCache = null
                 lastEngineBuildAt = 0L
+                // Discover walks the same graph, and without this it kept the old source's row for
+                // up to three hours after the switch.
+                lastDiscoverBuildAt = 0L
                 refresh(force = true)
             }
         }

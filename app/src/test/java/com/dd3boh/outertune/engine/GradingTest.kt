@@ -33,9 +33,30 @@ class GradingTest {
 
     @Test
     fun `a tapped card with no listen yet, or an open one, waits`() {
-        assertTrue(Grading.grade(listOf(imp(1, "a", now - 30 * hour, tappedAt = now - 30 * hour)), emptyList(), songs, groups, now).isEmpty())
+        assertTrue(Grading.grade(listOf(imp(1, "a", now - 3 * hour, tappedAt = now - 3 * hour)), emptyList(), songs, groups, now).isEmpty())
         val open = listen("a", now - 1000, impressionId = 1, endReason = EndReason.OPEN)
         assertTrue(Grading.grade(listOf(imp(1, "a", now - 30 * hour, tappedAt = now - 30 * hour)), listOf(open), songs, groups, now).isEmpty())
+    }
+
+    @Test
+    fun `a tapped card whose listen never came is settled after a day, weighing nothing`() {
+        val g = Grading.grade(listOf(imp(1, "a", now - 30 * hour, tappedAt = now - 30 * hour)), emptyList(), songs, groups, now).single()
+        assertEquals(Outcome.LOST, g.outcome); assertEquals(0.0, g.u, 0.0)
+    }
+
+    @Test
+    fun `a tap whose link was lost is graded by its song's play just after it`() {
+        val tap = now - 30 * hour
+        // No impressionId on the listen: the tap's moment did not reach the player.
+        val g = Grading.grade(listOf(imp(1, "a", tap - 2000, tappedAt = tap)), listOf(listen("a2", tap + 1500, playedMs = 90_000).copy(id = 42)), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, g.outcome); assertEquals(0.5, g.y, 1e-9); assertEquals(1.0, g.u, 0.0)
+        // Recorded, so Forget last session can find the example by the play.
+        assertEquals(42L, g.listenId)
+        // Too late after the tap to be its play, and a play another card already claims, both stay out of it.
+        val late = Grading.grade(listOf(imp(1, "a", tap - 2000, tappedAt = tap)), listOf(listen("a", tap + 10 * 60_000L)), songs, groups, now).single()
+        assertEquals(Outcome.LOST, late.outcome)
+        val claimed = Grading.grade(listOf(imp(1, "a", tap - 2000, tappedAt = tap)), listOf(listen("a", tap + 1000, impressionId = 9)), songs, groups, now).single()
+        assertEquals(Outcome.LOST, claimed.outcome)
     }
 
     @Test

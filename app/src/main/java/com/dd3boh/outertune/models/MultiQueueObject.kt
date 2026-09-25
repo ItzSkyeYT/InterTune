@@ -123,6 +123,19 @@ data class MultiQueueObject(
      */
     fun getSize() = queue.size
 
+    /**
+     * This queue with its own copy of the song list, for a save that runs on another thread while
+     * the player keeps changing the queue. Take it on the thread that changes the queue.
+     *
+     * The songs are copied too, not only the list: QueueBoard renumbers their shuffleIndex in
+     * place when one is removed, and a save still writing shared songs could store the new
+     * numbers against the old order, which restores as a shuffle with gaps or repeats.
+     */
+    fun snapshot() = copy(queue = songsSnapshot())
+
+    /** The song list alone, copied the same way, for a save that reads the rest when it runs. */
+    fun songsSnapshot(): MutableList<MediaMetadata> = queue.mapTo(ArrayList(queue.size)) { it.copy() }
+
     fun replaceAll(mediaList: List<MediaMetadata>) {
         queue.clear()
         queue.addAll(mediaList)

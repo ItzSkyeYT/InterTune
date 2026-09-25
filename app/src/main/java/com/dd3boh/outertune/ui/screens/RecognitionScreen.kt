@@ -119,6 +119,7 @@ import com.dd3boh.outertune.recognition.RecognitionViewModel
 import com.dd3boh.outertune.ui.component.AnimatedDots
 import com.dd3boh.outertune.ui.component.SwipeToQueueBox
 import com.dd3boh.outertune.ui.component.rememberRecognitionPhrase
+import com.dd3boh.outertune.ui.component.shazamWaitMessage
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.backButtonSurface
 import com.dd3boh.outertune.ui.component.items.ListItem
@@ -170,6 +171,7 @@ fun RecognitionScreen(
     val recognised by viewModel.recognised.collectAsState()
     val following by viewModel.following.collectAsState()
     val mixChoices by viewModel.mixChoices.collectAsState()
+    val retryAt by viewModel.retryAt.collectAsState()
 
     // Held only while it is actually listening, and released the moment it stops or the screen
     // leaves. Listening itself survives the screen going off, since the service holds a foreground
@@ -178,8 +180,11 @@ fun RecognitionScreen(
     val view = LocalView.current
     DisposableEffect(running, keepAwake) {
         val on = running && keepAwake
+        // Put back what was there rather than off: the player keeps the screen on for lyrics
+        // through the same flag, and switching it off here took that away too.
+        val before = view.keepScreenOn
         if (on) view.keepScreenOn = true
-        onDispose { if (on) view.keepScreenOn = false }
+        onDispose { if (on) view.keepScreenOn = before }
     }
 
     val (keepListeningDefault) = rememberPreference(RecogniseKeepListeningKey, defaultValue = false)
@@ -329,6 +334,7 @@ fun RecognitionScreen(
                         state is RecognitionEngine.State.Found,
                 // The big button always stops a run, whichever mode it is in.
                 onClick = { if (running) viewModel.stop() else listen(keepListeningDefault) },
+                message = shazamWaitMessage(retryAt?.takeIf { running && continuous }),
             )
         }
 
@@ -514,7 +520,9 @@ fun RecognitionScreen(
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = { viewModel.reset(); viewModel.clearRecognised() }) {
+                    // Empties the list and leaves any listening alone. It went through reset, which
+                    // also stopped a Keep listening running in the background.
+                    TextButton(onClick = { viewModel.clearRecognised() }) {
                         Text(stringResource(R.string.recognise_clear_history))
                     }
                 }
@@ -619,6 +627,8 @@ private fun ListenButton(
     level: Float,
     compact: Boolean,
     onClick: () -> Unit,
+    /** Said instead of the phrases, when there is something the listener has to know. */
+    message: String? = null,
 ) {
     // Smoothed, because raw buffer levels jitter and a bar that jitters reads as broken rather
     // than responsive. Rising fast and falling slow is what makes it look like a meter.
@@ -707,7 +717,7 @@ private fun ListenButton(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             ) {
                 Text(
-                    text = phrase,
+                    text = message ?: phrase,
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center,
                 )

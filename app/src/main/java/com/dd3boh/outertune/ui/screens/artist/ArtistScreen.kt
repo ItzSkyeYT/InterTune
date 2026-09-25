@@ -74,6 +74,7 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSnackbarHostState
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AppBarHeight
+import com.dd3boh.outertune.constants.ArtistSongSortType
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.db.entities.ArtistEntity
@@ -109,6 +110,10 @@ import com.zionhuang.innertube.models.AlbumItem
 import com.zionhuang.innertube.models.ArtistItem
 import com.zionhuang.innertube.models.PlaylistItem
 import com.zionhuang.innertube.models.SongItem
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -211,16 +216,32 @@ fun ArtistScreen(
                     Button(
                         onClick = {
                             val watchEndpoint = artistPage?.artist?.shuffleEndpoint ?: artistPage?.artist?.playEndpoint
-                            playerConnection.playQueue(
-                                if (!showLocal && watchEndpoint != null) YouTubeQueue(watchEndpoint)
-                                else ListQueue(
-                                    title = artistName,
-                                    items = librarySongs.map { it.toMediaMetadata() },
-                                    startShuffled = true,
-                                ),
-                                isRadio = true,
-                                title = artistName
-                            )
+                            if (!showLocal && watchEndpoint != null) {
+                                playerConnection.playQueue(
+                                    YouTubeQueue(watchEndpoint),
+                                    isRadio = true,
+                                    title = artistName
+                                )
+                            } else {
+                                // librarySongs is only the three-song preview on this page, so
+                                // shuffling it played three songs. The artist's whole library is
+                                // loaded first, as the artist menu does.
+                                coroutineScope.launch {
+                                    val songs = withContext(Dispatchers.IO) {
+                                        database.artistSongs(viewModel.artistId, ArtistSongSortType.CREATE_DATE, true).first()
+                                            .map { it.toMediaMetadata() }
+                                    }
+                                    playerConnection.playQueue(
+                                        ListQueue(
+                                            title = artistName,
+                                            items = songs,
+                                            startShuffled = true,
+                                        ),
+                                        isRadio = true,
+                                        title = artistName
+                                    )
+                                }
+                            }
                         },
                         contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
                         modifier = Modifier.weight(1f)

@@ -118,6 +118,35 @@ fun OnlineSearchResult(
 
     val ytItemContent: @Composable LazyItemScope.(YTItem, List<YTItem>) -> Unit =
         { item: YTItem, collection: List<YTItem> ->
+            // One menu for the more button and a long-press. The long-press only knew songs, and
+            // on an album, artist or playlist it opened an empty sheet.
+            val menu: @Composable () -> Unit = {
+                when (item) {
+                    is SongItem -> YouTubeSongMenu(
+                        song = item,
+                        navController = navController,
+                        onDismiss = menuState::dismiss
+                    )
+
+                    is AlbumItem -> YouTubeAlbumMenu(
+                        albumItem = item,
+                        navController = navController,
+                        onDismiss = menuState::dismiss
+                    )
+
+                    is ArtistItem -> YouTubeArtistMenu(
+                        artist = item,
+                        onDismiss = menuState::dismiss
+                    )
+
+                    is PlaylistItem -> YouTubePlaylistMenu(
+                        navController = navController,
+                        playlist = item,
+                        coroutineScope = coroutineScope,
+                        onDismiss = menuState::dismiss
+                    )
+                }
+            }
             val content: @Composable () -> Unit = {
                 YouTubeListItem(
                     item = item,
@@ -129,35 +158,7 @@ fun OnlineSearchResult(
                     isPlaying = isPlaying,
                     trailingContent = {
                         IconButton(
-                            onClick = {
-                                menuState.show {
-                                    when (item) {
-                                        is SongItem -> YouTubeSongMenu(
-                                            song = item,
-                                            navController = navController,
-                                            onDismiss = menuState::dismiss
-                                        )
-
-                                        is AlbumItem -> YouTubeAlbumMenu(
-                                            albumItem = item,
-                                            navController = navController,
-                                            onDismiss = menuState::dismiss
-                                        )
-
-                                        is ArtistItem -> YouTubeArtistMenu(
-                                            artist = item,
-                                            onDismiss = menuState::dismiss
-                                        )
-
-                                        is PlaylistItem -> YouTubePlaylistMenu(
-                                            navController = navController,
-                                            playlist = item,
-                                            coroutineScope = coroutineScope,
-                                            onDismiss = menuState::dismiss
-                                        )
-                                    }
-                                }
-                            }
+                            onClick = { menuState.show { menu() } }
                         ) {
                             Icon(
                                 Icons.Rounded.MoreVert,
@@ -192,19 +193,7 @@ fun OnlineSearchResult(
                                     is PlaylistItem -> navController.navigate("online_playlist/${item.id}")
                                 }
                             },
-                            onLongClick = {
-                                menuState.show {
-                                    when (item) {
-                                        is SongItem -> YouTubeSongMenu(
-                                            song = item,
-                                            navController = navController,
-                                            onDismiss = menuState::dismiss
-                                        )
-
-                                        else -> {}
-                                    }
-                                }
-                            }
+                            onLongClick = { menuState.show { menu() } }
                         )
                         .animateItem()
                 )

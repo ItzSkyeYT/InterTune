@@ -58,8 +58,23 @@ private val DJ_MIX = Regex(
  * [Continious Mix]" for most of its windows, and that was added to the list as a song. A mix of
  * one song, a radio mix, an extended mix or a track marked "(Mixed)" from a compilation, is still
  * that song and does not count.
+ *
+ * Or a recording longer than any song, whatever its title says, which [offsetSeconds] into it
+ * shows. The Play & Win production of Inna's Club Rocker, replayed from a file on 25 Sep, came
+ * through as "The Inna (Special Remix)" 647 to 743 seconds in for all but one window, a recording
+ * at least twelve minutes long with Club Rocker inside it, and that was added in place of the
+ * song. No other window of the 61 files replayed so far landed past 400 s. A song over ten minutes
+ * long heard from its start is confirmed well before then and carries on; only one joined past
+ * that point is noted instead of added, which is one tap.
+ *
+ * The offset has no default on purpose. A call with the title alone, as the engine made before,
+ * would compile and pass every test while the megamix went back to being added.
  */
-internal fun isDjMix(title: String): Boolean = DJ_MIX.containsMatchIn(title)
+internal fun isDjMix(title: String, offsetSeconds: Double): Boolean =
+    DJ_MIX.containsMatchIn(title) || offsetSeconds > LONGEST_SONG_S
+
+/** Ten minutes, the length past which MixSearch also takes an upload for a compilation. */
+private const val LONGEST_SONG_S = 600.0
 
 /** True when [prefix] is a whole-word prefix, so "children" matches "children dream" not "childrens". */
 private fun String.startsWithWord(prefix: String): Boolean =

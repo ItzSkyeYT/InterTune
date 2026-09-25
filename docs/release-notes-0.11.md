@@ -25,14 +25,15 @@ InterTune can count this install once a day: one short message with a random nam
 ## Song recognition
 
 - **What's playing?** Tap the waveform in the search bar. InterTune listens, Shazam names the song, and it is found on YouTube Music so you can play it or add it. No account needed.
-- **Listen once** names one song. **Keep listening** carries on in the background, with the screen off, and lists everything it hears. Switching between the two does not stop it.
+- **Listen once** names one song, and gives up after about half a minute if it hears nothing it knows. **Keep listening** carries on in the background, with the screen off, and lists everything it hears. Switching between the two does not stop it.
 - From that list, **Create playlist** or **Add to playlist**. Every song it hears after that goes into the same playlist.
 - The notification shows the song playing around you and how far into it the room is, and goes back to "Listening" as soon as the song changes.
+- When Shazam stops answering (no network, or too many requests), Keep listening waits longer between tries, says so, and carries on by itself once Shazam answers again.
 - It knows which version is playing. A sped-up or slowed edit is measured by how fast it plays rather than guessed from a title.
 - **Mashups and remixes.** In Keep listening it notices when a song is being cut up with others, or when Shazam keeps naming different versions of it, and looks for the mashup or remix on YouTube instead of adding the pieces. When two uploads are equally likely, it asks.
-- On headphones your music keeps playing while it listens. Only the phone's own speaker pauses.
+- On headphones your music keeps playing while it listens. Only the phone's own speaker pauses, whether you listen from the search bar or from a playlist.
 - A **history** of everything it has recognised.
-- Your playlists have a listen button in their header, to fill one with what is playing around you.
+- Your playlists have a listen button in their header, to fill one with what is playing around you. If What's playing? is already listening, it says so and offers to switch, and closing it leaves that run going.
 - Settings for how long each listen lasts, whether matches are added by themselves, and whether the screen stays on.
 
 ## Home screen
@@ -104,12 +105,25 @@ InterTune can count this install once a day: one short message with a random nam
 ## Fixes
 
 - Search could come back empty when YouTube added a section after the results.
+- Songs listed under an artist's top search result showed their length where the artist should be, and podcast episodes showed their date.
 - A song uploaded as "Artist - Track" could lose its name and keep the artist's.
 - Replaying a shuffled playlist that had lost songs started the wrong track, then turned shuffle off.
 - **Not this song** hid every other song with the same name, for good.
 - Saving an album, then hearing a song from it, unsaved the album.
 - An album with no songs kept its loading shimmer forever.
+- Playing one of your most played songs from Stats started the first one in the list instead.
+- Tapping a search result inside a YouTube playlist or a folder played a different song, and in a folder sometimes nothing. Remote history always played the first song of the day.
+- Searching the queue, then tapping or swiping a result, could play or remove a different song.
+- **Select all** during a search selected the whole list, so Remove like or Remove from playlist reached songs the search was hiding.
+- **Like all** and **Remove all likes** took the songs out of your library and made downloaded ones look not downloaded.
+- **Play** and **Shuffle** in a YouTube playlist's menu did nothing unless the playlist itself was open.
+- Long-pressing an album, artist or playlist in search results opened an empty menu.
+- **Shuffle** on a local artist played three songs.
+- In a shuffled queue, moving or removing a song and then adding one to the queue jumped to a different song.
+- Lyrics without timings started every line after the first with a comma.
 - Dragging songs with the add panel open moved the wrong rows.
+- The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
+- **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
 
 ## Updates
 

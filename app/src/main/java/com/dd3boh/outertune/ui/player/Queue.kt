@@ -89,6 +89,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -403,20 +404,30 @@ fun BoxScope.QueueContent(
             WindowInsets(top = ListItemHeight, bottom = ListItemHeight)
         ).asPaddingValues()
     ) { from, to ->
+        // Positions in the queue, found by the rows' keys. The indices handed over are the list's,
+        // and the adaptive queue's note sits above the songs as a row of its own, so every move
+        // landed one song off, and dragging the last song up asked for a position past the end of
+        // the queue and crashed.
+        val fromIndex = mutableSongs.indexOfFirst { it.hashCode() == from.key }
+        val toIndex = mutableSongs.indexOfFirst { it.hashCode() == to.key }
+        if (fromIndex < 0 || toIndex < 0) return@rememberReorderableLazyListState
         val currentDragInfo = dragInfo
         dragInfo = if (currentDragInfo == null) {
-            from.index to to.index
+            fromIndex to toIndex
         } else {
-            currentDragInfo.first to to.index
+            currentDragInfo.first to toIndex
         }
-        mutableSongs.move(from.index, to.index)
+        mutableSongs.move(fromIndex, toIndex)
     }
     LaunchedEffect(reorderableState.isAnyItemDragging) {
         if (!reorderableState.isAnyItemDragging) {
             dragInfo?.let { (from, to) ->
-                if (from == to) return@LaunchedEffect
-                qb.moveSong(from, to)
-                playerConnection.player.moveMediaItem(from, to)
+                if (from != to) {
+                    qb.moveSong(from, to)
+                    playerConnection.player.moveMediaItem(from, to)
+                }
+                // Cleared either way. A drag dropped where it started used to leave it set, and
+                // the next drag then moved from where the last one had begun.
                 dragInfo = null
             }
         }
@@ -482,11 +493,16 @@ fun BoxScope.QueueContent(
      * made yet.
      */
     val adaptiveTailActive by playerConnection.service.adaptiveTailActive.collectAsState()
-    val tailRevision by playerConnection.service.hiddenTailChanged.collectAsState()
-    val visibleSongs = remember(mutableSongs.size, currentWindowIndex, adaptiveTailActive, tailRevision, detachedQueue, isSearching) {
-        if (!adaptiveTailActive || isSearching || detachedQueue != null) mutableSongs.toList()
+
+    // Read from the live list on every composition, not remembered. A remembered copy keyed on the
+    // list's size went stale on a drag, which reorders without changing the count: the rows kept
+    // the old order while the queue had the new one, so swiping a row away removed the song that
+    // was now at that position rather than the one on screen, and tapping one played it. A change
+    // to the hidden tail needs no key either: dropping songs changes the player's timeline, which
+    // refills mutableSongs.
+    val visibleSongs: List<MediaMetadata> =
+        if (!adaptiveTailActive || isSearching || detachedQueue != null) mutableSongs
         else mutableSongs.take((currentWindowIndex + 1 + ADAPTIVE_VISIBLE_AHEAD).coerceIn(0, mutableSongs.size))
-    }
     val hiddenTailCount = if (isSearching) 0 else mutableSongs.size - visibleSongs.size
 
     LaunchedEffect(queueWindows, detachedQueue) { // add to songs list & scroll
@@ -880,6 +896,11 @@ fun BoxScope.QueueContent(
                 } else {
                     displayIndex
                 }
+                // The swipe state keeps the confirmValueChange from the row's first composition
+                // (Material3 remembers it with no inputs), so an index captured there goes stale.
+                // Removing a song shifts every later one down without changing its key, and a second
+                // swipe then removed the song after the one swiped. The lambda reads this instead.
+                val currentIndex by rememberUpdatedState(index)
                 ReorderableItem(
                     state = reorderableState,
                     key = window.hashCode()
@@ -889,22 +910,30 @@ fun BoxScope.QueueContent(
                             totalDistance
                         },
                         confirmValueChange = { dismissValue ->
+                            // Read once, so the removal and the log below agree on the row.
+                            val swipedIndex = currentIndex
+                            // A row whose song has already left the queue (a search result stays on
+                            // screen until the results refresh) has no place of its own any more,
+                            // and a swipe on it must not take another song with it.
+                            if (dismissValue != SwipeToDismissBoxValue.Settled && mutableSongs.getOrNull(swipedIndex) != window) {
+                                return@rememberSwipeToDismissBoxState false
+                            }
                             when (dismissValue) {
                                 SwipeToDismissBoxValue.StartToEnd -> {
-                                    if (qb.removeCurrentQueueSong(index)) {
-                                        mutableSongs.getOrNull(index)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        playerConnection.player.removeMediaItem(index)
-                                        mutableSongs.removeAt(index)
+                                    if (qb.removeCurrentQueueSong(swipedIndex)) {
+                                        mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
+                                        playerConnection.player.removeMediaItem(swipedIndex)
+                                        mutableSongs.removeAt(swipedIndex)
                                     }
                                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                                     return@rememberSwipeToDismissBoxState true
                                 }
 
                                 SwipeToDismissBoxValue.EndToStart -> {
-                                    if (qb.removeCurrentQueueSong(index)) {
-                                        mutableSongs.getOrNull(index)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
-                                        playerConnection.player.removeMediaItem(index)
-                                        mutableSongs.removeAt(index)
+                                    if (qb.removeCurrentQueueSong(swipedIndex)) {
+                                        mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
+                                        playerConnection.player.removeMediaItem(swipedIndex)
+                                        mutableSongs.removeAt(swipedIndex)
                                     }
                                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                                     return@rememberSwipeToDismissBoxState true
@@ -958,7 +987,10 @@ fun BoxScope.QueueContent(
                                             contentDescription = null
                                         )
                                     }
-                                    if (!lockQueue && !detachedHead) {
+                                    // Not over search results, as in a playlist: the results are not redrawn
+                                    // after a move, so a second drag started from rows that were no longer
+                                    // where they showed.
+                                    if (!lockQueue && !detachedHead && !isSearching) {
                                         Icon(
                                             imageVector = Icons.Rounded.DragHandle,
                                             contentDescription = null,
@@ -1405,13 +1437,15 @@ fun BoxScope.QueueContent(
                             Row {
                                 SelectHeader(
                                     navController = navController,
+                                    // This header only shows while searching, so it counts and
+                                    // selects the results, as the portrait one below does.
                                     selectedItems = selectedItems.mapNotNull { uidHash ->
-                                        mutableSongs.find { it.hashCode() == uidHash }
+                                        filteredSongs.find { it.hashCode() == uidHash }
                                     },
-                                    totalItemCount = mutableSongs.size,
+                                    totalItemCount = filteredSongs.size,
                                     onSelectAll = {
                                         selectedItems.clear()
-                                        selectedItems.addAll(mutableSongs.map { it.hashCode() })
+                                        selectedItems.addAll(filteredSongs.map { it.hashCode() })
                                     },
                                     onDeselectAll = { selectedItems.clear() },
                                     menuState = menuState,

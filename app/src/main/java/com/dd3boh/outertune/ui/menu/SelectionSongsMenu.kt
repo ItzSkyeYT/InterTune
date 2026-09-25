@@ -202,17 +202,26 @@ fun SelectionMediaMetadataMenu(
             title = if (allLiked) R.string.action_remove_like_all else R.string.action_like_all,
         ) {
             database.query {
+                // The stored rows, toggled, and not ones rebuilt from the selection's metadata.
+                // Those have no download date and, for a YouTube song, no library date, so
+                // writing them back took every song liked this way out of the library and made
+                // downloaded ones read as not downloaded. Picked by their stored like as well,
+                // so a selection that has gone stale cannot flip one the wrong way.
+                val stored = selection.map { it.id }.chunked(500)
+                    .flatMap { songEntitiesByIds(it) }
+                    .associateBy { it.id }
+                val songs = selection.map { stored[it.id] ?: it.toSongEntity() }
                 if (allLiked) {
-                    selection.forEach { song ->
-                        val s = song.toSongEntity().toggleLike()
+                    songs.filter { it.liked }.forEach { song ->
+                        val s = song.toggleLike()
                         update(s)
                         if (!s.isLocal) {
                             syncUtils.likeSong(s)
                         }
                     }
                 } else {
-                    val newlyLiked = selection.filter { !it.liked }
-                        .map { it.toSongEntity().toggleLike() }
+                    val newlyLiked = songs.filter { !it.liked }
+                        .map { it.toggleLike() }
                     newlyLiked.forEach { s ->
                         update(s)
                         if (!s.isLocal) {

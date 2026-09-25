@@ -108,7 +108,16 @@ data class SearchSummaryPage(
             }
         }
 
-        fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer): YTItem? {
+        /** A song's length as YouTube writes it: 3:22, or 1:02:45. */
+        private val LENGTH = Regex("\\d{1,2}(:\\d{2}){1,2}")
+
+        /**
+         * @param cardArtist the artist a top result card is about, for the songs listed under it.
+         *   Those rows leave the artist out because the card already names it, so their second
+         *   column is only "Song • 5:38". With the type label cleaned off, the length was all that
+         *   was left in the artist's place, and every one read "5:38 • 5:38" (seen 25 Sep).
+         */
+        fun fromMusicResponsiveListItemRenderer(renderer: MusicResponsiveListItemRenderer, cardArtist: Artist? = null): YTItem? {
             val secondaryLine = renderer.flexColumns.getOrNull(1)
                 ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.splitBySeparator()
                 ?: return null
@@ -118,18 +127,29 @@ data class SearchSummaryPage(
             val listRun = (secondaryLine + thirdLine).clean()
             return when {
                 renderer.isSong -> {
+                    val first = listRun.getOrNull(0)
+                    val noArtist = first != null && first.size == 1 && first[0].navigationEndpoint == null &&
+                        LENGTH.matches(first[0].text.trim())
+                    val episode = renderer.isPodcastEpisode
                     SongItem(
                         id = renderer.playlistItemData?.videoId ?: return null,
                         title = renderer.flexColumns.firstOrNull()
                             ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs
                             ?.firstOrNull()?.text ?: return null,
-                        artists = listRun.getOrNull(0)?.oddElements()?.map {
-                            Artist(
-                                name = it.text,
-                                id = it.navigationEndpoint?.browseEndpoint?.browseId
-                            )
-                        } ?: return null,
-                        album = listRun.getOrNull(1)?.firstOrNull()?.takeIf { it.navigationEndpoint?.browseEndpoint != null }?.let {
+                        artists = when {
+                            // The show, not the date that comes first and read as the artist.
+                            episode -> listRun.drop(1).flatten().filter { it.navigationEndpoint?.browseEndpoint != null }.take(1).map {
+                                Artist(name = it.text, id = it.navigationEndpoint?.browseEndpoint?.browseId)
+                            }
+                            noArtist -> listOfNotNull(cardArtist)
+                            else -> first?.oddElements()?.map {
+                                Artist(
+                                    name = it.text,
+                                    id = it.navigationEndpoint?.browseEndpoint?.browseId
+                                )
+                            } ?: return null
+                        },
+                        album = listRun.getOrNull(1)?.firstOrNull()?.takeIf { !episode && it.navigationEndpoint?.browseEndpoint != null }?.let {
                             Album(
                                 name = it.text,
                                 id = it.navigationEndpoint?.browseEndpoint?.browseId!!

@@ -203,6 +203,8 @@ class HeadTracking(
         pendingRecentre = true
         settling = false
         stillness.reset()
+        // A glide still running is left to finish: the first live report stops it, and a tracker
+        // that attaches but never reports would otherwise leave the stage turned.
         lastAdvanceNanos = 0L
         lastReportNanos = 0L
         lastYawNanos = 0L
@@ -230,7 +232,7 @@ class HeadTracking(
             detach()
             wanted = 0f
             settling = true
-            handler.post(glide)
+            startGlide()
         }
     }
 
@@ -257,6 +259,9 @@ class HeadTracking(
     fun stop(glideHome: Boolean) {
         if (!wantRunning) return
         wantRunning = false
+        // A calibration cut short by a pause is abandoned, not finished later with a line fitted
+        // across the gap.
+        calibrating = false
         runCatching { sensors?.unregisterDynamicSensorCallback(dynamicSensors) }
         handler.removeCallbacks(watchdog)
         detach()
@@ -264,7 +269,7 @@ class HeadTracking(
         if (glideHome) {
             wanted = 0f
             settling = true
-            handler.post(glide)
+            startGlide()
         } else {
             commanded = 0f
             wanted = 0f
@@ -339,19 +344,31 @@ class HeadTracking(
         // firstEventAfterDiscontinuity is API 33, same release that introduced the head tracker
         // itself, so in practice this only runs where it exists. Checked anyway: the field access
         // would throw rather than read false if it ever did not.
+        // The sensor's own clock, not the arrival time. Reports arrive in bursts: two can land
+        // seven milliseconds apart having been measured forty apart, and dividing a real change
+        // by the wrong interval says the head is turning at a thousand degrees a second. It only
+        // shows up while barely moving, where it pinned the lead to its clamp over nothing.
+        //
+        // Set before the recentre below, which takes its reference time from it. After attach()
+        // it was still zero there, and a zero reference time is what switches drift correction
+        // off, so every play, resume or buffering blip left the drift uncorrected until the head
+        // next held still for six seconds.
+        val now = if (event.timestamp > 0L) event.timestamp else SystemClock.elapsedRealtimeNanos()
+        lastYawNanos = now
+
+        // Live reports drive the stage again, so a glide left over from a gap in them stops here
+        // rather than ticking alongside on the other clock.
+        if (gliding) {
+            handler.removeCallbacks(glide)
+            gliding = false
+        }
+
         val discontinuity = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             event.firstEventAfterDiscontinuity
         if (discontinuity || pendingRecentre) {
             pendingRecentre = false
             recentre()
         }
-
-        // The sensor's own clock, not the arrival time. Reports arrive in bursts: two can land
-        // seven milliseconds apart having been measured forty apart, and dividing a real change
-        // by the wrong interval says the head is turning at a thousand degrees a second. It only
-        // shows up while barely moving, where it pinned the lead to its clamp over nothing.
-        val now = if (event.timestamp > 0L) event.timestamp else SystemClock.elapsedRealtimeNanos()
-        lastYawNanos = now
 
         if (calibrating) {
             if (calibrationStartNanos == 0L) calibrationStartNanos = now
@@ -479,8 +496,12 @@ class HeadTracking(
     }
 
     private fun advance(nowNanos: Long) {
-        val dt = if (lastAdvanceNanos == 0L) 0f else (nowNanos - lastAdvanceNanos) / 1e9f
-        lastAdvanceNanos = nowNanos
+        // Never backwards. The glide ticks on the time it runs and a report carries the time it
+        // was measured, which can be earlier than the last tick when reports come in late, and a
+        // negative step made the cap negative: coerceIn(-cap, cap) is then an empty range and
+        // throws, on the main looper, which took the app down.
+        val dt = if (lastAdvanceNanos == 0L) 0f else ((nowNanos - lastAdvanceNanos) / 1e9f).coerceAtLeast(0f)
+        lastAdvanceNanos = maxOf(lastAdvanceNanos, nowNanos)
         if (settling) {
             val cap = MAX_STAGE_RATE * dt
             val gap = wrapPi(wanted - commanded)
@@ -503,6 +524,20 @@ class HeadTracking(
     private val stale = Runnable {
         wanted = 0f
         settling = true
+        startGlide()
+    }
+
+    /** Whether a glide is running, so it can be stopped once live reports come back. */
+    private var gliding = false
+
+    /**
+     * One glide at a time. The stale timer, a disconnect and stop() each started one, and nothing
+     * removed the one already running, so a single gap in the reports left a chain ticking at
+     * 50 Hz alongside live tracking for as long as the head was turned.
+     */
+    private fun startGlide() {
+        handler.removeCallbacks(glide)
+        gliding = true
         handler.post(glide)
     }
 
@@ -513,6 +548,7 @@ class HeadTracking(
             if (abs(commanded) > 1e-3f) {
                 handler.postDelayed(this, 20L)
             } else {
+                gliding = false
                 commanded = 0f
                 processor.headPose = null
                 processor.headYawRadians = 0f

@@ -132,6 +132,25 @@ class TidyPassTest {
     }
 
     @Test
+    fun `a duplicate dropped from the row does not use up its artist's share`() {
+        // A YouTube shelf can carry the video and the song upload of one track. The second is
+        // dropped as the same song, and it must not cost the artist their second card.
+        val items = listOf(
+            Triple("v1", "Blinding Lights", "The Weeknd"),
+            Triple("s1", "Blinding Lights", "The Weeknd"),
+            Triple("s2", "Save Your Tears", "The Weeknd"),
+        )
+        val kept = TidyPass(emptyList()).row(
+            items,
+            id = { it.first },
+            title = { it.second },
+            artist = { it.third },
+            maxPerArtist = 2,
+        )
+        assertEquals(listOf("v1", "s2"), kept.map { it.first })
+    }
+
+    @Test
     fun `the ones it keeps are the ones that ranked highest`() {
         // Order is the ranking, so a cap must take from the front rather than at random.
         val items = (1..5).map { Triple("id$it", "Song $it", "One Artist") }

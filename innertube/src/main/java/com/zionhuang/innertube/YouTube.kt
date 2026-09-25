@@ -125,11 +125,14 @@ object YouTube {
         for (content in sections) {
             when {
                 content.musicCardShelfRenderer != null -> {
-                    val items = listOfNotNull(SearchSummaryPage.fromMusicCardShelfRenderer(content.musicCardShelfRenderer))
+                    val top = SearchSummaryPage.fromMusicCardShelfRenderer(content.musicCardShelfRenderer)
+                    // An artist's card lists their songs without naming them again.
+                    val cardArtist = (top as? ArtistItem)?.let { Artist(name = it.title, id = it.id) }
+                    val items = listOfNotNull(top)
                         .plus(
                             content.musicCardShelfRenderer.contents
                                 ?.mapNotNull { it.musicResponsiveListItemRenderer }
-                                ?.mapNotNull(SearchSummaryPage.Companion::fromMusicResponsiveListItemRenderer)
+                                ?.mapNotNull { SearchSummaryPage.fromMusicResponsiveListItemRenderer(it, cardArtist) }
                                 .orEmpty()
                         )
                         .distinctBy { it.id }

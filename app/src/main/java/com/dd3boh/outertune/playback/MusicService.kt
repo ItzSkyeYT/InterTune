@@ -93,7 +93,6 @@ import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleStartRa
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
-import com.dd3boh.outertune.constants.HighPrecisionAudioKey
 import com.dd3boh.outertune.constants.HeadTracking3dKey
 import com.dd3boh.outertune.constants.HeadTrackingCalibrateKey
 import com.dd3boh.outertune.constants.HeadTrackingDriftKey
@@ -392,12 +391,18 @@ class MusicService : MediaLibraryService(),
     private val audioDecoder = dataStore.get(AudioDecoderKey, DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
 
     /**
-     * 32 bit float through the processor chain, when asked for.
+     * 32 bit float through the processor chain. Off for now, whatever the stored setting says.
      *
-     * Read once at construction like [audioDecoder], because changing it means rebuilding the
-     * renderers, which means rebuilding the player.
+     * media3 1.8.0 cannot do it. With float output on, DefaultAudioSink.configure builds the
+     * pipeline from trimming, channel mapping and the float conversion and jumps past
+     * audioProcessorChain.getAudioProcessors() (checked in the 1.8.0 bytecode, 25 Sep), and it
+     * stops applying speed and pitch through processors as well. So the switch did the opposite of
+     * its name: volume normalisation, spatial audio, the upmix, skip silence and tempo all stopped,
+     * for every song whose decoder took the float request. The media3 sources in `media/` keep the
+     * chain on float output, so this can come back with a media3 that does. The row is hidden in
+     * PlayerSettings until then, and the key is kept so nothing has to be migrated.
      */
-    private val highPrecisionAudio = dataStore.get(HighPrecisionAudioKey, false)
+    private val highPrecisionAudio = false
 
     /**
      * Stereo to 5.1, so the platform spatialiser has something it will act on. Off by default.
@@ -805,9 +810,21 @@ class MusicService : MediaLibraryService(),
             // A request, not a value: the button is in the settings and the sensor is here.
             dataStore.data.map { it[HeadTrackingCalibrateKey] ?: 0L }.distinctUntilChanged()
                 .collectLatest(scope) { at ->
-                    if (at == 0L) return@collectLatest
+                    // Only a request made just now. The stored time outlives it (the settings row
+                    // counts down from it), and DataStore hands it back first thing on every start,
+                    // so one calibration restarted the tracker on every later launch, whatever
+                    // the head tracking switch said, and measured the drift again behind the
+                    // listener's back, likely while they were moving.
+                    val window = HeadTracking.CALIBRATION_NANOS / 1_000_000L
+                    if (at == 0L || System.currentTimeMillis() - at > window) return@collectLatest
                     withContext(Dispatchers.Main) {
                         if (headTracking.start()) headTracking.startCalibration()
+                    }
+                    // A tracker started only to calibrate goes off again once that is over,
+                    // rather than holding the sensor until the next play and pause.
+                    delay(window + 5_000L)
+                    withContext(Dispatchers.Main) {
+                        if (!(headTrackingWanted && binauralProcessor.enabled && player.isPlaying)) headTracking.stop(glideHome = false)
                     }
                 }
 
@@ -1594,7 +1611,10 @@ class MusicService : MediaLibraryService(),
             // the bytes are already here. Downloads are left alone whatever the setting says,
             // because someone who downloaded a song asked for it to work offline, and quietly
             // streaming instead would break the one thing they wanted.
-            val staleQuality = isCache && !isDownload && shouldUpgradeCached(mediaId)
+            //
+            // Only from the start of the song. Mid-song, a new stream would fill the gaps of a
+            // cache entry that holds the old one, two encodings in one file.
+            val staleQuality = isCache && !isDownload && dataSpec.position == 0L && shouldUpgradeCached(mediaId)
             if ((isDownload || isCache) && !staleQuality) {
                 Log.d(TAG, "PLAYING: remote song (cache = ${isCache}, download = ${isDownload})")
                 offloadScope.launch { recoverSong(mediaId) }
@@ -1643,6 +1663,24 @@ class MusicService : MediaLibraryService(),
                 }
             }
             val format = playbackData.format
+
+            // The lower-quality copy goes now that the new stream is in hand, not before, so a
+            // failed fetch never costs the copy that plays offline. It has to go at all because
+            // the cache serves by the song's id whatever address comes back from here: the old
+            // bytes kept playing while the row below was rewritten to the new quality, and the
+            // song never counted as stale again.
+            // And only for a stream that answered its status check: the last fallback client's is
+            // taken unchecked, and one of those failing partway would have cost the offline copy.
+            // Without the check the cached copy plays, as if the upgrade had never been asked
+            // for, and nothing about the song is rewritten.
+            if (staleQuality && !playbackData.validated) {
+                Log.d(TAG, "PLAYING: remote song (cache kept, the new stream was not checked)")
+                return@Factory dataSpec
+            }
+            if (staleQuality) {
+                runCatching { playerCache.removeResource(mediaId) }
+                    .onFailure { Log.w(TAG, "Could not drop the lower-quality copy of $mediaId", it) }
+            }
 
             database.query {
                 upsertFormatKeepingLoudness(
@@ -2455,7 +2493,10 @@ class MusicService : MediaLibraryService(),
             } ?: EndReason.STOPPED
         }
         pendingEndReasonsSeen[mediaId] = endReason
-        val startedAt = info?.startedAt
+        // Zero is "never opened", not a time: the start info exists before its listen is opened,
+        // and one that closed without opening wrote its whole row dated 1970 (one on his phone, a
+        // radio play on 19 Sep). The fallback covers it the same as a missing info.
+        val startedAt = info?.startedAt?.takeIf { it > 0L }
             ?: (endedAt - playbackStats.totalPlayTimeMs - playbackStats.totalPausedTimeMs)
         val offsetMin = java.util.TimeZone.getDefault().getOffset(endedAt) / 60_000
         val durationMs = if (durationSec > 0) durationSec * 1000L else -1L

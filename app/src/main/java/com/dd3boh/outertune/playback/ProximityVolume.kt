@@ -11,6 +11,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
@@ -73,11 +74,38 @@ class ProximityVolume(private val context: Context) {
     private var nearReference = Float.NEGATIVE_INFINITY
     private var lastDecayAt = 0L
 
+    /** When the scan last stopped, so a restart moments later can keep what it had learned. */
+    private var stoppedAt = 0L
+
+    /** Whether this scan has heard the headphones yet; see [widenIfSilent]. */
+    @Volatile private var heard = false
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /**
+     * The name filters match exactly, and headphones that advertise under some other pattern than
+     * the two tried (a suffix, another prefix) would never be heard at all. So a filtered scan that
+     * hears nothing within [WIDEN_AFTER_MS] is swapped for the unfiltered one this used before: it
+     * pauses with the screen off, but it works with the screen on, as it always did.
+     */
+    private val widenIfSilent = Runnable {
+        if (!running || heard) return@Runnable
+        runCatching {
+            @SuppressLint("MissingPermission")
+            val scanner = adapter?.bluetoothLeScanner ?: return@runCatching
+            scanner.stopScan(callback)
+            scanner.startScan(null, ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_BALANCED).setReportDelay(0).build(), callback)
+            Log.i(TAG, "nothing heard under the paired name, scanning without a filter")
+        }.onFailure { Log.w(TAG, "could not widen the scan: ${it.message}") }
+    }
+
     val isAvailable: Boolean
         get() = adapter?.isEnabled == true && hasPermission()
 
     fun hasPermission(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+        // Android 12 and up only. Below that a scan needs BLUETOOTH, BLUETOOTH_ADMIN and location,
+        // none of which the manifest asks for, so it failed quietly, and reading the adapter's
+        // state threw SecurityException outright.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
         return ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) ==
             PackageManager.PERMISSION_GRANTED
     }
@@ -114,12 +142,20 @@ class ProximityVolume(private val context: Context) {
         // every route into BluetoothAdapter needs BLUETOOTH_CONNECT on top of the scan permission,
         // and this one needs nothing at all. It also answers a better question: not what is paired
         // but what is actually playing the music.
-        targetName = connectedHeadphoneName() ?: return false
+        val target = connectedHeadphoneName() ?: return false
 
-        times.clear()
-        values.clear()
-        nearReference = Float.NEGATIVE_INFINITY
-        lastDecayAt = SystemClock.elapsedRealtime()
+        // Starts and stops with playing, which a buffering blip or a quick pause toggles. Starting
+        // from nothing each time took the first reading after a resume as "near", so pausing on
+        // the far side of a room and resuming there played at full volume. The same headphones
+        // back within two minutes keep the readings and the reference.
+        val now = SystemClock.elapsedRealtime()
+        if (target != targetName || now - stoppedAt > RESUME_WINDOW_MS) {
+            times.clear()
+            values.clear()
+            nearReference = Float.NEGATIVE_INFINITY
+        }
+        targetName = target
+        lastDecayAt = now
         running = true
 
         // Balanced rather than low latency: ten seconds of median needs a reading a second, not
@@ -128,8 +164,18 @@ class ProximityVolume(private val context: Context) {
             .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
             .setReportDelay(0)
             .build()
-        runCatching { scanner.startScan(null, settings, callback) }
+        // Filtered, because Android pauses an unfiltered scan while the screen is off, which is
+        // exactly when this is needed: the phone on the table, the listener walking away. The two
+        // names are the one it pairs under and the one it advertises under ("WH-1000XM5" and
+        // "LE_WH-1000XM5"); the callback still checks by containment.
+        val filters = listOf(target, "LE_$target").map { ScanFilter.Builder().setDeviceName(it).build() }
+        heard = false
+        runCatching { scanner.startScan(filters, settings, callback) }
             .onFailure { Log.w(TAG, "scan refused: ${it.message}"); running = false }
+        if (running) {
+            handler.removeCallbacks(widenIfSilent)
+            handler.postDelayed(widenIfSilent, WIDEN_AFTER_MS)
+        }
         return running
     }
 
@@ -137,6 +183,8 @@ class ProximityVolume(private val context: Context) {
     fun stop() {
         if (!running) return
         running = false
+        stoppedAt = SystemClock.elapsedRealtime()
+        handler.removeCallbacks(widenIfSilent)
         runCatching { adapter?.bluetoothLeScanner?.stopScan(callback) }
         factor.value = 1f
     }
@@ -179,6 +227,7 @@ class ProximityVolume(private val context: Context) {
             val name = result.scanRecord?.deviceName ?: return
             // "WH-1000XM5" pairs, "LE_WH-1000XM5" advertises. Contains rather than equals.
             if (!name.contains(target, ignoreCase = true)) return
+            heard = true
             accept(result.rssi)
         }
 
@@ -204,5 +253,11 @@ class ProximityVolume(private val context: Context) {
 
         /** Slow enough that one lucky reflection cannot strand the volume low for an album. */
         const val REFERENCE_DECAY_PER_SECOND = 1f / 60f
+
+        /** How long a stopped scan keeps its readings for a restart with the same headphones. */
+        const val RESUME_WINDOW_MS = 120_000L
+
+        /** How long a filtered scan may hear nothing before it is widened. */
+        const val WIDEN_AFTER_MS = 15_000L
     }
 }

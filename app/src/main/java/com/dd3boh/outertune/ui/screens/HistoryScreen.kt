@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -293,10 +292,10 @@ fun HistoryScreen(
                         )
                     }
 
-                    items(
+                    itemsIndexed(
                         items = section.songs,
-                        key = { it.id }
-                    ) { song ->
+                        key = { _, song -> song.id }
+                    ) { index, song ->
                         val content: @Composable () -> Unit = {
                             YouTubeListItem(
                                 item = song,
@@ -330,7 +329,8 @@ fun HistoryScreen(
                                                 playerConnection.playQueue(
                                                     ListQueue(
                                                         title = context.getString(R.string.queue_remote_history),
-                                                        items = section.songs.map { it.toMediaMetadata() }
+                                                        items = section.songs.map { it.toMediaMetadata() },
+                                                        startIndex = index
                                                     ),
                                                     origin = PlayOrigin.HISTORY,
                                                 )
@@ -377,6 +377,9 @@ fun HistoryScreen(
                     val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
                     itemsIndexed(
                         items = eventsGroup,
+                        // By play, not by place: a new play lands at the top and shifts every row,
+                        // and without keys the rows under a finger or a swipe moved with it.
+                        key = { _, event -> event.event.id },
                     ) { index, event ->
                         SongListItem(
                             song = event.song,
@@ -436,12 +439,12 @@ fun HistoryScreen(
                 selectedItems = eventsMap.flatMap { group ->
                     group.value.filter { it.event.id in selection }
                 }.map { it.song.toMediaMetadata() },
-                totalItemCount = eventsMap.flatMap { group -> group.value.map { it.song } }.size,
+                // The rows on screen, not the whole history: while searching, Select all must not
+                // reach plays the search is hiding.
+                totalItemCount = filteredEventIndex.size,
                 onSelectAll = {
                     selection.clear()
-                    selection.addAll(eventsMap.flatMap { group ->
-                        group.value.map { it.event.id }
-                    })
+                    selection.addAll(filteredEventIndex.keys)
                 },
                 onDeselectAll = { selection.clear() },
                 menuState = menuState,

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -98,10 +99,10 @@ fun StatsScreen(
         }
 
         val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
-        items(
+        itemsIndexed(
             items = mostPlayedSongs,
-            key = { it.id }
-        ) { song ->
+            key = { _, song -> song.id }
+        ) { index, song ->
             SongListItem(
                 song = song,
                 navController = navController,
@@ -118,7 +119,9 @@ fun StatsScreen(
                     playerConnection.playQueue(
                         ListQueue(
                             title = mostPlayedSongTitle,
-                            items = mostPlayedSongs.map { it.toMediaMetadata() }
+                            items = mostPlayedSongs.map { it.toMediaMetadata() },
+                            // The song tapped, not the top of the list.
+                            startIndex = index,
                         ),
                         origin = PlayOrigin.STATS,
                     )

@@ -7,6 +7,8 @@
 package com.dd3boh.outertune.engine
 
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import com.dd3boh.outertune.db.Converters
 import com.dd3boh.outertune.constants.EndReason
 import android.content.Context
@@ -36,11 +38,11 @@ class EngineLearning(private val context: Context, private val database: MusicDa
      * applied. Cheap enough to run whenever Home comes back into view: it reads the listen log and
      * only the songs the pending cards and recent listens name, never the whole library.
      */
-    suspend fun run(now: Long = System.currentTimeMillis()): Int {
-        if (!context.dataStore.get(LearnFromListeningKey, true)) return 0
+    suspend fun run(now: Long = System.currentTimeMillis()): Int = lock.withLock {
+        if (!context.dataStore.get(LearnFromListeningKey, true)) return@withLock 0
         grade(now)
         runCatching { scoreBuilds(now) }.onFailure { Log.w(TAG, "Could not score builds", it) }
-        return apply(now)
+        apply(now)
     }
 
     /**
@@ -54,28 +56,37 @@ class EngineLearning(private val context: Context, private val database: MusicDa
         val builds = database.buildsToScore(now - 86_400_000L)
         if (builds.isEmpty()) return
         val listens = database.engineListens().filter { it.learn && it.autoplayDepth == 0 && it.endReason != EndReason.OPEN }
+        // Once for all the builds, not once per build: the table is read whole, and every shown
+        // row is scored now, which made it tens of full reads a day inside the load's wait.
+        val versionLinks = database.engineVersionLinks().map { VersionLink(it.songId, it.versionId) }
         for (b in builds) {
             val cards = RowBuildCodec.decode(b.cards)
             val pool = RowBuildCodec.decode(b.pool)
-            // What the row put on screen. The engine's builds carry full cards; the library and
-            // YouTube rows carry ids alone, which is all the hit count needs.
-            val shown = if (cards.isNotEmpty()) cards.map { it.songId }
-            else b.shownIds.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+            // What the row actually put on screen. Every source records that now, the engine's
+            // included, and for the engine it is not the same as its cards: the tidy pass swaps
+            // played, capped or repeated cards for songs from the pool. Scored on the cards, a pool
+            // song the tidy pass showed and the listener played was learned twice (once from its
+            // impression, again as a pool pick the row had "missed"), and hits went to cards that
+            // were never on screen. A shadow build shows nothing, so it falls back to its cards.
+            val shown = b.shownIds.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+                .ifEmpty { cards.map { it.songId } }
+            val shownSet = shown.toSet()
             val end = minOf(database.nextBuildAt(b.rowKey, b.builtAt) ?: Long.MAX_VALUE, b.builtAt + 86_400_000L)
             val window = listens.filter { it.startedAt > b.builtAt && it.startedAt <= end }
             val ids = (shown + pool.map { it.songId } + window.map { it.songId }).toSet().toList()
             val songs = ids.chunked(900).flatMap { chunk -> database.songsByIds(chunk).first() }
                 .associate { it.id to SongRow(it.id, it.song.title, it.artists.firstOrNull()?.id, it.artists.firstOrNull()?.name, it.song.liked, it.song.likedDate?.let { d -> storedLocalToInstant(Converters().dateToTimestamp(d)!!) }?.takeIf { _ -> it.song.liked }) }
-            val groups = VersionGroups(songs.values, database.engineVersionLinks().map { VersionLink(it.songId, it.versionId) })
+            val groups = VersionGroups(songs.values, versionLinks)
             val picks = window.filter { Signals.engagement(it, songs[it.songId]?.likedAt) >= EngineParams.DEFAULT.justPlayedEngagement }
                 .groupBy { groups.groupOf(it.songId) }
             val rowGroups = shown.map { groups.groupOf(it) }.toSet()
             val hits = picks.keys.count { it in rowGroups }
             database.transactionNow { scoreBuild(b.id, picks.size, hits, now) }
             if (b.rowKey != 1 || pool.isEmpty() || database.poolPicksOf(b.id) > 0) continue
-            // Pool picks: at most three, against the row's cards that were not played.
+            // Pool picks: at most three, against the cards on screen that were not played.
             val playedGroups = picks.keys
-            val reference = cards.filter { groups.groupOf(it.songId) !in playedGroups }.map { it.features }
+            val reference = (cards + pool).filter { it.songId in shownSet && groups.groupOf(it.songId) !in playedGroups }
+                .distinctBy { it.songId }.map { it.features }
             if (reference.isEmpty()) continue
             val mean = DoubleArray(Features.COUNT) { i -> reference.sumOf { it[i] } / reference.size }
             val poolPicks = pool.filter { c -> groups.groupOf(c.songId) in playedGroups && groups.groupOf(c.songId) !in rowGroups }.take(3)
@@ -111,7 +122,7 @@ class EngineLearning(private val context: Context, private val database: MusicDa
         val graded = Grading.grade(rows, recent, songs, groups, now)
         if (graded.isEmpty()) return
         database.transactionNow {
-            graded.forEach { markGraded(it.impressionId, it.outcome, it.y.toFloat(), it.u.toFloat(), now) }
+            graded.forEach { markGraded(it.impressionId, it.outcome, it.y.toFloat(), it.u.toFloat(), now, it.listenId) }
         }
         Log.d(TAG, "graded ${graded.size} of ${pending.size} pending impressions")
     }
@@ -168,7 +179,7 @@ class EngineLearning(private val context: Context, private val database: MusicDa
     }
 
     /** Back to the priors; the examples stay graded and applied, so Rebuild can bring the learning back. */
-    fun reset() {
+    suspend fun reset() = lock.withLock {
         database.transactionNow { clearEngineWeights() }
     }
 
@@ -176,15 +187,23 @@ class EngineLearning(private val context: Context, private val database: MusicDa
      * The priors, then every applied example again in the order it was applied: a pure function of
      * stored rows, so this always lands within rounding of what the day-by-day loop produced.
      */
-    fun rebuild(): Map<String, Double> {
+    suspend fun rebuild(): Map<String, Double> = lock.withLock {
         val learner = Learner()
         val examples = database.appliedExamples()
         examples.forEach { i -> example(i)?.let { learner.apply(it) } }
         database.transactionNow { clearEngineWeights(); store(learner) }
-        return learner.asMap()
+        learner.asMap()
     }
 
     companion object {
         private const val TAG = "EngineLearning"
+
+        /**
+         * One loop at a time, across every instance: Home and Recommendations each make their own,
+         * and on a cold start Home runs it twice at once (on resume and in the load). Two runs
+         * could both find the same pool picks missing and insert them twice, or both read the
+         * same unapplied examples and apply one batch twice.
+         */
+        private val lock = Mutex()
     }
 }

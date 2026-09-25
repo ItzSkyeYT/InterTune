@@ -679,6 +679,16 @@ fun HomeScreen(
                         modifier = Modifier.animateItem()
                     )
                 }
+                // The engine's chips stay put while its row builds, so they do not drop in with the
+                // songs and push the page down, and a chip can be picked before the row arrives.
+                if ((quickPicksSource == QuickPicksSource.ENGINE || quickPicksSource == QuickPicksSource.COMPARE) && engineFallback == 0) {
+                    item(key = "context_chips") {
+                        ContextChipRow(
+                            viewModel = viewModel,
+                            modifier = Modifier.animateItem().tourTarget(Tour.QUICK_PICKS_CHIPS),
+                        )
+                    }
+                }
                 item {
                     LazyHorizontalGrid(
                         rows = GridCells.Fixed(4),
@@ -1246,22 +1256,25 @@ fun HomeScreen(
     }
     }
 
+    // Its own dialog, not inside the poll's. Nested there it only ever drew while a poll was open,
+    // so with no poll pending, which is the usual case, tapping the banner did nothing and the
+    // announcement's text and link could not be reached at all.
+    if (showAnnouncement) {
+        pendingAnnouncement?.let { note ->
+            AnnouncementDialog(
+                announcement = note,
+                onDismiss = {
+                    showAnnouncement = false
+                    // Opening it is what deals with it; it does not come back tomorrow.
+                    scope.launch { pollChecker.dismissAnnouncement(note.id) }
+                },
+            )
+        }
+    }
+
     // Only ever opened by tapping the banner. Closing without answering leaves the question
     // unanswered rather than marking it dealt with, so the banner stays until it is dismissed.
     pendingPoll?.takeIf { showPoll }?.let { poll ->
-        if (showAnnouncement) {
-            pendingAnnouncement?.let { note ->
-                AnnouncementDialog(
-                    announcement = note,
-                    onDismiss = {
-                        showAnnouncement = false
-                        // Opening it is what deals with it; it does not come back tomorrow.
-                        scope.launch { pollChecker.dismissAnnouncement(note.id) }
-                    },
-                )
-            }
-        }
-
         PollDialog(
             poll = poll,
             onSubmit = { chosen ->

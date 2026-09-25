@@ -438,7 +438,10 @@ class QueueBoard(
         } else if (newQueuePos < 0) {
             newQueuePos = 0
         }
-        item.queuePos = newQueuePos
+        // newQueuePos is a place in play order, and queuePos indexes the stored order, which a
+        // shuffled queue does not play in. Written straight in, it named another song as the
+        // current one, and the next Play next or Add to queue restarted that song from 0.
+        item.setCurrentQueuePos(newQueuePos)
 
         saveQueueSongs(item)
         return ret
@@ -654,7 +657,6 @@ class QueueBoard(
                 newQueuePos++
             }
         }
-        queue.queuePos = newQueuePos
 
         // I like to move it move it
         if (queue.shuffled) {
@@ -667,12 +669,16 @@ class QueueBoard(
             queue.queue.move(fromIndex, toIndex)
         }
         queue.getCurrentQueueShuffled().fastForEachIndexed { index, s -> s.shuffleIndex = index }
+        // Once the play order is renumbered, and through the play order: see removeSong. A
+        // shuffled queue's stored order does not change on a move, so its current song keeps
+        // its stored place, and writing the play position there named another song as current.
+        queue.setCurrentQueuePos(newQueuePos)
 
         saveQueueSongs(queue)
 
         if (QUEUE_DEBUG)
-            Log.d(TAG, "Moved item from $currentMediaItemIndex to ${queue.queuePos}")
-        return queue.queuePos
+            Log.d(TAG, "Moved item from $currentMediaItemIndex to $newQueuePos")
+        return newQueuePos
     }
 
 
@@ -911,11 +917,16 @@ class QueueBoard(
 
     private fun saveQueueSongs(mq: MultiQueueObject) {
         if (player.persistentQueue) {
+            // The songs are copied here, on the player's thread: the save walks the list on IO, and
+            // the live list shrinking under it crashed with an index past its end (24 Sep). Only
+            // the songs. The position is read when the save runs, as before, or a save that lands
+            // after a quicker position update would write the older position back over it.
+            val songs = mq.songsSnapshot()
             queueSongMap.add(
                 PriorityJob(
                     0,
                     coroutineScope.launch(start = CoroutineStart.DEFAULT) {
-                        player.database.saveQueue(mq)
+                        player.database.saveQueue(mq.copy(queue = songs))
                     }
                 )
             )

@@ -644,7 +644,12 @@ fun OnlinePlaylistScreen(
                                                         playlistId = playlist.id,
                                                         title = playlist.title,
                                                         items = filteredSongs.map { it.second.toMediaMetadata() },
-                                                        startIndex = index
+                                                        // index is the song's place in the whole playlist, but
+                                                        // the queue holds only the rows on screen, so while
+                                                        // searching the start is found among those.
+                                                        startIndex = filteredSongs
+                                                            .indexOfFirst { it.first == index }
+                                                            .coerceAtLeast(0)
                                                     ),
                                                     origin = PlayOrigin.PLAYLIST,
                                                 )
@@ -777,10 +782,12 @@ fun OnlinePlaylistScreen(
                 selectedItems = selection.mapNotNull {
                     songs.getOrNull(it)
                 }.map { it.toMediaMetadata() },
-                totalItemCount = songs.size,
+                // The rows on screen, not the whole playlist: while searching, Select all must
+                // not reach songs the search is hiding.
+                totalItemCount = filteredSongs.size,
                 onSelectAll = {
                     selection.clear()
-                    selection.addAll(songs.indices)
+                    selection.addAll(filteredSongs.map { it.first })
                 },
                 onDeselectAll = { selection.clear() },
                 menuState = menuState,

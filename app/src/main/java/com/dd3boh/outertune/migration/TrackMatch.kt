@@ -176,13 +176,19 @@ internal fun normalise(text: String): String = text
     // Apostrophes sit inside a word, so they close up rather than split: "don't" has to meet
     // "dont". Every other mark separates words and becomes a space.
     .replace(Regex("['’´`]"), "")
-    .replace(Regex("[^a-z0-9 ]"), " ")
+    // Letters and digits of every script, not a to z: kept to Latin, a title in Japanese or
+    // Cyrillic came out empty and scored nothing against anything, itself included.
+    .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
     .replace(Regex("\\s+"), " ")
     .trim()
 
 private fun stripAccents(text: String): String =
     java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
         .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+        // Composed again afterwards. Decomposing splits more than Latin accents: が becomes か
+        // and a voicing mark outside the block removed above, and left apart the mark would
+        // turn into a space and cut the word in two.
+        .let { java.text.Normalizer.normalize(it, java.text.Normalizer.Form.NFC) }
 
 private const val TITLE_WEIGHT = 0.6
 private const val ARTIST_WEIGHT = 0.4

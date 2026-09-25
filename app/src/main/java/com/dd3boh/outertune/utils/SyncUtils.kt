@@ -43,6 +43,8 @@ import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.utils.completed
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -177,7 +179,7 @@ class SyncUtils @Inject constructor(
      */
     suspend fun syncRemoteLikedSongs(bypass: Boolean = false) {
         // REQUIRED: internet, no ongoing sync, and category enabled
-        if (!_isSyncingRemoteLikedSongs.value && (!checkEnabled(SyncContent.LIKED_SONGS) || !context.isInternetConnected())) {
+        if (_isSyncingRemoteLikedSongs.value || !checkEnabled(SyncContent.LIKED_SONGS) || !context.isInternetConnected()) {
             if (_isSyncingRemoteLikedSongs.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
             return
@@ -257,11 +259,16 @@ class SyncUtils @Inject constructor(
             }
 
         } finally {
-            context.dataStore.edit { settings ->
-                settings[LastLikeSongSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+            // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
+            // suspending write, so a sync cancelled by leaving its screen left the flag set,
+            // and since the guard keeps a second sync out, that kind of sync never ran again.
+            _isSyncingRemoteLikedSongs.value = false
+            withContext(NonCancellable) {
+                context.dataStore.edit { settings ->
+                    settings[LastLikeSongSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                }
             }
             Log.i(TAG, "Liked songs synchronization ended")
-            _isSyncingRemoteLikedSongs.value = false
         }
     }
 
@@ -270,7 +277,7 @@ class SyncUtils @Inject constructor(
      */
     suspend fun syncRemoteSongs(bypass: Boolean = false) {
         // REQUIRED: internet, no ongoing sync, and category enabled
-        if (!_isSyncingRemoteSongs.value && (!checkEnabled(SyncContent.PRIVATE_SONGS) || !context.isInternetConnected())) {
+        if (_isSyncingRemoteSongs.value || !checkEnabled(SyncContent.PRIVATE_SONGS) || !context.isInternetConnected()) {
             if (_isSyncingRemoteSongs.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
             return
@@ -325,11 +332,16 @@ class SyncUtils @Inject constructor(
                 jobs.joinAll()
             }
         } finally {
-            context.dataStore.edit { settings ->
-                settings[LastLibSongSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+            // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
+            // suspending write, so a sync cancelled by leaving its screen left the flag set,
+            // and since the guard keeps a second sync out, that kind of sync never ran again.
+            _isSyncingRemoteSongs.value = false
+            withContext(NonCancellable) {
+                context.dataStore.edit { settings ->
+                    settings[LastLibSongSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                }
             }
             Log.i(TAG, "Library songs synchronization ended")
-            _isSyncingRemoteSongs.value = false
         }
     }
 
@@ -338,7 +350,7 @@ class SyncUtils @Inject constructor(
      */
     suspend fun syncRemoteAlbums(bypass: Boolean = false) {
         // REQUIRED: internet, no ongoing sync, and category enabled
-        if (!_isSyncingRemoteAlbums.value && (!checkEnabled(SyncContent.ALBUMS) || !context.isInternetConnected())) {
+        if (_isSyncingRemoteAlbums.value || !checkEnabled(SyncContent.ALBUMS) || !context.isInternetConnected()) {
             if (_isSyncingRemoteAlbums.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
             return
@@ -394,11 +406,16 @@ class SyncUtils @Inject constructor(
                 }
             }
         } finally {
-            context.dataStore.edit { settings ->
-                settings[LastAlbumSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+            // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
+            // suspending write, so a sync cancelled by leaving its screen left the flag set,
+            // and since the guard keeps a second sync out, that kind of sync never ran again.
+            _isSyncingRemoteAlbums.value = false
+            withContext(NonCancellable) {
+                context.dataStore.edit { settings ->
+                    settings[LastAlbumSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                }
             }
             Log.i(TAG, "Library albums synchronization ended")
-            _isSyncingRemoteAlbums.value = false // Use the correct AtomicBoolean
         }
     }
 
@@ -407,7 +424,7 @@ class SyncUtils @Inject constructor(
      */
     suspend fun syncRemoteArtists(bypass: Boolean = false) {
         // REQUIRED: internet, no ongoing sync, and category enabled
-        if (!_isSyncingRemoteArtists.value && (!checkEnabled(SyncContent.ARTISTS) || !context.isInternetConnected())) {
+        if (_isSyncingRemoteArtists.value || !checkEnabled(SyncContent.ARTISTS) || !context.isInternetConnected()) {
             if (_isSyncingRemoteArtists.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
             return
@@ -485,11 +502,16 @@ class SyncUtils @Inject constructor(
                 }
             }
         } finally {
-            context.dataStore.edit { settings ->
-                settings[LastArtistSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+            // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
+            // suspending write, so a sync cancelled by leaving its screen left the flag set,
+            // and since the guard keeps a second sync out, that kind of sync never ran again.
+            _isSyncingRemoteArtists.value = false
+            withContext(NonCancellable) {
+                context.dataStore.edit { settings ->
+                    settings[LastArtistSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                }
             }
             Log.i(TAG, "Artist subscriptions synchronization ended")
-            _isSyncingRemoteArtists.value = false
         }
     }
 
@@ -498,7 +520,7 @@ class SyncUtils @Inject constructor(
      */
     suspend fun syncRemotePlaylists(bypass: Boolean = false) {
         // REQUIRED: internet, no ongoing sync, and category enabled
-        if (!_isSyncingRemotePlaylists.value && (!checkEnabled(SyncContent.PLAYLISTS) || !context.isInternetConnected())) {
+        if (_isSyncingRemotePlaylists.value || !checkEnabled(SyncContent.PLAYLISTS) || !context.isInternetConnected()) {
             if (_isSyncingRemotePlaylists.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
             return
@@ -584,10 +606,15 @@ class SyncUtils @Inject constructor(
                 }
             }
         } finally {
-            context.dataStore.edit { settings ->
-                settings[LastPlaylistSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-            }
+            // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
+            // suspending write, so a sync cancelled by leaving its screen left the flag set,
+            // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRemotePlaylists.value = false
+            withContext(NonCancellable) {
+                context.dataStore.edit { settings ->
+                    settings[LastPlaylistSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                }
+            }
             Log.i(TAG, "Library playlist synchronization ended")
         }
     }
@@ -627,7 +654,7 @@ class SyncUtils @Inject constructor(
 
     suspend fun syncRecentActivity(bypass: Boolean = false) {
         // REQUIRED: internet, no ongoing sync, and category enabled
-        if (!_isSyncingRecentActivity.value && (!checkEnabled(SyncContent.RECENT_ACTIVITY) || !context.isInternetConnected())) {
+        if (_isSyncingRecentActivity.value || !checkEnabled(SyncContent.RECENT_ACTIVITY) || !context.isInternetConnected()) {
             if (_isSyncingRecentActivity.value)
                 Log.i(TAG, "Recent activity synchronization already in progress")
             return
@@ -654,10 +681,15 @@ class SyncUtils @Inject constructor(
                 }
             }
         } finally {
-            context.dataStore.edit { settings ->
-                settings[LastRecentActivitySyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-            }
+            // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
+            // suspending write, so a sync cancelled by leaving its screen left the flag set,
+            // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRecentActivity.value = false
+            withContext(NonCancellable) {
+                context.dataStore.edit { settings ->
+                    settings[LastRecentActivitySyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+                }
+            }
             Log.i(TAG, "Recent activity synchronization ended")
         }
     }

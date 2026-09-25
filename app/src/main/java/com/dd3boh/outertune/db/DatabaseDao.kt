@@ -207,7 +207,9 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
         }
 
         mediaMetadata.album?.let {
-            val album = albumsByName(it.title)
+            // By id first: by title alone, any album of the same name ("Greatest Hits") took the
+            // song and its count.
+            val album = albumById(it.id) ?: albumsByName(it.title)
             val albumId = album?.id ?: GenreEntity.generateGenreId()
             // Built from the existing row rather than from scratch, because upsert replaces the
             // whole row and this only ever carried three fields across. Everything else on an
@@ -245,16 +247,16 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
 
     @Transaction
     fun insert(albumPage: AlbumPage) {
-        if (insert(AlbumEntity(
-                id = albumPage.album.browseId,
-                playlistId = albumPage.album.playlistId,
-                title = albumPage.album.title,
-                year = albumPage.album.year,
-                thumbnailUrl = albumPage.album.thumbnail,
-                songCount = albumPage.songs.size,
-                duration = albumPage.songs.sumOf { it.duration ?: 0 }
-            )) == -1L
-        ) return
+        val entity = AlbumEntity(
+            id = albumPage.album.browseId,
+            playlistId = albumPage.album.playlistId,
+            title = albumPage.album.title,
+            year = albumPage.album.year,
+            thumbnailUrl = albumPage.album.thumbnail,
+            songCount = albumPage.songs.size,
+            duration = albumPage.songs.sumOf { it.duration ?: 0 }
+        )
+        if (insert(entity) == -1L) return
         albumPage.songs.map(SongItem::toMediaMetadata)
             .onEach(::insert)
             .mapIndexed { index, song ->
@@ -265,6 +267,9 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
                 )
             }
             .forEach(::upsert)
+        // Written again after the songs: inserting each new song adds one to the album it names,
+        // which is this one, so a freshly opened album read twice its real count and length.
+        albumById(entity.id)?.let { update(it.copy(songCount = entity.songCount, duration = entity.duration)) }
         albumPage.album.artists
             ?.map { artist ->
                 ArtistEntity(
@@ -285,17 +290,16 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
 
     @Transaction
     fun update(album: AlbumEntity, albumPage: AlbumPage) {
-        update(
-            album.copy(
-                id = albumPage.album.browseId,
-                playlistId = albumPage.album.playlistId,
-                title = albumPage.album.title,
-                year = albumPage.album.year,
-                thumbnailUrl = albumPage.album.thumbnail,
-                songCount = albumPage.songs.size,
-                duration = albumPage.songs.sumOf { it.duration ?: 0 }
-            )
+        val updated = album.copy(
+            id = albumPage.album.browseId,
+            playlistId = albumPage.album.playlistId,
+            title = albumPage.album.title,
+            year = albumPage.album.year,
+            thumbnailUrl = albumPage.album.thumbnail,
+            songCount = albumPage.songs.size,
+            duration = albumPage.songs.sumOf { it.duration ?: 0 }
         )
+        update(updated)
         albumPage.songs.map(SongItem::toMediaMetadata)
             .onEach(::insert)
             .mapIndexed { index, song ->
@@ -306,6 +310,8 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
                 )
             }
             .forEach(::upsert)
+        // As in insert(albumPage): the new songs each added one to this album on the way in.
+        albumById(updated.id)?.let { update(it.copy(songCount = updated.songCount, duration = updated.duration)) }
         albumPage.album.artists
             ?.map { artist ->
                 ArtistEntity(

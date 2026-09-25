@@ -143,6 +143,12 @@ object YTPlayerUtils {
         val format: PlayerResponse.StreamingData.Format,
         val streamUrl: String,
         val streamExpiresInSeconds: Int,
+        /**
+         * Whether [streamUrl] answered a status check. The last fallback client's is taken without
+         * one, and those are the streams known to play a megabyte and then refuse, so anything
+         * that gives up a good copy for this stream checks it first.
+         */
+        val validated: Boolean = false,
     )
 
     /**
@@ -240,6 +246,7 @@ object YTPlayerUtils {
 
         var format: PlayerResponse.StreamingData.Format? = null
         var streamUrl: String? = null
+        var validated = false
         var streamExpiresInSeconds: Int? = null
 
         var streamPlayerResponse: PlayerResponse? = null
@@ -313,6 +320,7 @@ object YTPlayerUtils {
                 if (validateStatus(streamUrl)) {
                     // working stream found
                     Log.i(TAG, "[$videoId] [${client.clientName}] found working stream")
+                    validated = true
                     break
                 } else {
                     Log.w(TAG, "[$videoId] [${client.clientName}] got bad http status code")
@@ -386,6 +394,7 @@ object YTPlayerUtils {
             format,
             streamUrl,
             streamExpiresInSeconds,
+            validated,
         )
     }
 

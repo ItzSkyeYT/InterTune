@@ -777,15 +777,18 @@ fun LocalPlaylistScreen(
         )
 
         FloatingFooter(inSelectMode) {
+            // While searching, mutableSongs holds just the results, and Select all must not reach
+            // songs the search is hiding. Outside a search it is the whole playlist, as before.
+            val shownSongs = if (isSearching) mutableSongs else playlistWithSongs.second
             SelectHeader(
                 navController = navController,
                 selectedItems = selection.mapNotNull { id ->
                     playlistWithSongs.second.find { it.song.id == id }?.song
                 }.map { it.toMediaMetadata() },
-                totalItemCount = playlistWithSongs.second.map { it.song }.size,
+                totalItemCount = shownSongs.size,
                 onSelectAll = {
                     selection.clear()
-                    selection.addAll(playlistWithSongs.second.map { it.song }.map { it.song.id })
+                    selection.addAll(shownSongs.map { it.song.id })
                 },
                 onDeselectAll = { selection.clear() },
                 menuState = menuState,

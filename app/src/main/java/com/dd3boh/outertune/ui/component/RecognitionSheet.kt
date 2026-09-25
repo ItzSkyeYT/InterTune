@@ -43,6 +43,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
@@ -62,10 +65,18 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.delay
 import coil3.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.constants.RecogniseKeepAwakeKey
+import com.dd3boh.outertune.constants.RecognisePauseOnSpeakerKey
+import com.dd3boh.outertune.recognition.AudioRoute
+import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.recognition.RecognitionEngine
 import com.dd3boh.outertune.recognition.RecognitionViewModel
+import com.dd3boh.outertune.recognition.SheetRun
 import com.zionhuang.innertube.models.SongItem
 
 /**
@@ -90,6 +101,17 @@ fun RecognitionSheet(
     val running by viewModel.running.collectAsState()
     val startedAt by viewModel.startedAt.collectAsState()
     val nowPlaying by viewModel.nowPlaying.collectAsState()
+    val retryAt by viewModel.retryAt.collectAsState()
+
+    // Whose run the engine is on. Any run going used to be joined, whatever it was for, so the
+    // What's playing? screen's showed here as this playlist's: see SheetRun. Asked again whenever a
+    // run starts or stops, which running and startedAt between them always show. Switching from
+    // another run to this playlist's leaves running true throughout, and only startedAt moves.
+    val run = remember(running, startedAt, playlist.id) { viewModel.sheetRun(playlist, running) }
+    val own = run == SheetRun.Own
+    // This sheet's own run listening, which is all it keeps the screen on for or stops for music.
+    // Another run is left as it would be with the sheet closed.
+    val listening = running && own
 
     // Ticks once a second so the sheet can show how long it has been listening. A run with nothing
     // to report otherwise looks identical to one that has died.
@@ -103,22 +125,69 @@ fun RecognitionSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    // The screen's two listening settings apply here too; the sheet used to ignore both. On the
+    // phone's own speaker the music and the microphone share the air, so without the pause it
+    // named the song already playing and added it to the playlist.
+    val context = LocalContext.current
+    val playerConnection = LocalPlayerConnection.current
+    val (pauseOnSpeaker) = rememberPreference(RecognisePauseOnSpeakerKey, defaultValue = true)
+    val (keepAwake) = rememberPreference(RecogniseKeepAwakeKey, defaultValue = false)
+    val view = LocalView.current
+    DisposableEffect(listening, keepAwake) {
+        val on = listening && keepAwake
+        // Put back what was there rather than off: the player keeps the screen on for lyrics
+        // through the same flag, and switching it off here took that away too.
+        val before = view.keepScreenOn
+        if (on) view.keepScreenOn = true
+        onDispose { if (on) view.keepScreenOn = before }
+    }
+    // And music started on the speaker mid-run stops it, as on the screen.
+    LaunchedEffect(playerConnection, listening, pauseOnSpeaker) {
+        if (!listening || !pauseOnSpeaker) return@LaunchedEffect
+        val playing = playerConnection?.isPlaying ?: return@LaunchedEffect
+        var was = playing.value
+        playing.collect { now ->
+            if (now && !was && !AudioRoute.playbackIsPrivate(context)) viewModel.stop()
+            was = now
+        }
+    }
+    // Instead is from somebody else's run, which is stopped for this playlist's. Only from its own
+    // button: every other start leaves a run already going alone, as the engine does.
+    fun start(instead: Boolean = false) {
+        if (pauseOnSpeaker && playerConnection?.player?.isPlaying == true && !AudioRoute.playbackIsPrivate(context)) {
+            playerConnection.player.pause()
+        }
+        if (instead) viewModel.listenInstead(playlist) else viewModel.start(playlist)
+    }
+
     val permission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) viewModel.start(playlist)
+        if (granted) start()
         else viewModel.reset()
     }
 
-    // Asked when listening starts, not at launch. A run already going is joined rather than
-    // restarted, so reopening the sheet on a continuous run does not interrupt it.
+    // Asked when listening starts, not at launch. A run already going is not restarted. This
+    // playlist's is joined, so reopening the sheet on a continuous run does not interrupt it, and
+    // anybody else's is only offered to be swapped for this playlist's.
+    //
+    // Once per opening of the sheet, remembered across a rotation. The effect runs again whenever
+    // the activity is recreated, and a rotation or a theme change while a result waited to be
+    // chosen used to open the microphone again and replace that result a window later. Not keyed
+    // on the engine's state, which the What's playing? screen can leave holding its own last result.
+    var asked by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
+        if (asked) return@LaunchedEffect
+        asked = true
         if (!viewModel.running.value) permission.launch(Manifest.permission.RECORD_AUDIO)
     }
 
     ModalBottomSheet(
         onDismissRequest = {
-            viewModel.reset()
+            // Somebody else's run carries on. It is not this sheet's to stop, and closing the sheet
+            // used to end the screen's Keep listening with it. Asked afresh, since the sheet can be
+            // on its way out for a moment after the last recomposition.
+            if (viewModel.sheetRun(playlist).resetOnClose) viewModel.reset()
             onDismiss()
         },
         sheetState = sheetState,
@@ -130,12 +199,35 @@ fun RecognitionSheet(
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp)
         ) {
-            when (val s = state) {
+            // Another run going is said plainly in place of its progress. What one left on show once
+            // it stopped is not this playlist's either, and is shown as nothing at all.
+            if (run is SheetRun.Other) Elsewhere(
+                title = if (run.playlist != null) {
+                    stringResource(R.string.recognition_elsewhere_playlist, run.playlist)
+                } else {
+                    stringResource(R.string.recognition_elsewhere_screen, stringResource(R.string.recognise))
+                },
+                onListenHere = { start(instead = true) },
+            ) else when (val s = if (own) state else RecognitionEngine.State.Idle) {
+                // Idle is only listening in the moment before a run's first update. Otherwise
+                // nothing is: after the microphone was refused, or a stop from the notification
+                // with the sheet still open, it pulsed at 0:00 with no button, looking like a run.
                 RecognitionEngine.State.Idle ->
-                    Listening(level = 0f, identifying = false, elapsed = elapsed)
+                    if (running) Listening(level = 0f, identifying = false, elapsed = elapsed)
+                    else Problem(
+                        text = stringResource(R.string.recognise_tap_to_listen),
+                        onRetry = { permission.launch(Manifest.permission.RECORD_AUDIO) },
+                    )
 
                 is RecognitionEngine.State.Listening -> {
-                    Listening(level = s.level, identifying = s.identifying, elapsed = elapsed)
+                    Listening(
+                        level = s.level,
+                        identifying = s.identifying,
+                        elapsed = elapsed,
+                        // Shazam not answering, said in place of the jokes, which would otherwise
+                        // carry on as if all were well.
+                        message = shazamWaitMessage(retryAt?.takeIf { continuous }),
+                    )
                     Spacer24()
                     OutlinedButton(onClick = { viewModel.stop(); onDismiss() }) {
                         Text(stringResource(R.string.recognition_stop))
@@ -159,12 +251,12 @@ fun RecognitionSheet(
                         viewModel.accept(song, playlist)
                         if (!continuous) onDismiss()
                     },
-                    onRetry = { viewModel.start(playlist) },
+                    onRetry = { start() },
                 )
 
                 RecognitionEngine.State.NoMatch -> Problem(
                     text = stringResource(R.string.recognition_no_match),
-                    onRetry = { viewModel.start(playlist) },
+                    onRetry = { start() },
                 )
 
                 is RecognitionEngine.State.Failed -> Problem(
@@ -172,13 +264,15 @@ fun RecognitionSheet(
                         if (s.heardNothing) R.string.recognition_heard_nothing
                         else R.string.recognition_failed
                     ),
-                    onRetry = { viewModel.start(playlist) },
+                    onRetry = { start() },
                 )
             }
 
             // Off by default. Continuous listening keeps the microphone open and makes a request
-            // every few seconds, which is not something to switch on for somebody.
-            Row(
+            // every few seconds, which is not something to switch on for somebody. Not over another
+            // run: the engine reads the mode on every window, so this changed that run's from under
+            // whoever started it.
+            if (run !is SheetRun.Other) Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -201,7 +295,10 @@ fun RecognitionSheet(
                 )
             }
 
-            nowPlaying?.let { playing ->
+            // What this playlist's run heard and added, and nobody else's. Under the screen's run
+            // the added count sat at nothing however much it heard, and another playlist's counts
+            // say nothing about this one.
+            nowPlaying?.takeIf { own }?.let { playing ->
                 val position = remember(elapsed, playing) { playing.positionSeconds() }
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -234,7 +331,7 @@ fun RecognitionSheet(
                 }
             }
 
-            if (skipped.isNotEmpty()) {
+            if (own && skipped.isNotEmpty()) {
                 Text(
                     text = stringResource(R.string.recognition_skipped_count, skipped.size),
                     style = MaterialTheme.typography.labelLarge,
@@ -254,7 +351,7 @@ fun RecognitionSheet(
                 }
             }
 
-            if (added.isNotEmpty()) {
+            if (own && added.isNotEmpty()) {
                 Text(
                     text = stringResource(R.string.recognition_added_count, added.size),
                     style = MaterialTheme.typography.labelLarge,
@@ -463,6 +560,42 @@ private fun Found(
 
     Spacer24()
     TextButton(onClick = onRetry) { Text(stringResource(R.string.recognition_listen_again)) }
+}
+
+/**
+ * Another run has the microphone: the What's playing? screen's, or another playlist's.
+ *
+ * In place of that run's progress, which the sheet used to show as its own while nothing it heard
+ * went into this playlist. The one thing offered is to listen for this playlist instead, and
+ * closing the sheet leaves the other run going.
+ */
+@Composable
+private fun Elsewhere(title: String, onListenHere: () -> Unit) {
+    Title(title)
+    Spacer24()
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(96.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.GraphicEq,
+            contentDescription = null,
+            modifier = Modifier.size(40.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    Spacer24()
+    Text(
+        text = stringResource(R.string.recognition_elsewhere_desc),
+        style = MaterialTheme.typography.bodyLarge,
+        textAlign = TextAlign.Center,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer24()
+    Button(onClick = onListenHere) { Text(stringResource(R.string.recognition_listen_here_instead)) }
 }
 
 @Composable

@@ -70,6 +70,7 @@ import kotlinx.coroutines.yield
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.onEach
 import okhttp3.OkHttpClient
@@ -299,8 +300,22 @@ class DownloadUtil @Inject constructor(
 
     sealed interface LikedDownloadState {
         data object Idle : LikedDownloadState
-        data class Running(val done: Int, val total: Int) : LikedDownloadState
-        data class Finished(val done: Int, val total: Int, val stoppedEarly: Boolean) : LikedDownloadState
+
+        /** [done] is how many have landed and [failed] how many media3 gave up on. */
+        data class Running(val done: Int, val failed: Int, val total: Int) : LikedDownloadState
+
+        /**
+         * [done] and [failed] need not add up to [total]: a run stopped early cancels the rest, and
+         * a song taken off the queue by hand during the run is neither. [stoppedEarly] covers that
+         * second case too, since the rest were cancelled either way, whether from the row, from the
+         * download notification or from a song's own menu.
+         */
+        data class Finished(
+            val done: Int,
+            val failed: Int,
+            val total: Int,
+            val stoppedEarly: Boolean,
+        ) : LikedDownloadState
         data object NeedsWifi : LikedDownloadState
         data object NothingToDo : LikedDownloadState
 
@@ -321,6 +336,12 @@ class DownloadUtil @Inject constructor(
     private var likedBatch: Set<String> = emptySet()
 
     /**
+     * How the current catch up's songs ended, as the listener saw it. See [LikedCatchUp]: a failed
+     * song leaves nothing in the map, so this is the only place the run can find out about it.
+     */
+    private val likedEnds = MutableStateFlow<Map<String, LikedCatchUp.End>>(emptyMap())
+
+    /**
      * Still working, unwinding included. isActive would go false the moment cancel returns while
      * the coroutine is still enqueuing, which is long enough for a second tap to start a second
      * run over the top of the first. Same trap as LoudnessRepair.isRunning.
@@ -328,7 +349,8 @@ class DownloadUtil @Inject constructor(
     val isDownloadingLiked: Boolean get() = likedJob?.isCompleted == false
 
     /**
-     * Queues every liked song that is missing, then reports how many have actually landed.
+     * Queues every liked song that is missing, then reports how many have actually landed and how
+     * many failed.
      *
      * Progress follows the downloads themselves rather than the enqueue loop. Handing 300 requests
      * to media3 takes a moment; waiting for 300 songs to arrive is the part worth watching.
@@ -365,42 +387,59 @@ class DownloadUtil @Inject constructor(
             }
 
             val batch = pending.map { it.id }.toSet()
+            // A fresh record for this run. A late update for the last run's songs can still land
+            // in it before the new batch is published, but any of those this run queues again gets
+            // a fresh update from the enqueue below, and that clears it.
+            likedEnds.value = emptyMap()
             likedBatch = batch
             val total = batch.size
-            _likedDownloadState.value = LikedDownloadState.Running(0, total)
+            _likedDownloadState.value = LikedDownloadState.Running(done = 0, failed = 0, total = total)
             notifyIfWaitingForWifi()
 
             // Chunked with a yield between, so cancelling stays responsive on a large library
             // instead of having to wait out the whole enqueue.
             pending.chunked(ENQUEUE_CHUNK).forEach { chunk ->
                 if (!currentCoroutineContext().isActive) return@launch
-                chunk.forEach { downloadSong(it.id, it.title) }
+                chunk.forEach { song ->
+                    if (!downloadSong(song.id, song.title)) {
+                        likedEnds.update { LikedCatchUp.neverSent(it, song.id) }
+                    }
+                }
                 yield()
             }
 
-            // Follow the map until the batch lands. first {} is what actually ends the
+            // Follow the batch until every song has ended. first {} is what actually ends the
             // collection: returning from a collect lambda only ends that one emission, so the
             // earlier version kept collecting forever. The job must also stay owned by the
             // coroutine until it really finishes, or isDownloadingLiked reads false while this is
             // still running and tapping the row starts a second run on top of the first.
-            downloads
-                // Landed means completed. The map keeps three kinds of value: a real timestamp
-                // for a finished download, STATE_DOWNLOADING for queued or in flight, and
-                // STATE_INVALID for everything else. Counting "not invalid" counted every song
-                // the instant it was enqueued, so the run reported itself finished seconds after
-                // it started and the progress display, which is the whole point of the feature,
-                // never moved.
-                .map { map ->
-                    batch.count { id ->
-                        map[id]?.let { it != STATE_INVALID && it != STATE_DOWNLOADING } == true
-                    }
-                }
+            //
+            // Ended, not landed. Waiting for every song to land held the row at 299 of 300
+            // whenever one download failed, since a failed song never lands, and the run only
+            // ended when somebody stopped it by hand. The counting lives in LikedCatchUp.
+            //
+            // The endings are read fresh rather than taken from combine. combine collects each
+            // flow in a coroutine of its own on a pool of threads, so it can deliver the listener's
+            // map change before the ending change the listener wrote just ahead of it. A song
+            // queued again after failing would then pair the new STATE_DOWNLOADING with the old
+            // failure, count as ended, and could finish the run while it was still downloading.
+            // Reading the endings after the map always gets the ones written with it or later.
+            val tally = combine(downloads, likedEnds) { map, _ -> LikedCatchUp.tally(batch, map, likedEnds.value) }
                 .distinctUntilChanged()
-                .onEach { done -> _likedDownloadState.value = LikedDownloadState.Running(done, total) }
-                .first { done -> done >= total }
+                .onEach {
+                    _likedDownloadState.value =
+                        LikedDownloadState.Running(done = it.landed, failed = it.failed, total = total)
+                }
+                .first { it.settled }
 
-            _likedDownloadState.value =
-                LikedDownloadState.Finished(total, total, stoppedEarly = false)
+            // Not stopped from the row, but songs can still have been cancelled from elsewhere, and
+            // then the row says so rather than reading as though the run got through its list.
+            _likedDownloadState.value = LikedDownloadState.Finished(
+                done = tally.landed,
+                failed = tally.failed,
+                total = total,
+                stoppedEarly = tally.cutShort,
+            )
         }
     }
 
@@ -416,22 +455,36 @@ class DownloadUtil @Inject constructor(
         likedJob?.cancel()
 
         if (state is LikedDownloadState.Running) {
+            // One look at where the run stands, map first and endings second for the same reason
+            // as in the run itself.
+            val batch = likedBatch
+            val map = downloads.value
+            val ends = likedEnds.value
             runCatching {
                 // The queued ones, scoped to this run. It used to filter for STATE_INVALID,
                 // which is the sentinel for failed and removed, so stopping did the opposite of
                 // both things it promised: not one of the batch's queued downloads matched, so
                 // media3 carried on with all of them, while songs that had failed at some
                 // unrelated earlier point did match and were removed.
-                downloads.value
-                    .filter { it.key in likedBatch && it.value == STATE_DOWNLOADING }
-                    .keys.forEach { id ->
-                        DownloadService.sendRemoveDownload(
-                            context, ExoDownloadService::class.java, id, false
-                        )
-                    }
+                LikedCatchUp.toRemoveOnStop(batch, map, ends).forEach { id ->
+                    DownloadService.sendRemoveDownload(
+                        context, ExoDownloadService::class.java, id, false
+                    )
+                }
             }.onFailure { Log.w(TAG, "Could not clear queued downloads on cancel", it) }
-            _likedDownloadState.value =
-                LikedDownloadState.Finished(state.done, state.total, stoppedEarly = true)
+            // The counts at the moment of the stop, taken here rather than from the last progress
+            // shown. A stop during the enqueue loop comes before the run has published any
+            // progress, and the songs the download service refused by then were reported as
+            // cancelled instead of failed. The removals just sent come back as removing, not
+            // failed, and the run has stopped counting by then anyway, so cancelling can never
+            // make it look as though downloads went wrong.
+            val tally = LikedCatchUp.tally(batch, map, ends)
+            _likedDownloadState.value = LikedDownloadState.Finished(
+                done = tally.landed,
+                failed = tally.failed,
+                total = state.total,
+                stoppedEarly = true,
+            )
         } else {
             _likedDownloadState.value = LikedDownloadState.Idle
         }
@@ -478,25 +531,32 @@ class DownloadUtil @Inject constructor(
     private fun isNotDownloaded(id: String): Boolean =
         downloads.value[id].let { it == null || it == STATE_INVALID }
 
-    private fun downloadSong(id: String, title: String) {
-        if (!isNotDownloaded(id)) return
+    /**
+     * @return false only when the request never reached media3, so no update will ever come back
+     *   for it. The liked-songs catch up needs to know, or it would wait for that song for good.
+     */
+    private fun downloadSong(id: String, title: String): Boolean {
+        // Already landed or in flight, which the map shows without any help from here.
+        if (!isNotDownloaded(id)) return true
         val downloadRequest = DownloadRequest.Builder(id, id.toUri())
             .setCustomCacheKey(id)
             .setData(title.toByteArray())
             .build()
-        try {
+        return try {
             DownloadService.sendAddDownload(
                 context,
                 ExoDownloadService::class.java,
                 downloadRequest,
                 false
             )
+            true
         } catch (e: IllegalStateException) {
             // foreground = false is a bare startService. Every UI caller is in the foreground, but
             // liking is reachable from the media notification with no Activity alive, which Android
             // rejects. Losing one auto-download is not worth killing the process, and the backfill
             // picks it up.
             Log.w(TAG, "Could not enqueue download for $id from the background", e)
+            false
         }
     }
 
@@ -762,6 +822,20 @@ class DownloadUtil @Inject constructor(
                     download: Download,
                     finalException: Exception?
                 ) {
+                    // The map's removal below is all it ever shows of a failure, which looks the
+                    // same as a song media3 has not been handed yet. The catch up needs the
+                    // difference, so the ending is recorded for it here.
+                    //
+                    // Before the map, not after. LikedCatchUp.tally trusts an ending over the map,
+                    // so with the map first a song queued again after failing would briefly show
+                    // as downloading next to its old failure and count as ended. This way round a
+                    // new start clears the ending before the map shows it, and an ending is in
+                    // place before the map changes.
+                    val batch = likedBatch
+                    likedEnds.update {
+                        LikedCatchUp.afterUpdate(it, batch, download.request.id, download.state)
+                    }
+
                     downloads.update { map ->
                         map.toMutableMap().apply {
                             val state = stateToLocalDateTime(download)
@@ -789,10 +863,14 @@ class DownloadUtil @Inject constructor(
     }
 }
 
-fun stateToLocalDateTime(download: Download): LocalDateTime {
-    return when (download.state) {
+fun stateToLocalDateTime(download: Download): LocalDateTime =
+    stateToLocalDateTime(download.state, download.updateTimeMs)
+
+/** The same rule taking plain values, so a test can feed it without building a media3 Download. */
+fun stateToLocalDateTime(state: Int, updateTimeMs: Long): LocalDateTime {
+    return when (state) {
         Download.STATE_COMPLETED -> {
-            Instant.ofEpochMilli(download.updateTimeMs).atZone(ZoneOffset.UTC).toLocalDateTime()
+            Instant.ofEpochMilli(updateTimeMs).atZone(ZoneOffset.UTC).toLocalDateTime()
         }
 
         Download.STATE_DOWNLOADING, Download.STATE_QUEUED -> STATE_DOWNLOADING
