@@ -805,9 +805,21 @@ class MusicService : MediaLibraryService(),
             // A request, not a value: the button is in the settings and the sensor is here.
             dataStore.data.map { it[HeadTrackingCalibrateKey] ?: 0L }.distinctUntilChanged()
                 .collectLatest(scope) { at ->
-                    if (at == 0L) return@collectLatest
+                    // Only a request made just now. The stored time outlives it (the settings row
+                    // counts down from it), and DataStore hands it back first thing on every start,
+                    // so one calibration restarted the tracker on every later launch, whatever
+                    // the head tracking switch said, and measured the drift again behind the
+                    // listener's back, likely while they were moving.
+                    val window = HeadTracking.CALIBRATION_NANOS / 1_000_000L
+                    if (at == 0L || System.currentTimeMillis() - at > window) return@collectLatest
                     withContext(Dispatchers.Main) {
                         if (headTracking.start()) headTracking.startCalibration()
+                    }
+                    // A tracker started only to calibrate goes off again once that is over,
+                    // rather than holding the sensor until the next play and pause.
+                    delay(window + 5_000L)
+                    withContext(Dispatchers.Main) {
+                        if (!(headTrackingWanted && binauralProcessor.enabled && player.isPlaying)) headTracking.stop(glideHome = false)
                     }
                 }
 
