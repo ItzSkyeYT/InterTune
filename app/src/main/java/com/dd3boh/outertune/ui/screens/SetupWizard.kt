@@ -133,6 +133,7 @@ import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
+import com.dd3boh.outertune.constants.applyNewInstallDefaults
 import com.dd3boh.outertune.constants.ScanPathsKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.ui.component.ListPreference
@@ -189,7 +190,11 @@ fun SetupWizard(
     // same fix, as the polls opt-in.
     val finishSetup: () -> Unit = {
         coroutineScope.launch {
-            context.dataStore.edit { it[OobeStatusKey] = OOBE_VERSION }
+            context.dataStore.edit {
+                // Before the status moves, since that is what tells a new install apart.
+                applyNewInstallDefaults(it)
+                it[OobeStatusKey] = OOBE_VERSION
+            }
             navController.navigateUp()
         }
         Unit

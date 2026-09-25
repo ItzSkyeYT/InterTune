@@ -8,7 +8,7 @@ InterTune can count this install once a day: one short message with a random nam
 
 ## Recommendations
 
-- **Best recommendations (experimental)**, a new Quick picks source beside YouTube Music and Your library. It builds the row from how you actually listen: what you finish, search for and like, when you play it, what you come back to and what you pass over. Twenty cards from five lanes: related to what you play, songs you come back to, more from artists you finish, favourites gone quiet, and artists you have never played.
+- **Best recommendations (experimental)**, a new Quick picks source beside YouTube Music and Your library, and where a new install starts. Updating keeps the source you had. It builds the row from how you actually listen: what you finish, search for and like, when you play it, what you come back to and what you pass over. Twenty cards from five lanes: related to what you play, songs you come back to, more from artists you finish, favourites gone quiet, and artists you have never played.
 - **Try both**: a row that mixes Best recommendations with the other source, card for card, so you can compare them fairly.
 - **Rank with your listening** (on by default): the YouTube Music and Your library rows ordered by what you tend to finish, search for and like. Off keeps the source's own order.
 - **Tidy Home rows** (on by default): no song twice on Home, no live or remixed version beside its original, and nothing you have just heard in Quick picks.

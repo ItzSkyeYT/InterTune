@@ -1,6 +1,7 @@
 package com.dd3boh.outertune.constants
 
 import android.content.Context
+import androidx.datastore.preferences.core.MutablePreferences
 import com.dd3boh.outertune.R
 
 /*
@@ -174,6 +175,22 @@ enum class QuickPicksSource {
  */
 fun QuickPicksSource.orOffered(): QuickPicksSource =
     if (this in QuickPicksSource.offered()) this else QuickPicksSource.YOUTUBE
+
+/**
+ * What a new install starts with, written once as setup finishes, whether it is completed or
+ * skipped.
+ *
+ * Best recommendations is the Quick picks source for somebody new. Only somebody new: an install
+ * that went through setup on an earlier version has [OobeStatusKey] above 0 and keeps what it had,
+ * which for most is YouTube Music by default, and a source chosen on the way through setup is
+ * never overridden. A backup restored from setup brings its own settings instead.
+ */
+fun applyNewInstallDefaults(prefs: MutablePreferences) {
+    val neverSetUp = (prefs[OobeStatusKey] ?: 0) == 0
+    if (neverSetUp && prefs[QuickPicksSourceKey] == null && QuickPicksSource.ENGINE in QuickPicksSource.offered()) {
+        prefs[QuickPicksSourceKey] = QuickPicksSource.ENGINE.name
+    }
+}
 
 enum class LibraryViewType {
     LIST, GRID;
