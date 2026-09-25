@@ -358,6 +358,15 @@ Anything in the file this version does not recognise is skipped, so a file from 
     <string name="swipe2Queue">Swipe to queue</string>
     <string name="swipe2Queue_description">Swipe on a song to add it to "enqueue next" directly after currently playing song</string>
     <string name="seek_increment">Seek increment</string>
+    <!-- Deliberately not called a crossfade: the two songs never play at the same time. -->
+    <string name="transition_fade">Fade between tracks</string>
+    <string name="transition_fade_description">Each song fades out, then the next one fades in. They do not overlap.</string>
+    <string name="transition_fade_explain">The end of each song fades out and the start of the next one fades in. One finishes before the next begins, so this is not a crossfade.\n\nSongs from the same album are not faded, so an album that runs from one track straight into the next is not interrupted. A song you skip to or choose yourself starts at full volume.</string>
+    <string name="transition_fade_length">Fade length</string>
+    <plurals name="transition_fade_length_value">
+        <item quantity="one">%1$d second</item>
+        <item quantity="other">%1$d seconds</item>
+    </plurals>
 
 <!--Lyrics settings -->
     <string name="lyrics_font_Size">Font size</string>

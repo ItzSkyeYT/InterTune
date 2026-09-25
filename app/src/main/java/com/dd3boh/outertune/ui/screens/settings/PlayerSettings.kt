@@ -67,6 +67,7 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.PlaybackAuthFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlaybackBehaviourFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlayerGeneralFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.TransitionFadeFrag
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -125,6 +126,7 @@ fun PlayerSettings(
             // switch is on is a screen nobody can read.
             AudioQualityFrag()
             AdaptiveQueueFrag()
+            TransitionFadeFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))
 

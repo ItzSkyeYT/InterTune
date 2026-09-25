@@ -117,6 +117,18 @@ val minPlaybackDurKey = intPreferencesKey("minPlaybackDur")
 val SleepTimerFadeKey = booleanPreferencesKey("sleepTimerFade")
 val SleepTimerFadeDurationKey = intPreferencesKey("sleepTimerFadeDuration")
 
+/**
+ * Whether each song fades out at its end and the next one fades in.
+ *
+ * Off by default. The songs never overlap, so it is not a crossfade and the setting does not call
+ * itself one. Two songs from the same album are left alone, so an album that runs straight from
+ * one track into the next still does. See TransitionFade.
+ */
+val TransitionFadeKey = booleanPreferencesKey("transitionFade")
+
+/** How long each fade lasts, in seconds. One of TransitionFadeEnvelope.SECONDS_CHOICES. */
+val TransitionFadeSecondsKey = intPreferencesKey("transitionFadeSeconds")
+
 
 /**
  * Lyrics
