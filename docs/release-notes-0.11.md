@@ -117,6 +117,7 @@ InterTune can count this install once a day: one short message with a random nam
 - **Select all** during a search selected the whole list, so Remove like or Remove from playlist reached songs the search was hiding.
 - **Like all** and **Remove all likes** took the songs out of your library and made downloaded ones look not downloaded.
 - **Play** and **Shuffle** in a YouTube playlist's menu did nothing unless the playlist itself was open.
+- Long-pressing an album, artist or playlist in search results opened an empty menu.
 - **Shuffle** on a local artist played three songs.
 - In a shuffled queue, moving or removing a song and then adding one to the queue jumped to a different song, and the wrong one came back after a restart.
 - Lyrics without timings started every line after the first with a comma.
