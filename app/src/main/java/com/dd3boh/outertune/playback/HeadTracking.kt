@@ -203,8 +203,8 @@ class HeadTracking(
         pendingRecentre = true
         settling = false
         stillness.reset()
-        handler.removeCallbacks(glide)
-        gliding = false
+        // A glide still running is left to finish: the first live report stops it, and a tracker
+        // that attaches but never reports would otherwise leave the stage turned.
         lastAdvanceNanos = 0L
         lastReportNanos = 0L
         lastYawNanos = 0L
