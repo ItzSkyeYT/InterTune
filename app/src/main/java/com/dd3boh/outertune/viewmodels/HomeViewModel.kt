@@ -569,7 +569,11 @@ class HomeViewModel @Inject constructor(
             engineReasons.value = (restored.cards + restored.pool).associate { c -> c.songId to c.reasons.map { CardReason(it, null) } }
             engineSeeds.value = restored.seeds.map { it to it }; engineQuotas.value = restored.quotas
             val wanted = (restored.cards + restored.pool).map { it.songId }
-            val byId = database.songsByIds(wanted).first().associateBy { it.id }
+            // The seeds are looked up as well. They are songs that were played, rarely among the
+            // row's own cards, so with only the cards read, Why these? listed video ids under
+            // "Built around" after every cold start, and the captions lost their "Because you
+            // played" song.
+            val byId = database.songsByIds((wanted + restored.seeds + (restored.cards + restored.pool).mapNotNull { it.seedId }).distinct()).first().associateBy { it.id }
             engineSeeds.value = restored.seeds.map { id -> id to (byId[id]?.song?.title ?: id) }
             engineReasons.value = (restored.cards + restored.pool).associate { c -> c.songId to c.reasons.map { key -> when (key) { "x_seed" -> CardReason(key, c.seedId?.let { byId[it]?.song?.title }); "x_art" -> CardReason(key, byId[c.songId]?.artists?.firstOrNull()?.name); else -> CardReason(key, null) } } }
             return@withContext wanted.mapNotNull { byId[it] }
