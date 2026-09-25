@@ -112,8 +112,14 @@ fun RecognitionSheet(
 
     // Asked when listening starts, not at launch. A run already going is joined rather than
     // restarted, so reopening the sheet on a continuous run does not interrupt it.
+    //
+    // Only with nothing on show. The effect runs again whenever the activity is recreated, and a
+    // rotation or a theme change while a result waited to be chosen used to open the microphone
+    // again and replace that result a window later.
     LaunchedEffect(Unit) {
-        if (!viewModel.running.value) permission.launch(Manifest.permission.RECORD_AUDIO)
+        if (!viewModel.running.value && viewModel.state.value is RecognitionEngine.State.Idle) {
+            permission.launch(Manifest.permission.RECORD_AUDIO)
+        }
     }
 
     ModalBottomSheet(

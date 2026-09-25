@@ -26,6 +26,7 @@ import com.dd3boh.outertune.models.toMediaMetadata
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -394,8 +395,20 @@ class RecognitionEngine @Inject constructor(
         synchronized(written) { written.clear() }
         synchronized(owned) { owned.clear() }
 
-        job = scope.launch(serial) {
-            running.value = true
+        // Set here, not inside the run, and cleared by the run only while it is still the current
+        // one (see its finally). A run halted during a Shazam request cannot be interrupted, since
+        // the request blocks, and when it finally returned it set running false over the run
+        // started after it: the service took that as the end and removed the notification while
+        // the new run went on recording, and the screen's button, reading running, offered to
+        // start rather than stop.
+        running.value = true
+        // Whatever the last run left on show goes at once. The level updates only replace Idle or
+        // Listening, so a result or a failure stayed up for the whole first window, and Listen
+        // again looked as if it had done nothing.
+        _state.value = State.Listening(0f, false)
+        // Lazy, so the job is assigned before its body runs and the finally below can tell
+        // whether it is still the current run.
+        job = scope.launch(serial, start = CoroutineStart.LAZY) {
             startedAt.value = System.currentTimeMillis()
             known = playlist?.let {
                 database.playlistSongs(it.id).first().map { s -> s.song.song.id }.toMutableSet()
@@ -460,9 +473,10 @@ class RecognitionEngine @Inject constructor(
                 Log.w(TAG, "Listening failed", t)
                 _state.value = State.Failed(t.message ?: "microphone", heardNothing = false)
             } finally {
-                running.value = false
+                if (job === coroutineContext[Job]) running.value = false
             }
         }
+        job?.start()
     }
 
     private suspend fun identify(window: MicrophoneListener.Window) {

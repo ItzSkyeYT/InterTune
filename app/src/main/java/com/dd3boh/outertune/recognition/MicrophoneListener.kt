@@ -185,8 +185,12 @@ class MicrophoneListener @Inject constructor(
                 while (written < windowSize && currentCoroutineContext().isActive) {
                     val read = recorder.read(chunk, 0, minOf(chunk.size, windowSize - written))
                     if (read <= 0) {
+                        // Thrown, not returned. Returning completed the stream as if it had been
+                        // stopped, so a dead audio server or a microphone that went away ended Keep
+                        // listening with no message at all; the engine only reports a failure it
+                        // is told about. The finally below still releases the recorder.
                         Log.w(TAG, "AudioRecord.read returned $read, ending the stream")
-                        return@flow
+                        throw java.io.IOException("AudioRecord.read returned $read")
                     }
                     chunk.copyInto(window, written, 0, read)
                     written += read
