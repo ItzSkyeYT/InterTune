@@ -14,6 +14,7 @@ import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.Timer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -68,6 +69,8 @@ import com.dd3boh.outertune.constants.SleepTimerDefaults
 import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
 import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SleepTimerFadeKey
+import com.dd3boh.outertune.constants.TransitionFadeKey
+import com.dd3boh.outertune.constants.TransitionFadeSecondsKey
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
 import com.dd3boh.outertune.ui.component.ExplainLink
@@ -77,7 +80,9 @@ import com.dd3boh.outertune.constants.StageWidthKey
 import com.dd3boh.outertune.constants.HeadTrackingLeadKey
 import com.dd3boh.outertune.playback.BinauralAudioProcessor
 import com.dd3boh.outertune.playback.ProximityProbe
+import com.dd3boh.outertune.playback.TransitionFadeEnvelope
 import com.dd3boh.outertune.ui.component.EnumListPreference
+import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.ExplainButton
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.ui.dialog.InfoLabel
@@ -453,6 +458,42 @@ fun ColumnScope.AdaptiveQueueFrag() {
     )
 
     InfoLabel(stringResource(R.string.adaptive_queue_description))
+}
+
+/**
+ * Whether songs fade into one another, and over how long.
+ *
+ * Named for what it does rather than for what people ask for. The songs play one after the other
+ * and never overlap, so it is not a crossfade, and the description says as much rather than
+ * letting the name promise one. The length only matters once it is on, so it only appears then.
+ */
+@Composable
+fun ColumnScope.TransitionFadeFrag() {
+    val (enabled, onEnabledChange) = rememberPreference(TransitionFadeKey, defaultValue = false)
+
+    ExplainedSwitchPreference(
+        title = stringResource(R.string.transition_fade),
+        description = stringResource(R.string.transition_fade_description),
+        explanation = stringResource(R.string.transition_fade_explain),
+        icon = { Icon(Icons.Rounded.Gradient, null) },
+        checked = enabled,
+        onCheckedChange = onEnabledChange,
+    )
+
+    if (!enabled) return
+
+    val (seconds, onSecondsChange) = rememberPreference(
+        TransitionFadeSecondsKey,
+        defaultValue = TransitionFadeEnvelope.DEFAULT_SECONDS,
+    )
+    ListPreference(
+        title = { Text(stringResource(R.string.transition_fade_length)) },
+        icon = { Icon(Icons.Rounded.Timer, null) },
+        selectedValue = seconds,
+        values = TransitionFadeEnvelope.SECONDS_CHOICES,
+        valueText = { pluralStringResource(R.plurals.transition_fade_length_value, it, it) },
+        onValueSelected = onSecondsChange,
+    )
 }
 
 @Composable

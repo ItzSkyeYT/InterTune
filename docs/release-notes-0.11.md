@@ -53,6 +53,7 @@ InterTune can count this install once a day: one short message with a random nam
 
 - A pause, a closed app and a return later is one listen, not a stop. The app also comes back where you paused even when Android closed it in the meantime.
 - Audio quality has a **Highest available** tier, and the settings show what is actually playing: codec, bitrate and sample rate.
+- **Fade between tracks** (off by default): each song fades out over its last few seconds and the next fades in, 2 to 12 seconds. The songs do not overlap, so it is not a crossfade, and songs from the same album play straight through.
 
 ## Sound
 

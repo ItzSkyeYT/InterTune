@@ -121,6 +121,8 @@ import com.dd3boh.outertune.constants.SleepTimerFadeKey
 import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
+import com.dd3boh.outertune.constants.TransitionFadeKey
+import com.dd3boh.outertune.constants.TransitionFadeSecondsKey
 import com.dd3boh.outertune.constants.minPlaybackDurKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Event
@@ -353,6 +355,9 @@ class MusicService : MediaLibraryService(),
 
     lateinit var sleepTimer: SleepTimer
 
+    /** Fade between tracks. Off unless asked for; one more factor in the volume combine. */
+    private lateinit var transitionFade: TransitionFade
+
     private val sleepTimerNotification by lazy { SleepTimerNotification(this) }
 
     /**
@@ -559,6 +564,8 @@ class MusicService : MediaLibraryService(),
                 addListener(this@MusicService)
                 sleepTimer = SleepTimer(scope, this)
                 addListener(sleepTimer)
+                transitionFade = TransitionFade(scope, this)
+                addListener(transitionFade)
                 addAnalyticsListener(PlaybackStatsListener(false, this@MusicService))
 
                 // misc
@@ -653,9 +660,10 @@ class MusicService : MediaLibraryService(),
                 playerVolume,
                 normalizeFactor,
                 sleepTimer.fadeFactor,
-                proximityVolume.factor
-            ) { playerVolume, normalizeFactor, fadeFactor, proximityFactor ->
-                playerVolume * normalizeFactor * fadeFactor * proximityFactor
+                proximityVolume.factor,
+                transitionFade.factor,
+            ) { playerVolume, normalizeFactor, fadeFactor, proximityFactor, transitionFactor ->
+                playerVolume * normalizeFactor * fadeFactor * proximityFactor * transitionFactor
             }.collectLatest(scope) { _ ->
                 // Signal order is still decode -> normalise -> amplify -> soft clip. What changed
                 // is WHERE each stage runs, and the split is by what survives audio offload rather
@@ -679,10 +687,11 @@ class MusicService : MediaLibraryService(),
                 withContext(Dispatchers.Main) {
                     // Proximity belongs on this side of the split for the same reason
                     // normalisation does: it only ever attenuates, so it goes where offload
-                    // cannot skip it. The combine above only decides when to recompute, so
-                    // anything left out of this line does nothing at all.
+                    // cannot skip it. So do both fades, the sleep timer's and the one between
+                    // songs. The combine above only decides when to recompute, so anything left
+                    // out of this line does nothing at all.
                     player.volume = min(total, 1f) * sleepTimer.fadeFactor.value *
-                        proximityVolume.factor.value
+                        proximityVolume.factor.value * transitionFade.factor.value
                 }
             }
 
@@ -957,6 +966,21 @@ class MusicService : MediaLibraryService(),
                 .collectLatest(scope) { (fade, seconds) ->
                     sleepTimer.fadeEnabled = fade
                     sleepTimer.fadeDurationMs = seconds * 1000L
+                }
+
+            // On the service scope, which is the player's thread: both setters read the player.
+            // The length goes in first, so switching on with a new length starts on its own curve.
+            combine(
+                dataStore.data
+                    .map { it[TransitionFadeKey] ?: false }
+                    .distinctUntilChanged(),
+                dataStore.data
+                    .map { it[TransitionFadeSecondsKey] ?: TransitionFadeEnvelope.DEFAULT_SECONDS }
+                    .distinctUntilChanged()
+            ) { fade, seconds -> fade to seconds }
+                .collectLatest(scope) { (fade, seconds) ->
+                    transitionFade.fadeMs = TransitionFadeEnvelope.fadeMsFor(seconds)
+                    transitionFade.enabled = fade
                 }
 
             combine(
