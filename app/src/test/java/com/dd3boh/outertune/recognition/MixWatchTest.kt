@@ -562,6 +562,25 @@ class MixWatchTest {
     }
 
     @Test
+    fun aPieceNamedOncePerGapOverASongThatPlaysOnIsSure() {
+        // Faint straight under a mashup, No Love named for one window at a time, 72 s apart, and
+        // Faint back where it was heading after a stretch where nothing matched. Faint keeping its
+        // time does not make No Love a passage of it misnamed: No Love moves along its own
+        // timeline, 75 s further into itself 72 s later at the 4 % speed Shazam read, as it did in
+        // the Damage run of 24 Sep. The songs have taken turns twice.
+        val watch = MixWatch()
+        fun at(key: String, second: Int, offset: Double, skew: Double = 0.0) = MixWatch.Sighting(key, key, "x", second * 1000L, offset, skew)
+        listOf(at("faint", 0, 35.1), at("faint", 12, 47.1), at("faint", 24, 59.1), at("nolove", 36, 181.8, 0.042),
+            at("faint", 48, 83.1), at("faint", 60, 95.1)).forEach { assertNull(watch.observe(it)) }
+        val fromNoLove = watch.observe(at("nolove", 108, 256.8, 0.042))!!
+        assertTrue(fromNoLove.strong)
+        assertFalse(fromNoLove.sure)
+        val mix = watch.observe(at("faint", 132, 167.1))!!
+        assertTrue(mix.sure)
+        assertEquals(setOf("faint", "nolove"), mix.pieces.map { it.key }.toSet())
+    }
+
+    @Test
     fun aHeldReturnLongGoneIsDroppedNotCounted() {
         val watch = MixWatch()
         listOf(0 to 10.0, 12 to 22.0).forEach { (at, o) -> watch.observe(MixWatch.Sighting("a", "A", "x", at * 1000L, o)) }
@@ -605,6 +624,58 @@ class MixWatchTest {
         // shows only when the song stops short of its end, which the engine watches for.
         assertEquals(CutWatch.Verdict.NONE, watch.observe("dna", 2.1, 0.0, 120_000, 186))
         assertEquals(CutWatch.Verdict.RESTART, watch.observe("dna", 14.1, 0.0, 132_000, 186))
+        // Reckoned from a place the song held, so it stands however far DNA. then gets.
+        assertNull(watch.restartedFrom)
+    }
+
+    @Test
+    fun oneWindowOfDnaBeforeItsTopIsStillARestart() {
+        // The same, with Keep listening catching only one window of DNA. before the jump: 99.8 s
+        // in, then from 2.1 s to 62.1 s, where Beggin' took over. The restart rests on that one
+        // window, and DNA. never got back to where it said, so it stopped short: an edit.
+        val watch = CutWatch()
+        assertEquals(CutWatch.Verdict.NONE, watch.observe("dna", 99.8, 0.0, 0, 186))
+        assertEquals(CutWatch.Verdict.NONE, watch.observe("dna", 2.1, 0.0, 12_000, 186))
+        assertEquals(CutWatch.Verdict.RESTART, watch.observe("dna", 14.1, 0.0, 24_000, 186))
+        assertEquals(99.8, watch.restartedFrom!!, 0.01)
+        assertTrue((3..6).all { watch.observe("dna", 2.1 + (it - 1) * 12, 0.0, it * 12_000L, 186) == CutWatch.Verdict.NONE })
+        assertTrue(RecognitionEngine.stoppedShort(62.1, 12.0, 186, watch.restartedFrom))
+    }
+
+    /**
+     * Duke Dumont's Won't Look Back (radio edit) and Mr. Probz's Waves (Robin Schulz radio edit),
+     * replayed from files on 25 Sep: offset, skew, seconds in. Each first window was placed on a
+     * phrase that comes round again later, 30 s and 51 s into the song, and the song's real start
+     * came after it. Waves then came through as its remix's own entry once, at 108 s.
+     */
+    private val wontLookBack = listOf(
+        Triple(30.3, 0.0, 0), Triple(13.0, 0.0005, 12), Triple(25.0, 0.0001, 24), Triple(37.0, 0.0001, 36),
+        Triple(49.0, -0.0002, 48), Triple(61.0, 0.0001, 60), Triple(73.0, 0.0002, 72), Triple(114.3, 0.0002, 84),
+        Triple(126.3, 0.0, 96), Triple(109.0, -0.0002, 108), Triple(121.0, 0.0002, 120), Triple(133.0, 0.0, 132),
+        Triple(145.0, 0.0001, 144), Triple(186.3, -0.0001, 156), Triple(169.0, -0.0002, 168), Triple(181.0, 0.0001, 180),
+    )
+    private val waves = listOf(
+        Triple(50.7, -0.0014, 0), Triple(2.7, -0.0018, 12), Triple(14.7, 0.0, 24), Triple(26.7, 0.0002, 36),
+        Triple(38.7, 0.0, 48), Triple(50.7, 0.0, 60), Triple(62.7, 0.0, 72), Triple(74.7, 0.0, 84), Triple(86.7, 0.0, 96),
+    )
+
+    @Test
+    fun aFirstWindowOnALaterRepeatIsNoEdit() {
+        // Each reads as going back to the top once its real start holds, with only the first window
+        // to say where it had been, and then plays on past that place: that window was the repeat,
+        // and the song is no edit, even against an upload long enough that stopping where these
+        // did would otherwise be stopping short. Nothing else about either is a cut.
+        for ((windows, durationS) in listOf(wontLookBack to 202, waves to 208)) {
+            val watch = CutWatch()
+            val verdicts = windows.map { (offset, skew, at) -> watch.observe("song", offset, skew, at * 1000L, durationS) }
+            assertEquals(verdicts.toString(), listOf(2), verdicts.indices.filter { verdicts[it] != CutWatch.Verdict.NONE })
+            assertEquals(CutWatch.Verdict.RESTART, verdicts[2])
+            val first = windows.first()
+            assertEquals(first.first / (1.0 + first.second), watch.restartedFrom!!, 0.01)
+            val furthest = windows.drop(2).maxOf { it.first }
+            assertFalse(RecognitionEngine.stoppedShort(furthest, 12.0, 300, watch.restartedFrom))
+            assertTrue(RecognitionEngine.stoppedShort(furthest, 12.0, 300, null))
+        }
     }
 
     @Test
