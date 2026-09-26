@@ -38,6 +38,14 @@ import com.kyant.backdrop.backdrops.LayerBackdrop
 val LocalAppBackdrop = staticCompositionLocalOf<LayerBackdrop?> { null }
 
 /**
+ * Whether [LocalAppBackdrop] can exist in this window at all, whatever the setting says: Android 13
+ * or later, and no navigation rail (MainActivity says why). The backdrop alone cannot tell glass
+ * switched off from glass that cannot be drawn here, and the glass settings need to know which, to
+ * leave out a sample that could never change and say why it is missing.
+ */
+val LocalAppBackdropAvailable = staticCompositionLocalOf { false }
+
+/**
  * Resolved glass parameters, so every surface derives its numbers the same way instead of each
  * hard-coding its own.
  *

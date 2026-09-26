@@ -68,8 +68,8 @@ class TransitionFade(
 
     /**
      * Whether the current song fades in. Set only when the song before played straight into it,
-     * and cleared by anything that moves the position by hand, so a seek back to the start of a
-     * song plays it at full volume rather than fading it in a second time.
+     * and cleared by a pause and by anything that moves the position by hand: a song resumed, or
+     * seeked back to its start, plays at full volume.
      */
     private var fadeInArmed = false
 
@@ -110,6 +110,15 @@ class TransitionFade(
         // new queue. It starts at full volume. The automatic case was settled by the discontinuity
         // above, which media3 always reports alongside it.
         if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) fadeInArmed = false
+    }
+
+    override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+        // A pause ends the fade in, started or not, since a song resumed starts at full volume like
+        // one skipped to. The sleep timer set to the end of the song pauses the moment the next
+        // song arrives, and that song came back the next day from silence, taking the whole fade
+        // to be heard. Only a pause, though: a song that has to buffer first is not playing either,
+        // but nothing paused it, and it fades in once it starts.
+        if (!playWhenReady) fadeInArmed = false
     }
 
     override fun onEvents(player: Player, events: Player.Events) {
