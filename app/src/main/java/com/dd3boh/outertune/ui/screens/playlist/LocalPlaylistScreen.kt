@@ -146,6 +146,7 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.syncCoroutine
 import com.dd3boh.outertune.viewmodels.LocalPlaylistViewModel
 import com.zionhuang.innertube.YouTube
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
@@ -430,9 +431,11 @@ fun LocalPlaylistScreen(
                 }
                 if (youTubeMoves.isNotEmpty()) {
                     viewModel.viewModelScope.launch(Dispatchers.IO) {
-                        playlistWithSongs.first?.playlist?.browseId?.let { browseId ->
-                            youTubeMoves.forEach { (setVideoId, successorSetVideoId) ->
-                                YouTube.moveSongPlaylist(browseId, setVideoId, successorSetVideoId)
+                        viewModel.youTubeMoveLock.withLock {
+                            playlistWithSongs.first?.playlist?.browseId?.let { browseId ->
+                                youTubeMoves.forEach { (setVideoId, successorSetVideoId) ->
+                                    YouTube.moveSongPlaylist(browseId, setVideoId, successorSetVideoId)
+                                }
                             }
                         }
                     }

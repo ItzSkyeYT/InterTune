@@ -17,6 +17,7 @@ import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +40,13 @@ class LocalPlaylistViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     val playlistId = savedStateHandle.get<String>("playlistId")!!
+
+    /**
+     * Held while a drag's moves go to YouTube Music, so a second drag waits for the first. Each
+     * drag sends its moves from its own coroutine, and on a slow connection the second could
+     * otherwise reach YouTube first and leave the order there different from the one on screen.
+     */
+    val youTubeMoveLock = Mutex()
     val playlistWithSongs = combine(
         database.playlist(playlistId),
         database.playlistSongs(playlistId),
