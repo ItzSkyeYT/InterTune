@@ -1126,7 +1126,7 @@ fun HomeScreen(
     // announcement's text and link could not be reached at all.
     if (showAnnouncement) {
         pendingAnnouncement?.let { note ->
-            LaunchedEffect(note.id) { pollChecker.viewed(note.id, note.title, isAnnouncement = true) }
+            LaunchedEffect(note.id) { pollChecker.viewed(note.id, note.text.title, isAnnouncement = true) }
             AnnouncementDialog(
                 announcement = note,
                 onDismiss = {

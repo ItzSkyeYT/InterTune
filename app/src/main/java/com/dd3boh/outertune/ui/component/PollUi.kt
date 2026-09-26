@@ -307,11 +307,7 @@ private fun PollQuestion(poll: PollChecker.Poll, heroHeight: androidx.compose.ui
 
     poll.body?.let {
         Spacer(Modifier.height(10.dp))
-        Text(
-            text = rememberLinkified(it),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        FormattedBody(it)
     }
 }
 
