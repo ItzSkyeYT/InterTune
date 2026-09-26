@@ -451,12 +451,14 @@ class MediaLibrarySessionCallback @Inject constructor(
             }
 
             try {
+                // Playable and not browsable. Marked both, a result could open as a folder in the
+                // car, and a search result has no children, so it opened empty.
                 val items = searchLibrary(query)
                     .map {
                         it.toMediaItem(
                             path = "${MusicService.SEARCH}/$query",
                             isPlayable = true,
-                            isBrowsable = true
+                            isBrowsable = false
                         )
                     }
                 LibraryResult.ofItemList(items, params)
