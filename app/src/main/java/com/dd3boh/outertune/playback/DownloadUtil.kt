@@ -62,6 +62,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -633,8 +635,7 @@ class DownloadUtil @Inject constructor(
     /**
      * Migrated existing downloads from the download cache to the new system in external storage
      */
-    suspend fun migrateDownloads() {
-        if (isProcessingDownloads.value) return
+    suspend fun migrateDownloads() = scanLock.withLock {
         isProcessingDownloads.value = true
 
         var runs = 0
@@ -691,7 +692,10 @@ class DownloadUtil @Inject constructor(
                         displayName = runBlocking { database.song(s.key).first()?.title ?: "" })
                 }
             }
-            scanDownloads()
+            // The scan is what registers the copied files, so the songs play from them. Called
+            // through scanDownloads() it returned at once, since this had already set the flag it
+            // checks, and the migrated songs would not play offline until some later scan.
+            scanDownloadsLocked()
         } catch (e: Exception) {
             reportException(e)
         } finally {
@@ -709,9 +713,19 @@ class DownloadUtil @Inject constructor(
     }
 
     /**
+     * One pass over the downloads at a time, and a second waits for the first to finish rather
+     * than being dropped. The startup scan used to be skipped whenever it landed while init's
+     * rescan was still walking the download folders, and a scan after changing the folders the
+     * same way, because each checked a flag the running pass had set and returned.
+     */
+    private val scanLock = Mutex()
+
+    /**
      * Rescan download directory and updates songs
      */
-    suspend fun rescanDownloads() {
+    suspend fun rescanDownloads() = scanLock.withLock { rescanDownloadsLocked() }
+
+    private suspend fun rescanDownloadsLocked() {
         Log.i(TAG, "+rescanDownloads()")
         isProcessingDownloads.value = true
         // What scans before this version stored for failed and queued downloads. See DownloadSql.
@@ -767,12 +781,10 @@ class DownloadUtil @Inject constructor(
      * This is intended for re-importing existing songs (ex. songs get moved, after restoring app backup), thus all
      * songs will already need to exist in the database.
      */
-    suspend fun scanDownloads() {
+    suspend fun scanDownloads() = scanLock.withLock { scanDownloadsLocked() }
+
+    private suspend fun scanDownloadsLocked() {
         Log.i(TAG, "+scanDownloads()")
-        if (isProcessingDownloads.value) {
-            Log.i(TAG, "-scanDownloads()")
-            return
-        }
         isProcessingDownloads.value = true
 
 //            val scanner = LocalMediaScanner.getScanner(context, ScannerImpl.TAGLIB, SCANNER_OWNER_DL)
@@ -818,7 +830,7 @@ class DownloadUtil @Inject constructor(
         Log.d(TAG, "Registered $count files from internal downloads")
         isProcessingDownloads.value = false
         Log.d(TAG, "Database registration complete, triggering map registry rebuild")
-        rescanDownloads()
+        rescanDownloadsLocked()
         Log.i(TAG, "-scanDownloads()")
     }
 
