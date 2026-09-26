@@ -256,11 +256,17 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                 throw ScannerAbortException("Scanner canceled during Local Library Sync")
             }
 
-            // check if this song is known to the library
-            val songMatch = allLocalSongs.filter {
-                return@filter it.song.title.contains(song.song.title, true) &&
-                        compareSong(it, song.song, matchStrength, strictFileNames, strictFilePaths)
-            }
+            // check if this song is known to the library. The row for the same file comes first:
+            // matching on the title alone missed it whenever the title tag had changed, a second
+            // row was added for the same path, and finalize() then deleted one of the two, likes
+            // and all.
+            val songMatch = allLocalSongs.filter { it.song.localPath == song.song.song.localPath }
+                .ifEmpty {
+                    allLocalSongs.filter {
+                        return@filter it.song.title.contains(song.song.title, true) &&
+                                compareSong(it, song.song, matchStrength, strictFileNames, strictFilePaths)
+                    }
+                }
 
             if (SCANNER_DEBUG) {
                 Log.v(TAG, "Found songs that match: ${songMatch.size}")
@@ -275,7 +281,8 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                     Log.v(TAG, "Found in database, updating song: ${song.song.title} rescan = $refreshExisting")
 
                 val oldSong = songMatch.first().song
-                val songToUpdate = song.song.song.copy(id = oldSong.id, localPath = song.song.song.localPath)
+                // Metadata from the file, likes and dates from the row. See ScanMerge.
+                val songToUpdate = ScanMerge.intoExisting(song.song.song, oldSong)
 
                 // don't run if we will update these values in rescan anyways
                 // always ensure inLibrary and local path values are valid
@@ -366,11 +373,13 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                             insert(album.second)
                             insert(SongAlbumMap(songToUpdate.id, album.second.id, 0))
                         } else {
-                            // album does  exist in db, link to it
+                            // album does  exist in db, link to it. A song that was already in it
+                            // is not counted again, or every full rescan added one per song.
+                            val alreadyInAlbum = oldSong.albumId == album.first!!.id
                             update(
                                 album.first!!.copy(
                                     thumbnailUrl = album.second.thumbnailUrl,
-                                    songCount = album.first!!.songCount + 1
+                                    songCount = album.first!!.songCount + if (alreadyInAlbum) 0 else 1
                                 )
                             )
                             insert(SongAlbumMap(songToUpdate.id, album.first!!.id, album.first!!.songCount))
