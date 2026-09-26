@@ -83,6 +83,7 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -362,11 +363,17 @@ fun BoxScope.QueueContent(
     var searchQuery by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue())
     }
-    val filteredSongs = remember(mutableSongs, searchQuery) {
-        if (searchQuery.text.isEmpty()) mutableSongs
-        else mutableSongs.filter { song ->
-            song.title.contains(searchQuery.text, ignoreCase = true)
-                    || song.artists.fastAny { it.name.contains(searchQuery.text, ignoreCase = true) }
+    // Derived rather than remembered against mutableSongs. That is one list object whatever it
+    // holds, so a remembered filter only ever ran again when the query changed, and results
+    // outlived the queue they came from.
+    val filteredSongs by remember {
+        derivedStateOf {
+            val text = searchQuery.text
+            if (text.isEmpty()) mutableSongs.toList()
+            else mutableSongs.filter { song ->
+                song.title.contains(text, ignoreCase = true)
+                        || song.artists.fastAny { it.name.contains(text, ignoreCase = true) }
+            }
         }
     }
     val focusRequester = remember { FocusRequester() }
@@ -443,13 +450,17 @@ fun BoxScope.QueueContent(
             WindowInsets(top = ListItemHeight, bottom = ListItemHeight)
         ).asPaddingValues()
     ) { from, to ->
+        // Found by the rows' keys, as the songs are above, rather than trusting the list's indices.
+        val fromIndex = mutableQueues.indexOfFirst { it.id == from.key }
+        val toIndex = mutableQueues.indexOfFirst { it.id == to.key }
+        if (fromIndex < 0 || toIndex < 0) return@rememberReorderableLazyListState
         val currentDragInfo = dragInfoEx
         dragInfoEx = if (currentDragInfo == null) {
-            from.index to to.index
+            fromIndex to toIndex
         } else {
-            currentDragInfo.first to to.index
+            currentDragInfo.first to toIndex
         }
-        mutableQueues.move(from.index, to.index)
+        mutableQueues.move(fromIndex, toIndex)
     }
     LaunchedEffect(reorderableStateEx.isAnyItemDragging) {
         if (!reorderableStateEx.isAnyItemDragging) {
@@ -505,15 +516,21 @@ fun BoxScope.QueueContent(
         else mutableSongs.take((currentWindowIndex + 1 + ADAPTIVE_VISIBLE_AHEAD).coerceIn(0, mutableSongs.size))
     val hiddenTailCount = if (isSearching) 0 else mutableSongs.size - visibleSongs.size
 
+    // Refreshed while searching as well, and only the scroll waits for the search to close. It
+    // used to stop here during a search, so Start radio from a result replaced the queue while the
+    // results still showed the old one, and a tap or a swipe on them then acted on the new queue at
+    // the old positions. Not keyed on the search itself, since opening one must not clear a
+    // selection made before it.
     LaunchedEffect(queueWindows, detachedQueue) { // add to songs list & scroll
-        if (isSearching) return@LaunchedEffect
         if (detachedQueue != null) {
             mutableSongs.apply {
                 clear()
                 addAll(detachedQueue!!.getCurrentQueueShuffled())
             }
-            detachedQueue?.let {
-                lazySongsListState.scrollToItem(it.getQueuePosShuffled())
+            if (!isSearching) {
+                detachedQueue?.let {
+                    lazySongsListState.scrollToItem(it.getQueuePosShuffled())
+                }
             }
             return@LaunchedEffect
         }
@@ -665,7 +682,9 @@ fun BoxScope.QueueContent(
             ) { index, mq ->
                 ReorderableItem(
                     state = reorderableStateEx,
-                    key = mq.hashCode()
+                    // The same key as the list's. It was the queue's hash, which changes whenever
+                    // the queue does and never matched a row, so a saved queue could not be dragged.
+                    key = mq.id
                 ) {
                     Row( // wrapper
                         modifier = Modifier
