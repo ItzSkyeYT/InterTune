@@ -828,9 +828,11 @@ class DownloadUtil @Inject constructor(
         database.removeAllDownloadedSongs()
         val timeNow = LocalDateTime.now()
 
-        // add custom downloads
+        // add custom downloads. Written before going on, here and below: queued on the database's
+        // executor, the writes could still be pending when the map is rebuilt from the database at
+        // the end, and the songs then read as not downloaded until the next rebuild.
         val availableFiles = localMgr.getAvailableFiles(false)
-        database.transaction {
+        database.transactionNow {
             availableFiles.forEach { f ->
                 try {
                     val file = fileFromUri(context, f.value)
@@ -854,7 +856,7 @@ class DownloadUtil @Inject constructor(
         // and queued ones used to be stored as the sentinels 0 and 1, which every downloaded list
         // and count took for downloads. See DownloadSql.
         var count = 0
-        database.transaction {
+        database.transactionNow {
             downloadManager.downloadIndex.getDownloads().use { cursor ->
                 while (cursor.moveToNext()) {
                     val download = cursor.download
