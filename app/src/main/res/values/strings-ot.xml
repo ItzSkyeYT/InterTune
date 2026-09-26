@@ -196,7 +196,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="poll_anonymous_notice">Your answer is anonymous. All that is sent is which question this was, what you picked, and the app version. No account, no device details, nothing about your library.</string>
     <string name="grp_polls">Questions</string>
     <string name="polls_enabled">Questions and announcements</string>
-    <string name="polls_enabled_description">InterTune checks now and then for a question or a short announcement and shows it at the top of Home. Off by default. Answers are anonymous: only the question, your choice, and the app version are sent. The first time you open a question or an announcement, its title and the app version are sent too, so it can be counted how many people saw it. Nothing is fetched while this is off.</string>
+    <string name="polls_enabled_description">Shows the occasional question or announcement at the top of Home. Off by default.</string>
+    <string name="polls_enabled_info">Now and then InterTune downloads a short list of questions and announcements from GitHub, and shows the next one at the top of Home. Nothing is downloaded while this is off.\n\nWhat is sent, to count answers and views:\n• When you answer a question: the question, your choice and the app version.\n• The first time you open a question or an announcement: its title and the app version.\n\nNever your account, your device or anything about your library.</string>
     <string name="polls_check_now">Check for a question now</string>
     <string name="polls_none">No question right now</string>
     <string name="polls_one_waiting">There is a question waiting</string>
@@ -211,7 +212,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="catch_up_body">These settings need your say-so, and this install has never been asked. It shows up after an update, or after restoring a backup that did not carry your answers.</string>
     <string name="catch_up_done">Done</string>
     <string name="polls_opt_in_title">Ask you the occasional question?</string>
-    <string name="polls_opt_in_body">Every so often InterTune can show a short question at the top of Home, about what to build or change. Answering is optional and anonymous, and you can turn this off at any time in Settings. While it is off, nothing is fetched and nothing is sent.</string>
+    <string name="polls_opt_in_body">Now and then InterTune can show a short question or announcement at the top of Home. Answers, and the first time you open one, are counted anonymously. You can turn this off in Settings at any time, and while it is off nothing is fetched or sent.</string>
     <string name="polls_opt_in_yes">Yes, ask me</string>
     <string name="polls_opt_in_no">No thanks</string>
     <string name="grp_updates">Updates</string>

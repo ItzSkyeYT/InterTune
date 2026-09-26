@@ -27,8 +27,8 @@ import com.dd3boh.outertune.LocalPollChecker
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Polls
 import com.dd3boh.outertune.constants.PollsEnabledKey
+import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
-import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.rememberPreference
@@ -65,8 +65,10 @@ fun ColumnScope.PollsFrag() {
     val poll: PollChecker.Poll? by pollChecker.current.collectAsState()
     var checking by remember { mutableStateOf(false) }
 
-    SwitchPreference(
-        title = { Text(stringResource(R.string.polls_enabled)) },
+    // One line under the switch; what is fetched and sent is behind the i, for whoever asks.
+    ExplainedSwitchPreference(
+        title = stringResource(R.string.polls_enabled),
+        explanation = stringResource(R.string.polls_enabled_info),
         description = stringResource(R.string.polls_enabled_description),
         icon = { Icon(Icons.Rounded.Poll, null) },
         checked = enabled,

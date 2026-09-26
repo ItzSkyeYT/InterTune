@@ -130,11 +130,13 @@ fun ExplainedSwitchPreference(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     description: String? = null,
+    icon: (@Composable () -> Unit)? = null,
     isEnabled: Boolean = true,
 ) = PreferenceEntry(
     modifier = modifier,
     title = { Text(title) },
     description = description,
+    icon = icon,
     trailingContent = {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ExplainButton(title = title, body = explanation)
