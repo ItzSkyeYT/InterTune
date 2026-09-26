@@ -648,7 +648,10 @@ class SyncUtils @Inject constructor(
                             val updatedPlaylist =
                                 database.playlistByBrowseId(remotePlaylist.id).firstOrNull()
                             updatedPlaylist?.let {
-                                val playlistSongMaps = database.songMapsToPlaylist(updatedPlaylist.id)
+                                // The (playlistId, from) query. The one-argument overload takes a
+                                // song id, so this was always empty and a saved playlist that is
+                                // not ours was never refreshed.
+                                val playlistSongMaps = database.songMapsToPlaylist(updatedPlaylist.id, 0)
                                 if (updatedPlaylist.playlist.isEditable || playlistSongMaps.isNotEmpty()) {
                                     syncPlaylist(remotePlaylist.id, updatedPlaylist.id)
                                 }
