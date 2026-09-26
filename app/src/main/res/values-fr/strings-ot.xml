@@ -337,7 +337,7 @@
     <string name="poll_anonymous_notice">Votre réponse est anonyme. Sont envoyés uniquement : de quelle question il s\'agissait, ce que vous avez choisi, et la version de l\'application. Aucun compte, aucune information sur l\'appareil, rien sur votre bibliothèque.</string>
     <string name="grp_polls">Questions et nouvelles</string>
     <string name="polls_enabled">Me poser une question de temps en temps</string>
-    <string name="polls_enabled_description">Une courte question en haut de l\'accueil de temps en temps, sur ce qu\'il faudrait créer ou changer. Désactivé par défaut.</string>
+    <string name="polls_enabled_description">Une courte question sur l\'accueil de temps en temps, sur ce qu\'il faudrait créer. Désactivé par défaut.</string>
     <string name="polls_enabled_info">De temps en temps, InterTune télécharge depuis GitHub une courte liste de questions et affiche la suivante en haut de l\'accueil. Rien n\'est téléchargé tant que ceci et les nouvelles sont désactivés.\n\nCe qui est envoyé, pour compter les réponses et les vues :\n• Quand vous répondez à une question : la question, votre choix et la version de l\'application.\n• La première fois que vous ouvrez une question : son titre et la version de l\'application.\n\nJamais votre compte, votre appareil ni rien sur votre bibliothèque.</string>
     <string name="polls_check_now">Chercher une question maintenant</string>
     <string name="polls_none">Aucune question pour le moment</string>
@@ -352,7 +352,7 @@
     <string name="polls_opt_in_yes">Oui, posez-moi des questions</string>
     <string name="polls_opt_in_no">Non merci</string>
     <string name="news_enabled">Des nouvelles d\'InterTune</string>
-    <string name="news_enabled_description">Une annonce en haut de l\'accueil de temps en temps, comme une nouveauté ou le serveur Discord. Désactivé par défaut.</string>
+    <string name="news_enabled_description">Une annonce sur l\'accueil de temps en temps, comme une nouveauté. Désactivé par défaut.</string>
     <string name="news_enabled_info">De temps en temps, InterTune télécharge depuis GitHub une courte liste d\'annonces et affiche la plus récente en haut de l\'accueil. Rien n\'est téléchargé tant que ceci et les questions sont désactivés.\n\nLa première fois que vous ouvrez une annonce, son titre et la version de l\'application sont envoyés, pour compter combien de personnes l\'ont vue. Jamais votre compte, votre appareil ni rien sur votre bibliothèque.</string>
     <string name="news_opt_in_title">Recevoir des nouvelles d\'InterTune ?</string>
     <string name="news_opt_in_body">De temps en temps, InterTune peut afficher une courte annonce en haut de l\'accueil, comme une nouveauté ou son serveur Discord. La première ouverture de chacune est comptée anonymement. Vous pouvez désactiver cela à tout moment dans les paramètres.</string>

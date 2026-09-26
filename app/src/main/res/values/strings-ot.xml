@@ -196,7 +196,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="poll_anonymous_notice">Your answer is anonymous. All that is sent is which question this was, what you picked, and the app version. No account, no device details, nothing about your library.</string>
     <string name="grp_polls">Questions and news</string>
     <string name="polls_enabled">Ask me the occasional question</string>
-    <string name="polls_enabled_description">A short question at the top of Home now and then, about what to build or change. Off by default.</string>
+    <string name="polls_enabled_description">A short question on Home now and then, about what to build. Off by default.</string>
     <string name="polls_enabled_info">Now and then InterTune downloads a short list of questions from GitHub and shows the next one at the top of Home. Nothing is downloaded while this and news are both off.\n\nWhat is sent, to count answers and views:\n• When you answer a question: the question, your choice and the app version.\n• The first time you open a question: its title and the app version.\n\nNever your account, your device or anything about your library.</string>
     <string name="polls_check_now">Check for a question now</string>
     <string name="polls_none">No question right now</string>
@@ -216,7 +216,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="polls_opt_in_yes">Yes, ask me</string>
     <string name="polls_opt_in_no">No thanks</string>
     <string name="news_enabled">News from InterTune</string>
-    <string name="news_enabled_description">An announcement at the top of Home now and then, like a new feature or the Discord server. Off by default.</string>
+    <string name="news_enabled_description">An announcement on Home now and then, like a new feature. Off by default.</string>
     <string name="news_enabled_info">Now and then InterTune downloads a short list of announcements from GitHub and shows the newest one at the top of Home. Nothing is downloaded while this and questions are both off.\n\nThe first time you open an announcement, its title and the app version are sent, to count how many people saw it. Never your account, your device or anything about your library.</string>
     <string name="news_opt_in_title">Get news from InterTune?</string>
     <string name="news_opt_in_body">Now and then InterTune can show a short announcement at the top of Home, like a new feature or its Discord server. The first time you open one is counted anonymously. You can turn this off in Settings at any time.</string>

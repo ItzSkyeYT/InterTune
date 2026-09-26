@@ -1,7 +1,7 @@
 Version 0.10.9.5
 
-- News on the question banner, with pictures and links, starting with the new Discord server. Discord is also in About.
-- With questions on, opening one is counted once, anonymously.
+- News from InterTune, with its own switch and pictures, starting with the new Discord server. Discord is also in About.
+- Opening a question or news is counted once, anonymously.
 - Lyrics are found for songs played from search.
 - The player's buttons keep their size with lyrics on, and a long title fades out before them.
 - The queue can open from a button instead (Settings, Interface).
