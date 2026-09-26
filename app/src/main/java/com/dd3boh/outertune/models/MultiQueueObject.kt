@@ -82,6 +82,11 @@ data class MultiQueueObject(
     }
 
     fun setCurrentQueuePos(index: Int) {
+        // An index that names no song here is left out rather than stored. It comes from a list
+        // the player holds that is not this queue, such as one a car started, and stored it read
+        // as corruption later: validateQueuePos then threw the shuffle away, and shuffling read
+        // past the end of the list.
+        if (index !in queue.indices) return
         if (getQueuePosShuffled() != index) {
 
             /**
@@ -89,12 +94,12 @@ data class MultiQueueObject(
              * To get the real queuePos of the song, look at the shuffleIndex value that equals the index provided
              */
             val newQueuePos = if (shuffled) {
-                queue.indexOf(queue.find { it.shuffleIndex == index })
+                queue.indexOfFirst { it.shuffleIndex == index }
             } else {
                 index
             }
 
-            queuePos = newQueuePos
+            if (newQueuePos >= 0) queuePos = newQueuePos
         }
     }
 
