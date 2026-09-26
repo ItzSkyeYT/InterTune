@@ -12,6 +12,8 @@ import android.content.Context
 import android.util.Log
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import com.dd3boh.outertune.constants.AccountEmailKey
+import com.dd3boh.outertune.constants.DataSyncIdKey
 import com.dd3boh.outertune.constants.LastAlbumSyncKey
 import com.dd3boh.outertune.constants.LastArtistSyncKey
 import com.dd3boh.outertune.constants.LastFullSyncKey
@@ -43,7 +45,6 @@ import com.zionhuang.innertube.models.PlaylistItem
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.YTItem
 import com.zionhuang.innertube.utils.Walked
-import com.zionhuang.innertube.utils.completed
 import com.zionhuang.innertube.utils.walkItems
 import com.zionhuang.innertube.utils.walkSongs
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -63,6 +64,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.io.File
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import javax.inject.Inject
@@ -105,6 +107,9 @@ class SyncUtils @Inject constructor(
          * that a genuine unlike made on another device still lands within a couple of days.
          */
         const val UNLIKE_GRACE_DAYS = 3L
+
+        /** Under filesDir: the LM ids seen at each account's last complete liked sync. */
+        const val LIKED_SNAPSHOT_DIR = "liked_sync"
     }
 
     suspend fun tryAutoSync(bypassCd: Boolean = false) {
@@ -204,12 +209,13 @@ class SyncUtils @Inject constructor(
             Log.d(TAG, "Liked songs synchronization started")
 
             // Get remote and local liked songs
-            YouTube.playlist("LM").completed().onSuccess { page ->
+            YouTube.playlist("LM").onSuccess { page ->
+                val walked = page.walkSongs()
                 if (!context.isInternetConnected()) {
                     return
                 }
 
-                val remoteSongs = page.songs.reversed()
+                val remoteSongs = walked.items.reversed()
 
                 // An empty answer is not "you have unliked everything", it is a fetch that did
                 // not work: a throttled request, a session that came back signed out, a bad page.
@@ -221,22 +227,44 @@ class SyncUtils @Inject constructor(
                     return@onSuccess
                 }
 
-                // Identify local songs to unlike
-                val songsToUnlike = database.likedSongsByNameAsc().first()
-                    .filterNot { it.song.isLocal }
-                    .filterNot { localSong -> remoteSongs.any { it.id == localSong.id } }
-                    // A like is pushed to YouTube by SongEntity.toggleLike in a coroutine whose
-                    // result nothing reads, so a like made offline, or while YouTube was refusing
-                    // us, never arrives. It is still absent from LM on the next sync, and this
-                    // would then delete it as though the listener had changed their mind. Anything
-                    // liked recently is left alone; if the push really did fail, a later sync with
-                    // a working connection still reconciles it.
-                    .filterNot { localSong ->
-                        localSong.song.likedDate?.isAfter(LocalDateTime.now().minusDays(UNLIKE_GRACE_DAYS)) == true
-                    }
+                // Complete means every continuation answered, and the count in LM's header agrees
+                // with what came back. A page that went missing makes every older like look
+                // unliked, and a 1,500-song LM would lose everything after it.
+                val headerCount = LikedSync.parseSongCount(page.playlist.songCountText)
+                val complete = walked.complete && LikedSync.readLooksComplete(remoteSongs.size, headerCount)
+                if (!complete) {
+                    Log.w(TAG, "LM read looks incomplete (${remoteSongs.size} of ${headerCount ?: "?"}, " +
+                            "walk complete: ${walked.complete}), refusing to unlike anything")
+                }
+                val remoteIds = remoteSongs.mapTo(HashSet()) { it.id }
+
+                // Only a like YouTube is known to have had can be taken back: one that was in LM
+                // at this account's last complete sync and is gone now. Everything else missing
+                // from LM (liked signed out, offline, under another account) was never there to be
+                // unliked, and used to be unliked anyway, all of it on a first sign-in.
+                val accountKey = LikedSync.accountKey(
+                    context.dataStore[DataSyncIdKey], context.dataStore[AccountEmailKey]
+                )
+                val snapshots = LikedSnapshotStore(File(context.filesDir, LIKED_SNAPSHOT_DIR))
+                val snapshot = accountKey?.let { snapshots.read(it) }
+                val localLikes = database.likedSongsByNameAsc().first().filterNot { it.song.isLocal }
+                val idsToUnlike = LikedSync.idsToUnlike(
+                    localLikes = localLikes.map { LikedSync.LocalLike(it.id, it.song.likedDate) },
+                    remoteIds = remoteIds,
+                    complete = complete,
+                    snapshot = snapshot,
+                    // "Keep all local content": sync never takes anything away, likes included.
+                    addOnly = !checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE),
+                    now = LocalDateTime.now(),
+                    // A like pushed by toggleLike may simply not have arrived yet.
+                    graceDays = UNLIKE_GRACE_DAYS,
+                )
+                val songsToUnlike = localLikes.filter { it.id in idsToUnlike }
 
                 if (songsToUnlike.isNotEmpty()) {
-                    Log.i(TAG, "Unliking ${songsToUnlike.size} songs absent from LM")
+                    Log.i(TAG, "Unliking ${songsToUnlike.size} songs YouTube had and has since unliked")
+                } else if (snapshot == null) {
+                    Log.i(TAG, "No liked snapshot for this account yet, only adding")
                 }
 
                 // Unlike local songs in the database
@@ -258,6 +286,14 @@ class SyncUtils @Inject constructor(
                             update(localSong.song.localToggleLike())
                         }
                     }
+                }
+
+                // What LM held, for the next sync to compare against. Only a complete read is
+                // worth remembering: a song missing from a short one would drop out of the
+                // snapshot, and its later unlike on YouTube would never reach the app.
+                if (complete && accountKey != null) {
+                    runCatching { snapshots.write(accountKey, remoteIds) }
+                        .onFailure { Log.w(TAG, "Could not save the liked snapshot", it) }
                 }
 
                 // Songs liked on YouTube never pass through a like button, so without this a fresh
