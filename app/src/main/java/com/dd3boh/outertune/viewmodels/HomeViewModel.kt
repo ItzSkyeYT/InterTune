@@ -908,8 +908,6 @@ class HomeViewModel @Inject constructor(
     val explorePage = MutableStateFlow<ExplorePage?>(null)
     val playlists = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true)
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
-    val recentActivity = database.recentActivity()
-        .stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     val allLocalItems = MutableStateFlow<List<LocalItem>>(emptyList())
     val allYtItems = MutableStateFlow<List<YTItem>>(emptyList())
@@ -1139,7 +1137,8 @@ class HomeViewModel @Inject constructor(
             reportException(it)
         }
 
-        syncUtils.syncRecentActivity()
+        // No syncUtils.syncRecentActivity() here: nothing shows recent activity any more, so the
+        // browse it made every half hour with auto sync on fetched the account's history for no one.
 
         allYtItems.value = similarPool?.flatMap { it.items }.orEmpty() +
                 homePagePool?.sections?.flatMap { it.items }.orEmpty()
