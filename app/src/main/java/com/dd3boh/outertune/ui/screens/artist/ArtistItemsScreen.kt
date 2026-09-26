@@ -58,6 +58,7 @@ import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.LazyVerticalGridScrollbar
+import com.dd3boh.outertune.ui.component.LoadFailed
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.SwipeToQueueBox
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -143,7 +144,13 @@ fun ArtistItemsScreen(
         }
     }
 
-    if (itemsPage == null) {
+    val failed by viewModel.failed.collectAsState()
+    if (itemsPage == null && failed) {
+        LoadFailed(
+            onRetry = viewModel::load,
+            modifier = Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
+        )
+    } else if (itemsPage == null) {
         ShimmerHost(
             modifier = Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
         ) {

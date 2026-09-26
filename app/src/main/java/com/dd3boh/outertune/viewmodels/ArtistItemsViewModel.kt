@@ -23,7 +23,16 @@ class ArtistItemsViewModel @Inject constructor(
     val title = MutableStateFlow("")
     val itemsPage = MutableStateFlow<ItemsPage?>(null)
 
+    /** The first request failed. The page showed its loading shimmer until a page came, forever. */
+    val failed = MutableStateFlow(false)
+
     init {
+        load()
+    }
+
+    /** The first page, again after a failure. */
+    fun load() {
+        failed.value = false
         viewModelScope.launch {
             YouTube.artistItems(
                 BrowseEndpoint(
@@ -38,6 +47,7 @@ class ArtistItemsViewModel @Inject constructor(
                 )
             }.onFailure {
                 reportException(it)
+                failed.value = true
             }
         }
     }
