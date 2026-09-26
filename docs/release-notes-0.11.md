@@ -130,6 +130,10 @@ InterTune can count this install once a day: one short message with a random nam
 - Removing a song from a playlist while searching it could send a different song to the bottom.
 - A drag in a playlist synced with YouTube Music could move a different song on YouTube.
 - Tapping a song in an artist's song list could play a different one, and with no connection it waited before playing anything.
+- Deleting a saved queue listed below the one playing made the queue above it current, so the song you were on was saved into the wrong queue. Saved queues can be dragged into a new order again.
+- A search of the queue kept showing the old queue after Start radio from a result.
+- With the sleep timer set to the end of the song, skipping to another song paused it straight away. The timer now moves to the song you picked.
+- Turning the phone during the walkthrough started it again from the beginning.
 - Dragging songs with the add panel open moved the wrong rows.
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
 - **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
