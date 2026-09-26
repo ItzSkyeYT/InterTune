@@ -1502,10 +1502,12 @@ class MusicService : MediaLibraryService(),
     fun deInitQueue() {
         Log.i(TAG, "+deInitQueue()")
         val pos = player.currentPosition
+        // Null when the player holds nothing, which is most runs that never pressed play.
+        val playerSongId = player.currentMediaItem?.mediaId
         queueBoard.shutdown()
         if (dataStore.get(PersistentQueueKey, true)) {
             runBlocking(Dispatchers.IO) {
-                saveQueueToDisk(pos)
+                saveQueueToDisk(pos, playerSongId)
             }
         }
         // do not replace the object. Can lead to entire queue being deleted even though it is supposed to be saved already
@@ -1513,7 +1515,7 @@ class MusicService : MediaLibraryService(),
         Log.i(TAG, "-deInitQueue()")
     }
 
-    suspend fun saveQueueToDisk(currentPosition: Long) {
+    suspend fun saveQueueToDisk(currentPosition: Long, playerSongId: String?) {
         val data = queueBoard.getAllQueues()
         // An empty board is ordinary: a fresh install that has been opened and browsed but never
         // played has one, and so does anybody who has deleted every saved queue from the sheet.
@@ -1526,7 +1528,12 @@ class MusicService : MediaLibraryService(),
         // before initQueue has read them back, and that window is exactly where the quiet version
         // of this bug would delete somebody's queues instead of crashing.
         if (data.isEmpty()) return
-        data.last().lastSongPos = currentPosition
+        // Only when the player is holding this queue on its current song. A run that never loaded
+        // it has an empty player at 0, and writing that sent the next resume back to the start.
+        val last = data.last()
+        last.lastSongPos = ResumePoint.onStop(
+            playerSongId, last.queue.getOrNull(last.queuePos)?.id, currentPosition, last.lastSongPos
+        )
         database.updateAllQueues(data)
     }
 
@@ -2201,6 +2208,8 @@ class MusicService : MediaLibraryService(),
             }
         }
 
+        // The pause point belongs to the song before this one, and the save below writes it.
+        q?.let { it.lastSongPos = ResumePoint.afterTransition(reason, player.currentPosition, it.lastSongPos) }
         queueBoard.setCurrQueuePosIndex(player.currentMediaItemIndex)
 
         // reshuffle queue when shuffle AND repeat all are enabled
