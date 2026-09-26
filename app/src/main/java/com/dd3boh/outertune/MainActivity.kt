@@ -1372,9 +1372,13 @@ class MainActivity : ComponentActivity() {
                             // Only after setup, so a crash during the wizard is offered once it is done.
                             if (oobeStatus >= OOBE_VERSION) CrashReportDialog()
 
-                            // Setup wizard
+                            // Setup wizard. Not when it is already on the back stack: a rotation
+                            // recreates the activity with the stack restored, wizard included, and
+                            // this ran again on top of it, so there were two, and Done on the top
+                            // one left the other showing with no way forward.
                             LaunchedEffect(Unit) {
-                                if (oobeStatus < OOBE_VERSION) {
+                                val alreadyOpen = runCatching { navController.getBackStackEntry("setup_wizard") }.isSuccess
+                                if (oobeStatus < OOBE_VERSION && !alreadyOpen) {
                                     navController.navigate("setup_wizard")
                                 }
                             }
