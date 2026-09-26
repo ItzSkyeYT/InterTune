@@ -458,7 +458,13 @@ interface SongsDao {
     @Query("UPDATE song SET inLibrary = null WHERE localPath = null")
     fun disableInvalidLocalSongs()
 
-    @Query("UPDATE song SET inLibrary = null, localPath = null WHERE id = :songId")
+    /**
+     * Takes a local song out of the library while its file is missing. The path stays: it is what
+     * the next scan matches the file on when it comes back, so the song returns as the same row with
+     * its likes. With the path cleared the row could never match again, and the file came back as a
+     * new song.
+     */
+    @Query("UPDATE song SET inLibrary = null WHERE id = :songId")
     fun disableLocalSong(songId: String)
 
     fun updateLocalSongPath(songId: String, inLibrary: LocalDateTime?, localPath: String?) {

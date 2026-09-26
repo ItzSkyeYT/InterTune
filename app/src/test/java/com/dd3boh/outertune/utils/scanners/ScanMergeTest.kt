@@ -102,4 +102,35 @@ class ScanMergeTest {
         assertEquals(downloaded, merged.dateDownload)
     }
 
+    @Test
+    fun `songs under a folder that could not be listed are kept`() {
+        val roots = listOf<String?>("/storage/1234-5678/Music")
+        assertTrue(ScanMerge.coveredByUnlistedRoot("/storage/1234-5678/Music/a.flac", roots))
+        assertTrue(ScanMerge.coveredByUnlistedRoot("/storage/1234-5678/Music/Sub/b.mp3", roots))
+    }
+
+    @Test
+    fun `songs elsewhere are still checked`() {
+        val roots = listOf<String?>("/storage/1234-5678/Music")
+        assertFalse(ScanMerge.coveredByUnlistedRoot("/storage/emulated/0/Music/a.flac", roots))
+        // A sibling folder whose name starts the same is not inside it.
+        assertFalse(ScanMerge.coveredByUnlistedRoot("/storage/1234-5678/Music2/a.flac", roots))
+    }
+
+    @Test
+    fun `a trailing slash on the folder makes no difference`() {
+        val roots = listOf<String?>("/storage/1234-5678/Music/")
+        assertTrue(ScanMerge.coveredByUnlistedRoot("/storage/1234-5678/Music/a.flac", roots))
+        assertFalse(ScanMerge.coveredByUnlistedRoot("/storage/1234-5678/Music2/a.flac", roots))
+    }
+
+    @Test
+    fun `a folder whose path is unknown covers every song`() {
+        assertTrue(ScanMerge.coveredByUnlistedRoot("/storage/emulated/0/Music/a.flac", listOf(null)))
+    }
+
+    @Test
+    fun `with every folder listed nothing is covered`() {
+        assertFalse(ScanMerge.coveredByUnlistedRoot("/storage/emulated/0/Music/a.flac", emptyList()))
+    }
 }

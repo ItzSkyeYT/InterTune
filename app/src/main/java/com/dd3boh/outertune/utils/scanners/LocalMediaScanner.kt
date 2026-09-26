@@ -21,6 +21,7 @@ import androidx.compose.ui.util.fastFilter
 import androidx.compose.ui.util.fastMapNotNull
 import androidx.datastore.preferences.core.edit
 import androidx.documentfile.provider.DocumentFile
+import androidx.documentfile.provider.TreeDocumentFileOt
 import com.dd3boh.outertune.constants.AutomaticScannerKey
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.SCANNER_DEBUG
@@ -85,6 +86,13 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
             "Creating scanner instance with scannerImpl:  ${advancedScannerImpl.javaClass.name}, requested: $scannerImpl"
         )
     }
+
+    /**
+     * The scan folders the last scanLocal could not list, as absolute paths, null for one whose
+     * path is not known. Songs under them are left alone by the disable passes. See
+     * ScanMerge.coveredByUnlistedRoot.
+     */
+    private var unlistedRoots: List<String?> = emptyList()
 
     suspend fun advancedScan(
         uri: Uri,
@@ -173,7 +181,13 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
         val scanPaths = uriListFromString(scanPaths)
         val excludedScanPaths = uriListFromString(excludedScanPaths)
 
-        getScanFiles(scanPaths, excludedScanPaths, context).forEach { uri ->
+        val unlisted = ArrayList<Uri>()
+        val found = getScanFiles(scanPaths, excludedScanPaths, context, unlisted)
+        unlistedRoots = unlisted.map { fileFromUri(context, it)?.absolutePath }
+        if (unlisted.isNotEmpty()) {
+            Log.w(TAG, "Could not list ${unlisted.size} scan folder(s), their songs are kept as they are: $unlisted")
+        }
+        found.forEach { uri ->
             if (SCANNER_DEBUG)
                 Log.v(TAG, "PATH: $uri")
 
@@ -1001,6 +1015,10 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
             if (song.song.localPath == null) {
                 continue
             }
+            // Not missing, just not looked at: its folder could not be listed.
+            if (ScanMerge.coveredByUnlistedRoot(song.song.localPath, unlistedRoots)) {
+                continue
+            }
 
             // new songs is all songs that are known to be valid
             // delete all songs in the DB that do not match a path
@@ -1025,6 +1043,10 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
         // disable if not in directory anymore
         for (song in allSongs) {
             if (song.song.localPath == null) {
+                continue
+            }
+            // Not missing, just not looked at: its folder could not be listed.
+            if (ScanMerge.coveredByUnlistedRoot(song.song.localPath, unlistedRoots)) {
                 continue
             }
 
@@ -1238,8 +1260,16 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
          * will override inclusions. All subdirectories will also be affected.
          *
          * Uri.path can be assumed to be non-null
+         *
+         * @param unlisted collects the scan folders that could not be listed at all, which would
+         * otherwise read as empty.
          */
-        fun getScanFiles(scanPaths: List<Uri>, excludedScanPaths: List<Uri>, context: Context): List<Uri> {
+        fun getScanFiles(
+            scanPaths: List<Uri>,
+            excludedScanPaths: List<Uri>,
+            context: Context,
+            unlisted: MutableList<Uri>? = null,
+        ): List<Uri> {
             val allSongs = ArrayList<Uri>()
             val resultingPaths =
                 scanPaths.filterNot { incl ->
@@ -1249,6 +1279,9 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
             resultingPaths.forEach { path ->
                 try {
                     val file = documentFileFromUri(context, path)
+                    if (file == null || (file as? TreeDocumentFileOt)?.listFilesOrNull() == null) {
+                        unlisted?.add(path)
+                    }
                     if (file != null) {
                         val songsHere = ArrayList<DocumentFile>()
                         scanDfRecursive(file, songsHere) {

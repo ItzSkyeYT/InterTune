@@ -35,4 +35,15 @@ object ScanMerge {
         dateDownload = existing.dateDownload,
     )
 
+    /**
+     * Whether a song missing from a scan has to stay as it is, because it sits under a scan folder
+     * that could not be listed.
+     *
+     * A folder on an SD card that is not mounted, or one whose access grant is gone (a backup
+     * restored on a new phone keeps the folder but not the grant), lists as empty, and every song
+     * in it then looked deleted. Nothing was looked at there, so nothing there is disabled. A null
+     * entry is a folder whose path is not known, which covers every song.
+     */
+    fun coveredByUnlistedRoot(localPath: String, unlistedRoots: List<String?>): Boolean =
+        unlistedRoots.any { root -> root == null || localPath.startsWith(root.trimEnd('/') + "/") }
 }
