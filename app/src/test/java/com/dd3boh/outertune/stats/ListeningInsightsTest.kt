@@ -284,6 +284,15 @@ class ListeningInsightsTest {
     }
 
     @Test
+    fun `the day's own run is told, even when a longer one happened another day`() {
+        val day = run("a", time(2, 9 * hour), 6) + (0 until 4).map { listen("a", time(2, 12 * hour) + it * hour) }
+        val elsewhere = run("c", time(4), 7)
+        val stats = ListeningInsights.compute(input(day + elsewhere))
+        assertEquals(Insight.SongOfTheDay("a", 10, today - 2, 6), stats.find<Insight.SongOfTheDay>())
+        assertEquals(Insight.OnRepeat("c", 7, today - 4), stats.find<Insight.OnRepeat>())
+    }
+
+    @Test
     fun `on repeat is broken by another song, not by the paused half of the same one`() {
         val first = listen("a", time(1), 90_000, endReason = EndReason.STOPPED, counted = true, session = 7)
         val second = listen("a", time(1) + 10 * minute, 90_000, continues = first.id, session = 7)

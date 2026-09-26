@@ -86,7 +86,7 @@ sealed interface Insight {
     /** The artist the finding is about, for a tap to open them. */
     val artistId: String? get() = null
 
-    /** The most plays one song had in one day, and how many of them came back to back. */
+    /** The most plays one song had in one day, and the most of them that came back to back. */
     data class SongOfTheDay(override val songId: String, val plays: Int, val day: Long, val inARow: Int) : Insight
 
     /** The longest run of one song played back to back, when it is not already [SongOfTheDay]. */
@@ -290,7 +290,7 @@ object ListeningInsights {
         val songOfTheDay = songOfTheDay(plays)
         val onRepeat = onRepeat(rows)
         val repeat = buildList<Insight> {
-            songOfTheDay?.let { add(it.copy(inARow = onRepeat?.takeIf { r -> r.songId == it.songId && r.day == it.day }?.times ?: 0)) }
+            songOfTheDay?.let { add(it.copy(inARow = longestRun(rows.filter { r -> r.day == it.day }, it.songId))) }
             val comeback = comeback(plays, input)
             comeback?.let(::add)
             onRepeat?.takeIf { r -> songOfTheDay == null || r.songId != songOfTheDay.songId || r.day != songOfTheDay.day }?.let(::add)
@@ -381,6 +381,25 @@ object ListeningInsights {
         val best = count.entries.maxWithOrNull(compareBy({ it.value }, { it.key.second })) ?: return null
         if (best.value < SONG_OF_THE_DAY_MIN) return null
         return Insight.SongOfTheDay(best.key.first, best.value, best.key.second, 0)
+    }
+
+    /** The longest run of [songId] in [rows], by the same rule as [onRepeat]. */
+    private fun longestRun(rows: List<Row>, songId: String): Int {
+        var best = 0
+        var song: String? = null
+        var session = 0L
+        var run = 0
+        for (r in rows) {
+            if (r.l.songId != song || r.l.sessionId != session) {
+                song = r.l.songId
+                session = r.l.sessionId
+                run = 0
+            }
+            if (!r.play) continue
+            run++
+            if (r.l.songId == songId && run > best) best = run
+        }
+        return best
     }
 
     /**
