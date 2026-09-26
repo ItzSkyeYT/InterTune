@@ -64,8 +64,12 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
     }
 
     fun deleteFile(mediaId: String): Boolean {
-        val file = isExists(mediaId)
-        return file?.delete() == true
+        val file = isExists(mediaId) ?: return false
+        val deleted = file.delete()
+        // Out of the list as well, or the player went on handing out the deleted file for the
+        // rest of the session and the song could not be streamed instead.
+        if (deleted) availableFiles = availableFiles - file
+        return deleted
     }
 
     fun saveFile(mediaId: String, input: InputStream, displayName: String?): Uri? {

@@ -1621,10 +1621,13 @@ class MusicService : MediaLibraryService(),
 
                     return@Factory dataSpec.withUri(file.toUri())
                 } else {
-                    val isDownloadNew = downloadUtil.localMgr.getFilePathIfExists(mediaId)
+                    // A file deleted outside the app is still in the list until the next scan, so
+                    // it is checked, and a song whose file has gone is played from the cache or
+                    // streamed instead of failing.
+                    val isDownloadNew = downloadUtil.localMgr.isExists(mediaId)?.takeIf { it.exists() }
                     isDownloadNew?.let {
                         Log.d(TAG, "PLAYING: Custom downloaded song")
-                        return@Factory dataSpec.withUri(it)
+                        return@Factory dataSpec.withUri(it.uri)
                     }
                 }
             }

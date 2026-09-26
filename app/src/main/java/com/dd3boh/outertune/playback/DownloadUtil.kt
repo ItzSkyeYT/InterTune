@@ -601,10 +601,10 @@ class DownloadUtil @Inject constructor(
             }
         }
 
-        runBlocking {
-            database.song(id).first()?.song?.copy(localPath = null)
-            database.updateDownloadStatus(id, null)
-        }
+        // Both columns. This used to build a copy of the song without its path and throw it away,
+        // so the row went on pointing at the deleted file. Off the calling thread, which is a
+        // menu's click handler and may not touch the database.
+        database.query { removeDownloadSong(id) }
         return true
     }
 
