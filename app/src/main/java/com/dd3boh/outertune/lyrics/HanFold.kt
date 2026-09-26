@@ -14,6 +14,9 @@ package com.dd3boh.outertune.lyrics
  * Basic Multilingual Plane that it turns into another one there, 2905 of them. android.icu only has that
  * transliteration from Android 10, and the unit tests run without Android at all, so the table is kept here.
  * Folding is only ever used to compare two names, never to show one.
+ *
+ * The table is ICU's data, Copyright © 2016-2025 Unicode, Inc., under the Unicode License v3
+ * (SPDX Unicode-3.0), whose notice is kept verbatim in docs/licenses/ICU-Unicode-3.0.txt.
  */
 internal object HanFold {
 
