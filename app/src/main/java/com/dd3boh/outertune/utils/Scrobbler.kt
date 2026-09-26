@@ -82,7 +82,7 @@ class Scrobbler @Inject constructor(
             track = metadata.title,
             album = metadata.album?.title,
             durationSeconds = metadata.duration.takeIf { it > 0 },
-        ).onFailure { logFailure("now playing", it) }
+        ).onFailure { handleFailure("now playing", it) }
     }
 
     /**
@@ -110,13 +110,23 @@ class Scrobbler @Inject constructor(
             timestampSeconds = startedAtSeconds,
             album = metadata.album?.title,
             durationSeconds = duration.takeIf { it > 0 },
-        ).onFailure { logFailure("scrobble", it) }
+        ).onFailure { handleFailure("scrobble", it) }
     }
 
     /** Last.fm's tracks most like this one, most similar first. */
     suspend fun similar(artist: String, track: String): Result<List<SimilarTrack>> {
         if (!canFindSimilar) return Result.failure(IllegalStateException("No Last.fm API key in this build"))
         return api.similar(artist, track)
+    }
+
+    private suspend fun handleFailure(what: String, t: Throwable) {
+        logFailure(what, t)
+        if (isInvalidSession(t)) {
+            // Revoked on last.fm, or the password changed. Every later call fails the same way,
+            // and Settings went on saying connected, so nobody knew to connect again.
+            Log.w(TAG, "Last.fm says the session is no longer valid, disconnecting")
+            logout()
+        }
     }
 
     private fun logFailure(what: String, t: Throwable) {
@@ -126,6 +136,11 @@ class Scrobbler @Inject constructor(
 
     companion object {
         private const val TAG = "Scrobbler"
+
+        /** Last.fm's "Invalid session key - Please re-authenticate". */
+        const val ERROR_INVALID_SESSION = 9
+
+        fun isInvalidSession(t: Throwable): Boolean = (t as? LastFmException)?.code == ERROR_INVALID_SESSION
 
         /**
          * The artist Last.fm is sent: the first one, as the similar-songs lookup already does.
