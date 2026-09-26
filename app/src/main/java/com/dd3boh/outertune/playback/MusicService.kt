@@ -1278,13 +1278,10 @@ class MusicService : MediaLibraryService(),
     fun toggleLike() {
         database.query {
             currentSong.value?.let {
+                // toggleLike sends the like to YouTube itself. A likeSong here sent it again.
                 val song = it.song.toggleLike()
                 update(song)
                 downloadUtil.autoDownloadOnLike(song)
-
-                if (!song.isLocal) {
-                    syncUtils.likeSong(song)
-                }
             }
         }
     }

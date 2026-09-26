@@ -56,7 +56,6 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
-import com.dd3boh.outertune.LocalSyncUtils
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.SyncMode
@@ -103,7 +102,6 @@ fun SongMenu(
     val density = LocalDensity.current
     val downloadUtil = LocalDownloadUtil.current
     val clipboardManager = LocalClipboard.current
-    val syncUtils = LocalSyncUtils.current
     val playerConnection = LocalPlayerConnection.current ?: return
 
     val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
@@ -166,15 +164,12 @@ fun SongMenu(
         trailingContent = {
             IconButton(
                 onClick = {
+                    // toggleLike sends the like to YouTube itself. A likeSong here sent it again.
                     val s = song.song.toggleLike()
                     database.query {
                         update(s)
                     }
                     downloadUtil.autoDownloadOnLike(s)
-
-                    if (!s.isLocal) {
-                        syncUtils.likeSong(s)
-                    }
                 }
             ) {
                 Icon(

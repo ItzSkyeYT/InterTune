@@ -46,7 +46,6 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
-import com.dd3boh.outertune.LocalSyncUtils
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
@@ -82,7 +81,6 @@ fun YouTubeSongMenu(
     val downloadUtil = LocalDownloadUtil.current
     val database = LocalDatabase.current
     val playerConnection = LocalPlayerConnection.current ?: return
-    val syncUtils = LocalSyncUtils.current
 
     val librarySong by database.song(song.id).collectAsState(initial = null)
     val download by LocalDownloadUtil.current.getDownload(song.id).collectAsState(initial = null)
@@ -125,16 +123,17 @@ fun YouTubeSongMenu(
                 onClick = {
                     database.transaction {
                         librarySong.let { librarySong ->
+                            // One push: toggleLike sends the like to YouTube itself. This sent it
+                            // three times, the second toggle and a likeSong on top of the first.
                             val s: SongEntity
                             if (librarySong == null) {
                                 insert(song.toMediaMetadata(), SongEntity::toggleLike)
-                                s = song.toMediaMetadata().toSongEntity().let(SongEntity::toggleLike)
+                                s = song.toMediaMetadata().toSongEntity().let(SongEntity::localToggleLike)
                             } else {
                                 s = librarySong.song.toggleLike()
                                 update(s)
                             }
 
-                            syncUtils.likeSong(s)
                             // Inside the transaction and after the insert, so the row exists
                             // before a finishing download tries to stamp dateDownload onto it.
                             downloadUtil.autoDownloadOnLike(s)
