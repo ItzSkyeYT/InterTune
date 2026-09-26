@@ -56,6 +56,7 @@ import com.dd3boh.outertune.constants.AccountEmailKey
 import com.dd3boh.outertune.constants.AccountNameKey
 import com.dd3boh.outertune.constants.DataSyncIdKey
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
+import com.dd3boh.outertune.constants.LoginPickerDeclinedKey
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.utils.rememberPreference
@@ -97,10 +98,18 @@ fun LoginScreen(
     // the page as it always was.
     val context = LocalContext.current
     var pickedAccount by rememberSaveable { mutableStateOf<String?>(null) }
+    // On a phone with Google's services but no Google account on it, signed out or with microG,
+    // the system skips its list and goes straight to adding an account, and did so each time
+    // Login opened. So once the picker that opens by itself is dismissed, or comes back with no
+    // account, it stops opening by itself and the page opens straight away, as it did before
+    // the picker; Pick one still offers it, and an account picked there starts it again.
+    var pickerDeclined by rememberPreference(LoginPickerDeclinedKey, false)
     val accountPicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val picked = if (result.resultCode == Activity.RESULT_OK) {
             result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
         } else null
+        val declined = pickerDeclinedAfter(pickedAccount, picked, pickerDeclined)
+        if (declined != pickerDeclined) pickerDeclined = declined
         pickedAccount = accountAfterPicker(pickedAccount, picked)
     }
     // A phone without Google's services has no such account type, and would be sent to an empty
@@ -109,8 +118,8 @@ fun LoginScreen(
         runCatching { AccountManager.get(context).authenticatorTypes.any { it.type == GOOGLE_ACCOUNT_TYPE } }
             .getOrDefault(false)
     }
-    // Always shown, even with a single account on the phone: somebody who keeps two accounts, or
-    // is here to switch, picks every time rather than being signed in as whichever one is there.
+    // Shown even with a single account on the phone: somebody who keeps two accounts, or is here
+    // to switch, picks every time rather than being signed in as whichever one is there.
     fun openPicker() {
         val intent = runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -126,7 +135,7 @@ fun LoginScreen(
     }
     LaunchedEffect(Unit) {
         if (pickedAccount != null) return@LaunchedEffect
-        if (canPick) openPicker() else pickedAccount = ""
+        if (canPick && !pickerDeclined) openPicker() else pickedAccount = ""
     }
 
     Column(
@@ -253,6 +262,18 @@ private fun loginUrl(email: String): String =
  */
 internal fun accountAfterPicker(previous: String?, picked: String?): String =
     if (!picked.isNullOrEmpty()) picked else previous ?: ""
+
+/**
+ * Whether the picker stops opening by itself once it has answered [picked]. The one that opened by
+ * itself is the one that answers before anything else has, while [previous] is still null: its
+ * being dismissed, or coming back with no account, stops it. An account picked starts it again. A
+ * Switch or Pick one dismissed leaves [declined] as it was.
+ */
+internal fun pickerDeclinedAfter(previous: String?, picked: String?, declined: Boolean): Boolean = when {
+    !picked.isNullOrEmpty() -> false
+    previous == null -> true
+    else -> declined
+}
 
 /**
  * The address of the page being shown, with a lock when the connection is encrypted, and one line

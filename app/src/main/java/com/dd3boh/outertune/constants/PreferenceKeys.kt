@@ -320,6 +320,13 @@ val AccountNameKey = stringPreferencesKey("accountName")
 val AccountEmailKey = stringPreferencesKey("accountEmail")
 val AccountChannelHandleKey = stringPreferencesKey("accountChannelHandle")
 
+/**
+ * Set once the account picker that Login opens by itself has been dismissed, or has come back
+ * without an account. Login then opens Google's page straight away, as it did before the picker,
+ * and the picker opens only from Pick one. Picking an account clears it. See LoginScreen.
+ */
+val LoginPickerDeclinedKey = booleanPreferencesKey("loginPickerDeclined")
+
 
 /**
  * Misc
