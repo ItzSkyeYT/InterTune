@@ -177,17 +177,32 @@ fun QuickPicksSource.orOffered(): QuickPicksSource =
     if (this in QuickPicksSource.offered()) this else QuickPicksSource.YOUTUBE
 
 /**
+ * Notes, as setup opens, whether this install has ever been through it.
+ *
+ * [OobeStatusKey] is missing only on an install that never has: the first Next writes it, and so
+ * do finishing and the configurator in Developer. It cannot answer the question as setup finishes,
+ * because by then it holds the page setup finished on, 0 after Skip on the welcome page and the
+ * last page after Done, whoever is finishing. So the answer is kept in [FirstSetupKey] until then.
+ * Setup opening again part way through, after a rotation or a restart, leaves it as it was.
+ */
+fun markFirstSetup(prefs: MutablePreferences) {
+    if (prefs[OobeStatusKey] == null) prefs[FirstSetupKey] = true
+}
+
+/**
  * What a new install starts with, written once as setup finishes, whether it is completed or
  * skipped.
  *
- * Best recommendations is the Quick picks source for somebody new. Only somebody new: an install
- * that went through setup on an earlier version has [OobeStatusKey] above 0 and keeps what it had,
- * which for most is YouTube Music by default, and a source chosen on the way through setup is
+ * Best recommendations is the Quick picks source for somebody new, meaning an install that had
+ * never been through setup when it opened ([markFirstSetup]). Anybody updating went through setup
+ * on an earlier version and keeps what they had, which for most is YouTube Music by default, and so
+ * does anybody running setup again from Developer. A source chosen on the way through setup is
  * never overridden. A backup restored from setup brings its own settings instead.
  */
 fun applyNewInstallDefaults(prefs: MutablePreferences) {
-    val neverSetUp = (prefs[OobeStatusKey] ?: 0) == 0
-    if (neverSetUp && prefs[QuickPicksSourceKey] == null && QuickPicksSource.ENGINE in QuickPicksSource.offered()) {
+    val firstSetup = prefs[FirstSetupKey] == true
+    prefs.remove(FirstSetupKey)
+    if (firstSetup && prefs[QuickPicksSourceKey] == null && QuickPicksSource.ENGINE in QuickPicksSource.offered()) {
         prefs[QuickPicksSourceKey] = QuickPicksSource.ENGINE.name
     }
 }

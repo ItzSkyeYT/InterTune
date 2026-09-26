@@ -250,6 +250,13 @@ val LastLocalScanKey = longPreferencesKey("lastLocalScan")
  */
 val DevSettingsKey = booleanPreferencesKey("devSettings")
 val OobeStatusKey = intPreferencesKey("oobeStatus")
+
+/**
+ * Set when setup opens on an install that has never been through it, and removed when setup
+ * finishes. [OobeStatusKey] cannot tell by then: it is the page setup is on, and the configurator
+ * in Developer sets it back to 0 for somebody who has been through setup before. See markFirstSetup.
+ */
+val FirstSetupKey = booleanPreferencesKey("firstSetup")
 val SwipeToSkipKey = booleanPreferencesKey("swipeToSkip")
 
 /**

@@ -141,6 +141,7 @@ import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.applyNewInstallDefaults
+import com.dd3boh.outertune.constants.markFirstSetup
 import com.dd3boh.outertune.constants.ScanPathsKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.ui.component.ListPreference
@@ -211,6 +212,12 @@ fun SetupWizard(
 
     var oobeStatus by rememberPreference(OobeStatusKey, defaultValue = 0)
 
+    // Whether this is a new install is settled now, while the page number is still missing on one,
+    // not as setup finishes. See markFirstSetup.
+    LaunchedEffect(Unit) {
+        context.dataStore.edit { markFirstSetup(it) }
+    }
+
     // Leaving setup writes a preference and then navigates. The setter behind oobeStatus is fire
     // and forget, so doing both in one breath is a race: MainActivity can re-read the old value
     // while the write is still in flight and send you straight back into the wizard, which by then
@@ -219,20 +226,31 @@ fun SetupWizard(
     //
     // Waiting for the write before navigating removes the window entirely. Same fault, and the
     // same fix, as the polls opt-in.
+    //
+    // Once only. Done and Skip stay live until the write lands, and a second tap ran all of this
+    // again with the wizard already gone: going up from Home failed, so Home was pushed a second
+    // time, and Back from Home showed Home.
+    var finishing by remember { mutableStateOf(false) }
     val finishSetup: () -> Unit = {
-        coroutineScope.launch {
-            context.dataStore.edit {
-                // Before the status moves, since that is what tells a new install apart.
-                applyNewInstallDefaults(it)
-                it[OobeStatusKey] = OOBE_VERSION
-            }
-            // Nothing under the wizard to go back to left its exit page on screen, now with the
-            // app's own bars over it and no control of its own. Home instead.
-            if (!navController.navigateUp()) {
-                navController.navigate(
-                    navController.graph.startDestinationId, null,
-                    navOptions { popUpTo("setup_wizard") { inclusive = true } },
-                )
+        if (!finishing) {
+            finishing = true
+            coroutineScope.launch {
+                context.dataStore.edit {
+                    // Same edit as the status, so the mark markFirstSetup left cannot outlive setup.
+                    applyNewInstallDefaults(it)
+                    it[OobeStatusKey] = OOBE_VERSION
+                }
+                // Back to what setup was opened over: the start destination at first launch, or
+                // Developer after the configurator. Popping the only entry would leave the nav host
+                // empty, so with nothing under the wizard the start destination replaces it.
+                if (navController.previousBackStackEntry != null) {
+                    navController.popBackStack("setup_wizard", inclusive = true)
+                } else {
+                    navController.navigate(
+                        navController.graph.startDestinationId, null,
+                        navOptions { popUpTo("setup_wizard") { inclusive = true } },
+                    )
+                }
             }
         }
         Unit
@@ -270,8 +288,10 @@ fun SetupWizard(
         }
     }
 
+    // No step back or forward while finishing either: a page written after the finishing write
+    // would leave setup unfinished, to open again on the next launch.
     BackHandler {
-        if (oobeStatus > 0) {
+        if (oobeStatus > 0 && !finishing) {
             oobeStatus -= 1
         } else {
             // user may not dismiss via back
@@ -280,7 +300,7 @@ fun SetupWizard(
 
     val navBar = @Composable {
         val onFinalStep = oobeStatus == OOBE_VERSION - 1
-        val canGoBack = oobeStatus > 0
+        val canGoBack = oobeStatus > 0 && !finishing
         // The intensity is the one the slider on the look page writes, so the buttons change while
         // it is being dragged, not once the page is left.
         val glass = rememberGlassSpec()?.let { GlassSpec(pageBackdrop, it.intensity) }
@@ -363,6 +383,7 @@ fun SetupWizard(
                 glass = glass,
                 enabled = true,
                 onClick = {
+                    if (finishing) return@OobeNavButton
                     if (oobeStatus == 1) {
                         filter = LibraryFilter.ALL // hax
                     }
