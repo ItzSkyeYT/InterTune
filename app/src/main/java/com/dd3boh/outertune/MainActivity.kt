@@ -98,6 +98,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -689,10 +690,6 @@ class MainActivity : ComponentActivity() {
                         ACTION_SONGS -> Screens.LibraryFilter.SONGS
                         ACTION_ALBUMS -> Screens.LibraryFilter.ALBUMS
                         ACTION_PLAYLISTS -> Screens.LibraryFilter.PLAYLISTS
-                        ACTION_SEARCH -> {
-                            navController.navigate("search")
-                            filter
-                        } // do change filter for search
                         else -> Screens.LibraryFilter.ALL
                     }
                 }
@@ -765,6 +762,22 @@ class MainActivity : ComponentActivity() {
                                     appBarState.resetHeightOffset()
                                 }
                             }
+                    }
+
+                    // The Search shortcut. Search is the overlay over the current destination, not
+                    // a destination, so it is opened the way tapping the bar opens it, and not over
+                    // setup, which comes first. It waits for the first destination and then a frame:
+                    // the overlay shuts itself whenever the destination under it changes, and at
+                    // launch that includes the first one arriving.
+                    var searchFromShortcut by rememberSaveable {
+                        mutableStateOf(intent?.action == ACTION_SEARCH && oobeStatus >= OOBE_VERSION)
+                    }
+                    LaunchedEffect(searchFromShortcut) {
+                        if (!searchFromShortcut) return@LaunchedEffect
+                        snapshotFlow { navBackStackEntry }.first { it != null }
+                        withFrameNanos { }
+                        searchActive = true
+                        searchFromShortcut = false
                     }
 
 
