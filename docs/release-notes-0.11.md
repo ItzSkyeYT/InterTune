@@ -152,6 +152,17 @@ InterTune can count this install once a day: one short message with a random nam
 - Moving downloads to a folder left them unplayable offline until a later scan, and a full storage during the move could lose songs.
 - Downloading a YouTube playlist from its menu was forgotten after a restart.
 - Offline, a local file that had been moved or deleted waited for the network forever instead of being skipped.
+- **View artist** on an album by Various Artists closed the app.
+- A saved album could show and play only the one or two songs you had heard from it. Songs heard from an album you had not saved could land in a saved album with the same name by someone else.
+- Liked songs sorted by play count listed every song the app had ever seen.
+- Searching for a word such as "watch" or "playlist" did nothing, and searching the library missed synced playlists and saved albums.
+- **Add to playlist** from a YouTube playlist's menu added nothing, a local artist's albums stopped at six, and the album menu queued an album out of order.
+- **Read only** sync still changed your YouTube Music account, down to deleting playlists. It now changes nothing there.
+- A sync that failed or came back partial, on a bad connection for example, could remove songs, albums, artists and playlists from your library with **Overwrite with remote** on.
+- Signing in for the first time, or with another account, could take away likes you made while signed out. A like is now only taken back when YouTube had it and lost it.
+- Creating a synced playlist with no connection closed the app.
+- Last.fm scrobbles named every artist of a song as one, and songs started from search were never scrobbled. Nothing is sent as now playing while listening history is paused, and a Last.fm connection revoked on the website now shows as disconnected.
+- **Sync now** often did nothing and said the sync was complete.
 - Dragging songs with the add panel open moved the wrong rows.
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
 - **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
