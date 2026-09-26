@@ -115,6 +115,7 @@ import com.dd3boh.outertune.ui.utils.MEDIA_PERMISSION_LEVEL
 import com.dd3boh.outertune.ui.utils.STORAGE_ROOT
 import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.ui.utils.canNavigateUp
+import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.utils.fixFilePath
 import com.dd3boh.outertune.utils.numberToAlpha
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -467,8 +468,11 @@ fun FolderScreen(
                             subtitle = null,
                             modifier = Modifier
                                 .combinedClickable {
+                                    // Encoded whole, slashes included. The raw path went in with its slashes
+                                    // swapped for ';', so a '#', '?' or '%' in a folder's name broke the
+                                    // route, and a ';' came back out as a '/': a different folder opened.
                                     val route =
-                                        Screens.Folders.route + "/" + folder.getFullSquashedDir().replace('/', ';')
+                                        Screens.Folders.route + "/" + folder.getFullSquashedDir().urlEncode()
                                     navController.navigate(route)
                                 }
                                 .animateItem(),
