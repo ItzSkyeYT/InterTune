@@ -9,6 +9,20 @@
 
 package com.dd3boh.outertune.ui.player
 
+import androidx.compose.ui.geometry.toRect
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.MeasureResult
+import androidx.compose.ui.layout.MeasureScope
+import androidx.compose.ui.node.DrawModifierNode
+import androidx.compose.ui.node.LayoutModifierNode
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.invalidateDraw
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.Dp
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.utils.ActivityLog
@@ -712,6 +726,7 @@ fun BottomSheetPlayer(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier
+                                    .fadeWhenClipped()
                                     .basicMarquee(
                                         iterations = 1,
                                         initialDelayMillis = 3000
@@ -722,7 +737,9 @@ fun BottomSheetPlayer(
                                     }
                             )
 
-                            Row {
+                            // The title and artists scroll when they do not fit, and fade out at the end
+                            // rather than stopping mid-letter against the first button beside them.
+                            Row(modifier = Modifier.fadeWhenClipped()) {
                                 mediaMetadata.artists.fastForEachIndexed { index, artist ->
                                     Text(
                                         text = artist.name,
@@ -747,7 +764,8 @@ fun BottomSheetPlayer(
                                             text = ", ",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontSize = artistSize,
-                                            color = onBackgroundColor
+                                            color = onBackgroundColor,
+                                            maxLines = 1
                                         )
                                     }
                                 }
@@ -1281,3 +1299,59 @@ fun BottomSheetPlayer(
  * tablet does not need because the queue is permanently beside the player.
  */
 private val TabletQueueHandleReserve = 48.dp
+
+/**
+ * Fades out the end of a line that is too long for its space, and leaves a line that fits alone.
+ *
+ * The title and artists scroll as a marquee, which clips them hard at the edge of their space. With
+ * buttons beside the title that edge is only a few dp from the first button, so a long title
+ * stopped mid-letter right against it and looked as if it carried on underneath. Fading its last
+ * stretch shows the line ending short of the buttons instead.
+ */
+private fun Modifier.fadeWhenClipped(length: Dp = 24.dp): Modifier = this then FadeWhenClippedElement(length)
+
+private data class FadeWhenClippedElement(val length: Dp) : ModifierNodeElement<FadeWhenClippedNode>() {
+    override fun create() = FadeWhenClippedNode(length)
+
+    override fun update(node: FadeWhenClippedNode) {
+        node.length = length
+        node.invalidateDraw()
+    }
+}
+
+private class FadeWhenClippedNode(var length: Dp) : Modifier.Node(), LayoutModifierNode, DrawModifierNode {
+    private var clipped = false
+
+    override fun MeasureScope.measure(measurable: Measurable, constraints: Constraints): MeasureResult {
+        val placeable = measurable.measure(constraints)
+        // A marquee gives the whole width of its text as its widest size while laying itself out
+        // no wider than it is allowed, so the two differ exactly when the line is cut short. A row
+        // of them adds theirs up, which covers the artists as well as the title.
+        val clippedNow = measurable.maxIntrinsicWidth(placeable.height) > placeable.width
+        if (clippedNow != clipped) {
+            clipped = clippedNow
+            invalidateDraw()
+        }
+        return layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    }
+
+    override fun ContentDrawScope.draw() {
+        if (!clipped || size.width <= 0f) {
+            drawContent()
+            return
+        }
+        val fade = length.toPx().coerceAtMost(size.width)
+        val mask = if (layoutDirection == LayoutDirection.Ltr) {
+            Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = size.width - fade, endX = size.width)
+        } else {
+            Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = fade)
+        }
+        // The mask has to act on this line alone, so the line is drawn into a layer of its own
+        // and the mask keeps only as much of it as the gradient allows.
+        drawContext.canvas.saveLayer(size.toRect(), Paint())
+        drawContent()
+        drawRect(brush = mask, blendMode = BlendMode.DstIn)
+        drawContext.canvas.restore()
+    }
+}
+
