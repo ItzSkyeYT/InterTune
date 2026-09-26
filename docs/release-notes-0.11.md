@@ -53,6 +53,10 @@ InterTune can count this install once a day: one short message with a random nam
 - A sleep timer button beside like and the menu.
 - **Player buttons**: Classic, or Connected, which joins the controls into one frosted row. Classic by default.
 - Swiping the artwork changes song again, including straight after the app opens.
+- **Queue button** (Look and feel, under Player buttons): opens the queue from a button beside the other player buttons instead of pulling it up from the bottom. Off by default, and turning it on moves none of the other controls.
+- Lyrics no longer shrink the player's buttons: the controls stay where they are and the lyrics take the artwork's place.
+- A long title or artist line fades out before the buttons beside it instead of stopping mid-letter against them.
+- In landscape the controls always have room for all five transport buttons, and nothing is cut off at the ends of the Connected row.
 
 ## Playback
 
