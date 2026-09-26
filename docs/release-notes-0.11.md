@@ -163,6 +163,10 @@ InterTune can count this install once a day: one short message with a random nam
 - Creating a synced playlist with no connection closed the app.
 - Last.fm scrobbles named every artist of a song as one, and songs started from search were never scrobbled. Nothing is sent as now playing while listening history is paused, and a Last.fm connection revoked on the website now shows as disconnected.
 - **Sync now** often did nothing and said the sync was complete.
+- Opening the app and leaving without pressing play reset the saved place in the song to the start, so the next resume, from headphones or the notification, began at 0:00.
+- Pressing play on headphones with the app closed and nothing to resume closed the app about ten seconds later.
+- In Android Auto, a list you started was not treated as the current queue: shuffle swapped back to the phone's old queue, radio songs could land in it, and the app could close. "Hey Google, play" a song or artist emptied the player; it now plays what you asked for from your library, and a request it cannot match leaves playback alone. A search for a name with a slash in it, such as AC/DC, played the wrong song.
+- A song started by resuming could play briefly at full volume before normalisation and spatial audio took over.
 - Dragging songs with the add panel open moved the wrong rows.
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
 - **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
