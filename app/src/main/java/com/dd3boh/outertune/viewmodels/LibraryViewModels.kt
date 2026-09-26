@@ -123,7 +123,8 @@ class LibraryFoldersViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     val TAG = LibraryFoldersViewModel::class.simpleName.toString()
-    val path = savedStateHandle.get<String>("path")?.replace(';', '/') ?: STORAGE_ROOT
+    // Navigation decodes the argument: FolderScreen encodes the whole path into the route.
+    val path = savedStateHandle.get<String>("path") ?: STORAGE_ROOT
 
     val localSongDirectoryTree: MutableStateFlow<DirectoryTree> = MutableStateFlow(getDirectoryTree(path))
     val localSongDtSongCount = MutableStateFlow(0)

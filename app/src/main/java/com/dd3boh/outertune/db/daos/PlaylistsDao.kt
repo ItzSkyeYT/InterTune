@@ -12,6 +12,7 @@ import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.sqlite.db.SupportSQLiteQuery
 import com.dd3boh.outertune.constants.PlaylistFilter
 import com.dd3boh.outertune.constants.PlaylistSortType
+import com.dd3boh.outertune.db.LibrarySql
 import com.dd3boh.outertune.db.PlaylistSql
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistEntity
@@ -93,19 +94,7 @@ interface PlaylistsDao {
     fun playlistByBrowseId(browseId: String): Flow<Playlist?>
 
     @Transaction
-    @Query("""
-        SELECT 
-            p.*, 
-            COUNT(psm.playlistId) AS songCount,
-            SUM(CASE WHEN s.dateDownload IS NOT NULL THEN 1 ELSE 0 END) AS downloadCount
-        FROM playlist p
-            LEFT JOIN playlist_song_map psm ON p.id = psm.playlistId
-            LEFT JOIN song s ON psm.songId = s.id
-        WHERE name LIKE '%' || :query || '%'
-            AND s.inLibrary IS NOT NULL
-        GROUP BY p.id
-        LIMIT :previewSize
-    """)
+    @Query(LibrarySql.SEARCH_PLAYLISTS)
     fun searchPlaylists(query: String, previewSize: Int = Int.MAX_VALUE): Flow<List<Playlist>>
 
     @Transaction

@@ -35,6 +35,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 fun ArtistMenu(
@@ -84,19 +85,20 @@ fun ArtistMenu(
                 icon = Icons.Rounded.PlayArrow,
                 title = R.string.play
             ) {
+                val artistId = artist.id
+                val title = artist.artist.name
+                val mixFrom = artistId.takeIf { artist.artist.isYouTubeArtist }
                 coroutineScope.launch {
                     val songs = withContext(Dispatchers.IO) {
-                        database.artistSongs(artist.id, ArtistSongSortType.CREATE_DATE, true).first()
+                        database.artistSongs(artistId, ArtistSongSortType.CREATE_DATE, true).first()
                             .map { it.toMediaMetadata() }
                     }
 
-                    val playlistId = withContext(Dispatchers.IO) {
-                        YouTube.artist(artist.id).getOrNull()?.artist?.shuffleEndpoint?.playlistId
-                    }
+                    val playlistId = withContext(Dispatchers.IO) { artistMixId(mixFrom) }
 
                     playerConnection.playQueue(
                         ListQueue(
-                            title = artist.artist.name,
+                            title = title,
                             items = songs,
                             playlistId = playlistId
                         ),
@@ -109,20 +111,21 @@ fun ArtistMenu(
                 icon = Icons.Rounded.Shuffle,
                 title = R.string.shuffle
             ) {
+                val artistId = artist.id
+                val title = artist.artist.name
+                val mixFrom = artistId.takeIf { artist.artist.isYouTubeArtist }
                 coroutineScope.launch {
                     val songs = withContext(Dispatchers.IO) {
-                        database.artistSongs(artist.id, ArtistSongSortType.CREATE_DATE, true).first()
+                        database.artistSongs(artistId, ArtistSongSortType.CREATE_DATE, true).first()
                             .map { it.toMediaMetadata() }
                             .shuffled()
                     }
 
-                    val playlistId = withContext(Dispatchers.IO) {
-                        YouTube.artist(artist.id).getOrNull()?.artist?.shuffleEndpoint?.playlistId
-                    }
+                    val playlistId = withContext(Dispatchers.IO) { artistMixId(mixFrom) }
 
                     playerConnection.playQueue(
                         ListQueue(
-                            title = artist.artist.name,
+                            title = title,
                             items = songs,
                             playlistId = playlistId
                         ),
@@ -146,5 +149,18 @@ fun ArtistMenu(
                 context.startActivity(Intent.createChooser(intent, null))
             }
         }
+    }
+}
+
+/**
+ * The artist's YouTube mix, which only carries playback on once their songs run out, so it gets
+ * three seconds and the songs play either way, as on the artist's songs page. Play and Shuffle
+ * here waited for it with no limit: offline, the tap sat there until the request timed out, and
+ * a local artist, which YouTube does not know, paid a failed round trip every time. Null [artistId]
+ * for one that is not a YouTube artist.
+ */
+private suspend fun artistMixId(artistId: String?): String? = artistId?.let { id ->
+    withTimeoutOrNull(3_000) {
+        YouTube.artist(id).getOrNull()?.artist?.shuffleEndpoint?.playlistId
     }
 }

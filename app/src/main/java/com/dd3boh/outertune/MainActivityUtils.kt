@@ -39,6 +39,7 @@ import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.enumPreference
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.lmScannerCoroutine
+import com.dd3boh.outertune.utils.YouTubeLink
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.destroyScanner
@@ -65,57 +66,47 @@ fun youtubeNavigator(
     snackbarHostState: SnackbarHostState,
     uri: Uri
 ): Boolean {
-    when (val path = uri.pathSegments.firstOrNull()) {
-        "playlist" -> uri.getQueryParameter("list")?.let { playlistId ->
-            if (playlistId.startsWith("OLAK5uy_")) {
-                coroutineScope.launch {
-                    YouTube.albumSongs(playlistId).onSuccess { songs ->
-                        songs.firstOrNull()?.album?.id?.let { browseId ->
-                            navController.navigate("album/$browseId")
-                        }
-                    }.onFailure {
-                        reportException(it)
-                    }
-                }
-            } else {
-                navController.navigate("online_playlist/$playlistId")
-            }
-        }
-
-        "channel", "c" -> uri.lastPathSegment?.let { artistId ->
-            navController.navigate("artist/$artistId")
-        }
-
-        else -> when {
-            path == "watch" -> uri.getQueryParameter("v")
-            uri.host == "youtu.be" -> path
-            else -> return false
-        }?.let { videoId ->
-            val playlistId = uri.getQueryParameter("list")
+    // Only a YouTube address, and true only when something was opened: see YouTubeLink.parse.
+    when (val link = YouTubeLink.parse(uri.toString()) ?: return false) {
+        is YouTubeLink.Playlist -> if (link.id.startsWith("OLAK5uy_")) {
             coroutineScope.launch {
-                withContext(Dispatchers.IO) {
-                    YouTube.queue(listOf(videoId), playlistId)
-                }.onSuccess {
-                    val s = it.firstOrNull()
-                    if (s == null) {
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(
-                                message = context.getString(R.string.err_invalid_ytm_song),
-                                withDismissAction = true,
-                                duration = SnackbarDuration.Long
-                            )
-                        }
-                    } else {
-                        playerConnection?.playQueue(
-                            queue = ListQueue(
-                                title = s.title,
-                                items = listOf(s.toMediaMetadata())
-                            )
-                        )
+                YouTube.albumSongs(link.id).onSuccess { songs ->
+                    songs.firstOrNull()?.album?.id?.let { browseId ->
+                        navController.navigate("album/$browseId")
                     }
                 }.onFailure {
                     reportException(it)
                 }
+            }
+        } else {
+            navController.navigate("online_playlist/${link.id}")
+        }
+
+        is YouTubeLink.Channel -> navController.navigate("artist/${link.id}")
+
+        is YouTubeLink.Video -> coroutineScope.launch {
+            withContext(Dispatchers.IO) {
+                YouTube.queue(listOf(link.id), link.playlistId)
+            }.onSuccess {
+                val s = it.firstOrNull()
+                if (s == null) {
+                    coroutineScope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = context.getString(R.string.err_invalid_ytm_song),
+                            withDismissAction = true,
+                            duration = SnackbarDuration.Long
+                        )
+                    }
+                } else {
+                    playerConnection?.playQueue(
+                        queue = ListQueue(
+                            title = s.title,
+                            items = listOf(s.toMediaMetadata())
+                        )
+                    )
+                }
+            }.onFailure {
+                reportException(it)
             }
         }
     }

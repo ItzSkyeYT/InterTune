@@ -21,13 +21,12 @@ import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.Song
-import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.utils.getNSongsString
+import com.dd3boh.outertune.utils.albumSongsToPlay
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.joinByBullet
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.ZoneOffset
 
@@ -153,8 +152,8 @@ fun AlbumGridItem(
             visible = !isActive,
             onClick = {
                 coroutineScope.launch {
-                    database.albumWithSongs(album.id).first()?.songs
-                        ?.map { it.toMediaMetadata() }
+                    albumSongsToPlay(database, album.id)
+                        .takeIf { it.isNotEmpty() }
                         ?.let {
                             playerConnection.playQueue(
                                 ListQueue(

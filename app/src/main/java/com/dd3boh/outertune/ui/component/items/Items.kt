@@ -90,16 +90,14 @@ import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.db.entities.RecentActivityEntity
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
-import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.PlayingIndicator
 import com.dd3boh.outertune.ui.component.PlayingIndicatorBox
 import com.dd3boh.outertune.utils.LocalArtworkPath
+import com.dd3boh.outertune.utils.albumSongsToPlay
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
-import com.dd3boh.outertune.utils.reportException
-import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.AlbumItem
 import com.zionhuang.innertube.models.ArtistItem
 import com.zionhuang.innertube.models.PlaylistItem
@@ -107,7 +105,6 @@ import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.YTItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
@@ -538,20 +535,7 @@ fun YouTubeGridItem(
             visible = item is AlbumItem && !isActive,
             onClick = {
                 coroutineScope?.launch(Dispatchers.IO) {
-                    var songs = database
-                        .albumWithSongs(item.id)
-                        .first()?.songs?.map { it.toMediaMetadata() }
-                    if (songs == null) {
-                        YouTube.album(item.id).onSuccess { albumPage ->
-                            database.transaction {
-                                insert(albumPage)
-                            }
-                            songs = albumPage.songs.map { it.toMediaMetadata() }
-                        }.onFailure {
-                            reportException(it)
-                        }
-                    }
-                    songs?.let {
+                    albumSongsToPlay(database, item.id).takeIf { it.isNotEmpty() }?.let {
                         withContext(Dispatchers.Main) {
                             playerConnection.playQueue(
                                 ListQueue(

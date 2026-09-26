@@ -45,6 +45,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
@@ -154,6 +155,15 @@ fun SearchBarContainer(
     LaunchedEffect(navBackStackEntry) {
         if (searchActive) {
             onSearchActiveChange(false)
+        }
+        // A results page shows its own query in the bar. Searching from a tab clears the bar on
+        // the way (closing the overlay there does), and going back to earlier results left the
+        // later query in it. As OnlineSearchViewModel, a null argument is the word "null".
+        if (navBackStackEntry?.destination?.route == "search/{query}") {
+            val searchQuery = navBackStackEntry?.arguments?.getString("query") ?: "null"
+            if (query.text != searchQuery) {
+                onQueryChange(TextFieldValue(searchQuery, TextRange(searchQuery.length)))
+            }
         }
     }
 

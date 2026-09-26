@@ -23,6 +23,7 @@ import com.dd3boh.outertune.constants.ListItemHeight
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.db.entities.ArtistEntity
 import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.models.withArtistIds
 
 @JvmName("ArtistDialogMediaMetadataArtist")
 @Composable
@@ -31,10 +32,12 @@ fun ArtistDialog(
     artists: List<MediaMetadata.Artist>,
     onDismiss: () -> Unit,
 ) {
+    // An artist with no id cannot be opened, and navigating to one crashed: see withArtistIds.
+    val openable = artists.withArtistIds()
     ListDialog(
         onDismiss = onDismiss
     ) {
-        items(artists) { artist ->
+        items(openable) { artist ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier

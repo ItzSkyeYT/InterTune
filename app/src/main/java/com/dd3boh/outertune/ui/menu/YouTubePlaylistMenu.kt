@@ -324,9 +324,12 @@ fun YouTubePlaylistMenu(
             navController = navController,
             songIds = null,
             onPreAdd = { targetPlaylist ->
+                // This playlist's songs, the one the menu is for. Both calls used the id of the
+                // playlist picked instead, a local one YouTube does not know: the fetch failed,
+                // nothing was added, and the picker closed as if it had worked.
                 val allSongs = songs
                     .ifEmpty {
-                        YouTube.playlist(targetPlaylist.id).completed().getOrNull()?.songs.orEmpty()
+                        YouTube.playlist(playlist.id).completed().getOrNull()?.songs.orEmpty()
                     }.map {
                         it.toMediaMetadata()
                     }
@@ -335,7 +338,7 @@ fun YouTubePlaylistMenu(
                 }
 
                 targetPlaylist.playlist.browseId?.let { playlistId ->
-                    YouTube.addPlaylistToPlaylist(playlistId, targetPlaylist.id)
+                    YouTube.addPlaylistToPlaylist(playlistId, playlist.id)
                 }
 
                 allSongs.map { it.id }

@@ -151,9 +151,12 @@ fun ArtistScreen(
         }
     }
 
-    LaunchedEffect(libraryArtist) {
-        // always show local page for local artists. Show local page remote artist when offline
-        showLocal = libraryArtist?.artist?.isLocal == true
+    // A local artist opens on the local page. Keyed on that alone, and only ever switching to it:
+    // keyed on the artist row, it put the page back online whenever the row changed, a tap on the
+    // heart for one, and on every rotation, undoing the switch to the local page.
+    val isLocalArtist = libraryArtist?.artist?.isLocal == true
+    LaunchedEffect(isLocalArtist) {
+        if (isLocalArtist) showLocal = true
     }
 
     val artistHead = @Composable {

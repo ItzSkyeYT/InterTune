@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.db.daos
 
+import com.dd3boh.outertune.db.LibrarySql
 import com.dd3boh.outertune.db.RecommendationSql
 import androidx.room.Dao
 import androidx.room.Delete
@@ -48,14 +49,7 @@ interface AlbumsDao : ArtistsDao {
     fun albumById(id: String): AlbumEntity?
 
     @Transaction
-    @Query("""
-        SELECT album.*, count(song.dateDownload) downloadCount
-        FROM album
-            LEFT JOIN song ON song.albumId = album.id
-        WHERE album.title LIKE '%' || :query || '%' AND (song.inLibrary IS NOT NULL OR song.dateDownload IS NOT NULL)
-        GROUP BY album.id
-        LIMIT :previewSize
-    """)
+    @Query(LibrarySql.SEARCH_ALBUMS)
     fun searchAlbums(query: String, previewSize: Int = Int.MAX_VALUE): Flow<List<Album>>
 
     @Transaction
@@ -103,7 +97,7 @@ interface AlbumsDao : ArtistsDao {
     fun albumWithSongs(albumId: String): Flow<AlbumWithSongs?>
 
     @Transaction
-    @Query("SELECT song.* FROM song JOIN song_album_map ON song.id = song_album_map.songId WHERE song_album_map.albumId = :albumId")
+    @Query(LibrarySql.ALBUM_SONGS)
     fun albumSongs(albumId: String): Flow<List<Song>>
 
     @Transaction
@@ -172,8 +166,8 @@ interface AlbumsDao : ArtistsDao {
     fun albumsInLibraryAsc() = albums(AlbumFilter.LIBRARY, AlbumSortType.CREATE_DATE, false)
     fun albumsLikedAsc() = albums(AlbumFilter.LIKED, AlbumSortType.CREATE_DATE, false)
 
-    @Query("SELECT * FROM album WHERE title = :name")
-    fun albumsByName(name: String): AlbumEntity?
+    @Query(LibrarySql.LOCAL_ALBUM_BY_TITLE)
+    fun localAlbumByTitle(title: String): AlbumEntity?
 
     @Transaction
     @Query(RecommendationSql.FORGOTTEN_FAVORITES)

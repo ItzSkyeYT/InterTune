@@ -29,32 +29,54 @@ class OnlineSearchViewModel @Inject constructor(
     var summaryPage by mutableStateOf<SearchSummaryPage?>(null)
     val viewStateMap = mutableStateMapOf<String, ItemsPage?>()
 
+    /**
+     * The filters whose first request failed, SUMMARY for the summary. The page showed its loading
+     * shimmer until one came back, so a failed request left it up for as long as the page was open.
+     */
+    val failed = mutableStateMapOf<String, Boolean>()
+
     init {
         viewModelScope.launch {
-            filter.collect { filter ->
-                if (filter == null) {
-                    if (summaryPage == null) {
-                        YouTube.searchSummary(query)
-                            .onSuccess {
-                                summaryPage = it
-                            }
-                            .onFailure {
-                                reportException(it)
-                            }
+            filter.collect { filter -> load(filter) }
+        }
+    }
+
+    private suspend fun load(filter: YouTube.SearchFilter?) {
+        if (filter == null) {
+            if (summaryPage == null) {
+                failed.remove(SUMMARY)
+                YouTube.searchSummary(query)
+                    .onSuccess {
+                        summaryPage = it
                     }
-                } else {
-                    if (viewStateMap[filter.value] == null) {
-                        YouTube.search(query, filter)
-                            .onSuccess { result ->
-                                viewStateMap[filter.value] = ItemsPage(result.items.distinctBy { it.id }, result.continuation)
-                            }
-                            .onFailure {
-                                reportException(it)
-                            }
+                    .onFailure {
+                        reportException(it)
+                        failed[SUMMARY] = true
                     }
-                }
+            }
+        } else {
+            if (viewStateMap[filter.value] == null) {
+                failed.remove(filter.value)
+                YouTube.search(query, filter)
+                    .onSuccess { result ->
+                        viewStateMap[filter.value] = ItemsPage(result.items.distinctBy { it.id }, result.continuation)
+                    }
+                    .onFailure {
+                        reportException(it)
+                        failed[filter.value] = true
+                    }
             }
         }
+    }
+
+    /** Asks again for what the current filter shows, after it failed. */
+    fun retry() {
+        val current = filter.value
+        viewModelScope.launch { load(current) }
+    }
+
+    companion object {
+        const val SUMMARY = ""
     }
 
     fun loadMore() {

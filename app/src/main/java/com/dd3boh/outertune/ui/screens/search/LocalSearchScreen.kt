@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.screens.search
 
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -65,7 +66,6 @@ import com.dd3boh.outertune.viewmodels.LocalSearchViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.drop
 import kotlin.math.roundToInt
 
 @OptIn(FlowPreview::class)
@@ -92,12 +92,12 @@ fun LocalSearchScreen(
     val lazyListState = rememberLazyListState()
     val snackbarHostState = LocalSnackbarHostState.current
 
-    LaunchedEffect(Unit) {
-        snapshotFlow { lazyListState.firstVisibleItemScrollOffset }
-            .drop(1)
-            .collect {
-                keyboardController?.hide()
-            }
+    // Only when the listener drags the results, as in OnlineSearchScreen. The scroll offset also
+    // moves when the results change under it, so watching it closed the keyboard mid-typing.
+    LaunchedEffect(lazyListState.interactionSource) {
+        lazyListState.interactionSource.interactions.collect { interaction ->
+            if (interaction is DragInteraction.Start) keyboardController?.hide()
+        }
     }
 
     LaunchedEffect(query) {

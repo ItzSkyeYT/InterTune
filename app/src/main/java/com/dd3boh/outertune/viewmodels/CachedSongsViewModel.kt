@@ -66,7 +66,11 @@ class CachedSongsViewModel @Inject constructor(
             val recency = complete.associateWith { key ->
                 playerCache.getCachedSpans(key).maxOfOrNull(CacheSpan::lastTouchTimestamp) ?: 0L
             }
-            val rows = database.songsByIds(complete).first().associateBy { it.id }
+            // In chunks: SQLite before Android 12 takes at most 999 arguments, and a cache can
+            // hold more songs than that. One IN list of every key crashed the tab there.
+            val rows = complete.chunked(500)
+                .flatMap { chunk -> database.songsByIds(chunk).first() }
+                .associateBy { it.id }
 
             // Anything in the cache with no library row is dropped rather than invented. It happens
             // for songs played straight from search and never saved; recovering them here would

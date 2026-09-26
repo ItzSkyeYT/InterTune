@@ -64,6 +64,7 @@ import com.dd3boh.outertune.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.OnlineSearchViewModel
+import com.dd3boh.outertune.ui.component.LoadFailed
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_ALBUM
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_ARTIST
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_COMMUNITY_PLAYLIST
@@ -268,9 +269,13 @@ fun OnlineSearchResult(
 
         if (searchFilter == null && searchSummary == null || searchFilter != null && itemsPage == null) {
             item {
-                ShimmerHost {
-                    repeat(8) {
-                        ListItemPlaceHolder()
+                if (viewModel.failed[searchFilter?.value ?: OnlineSearchViewModel.SUMMARY] == true) {
+                    LoadFailed(onRetry = viewModel::retry)
+                } else {
+                    ShimmerHost {
+                        repeat(8) {
+                            ListItemPlaceHolder()
+                        }
                     }
                 }
             }

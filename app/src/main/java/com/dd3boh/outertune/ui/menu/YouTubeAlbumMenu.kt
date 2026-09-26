@@ -32,11 +32,14 @@ import androidx.media3.exoplayer.offline.Download
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.PlayOrigin
+import com.dd3boh.outertune.db.AlbumRows
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.models.withArtistIds
 import com.dd3boh.outertune.playback.queues.YouTubeAlbumRadio
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.YouTubeListItem
@@ -47,6 +50,7 @@ import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.reportException
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.AlbumItem
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun YouTubeAlbumMenu(
@@ -71,18 +75,29 @@ fun YouTubeAlbumMenu(
     var showSelectArtistDialog by rememberSaveable {
         mutableStateOf(false)
     }
+    val artists = remember(albumItem) { albumItem.artists.orEmpty().withArtistIds() }
+
+    // The page's songs, for Play next and Add to queue while the album is not stored yet: they
+    // acted on the stored album alone, and did nothing until the write below had landed.
+    var pageSongs by remember { mutableStateOf<List<MediaMetadata>>(emptyList()) }
+    val songsToQueue = album?.songs?.takeIf { it.isNotEmpty() }?.map { it.toMediaMetadata() } ?: pageSongs
 
     LaunchedEffect(Unit) {
-        database.album(albumItem.id).collect { album ->
-            if (album == null) {
-                YouTube.album(albumItem.id).onSuccess { albumPage ->
-                    database.transaction {
-                        insert(albumPage)
-                    }
-                }.onFailure {
-                    reportException(it)
+        // Fetched even when the album is stored: a saved album is stored with no songs, and one
+        // played from holds only the songs played, and Play next, Add to queue and Download act
+        // on what is stored. It used to be fetched only when missing.
+        YouTube.album(albumItem.id).onSuccess { albumPage ->
+            pageSongs = albumPage.songs.map { it.toMediaMetadata() }
+            val stored = database.albumWithSongs(albumItem.id).first()
+            val mapped = stored?.songs.orEmpty().map { it.id }
+            if (AlbumRows.pageAddsSongs(stored?.album, mapped, albumPage.songs.map { it.id })) {
+                database.transaction {
+                    val current = albumById(albumItem.id)
+                    if (current == null) insert(albumPage) else update(current, albumPage)
                 }
             }
+        }.onFailure {
+            reportException(it)
         }
     }
 
@@ -138,7 +153,7 @@ fun YouTubeAlbumMenu(
             icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
             title = R.string.play_next
         ) {
-            album?.songs
+            songsToQueue.takeIf { it.isNotEmpty() }
                 ?.map { it.toMediaItem() }
                 ?.let(playerConnection::enqueueNext)
             onDismiss()
@@ -167,7 +182,7 @@ fun YouTubeAlbumMenu(
                 }
             }
         )
-        albumItem.artists?.let { artists ->
+        if (artists.isNotEmpty()) {
             GridMenuItem(
                 icon = R.drawable.artist,
                 title = R.string.view_artist
@@ -203,9 +218,9 @@ fun YouTubeAlbumMenu(
     if (showChooseQueueDialog) {
         AddToQueueDialog(
             onAdd = { queueName ->
-                album?.songs?.let { song ->
+                songsToQueue.takeIf { it.isNotEmpty() }?.let { songs ->
                     val q = playerConnection.service.queueBoard.addQueue(
-                        queueName, song.map { it.toMediaMetadata() },
+                        queueName, songs,
                         forceInsert = true, delta = false
                     )
                     q?.let {
@@ -238,7 +253,7 @@ fun YouTubeAlbumMenu(
     if (showSelectArtistDialog) {
         ArtistDialog(
             navController = navController,
-            artists = album?.artists.orEmpty(),
+            artists = artists,
             onDismiss = { showSelectArtistDialog = false }
         )
     }
