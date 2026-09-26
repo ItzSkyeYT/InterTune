@@ -34,7 +34,7 @@ InterTune can count this install once a day: one short message with a random nam
 - **Mashups and remixes.** In Keep listening it notices when a song is being cut up with others, or when Shazam keeps naming different versions of it, and looks for the mashup or remix on YouTube instead of adding the pieces. When two uploads are equally likely, it asks.
 - On headphones your music keeps playing while it listens. Only the phone's own speaker pauses, whether you listen from the search bar or from a playlist.
 - A **history** of everything it has recognised.
-- Your playlists have a listen button in their header, to fill one with what is playing around you. If What's playing? is already listening, it says so and offers to switch, and closing it leaves that run going.
+- Your playlists have a listen button in their header, to fill one with what is playing around you. If What's playing? is already listening, it says so and offers to switch, and closing it leaves that run going. The What's playing? screen does the same when a playlist is listening.
 - Settings for how long each listen lasts, whether matches are added by themselves, and whether the screen stays on.
 
 ## Home screen
