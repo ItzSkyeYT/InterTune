@@ -183,7 +183,9 @@ class RecognitionViewModel @Inject constructor(
      * Not [stop] and then [start]. [stop] also sends the service its stop, which arrives after the
      * new run has begun and ends that one as well. Only the engine is stopped here, and started
      * again in the same moment, so the service carries on as it would through one long run. Should
-     * the start be refused, the service sees the engine stopped and goes, as after any stop.
+     * the start be refused, the service sees the engine stopped and goes, as after any stop. The
+     * engine's stop waits for whatever the old run was doing with an answer that had just come back,
+     * so none of that reaches the new run: see [RecognitionEngine.stop].
      *
      * [keepGoing] is set only once the other run has stopped, so it is never that run's mode that
      * changes. The sheet keeps the mode that was running, and the screen asks for its own.
