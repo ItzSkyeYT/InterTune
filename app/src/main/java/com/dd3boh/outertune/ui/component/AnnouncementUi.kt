@@ -209,6 +209,9 @@ fun AnnouncementDialog(
                 // the words a strip a few lines high, so they scroll with the words instead.
                 val short = maxHeight < 480.dp
                 val pictures = announcement.heroUrl != null || announcement.gallery.isNotEmpty()
+                // Numbered together, the one at the top first, for a screen reader.
+                val total = announcement.gallery.size + if (announcement.heroUrl != null) 1 else 0
+                val firstInRow = if (announcement.heroUrl != null) 2 else 1
 
                 Column(Modifier.fillMaxSize()) {
                     AnnouncementTopBar(onDismiss)
@@ -227,10 +230,10 @@ fun AnnouncementDialog(
                                     .verticalScroll(rememberScrollState())
                             ) {
                                 announcement.heroUrl?.let { url ->
-                                    AnnouncementHero(url, onOpen = { enlarged = url })
+                                    AnnouncementHero(url, stringResource(R.string.announcement_picture, 1, total), onOpen = { enlarged = url })
                                     Spacer(Modifier.height(16.dp))
                                 }
-                                AnnouncementGallery(announcement.gallery, height = 200.dp, onOpen = { enlarged = it })
+                                AnnouncementGallery(announcement.gallery, height = 200.dp, first = firstInRow, total = total, onOpen = { enlarged = it })
                                 Spacer(Modifier.height(24.dp))
                             }
                             Column(
@@ -260,13 +263,13 @@ fun AnnouncementDialog(
                                 .padding(horizontal = 24.dp)
                         ) {
                             announcement.heroUrl?.let { url ->
-                                AnnouncementHero(url, onOpen = { enlarged = url })
+                                AnnouncementHero(url, stringResource(R.string.announcement_picture, 1, total), onOpen = { enlarged = url })
                                 Spacer(Modifier.height(24.dp))
                             }
                             AnnouncementWords(text)
                             if (announcement.gallery.isNotEmpty()) {
                                 Spacer(Modifier.height(20.dp))
-                                AnnouncementGallery(announcement.gallery, height = 220.dp, onOpen = { enlarged = it })
+                                AnnouncementGallery(announcement.gallery, height = 220.dp, first = firstInRow, total = total, onOpen = { enlarged = it })
                             }
                             Spacer(Modifier.height(16.dp))
                         }
@@ -379,7 +382,7 @@ private fun AnnouncementFooter(
  * has loaded. One that cannot be loaded is left out rather than shown as an empty box.
  */
 @Composable
-private fun AnnouncementHero(url: String, onOpen: () -> Unit) {
+private fun AnnouncementHero(url: String, description: String, onOpen: () -> Unit) {
     var ratio by remember(url) { mutableFloatStateOf(16f / 9f) }
     var failed by remember(url) { mutableStateOf(false) }
     if (failed) return
@@ -394,7 +397,7 @@ private fun AnnouncementHero(url: String, onOpen: () -> Unit) {
     ) {
         AsyncImage(
             model = url,
-            contentDescription = null,
+            contentDescription = description,
             contentScale = ContentScale.Crop,
             onSuccess = { state ->
                 val size = state.painter.intrinsicSize
@@ -422,7 +425,7 @@ private fun AnnouncementHero(url: String, onOpen: () -> Unit) {
  * phone screenshot and a wide banner can sit side by side. Tapping one opens it full size.
  */
 @Composable
-private fun AnnouncementGallery(urls: List<String>, height: Dp, onOpen: (String) -> Unit) {
+private fun AnnouncementGallery(urls: List<String>, height: Dp, first: Int, total: Int, onOpen: (String) -> Unit) {
     if (urls.isEmpty()) return
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -432,7 +435,7 @@ private fun AnnouncementGallery(urls: List<String>, height: Dp, onOpen: (String)
             GalleryPicture(
                 url = url,
                 height = height,
-                description = stringResource(R.string.announcement_picture, index + 1, urls.size),
+                description = stringResource(R.string.announcement_picture, first + index, total),
                 onOpen = { onOpen(url) },
             )
         }
