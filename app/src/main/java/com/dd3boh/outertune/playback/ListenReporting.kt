@@ -18,4 +18,12 @@ object ListenReporting {
      * back, now playing went out regardless.
      */
     fun sendsNowPlaying(listenHistoryPaused: Boolean): Boolean = !listenHistoryPaused
+
+    /**
+     * Whether a counted play is also registered in YouTube's watch history. Not for local files,
+     * not while remote history is paused or YouTube is throttling us, and not signed out: the ping
+     * then had no account to land in, and cost a whole extra /player request per song.
+     */
+    fun pingsYouTubeHistory(isLocal: Boolean, loggedIn: Boolean, remoteHistoryPaused: Boolean, throttled: Boolean): Boolean =
+        !isLocal && loggedIn && !remoteHistoryPaused && !throttled
 }

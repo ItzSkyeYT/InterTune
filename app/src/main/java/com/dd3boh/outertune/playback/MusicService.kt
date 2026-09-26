@@ -142,6 +142,7 @@ import com.dd3boh.outertune.extensions.collect
 import com.dd3boh.outertune.extensions.collectLatest
 import com.dd3boh.outertune.extensions.currentMetadata
 import com.dd3boh.outertune.extensions.findNextMediaItemById
+import com.dd3boh.outertune.extensions.isUserLoggedIn
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.setOffloadEnabled
 import com.dd3boh.outertune.lyrics.LyricsHelper
@@ -2672,9 +2673,12 @@ class MusicService : MediaLibraryService(),
                 // TODO: support playlist id
                 // Throttle names history pings as work to drop while blocked, and this one costs a
                 // whole extra /player per finished song. Nobody asked for it and nobody sees it fail.
-                val ytHist = mediaItem.metadata?.isLocal != true &&
-                        !dataStore.get(PauseRemoteListenHistoryKey, false) &&
-                        !Throttle.isBlocked
+                val ytHist = ListenReporting.pingsYouTubeHistory(
+                    isLocal = mediaItem.metadata?.isLocal == true,
+                    loggedIn = isUserLoggedIn(),
+                    remoteHistoryPaused = dataStore.get(PauseRemoteListenHistoryKey, false),
+                    throttled = Throttle.isBlocked,
+                )
                 Log.d(TAG, "Trying to register remote history: $ytHist")
                 if (ytHist) {
                     val playbackUrl = YTPlayerUtils.playerResponseForMetadata(mediaItem.mediaId, null)

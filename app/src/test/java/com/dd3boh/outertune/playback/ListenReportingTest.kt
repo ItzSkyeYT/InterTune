@@ -17,4 +17,17 @@ class ListenReportingTest {
         assertFalse(ListenReporting.sendsNowPlaying(listenHistoryPaused = true))
         assertTrue(ListenReporting.sendsNowPlaying(listenHistoryPaused = false))
     }
+
+    @Test
+    fun `the YouTube history ping needs someone signed in`() {
+        assertTrue(ListenReporting.pingsYouTubeHistory(isLocal = false, loggedIn = true, remoteHistoryPaused = false, throttled = false))
+        assertFalse(ListenReporting.pingsYouTubeHistory(isLocal = false, loggedIn = false, remoteHistoryPaused = false, throttled = false))
+    }
+
+    @Test
+    fun `the YouTube history ping keeps its other conditions`() {
+        assertFalse(ListenReporting.pingsYouTubeHistory(isLocal = true, loggedIn = true, remoteHistoryPaused = false, throttled = false))
+        assertFalse(ListenReporting.pingsYouTubeHistory(isLocal = false, loggedIn = true, remoteHistoryPaused = true, throttled = false))
+        assertFalse(ListenReporting.pingsYouTubeHistory(isLocal = false, loggedIn = true, remoteHistoryPaused = false, throttled = true))
+    }
 }
