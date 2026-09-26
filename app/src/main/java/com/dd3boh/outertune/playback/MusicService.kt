@@ -2662,6 +2662,9 @@ class MusicService : MediaLibraryService(),
                             // finish time would shift every entry by the length of the song.
                             startedAtSeconds = (System.currentTimeMillis() -
                                     playbackStats.totalPlayTimeMs) / 1000,
+                            // The recovered length, not the metadata's: a song started from
+                            // search results still says -1 there, and never scrobbled.
+                            durationSeconds = durationSec,
                         )
                     }
                 }

@@ -72,7 +72,7 @@ class Scrobbler @Inject constructor(
 
     suspend fun nowPlaying(metadata: MediaMetadata) {
         val session = sessionOrNull() ?: return
-        val artist = metadata.artists.joinToString { it.name }.ifBlank { return }
+        val artist = primaryArtist(metadata.artists.map { it.name }) ?: return
         api.updateNowPlaying(
             sessionKey = session,
             artist = artist,
@@ -86,12 +86,20 @@ class Scrobbler @Inject constructor(
      * @param playedMs how much of the song actually played, which is not the same as its position:
      *        a song can be seeked around in, and Last.fm asks about time listened.
      * @param startedAtSeconds when playback began. Last.fm orders history by this.
+     * @param durationSeconds the song's length. The service passes the one it recovered: a song
+     *        started from search results arrives with -1, which Last.fm's rule rejects, so none of
+     *        them ever scrobbled.
      */
-    suspend fun scrobble(metadata: MediaMetadata, playedMs: Long, startedAtSeconds: Long) {
+    suspend fun scrobble(
+        metadata: MediaMetadata,
+        playedMs: Long,
+        startedAtSeconds: Long,
+        durationSeconds: Int = metadata.duration,
+    ) {
         val session = sessionOrNull() ?: return
-        val duration = metadata.duration
+        val duration = durationSeconds
         if (!LastFm.qualifies(playedMs, duration)) return
-        val artist = metadata.artists.joinToString { it.name }.ifBlank { return }
+        val artist = primaryArtist(metadata.artists.map { it.name }) ?: return
         api.scrobble(
             sessionKey = session,
             artist = artist,
@@ -115,5 +123,13 @@ class Scrobbler @Inject constructor(
 
     companion object {
         private const val TAG = "Scrobbler"
+
+        /**
+         * The artist Last.fm is sent: the first one, as the similar-songs lookup already does.
+         * All of them joined ("A, B") is an artist that does not exist, so the scrobble landed on
+         * a page of its own instead of the artist's.
+         */
+        fun primaryArtist(names: List<String>): String? =
+            names.firstNotNullOfOrNull { name -> name.trim().takeIf { it.isNotEmpty() } }
     }
 }
