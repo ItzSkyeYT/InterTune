@@ -573,13 +573,16 @@ fun BottomSheetPlayer(
             val titleSize = if (landscapePlayer) 25.sp else TextUnit.Unspecified
             val artistSize = if (landscapePlayer) 19.sp else TextUnit.Unspecified
 
-            /** Transport controls run larger in landscape, where there is room for them. */
+            /**
+             * Transport controls run larger in landscape, where there is room for them.
+             *
+             * Lyrics do not change them. The play button used to drop to 56dp whenever lyrics were
+             * showing, to give the lyrics a little more height, and the controls jumping to a smaller
+             * size as lyrics came up read as the player shrinking its buttons. The lyrics take the
+             * artwork's place, which is plenty of room without the controls giving any up.
+             */
             val transportIconSize = if (landscapePlayer) 42.dp else 32.dp
-            val playButtonSize = when {
-                showLyrics -> 56.dp
-                landscapePlayer -> 84.dp
-                else -> 72.dp
-            }
+            val playButtonSize = if (landscapePlayer) 84.dp else 72.dp
 
             val actionButtons: @Composable RowScope.() -> Unit = {
                 Log.v(TAG, "PLR-3.xa")
@@ -1040,9 +1043,11 @@ fun BottomSheetPlayer(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            // "percentage to half width", not "percentage of width"
-                            .weight(if (showLyrics) 0.65f else 1f, false)
-                            .animateContentSize()
+                            // Half the width, lyrics or not. Lyrics used to narrow this column to
+                            // make their pane wider, which packed the transport buttons closer
+                            // together, so the controls looked smaller with lyrics on. The lyrics
+                            // now simply take the artwork's half.
+                            .weight(1f, false)
                             .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
                             // Only this column dodges the queue sheet's peek; the artwork does not
                             // need to, since the arrow is centred on the window and never reaches
