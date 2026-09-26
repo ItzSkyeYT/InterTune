@@ -146,9 +146,11 @@ import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.lifecycle.Lifecycle
@@ -440,8 +442,8 @@ fun BottomSheetPlayer(
 
     // ignoringVisibility so hiding the bars in immersive landscape does not change this bound and
     // rebuild the sheet state mid-gesture. See the matching note in MainActivity.
-    val navigationBarHeight = WindowInsets.systemBarsIgnoringVisibility.asPaddingValues().calculateBottomPadding()
-    val dismissedBound = QueuePeekHeight + navigationBarHeight
+    val dismissedBound =
+        QueuePeekHeight + WindowInsets.systemBarsIgnoringVisibility.asPaddingValues().calculateBottomPadding()
 
     /**
      * The collapsed queue sheet is [QueuePeekHeight] taller than the peek it actually needs, and
@@ -455,22 +457,27 @@ fun BottomSheetPlayer(
      * two is unreachable with stock values anyway (l0 = 48dp+inset, l1 = 24dp, so `in l0..l1` is an
      * empty range). Velocity-based dismiss is unaffected.
      *
+     * No queue peek on a tablet either: the queue is permanently in the side pane, so reserving a
+     * strip for a preview of it wastes the bottom of the screen, squashes the artwork (which is
+     * sized by the height left over) and pushes the handle up into the middle of nowhere.
+     *
+     * The player keeps the same space clear at the bottom whether the queue opens from the sheet
+     * or from its button. Giving the strip back when the button took over let everything above it
+     * drop, 96dp in portrait, and the controls are pressed from memory, so turning the button on
+     * must not move them.
+     */
+    val queueReserve = if (landscapeTwoPane || tabletTwoPane) dismissedBound else dismissedBound + QueuePeekHeight
+
+    /**
      * With the queue on a button the sheet collapses to nothing at all: it sits wholly below the
-     * screen, so the player has no strip, no handle and no pull-up gesture at the bottom, and the
-     * button is the only way up. Opened, it is the same sheet with the same queue in it, and back
-     * or a drag down puts it away again.
+     * screen, so the player has no handle and no pull-up gesture at the bottom, and the button is
+     * the only way up. Opened, it is the same sheet with the same queue in it, and back or a drag
+     * down puts it away again.
      */
     val queueSheetState = rememberBottomSheetState(
         dismissedBound = if (queueAsButton) 0.dp else dismissedBound,
         expandedBound = state.expandedBound,
-        // No queue peek on a tablet: the queue is permanently in the side pane, so reserving a
-        // strip for a preview of it wastes the bottom of the screen, squashes the artwork (which
-        // is sized by the height left over) and pushes the handle up into the middle of nowhere.
-        collapsedBound = when {
-            queueAsButton -> 0.dp
-            landscapeTwoPane || tabletTwoPane -> dismissedBound
-            else -> dismissedBound + QueuePeekHeight
-        },
+        collapsedBound = if (queueAsButton) 0.dp else queueReserve,
         initialAnchor = 1
     )
 
@@ -845,12 +852,29 @@ fun BottomSheetPlayer(
             // Lyrics, the sleep timer and the menu under the transport controls, filled while the
             // thing they control is on. The timer shows what is left, so a running timer is visible
             // without opening anything, and a tap on it cancels, as the menu's entry does. With the
-            // queue on a button it sits beside lyrics, the other button that opens a view, and the
-            // menu stays last.
+            // queue on a button it joins the group in front of lyrics, the other button that opens
+            // a view, and the three stay exactly where they sit with it off.
             val quickActions: @Composable () -> Unit = {
                 val inactive = onBackgroundColor.copy(alpha = 0.12f)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap, Alignment.CenterHorizontally),
+                CentredRowWithLeading(
+                    gap = ConnectedButtonGap,
+                    gutter = hPadding,
+                    leading = if (queueAsButton) {
+                        {
+                            PlayerActionSegment(
+                                painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
+                                contentDescription = stringResource(R.string.queue),
+                                shape = connectedShape(first = true, last = false),
+                                container = inactive,
+                                filled = false,
+                                content = onBackgroundColor,
+                                width = QuickActionWidth,
+                                backdrop = buttonBackdrop,
+                                glassIntensity = glassIntensity,
+                                onClick = openQueue,
+                            )
+                        }
+                    } else null,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
@@ -859,7 +883,7 @@ fun BottomSheetPlayer(
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.Lyrics),
                         contentDescription = stringResource(R.string.toggle_lyrics),
-                        shape = connectedShape(first = true, last = false),
+                        shape = connectedShape(first = !queueAsButton, last = false),
                         container = if (showLyrics) MaterialTheme.colorScheme.primary else inactive,
                         filled = showLyrics,
                         content = if (showLyrics) MaterialTheme.colorScheme.onPrimary else onBackgroundColor,
@@ -871,20 +895,6 @@ fun BottomSheetPlayer(
                             showLyrics = !showLyrics
                         },
                     )
-                    if (queueAsButton) {
-                        PlayerActionSegment(
-                            painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
-                            contentDescription = stringResource(R.string.queue),
-                            shape = connectedShape(first = false, last = false),
-                            container = inactive,
-                            filled = false,
-                            content = onBackgroundColor,
-                            width = QuickActionWidth,
-                            backdrop = buttonBackdrop,
-                            glassIntensity = glassIntensity,
-                            onClick = openQueue,
-                        )
-                    }
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.Timer),
                         contentDescription = stringResource(R.string.sleep_timer),
@@ -1317,12 +1327,12 @@ fun BottomSheetPlayer(
                             .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
                             // Only this column dodges the queue sheet's peek; the artwork does not
                             // need to, since the arrow is centred on the window and never reaches
-                            // the artwork's half. The collapsed sheet covers collapsedBound up from
+                            // the artwork's half. The collapsed sheet covers queueReserve up from
                             // the bottom of the screen, and the Row already keeps vPaddingDp of that
                             // clear, so only the difference is taken here. Taking all of it again
                             // cost 16dp of a height that is only 384dp on a 1440p phone, and that
                             // was enough to crush the row of buttons under the controls.
-                            .padding(bottom = (queueSheetState.collapsedBound - vPaddingDp).coerceAtLeast(0.dp))
+                            .padding(bottom = (queueReserve - vPaddingDp).coerceAtLeast(0.dp))
                     ) {
                         // Classic's buttons sit at the very top of the column rather than riding
                         // the centred block, so they line up with the top of the artwork.
@@ -1378,14 +1388,10 @@ fun BottomSheetPlayer(
                         // height under the controls leaves a dead band at the bottom, holds the
                         // controls up, and costs the artwork the same height twice over, since the
                         // artwork is sized from whatever the column has left. Reserve only the
-                        // handle. With the queue on a button there is no sheet to keep clear at
-                        // all, only the navigation bar.
+                        // handle.
                         .padding(
-                            bottom = when {
-                                queueAsButton -> navigationBarHeight
-                                tabletTwoPane -> TabletQueueHandleReserve
-                                else -> queueSheetState.collapsedBound
-                            }
+                            bottom = if (tabletTwoPane) TabletQueueHandleReserve
+                            else queueReserve
                         )
                 ) {
                     BoxWithConstraints(
@@ -1549,6 +1555,72 @@ private fun connectedShape(first: Boolean, last: Boolean): RoundedCornerShape {
         topEnd = if (last) round else inner,
         bottomEnd = if (last) round else inner,
     )
+}
+
+/** How close to the edge of the gutter a leading button may come before the row moves over. */
+private val LeadingEdgeMargin = 8.dp
+
+/**
+ * A row of [buttons] centred in its width, placed exactly as a Row centred and spaced [gap] apart
+ * would place them, with [leading], when there is one, just before the first of them at the same
+ * gap.
+ *
+ * The leading button is left out of the centring on purpose. It is how the queue button joins the
+ * row under the controls without moving lyrics, the sleep timer or the menu, which people press
+ * from memory: those three sit exactly where they do with the queue button off, and it takes the
+ * space in front of lyrics. It may reach into the [gutter] beside the row, up to
+ * [LeadingEdgeMargin] from its edge. Only a phone too narrow even for that, with the timer's time
+ * showing, moves the whole row over, and then by no more than it needs.
+ */
+@Composable
+private fun CentredRowWithLeading(
+    gap: Dp,
+    gutter: Dp,
+    leading: (@Composable () -> Unit)?,
+    modifier: Modifier = Modifier,
+    buttons: @Composable () -> Unit,
+) {
+    Layout(
+        contents = listOf<@Composable () -> Unit>(leading ?: {}, buttons),
+        modifier = modifier,
+    ) { (leadingMeasurables, buttonMeasurables), constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val placeables = buttonMeasurables.map { it.measure(loose) }
+        val lead = leadingMeasurables.firstOrNull()?.measure(loose)
+        val gapPx = gap.roundToPx()
+        val sizes = IntArray(placeables.size) { placeables[it].width }
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth
+        else sizes.sum() + gapPx * (sizes.size - 1).coerceAtLeast(0)
+        val height = constraints.constrainHeight((placeables + listOfNotNull(lead)).maxOfOrNull { it.height } ?: 0)
+
+        // The very arrangement the Row used, so the buttons land on the same pixels as before.
+        val positions = IntArray(placeables.size)
+        with(Arrangement.spacedBy(gap, Alignment.CenterHorizontally)) {
+            arrange(width, sizes, layoutDirection, positions)
+        }
+
+        // Start is on the left in a left-to-right layout and on the right otherwise, and the
+        // arrangement has already mirrored the buttons, so the leading one goes on whichever side
+        // of the first button reads as before it.
+        val reach = (gutter - LeadingEdgeMargin).coerceAtLeast(0.dp).roundToPx()
+        var shift = 0
+        var leadX = 0
+        if (lead != null && placeables.isNotEmpty()) {
+            if (layoutDirection == LayoutDirection.Ltr) {
+                leadX = positions[0] - gapPx - lead.width
+                if (leadX < -reach) shift = -reach - leadX
+            } else {
+                leadX = positions[0] + sizes[0] + gapPx
+                val over = leadX + lead.width - (width + reach)
+                if (over > 0) shift = -over
+            }
+        }
+
+        layout(width, height) {
+            placeables.forEachIndexed { index, placeable -> placeable.place(positions[index] + shift, 0) }
+            lead?.place(leadX + shift, 0)
+        }
+    }
 }
 
 /**
