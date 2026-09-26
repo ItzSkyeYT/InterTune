@@ -1363,20 +1363,14 @@ class MusicService : MediaLibraryService(),
                     }
                 }
 
-                val items = ArrayList<MediaMetadata>()
                 Log.d(TAG, "playQueue: Queue initial status item count: ${initialStatus.items.size}")
                 if (!initialStatus.items.isEmpty()) {
-                    if (preloadItem != null) {
-                        items.add(preloadItem)
-                        items.addAll(initialStatus.items.subList(1, initialStatus.items.size))
-                    } else {
-                        items.addAll(initialStatus.items)
-                    }
+                    val (items, start) = initialStatus.withPreload(preloadItem)
                     val q = queueBoard.addQueue(
                         queueTitle ?: getString(R.string.queue),
                         items,
                         shuffled = queue.startShuffled,
-                        startIndex = if (initialStatus.mediaItemIndex > 0) initialStatus.mediaItemIndex else 0,
+                        startIndex = start,
                         replace = replace || preloadItem != null,
                         continuationEndpoint = if (isRadio) items.takeLast(4).shuffled().first().id else null // yq?.getContinuationEndpoint()
                     )
