@@ -26,6 +26,7 @@ import com.dd3boh.outertune.models.toMediaMetadata
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.CoroutineContext
 
 /**
  * The listening loop, owned by nothing that can be closed.
@@ -389,10 +391,10 @@ class RecognitionEngine @Inject constructor(
 
     /**
      * Where everything about mashups is changed: one thread at a time, so a pick on the screen and
-     * the listening loop cannot both be in the middle of it.
+     * the listening loop cannot both be in the middle of it. Holding the engine as well, which
+     * [start] and [stop] also hold, so neither lands in the middle of the loop's work: see [stop].
      */
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    private val serial = Dispatchers.Default.limitedParallelism(1)
+    private val serial = serialHolding(this)
 
     /**
      * The first sighting of a track, held until a second one confirms it.
@@ -419,7 +421,11 @@ class RecognitionEngine @Inject constructor(
      * Null is the dedicated screen, which is reached from the search bar with no playlist in mind.
      * Everything else is unchanged: the same listening, the same confirmation pass, the same list
      * of what was heard. Only the adding is skipped, which [add] already guards for.
+     *
+     * Synchronized, as [stop] is, so that nothing it resets is halfway through being used by the
+     * loop or a pick on the screen, whose work holds the same lock: see [serial].
      */
+    @Synchronized
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     fun start(playlist: Playlist?, continuous: Boolean) {
         if (job?.isActive == true) return
@@ -571,7 +577,10 @@ class RecognitionEngine @Inject constructor(
             // Shazam replies, because the YouTube search after a match is still part of the same
             // answer and the flag would drop for its duration and then jump to Confirming.
             // An atomic update, so a stop() that has already reset the state to Idle stays Idle.
-            _state.update {
+            // And only while this is still the run going. One stopped for another during its
+            // request comes through here when the request returns, which cancelling cannot hurry,
+            // and cleared the new run's flag while that run's own request was out.
+            if (job === currentCoroutineContext()[Job]) _state.update {
                 if (it is State.Listening && it.identifying) it.copy(identifying = false) else it
             }
         }
@@ -1486,6 +1495,20 @@ class RecognitionEngine @Inject constructor(
         }
     }
 
+    /**
+     * Puts everything down.
+     *
+     * Synchronized, and the loop's work holds the same lock ([serial]), so a stop waits for the
+     * piece of work the loop has in hand, never more than a moment, and lands between two of them.
+     * Cancelling only stops a run where it next suspends. A stop that came while the run was dealing
+     * with an answer that had just come back let the run finish dealing with it afterwards, and
+     * Listen for this playlist instead starts another run straight after the stop, so that finish
+     * went to the new run: the song went into the new run's playlist and added list, and a Listen
+     * once answer showed as the new run's and then stopped it, as it stops the run it belongs to.
+     * An answer that comes back after the stop was never the trouble: the run is cancelled by then,
+     * and throws where it would take the answer.
+     */
+    @Synchronized
     fun stop() {
         halt()
         _state.value = State.Idle
@@ -1631,5 +1654,25 @@ class RecognitionEngine @Inject constructor(
          * Damage run played Faint straight through for over two minutes before its first cut.
          */
         private const val MIX_HOLD_MS = 180_000L
+    }
+}
+
+/**
+ * One piece of work at a time, as Dispatchers.Default.limitedParallelism(1) runs them, each while
+ * holding [lock]: a coroutine's run from one suspension to the next. The engine's loop runs here
+ * holding the engine, which [RecognitionEngine.start] and [RecognitionEngine.stop] hold too, so from
+ * the main thread they land between two pieces of the loop's work and never in the middle of one.
+ *
+ * So nothing run here may wait on the network or the disk, or a stop would wait on it too. The
+ * engine's requests and database writes all go through withContext or a launch of their own, and
+ * while one is out the loop is suspended and holds nothing. A Shazam request that hangs until it
+ * times out does not hold up a stop.
+ */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+internal fun serialHolding(lock: Any): CoroutineDispatcher {
+    val one = Dispatchers.Default.limitedParallelism(1)
+    return object : CoroutineDispatcher() {
+        override fun dispatch(context: CoroutineContext, block: Runnable) =
+            one.dispatch(context, Runnable { synchronized(lock) { block.run() } })
     }
 }

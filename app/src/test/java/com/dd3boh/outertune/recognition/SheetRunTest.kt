@@ -12,10 +12,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * What the playlist sheet makes of the run it finds: see [SheetRun].
+ * What the playlist sheet, or the What's playing? screen, makes of the run it finds: see [SheetRun].
  *
- * The sheet is opened on [here] throughout. A run's playlist is the one the engine's run adds to,
- * or its last run's once stopped, and null for the What's playing? screen's.
+ * The sheet is opened on [here], and the screen asks with no playlist. A run's playlist is the one
+ * the engine's run adds to, or its last run's once stopped, and null for the What's playing?
+ * screen's.
  */
 class SheetRunTest {
 
@@ -61,5 +62,27 @@ class SheetRunTest {
         assertFalse(SheetRun.Other("Road trip").resetOnClose)
         assertTrue(SheetRun.Own.resetOnClose)
         assertTrue(SheetRun.Idle.resetOnClose)
+    }
+
+    @Test
+    fun `the screen's own run is its own, and so is the screen before anything has run`() {
+        assertEquals(SheetRun.Own, SheetRun.of(running = false, runId = null, runName = null, sheetId = null))
+        assertEquals(SheetRun.Own, SheetRun.of(running = true, runId = null, runName = null, sheetId = null))
+    }
+
+    @Test
+    fun `a playlist's run going is not the screen's, and is named`() {
+        // Its sheet left by navigating away. The screen took it for its own: its stop button stopped
+        // it, and its mode cards changed its mode.
+        assertEquals(
+            SheetRun.Other("Road trip"),
+            SheetRun.of(running = true, runId = there, runName = "Road trip", sheetId = null),
+        )
+    }
+
+    @Test
+    fun `what a stopped playlist's run left on show is not the screen's`() {
+        // The playlist's Listen once stopped on its answer: that answer is the sheet's to pick from.
+        assertEquals(SheetRun.Idle, SheetRun.of(running = false, runId = there, runName = "Road trip", sheetId = null))
     }
 }

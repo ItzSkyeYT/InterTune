@@ -116,7 +116,9 @@ import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.recognition.AudioRoute
 import com.dd3boh.outertune.recognition.RecognitionEngine
 import com.dd3boh.outertune.recognition.RecognitionViewModel
+import com.dd3boh.outertune.recognition.SheetRun
 import com.dd3boh.outertune.ui.component.AnimatedDots
+import com.dd3boh.outertune.ui.component.Elsewhere
 import com.dd3boh.outertune.ui.component.SwipeToQueueBox
 import com.dd3boh.outertune.ui.component.rememberRecognitionPhrase
 import com.dd3boh.outertune.ui.component.shazamWaitMessage
@@ -164,22 +166,37 @@ fun RecognitionScreen(
 
     val snackbarHostState = LocalSnackbarHostState.current
 
-    val state by viewModel.state.collectAsState()
+    val engineState by viewModel.state.collectAsState()
     val running by viewModel.running.collectAsState()
+    val startedAt by viewModel.startedAt.collectAsState()
     val continuous by viewModel.continuous.collectAsState()
-    val skipped by viewModel.skipped.collectAsState()
+    val engineSkipped by viewModel.skipped.collectAsState()
     val recognised by viewModel.recognised.collectAsState()
     val following by viewModel.following.collectAsState()
     val mixChoices by viewModel.mixChoices.collectAsState()
     val retryAt by viewModel.retryAt.collectAsState()
+
+    // Whose run the engine is on, asked as the playlist sheet asks: see SheetRun. A playlist's run
+    // left going, its sheet left by navigating away rather than closed, used to show here as the
+    // screen's own. The stop button stopped it and the mode cards changed its mode. Asked again
+    // whenever a run starts or stops, which running and startedAt between them always show.
+    val run = remember(running, startedAt) { viewModel.sheetRun(null, running) }
+    val own = run == SheetRun.Own
+    // The screen's own run listening, which is all it keeps the screen on for, stops for music, and
+    // stops or switches from its button and cards. Another run is left as if the screen were closed.
+    val listening = running && own
+    // What another run left on show once it stopped is not the screen's either: the answer a
+    // playlist's Listen once stopped on, and what that run heard and did not add.
+    val state = if (own) engineState else RecognitionEngine.State.Idle
+    val skipped = if (own) engineSkipped else emptyList()
 
     // Held only while it is actually listening, and released the moment it stops or the screen
     // leaves. Listening itself survives the screen going off, since the service holds a foreground
     // microphone type; this is only so somebody watching it work does not have to keep tapping.
     val (keepAwake) = rememberPreference(RecogniseKeepAwakeKey, defaultValue = false)
     val view = LocalView.current
-    DisposableEffect(running, keepAwake) {
-        val on = running && keepAwake
+    DisposableEffect(listening, keepAwake) {
+        val on = listening && keepAwake
         // Put back what was there rather than off: the player keeps the screen on for lyrics
         // through the same flag, and switching it off here took that away too.
         val before = view.keepScreenOn
@@ -220,8 +237,8 @@ fun RecognitionScreen(
     // comes out of the speaker the microphone will only ever name our own song from here on, so
     // the run stops, by the same rule listen() pauses the music by. Only a start counts, not the
     // value on arrival, which can still be true for a moment after listen() paused it.
-    LaunchedEffect(playerConnection, running, pauseOnSpeaker) {
-        if (!running || !pauseOnSpeaker) return@LaunchedEffect
+    LaunchedEffect(playerConnection, listening, pauseOnSpeaker) {
+        if (!listening || !pauseOnSpeaker) return@LaunchedEffect
         val playing = playerConnection?.isPlaying ?: return@LaunchedEffect
         var was = playing.value
         playing.collect { now ->
@@ -230,8 +247,10 @@ fun RecognitionScreen(
         }
     }
 
-    fun listen(keepGoing: Boolean) {
-        if (running) {
+    // Instead is from a playlist's run, which is stopped for the screen's own. Only from its own
+    // button: every other start leaves a run already going alone, as the engine does.
+    fun listen(keepGoing: Boolean, instead: Boolean = false) {
+        if (listening) {
             // The mode that is running stops it. The other one switches the run over without
             // closing the microphone: the engine reads the mode afresh on every window.
             if (keepGoing == continuous) viewModel.stop() else viewModel.setContinuous(keepGoing)
@@ -251,8 +270,14 @@ fun RecognitionScreen(
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
             == PackageManager.PERMISSION_GRANTED
         ) {
-            viewModel.setContinuous(keepGoing)
-            viewModel.start(null)
+            // The mode goes with the switch, set once the playlist's run has stopped. Set first,
+            // it was that run's mode that changed.
+            if (instead) {
+                viewModel.listenInstead(null, keepGoing)
+            } else {
+                viewModel.setContinuous(keepGoing)
+                viewModel.start(null)
+            }
         } else {
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
@@ -325,20 +350,34 @@ fun RecognitionScreen(
         contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
     ) {
         item(key = "listen") {
-            ListenButton(
-                listening = running,
+            // A playlist's run going is said plainly in place of the button, which stopped it. The
+            // one thing offered is to listen here instead, in the mode the button would start.
+            if (run is SheetRun.Other) Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(top = 32.dp),
+            ) {
+                Elsewhere(
+                    run = run,
+                    listenHere = stringResource(R.string.recognition_listen_here_instead_screen),
+                    note = null,
+                    onListenHere = { listen(keepListeningDefault, instead = true) },
+                )
+            } else ListenButton(
+                listening = listening,
                 identifying = identifying,
                 continuous = continuous,
                 level = level,
                 compact = recognised.isNotEmpty() || skipped.isNotEmpty() ||
                         state is RecognitionEngine.State.Found,
                 // The big button always stops a run, whichever mode it is in.
-                onClick = { if (running) viewModel.stop() else listen(keepListeningDefault) },
-                message = shazamWaitMessage(retryAt?.takeIf { running && continuous }),
+                onClick = { if (listening) viewModel.stop() else listen(keepListeningDefault) },
+                message = shazamWaitMessage(retryAt?.takeIf { listening && continuous }),
             )
         }
 
-        item(key = "modes") {
+        // Not over another run: the engine reads the mode on every window, so either card changed
+        // that run's from under whoever started it.
+        if (run !is SheetRun.Other) item(key = "modes") {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
@@ -347,7 +386,7 @@ fun RecognitionScreen(
                     title = stringResource(R.string.recognise_once),
                     description = stringResource(R.string.recognise_once_desc),
                     icon = Icons.Rounded.GraphicEq,
-                    selected = running && !continuous,
+                    selected = listening && !continuous,
                     onClick = { listen(false) },
                     modifier = Modifier.weight(1f),
                 )
@@ -355,7 +394,7 @@ fun RecognitionScreen(
                     title = stringResource(R.string.recognise_keep_listening),
                     description = stringResource(R.string.recognise_keep_listening_short),
                     icon = Icons.Rounded.AllInclusive,
-                    selected = running && continuous,
+                    selected = listening && continuous,
                     onClick = { listen(true) },
                     modifier = Modifier.weight(1f),
                 )

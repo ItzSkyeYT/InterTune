@@ -757,11 +757,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recognition_listening_hint">Leave this running and it will keep adding what it hears.</string>
     <string name="recognition_skipped_count">Heard but not added: %1$d</string>
     <string name="recognition_confirming">Heard %1$s, listening again to be sure</string>
-    <!-- The playlist sheet opened while another run has the microphone. %1$s is the What's playing? screen's name, or the other playlist's. -->
+    <!-- The playlist sheet, or the What's playing? screen, opened while another run has the microphone. %1$s is the What's playing? screen's name, or the other playlist's. -->
     <string name="recognition_elsewhere_screen">Already listening on %1$s</string>
     <string name="recognition_elsewhere_playlist">Already listening for %1$s</string>
     <string name="recognition_elsewhere_desc">Closing this leaves it running.</string>
     <string name="recognition_listen_here_instead">Listen for this playlist instead</string>
+    <string name="recognition_listen_here_instead_screen">Listen here instead</string>
     <string name="recognition_msg_ears_open">Ears open</string>
     <string name="recognition_msg_waiting_chorus">Waiting for a bit it recognises</string>
     <string name="recognition_msg_leave_running">Lock the screen, it does not mind</string>
