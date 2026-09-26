@@ -224,5 +224,13 @@ class ImportMatcherTest {
         run.undecide(1)
         assertEquals(1, run.snapshot().undecided)
         assertEquals(listOf("Alpha/200"), run.playlistsToCreate()[0].second.map { it.id })
+
+        // A match that went in without asking can still be taken out by hand, from every playlist
+        // it is in, and put back.
+        run.skip(0)
+        assertEquals(listOf("Echo/200"), run.playlistsToCreate().single().second.map { it.id })
+        assertEquals(1, run.snapshot().kept)
+        run.undecide(0)
+        assertEquals(2, run.snapshot().kept)
     }
 }

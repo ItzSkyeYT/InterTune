@@ -1136,6 +1136,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="import_library_create">Create playlists</string>
     <string name="import_library_creating">Creating playlists</string>
     <string name="import_library_created">Made %1$s with %2$s. They are in your library under Playlists.</string>
+    <string name="import_library_matched_title">Matched (%1$d)</string>
+    <string name="import_library_matched_help">These went in without asking. If one is the wrong version, Leave out takes it out of every playlist.</string>
+    <string name="import_library_show">Show</string>
+    <string name="import_library_hide">Hide</string>
+    <string name="import_library_from_file">In the file: %1$s</string>
+    <string name="import_library_leave_out">Leave out</string>
+    <string name="import_library_undo">Undo</string>
     <string name="import_library_done">Done</string>
     <string name="import_library_another">Import another file</string>
     <plurals name="import_library_songs">

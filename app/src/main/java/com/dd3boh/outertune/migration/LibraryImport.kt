@@ -86,6 +86,8 @@ class LibraryImport @Inject constructor(
                 Log.w(TAG, "Could not read the chosen file", e)
                 null
             }
+            // Another file chosen while this one was being read wins, and this one says nothing.
+            ensureActive()
             if (bytes == null) {
                 _state.value = State(stage = Stage.FAILED, fileName = name, problem = null)
                 return@launch
@@ -101,7 +103,7 @@ class LibraryImport @Inject constructor(
                 is ImportParse.Failed -> _state.value =
                     State(stage = Stage.FAILED, fileName = name, problem = parsed.problem, detail = parsed.detail)
                 is ImportParse.Parsed -> {
-                    // A second file chosen while this one was being read wins.
+                    // Parsing a large file takes a moment of its own, so the same again.
                     ensureActive()
                     run = ImportRun(parsed)
                     _state.value = State(

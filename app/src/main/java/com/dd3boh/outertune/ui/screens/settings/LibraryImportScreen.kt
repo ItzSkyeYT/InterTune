@@ -41,6 +41,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -86,6 +90,8 @@ fun LibraryImportScreen(
 
     val progress = state.progress
     val stage = state.stage
+    // Folded away at first: they went in without asking, and most people will not want to look.
+    var showMatched by rememberSaveable { mutableStateOf(false) }
     val started = stage !in listOf(LibraryImport.Stage.IDLE, LibraryImport.Stage.READING, LibraryImport.Stage.FAILED)
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
@@ -185,6 +191,36 @@ fun LibraryImportScreen(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                     )
+                }
+            }
+
+            if (progress.matchedItems.isNotEmpty()) {
+                item(key = "matched-title") {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            PreferenceGroupTitle(
+                                title = stringResource(R.string.import_library_matched_title, progress.matched),
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(onClick = { showMatched = !showMatched }) {
+                                Text(stringResource(if (showMatched) R.string.import_library_hide else R.string.import_library_show))
+                            }
+                        }
+                        Text(
+                            text = stringResource(R.string.import_library_matched_help),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                        )
+                    }
+                }
+                if (showMatched) {
+                    items(progress.matchedItems, key = { "matched-${it.index}" }) { item ->
+                        Matched(
+                            item = item,
+                            onLeaveOut = { session.skip(item.index) },
+                            onUndo = { session.undecide(item.index) },
+                        )
+                    }
                 }
             }
 
@@ -360,7 +396,7 @@ private fun Progress(
             LibraryImport.Stage.STOPPED -> Note(stringResource(R.string.import_library_stopped))
             LibraryImport.Stage.OFFLINE -> Note(stringResource(R.string.import_library_offline))
             LibraryImport.Stage.MATCHED -> {
-                val lists = progress?.let { p -> p.matched + p.picked } ?: 0
+                val lists = progress?.kept ?: 0
                 Note(pluralStringResource(R.plurals.import_library_ready, lists, lists))
                 if (progress != null && progress.undecided > 0) {
                     Note(pluralStringResource(R.plurals.import_library_undecided, progress.undecided, progress.undecided))
@@ -380,7 +416,7 @@ private fun Progress(
                 LibraryImport.Stage.MATCHED -> {
                     Button(
                         onClick = onCreate,
-                        enabled = progress != null && progress.matched + progress.picked > 0,
+                        enabled = progress != null && progress.kept > 0,
                     ) { Text(stringResource(R.string.import_library_create)) }
                     OutlinedButton(onClick = onStartOver) { Text(stringResource(R.string.import_library_start_over)) }
                 }
@@ -488,5 +524,48 @@ private fun Review(
                 }
             }
         }
+    }
+}
+
+/**
+ * One track that went in without asking: what the file said, then what it became. Leave out takes
+ * it out of every playlist it would have gone into, for the few a match gets wrong.
+ */
+@Composable
+private fun Matched(
+    item: ImportRun.MatchedItem,
+    onLeaveOut: () -> Unit,
+    onUndo: () -> Unit,
+) {
+    Column(modifier = Modifier
+        .fillMaxWidth()
+        .alpha(if (item.leftOut) 0.5f else 1f)
+        .padding(vertical = 4.dp)) {
+        Text(
+            text = stringResource(
+                R.string.import_library_from_file,
+                joinByBullet(
+                    item.track.title,
+                    item.track.artist.ifEmpty { null },
+                    item.track.durationSeconds?.let { makeTimeString(it * 1000L) },
+                ),
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        YouTubeListItem(
+            item = item.best.candidate,
+            badges = {},
+            trailingContent = {
+                if (item.leftOut) {
+                    TextButton(onClick = onUndo) { Text(stringResource(R.string.import_library_undo)) }
+                } else {
+                    TextButton(onClick = onLeaveOut) { Text(stringResource(R.string.import_library_leave_out)) }
+                }
+            },
+        )
     }
 }
