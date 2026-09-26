@@ -10,6 +10,7 @@ import androidx.room.Transaction
 import androidx.room.Update
 import com.dd3boh.outertune.constants.SongSortType
 import com.dd3boh.outertune.db.FavouritesSql
+import com.dd3boh.outertune.db.LibrarySql
 import com.dd3boh.outertune.db.entities.PlayCountEntity
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.SongEntity
@@ -280,14 +281,7 @@ interface SongsDao {
 
     @RewriteQueriesToDropUnusedColumns
     @Transaction
-    @Query("""
-        SELECT song.*, (SELECT SUM(playCount.count) 
-            FROM playCount 
-            WHERE playCount.song = song.id) AS pc 
-        FROM song 
-        WHERE liked IS NOT NULL 
-        ORDER BY pc ASC
-    """)
+    @Query(LibrarySql.LIKED_SONGS_BY_PLAY_COUNT)
     fun likedSongsByPlayCountAsc(): Flow<List<Song>>
 
     fun likedSongs(sortType: SongSortType, descending: Boolean) =
