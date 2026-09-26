@@ -60,6 +60,12 @@ object Polls {
     /** Umami event name. Everything else about the answer rides in the event's data object. */
     const val UMAMI_EVENT = "poll_answer"
 
+    /**
+     * Sent once per poll or announcement per install, the first time it is opened, so the
+     * dashboard can say how many saw a question beside how many answered it.
+     */
+    const val UMAMI_VIEW_EVENT = "poll_view"
+
     /** True once the placeholders above have been filled in. Nothing runs until they are. */
     /**
      * True once the build supplied all three and this is the app signed with the release key (see
