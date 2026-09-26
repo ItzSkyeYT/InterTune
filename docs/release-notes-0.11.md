@@ -140,6 +140,14 @@ InterTune can count this install once a day: one short message with a random nam
 - The glass intensity preview no longer sits there unchanged where glass cannot be drawn (below Android 13, or with the side navigation); a line says why instead.
 - The Search shortcut on the launcher icon opened Home. It opens search now.
 - Turning the phone during setup could open a second copy of it, whose last page had no way forward.
+- A full rescan of your local files took every local song out of Liked and reset its date added. A scan folder that could not be read, such as an SD card that was not mounted, hid the whole local library.
+- **Clear all downloads** deleted the audio but left every song marked as downloaded.
+- Failed and queued downloads were listed under Downloaded.
+- Downloads cut off by closing the app did not carry on at the next launch with automatic scanning off.
+- A song whose download was removed from a download folder could not play again until the app restarted, and Remove download did nothing for those songs from most menus.
+- Moving downloads to a folder left them unplayable offline until a later scan, and a full storage during the move could lose songs.
+- Downloading a YouTube playlist from its menu was forgotten after a restart.
+- Offline, a local file that had been moved or deleted waited for the network forever instead of being skipped.
 - Dragging songs with the add panel open moved the wrong rows.
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
 - **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
