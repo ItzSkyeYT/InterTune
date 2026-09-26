@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -63,6 +64,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -470,9 +472,18 @@ private fun GalleryPicture(url: String, height: Dp, description: String, onOpen:
     }
 }
 
-/** One picture on black, whole, the way a gallery app shows it. Any tap closes it. */
+/**
+ * One picture on black, whole, the way a gallery app shows it. Any tap closes it.
+ *
+ * It loads the picture again at full size, which takes a moment on a slow connection and never
+ * finishes offline, so it says which: a spinner while it loads, a line if it cannot. A black screen
+ * with nothing on it read as the app having broken.
+ */
 @Composable
 private fun EnlargedPicture(url: String, onClose: () -> Unit) {
+    var loading by remember(url) { mutableStateOf(true) }
+    var failed by remember(url) { mutableStateOf(false) }
+
     Dialog(
         onDismissRequest = onClose,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -487,10 +498,32 @@ private fun EnlargedPicture(url: String, onClose: () -> Unit) {
                 model = url,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
+                onSuccess = { loading = false },
+                onError = {
+                    loading = false
+                    failed = true
+                },
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.systemBars),
             )
+            if (loading) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+            if (failed) {
+                Text(
+                    text = stringResource(R.string.announcement_picture_failed),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.8f),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(32.dp),
+                )
+            }
             IconButton(
                 onClick = onClose,
                 modifier = Modifier
