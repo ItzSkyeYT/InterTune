@@ -68,6 +68,7 @@ import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -200,16 +201,29 @@ fun ArtistSongsScreen(
 
                     thumbnailSize = thumbnailSize,
                     onPlay = {
+                        // The list and the place in it as they are at the tap. They used to be
+                        // read after the request below, so a like or a new song landing while it
+                        // ran played whichever song had moved into the tapped place.
+                        val items = songs.map { it.toMediaMetadata() }
+                        val start = index
+                        val artistId = artist?.id
+                        val title = artist?.artist?.name
                         viewModel.viewModelScope.launch(Dispatchers.IO) {
-                            val playlistId = YouTube.artist(artist?.id!!).getOrNull()
-                                ?.artist?.shuffleEndpoint?.playlistId
+                            // Only used to carry on once the list runs out, so not worth making
+                            // anyone wait for: offline, the tap sat there until the request
+                            // timed out before anything played.
+                            val playlistId = artistId?.let { id ->
+                                withTimeoutOrNull(3_000) {
+                                    YouTube.artist(id).getOrNull()?.artist?.shuffleEndpoint?.playlistId
+                                }
+                            }
 
                             withContext(Dispatchers.Main) {
                                 playerConnection.playQueue(
                                     ListQueue(
-                                        title = artist?.artist?.name,
-                                        items = songs.map { it.toMediaMetadata() },
-                                        startIndex = index,
+                                        title = title,
+                                        items = items,
+                                        startIndex = start,
                                         playlistId = playlistId
                                     ),
                                     origin = PlayOrigin.ARTIST,
