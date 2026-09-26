@@ -714,6 +714,8 @@ class DownloadUtil @Inject constructor(
     suspend fun rescanDownloads() {
         Log.i(TAG, "+rescanDownloads()")
         isProcessingDownloads.value = true
+        // What scans before this version stored for failed and queued downloads. See DownloadSql.
+        database.clearDownloadSentinels()
         val dbDownloads = database.downloadedOrQueuedSongs().first()
         val result = mutableMapOf<String, LocalDateTime>()
 
@@ -721,9 +723,18 @@ class DownloadUtil @Inject constructor(
         val missingFiles =
             localMgr.getMissingFiles(dbDownloads.filterNot { it.song.dateDownload == null }).toMutableList()
         Log.d(TAG, "Found ${missingFiles.size}/${dbDownloads.size} songs not in custom download directories")
-        val cursor = downloadManager.downloadIndex.getDownloads()
-        while (cursor.moveToNext()) {
-            missingFiles.removeIf { it.id == cursor.download.request.id }
+        // Downloads media3 still has queued or running show as downloading. The database records
+        // only finished downloads, so these come from the index, as the scan's sentinel used to
+        // bring them.
+        val inFlight = mutableMapOf<String, LocalDateTime>()
+        downloadManager.downloadIndex.getDownloads().use { cursor ->
+            while (cursor.moveToNext()) {
+                val download = cursor.download
+                missingFiles.removeIf { it.id == download.request.id }
+                if (stateToLocalDateTime(download) == STATE_DOWNLOADING) {
+                    inFlight[download.request.id] = STATE_DOWNLOADING
+                }
+            }
         }
         Log.d(
             TAG,
@@ -742,6 +753,7 @@ class DownloadUtil @Inject constructor(
         availableDownloads.forEach { s ->
             result[s.song.id] = s.song.dateDownload!! // sql should cover our butts
         }
+        inFlight.forEach { (id, state) -> result.putIfAbsent(id, state) }
 
         downloads.value = result
         isProcessingDownloads.value = false
@@ -789,13 +801,18 @@ class DownloadUtil @Inject constructor(
 //            LocalMediaScanner.destroyScanner(SCANNER_OWNER_DL)
         Log.d(TAG, "Registered ${availableFiles.size} files from custom downloads")
 
-        // add internal downloads
-        val cursor = downloadManager.downloadIndex.getDownloads()
+        // add internal downloads. Finished ones only, as the listener writes them: failed, stopped
+        // and queued ones used to be stored as the sentinels 0 and 1, which every downloaded list
+        // and count took for downloads. See DownloadSql.
         var count = 0
         database.transaction {
-            while (cursor.moveToNext()) {
-                updateDownloadStatus(cursor.download.request.id, stateToLocalDateTime(cursor.download))
-                count ++
+            downloadManager.downloadIndex.getDownloads().use { cursor ->
+                while (cursor.moveToNext()) {
+                    val download = cursor.download
+                    val completedAt = completedDownloadTime(download.state, download.updateTimeMs) ?: continue
+                    updateDownloadStatus(download.request.id, completedAt)
+                    count++
+                }
             }
         }
         Log.d(TAG, "Registered $count files from internal downloads")
@@ -874,6 +891,13 @@ class DownloadUtil @Inject constructor(
 
 fun stateToLocalDateTime(download: Download): LocalDateTime =
     stateToLocalDateTime(download.state, download.updateTimeMs)
+
+/**
+ * What a download scan stores in dateDownload for one of media3's downloads: when it finished, or
+ * nothing for one that has not. The same as the download listener writes.
+ */
+fun completedDownloadTime(state: Int, updateTimeMs: Long): LocalDateTime? =
+    if (state == Download.STATE_COMPLETED) stateToLocalDateTime(state, updateTimeMs) else null
 
 /** The same rule taking plain values, so a test can feed it without building a media3 Download. */
 fun stateToLocalDateTime(state: Int, updateTimeMs: Long): LocalDateTime {

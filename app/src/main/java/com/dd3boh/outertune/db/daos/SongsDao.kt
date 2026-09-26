@@ -9,6 +9,7 @@ import androidx.room.RewriteQueriesToDropUnusedColumns
 import androidx.room.Transaction
 import androidx.room.Update
 import com.dd3boh.outertune.constants.SongSortType
+import com.dd3boh.outertune.db.DownloadSql
 import com.dd3boh.outertune.db.FavouritesSql
 import com.dd3boh.outertune.db.entities.PlayCountEntity
 import com.dd3boh.outertune.db.entities.Song
@@ -85,8 +86,9 @@ interface SongsDao {
      * Liked songs with no usable download.
      *
      * dateDownload = 0 is STATE_INVALID, not a real download: Converters stores LocalDateTime as
-     * epoch millis and scanDownloads() writes epoch 0 for failed and stopped downloads. Treating it
-     * as downloaded would lock a song that once failed out of auto-download forever.
+     * epoch millis and scanDownloads() used to write epoch 0 for failed and stopped downloads.
+     * Treating it as downloaded would lock a song that once failed out of auto-download forever.
+     * rescanDownloads clears those now (DownloadSql), but the check costs nothing.
      *
      * isLocal and localPath mirror the sibling download queries. A local file can never acquire a
      * dateDownload, so it would be handed to media3 as a video id and retried on every backfill.
@@ -349,11 +351,15 @@ interface SongsDao {
     @Transaction
     @Query("UPDATE song SET dateDownload = NULL, localPath = NULL WHERE isLocal = 0")
     fun removeAllDownloadedSongs()
+
+    /** See DownloadSql. */
+    @Query(DownloadSql.CLEAR_SENTINELS)
+    fun clearDownloadSentinels()
     // endregion
 
     // region Downloaded Songs Sort
     @Transaction
-    @Query("SELECT * FROM song WHERE isLocal = 0 AND dateDownload IS NOT NULL ORDER BY dateDownload")
+    @Query(DownloadSql.DOWNLOADED_BY_DATE)
     fun downloadNoLocalSongs(): Flow<List<Song>>
 
     @Transaction
