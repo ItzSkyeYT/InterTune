@@ -348,10 +348,12 @@ fun ArtistItemsScreen(
                 selectedItems = selection.mapNotNull { songId ->
                     songIndex[songId]
                 }.map { it.toMediaMetadata() },
-                totalItemCount = selection.size,
+                // The songs on the page. It was the selection's own size, so everything always
+                // counted as selected and the header only ever offered Deselect all.
+                totalItemCount = songIndex.size,
                 onSelectAll = {
                     selection.clear()
-                    selection.addAll(itemsPage?.items?.map { it.id }.orEmpty())
+                    selection.addAll(songIndex.keys)
                 },
                 onDeselectAll = { selection.clear() },
                 menuState = menuState,
