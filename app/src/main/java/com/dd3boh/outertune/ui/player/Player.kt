@@ -842,12 +842,15 @@ fun BottomSheetPlayer(
              * row at the top of the two-pane column, lined up with the artwork, and narrow
              * landscape keeps the buttons above the title.
              *
-             * A tablet in landscape used to show them nowhere at all. With the queue on a button,
-             * Classic would then have left the saved queues out of reach there, so a tablet has
-             * them beside the title too, as it does in portrait.
+             * A tablet in landscape shows them nowhere, and keeps it that way unless the queue is
+             * on a button in Classic. Classic's queue button lives in its row of circles, and
+             * without that row the saved queues would be out of reach, so the row sits beside the
+             * title there too. Connected's queue button is in the row under the controls, which a
+             * tablet already shows.
              */
-            val buttonsBesideTitle =
-                !isLandscape || tabMode || (landscapeTwoPane && buttonsStyle == PlayerButtonsStyle.CONNECTED)
+            val buttonsBesideTitle = !isLandscape ||
+                (landscapeTwoPane && buttonsStyle == PlayerButtonsStyle.CONNECTED) ||
+                (tabMode && queueAsButton && buttonsStyle == PlayerButtonsStyle.CLASSIC)
 
             // Lyrics, the sleep timer and the menu under the transport controls, filled while the
             // thing they control is on. The timer shows what is left, so a running timer is visible
