@@ -164,6 +164,10 @@ private val NOISE = Regex(
             "|\\[[^\\]]*\\b(?:remaster|remastered|single|album|radio|version|edit|mix)\\b[^\\]]*\\]" +
             "|\\b(?:official\\s+(?:music\\s+)?video|official\\s+audio|lyrics?\\s+video|lyrics?|audio|hd|hq|4k|mv)\\b" +
             "|\\b(?:remaster(?:ed)?)\\s*\\d{0,4}" +
+            // Spotify writes the year first as often as last: "- 2013 Remaster" beside
+            // "- Remastered 2011". Only the second form was stripped, which left "2013" in the
+            // title and cost the import probe's Hotel California a fifth of its title score.
+            "|\\b\\d{4}\\s+(?:digital\\s+)?remaster(?:ed)?\\b" +
             "|\\s+-\\s+(?:single|album|radio|mono|stereo)\\s+version\\b",
     RegexOption.IGNORE_CASE,
 )

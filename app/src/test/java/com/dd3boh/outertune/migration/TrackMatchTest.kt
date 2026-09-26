@@ -86,6 +86,15 @@ class TrackMatchTest {
     }
 
     @Test
+    fun `a remaster year is decoration before the word as well as after it`() {
+        assertEquals(normalise("Hotel California"), normalise("Hotel California - 2013 Remaster"))
+        assertEquals(normalise("Hotel California"), normalise("Hotel California - 2001 Digital Remaster"))
+        assertEquals(normalise("Bohemian Rhapsody"), normalise("Bohemian Rhapsody - Remastered 2011"))
+        // A year that is the title stays.
+        assertEquals("1979", normalise("1979"))
+    }
+
+    @Test
     fun `featured artists written differently still match`() {
         val wanted = WantedTrack("Stay (feat. Justin Bieber)", "The Kid LAROI", 141)
         val best = match(wanted, listOf(song("Stay", "The Kid LAROI, Justin Bieber", 142)))!!
