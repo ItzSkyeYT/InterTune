@@ -128,9 +128,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.toRect
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.MeasureResult
+import androidx.compose.ui.layout.MeasureScope
+import androidx.compose.ui.node.DrawModifierNode
+import androidx.compose.ui.node.LayoutModifierNode
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.invalidateDraw
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
@@ -782,6 +795,19 @@ fun BottomSheetPlayer(
 
             val actionButtons = if (buttonsStyle == PlayerButtonsStyle.CONNECTED) connectedButtons else classicButtons
 
+            /**
+             * Whether the buttons by the title sit beside it, sharing its line.
+             *
+             * Always in portrait. Phone landscape used to put them in a row above the title, and a
+             * long title then ran on right underneath share and like, touching them wherever the
+             * short landscape screen left no gap. Connected keeps its pair beside the title there
+             * too now, which also hands that row's height back to the controls. Classic keeps its
+             * row at the top of the two-pane column, lined up with the artwork, and narrow
+             * landscape keeps the buttons above the title.
+             */
+            val buttonsBesideTitle =
+                !isLandscape || (landscapeTwoPane && buttonsStyle == PlayerButtonsStyle.CONNECTED)
+
             // Lyrics, the sleep timer and the menu under the transport controls, filled while the
             // thing they control is on. The timer shows what is left, so a running timer is visible
             // without opening anything, and a tap on it cancels, as the menu's entry does.
@@ -869,63 +895,67 @@ fun BottomSheetPlayer(
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
                 ) {
-                    Row {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = mediaMetadata.title,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontSize = titleSize,
-                                color = onBackgroundColor,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier
-                                    .basicMarquee(
-                                        iterations = 1,
-                                        initialDelayMillis = 3000
-                                    )
-                                    .clickable(enabled = mediaMetadata.album != null) {
-                                        navController.navigate("album/${mediaMetadata.album!!.id}")
-                                        state.collapseSoft()
-                                    }
-                            )
+                    // The title and artists only ever get the width left of the buttons. They
+                    // scroll when they do not fit, and fade out at the end rather than stopping
+                    // mid-letter against the first button.
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = mediaMetadata.title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontSize = titleSize,
+                            color = onBackgroundColor,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fadeWhenClipped()
+                                .basicMarquee(
+                                    iterations = 1,
+                                    initialDelayMillis = 3000
+                                )
+                                .clickable(enabled = mediaMetadata.album != null) {
+                                    navController.navigate("album/${mediaMetadata.album!!.id}")
+                                    state.collapseSoft()
+                                }
+                        )
 
-                            Row {
-                                mediaMetadata.artists.fastForEachIndexed { index, artist ->
+                        Row(modifier = Modifier.fadeWhenClipped()) {
+                            mediaMetadata.artists.fastForEachIndexed { index, artist ->
+                                Text(
+                                    text = artist.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontSize = artistSize,
+                                    color = onBackgroundColor,
+                                    maxLines = 1,
+                                    modifier = Modifier
+                                        .basicMarquee(
+                                            iterations = 1,
+                                            initialDelayMillis = 5000
+                                        )
+                                        .clickable(enabled = artist.id != null) {
+                                            mediaMetadata?.id?.let { ActivityLog.note(context, database, it, SignalKind.ARTIST_PAGE) }
+                                            navController.navigate("artist/${artist.id}")
+                                            state.collapseSoft()
+                                        }
+                                )
+
+                                if (index != mediaMetadata.artists.lastIndex) {
+                                    // One line even when squeezed to nothing by a long name before
+                                    // it, or it wraps and makes the artist line taller.
                                     Text(
-                                        text = artist.name,
+                                        text = ", ",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontSize = artistSize,
                                         color = onBackgroundColor,
-                                        maxLines = 1,
-                                        modifier = Modifier
-                                            .basicMarquee(
-                                                iterations = 1,
-                                                initialDelayMillis = 5000
-                                            )
-                                            .clickable(enabled = artist.id != null) {
-                                                mediaMetadata?.id?.let { ActivityLog.note(context, database, it, SignalKind.ARTIST_PAGE) }
-                                                navController.navigate("artist/${artist.id}")
-                                                state.collapseSoft()
-                                            }
+                                        maxLines = 1
                                     )
-
-                                    if (index != mediaMetadata.artists.lastIndex) {
-                                        Text(
-                                            text = ", ",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontSize = artistSize,
-                                            color = onBackgroundColor
-                                        )
-                                    }
                                 }
                             }
                         }
+                    }
 
-                        // action buttons for portrait (inline with title)
-                        if (LocalConfiguration.current.orientation != Configuration.ORIENTATION_LANDSCAPE && !tabMode) {
-                            actionButtons()
-                        }
+                    if (buttonsBesideTitle) {
+                        actionButtons()
                     }
                 }
 
@@ -1244,16 +1274,19 @@ fun BottomSheetPlayer(
                             // was enough to crush the row of buttons under the controls.
                             .padding(bottom = (queueSheetState.collapsedBound - vPaddingDp).coerceAtLeast(0.dp))
                     ) {
-                        // Like/more sit at the very top of the column rather than riding the
-                        // centred block, so they line up with the top of the artwork.
-                        Row(
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = hPadding)
-                        ) {
-                            actionButtons()
+                        // Classic's buttons sit at the very top of the column rather than riding
+                        // the centred block, so they line up with the top of the artwork.
+                        // Connected's pair sits beside the title instead, see buttonsBesideTitle.
+                        if (!buttonsBesideTitle) {
+                            Row(
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = hPadding)
+                            ) {
+                                actionButtons()
+                            }
                         }
 
                         Spacer(Modifier.weight(1f))
@@ -1461,6 +1494,61 @@ private fun connectedShape(first: Boolean, last: Boolean): RoundedCornerShape {
         topEnd = if (last) round else inner,
         bottomEnd = if (last) round else inner,
     )
+}
+
+/**
+ * Fades out the end of a line that is too long for its space, and leaves a line that fits alone.
+ *
+ * The title and artists scroll as a marquee, which clips them hard at the edge of their space. With
+ * buttons beside the title that edge is only a few dp from the first button, so a long title
+ * stopped mid-letter right against it and looked as if it carried on underneath. Fading its last
+ * stretch shows the line ending short of the buttons instead.
+ */
+private fun Modifier.fadeWhenClipped(length: Dp = 24.dp): Modifier = this then FadeWhenClippedElement(length)
+
+private data class FadeWhenClippedElement(val length: Dp) : ModifierNodeElement<FadeWhenClippedNode>() {
+    override fun create() = FadeWhenClippedNode(length)
+
+    override fun update(node: FadeWhenClippedNode) {
+        node.length = length
+        node.invalidateDraw()
+    }
+}
+
+private class FadeWhenClippedNode(var length: Dp) : Modifier.Node(), LayoutModifierNode, DrawModifierNode {
+    private var clipped = false
+
+    override fun MeasureScope.measure(measurable: Measurable, constraints: Constraints): MeasureResult {
+        val placeable = measurable.measure(constraints)
+        // A marquee gives the whole width of its text as its widest size while laying itself out
+        // no wider than it is allowed, so the two differ exactly when the line is cut short. A row
+        // of them adds theirs up, which covers the artists as well as the title.
+        val clippedNow = measurable.maxIntrinsicWidth(placeable.height) > placeable.width
+        if (clippedNow != clipped) {
+            clipped = clippedNow
+            invalidateDraw()
+        }
+        return layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    }
+
+    override fun ContentDrawScope.draw() {
+        if (!clipped || size.width <= 0f) {
+            drawContent()
+            return
+        }
+        val fade = length.toPx().coerceAtMost(size.width)
+        val mask = if (layoutDirection == LayoutDirection.Ltr) {
+            Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = size.width - fade, endX = size.width)
+        } else {
+            Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = fade)
+        }
+        // The mask has to act on this line alone, so the line is drawn into a layer of its own
+        // and the mask keeps only as much of it as the gradient allows.
+        drawContext.canvas.saveLayer(size.toRect(), Paint())
+        drawContent()
+        drawRect(brush = mask, blendMode = BlendMode.DstIn)
+        drawContext.canvas.restore()
+    }
 }
 
 /** The classic player button: a 36dp circle, sitting a little low to line up with the title. */
