@@ -267,7 +267,10 @@ fun LibraryPlaylistsScreen(
                 }
             ),
     ) {
-        ScrollToTopManager(navController, lazyListState)
+        when (viewType) {
+            LibraryViewType.LIST -> ScrollToTopManager(navController, lazyListState)
+            LibraryViewType.GRID -> ScrollToTopManager(navController, lazyGridState)
+        }
         when (viewType) {
             LibraryViewType.LIST -> {
                 LazyColumn(
