@@ -887,6 +887,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="login_pick_account">Pick one</string>
     <string name="login_another_account">Another account</string>
     <string name="login_not_secure">Not a secure connection</string>
+    <string name="login_reassurance_other_page">InterTune never sees your password. It keeps only the sign-in YouTube Music hands back.</string>
+    <string name="login_no_page_yet">No page yet</string>
     <string name="lastfm_opt_in_title">Similar songs from Last.fm too?</string>
     <string name="lastfm_opt_in_body">Best recommendations finds songs like the ones you play. It can ask Last.fm as well as YouTube, then lean toward whichever finds you more that you keep. For that it sends Last.fm the title and artist of each song you play, and once, of the songs you played in the last month and the ones you liked. Nothing else, and no account. You can change this later in Settings, under Recommendations.</string>
     <string name="lastfm_opt_in_yes">Yes, use both</string>
