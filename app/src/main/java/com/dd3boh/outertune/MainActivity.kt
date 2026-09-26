@@ -736,8 +736,8 @@ class MainActivity : ComponentActivity() {
                         }
 
                     // One tour for the activity. It outlives individual screens because it
-                    // points at controls belonging to several of them.
-                    val tourState = remember { TourState() }
+                    // points at controls belonging to several of them, and a rotation.
+                    val tourState = rememberSaveable(saver = TourState.Saver) { TourState() }
 
                     // Remembered: the default built a fresh state on every recomposition of this
                     // scope, which only went unnoticed because the scope rarely recomposed.

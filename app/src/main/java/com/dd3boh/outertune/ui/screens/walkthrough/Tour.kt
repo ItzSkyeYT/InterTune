@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.ui.screens.walkthrough
 
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -133,5 +135,27 @@ class TourState {
         running = false
         index = 0
         stops = emptyList()
+    }
+
+    companion object {
+        /**
+         * Keeps a running tour, and the stop it is on, across the activity being recreated. A
+         * rotation recreates it, and a plain remember then lost the tour, which the launcher saw as
+         * never started and began again from the first stop. The stops are saved by id and come
+         * back from [TOUR_STOPS].
+         */
+        val Saver: Saver<TourState, Any> = listSaver(
+            save = { state -> if (state.running) listOf<Any>(state.index) + state.stops.map { it.id } else emptyList() },
+            restore = { saved ->
+                TourState().apply {
+                    val stops = saved.drop(1).mapNotNull { id -> TOUR_STOPS.firstOrNull { it.id == id } }
+                    if (stops.isNotEmpty()) {
+                        this.stops = stops
+                        index = (saved[0] as Int).coerceIn(0, stops.lastIndex)
+                        running = true
+                    }
+                }
+            }
+        )
     }
 }
