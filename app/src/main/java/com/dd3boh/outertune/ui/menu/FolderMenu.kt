@@ -189,9 +189,12 @@ fun FolderMenu(
             icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
             title = R.string.add_to_playlist
         ) {
-            showChoosePlaylistDialog = true
+            // Opened once the folder's songs are read. It opened in the same tap that started
+            // reading them, with none, and a quick pick added nothing.
             coroutineScope.launch(Dispatchers.IO) {
-                fetchAllSongsRecursive()
+                fetchAllSongsRecursive {
+                    showChoosePlaylistDialog = true
+                }
             }
         }
         GridMenuItem(

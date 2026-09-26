@@ -87,7 +87,10 @@ fun AddToPlaylistDialog(
     // recognition screen's list grows while the picker is open, and a second pick after a cancelled
     // duplicates prompt used the list as it was the first time.
     val idsFromPreAdd = songIds == null
-    var songIds by remember {
+    // Keyed on the ids passed in. A caller still loading its songs, a folder or an album not yet
+    // stored, opens the picker with none and passes them once they are in, and the picker kept
+    // the list it was opened with, so a pick added nothing.
+    var songIds by remember(songIds) {
         mutableStateOf<List<String>?>(songIds) // list is not saveable
     }
     var playlistIdsSongParticipation by remember {
@@ -109,7 +112,7 @@ fun AddToPlaylistDialog(
         }
     }
 
-    LaunchedEffect(playlists) {
+    LaunchedEffect(playlists, songIds) {
         coroutineScope.launch(Dispatchers.IO) {
             songIds?.let { s ->
                 playlistIdsSongParticipation = database.playlistIdBySongs(s).first()

@@ -38,6 +38,7 @@ import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.models.withArtistIds
 import com.dd3boh.outertune.playback.ExoDownloadService
@@ -78,11 +79,17 @@ fun YouTubeAlbumMenu(
     }
     val artists = remember(albumItem) { albumItem.artists.orEmpty().withArtistIds() }
 
+    // The page's songs, for Play next and Add to queue while the album is not stored yet: they
+    // acted on the stored album alone, and did nothing until the write below had landed.
+    var pageSongs by remember { mutableStateOf<List<MediaMetadata>>(emptyList()) }
+    val songsToQueue = album?.songs?.takeIf { it.isNotEmpty() }?.map { it.toMediaMetadata() } ?: pageSongs
+
     LaunchedEffect(Unit) {
         // Fetched even when the album is stored: a saved album is stored with no songs, and one
         // played from holds only the songs played, and Play next, Add to queue and Download act
         // on what is stored. It used to be fetched only when missing.
         YouTube.album(albumItem.id).onSuccess { albumPage ->
+            pageSongs = albumPage.songs.map { it.toMediaMetadata() }
             val stored = database.albumWithSongs(albumItem.id).first()
             val mapped = stored?.songs.orEmpty().map { it.id }
             if (AlbumRows.pageAddsSongs(stored?.album, mapped, albumPage.songs.map { it.id })) {
@@ -148,7 +155,7 @@ fun YouTubeAlbumMenu(
             icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
             title = R.string.play_next
         ) {
-            album?.songs
+            songsToQueue.takeIf { it.isNotEmpty() }
                 ?.map { it.toMediaItem() }
                 ?.let(playerConnection::enqueueNext)
             onDismiss()
@@ -218,9 +225,9 @@ fun YouTubeAlbumMenu(
     if (showChooseQueueDialog) {
         AddToQueueDialog(
             onAdd = { queueName ->
-                album?.songs?.let { song ->
+                songsToQueue.takeIf { it.isNotEmpty() }?.let { songs ->
                     val q = playerConnection.service.queueBoard.addQueue(
-                        queueName, song.map { it.toMediaMetadata() },
+                        queueName, songs,
                         forceInsert = true, delta = false
                     )
                     q?.let {
