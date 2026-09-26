@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.db
 
+import com.dd3boh.outertune.constants.ArtistFilter
+import com.dd3boh.outertune.constants.ArtistSortType
+
 /**
  * Library queries kept as constants so the DAOs and LibrarySqlTest run the same text, the way
  * RecommendationSql is.
@@ -97,6 +100,57 @@ object LibrarySql {
         ORDER BY artist.bookmarkedAt ASC
         LIMIT :previewSize
     """
+
+    /**
+     * Library > Artists under [filter].
+     *
+     * Each artist's count is of the songs the filter is about: the library's, or the downloaded
+     * ones. Under Liked it counted every song stored by the artist, related songs never played
+     * among them, so a liked artist could read 80 songs with three in the library.
+     */
+    fun artists(filter: ArtistFilter, sortType: ArtistSortType, localOnly: Boolean? = null): String {
+        val orderBy = when (sortType) {
+            ArtistSortType.CREATE_DATE -> "artist.rowId ASC"
+            ArtistSortType.NAME -> "artist.name COLLATE NOCASE ASC"
+            ArtistSortType.SONG_COUNT -> "songCount ASC"
+        }
+
+        val where = when (filter) {
+            ArtistFilter.DOWNLOADED -> "song.dateDownload IS NOT NULL"
+            ArtistFilter.LIBRARY -> "song.inLibrary IS NOT NULL"
+            ArtistFilter.LIKED -> "artist.bookmarkedAt IS NOT NULL"
+        } + when (localOnly) {
+            null -> ""
+            // The AND was missing, a syntax error. Only artistsLocalBookmarkedAsc asks, unused.
+            true -> " AND artist.isLocal = 1"
+            false -> " AND artist.isLocal = 0"
+        }
+
+        // Under Liked every stored song of the artist is joined, so count the library's only.
+        val songCount = when (filter) {
+            ArtistFilter.LIKED -> "COUNT(CASE WHEN song.inLibrary IS NOT NULL THEN 1 END)"
+            else -> "COUNT(song.id)"
+        }
+
+        val having = when (filter) {
+            ArtistFilter.DOWNLOADED -> "AND downloadCount > 0"
+            else -> ""
+        }
+
+        return """
+            SELECT
+                artist.*,
+                $songCount AS songCount,
+                SUM(CASE WHEN song.dateDownload IS NOT NULL THEN 1 ELSE 0 END) AS downloadCount
+            FROM artist
+                LEFT JOIN song_artist_map sam ON artist.id = sam.artistId
+                LEFT JOIN song ON sam.songId = song.id
+            WHERE $where
+            GROUP BY artist.id
+            HAVING songCount >= 0 $having
+            ORDER BY $orderBy
+        """
+    }
 
     const val LOCAL_ALBUM_BY_TITLE = "SELECT * FROM album WHERE isLocal = 1 AND title = :title ORDER BY rowid LIMIT 1"
 }

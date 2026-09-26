@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.db
 
+import com.dd3boh.outertune.constants.ArtistFilter
+import com.dd3boh.outertune.constants.ArtistSortType
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -136,6 +138,32 @@ class LibrarySqlTest {
             listOf("kept" to 2, "saved" to 0),
             counts(search(LibrarySql.SEARCH_ARTISTS, "band"), "songCount").sortedBy { it.first },
         )
+    }
+
+    @Test
+    fun `a liked artist counts its library songs, not every song stored`() {
+        artist("liked", bookmarked = true)
+        artist("other", bookmarked = false)
+        song("r1"); song("r2"); song("r3")
+        song("l1", inLibrary = 1); song("l2", inLibrary = 1)
+        exec("UPDATE song SET dateDownload = 5 WHERE id = 'l2'")
+        for (id in listOf("r1", "r2", "r3", "l1", "l2")) by(id, "liked")
+        by("l1", "other")
+        val liked = LibrarySql.artists(ArtistFilter.LIKED, ArtistSortType.CREATE_DATE)
+        assertEquals(listOf("liked" to 2), counts(liked, "songCount"))
+        assertEquals(listOf("liked" to 1), counts(liked, "downloadCount"))
+        // The other filters count what they filter on, as before.
+        assertEquals(
+            listOf("liked" to 2, "other" to 1),
+            counts(LibrarySql.artists(ArtistFilter.LIBRARY, ArtistSortType.NAME), "songCount"),
+        )
+        assertEquals(
+            listOf("liked" to 1),
+            counts(LibrarySql.artists(ArtistFilter.DOWNLOADED, ArtistSortType.NAME), "songCount"),
+        )
+        // And the local switch is valid SQL.
+        assertEquals(listOf("liked"), ids(LibrarySql.artists(ArtistFilter.LIKED, ArtistSortType.NAME, localOnly = false)))
+        assertEquals(emptyList<String>(), ids(LibrarySql.artists(ArtistFilter.LIKED, ArtistSortType.NAME, localOnly = true)))
     }
 
     @Test
