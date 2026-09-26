@@ -134,6 +134,8 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -1065,7 +1067,7 @@ fun BottomSheetPlayer(
                         }
                     }
 
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(PlayButtonGap))
 
                     Box(
                         modifier = Modifier
@@ -1095,7 +1097,7 @@ fun BottomSheetPlayer(
                         )
                     }
 
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(PlayButtonGap))
 
                     if (seekIncrement != SeekIncrement.OFF) {
                         Box(modifier = Modifier.weight(1f)) {
@@ -1168,13 +1170,20 @@ fun BottomSheetPlayer(
                 // edge and its rounded corners get clipped by the display.
                 val vPaddingDp = with(LocalDensity.current) { vPadding.toDp() }.coerceAtLeast(16.dp)
                 val verticalInsets = WindowInsets(left = 0.dp, top = vPaddingDp, right = 0.dp, bottom = vPaddingDp)
-                Row(
+                BoxWithConstraints(
                     modifier = Modifier
                         .windowInsetsPadding(
                             WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).add(verticalInsets)
                         )
                         .fillMaxSize()
                 ) {
+                val controlsWidth = landscapeControlsWidth(
+                    available = maxWidth,
+                    playButton = playButtonSize,
+                    slots = if (seekIncrement != SeekIncrement.OFF) 6 else 4,
+                    gutter = hPadding,
+                )
+                Row(modifier = Modifier.fillMaxSize()) {
                     // The queue sheet's peek is reserved on the controls column alone, not on this
                     // Row. The arrow is horizontally centred on the window, well clear of the
                     // artwork's half, so making the artwork dodge it vertically only wasted height.
@@ -1220,16 +1229,20 @@ fun BottomSheetPlayer(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            // Half the width, lyrics or not. Lyrics used to narrow this column to
+                            // The same width, lyrics or not. Lyrics used to narrow this column to
                             // make their pane wider, which squeezed the glass bar and packed the
                             // transport buttons closer together, so the controls looked smaller
-                            // with lyrics on. The lyrics now simply take the artwork's half.
-                            .weight(1f, false)
+                            // with lyrics on. The lyrics now simply take the artwork's place.
+                            .width(controlsWidth)
                             .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
                             // Only this column dodges the queue sheet's peek; the artwork does not
                             // need to, since the arrow is centred on the window and never reaches
-                            // the artwork's half.
-                            .padding(bottom = queueSheetState.collapsedBound)
+                            // the artwork's half. The collapsed sheet covers collapsedBound up from
+                            // the bottom of the screen, and the Row already keeps vPaddingDp of that
+                            // clear, so only the difference is taken here. Taking all of it again
+                            // cost 16dp of a height that is only 384dp on a 1440p phone, and that
+                            // was enough to crush the row of buttons under the controls.
+                            .padding(bottom = (queueSheetState.collapsedBound - vPaddingDp).coerceAtLeast(0.dp))
                     ) {
                         // Like/more sit at the very top of the column rather than riding the
                         // centred block, so they line up with the top of the artwork.
@@ -1246,11 +1259,17 @@ fun BottomSheetPlayer(
                         Spacer(Modifier.weight(1f))
 
                         mediaMetadata?.let {
-                            controlsContent(it)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.shrinkToFitHeight()
+                            ) {
+                                controlsContent(it)
+                            }
                         }
 
                         Spacer(Modifier.weight(1f))
                     }
+                }
                 }
             } else {
                 /**
@@ -1376,6 +1395,57 @@ fun BottomSheetPlayer(
  * tablet does not need because the queue is permanently beside the player.
  */
 private val TabletQueueHandleReserve = 48.dp
+
+/** The space either side of the play button, between it and its neighbours' slots. */
+private val PlayButtonGap = 8.dp
+
+/**
+ * The least width each transport button's slot gets in the landscape player: the 42dp icon and
+ * 7dp either side, so neighbours never touch and the outer buttons stay clear of the glass bar's
+ * rounded ends.
+ */
+private val LandscapeTransportSlot = 56.dp
+
+/**
+ * How wide the landscape player's controls column is, out of the [available] width it shares with
+ * the artwork.
+ *
+ * Half, but never less than the transport bar needs to hold its [slots] buttons beside the play
+ * button at full size with air between them. Half is not always enough: a phone that only just
+ * counts as wide gives the bar under 300dp, and the buttons then crowd together until the outer
+ * ones run into the bar's rounded ends. Never more than 62% either, so the artwork, or the lyrics
+ * in its place, keeps a proper share of the screen. Lyrics play no part in it, so the controls are
+ * the same with them on or off.
+ */
+internal fun landscapeControlsWidth(available: Dp, playButton: Dp, slots: Int, gutter: Dp): Dp {
+    val needed = LandscapeTransportSlot * slots + playButton + PlayButtonGap * 2 + gutter * 2
+    return (available / 2).coerceAtLeast(needed).coerceAtMost(available * 0.62f)
+}
+
+/**
+ * Lays the content out at its natural height, and when that is more than there is room for,
+ * shrinks all of it evenly to fit rather than letting the last rows be squashed.
+ *
+ * The landscape controls are a column of fixed heights, and a Column hands out height in order,
+ * so whatever comes last took the whole shortfall: on a 1440p phone at a larger screen zoom,
+ * about 340dp tall, the buttons under the controls came out less than half their height. Scaled
+ * as a block they lose a few percent each instead, and where everything fits nothing is touched.
+ */
+private fun Modifier.shrinkToFitHeight(): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity))
+    if (!constraints.hasBoundedHeight || placeable.height <= constraints.maxHeight) {
+        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    } else {
+        val scale = constraints.maxHeight.toFloat() / placeable.height
+        layout(placeable.width, constraints.maxHeight) {
+            placeable.placeWithLayer(0, 0) {
+                scaleX = scale
+                scaleY = scale
+                transformOrigin = TransformOrigin(0.5f, 0f)
+            }
+        }
+    }
+}
 
 // Wide enough apart to read as separate buttons that belong together, not one slab with a seam.
 private val ConnectedButtonGap = 6.dp
