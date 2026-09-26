@@ -19,6 +19,8 @@ import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
+import com.dd3boh.outertune.constants.QueueButtonKey
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.foundation.shape.CircleShape
 import android.content.Intent
 import androidx.compose.material.icons.rounded.Share
@@ -128,12 +130,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.toRect
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.MeasureResult
+import androidx.compose.ui.layout.MeasureScope
+import androidx.compose.ui.node.DrawModifierNode
+import androidx.compose.ui.node.LayoutModifierNode
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.invalidateDraw
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
@@ -317,6 +336,7 @@ fun BottomSheetPlayer(
 
     var showLyrics by rememberPreference(ShowLyricsKey, defaultValue = false)
     val buttonsStyle by rememberEnumPreference(PlayerButtonsStyleKey, defaultValue = PlayerButtonsStyle.CLASSIC)
+    val queueAsButton by rememberPreference(QueueButtonKey, defaultValue = false)
 
     var position by rememberSaveable(playbackState) {
         mutableLongStateOf(playerConnection.player.currentPosition)
@@ -436,15 +456,39 @@ fun BottomSheetPlayer(
      * defaults collapsedBound to dismissedBound, and the slow-drag dismiss branch that compares the
      * two is unreachable with stock values anyway (l0 = 48dp+inset, l1 = 24dp, so `in l0..l1` is an
      * empty range). Velocity-based dismiss is unaffected.
+     *
+     * No queue peek on a tablet either: the queue is permanently in the side pane, so reserving a
+     * strip for a preview of it wastes the bottom of the screen, squashes the artwork (which is
+     * sized by the height left over) and pushes the handle up into the middle of nowhere.
+     *
+     * The player keeps the same space clear at the bottom whether the queue opens from the sheet
+     * or from its button. Giving the strip back when the button took over let everything above it
+     * drop, 96dp in portrait, and the controls are pressed from memory, so turning the button on
+     * must not move them.
+     */
+    val queueReserve = if (landscapeTwoPane || tabletTwoPane) dismissedBound else dismissedBound + QueuePeekHeight
+
+    /**
+     * Whether the queue opens from its button rather than from the sheet's handle.
+     *
+     * Only while a song is loaded. The button sits with the controls, which are not drawn without
+     * one, so a queue emptied by swiping its last song away left the player with no controls and,
+     * with the handle gone as well, no way to the saved queues. The handle comes back until
+     * something is loaded again, and since the player keeps queueReserve clear either way, nothing
+     * moves when it does.
+     */
+    val queueOnButton = queueAsButton && mediaMetadata != null
+
+    /**
+     * With the queue on a button the sheet collapses to nothing at all: it sits wholly below the
+     * screen, so the player has no handle and no pull-up gesture at the bottom, and the button is
+     * the only way up. Opened, it is the same sheet with the same queue in it, and back or a drag
+     * down puts it away again.
      */
     val queueSheetState = rememberBottomSheetState(
-        dismissedBound = dismissedBound,
+        dismissedBound = if (queueOnButton) 0.dp else dismissedBound,
         expandedBound = state.expandedBound,
-        // No queue peek on a tablet: the queue is permanently in the side pane, so reserving a
-        // strip for a preview of it wastes the bottom of the screen, squashes the artwork (which
-        // is sized by the height left over) and pushes the handle up into the middle of nowhere.
-        collapsedBound = if (landscapeTwoPane || tabletTwoPane) dismissedBound
-        else dismissedBound + QueuePeekHeight,
+        collapsedBound = if (queueOnButton) 0.dp else queueReserve,
         initialAnchor = 1
     )
 
@@ -657,13 +701,16 @@ fun BottomSheetPlayer(
             val titleSize = if (landscapePlayer) 25.sp else TextUnit.Unspecified
             val artistSize = if (landscapePlayer) 19.sp else TextUnit.Unspecified
 
-            /** Transport controls run larger in landscape, where there is room for them. */
+            /**
+             * Transport controls run larger in landscape, where there is room for them.
+             *
+             * Lyrics do not change them. The play button used to drop to 56dp whenever lyrics were
+             * showing, to give the lyrics a little more height, and the controls jumping to a smaller
+             * size as lyrics came up read as the player shrinking its buttons. The lyrics take the
+             * artwork's place, which is plenty of room without the controls giving any up.
+             */
             val transportIconSize = if (landscapePlayer) 42.dp else 32.dp
-            val playButtonSize = when {
-                showLyrics -> 56.dp
-                landscapePlayer -> 84.dp
-                else -> 72.dp
-            }
+            val playButtonSize = if (landscapePlayer) 84.dp else 72.dp
 
             // Sleep timer, lyrics and the menu one tap away on the player itself, not only inside
             // the menu (yuuichi-s #54). The timer's fields are Compose state, so the buttons follow it.
@@ -700,11 +747,30 @@ fun BottomSheetPlayer(
                 }
             }
 
-            // Classic: three circles beside the title. Tertiary on the timer while it runs, and a
-            // tap then cancels it, as the menu's entry does.
+            // With the queue on a button, this is the only way the queue sheet comes up.
+            val openQueue: () -> Unit = {
+                queueSheetState.expandSoft()
+                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+            }
+
+            // Classic: circles beside the title. Tertiary on the timer while it runs, and a
+            // tap then cancels it, as the menu's entry does. With the queue on a button it comes
+            // first, so like and the menu stay where they always were at the end of the row.
             val classicButtons: @Composable RowScope.() -> Unit = {
                 Log.v(TAG, "PLR-3.xa")
                 Spacer(modifier = Modifier.width(10.dp))
+
+                if (queueAsButton) {
+                    PlayerCircleButton(
+                        painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
+                        contentDescription = stringResource(R.string.queue),
+                        container = MaterialTheme.colorScheme.primary,
+                        content = MaterialTheme.colorScheme.onPrimary,
+                        onClick = openQueue
+                    )
+
+                    Spacer(modifier = Modifier.width(7.dp))
+                }
 
                 PlayerCircleButton(
                     painter = rememberVectorPainter(Icons.Rounded.Timer),
@@ -777,13 +843,52 @@ fun BottomSheetPlayer(
 
             val actionButtons = if (buttonsStyle == PlayerButtonsStyle.CONNECTED) connectedButtons else classicButtons
 
+            /**
+             * Whether the buttons by the title sit beside it, sharing its line.
+             *
+             * Always in portrait. Phone landscape used to put them in a row above the title, and a
+             * long title then ran on right underneath share and like, touching them wherever the
+             * short landscape screen left no gap. Connected keeps its pair beside the title there
+             * too now, which also hands that row's height back to the controls. Classic keeps its
+             * row at the top of the two-pane column, lined up with the artwork, and narrow
+             * landscape keeps the buttons above the title.
+             *
+             * A tablet in landscape shows them nowhere, and keeps it that way unless the queue is
+             * on a button in Classic. Classic's queue button lives in its row of circles, and
+             * without that row the saved queues would be out of reach, so the row sits beside the
+             * title there too. Connected's queue button is in the row under the controls, which a
+             * tablet already shows.
+             */
+            val buttonsBesideTitle = !isLandscape ||
+                (landscapeTwoPane && buttonsStyle == PlayerButtonsStyle.CONNECTED) ||
+                (tabMode && queueAsButton && buttonsStyle == PlayerButtonsStyle.CLASSIC)
+
             // Lyrics, the sleep timer and the menu under the transport controls, filled while the
             // thing they control is on. The timer shows what is left, so a running timer is visible
-            // without opening anything, and a tap on it cancels, as the menu's entry does.
+            // without opening anything, and a tap on it cancels, as the menu's entry does. With the
+            // queue on a button it joins the group in front of lyrics, the other button that opens
+            // a view, and the three stay exactly where they sit with it off.
             val quickActions: @Composable () -> Unit = {
                 val inactive = onBackgroundColor.copy(alpha = 0.12f)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap, Alignment.CenterHorizontally),
+                CentredRowWithLeading(
+                    gap = ConnectedButtonGap,
+                    gutter = hPadding,
+                    leading = if (queueAsButton) {
+                        {
+                            PlayerActionSegment(
+                                painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
+                                contentDescription = stringResource(R.string.queue),
+                                shape = connectedShape(first = true, last = false),
+                                container = inactive,
+                                filled = false,
+                                content = onBackgroundColor,
+                                width = QuickActionWidth,
+                                backdrop = buttonBackdrop,
+                                glassIntensity = glassIntensity,
+                                onClick = openQueue,
+                            )
+                        }
+                    } else null,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
@@ -792,7 +897,7 @@ fun BottomSheetPlayer(
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.Lyrics),
                         contentDescription = stringResource(R.string.toggle_lyrics),
-                        shape = connectedShape(first = true, last = false),
+                        shape = connectedShape(first = !queueAsButton, last = false),
                         container = if (showLyrics) MaterialTheme.colorScheme.primary else inactive,
                         filled = showLyrics,
                         content = if (showLyrics) MaterialTheme.colorScheme.onPrimary else onBackgroundColor,
@@ -864,63 +969,67 @@ fun BottomSheetPlayer(
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
                 ) {
-                    Row {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = mediaMetadata.title,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontSize = titleSize,
-                                color = onBackgroundColor,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier
-                                    .basicMarquee(
-                                        iterations = 1,
-                                        initialDelayMillis = 3000
-                                    )
-                                    .clickable(enabled = mediaMetadata.album != null) {
-                                        navController.navigate("album/${mediaMetadata.album!!.id}")
-                                        state.collapseSoft()
-                                    }
-                            )
+                    // The title and artists only ever get the width left of the buttons. They
+                    // scroll when they do not fit, and fade out at the end rather than stopping
+                    // mid-letter against the first button.
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = mediaMetadata.title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontSize = titleSize,
+                            color = onBackgroundColor,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fadeWhenClipped()
+                                .basicMarquee(
+                                    iterations = 1,
+                                    initialDelayMillis = 3000
+                                )
+                                .clickable(enabled = mediaMetadata.album != null) {
+                                    navController.navigate("album/${mediaMetadata.album!!.id}")
+                                    state.collapseSoft()
+                                }
+                        )
 
-                            Row {
-                                mediaMetadata.artists.fastForEachIndexed { index, artist ->
+                        Row(modifier = Modifier.fadeWhenClipped()) {
+                            mediaMetadata.artists.fastForEachIndexed { index, artist ->
+                                Text(
+                                    text = artist.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontSize = artistSize,
+                                    color = onBackgroundColor,
+                                    maxLines = 1,
+                                    modifier = Modifier
+                                        .basicMarquee(
+                                            iterations = 1,
+                                            initialDelayMillis = 5000
+                                        )
+                                        .clickable(enabled = artist.id != null) {
+                                            mediaMetadata?.id?.let { ActivityLog.note(context, database, it, SignalKind.ARTIST_PAGE) }
+                                            navController.navigate("artist/${artist.id}")
+                                            state.collapseSoft()
+                                        }
+                                )
+
+                                if (index != mediaMetadata.artists.lastIndex) {
+                                    // One line even when squeezed to nothing by a long name before
+                                    // it, or it wraps and makes the artist line taller.
                                     Text(
-                                        text = artist.name,
+                                        text = ", ",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontSize = artistSize,
                                         color = onBackgroundColor,
-                                        maxLines = 1,
-                                        modifier = Modifier
-                                            .basicMarquee(
-                                                iterations = 1,
-                                                initialDelayMillis = 5000
-                                            )
-                                            .clickable(enabled = artist.id != null) {
-                                                mediaMetadata?.id?.let { ActivityLog.note(context, database, it, SignalKind.ARTIST_PAGE) }
-                                                navController.navigate("artist/${artist.id}")
-                                                state.collapseSoft()
-                                            }
+                                        maxLines = 1
                                     )
-
-                                    if (index != mediaMetadata.artists.lastIndex) {
-                                        Text(
-                                            text = ", ",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontSize = artistSize,
-                                            color = onBackgroundColor
-                                        )
-                                    }
                                 }
                             }
                         }
+                    }
 
-                        // action buttons for portrait (inline with title)
-                        if (LocalConfiguration.current.orientation != Configuration.ORIENTATION_LANDSCAPE && !tabMode) {
-                            actionButtons()
-                        }
+                    if (buttonsBesideTitle) {
+                        actionButtons()
                     }
                 }
 
@@ -1062,7 +1171,7 @@ fun BottomSheetPlayer(
                         }
                     }
 
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(PlayButtonGap))
 
                     Box(
                         modifier = Modifier
@@ -1092,7 +1201,7 @@ fun BottomSheetPlayer(
                         )
                     }
 
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(PlayButtonGap))
 
                     if (seekIncrement != SeekIncrement.OFF) {
                         Box(modifier = Modifier.weight(1f)) {
@@ -1165,13 +1274,20 @@ fun BottomSheetPlayer(
                 // edge and its rounded corners get clipped by the display.
                 val vPaddingDp = with(LocalDensity.current) { vPadding.toDp() }.coerceAtLeast(16.dp)
                 val verticalInsets = WindowInsets(left = 0.dp, top = vPaddingDp, right = 0.dp, bottom = vPaddingDp)
-                Row(
+                BoxWithConstraints(
                     modifier = Modifier
                         .windowInsetsPadding(
                             WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal).add(verticalInsets)
                         )
                         .fillMaxSize()
                 ) {
+                val controlsWidth = landscapeControlsWidth(
+                    available = maxWidth,
+                    playButton = playButtonSize,
+                    slots = if (seekIncrement != SeekIncrement.OFF) 6 else 4,
+                    gutter = hPadding,
+                )
+                Row(modifier = Modifier.fillMaxSize()) {
                     // The queue sheet's peek is reserved on the controls column alone, not on this
                     // Row. The arrow is horizontally centred on the window, well clear of the
                     // artwork's half, so making the artwork dodge it vertically only wasted height.
@@ -1217,35 +1333,50 @@ fun BottomSheetPlayer(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            // "percentage to half width", not "percentage of width"
-                            .weight(if (showLyrics) 0.65f else 1f, false)
-                            .animateContentSize()
+                            // The same width, lyrics or not. Lyrics used to narrow this column to
+                            // make their pane wider, which squeezed the glass bar and packed the
+                            // transport buttons closer together, so the controls looked smaller
+                            // with lyrics on. The lyrics now simply take the artwork's place.
+                            .width(controlsWidth)
                             .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
                             // Only this column dodges the queue sheet's peek; the artwork does not
                             // need to, since the arrow is centred on the window and never reaches
-                            // the artwork's half.
-                            .padding(bottom = queueSheetState.collapsedBound)
+                            // the artwork's half. The collapsed sheet covers queueReserve up from
+                            // the bottom of the screen, and the Row already keeps vPaddingDp of that
+                            // clear, so only the difference is taken here. Taking all of it again
+                            // cost 16dp of a height that is only 384dp on a 1440p phone, and that
+                            // was enough to crush the row of buttons under the controls.
+                            .padding(bottom = (queueReserve - vPaddingDp).coerceAtLeast(0.dp))
                     ) {
-                        // Like/more sit at the very top of the column rather than riding the
-                        // centred block, so they line up with the top of the artwork.
-                        Row(
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = hPadding)
-                        ) {
-                            actionButtons()
+                        // Classic's buttons sit at the very top of the column rather than riding
+                        // the centred block, so they line up with the top of the artwork.
+                        // Connected's pair sits beside the title instead, see buttonsBesideTitle.
+                        if (!buttonsBesideTitle) {
+                            Row(
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = hPadding)
+                            ) {
+                                actionButtons()
+                            }
                         }
 
                         Spacer(Modifier.weight(1f))
 
                         mediaMetadata?.let {
-                            controlsContent(it)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.shrinkToFitHeight()
+                            ) {
+                                controlsContent(it)
+                            }
                         }
 
                         Spacer(Modifier.weight(1f))
                     }
+                }
                 }
             } else {
                 /**
@@ -1274,7 +1405,7 @@ fun BottomSheetPlayer(
                         // handle.
                         .padding(
                             bottom = if (tabletTwoPane) TabletQueueHandleReserve
-                            else queueSheetState.collapsedBound
+                            else queueReserve
                         )
                 ) {
                     BoxWithConstraints(
@@ -1359,7 +1490,8 @@ fun BottomSheetPlayer(
                 playerConnection.service.queueBoard.detachedHead = false
             },
             onBackgroundColor = onBackgroundColor,
-            navController = navController
+            navController = navController,
+            showHandle = !queueOnButton
         )
     }
 }
@@ -1371,6 +1503,64 @@ fun BottomSheetPlayer(
  * tablet does not need because the queue is permanently beside the player.
  */
 private val TabletQueueHandleReserve = 48.dp
+
+/** The space either side of the play button, between it and its neighbours' slots. */
+private val PlayButtonGap = 8.dp
+
+/**
+ * The width the landscape player gives each transport button's slot wherever the screen has room
+ * for it: the 42dp icon and 7dp either side, so neighbours never touch and the outer buttons stay
+ * clear of the glass bar's rounded ends.
+ */
+private val LandscapeTransportSlot = 56.dp
+
+/**
+ * How wide the landscape player's controls column is, out of the [available] width it shares with
+ * the artwork.
+ *
+ * Half, or more where half cannot give each of the transport bar's [slots] buttons a full
+ * [LandscapeTransportSlot] beside the play button. Half is not always enough: a phone that only
+ * just counts as wide gives the bar under 300dp, and the buttons then crowd together until the
+ * outer ones run into the bar's rounded ends. Never more than 62%, though, and that limit wins, so
+ * the artwork, or the lyrics in its place, always keeps a proper share of the screen.
+ *
+ * With the usual four buttons that keeps every icon at full size on the narrowest two-pane row,
+ * about 520dp, and gives full slots from 600dp. With the seek buttons on, six buttons get full
+ * slots only from about 780dp, which a 1440p phone has, and below about 645dp their icons shrink
+ * to fit. That is still never less than the even split gave them, and letting the buttons win
+ * there would leave the lyrics a quarter of the width or less.
+ *
+ * Lyrics play no part in it, so the controls are the same with them on or off.
+ */
+internal fun landscapeControlsWidth(available: Dp, playButton: Dp, slots: Int, gutter: Dp): Dp {
+    val needed = LandscapeTransportSlot * slots + playButton + PlayButtonGap * 2 + gutter * 2
+    return (available / 2).coerceAtLeast(needed).coerceAtMost(available * 0.62f)
+}
+
+/**
+ * Lays the content out at its natural height, and when that is more than there is room for,
+ * shrinks all of it evenly to fit rather than letting the last rows be squashed.
+ *
+ * The landscape controls are a column of fixed heights, and a Column hands out height in order,
+ * so whatever comes last took the whole shortfall: on a 1440p phone at a larger screen zoom,
+ * about 340dp tall, the buttons under the controls came out less than half their height. Scaled
+ * as a block they lose a few percent each instead, and where everything fits nothing is touched.
+ */
+private fun Modifier.shrinkToFitHeight(): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity))
+    if (!constraints.hasBoundedHeight || placeable.height <= constraints.maxHeight) {
+        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    } else {
+        val scale = constraints.maxHeight.toFloat() / placeable.height
+        layout(placeable.width, constraints.maxHeight) {
+            placeable.placeWithLayer(0, 0) {
+                scaleX = scale
+                scaleY = scale
+                transformOrigin = TransformOrigin(0.5f, 0f)
+            }
+        }
+    }
+}
 
 // Wide enough apart to read as separate buttons that belong together, not one slab with a seam.
 private val ConnectedButtonGap = 6.dp
@@ -1386,6 +1576,127 @@ private fun connectedShape(first: Boolean, last: Boolean): RoundedCornerShape {
         topEnd = if (last) round else inner,
         bottomEnd = if (last) round else inner,
     )
+}
+
+/** How close to the edge of the gutter a leading button may come before the row moves over. */
+private val LeadingEdgeMargin = 8.dp
+
+/**
+ * A row of [buttons] centred in its width, placed exactly as a Row centred and spaced [gap] apart
+ * would place them, with [leading], when there is one, just before the first of them at the same
+ * gap.
+ *
+ * The leading button is left out of the centring on purpose. It is how the queue button joins the
+ * row under the controls without moving lyrics, the sleep timer or the menu, which people press
+ * from memory: those three sit exactly where they do with the queue button off, and it takes the
+ * space in front of lyrics. It may reach into the [gutter] beside the row, up to
+ * [LeadingEdgeMargin] from its edge. Only a phone too narrow even for that, with the timer's time
+ * showing, moves the whole row over, and then by no more than it needs.
+ */
+@Composable
+private fun CentredRowWithLeading(
+    gap: Dp,
+    gutter: Dp,
+    leading: (@Composable () -> Unit)?,
+    modifier: Modifier = Modifier,
+    buttons: @Composable () -> Unit,
+) {
+    Layout(
+        contents = listOf<@Composable () -> Unit>(leading ?: {}, buttons),
+        modifier = modifier,
+    ) { (leadingMeasurables, buttonMeasurables), constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val placeables = buttonMeasurables.map { it.measure(loose) }
+        val lead = leadingMeasurables.firstOrNull()?.measure(loose)
+        val gapPx = gap.roundToPx()
+        val sizes = IntArray(placeables.size) { placeables[it].width }
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth
+        else sizes.sum() + gapPx * (sizes.size - 1).coerceAtLeast(0)
+        val height = constraints.constrainHeight((placeables + listOfNotNull(lead)).maxOfOrNull { it.height } ?: 0)
+
+        // The very arrangement the Row used, so the buttons land on the same pixels as before.
+        val positions = IntArray(placeables.size)
+        with(Arrangement.spacedBy(gap, Alignment.CenterHorizontally)) {
+            arrange(width, sizes, layoutDirection, positions)
+        }
+
+        // Start is on the left in a left-to-right layout and on the right otherwise, and the
+        // arrangement has already mirrored the buttons, so the leading one goes on whichever side
+        // of the first button reads as before it.
+        val reach = (gutter - LeadingEdgeMargin).coerceAtLeast(0.dp).roundToPx()
+        var shift = 0
+        var leadX = 0
+        if (lead != null && placeables.isNotEmpty()) {
+            if (layoutDirection == LayoutDirection.Ltr) {
+                leadX = positions[0] - gapPx - lead.width
+                if (leadX < -reach) shift = -reach - leadX
+            } else {
+                leadX = positions[0] + sizes[0] + gapPx
+                val over = leadX + lead.width - (width + reach)
+                if (over > 0) shift = -over
+            }
+        }
+
+        layout(width, height) {
+            placeables.forEachIndexed { index, placeable -> placeable.place(positions[index] + shift, 0) }
+            lead?.place(leadX + shift, 0)
+        }
+    }
+}
+
+/**
+ * Fades out the end of a line that is too long for its space, and leaves a line that fits alone.
+ *
+ * The title and artists scroll as a marquee, which clips them hard at the edge of their space. With
+ * buttons beside the title that edge is only a few dp from the first button, so a long title
+ * stopped mid-letter right against it and looked as if it carried on underneath. Fading its last
+ * stretch shows the line ending short of the buttons instead.
+ */
+private fun Modifier.fadeWhenClipped(length: Dp = 24.dp): Modifier = this then FadeWhenClippedElement(length)
+
+private data class FadeWhenClippedElement(val length: Dp) : ModifierNodeElement<FadeWhenClippedNode>() {
+    override fun create() = FadeWhenClippedNode(length)
+
+    override fun update(node: FadeWhenClippedNode) {
+        node.length = length
+        node.invalidateDraw()
+    }
+}
+
+private class FadeWhenClippedNode(var length: Dp) : Modifier.Node(), LayoutModifierNode, DrawModifierNode {
+    private var clipped = false
+
+    override fun MeasureScope.measure(measurable: Measurable, constraints: Constraints): MeasureResult {
+        val placeable = measurable.measure(constraints)
+        // A marquee gives the whole width of its text as its widest size while laying itself out
+        // no wider than it is allowed, so the two differ exactly when the line is cut short. A row
+        // of them adds theirs up, which covers the artists as well as the title.
+        val clippedNow = measurable.maxIntrinsicWidth(placeable.height) > placeable.width
+        if (clippedNow != clipped) {
+            clipped = clippedNow
+            invalidateDraw()
+        }
+        return layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    }
+
+    override fun ContentDrawScope.draw() {
+        if (!clipped || size.width <= 0f) {
+            drawContent()
+            return
+        }
+        val fade = length.toPx().coerceAtMost(size.width)
+        val mask = if (layoutDirection == LayoutDirection.Ltr) {
+            Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = size.width - fade, endX = size.width)
+        } else {
+            Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = fade)
+        }
+        // The mask has to act on this line alone, so the line is drawn into a layer of its own
+        // and the mask keeps only as much of it as the gradient allows.
+        drawContext.canvas.saveLayer(size.toRect(), Paint())
+        drawContent()
+        drawRect(brush = mask, blendMode = BlendMode.DstIn)
+        drawContext.canvas.restore()
+    }
 }
 
 /** The classic player button: a 36dp circle, sitting a little low to line up with the title. */
