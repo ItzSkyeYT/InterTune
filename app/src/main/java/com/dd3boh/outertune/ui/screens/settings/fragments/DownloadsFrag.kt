@@ -71,6 +71,7 @@ import com.dd3boh.outertune.utils.dlCoroutine
 import com.dd3boh.outertune.utils.formatFileSize
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
+import com.dd3boh.outertune.utils.scanners.FolderNesting
 import com.dd3boh.outertune.utils.scanners.stringFromUriList
 import com.dd3boh.outertune.utils.scanners.uriListFromString
 import kotlinx.coroutines.Dispatchers
@@ -412,9 +413,9 @@ fun ColumnScope.DownloadsFrag() {
                 tempFilePath = null
             },
             isInputValid = uriListFromString(scanPaths).none {
-                // download path cannot a scan path, or a subdir of a scan path
-                tempFilePath.toString().length <= it.toString().length && tempFilePath.toString()
-                    .contains(it.toString())
+                // download path cannot a scan path, or a subdir of a scan path. The text
+                // comparison this replaced only caught the same folder twice.
+                FolderNesting.isSameOrInside(tempFilePath.toString(), it.toString())
             }
         ) {
 
@@ -434,8 +435,7 @@ fun ColumnScope.DownloadsFrag() {
 
             val valid = uriListFromString(scanPaths).none {
                 // download path cannot a scan path, or a subdir of a scan path
-                tempFilePath.toString().length <= it.toString().length && tempFilePath.toString()
-                    .contains(it.toString())
+                FolderNesting.isSameOrInside(tempFilePath.toString(), it.toString())
             }
 
             Text(

@@ -11,6 +11,7 @@ import androidx.room.Update
 import com.dd3boh.outertune.constants.SongSortType
 import com.dd3boh.outertune.db.DownloadSql
 import com.dd3boh.outertune.db.FavouritesSql
+import com.dd3boh.outertune.db.LocalSql
 import com.dd3boh.outertune.db.entities.PlayCountEntity
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.SongEntity
@@ -230,16 +231,12 @@ interface SongsDao {
     @Query("SELECT count(*) FROM song WHERE isLocal = 1 and inLibrary IS NOT NULL AND localpath LIKE :path || '%'")
     fun localSongCountInPath(path: String): Flow<Int>
 
-    @Query("""
-        SELECT * FROM song
-        WHERE localPath IN (
-            SELECT localPath
-            FROM song
-            GROUP BY localPath
-            HAVING COUNT(*) > 1
-        )
-        ORDER BY localPath
-    """)
+    /**
+     * Local songs sharing a file, for the scan's duplicate sweep, which deletes all but one. Local
+     * songs only: a download in a scan folder is also a local song with the same path, and the
+     * sweep could delete the YouTube song's row, likes and history with it.
+     */
+    @Query(LocalSql.DUPLICATED_LOCAL_SONGS)
     fun duplicatedLocalSongs(): List<SongEntity>
     // endregion
 
