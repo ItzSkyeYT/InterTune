@@ -35,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -77,7 +78,11 @@ fun LoginScreen(
     var accountEmail by rememberPreference(AccountEmailKey, "")
     var accountChannelHandle by rememberPreference(AccountChannelHandleKey, "")
 
-    var webView: WebView? = null
+    // Remembered: as a plain local it was a new, empty holder on every recomposition, so Back never
+    // reached the page. Whether the page can go back is kept beside it, taken from the page's own
+    // history each time it changes, since Compose cannot watch the web view's answer.
+    var webView by remember { mutableStateOf<WebView?>(null) }
+    var canGoBack by remember { mutableStateOf(false) }
     // The page actually showing, for the address above it. A web view with no address is a box
     // that asks for your Google password, and there is no way to tell it from one that is not
     // Google's; the address and its lock are what a browser would show you.
@@ -88,14 +93,15 @@ fun LoginScreen(
     // can ask Android which account to use, with the system's own picker (no permission, and no
     // Play services), and open Google's page with that address already filled in. Google then
     // mostly offers to confirm on this same phone, or a password manager fills the rest.
-    // Null until the picker has answered; empty when it was dismissed or there is nothing to pick,
-    // which opens the page as it always was.
+    // Null until the picker has answered; empty when there is no address to fill in, which opens
+    // the page as it always was.
     val context = LocalContext.current
     var pickedAccount by rememberSaveable { mutableStateOf<String?>(null) }
     val accountPicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        pickedAccount = if (result.resultCode == Activity.RESULT_OK) {
-            result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME).orEmpty()
-        } else ""
+        val picked = if (result.resultCode == Activity.RESULT_OK) {
+            result.data?.getStringExtra(AccountManager.KEY_ACCOUNT_NAME)
+        } else null
+        pickedAccount = accountAfterPicker(pickedAccount, picked)
     }
     // A phone without Google's services has no such account type, and would be sent to an empty
     // picker. Asking which types exist needs no permission.
@@ -137,88 +143,98 @@ fun LoginScreen(
                 onAnotherAccount = { pickedAccount = "" },
             )
         }
-        // The page is created once, with the first answer. A later one, from Switch or Another
-        // account, loads Google's page again with the new address, or with none.
-        var loadedFor by remember { mutableStateOf<String?>(null) }
-        LaunchedEffect(email) {
-            val view = webView ?: return@LaunchedEffect
-            if (email != null && loadedFor != null && email != loadedFor) {
-                loadedFor = email
-                view.loadUrl(loginUrl(email))
-            }
-        }
         // Held back until the picker has answered, so the page loads once, with the address in it.
-        if (email != null) AndroidView(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f),
-            factory = { context ->
-                WebView(context).apply {
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
-                            if (url != null) currentUrl = url
-                        }
+        // Each later answer, from Switch, Another account or Pick one, gets a page of its own, so
+        // Back cannot return to steps taken for the account before, under the new one's name.
+        if (email != null) key(email) {
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                factory = { context ->
+                    WebView(context).apply {
+                        webViewClient = object : WebViewClient() {
+                            override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                                // A page given up for another account says nothing about this one.
+                                if (view !== webView) return
+                                if (url != null) currentUrl = url
+                            }
 
-                        // Google's sign-in moves between steps without loading a new page, so the
-                        // address is also read from the history it pushes.
-                        override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
-                            if (url != null) currentUrl = url
-                        }
+                            // Google's sign-in moves between steps without loading a new page, so
+                            // the address is also read from the history it pushes.
+                            override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+                                if (view !== webView) return
+                                if (url != null) currentUrl = url
+                                canGoBack = view.canGoBack()
+                            }
 
-                        override fun onPageFinished(view: WebView, url: String?) {
-                            loadUrl("javascript:Android.onRetrieveVisitorData(window.yt.config_.VISITOR_DATA)")
-                            loadUrl("javascript:Android.onRetrieveDataSyncId(window.yt.config_.DATASYNC_ID)")
+                            override fun onPageFinished(view: WebView, url: String?) {
+                                if (view !== webView) return
+                                canGoBack = view.canGoBack()
+                                loadUrl("javascript:Android.onRetrieveVisitorData(window.yt.config_.VISITOR_DATA)")
+                                loadUrl("javascript:Android.onRetrieveDataSyncId(window.yt.config_.DATASYNC_ID)")
 
-                            if (url?.startsWith("https://music.youtube.com") == true) {
-                                innerTubeCookie = CookieManager.getInstance().getCookie(url)
-                                GlobalScope.launch {
-                                    YouTube.accountInfo().onSuccess {
-                                        accountName = it.name
-                                        accountEmail = it.email.orEmpty()
-                                        accountChannelHandle = it.channelHandle.orEmpty()
-                                    }.onFailure {
-                                        reportException(it)
+                                if (url?.startsWith("https://music.youtube.com") == true) {
+                                    innerTubeCookie = CookieManager.getInstance().getCookie(url)
+                                    GlobalScope.launch {
+                                        YouTube.accountInfo().onSuccess {
+                                            accountName = it.name
+                                            accountEmail = it.email.orEmpty()
+                                            accountChannelHandle = it.channelHandle.orEmpty()
+                                        }.onFailure {
+                                            reportException(it)
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                    settings.apply {
-                        javaScriptEnabled = true
-                        setSupportZoom(true)
-                        builtInZoomControls = true
-                    }
-                    // Asked for rather than left to the default, so a password manager, Google's
-                    // included, offers to fill the sign-in: one tap instead of typing a password.
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
-                    }
-                    addJavascriptInterface(object {
-                        @JavascriptInterface
-                        fun onRetrieveVisitorData(newVisitorData: String?) {
-                            if (newVisitorData != null) {
-                                visitorData = newVisitorData
-                            }
+                        settings.apply {
+                            javaScriptEnabled = true
+                            setSupportZoom(true)
+                            builtInZoomControls = true
                         }
-                        @JavascriptInterface
-                        fun onRetrieveDataSyncId(newDataSyncId: String?) {
-                            if (newDataSyncId != null) {
-                                dataSyncId = newDataSyncId.substringBefore("||")
-                            }
+                        // Asked for rather than left to the default, so a password manager,
+                        // Google's included, offers to fill the sign-in: one tap instead of
+                        // typing a password.
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
                         }
-                    }, "Android")
-                    webView = this
-                    loadedFor = email
-                    loadUrl(loginUrl(email))
-                }
-            }
-        )
+                        addJavascriptInterface(object {
+                            @JavascriptInterface
+                            fun onRetrieveVisitorData(newVisitorData: String?) {
+                                if (newVisitorData != null) {
+                                    visitorData = newVisitorData
+                                }
+                            }
+                            @JavascriptInterface
+                            fun onRetrieveDataSyncId(newDataSyncId: String?) {
+                                if (newDataSyncId != null) {
+                                    dataSyncId = newDataSyncId.substringBefore("||")
+                                }
+                            }
+                        }, "Android")
+                        webView = this
+                        canGoBack = false
+                        loadUrl(loginUrl(email))
+                    }
+                },
+                // Closed rather than left running unseen, when it is given up for another account
+                // or the screen is left: Google's page for the account before could otherwise go
+                // on waiting for a confirmation on the phone.
+                onRelease = { view ->
+                    if (webView === view) webView = null
+                    view.destroy()
+                },
+            )
+        }
     }
 
     FloatingTopBar(title = stringResource(R.string.login), navController = navController)
 
-    BackHandler(enabled = webView?.canGoBack() == true) {
-        webView?.goBack()
+    BackHandler(enabled = canGoBack) {
+        // Asked again, so an answer gone stale cannot keep Back on this screen.
+        val view = webView
+        if (view != null && view.canGoBack()) view.goBack() else navController.navigateUp()
     }
 }
 
@@ -228,6 +244,15 @@ private const val GOOGLE_ACCOUNT_TYPE = "com.google"
 /** Google's sign-in, with the address to sign in as filled in when one was picked. */
 private fun loginUrl(email: String): String =
     if (email.isEmpty()) LOGIN_URL else LOGIN_URL + "&Email=" + Uri.encode(email)
+
+/**
+ * The account Google's page is for once the picker has answered [picked], which is null or empty
+ * when it was dismissed or came back without one. A dismissed Switch keeps the account picked
+ * before it rather than dropping it; the first picker dismissed opens the page with nothing filled
+ * in.
+ */
+internal fun accountAfterPicker(previous: String?, picked: String?): String =
+    if (!picked.isNullOrEmpty()) picked else previous ?: ""
 
 /**
  * The address of the page being shown, with a lock when the connection is encrypted, and one line
