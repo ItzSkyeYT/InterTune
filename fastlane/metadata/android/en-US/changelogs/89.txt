@@ -4,6 +4,6 @@ Version 0.10.9.5
 - Opening a question or news is counted once, anonymously.
 - Lyrics are found for songs played from search.
 - The player's buttons keep their size with lyrics on, and a long title fades out before them.
-- The queue can open from a button instead (Settings, Interface).
+- The queue can open from a button instead (Settings, Look and feel).
 
 Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.10.9.5

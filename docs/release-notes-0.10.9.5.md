@@ -15,6 +15,6 @@ A small update on top of 0.10.9, so the Discord server can reach you before 0.11
 
 ## New, off by default
 
-- **Queue button** (Settings > Interface, under the swipe gestures): opens the queue from a button beside the title instead of pulling it up from the bottom of the player. Like and the menu stay where they are.
+- **Queue button** (Settings > Look and feel, under Behavior, with the swipe gestures): opens the queue from a button beside the title instead of pulling it up from the bottom of the player. Like and the menu stay where they are.
 
 Nothing else changed.
