@@ -231,17 +231,6 @@ fun LocalPlaylistScreen(
         snapshotFlow { searchQuery }.debounce { 300L }.collectLatest {
             if (searchQuery.text != query.text) {
                 searchQuery = query
-
-                if (!searchQuery.text.isEmpty()) {
-                    mutableSongs.clear()
-                    mutableSongs.addAll(
-                        playlistWithSongs.second.filter { song ->
-                            song.song.title.contains(searchQuery.text, ignoreCase = true) || song.song.artists.fastAny {
-                                it.name.contains(searchQuery.text, ignoreCase = true)
-                            }
-                        }
-                    )
-                }
             }
         }
     }
@@ -258,12 +247,17 @@ fun LocalPlaylistScreen(
     val editable: Boolean =
         playlistWithSongs.first?.playlist?.isLocal == true || (playlistWithSongs.first?.playlist?.isEditable == true && syncMode == SyncMode.RW)
 
-    LaunchedEffect(playlistWithSongs.second, isSearching) {
-        if (!isSearching) {
-            mutableSongs.apply {
-                clear()
-                addAll(playlistWithSongs.second)
-            }
+    // Rebuilt from the playlist whenever it changes, during a search as well. A search used to be
+    // filtered only when its text changed, so its rows kept the positions they were drawn with: a
+    // song removed from the results stayed listed, and the next removal from them moved whichever
+    // song had since shifted into the old position, usually one the search was hiding.
+    LaunchedEffect(playlistWithSongs.second, isSearching, searchQuery.text) {
+        mutableSongs.apply {
+            clear()
+            addAll(
+                if (isSearching) playlistSearchResults(playlistWithSongs.second, searchQuery.text)
+                else playlistWithSongs.second
+            )
         }
     }
 
@@ -1073,3 +1067,19 @@ fun LocalPlaylistHeader(
         }
     }
 }
+
+/**
+ * The songs a search of a playlist shows: those with [query] in the title or in an artist's name,
+ * ignoring case, in the playlist's own order. An empty query shows the whole playlist, as the
+ * search does when it first opens.
+ *
+ * A function of the playlist as it is now, so the screen can rebuild the results every time the
+ * playlist changes rather than only when the query does.
+ */
+fun playlistSearchResults(songs: List<PlaylistSong>, query: String): List<PlaylistSong> =
+    if (query.isEmpty()) songs
+    else songs.filter { song ->
+        song.song.title.contains(query, ignoreCase = true) || song.song.artists.fastAny {
+            it.name.contains(query, ignoreCase = true)
+        }
+    }

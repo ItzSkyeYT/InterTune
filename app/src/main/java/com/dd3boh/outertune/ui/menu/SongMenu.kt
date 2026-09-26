@@ -257,8 +257,15 @@ fun SongMenu(
                 title = R.string.remove_from_playlist
             ) {
                 database.transaction {
-                    move(playlistSong.map.playlistId, playlistSong.map.position, Int.MAX_VALUE)
-                    delete(playlistSong.map.copy(position = Int.MAX_VALUE))
+                    // Where the row is now, found by its id, rather than the position it was drawn
+                    // with, which can be out of date. A playlist search went on showing rows drawn
+                    // before an earlier removal closed up the positions behind it, and moving by
+                    // one of those sent a song the search was not even showing to the bottom and
+                    // left a gap. A row that has already gone is left alone rather than moving
+                    // whatever took its place.
+                    val map = playlistSongMapById(playlistSong.map.id) ?: return@transaction
+                    move(map.playlistId, map.position, Int.MAX_VALUE)
+                    delete(map.copy(position = Int.MAX_VALUE))
                 }
 
                 coroutineScope.launch {
