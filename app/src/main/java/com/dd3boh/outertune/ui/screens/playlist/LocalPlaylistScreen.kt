@@ -231,17 +231,6 @@ fun LocalPlaylistScreen(
         snapshotFlow { searchQuery }.debounce { 300L }.collectLatest {
             if (searchQuery.text != query.text) {
                 searchQuery = query
-
-                if (!searchQuery.text.isEmpty()) {
-                    mutableSongs.clear()
-                    mutableSongs.addAll(
-                        playlistWithSongs.second.filter { song ->
-                            song.song.title.contains(searchQuery.text, ignoreCase = true) || song.song.artists.fastAny {
-                                it.name.contains(searchQuery.text, ignoreCase = true)
-                            }
-                        }
-                    )
-                }
             }
         }
     }
@@ -258,12 +247,17 @@ fun LocalPlaylistScreen(
     val editable: Boolean =
         playlistWithSongs.first?.playlist?.isLocal == true || (playlistWithSongs.first?.playlist?.isEditable == true && syncMode == SyncMode.RW)
 
-    LaunchedEffect(playlistWithSongs.second, isSearching) {
-        if (!isSearching) {
-            mutableSongs.apply {
-                clear()
-                addAll(playlistWithSongs.second)
-            }
+    // Rebuilt from the playlist whenever it changes, during a search as well. A search used to be
+    // filtered only when its text changed, so its rows kept the positions they were drawn with: a
+    // song removed from the results stayed listed, and the next removal from them moved whichever
+    // song had since shifted into the old position, usually one the search was hiding.
+    LaunchedEffect(playlistWithSongs.second, isSearching, searchQuery.text) {
+        mutableSongs.apply {
+            clear()
+            addAll(
+                if (isSearching) playlistSearchResults(playlistWithSongs.second, searchQuery.text)
+                else playlistWithSongs.second
+            )
         }
     }
 
@@ -420,45 +414,25 @@ fun LocalPlaylistScreen(
     LaunchedEffect(reorderableState.isAnyItemDragging) {
         if (!reorderableState.isAnyItemDragging) {
             dragInfo?.let { (from, to) ->
+                // The moves for YouTube Music are worked out here, from the order on screen, before
+                // the local move is even queued. They used to come from reading the database back
+                // afterwards on the assumption that it still held the old order, but the move runs
+                // on Room's own thread and nothing waited for it, so the read could land on either
+                // side of it. Landing after, it picked out whichever song had shifted into the
+                // dragged one's old place and moved that on YouTube, in front of the wrong song.
+                val youTubeMoves = if (playlistWithSongs.first?.playlist?.isLocal == false) {
+                    youTubeMovesAfterDrag(mutableSongs.map { it.map.setVideoId }, from, to)
+                } else {
+                    emptyList()
+                }
                 database.transaction {
                     move(viewModel.playlistId, from, to)
                 }
-                if (playlistWithSongs.first?.playlist?.isLocal == false) {
+                if (youTubeMoves.isNotEmpty()) {
                     viewModel.viewModelScope.launch(Dispatchers.IO) {
-                        val from = from
-                        val to = to
-                        val playlistSongMap = database.songMapsToPlaylist(viewModel.playlistId, 0)
-
-                        var fromIndex = from //- headerItems
-                        val toIndex = to //- headerItems
-
-                        var successorIndex = if (fromIndex > toIndex) toIndex else toIndex + 1
-
-                        /*
-                        * Because of how YouTube Music handles playlist changes, you necessarily need to
-                        * have the SetVideoId of the successor when trying to move a song inside of a
-                        * playlist.
-                        * For this reason, if we are trying to move a song to the last element of a playlist,
-                        * we need to first move it as penultimate and then move the last element before it.
-                        */
-                        if (successorIndex >= playlistSongMap.size) {
-                            playlistSongMap[fromIndex].setVideoId?.let { setVideoId ->
-                                playlistSongMap[toIndex].setVideoId?.let { successorSetVideoId ->
-                                    playlistWithSongs.first?.playlist?.browseId?.let { browseId ->
-                                        YouTube.moveSongPlaylist(browseId, setVideoId, successorSetVideoId)
-                                    }
-                                }
-                            }
-
-                            successorIndex = fromIndex
-                            fromIndex = toIndex
-                        }
-
-                        playlistSongMap[fromIndex].setVideoId?.let { setVideoId ->
-                            playlistSongMap[successorIndex].setVideoId?.let { successorSetVideoId ->
-                                playlistWithSongs.first?.playlist?.browseId?.let { browseId ->
-                                    YouTube.moveSongPlaylist(browseId, setVideoId, successorSetVideoId)
-                                }
+                        playlistWithSongs.first?.playlist?.browseId?.let { browseId ->
+                            youTubeMoves.forEach { (setVideoId, successorSetVideoId) ->
+                                YouTube.moveSongPlaylist(browseId, setVideoId, successorSetVideoId)
                             }
                         }
                     }
@@ -1072,4 +1046,45 @@ fun LocalPlaylistHeader(
             }
         }
     }
+}
+
+/**
+ * The songs a search of a playlist shows: those with [query] in the title or in an artist's name,
+ * ignoring case, in the playlist's own order. An empty query shows the whole playlist, as the
+ * search does when it first opens.
+ *
+ * A function of the playlist as it is now, so the screen can rebuild the results every time the
+ * playlist changes rather than only when the query does.
+ */
+fun playlistSearchResults(songs: List<PlaylistSong>, query: String): List<PlaylistSong> =
+    if (query.isEmpty()) songs
+    else songs.filter { song ->
+        song.song.title.contains(query, ignoreCase = true) || song.song.artists.fastAny {
+            it.name.contains(query, ignoreCase = true)
+        }
+    }
+
+/**
+ * What to send YouTube Music after a drag: pairs of a song's set-video id and the set-video id of
+ * the song it should now sit directly in front of, in the order they are to be sent.
+ *
+ * [setVideoIds] is the playlist in its order after the drag, the order on screen, with the song
+ * dragged from [from] now at [to]. Working from that rather than from the database is the point:
+ * the local move is written on another thread, and a read straight after it could see either the
+ * old order or the new one.
+ *
+ * YouTube Music can only put a song in front of another one. A song dragged to the very end has
+ * nothing after it, so it first goes in front of the song that is now last but one, and that song
+ * is then put back in front of it. A song with no set-video id, such as one added here and not yet
+ * synced back, cannot be named to YouTube, so then nothing is sent at all.
+ */
+fun youTubeMovesAfterDrag(setVideoIds: List<String?>, from: Int, to: Int): List<Pair<String, String>> {
+    if (from == to || from !in setVideoIds.indices || to !in setVideoIds.indices) return emptyList()
+    val moved = setVideoIds[to] ?: return emptyList()
+    if (to < setVideoIds.lastIndex) {
+        val successor = setVideoIds[to + 1] ?: return emptyList()
+        return listOf(moved to successor)
+    }
+    val lastButOne = setVideoIds[to - 1] ?: return emptyList()
+    return listOf(moved to lastButOne, lastButOne to moved)
 }

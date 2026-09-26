@@ -12,6 +12,7 @@ import androidx.sqlite.db.SimpleSQLiteQuery
 import androidx.sqlite.db.SupportSQLiteQuery
 import com.dd3boh.outertune.constants.PlaylistFilter
 import com.dd3boh.outertune.constants.PlaylistSortType
+import com.dd3boh.outertune.db.PlaylistSql
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.db.entities.PlaylistSong
@@ -69,6 +70,13 @@ interface PlaylistsDao {
     @Transaction
     @Query("SELECT * FROM playlist_song_map WHERE playlistId = :playlistId AND songId = :songId LIMIT 1")
     fun playlistSongMap(playlistId: String, songId: String): Flow<PlaylistSongMap?>
+
+    /**
+     * One map row as it is now, by its id. A removal reads this inside its transaction, because the
+     * position a row on screen was drawn with can be out of date by the time it is tapped.
+     */
+    @Query(PlaylistSql.MAP_BY_ID)
+    fun playlistSongMapById(id: Int): PlaylistSongMap?
 
     @Transaction
     @Query("""
@@ -236,17 +244,7 @@ interface PlaylistsDao {
     fun playlistDesync(playlistId: String)
 
     @Transaction
-    @Query(
-        """
-        UPDATE playlist_song_map SET position = 
-            CASE 
-                WHEN position < :fromPosition THEN position + 1
-                WHEN position > :fromPosition THEN position - 1
-                ELSE :toPosition
-            END 
-        WHERE playlistId = :playlistId AND position BETWEEN MIN(:fromPosition, :toPosition) AND MAX(:fromPosition, :toPosition)
-    """
-    )
+    @Query(PlaylistSql.MOVE)
     fun move(playlistId: String, fromPosition: Int, toPosition: Int)
     // endregion
 
