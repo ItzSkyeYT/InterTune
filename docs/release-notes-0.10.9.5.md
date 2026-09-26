@@ -11,5 +11,10 @@ A small update on top of 0.10.9, so the Discord server can reach you before 0.11
 
 - **Lyrics** were often missing for songs started from search, even obvious ones, and every song was looked up twice. Songs named in Chinese or Japanese now find their lyrics on KuGou whichever script they are written in.
 - **The player's buttons** no longer shrink when lyrics are on.
+- **A long title** fades out before the buttons beside it, instead of stopping mid-letter against them as if it ran on underneath.
+
+## New, off by default
+
+- **Queue button** (Settings > Interface, under the swipe gestures): opens the queue from a button beside the title instead of pulling it up from the bottom of the player. Like and the menu stay where they are.
 
 Nothing else changed.
