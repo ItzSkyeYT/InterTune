@@ -1104,4 +1104,144 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$d more song waiting, picked from what you play next</item>
         <item quantity="other">%1$d more songs waiting, picked from what you play next</item>
     </plurals>
+<!--
+  Stats: what the page says about your listening, above the Most played lists. English only; other
+  languages fall back to these. Numbers, dates and times arrive already formatted for the phone's
+  locale, as %s. A count that changes a word goes through its own plural, such as stats_times, and
+  the sentence takes the result. The sentences are read without their arguments and filled in on
+  screen, so the names and numbers in them can be set in bold.
+-->
+    <!-- %1$s is a number of hours, %2$d of minutes. The spaces inside each are non-breaking, so a
+    large font wraps between the hours and the minutes, never between a number and its unit. -->
+    <string name="stats_duration_hours_minutes">%1$s\u00A0h %2$d\u00A0min</string>
+    <string name="stats_duration_hours">%1$s\u00A0h</string>
+    <string name="stats_duration_minutes">%1$d\u00A0min</string>
+    <!-- Under the listening time for the period, as in "27 h 12 min of music in the last week". -->
+    <string name="stats_summary_week">of music in the last week</string>
+    <string name="stats_summary_month">of music in the last month</string>
+    <string name="stats_summary_3_months">of music in the last 3 months</string>
+    <string name="stats_summary_6_months">of music in the last 6 months</string>
+    <string name="stats_summary_year">of music in the last year</string>
+    <!-- %1$s is the date the listening log begins, for All and for any period that reaches back past it. -->
+    <string name="stats_summary_since">of music since %1$s</string>
+    <!-- The period just before the one picked, for the stats_change strings. -->
+    <string name="stats_before_week">the week before</string>
+    <string name="stats_before_month">the month before</string>
+    <string name="stats_before_3_months">the 3 months before</string>
+    <string name="stats_before_6_months">the 6 months before</string>
+    <string name="stats_before_year">the year before</string>
+    <!-- %1$s is a percentage, %2$s one of the stats_before strings. -->
+    <string name="stats_change_up">Up %1$s on %2$s</string>
+    <string name="stats_change_down">Down %1$s on %2$s</string>
+    <!-- %1$s is one of the stats_before strings. -->
+    <string name="stats_change_same">About the same as %1$s</string>
+    <string name="stats_change_twice">Twice as much as %1$s</string>
+    <!-- %1$s is a number such as 2.5, %2$s one of the stats_before strings. -->
+    <string name="stats_change_times">%1$s times as much as %2$s</string>
+    <plurals name="stats_songs">
+        <item quantity="one">%1$s song</item>
+        <item quantity="other">%1$s songs</item>
+    </plurals>
+    <plurals name="stats_artists">
+        <item quantity="one">%1$s artist</item>
+        <item quantity="other">%1$s artists</item>
+    </plurals>
+    <!-- %1$s is a length of time: the period's listening, spread evenly over its days. -->
+    <string name="stats_per_day">About %1$s a day</string>
+    <!-- %1$s is stats_songs, %2$s is stats_artists: "1,239 songs by 851 artists". -->
+    <string name="stats_songs_by_artists">%1$s by %2$s</string>
+    <string name="stats_hours_title">When you listen</string>
+    <!-- %1$s is an hour of the day, such as 6 pm. -->
+    <string name="stats_hours_peak">You listen most around %1$s.</string>
+    <!-- Read out for the chart: %1$s is stats_hours_peak. -->
+    <string name="stats_hours_chart_description">Listening by hour of the day. %1$s</string>
+
+    <plurals name="stats_times">
+        <item quantity="one">%1$s time</item>
+        <item quantity="other">%1$s times</item>
+    </plurals>
+    <plurals name="stats_days">
+        <item quantity="one">%1$s day</item>
+        <item quantity="other">%1$s days</item>
+    </plurals>
+    <plurals name="stats_plays">
+        <item quantity="one">%1$s play</item>
+        <item quantity="other">%1$s plays</item>
+    </plurals>
+    <plurals name="stats_new_artists">
+        <item quantity="one">%1$s artist was</item>
+        <item quantity="other">%1$s artists were</item>
+    </plurals>
+    <!-- %1$s is a song, %2$s is stats_times, %3$s a date. -->
+    <string name="stats_song_of_the_day">You played %1$s %2$s on %3$s.</string>
+    <!-- The same, when most of them were back to back; %4$s is how many. -->
+    <string name="stats_song_of_the_day_in_a_row">You played %1$s %2$s on %3$s, %4$s of them in a row.</string>
+    <!-- %1$s is a song, %2$s is stats_times, %3$s a date. -->
+    <string name="stats_on_repeat">You played %1$s %2$s in a row on %3$s.</string>
+    <!-- %1$s is stats_days, %2$s a song, %3$s is stats_plays. -->
+    <string name="stats_comeback">After %1$s away, %2$s is back, with %3$s since.</string>
+    <!-- %1$s is a song, %2$s a date, %3$s is stats_times. -->
+    <string name="stats_top_song_found">You found your top song, %1$s, on %2$s, and have played it %3$s since.</string>
+    <!-- %1$s is a song, %2$s is stats_days, %3$s a date. -->
+    <string name="stats_song_streak">You played %1$s on %2$s in a row, starting %3$s.</string>
+    <!-- %1$s is a percentage. -->
+    <string name="stats_new_to_you">%1$s of your listening went to songs you had never played before.</string>
+    <!-- %1$s is a percentage, %2$s is stats_new_artists. -->
+    <string name="stats_new_to_you_artists">%1$s of your listening went to songs you had never played before, and %2$s new to you.</string>
+    <!-- %1$s is an artist, %2$s a date, %3$s is stats_plays. -->
+    <string name="stats_best_find">Your best new find is %1$s: first played on %2$s, %3$s since.</string>
+    <!-- Both are percentages. -->
+    <string name="stats_skips">You skipped %1$s of the songs you started, and heard %2$s to the end.</string>
+    <!-- %1$s is a song, %2$s and %3$s are stats_times. -->
+    <string name="stats_love_hate">You skipped %1$s %2$s, and still played it through %3$s.</string>
+    <!-- %1$s is an artist, %2$s and %3$s are percentages. -->
+    <string name="stats_always_finish">You hear %1$s to the end %2$s of the time, against %3$s overall.</string>
+    <!-- Where listening was started from. %1$s is a percentage. -->
+    <string name="stats_source_quick_picks">%1$s of your listening started from Quick picks.</string>
+    <string name="stats_source_radio">%1$s of your listening started from a radio.</string>
+    <string name="stats_source_search">%1$s of your listening started with a search.</string>
+    <string name="stats_source_library">%1$s of your listening started from your library and playlists.</string>
+    <string name="stats_source_home">%1$s of your listening started from a row on Home.</string>
+    <string name="stats_source_recognised">%1$s of your listening started from a song you recognised.</string>
+    <!-- Beside the bar that splits listening by where it started, with Quick picks, Radio, Search, Library and Home. -->
+    <string name="stats_source_label_recognised">Recognised</string>
+    <string name="stats_source_label_other">Other</string>
+    <!-- %1$s is a percentage. -->
+    <string name="stats_weekends_more">You listen %1$s more on weekends than on weekdays.</string>
+    <string name="stats_weekends_twice">On weekends you listen twice as much as on weekdays.</string>
+    <!-- %1$s is a number such as 2.5. -->
+    <string name="stats_weekends_times">On weekends you listen %1$s times as much as on weekdays.</string>
+    <string name="stats_weekdays_more">You listen %1$s more on weekdays than on weekends.</string>
+    <string name="stats_weekdays_twice">On weekdays you listen twice as much as on weekends.</string>
+    <string name="stats_weekdays_times">On weekdays you listen %1$s times as much as on weekends.</string>
+    <!-- %1$s is a date, %2$s a length of time. -->
+    <string name="stats_biggest_day">Your biggest day was %1$s, with %2$s of music.</string>
+    <!-- %1$s is a length of time, %2$s a date. -->
+    <string name="stats_longest_session">Your longest session ran to %1$s of music, on %2$s.</string>
+    <!-- %1$s is how many nights, %2$s the latest time. -->
+    <plurals name="stats_late_nights">
+        <item quantity="one">You were listening past midnight on %1$s night, at %2$s.</item>
+        <item quantity="other">You were listening past midnight on %1$s nights, the latest at %2$s.</item>
+    </plurals>
+    <!-- %1$s is an artist, %2$s a percentage, %3$s and %4$s times of day. -->
+    <string name="stats_night_artist">%1$s is your late-night artist: %2$s of their plays come between %3$s and %4$s.</string>
+    <!-- %1$s is stats_days, %2$s and %3$s dates. -->
+    <string name="stats_every_day">You listened %1$s in a row, from %2$s to %3$s.</string>
+    <!-- %1$s is an artist, %2$s how many weeks they were played in, out of %3$s. -->
+    <plurals name="stats_loyal">
+        <item quantity="one">You played %1$s in %2$s of the last %3$s week.</item>
+        <item quantity="other">You played %1$s in %2$s of the last %3$s weeks.</item>
+    </plurals>
+    <!-- The same, when that is every one of them: %1$s is an artist, %2$s how many weeks. -->
+    <plurals name="stats_loyal_every">
+        <item quantity="one">You played %1$s in every one of the last %2$s week.</item>
+        <item quantity="other">You played %1$s in every one of the last %2$s weeks.</item>
+    </plurals>
+    <!-- Under a finding about skips or sources, which the app only started recording at a later date than the period begins. -->
+    <string name="stats_known_since">Only known since %1$s.</string>
+    <plurals name="stats_show_more">
+        <item quantity="one">Show %1$s more</item>
+        <item quantity="other">Show %1$s more</item>
+    </plurals>
+    <string name="stats_show_fewer">Show fewer</string>
 </resources>

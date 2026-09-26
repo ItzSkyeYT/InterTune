@@ -9,6 +9,12 @@ package com.dd3boh.outertune.db.daos
 import com.dd3boh.outertune.db.entities.EngineWeight
 import com.dd3boh.outertune.engine.EngineSql
 import com.dd3boh.outertune.db.RelatedSql
+import com.dd3boh.outertune.db.StatsSql
+import com.dd3boh.outertune.stats.StatsBounds
+import com.dd3boh.outertune.stats.StatsListen
+import com.dd3boh.outertune.stats.StatsSongArtist
+import com.dd3boh.outertune.stats.StatsSongBefore
+import com.dd3boh.outertune.stats.StatsTotals
 import com.dd3boh.outertune.db.entities.RecommendationExclusion
 import com.dd3boh.outertune.engine.EngineSeedsRow
 import com.dd3boh.outertune.engine.EngineExclusionRow
@@ -318,6 +324,23 @@ interface ListenDao {
 
     @Query("SELECT COUNT(*) FROM impression WHERE buildId = :buildId AND slot < 0")
     fun poolPicksOf(buildId: Long): Int
+
+    // ---- The Stats page's insights, see stats/ListeningInsights.kt. Plain reads, once for each
+    // period picked, never observed: a Flow here would work it all out again on every write.
+    @Query(StatsSql.LISTENS)
+    fun statsListens(from: Long): List<StatsListen>
+
+    @Query(StatsSql.SONG_ARTISTS)
+    fun statsSongArtists(): List<StatsSongArtist>
+
+    @Query(StatsSql.SONGS_BEFORE)
+    fun statsSongsBefore(before: Long): List<StatsSongBefore>
+
+    @Query(StatsSql.TOTALS)
+    fun statsTotals(from: Long, to: Long): StatsTotals
+
+    @Query(StatsSql.BOUNDS)
+    fun statsBounds(): StatsBounds
 
     data class CodeCount(val code: Int, val n: Int)
 

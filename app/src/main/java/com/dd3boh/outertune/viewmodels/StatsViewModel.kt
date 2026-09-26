@@ -1,23 +1,43 @@
 package com.dd3boh.outertune.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.constants.StatPeriod
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.db.entities.ArtistEntity
+import com.dd3boh.outertune.db.entities.Song
+import com.dd3boh.outertune.stats.ListeningInsights
+import com.dd3boh.outertune.stats.ListeningStats
+import com.dd3boh.outertune.stats.StatsInput
 import com.dd3boh.outertune.utils.reportException
 import com.zionhuang.innertube.YouTube
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Duration
 import java.time.LocalDateTime
+import java.time.ZonedDateTime
 import javax.inject.Inject
+
+/** What the page says about one period, with the songs and artists it names, read once. */
+data class PeriodInsights(
+    val period: StatPeriod,
+    val stats: ListeningStats,
+    val songs: Map<String, Song>,
+    val artists: Map<String, ArtistEntity>,
+)
 
 // redoing this whole feature later, plz ignore the slop code
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -25,6 +45,8 @@ import javax.inject.Inject
 class StatsViewModel @Inject constructor(
     val database: MusicDatabase,
 ) : ViewModel() {
+    private val TAG = StatsViewModel::class.simpleName.toString()
+
     val statPeriod = MutableStateFlow(StatPeriod.`1_WEEK`)
 
     val mostPlayedSongs = statPeriod.flatMapLatest { period ->
@@ -42,6 +64,60 @@ class StatsViewModel @Inject constructor(
     val mostPlayedAlbums = statPeriod.flatMapLatest { period ->
         database.mostPlayedAlbums(period.toTimeMillis())
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    // Touched only from the collector below, which runs on the main thread.
+    private val insightsCache = HashMap<StatPeriod, PeriodInsights>()
+
+    /**
+     * What the page says about the period picked, above the lists.
+     *
+     * One pass the first time each period is picked, kept for as long as this view model lives,
+     * and made from plain reads of the listen log rather than Room flows. The log is written on
+     * every play, and this view model lives on while the stats screen sits on the back stack with
+     * the phone asleep, so anything observing it would work the whole page out again after every
+     * song; the passes in init below are what that cost here before. Picking a period is a tap,
+     * and a tap is when this runs. Null until the first pass is done. A read that failed shows
+     * nothing and is not kept, so picking the period again tries again.
+     */
+    val insights: StateFlow<PeriodInsights?> = statPeriod.mapLatest { period ->
+        insightsCache[period] ?: readInsights(period)?.also { insightsCache[period] = it }
+            ?: PeriodInsights(period, ListeningStats.EMPTY, emptyMap(), emptyMap())
+    }.stateIn(viewModelScope, SharingStarted.Lazily, null)
+
+    private suspend fun readInsights(period: StatPeriod): PeriodInsights? = withContext(Dispatchers.IO) {
+        try {
+            val started = System.nanoTime()
+            val now = ZonedDateTime.now()
+            val nowMs = now.toInstant().toEpochMilli()
+            val start = period.startMillis(now)
+            val listens = database.statsListens(start)
+            val stats = ListeningInsights.compute(
+                StatsInput(
+                    now = nowMs,
+                    nowOffsetMin = now.offset.totalSeconds / 60,
+                    periodStart = start,
+                    listens = listens,
+                    before = if (start > 0) database.statsSongsBefore(start) else emptyList(),
+                    artists = database.statsSongArtists().associate { it.songId to it.artistId },
+                    previous = if (start > 0) database.statsTotals(start - (nowMs - start), start) else null,
+                    bounds = database.statsBounds(),
+                )
+            )
+            // Only what the findings name: a handful of songs and artists, for pictures and taps.
+            val songIds = stats.insights.mapNotNull { it.songId }.distinct()
+            val songs = if (songIds.isEmpty()) emptyMap() else database.songsByIds(songIds).first().associateBy { it.id }
+            val artists = stats.insights.mapNotNull { it.artistId }.distinct()
+                .mapNotNull { database.artistById(it) }
+                .associateBy { it.id }
+            Log.d(TAG, "Insights for $period: ${listens.size} listens, ${stats.insights.size} findings, ${(System.nanoTime() - started) / 1_000_000} ms")
+            PeriodInsights(period, stats, songs, artists)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            reportException(e)
+            null
+        }
+    }
 
     init {
         // fetch missing artist metadata
