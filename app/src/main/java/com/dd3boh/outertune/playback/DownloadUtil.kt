@@ -14,6 +14,7 @@ import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheSpan
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.offline.DefaultDownloadIndex
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadNotificationHelper
@@ -686,6 +687,7 @@ class DownloadUtil @Inject constructor(
 
             // copy all completed downloads
             val toMigrate = downloadedSongs.filter { it.value.state == Download.STATE_COMPLETED }
+            val migratedIndex = DefaultDownloadIndex(databaseProvider)
             toMigrate.forEach { s ->
                 if (runs++ % 10 == 0) {
                     Log.d(TAG, "Migrating download: $runs/${toMigrate.size}")
@@ -697,11 +699,23 @@ class DownloadUtil @Inject constructor(
                 }
                 val songFromCache = getFromCache(downloadCache, s.key)
                 if (songFromCache != null) {
+                    // The file is written, and checked, before anything of the old copy goes. The
+                    // cache used to be emptied first and a failed write swallowed, so a folder
+                    // that refused the file cost the song outright.
+                    val displayName = database.song(s.key).first()?.title ?: ""
+                    val saved = localMgr.getFilePathIfExists(s.key) ?: runCatching {
+                        localMgr.saveFile(s.key, songFromCache.inputStream(), displayName)
+                    }.onFailure { reportException(it) }.getOrNull()
+                    if (saved == null) {
+                        Log.w(TAG, "Could not migrate ${s.key}, its download stays in the app")
+                        return@forEach
+                    }
+                    // The index entry goes as well. Left behind it still said completed, and each
+                    // later scan registered the song as downloaded again, even once its file in the
+                    // folder had been deleted.
+                    runCatching { migratedIndex.removeDownload(s.key) }
+                        .onFailure { Log.w(TAG, "Could not drop the index entry of ${s.key}", it) }
                     downloadCache.removeResource(s.key)
-                    downloadMgr.enqueue(
-                        mediaId = s.key,
-                        data = songFromCache,
-                        displayName = runBlocking { database.song(s.key).first()?.title ?: "" })
                 }
             }
             // The scan is what registers the copied files, so the songs play from them. Called

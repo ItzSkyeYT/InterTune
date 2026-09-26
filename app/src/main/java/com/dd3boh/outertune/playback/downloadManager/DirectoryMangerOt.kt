@@ -88,16 +88,19 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         }
 
         val fileName = "$displayName [$mediaId].mka"
-        val newFile = directory.createFile("audio/mka", fileName)
+        val newFile = directory.createFile("audio/mka", fileName) ?: return null
 
-        newFile?.uri?.let { uri ->
-            resolver.openOutputStream(uri)?.use { out ->
-                input.copyTo(out)
-            }
-            return uri
+        try {
+            // A stream that would not open used to return the new file's address all the same,
+            // for an empty file.
+            val out = resolver.openOutputStream(newFile.uri) ?: throw IOException("Could not open $fileName")
+            out.use { input.copyTo(it) }
+            return newFile.uri
+        } catch (e: Exception) {
+            // Not left behind half written, where the next scan would take it for the download.
+            newFile.delete()
+            throw e
         }
-
-        return null
     }
 
     /** Files found under a folder keep that folder's tree in their address. */
