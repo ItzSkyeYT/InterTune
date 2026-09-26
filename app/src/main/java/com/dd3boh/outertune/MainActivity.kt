@@ -204,6 +204,7 @@ import androidx.compose.material3.NavigationBarDefaults
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.LocalAppBackdropAvailable
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
 import com.dd3boh.outertune.ui.utils.LocalGlassIntensity
 import com.dd3boh.outertune.ui.component.LocalSearchBarGlass
@@ -657,8 +658,8 @@ class MainActivity : ComponentActivity() {
                 // offered at 33+. !useNavRail because playerAwareWindowInsets reserves left = 80dp
                 // on tablets, so nothing ever scrolls behind the rail and a glass rail would be a
                 // full offscreen pass refracting the flat surface fill.
-                val navGlass = liquidGlass &&
-                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !useNavRail
+                val backdropAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !useNavRail
+                val navGlass = liquidGlass && backdropAvailable
                 val appBackdrop = rememberLayerBackdrop()
 
                 val navController = rememberNavController()
@@ -813,6 +814,7 @@ class MainActivity : ComponentActivity() {
                         LocalNetworkConnected provides isNetworkConnected,
                         LocalSnackbarHostState provides snackbarHostState,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
+                        LocalAppBackdropAvailable provides backdropAvailable,
                         LocalGlassIntensity provides glassIntensity,
                     ) {
                         /**

@@ -70,6 +70,7 @@ import com.dd3boh.outertune.ui.component.floatingGlass
 import com.dd3boh.outertune.ui.component.topBarSurfaceColor
 import com.dd3boh.outertune.ui.utils.GlassSpec
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.LocalAppBackdropAvailable
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -205,12 +206,23 @@ fun ColumnScope.ThemePlayerFrag() {
         isEnabled = liquidGlass
     )
 
-    // Shown rather than described, right above the slider that changes it. Always drawn, so turning
-    // Liquid glass off shows the flat look that comes back.
-    GlassSample(
-        intensity = glassIntensity,
-        modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 8.dp)
-    )
+    // Below Android 13, and beside the side navigation, the app draws no floating glass at all, so a
+    // sample there would stay flat whatever the switch and the slider said. There is none, and the
+    // slider, which still changes the now playing screen, says why.
+    val noSampleBecause = when {
+        LocalAppBackdropAvailable.current -> null
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU -> R.string.player_glass_preview_needs_13
+        else -> R.string.player_glass_preview_side_navigation
+    }
+
+    // Shown rather than described, right above the slider that changes it. Always drawn where the
+    // app can draw glass, so turning Liquid glass off shows the flat look that comes back.
+    if (noSampleBecause == null) {
+        GlassSample(
+            intensity = glassIntensity,
+            modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 8.dp)
+        )
+    }
 
     // The intensity slider stays hidden rather than dimmed: a greyed out slider still looks
     // draggable, and this one already has history of people misreading what it belongs to.
@@ -226,6 +238,16 @@ fun ColumnScope.ThemePlayerFrag() {
             PreferenceEntry(
                 title = { Text(stringResource(R.string.player_glass_intensity)) },
                 description = stringResource(R.string.player_glass_intensity_description),
+                content = noSampleBecause?.let { reason ->
+                    @Composable {
+                        Text(
+                            text = stringResource(reason),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                },
                 icon = { Icon(Icons.Rounded.Tune, null) },
                 // A label for the slider underneath, not a button.
                 onClick = null

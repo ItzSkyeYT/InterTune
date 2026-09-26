@@ -438,6 +438,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_glass_intensity">Glass intensity</string>
     <string name="player_glass_intensity_description">Higher is more see-through and more strongly refracted; lower is closer to plain solid surfaces</string>
     <string name="player_glass_intensity_value">%1$d%%</string>
+    <string name="player_glass_preview_needs_13">A live preview of the glass needs Android 13 or later</string>
+    <string name="player_glass_preview_side_navigation">A live preview of the glass is not available with the side navigation</string>
     <string name="sleep_timer_fade">Fade out before stopping</string>
     <string name="sleep_timer_fade_description">Ease the volume down as the sleep timer runs out, instead of cutting off abruptly</string>
     <string name="sleep_timer_fade_duration">Fade length</string>
