@@ -878,11 +878,7 @@ class MusicService : MediaLibraryService(),
                         // skips the processor chain entirely. Leaving it on would mean the
                         // setting appears to do nothing for anyone who turned offload on, with
                         // no way to tell why, so spatial audio takes it off itself.
-                        if (mode != SpatialAudioMode.OFF) {
-                            player.setOffloadEnabled(false)
-                        } else {
-                            player.setOffloadEnabled(dataStore.get(AudioOffloadKey, false))
-                        }
+                        applyOffload()
                         if (player.currentMediaItem != null) {
                             val at = player.currentPosition
                             val wasPlaying = player.playWhenReady
@@ -988,7 +984,13 @@ class MusicService : MediaLibraryService(),
             ) { fade, seconds -> fade to seconds }
                 .collectLatest(scope) { (fade, seconds) ->
                     transitionFade.fadeMs = TransitionFadeEnvelope.fadeMsFor(seconds)
+                    if (transitionFade.enabled == fade) return@collectLatest
                     transitionFade.enabled = fade
+                    // The fade steps the volume from this thread. Under offload the player sleeps
+                    // while the hardware plays out a long buffer and lets go of its wake lock, so
+                    // the steps stop with the CPU and a fade can stay low or jump. Offload goes
+                    // off while this is on, as it does for spatial audio.
+                    applyOffload()
                 }
 
             combine(
@@ -1538,6 +1540,15 @@ class MusicService : MediaLibraryService(),
 
 
 // Audio playback
+
+    /**
+     * Audio offload as the developer setting has it, unless spatial audio or Fade between tracks
+     * is on, neither of which works under it. Called on the main thread whenever either changes.
+     */
+    private fun applyOffload() {
+        val needsOffloadOff = spatialUpmixProcessor.enabled || binauralProcessor.enabled || transitionFade.enabled
+        player.setOffloadEnabled(!needsOffloadOff && dataStore.get(AudioOffloadKey, false))
+    }
 
     private fun openAudioEffectSession() {
         // Not while the upmix is on. Android disables spatialisation for any track that has
