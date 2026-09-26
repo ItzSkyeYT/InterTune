@@ -3,6 +3,7 @@ package com.dd3boh.outertune.viewmodels
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dd3boh.outertune.db.AlbumRows
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.utils.reportException
 import com.zionhuang.innertube.YouTube
@@ -51,10 +52,14 @@ class AlbumViewModel @Inject constructor(
             YouTube.album(albumId).onSuccess {
                 // Set before the wait below, so the other versions are ready when the songs appear.
                 otherVersions.value = it.otherVersions
-                if (album == null || album.album.songCount == 0) {
+                val mapped = database.albumWithSongs(albumId).first()?.songs.orEmpty().map { song -> song.id }
+                if (AlbumRows.pageAddsSongs(album?.album, mapped, it.songs.map { song -> song.id })) {
                     database.transaction {
-                        if (album == null) insert(it)
-                        else update(album.album, it)
+                        // The row as it is now, not as read before the fetch: update writes the
+                        // whole row it is given, so a heart tapped meanwhile would be undone.
+                        val current = albumById(albumId)
+                        if (current == null) insert(it)
+                        else update(current, it)
                     }
                     // database.transaction only queues the write on Room's executor and returns at
                     // once, and albumWithSongs picks the songs up a little later, after the commit

@@ -9,8 +9,10 @@ package com.dd3boh.outertune.db
 import com.dd3boh.outertune.db.entities.AlbumEntity
 import com.dd3boh.outertune.models.MediaMetadata
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AlbumRowsTest {
@@ -40,5 +42,30 @@ class AlbumRowsTest {
             assertEquals("Greatest Hits", title)
             localHits
         })
+    }
+
+    @Test
+    fun `a stored album with every song of the page is left alone`() {
+        assertFalse(AlbumRows.pageAddsSongs(savedQueen, listOf("a", "b", "c"), listOf("a", "b", "c")))
+        // One recorded from a play that is not on the page does not make it write again and again.
+        assertFalse(AlbumRows.pageAddsSongs(savedQueen, listOf("a", "b", "c", "video"), listOf("a", "b", "c")))
+    }
+
+    @Test
+    fun `an album not stored is written`() {
+        assertTrue(AlbumRows.pageAddsSongs(null, emptyList(), listOf("a")))
+    }
+
+    @Test
+    fun `a saved album with only the song played from it is filled`() {
+        val playedOnce = savedQueen.copy(songCount = 1)
+        assertTrue(AlbumRows.pageAddsSongs(playedOnce, listOf("b"), listOf("a", "b", "c")))
+    }
+
+    @Test
+    fun `a saved album with no songs is written, as before`() {
+        val saved = savedQueen.copy(songCount = 0)
+        assertTrue(AlbumRows.pageAddsSongs(saved, emptyList(), listOf("a", "b")))
+        assertTrue(AlbumRows.pageAddsSongs(saved, emptyList(), emptyList()))
     }
 }

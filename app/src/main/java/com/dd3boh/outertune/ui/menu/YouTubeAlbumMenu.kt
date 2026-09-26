@@ -33,6 +33,7 @@ import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.PlayOrigin
+import com.dd3boh.outertune.db.AlbumRows
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
@@ -50,6 +51,7 @@ import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.reportException
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.AlbumItem
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun YouTubeAlbumMenu(
@@ -77,16 +79,20 @@ fun YouTubeAlbumMenu(
     val artists = remember(albumItem) { albumItem.artists.orEmpty().withArtistIds() }
 
     LaunchedEffect(Unit) {
-        database.album(albumItem.id).collect { album ->
-            if (album == null) {
-                YouTube.album(albumItem.id).onSuccess { albumPage ->
-                    database.transaction {
-                        insert(albumPage)
-                    }
-                }.onFailure {
-                    reportException(it)
+        // Fetched even when the album is stored: a saved album is stored with no songs, and one
+        // played from holds only the songs played, and Play next, Add to queue and Download act
+        // on what is stored. It used to be fetched only when missing.
+        YouTube.album(albumItem.id).onSuccess { albumPage ->
+            val stored = database.albumWithSongs(albumItem.id).first()
+            val mapped = stored?.songs.orEmpty().map { it.id }
+            if (AlbumRows.pageAddsSongs(stored?.album, mapped, albumPage.songs.map { it.id })) {
+                database.transaction {
+                    val current = albumById(albumItem.id)
+                    if (current == null) insert(albumPage) else update(current, albumPage)
                 }
             }
+        }.onFailure {
+            reportException(it)
         }
     }
 
