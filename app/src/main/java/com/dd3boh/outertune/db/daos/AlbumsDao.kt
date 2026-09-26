@@ -49,14 +49,7 @@ interface AlbumsDao : ArtistsDao {
     fun albumById(id: String): AlbumEntity?
 
     @Transaction
-    @Query("""
-        SELECT album.*, count(song.dateDownload) downloadCount
-        FROM album
-            LEFT JOIN song ON song.albumId = album.id
-        WHERE album.title LIKE '%' || :query || '%' AND (song.inLibrary IS NOT NULL OR song.dateDownload IS NOT NULL)
-        GROUP BY album.id
-        LIMIT :previewSize
-    """)
+    @Query(LibrarySql.SEARCH_ALBUMS)
     fun searchAlbums(query: String, previewSize: Int = Int.MAX_VALUE): Flow<List<Album>>
 
     @Transaction

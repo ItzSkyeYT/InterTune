@@ -13,6 +13,7 @@ import androidx.sqlite.db.SupportSQLiteQuery
 import com.dd3boh.outertune.constants.ArtistFilter
 import com.dd3boh.outertune.constants.ArtistSongSortType
 import com.dd3boh.outertune.constants.ArtistSortType
+import com.dd3boh.outertune.db.LibrarySql
 import com.dd3boh.outertune.db.entities.Artist
 import com.dd3boh.outertune.db.entities.ArtistEntity
 import com.dd3boh.outertune.db.entities.Song
@@ -54,20 +55,7 @@ interface ArtistsDao {
     @Query("SELECT * FROM artist WHERE name LIKE '%' || :name || '%'")
     fun artistsByNameFuzzy(name: String): List<ArtistEntity>
 
-    @Query("""
-        SELECT 
-            artist.*,
-            COUNT(song.id) AS songCount,
-            SUM(CASE WHEN song.dateDownload IS NOT NULL THEN 1 ELSE 0 END) AS downloadCount
-        FROM artist
-            LEFT JOIN song_artist_map sam ON artist.id = sam.artistId
-            LEFT JOIN song ON sam.songId = song.id
-        WHERE artist.name LIKE '%' || :query || '%' AND (song.inLibrary IS NOT NULL OR song.dateDownload IS NOT NULL)
-        GROUP BY artist.id
-        HAVING songCount > 0
-        ORDER BY artist.bookmarkedAt ASC
-        LIMIT :previewSize
-    """)
+    @Query(LibrarySql.SEARCH_ARTISTS)
     fun searchArtists(query: String, previewSize: Int = Int.MAX_VALUE): Flow<List<Artist>>
 
     @Query("""
