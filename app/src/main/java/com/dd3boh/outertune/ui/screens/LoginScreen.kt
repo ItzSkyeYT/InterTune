@@ -188,7 +188,7 @@ fun LoginScreen(
                                 loadUrl("javascript:Android.onRetrieveVisitorData(window.yt.config_.VISITOR_DATA)")
                                 loadUrl("javascript:Android.onRetrieveDataSyncId(window.yt.config_.DATASYNC_ID)")
 
-                                if (url?.startsWith("https://music.youtube.com") == true) {
+                                if (isYouTubeMusicPage(url)) {
                                     innerTubeCookie = CookieManager.getInstance().getCookie(url)
                                     GlobalScope.launch {
                                         YouTube.accountInfo().onSuccess {
@@ -213,17 +213,24 @@ fun LoginScreen(
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
                         }
+                        // Any page this web view reaches can call these, one a link on Google's
+                        // page leads to included, so they are answered only while the page showing
+                        // is YouTube Music's own over https, the one the script from onPageFinished
+                        // reads. They are called on a thread of their own, and the web view says
+                        // which page it is showing only on the main one.
                         addJavascriptInterface(object {
                             @JavascriptInterface
                             fun onRetrieveVisitorData(newVisitorData: String?) {
-                                if (newVisitorData != null) {
-                                    visitorData = newVisitorData
+                                if (newVisitorData == null) return
+                                post {
+                                    if (isYouTubeMusicPage(this@apply.url)) visitorData = newVisitorData
                                 }
                             }
                             @JavascriptInterface
                             fun onRetrieveDataSyncId(newDataSyncId: String?) {
-                                if (newDataSyncId != null) {
-                                    dataSyncId = newDataSyncId.substringBefore("||")
+                                if (newDataSyncId == null) return
+                                post {
+                                    if (isYouTubeMusicPage(this@apply.url)) dataSyncId = newDataSyncId.substringBefore("||")
                                 }
                             }
                         }, "Android")
@@ -296,6 +303,12 @@ internal fun isHttpsPage(url: String?): Boolean = httpsUrl(url) != null
 
 /** Google's own sign-in page: the only one the address bar calls Google's. */
 internal fun isGoogleSignInPage(url: String?): Boolean = isHttpsPageOn(url, "accounts.google.com")
+
+/**
+ * YouTube Music itself, where the sign-in ends: the page whose cookies are kept as the sign-in, and
+ * the only one whose script is listened to.
+ */
+internal fun isYouTubeMusicPage(url: String?): Boolean = isHttpsPageOn(url, "music.youtube.com")
 
 /**
  * What the address bar shows for [url]: its whole host, which the line cuts from the start when it

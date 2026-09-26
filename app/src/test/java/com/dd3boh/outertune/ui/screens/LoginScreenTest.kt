@@ -109,4 +109,29 @@ class LoginScreenTest {
         assertEquals("accounts.google.com", addressBarHost("http://accounts.google.com/"))
         assertEquals("about:blank", addressBarHost("about:blank"))
     }
+
+    @Test
+    fun `YouTube Music is music youtube com itself, over https`() {
+        assertTrue(isYouTubeMusicPage("https://music.youtube.com/"))
+        assertTrue(isYouTubeMusicPage("https://music.youtube.com"))
+        assertTrue(isYouTubeMusicPage("https://music.youtube.com/?cbrd=1"))
+    }
+
+    @Test
+    fun `an address that only starts like YouTube Music's is someone else's`() {
+        // Each of these passed startsWith("https://music.youtube.com").
+        assertFalse(isYouTubeMusicPage("https://music.youtube.com.example.net/"))
+        assertFalse(isYouTubeMusicPage("https://music.youtube.community/"))
+        assertFalse(isYouTubeMusicPage("https://music.youtube.com@x.example/"))
+        assertFalse(isYouTubeMusicPage("https://music.youtube.com:8443/"))
+    }
+
+    @Test
+    fun `other pages, and YouTube Music over http, are not YouTube Music`() {
+        assertFalse(isYouTubeMusicPage("http://music.youtube.com/"))
+        assertFalse(isYouTubeMusicPage("https://www.youtube.com/"))
+        assertFalse(isYouTubeMusicPage("https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fmusic.youtube.com"))
+        assertFalse(isYouTubeMusicPage("https://x.example/?next=https://music.youtube.com/"))
+        assertFalse(isYouTubeMusicPage(null))
+    }
 }
