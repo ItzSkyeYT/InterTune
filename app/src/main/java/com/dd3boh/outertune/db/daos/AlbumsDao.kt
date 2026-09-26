@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.db.daos
 
+import com.dd3boh.outertune.db.LibrarySql
 import com.dd3boh.outertune.db.RecommendationSql
 import androidx.room.Dao
 import androidx.room.Delete
@@ -172,8 +173,8 @@ interface AlbumsDao : ArtistsDao {
     fun albumsInLibraryAsc() = albums(AlbumFilter.LIBRARY, AlbumSortType.CREATE_DATE, false)
     fun albumsLikedAsc() = albums(AlbumFilter.LIKED, AlbumSortType.CREATE_DATE, false)
 
-    @Query("SELECT * FROM album WHERE title = :name")
-    fun albumsByName(name: String): AlbumEntity?
+    @Query(LibrarySql.LOCAL_ALBUM_BY_TITLE)
+    fun localAlbumByTitle(title: String): AlbumEntity?
 
     @Transaction
     @Query(RecommendationSql.FORGOTTEN_FAVORITES)

@@ -207,10 +207,11 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
         }
 
         mediaMetadata.album?.let {
-            // By id first: by title alone, any album of the same name ("Greatest Hits") took the
-            // song and its count.
-            val album = albumById(it.id) ?: albumsByName(it.title)
-            val albumId = album?.id ?: GenreEntity.generateGenreId()
+            // By id, and by title only for a local album: see AlbumRows.storedAlbumFor. A new one
+            // takes the album's own id. It took a random genre id, copied from the block above,
+            // which left the album unopenable and made every later song fall back to the title.
+            val album = AlbumRows.storedAlbumFor(it, albumById(it.id), ::localAlbumByTitle)
+            val albumId = album?.id ?: it.id.ifBlank { AlbumEntity.generateAlbumId() }
             // Built from the existing row rather than from scratch, because upsert replaces the
             // whole row and this only ever carried three fields across. Everything else on an
             // album it had already seen was thrown away on the next song that named it:

@@ -51,4 +51,17 @@ class LibrarySqlTest {
         // Least played first, never played (a null count) before any.
         assertEquals(listOf("liked-never", "liked-once", "liked-often"), ids(LibrarySql.LIKED_SONGS_BY_PLAY_COUNT))
     }
+
+    private fun album(id: String, title: String, local: Boolean) = exec(
+        "INSERT INTO album(id, title, songCount, duration, lastUpdateTime, isLocal) VALUES ('$id', '$title', 1, 200, 0, ${if (local) 1 else 0})"
+    )
+
+    @Test
+    fun `a title finds only a local album`() {
+        album("MPREb_queen", "Greatest Hits", local = false)
+        assertEquals(emptyList<String>(), ids(LibrarySql.LOCAL_ALBUM_BY_TITLE.replace(":title", "'Greatest Hits'")))
+        album("LBfirst", "Greatest Hits", local = true)
+        album("LBsecond", "Greatest Hits", local = true)
+        assertEquals(listOf("LBfirst"), ids(LibrarySql.LOCAL_ALBUM_BY_TITLE.replace(":title", "'Greatest Hits'")))
+    }
 }

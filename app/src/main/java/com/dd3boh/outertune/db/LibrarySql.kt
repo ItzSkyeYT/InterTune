@@ -27,4 +27,11 @@ object LibrarySql {
         WHERE liked
         ORDER BY pc ASC
     """
+
+    /**
+     * The local album with this exact title, the first one made. The scanner gives each song it
+     * reads a new album id, so this is how a file's song finds the album the others went into.
+     * Only local albums: a YouTube album with the same title is a different album.
+     */
+    const val LOCAL_ALBUM_BY_TITLE = "SELECT * FROM album WHERE isLocal = 1 AND title = :title ORDER BY rowid LIMIT 1"
 }
