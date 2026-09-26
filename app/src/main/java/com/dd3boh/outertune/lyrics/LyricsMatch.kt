@@ -37,7 +37,13 @@ object LyricsMatch {
 
     private val BRACKET = Regex("""\s*[(\[{（【]([^()\[\]{}（）【】]*)[)\]}）】]""")
     private val DASH_SUFFIX = Regex("""\s+[-\u2013\u2014]\s+([^-\u2013\u2014]+)$""")
-    private val FEAT_TAIL = Regex("""\s+(?:feat\.?|ft\.|featuring)\s+.*$""", RegexOption.IGNORE_CASE)
+
+    // "feat. Someone" only as far as a bracket or a dash suffix. Taking the rest of the title with it
+    // turned "Song feat. X (Live)" into "Song", which then matched the studio recording.
+    private val FEAT_TAIL = Regex(
+        """\s+(?:feat\.?|ft\.|featuring)\s+[^(\[{\uff08\u3010]*?(?=\s*[(\[{\uff08\u3010]|\s+[-\u2013\u2014]\s|$)""",
+        RegexOption.IGNORE_CASE
+    )
     private val SPACES = Regex("""\s+""")
     private val COMBINING = Regex("""\p{M}+""")
     private val APOSTROPHES = Regex("""['’‘`´]""")
@@ -68,9 +74,13 @@ object LyricsMatch {
      * ones, so a sped up upload is never handed the original's timings, nor the other way round.
      */
     private val RECORDING_MARKER = Regex(
-        "\\b(sped\\s*up|speed\\s*up|slowed|reverb|nightcore|daycore|8d|live|acoustic|unplugged|instrumental|karaoke" +
+        "\\b(?:sped\\s*up|speed\\s*up|slowed|reverb|nightcore|daycore|8d|live|acoustic|unplugged|instrumental|karaoke" +
             "|a\\s*cappella|acapella|cover|demo|spanish|english|french|german|italian|portuguese|japanese|korean|chinese" +
-            "|espanol|español)\\b",
+            "|espanol|español)\\b" +
+            // KuGou marks many concert recordings only in Chinese, as 现场 (live) or 演唱会 (concert), and
+            // lists "小幸运 (2015如果巡回演唱会高雄站)" three seconds from the studio song. Word boundaries
+            // mean nothing between Chinese characters, so these stand outside them.
+            "|现场|現場|演唱会|演唱會",
         RegexOption.IGNORE_CASE
     )
 
@@ -112,21 +122,35 @@ object LyricsMatch {
         val ca = cleanTitle(a)
         val cb = cleanTitle(b)
         if (markers(ca) != markers(cb)) return false
-        return keys(ca).any { it in keys(cb) }
+        val (wholeA, baseA) = keys(ca)
+        val (wholeB, baseB) = keys(cb)
+        if (wholeA.isEmpty() || wholeB.isEmpty()) return false
+        // The same title, or one title with an addition the other does not have, such as the remix name
+        // that LRCLIB often leaves off. Two different additions to the same start are two songs:
+        // "MONTAGEM - XONADA" is not "MONTAGEM - CORAL", nor is "Song (Part 1)" "Song (Part 2)".
+        return wholeA == wholeB || baseA == wholeB || wholeA == baseB
     }
 
     /**
-     * Whether a provider's artist string names one of the song's artists. A song with no artist
-     * cannot be checked this way, so the title and the length have to decide on their own.
+     * Whether a provider's artist string names one of the song's artists. A song with no artist, or
+     * names written in scripts that share nothing, cannot be checked this way, so the title and the
+     * length have to decide on their own.
      */
     fun artistMatches(artists: List<String>, candidate: String): Boolean {
         if (artists.none { it.isNotBlank() }) return true
         val whole = normaliseArtist(candidate)
-        val parts = splitArtists(candidate)
+        val parts = splitArtists(candidate).let { it + it.flatMap(::scriptParts) }
         val wanted = (artists + artists.flatMap { it.split(ARTIST_SEPARATOR) } + artists.joinToString(", "))
             .map(::normaliseArtist)
             .filter { it.isNotEmpty() }
-        return wanted.any { it == whole || it in parts }
+            .let { it + it.flatMap(::scriptParts) }
+        if (wanted.any { it == whole || it in parts }) return true
+        // KuGou names artists in their own script: 米津玄師 where YouTube Music has Kenshi Yonezu, and
+        // 周杰伦 for Jay Chou. Rejecting those threw away the right song whenever the player had the name
+        // in Latin letters. The title is still checked, which keeps out the artist's other songs.
+        val ours = scripts(wanted)
+        val theirs = scripts(parts + whole)
+        return ours.isNotEmpty() && theirs.isNotEmpty() && ours.none { it in theirs }
     }
 
     /**
@@ -170,11 +194,15 @@ object LyricsMatch {
     /** Whether lyrics carry timings, as LRC lines like "[00:29.59]Si señor" do. */
     fun isSynced(text: String): Boolean = text.lineSequence().any { SYNCED_LINE.matches(it) }
 
-    /** Lower case, no accents, no apostrophes, "&" as "and", other punctuation as single spaces. */
+    /**
+     * Lower case, no accents, Simplified Chinese for Traditional, no apostrophes, "&" as "and", other
+     * punctuation as single spaces.
+     */
     fun normalise(s: String): String =
         Normalizer.normalize(s, Normalizer.Form.NFKD)
             .replace(COMBINING, "")
             .lowercase(Locale.ROOT)
+            .let(HanFold::fold)
             .replace("&", " and ")
             .replace(APOSTROPHES, "")
             .replace(NON_WORD, " ")
@@ -203,9 +231,14 @@ object LyricsMatch {
             .map { if (it == "acappella") "acapella" else it }
             .toSet()
 
-    /** The whole cleaned title, and the title with its brackets gone, so "(It Goes Like) Nanana" meets "It Goes Like Nanana". */
-    private fun keys(cleaned: String): Set<String> =
-        setOf(normalise(cleaned), normalise(split(cleaned).first)).filter { it.isNotEmpty() }.toSet()
+    /**
+     * The whole cleaned title, and the title with its brackets and dash suffix gone, so that
+     * "Macarena (Bayside Boys Remix)" meets "Macarena".
+     */
+    private fun keys(cleaned: String): Pair<String, String> {
+        val whole = normalise(cleaned)
+        return whole to normalise(split(cleaned).first).ifEmpty { whole }
+    }
 
     private fun normaliseArtist(s: String): String {
         val n = normalise(BRACKET.replace(s, " ").replace(Regex("""\s+-\s+topic$""", RegexOption.IGNORE_CASE), ""))
@@ -214,4 +247,54 @@ object LyricsMatch {
 
     private fun splitArtists(s: String): List<String> =
         BRACKET.replace(s, " ").split(ARTIST_SEPARATOR).map(::normaliseArtist).filter { it.isNotEmpty() }
+
+    /**
+     * The Latin and the other part of a normalised name written in both, so that either one alone
+     * matches: KuGou lists G.E.M. as "G.E.M.邓紫棋", which is "g e m" and "邓紫棋". A name in one
+     * script gives nothing. Other scripts are not split from each other, because a Japanese name
+     * mixes kanji and kana.
+     */
+    private fun scriptParts(name: String): List<String> {
+        val parts = mutableListOf<String>()
+        var start = 0
+        var latin: Boolean? = null
+        var i = 0
+        while (i < name.length) {
+            val cp = name.codePointAt(i)
+            scriptOf(cp)?.let { script ->
+                val isLatin = script == Character.UnicodeScript.LATIN
+                if (latin != null && isLatin != latin) {
+                    parts += name.substring(start, i).trim()
+                    start = i
+                }
+                latin = isLatin
+            }
+            i += Character.charCount(cp)
+        }
+        if (parts.isEmpty()) return emptyList()
+        parts += name.substring(start).trim()
+        return parts.filter { it.isNotEmpty() }
+    }
+
+    /** The scripts the letters of [names] are written in. Digits and punctuation belong to none. */
+    private fun scripts(names: List<String>): Set<Character.UnicodeScript> {
+        val found = HashSet<Character.UnicodeScript>()
+        for (name in names) {
+            var i = 0
+            while (i < name.length) {
+                val cp = name.codePointAt(i)
+                scriptOf(cp)?.let(found::add)
+                i += Character.charCount(cp)
+            }
+        }
+        return found
+    }
+
+    private fun scriptOf(cp: Int): Character.UnicodeScript? {
+        if (!Character.isLetter(cp)) return null
+        return when (val script = Character.UnicodeScript.of(cp)) {
+            Character.UnicodeScript.COMMON, Character.UnicodeScript.INHERITED, Character.UnicodeScript.UNKNOWN -> null
+            else -> script
+        }
+    }
 }
