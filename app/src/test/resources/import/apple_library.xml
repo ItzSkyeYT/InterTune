@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Major Version</key><integer>1</integer>
+	<key>Minor Version</key><integer>1</integer>
+	<key>Application Version</key><string>1.4.5.7</string>
+	<key>Tracks</key>
+	<dict>
+		<key>101</key>
+		<dict>
+			<key>Track ID</key><integer>101</integer>
+			<key>Name</key><string>Hyperballad</string>
+			<key>Artist</key><string>Björk</string>
+			<key>Album</key><string>Post</string>
+			<key>Kind</key><string>Apple Music AAC audio file</string>
+			<key>Total Time</key><integer>321466</integer>
+			<key>Apple Music</key><true/>
+		</dict>
+		<key>102</key>
+		<dict>
+			<key>Track ID</key><integer>102</integer>
+			<key>Name</key><string>Teardrop</string>
+			<key>Artist</key><string>Massive Attack</string>
+			<key>Album</key><string>Mezzanine</string>
+			<key>Kind</key><string>MPEG audio file</string>
+			<key>Total Time</key><integer>330773</integer>
+		</dict>
+		<key>103</key>
+		<dict>
+			<key>Track ID</key><integer>103</integer>
+			<key>Name</key><string>Episode 12: Tape &amp; Tubes</string>
+			<key>Artist</key><string>Some Podcast</string>
+			<key>Podcast</key><true/>
+			<key>Total Time</key><integer>2400000</integer>
+		</dict>
+		<key>104</key>
+		<dict>
+			<key>Track ID</key><integer>104</integer>
+			<key>Name</key><string>Glory Box</string>
+			<key>Artist</key><string>Portishead</string>
+			<key>Album</key><string>Dummy</string>
+			<key>Total Time</key><integer>306000</integer>
+		</dict>
+	</dict>
+	<key>Playlists</key>
+	<array>
+		<dict>
+			<key>Name</key><string>Library</string>
+			<key>Master</key><true/>
+			<key>Playlist ID</key><integer>1</integer>
+			<key>Visible</key><false/>
+			<key>Playlist Items</key>
+			<array>
+				<dict><key>Track ID</key><integer>101</integer></dict>
+				<dict><key>Track ID</key><integer>102</integer></dict>
+				<dict><key>Track ID</key><integer>104</integer></dict>
+			</array>
+		</dict>
+		<dict>
+			<key>Name</key><string>Music</string>
+			<key>Distinguished Kind</key><integer>4</integer>
+			<key>Playlist ID</key><integer>2</integer>
+			<key>Playlist Items</key>
+			<array>
+				<dict><key>Track ID</key><integer>101</integer></dict>
+			</array>
+		</dict>
+		<dict>
+			<key>Name</key><string>Late night</string>
+			<key>Playlist ID</key><integer>3</integer>
+			<key>Folder</key><true/>
+		</dict>
+		<dict>
+			<key>Name</key><string>Trip hop</string>
+			<key>Playlist ID</key><integer>4</integer>
+			<key>Parent Persistent ID</key><string>ABCDEF0123456789</string>
+			<key>Playlist Items</key>
+			<array>
+				<dict><key>Track ID</key><integer>104</integer></dict>
+				<dict><key>Track ID</key><integer>103</integer></dict>
+				<dict><key>Track ID</key><integer>102</integer></dict>
+			</array>
+		</dict>
+	</array>
+	<key>Music Folder</key><string>file:///Users/someone/Music/Music/Media/</string>
+</dict>
+</plist>
