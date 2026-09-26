@@ -458,12 +458,9 @@ class QueueBoard(
 
         val match = masterQueues.firstOrNull { it.title == item.title }
         if (match != null) {
+            val deleted = masterQueues.indexOf(match)
             masterQueues.remove(match)
-            if (masterQueues.isNotEmpty()) {
-                masterIndex -= 1
-            } else {
-                masterIndex = -1
-            }
+            masterIndex = masterIndexAfterDelete(deleted, masterIndex, masterQueues.size)
 
             CoroutineScope(Dispatchers.IO).launch {
                 player.database.deleteQueue(match.id)
@@ -1000,4 +997,20 @@ class QueueBoard(
         }
     }
 
+}
+
+/**
+ * Where the current queue is once the queue at [deleted] has gone, from a list that now holds
+ * [sizeAfter] queues.
+ *
+ * Only a queue above the current one moves it up. Deleting the current queue lands on the one
+ * before it, or on the new first one when it was first, and nothing is current only once nothing
+ * is left. It used to move up one on every delete, so deleting a queue listed below the one
+ * playing made the queue above it current: from then on each song change saved its position into
+ * that queue, and radio added its songs there.
+ */
+internal fun masterIndexAfterDelete(deleted: Int, current: Int, sizeAfter: Int): Int {
+    if (sizeAfter <= 0 || current < 0) return -1
+    val index = if (deleted <= current) current - 1 else current
+    return index.coerceIn(0, sizeAfter - 1)
 }
