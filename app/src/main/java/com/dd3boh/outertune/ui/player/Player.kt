@@ -371,8 +371,16 @@ fun BottomSheetPlayer(
     val dismissedBound = QueuePeekHeight + navigationBarHeight
 
     // A tablet keeps the sheet whatever the setting says: it shows no buttons by the title, so with
-    // the queue on a button the saved queues would have no way in.
-    val queueAsButton = rememberPreference(QueueButtonKey, defaultValue = false).value && !tabMode
+    // the queue on a button the saved queues would have no way in. So does a player with nothing
+    // loaded, whose controls, the button among them, are not drawn: the handle is then the only
+    // way to the saved queues.
+    val queueAsButton = rememberPreference(QueueButtonKey, defaultValue = false).value &&
+            !tabMode && mediaMetadata != null
+
+    // What the collapsed sheet takes at the bottom in sheet mode. The controls keep exactly that
+    // space with the queue on a button, so turning the button on moves nothing people already
+    // press; the strip is simply left empty.
+    val sheetReserve = if (landscapeTwoPane || tabletTwoPane) dismissedBound else dismissedBound + QueuePeekHeight
 
     /**
      * The collapsed queue sheet is [QueuePeekHeight] taller than the peek it actually needs, and
@@ -395,11 +403,7 @@ fun BottomSheetPlayer(
         // No queue peek on a tablet: the queue is permanently in the side pane, so reserving a
         // strip for a preview of it wastes the bottom of the screen, squashes the artwork (which
         // is sized by the height left over) and pushes the handle up into the middle of nowhere.
-        collapsedBound = when {
-            queueAsButton -> 0.dp
-            landscapeTwoPane || tabletTwoPane -> dismissedBound
-            else -> dismissedBound + QueuePeekHeight
-        },
+        collapsedBound = if (queueAsButton) 0.dp else sheetReserve,
         initialAnchor = 1
     )
 
@@ -1108,7 +1112,7 @@ fun BottomSheetPlayer(
                             // Only this column dodges the queue sheet's peek; the artwork does not
                             // need to, since the arrow is centred on the window and never reaches
                             // the artwork's half.
-                            .padding(bottom = queueSheetState.collapsedBound)
+                            .padding(bottom = sheetReserve)
                     ) {
                         // Like/more sit at the very top of the column rather than riding the
                         // centred block, so they line up with the top of the artwork.
@@ -1157,12 +1161,7 @@ fun BottomSheetPlayer(
                         // artwork is sized from whatever the column has left. Reserve only the
                         // handle.
                         .padding(
-                            bottom = when {
-                                // No sheet to keep clear at all, only the navigation bar.
-                                queueAsButton -> navigationBarHeight
-                                tabletTwoPane -> TabletQueueHandleReserve
-                                else -> queueSheetState.collapsedBound
-                            }
+                            bottom = if (tabletTwoPane) TabletQueueHandleReserve else sheetReserve
                         )
                 ) {
                     BoxWithConstraints(
