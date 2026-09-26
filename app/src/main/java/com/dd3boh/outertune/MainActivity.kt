@@ -1316,7 +1316,12 @@ class MainActivity : ComponentActivity() {
                             // so there is nothing of it worth capturing.
                             // Not over setup either, even once it is marked done: its exit page stays on
                             // screen for a moment after, and the configurator runs it again later.
-                            if (oobeStatus >= OOBE_VERSION && navBackStackEntry?.destination?.route != "setup_wizard") {
+                            // Derived: reading the route here recomposed this whole scope, nav host
+                            // and player included, on every navigation. See the note above tabRoutes.
+                            val onSetupWizard by remember {
+                                derivedStateOf { navBackStackEntry?.destination?.route == "setup_wizard" }
+                            }
+                            if (oobeStatus >= OOBE_VERSION && !onSetupWizard) {
                                 BottomSheetPlayer(
                                     state = playerBottomSheetState,
                                     navController = navController
