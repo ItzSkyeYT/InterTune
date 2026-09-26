@@ -104,8 +104,12 @@ class ImportMatcherTest {
 
     @Test
     fun `YouTube naming only the lead artist still matches a three artist export`() = runBlocking {
+        // Searched as the file has it, title and first artist, and answered with the lead alone.
         val fake = FakeSearch(
-            mapOf("Get Lucky Daft Punk" to listOf(song("Get Lucky", "Daft Punk", 369)))
+            mapOf(
+                "Get Lucky (feat. Pharrell Williams and Nile Rodgers) Daft Punk" to
+                        listOf(song("Get Lucky", "Daft Punk", 369))
+            )
         )
         val outcome = matcher(fake).resolve(
             track("Get Lucky (feat. Pharrell Williams and Nile Rodgers)", "Daft Punk", "Pharrell Williams", "Nile Rodgers", seconds = 370)
