@@ -375,19 +375,18 @@ fun OnlinePlaylistScreen(
                                                 IconButton(
                                                     onClick = {
                                                         if (dbPlaylist?.playlist == null) {
+                                                            val playlistEntity = PlaylistEntity(
+                                                                // A playlist with no Music header parses with a blank
+                                                                // title (see YouTube.playlist()); saving that gives an
+                                                                // unnamed row in Library.
+                                                                name = playlist.title.ifEmpty { playlist.id },
+                                                                browseId = playlist.id,
+                                                                isEditable = playlist.isEditable,
+                                                                playEndpointParams = playlist.playEndpoint?.params,
+                                                                shuffleEndpointParams = playlist.shuffleEndpoint?.params,
+                                                                radioEndpointParams = playlist.radioEndpoint?.params
+                                                            ).toggleLike()
                                                             database.transaction {
-                                                                val playlistEntity = PlaylistEntity(
-                                                                    // A playlist with no Music header parses with a blank
-                                                                    // title (see YouTube.playlist()); saving that gives an
-                                                                    // unnamed row in Library.
-                                                                    name = playlist.title.ifEmpty { playlist.id },
-                                                                    browseId = playlist.id,
-                                                                    isEditable = playlist.isEditable,
-                                                                    playEndpointParams = playlist.playEndpoint?.params,
-                                                                    shuffleEndpointParams = playlist.shuffleEndpoint?.params,
-                                                                    radioEndpointParams = playlist.radioEndpoint?.params
-                                                                ).toggleLike()
-
                                                                 insert(playlistEntity)
                                                                 songs.map(SongItem::toMediaMetadata)
                                                                     .onEach(::insert)
@@ -399,6 +398,13 @@ fun OnlinePlaylistScreen(
                                                                         )
                                                                     }
                                                                     .forEach(::insert)
+                                                            }
+                                                            // The songs above are only the pages loaded so far,
+                                                            // about a hundred, and a saved playlist opens from the
+                                                            // database from then on. Fetch the whole of it; the
+                                                            // transaction above is queued first on the same executor.
+                                                            viewModel.viewModelScope.launch(Dispatchers.IO) {
+                                                                syncUtils.syncPlaylist(playlist.id, playlistEntity.id)
                                                             }
                                                         } else {
                                                             database.transaction {

@@ -68,6 +68,7 @@ import com.dd3boh.outertune.utils.M3u
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.WatchEndpoint
@@ -320,7 +321,9 @@ fun PlaylistMenu(
                 }
 
                 coroutineScope.launch(syncCoroutine) {
-                    playlist.playlist.browseId?.let { YouTube.renamePlaylist(it, name) }
+                    if (context.mayPushToYouTube()) {
+                        playlist.playlist.browseId?.let { YouTube.renamePlaylist(it, name) }
+                    }
                 }
             }
         )
@@ -392,9 +395,20 @@ fun PlaylistMenu(
                             delete(playlist.playlist)
                         }
 
+                        // Signed out or in "Read only" this removes the copy here and nothing
+                        // else. It used to delete the playlist from the YouTube Music account
+                        // whatever the setting said, which cannot be undone.
                         if (!playlist.playlist.isLocal) {
                             coroutineScope.launch(syncCoroutine) {
-                                playlist.playlist.browseId?.let { YouTube.deletePlaylist(it) }
+                                if (context.mayPushToYouTube()) {
+                                    playlist.playlist.browseId?.let { browseId ->
+                                        // Someone else's playlist cannot be deleted, only taken out
+                                        // of the library, as the heart does. Deleting it always
+                                        // failed, and the next sync brought it back.
+                                        if (playlist.playlist.isEditable) YouTube.deletePlaylist(browseId)
+                                        else YouTube.likePlaylist(browseId, false)
+                                    }
+                                }
                             }
                         }
                     }

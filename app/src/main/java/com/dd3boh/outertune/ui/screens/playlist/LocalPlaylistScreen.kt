@@ -139,6 +139,7 @@ import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.ui.utils.getNSongsString
 import com.dd3boh.outertune.utils.makeTimeString
+import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.syncCoroutine
@@ -285,7 +286,9 @@ fun LocalPlaylistScreen(
                     }
 
                     viewModel.viewModelScope.launch(syncCoroutine) {
-                        playlistEntity.browseId?.let { YouTube.renamePlaylist(it, name) }
+                        if (context.mayPushToYouTube()) {
+                            playlistEntity.browseId?.let { YouTube.renamePlaylist(it, name) }
+                        }
                     }
                 }
             )
@@ -359,8 +362,19 @@ fun LocalPlaylistScreen(
                             playlistWithSongs.first?.let { delete(it.playlist) }
                         }
 
+                        // Signed out or in "Read only" this removes the copy here and nothing
+                        // else. It used to delete the playlist from the YouTube Music account
+                        // whatever the setting said, which cannot be undone.
                         viewModel.viewModelScope.launch(Dispatchers.IO) {
-                            playlistWithSongs.first?.playlist?.browseId?.let { YouTube.deletePlaylist(it) }
+                            if (context.mayPushToYouTube()) {
+                                playlistWithSongs.first?.playlist?.let { playlist ->
+                                    val browseId = playlist.browseId ?: return@let
+                                    // Someone else's playlist cannot be deleted, only taken out
+                                    // of the library, as the heart does.
+                                    if (playlist.isEditable) YouTube.deletePlaylist(browseId)
+                                    else YouTube.likePlaylist(browseId, false)
+                                }
+                            }
                         }
 
                         navController.popBackStack()
@@ -912,9 +926,11 @@ fun LocalPlaylistHeader(
                         IconButton(
                             onClick = {
                                 scope.launch {
-                                    syncUtils.syncPlaylist(playlist.playlist.browseId, playlist.id)
+                                    val synced = syncUtils.syncPlaylist(playlist.playlist.browseId, playlist.id)
                                     snackbarHostState.showSnackbar(
-                                        message = context.getString(R.string.playlist_synced),
+                                        message = context.getString(
+                                            if (synced) R.string.playlist_synced else R.string.playlist_sync_failed
+                                        ),
                                         withDismissAction = true
                                     )
                                 }

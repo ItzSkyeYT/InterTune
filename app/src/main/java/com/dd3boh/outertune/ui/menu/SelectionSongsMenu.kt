@@ -36,7 +36,6 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
-import com.dd3boh.outertune.LocalSyncUtils
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.MediaMetadata
@@ -64,7 +63,6 @@ fun SelectionMediaMetadataMenu(
     val database = LocalDatabase.current
     val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current ?: return
-    val syncUtils = LocalSyncUtils.current
 
     val allInLibrary by remember(selection) { // exclude local songs
         mutableStateOf(selection.isNotEmpty() && selection.all { !it.isLocal && it.inLibrary != null })
@@ -209,22 +207,16 @@ fun SelectionMediaMetadataMenu(
                     .flatMap { songEntitiesByIds(it) }
                     .associateBy { it.id }
                 val songs = selection.map { stored[it.id] ?: it.toSongEntity() }
+                // toggleLike sends each like to YouTube itself. A likeSong after it sent it again.
                 if (allLiked) {
                     songs.filter { it.liked }.forEach { song ->
-                        val s = song.toggleLike()
-                        update(s)
-                        if (!s.isLocal) {
-                            syncUtils.likeSong(s)
-                        }
+                        update(song.toggleLike())
                     }
                 } else {
                     val newlyLiked = songs.filter { !it.liked }
                         .map { it.toggleLike() }
                     newlyLiked.forEach { s ->
                         update(s)
-                        if (!s.isLocal) {
-                            syncUtils.likeSong(s)
-                        }
                     }
                     // One batch call, so liking a large selection fires a single Wi-Fi warning
                     // rather than one per song. The branch above is an un-like, so it gets none.

@@ -12,6 +12,8 @@ import android.content.Context
 import android.util.Log
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import com.dd3boh.outertune.constants.AccountEmailKey
+import com.dd3boh.outertune.constants.DataSyncIdKey
 import com.dd3boh.outertune.constants.LastAlbumSyncKey
 import com.dd3boh.outertune.constants.LastArtistSyncKey
 import com.dd3boh.outertune.constants.LastFullSyncKey
@@ -32,6 +34,7 @@ import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.extensions.isAutoSyncEnabled
 import com.dd3boh.outertune.extensions.isInternetConnected
+import com.dd3boh.outertune.extensions.isUserLoggedIn
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.DownloadUtil
@@ -40,7 +43,10 @@ import com.zionhuang.innertube.models.AlbumItem
 import com.zionhuang.innertube.models.ArtistItem
 import com.zionhuang.innertube.models.PlaylistItem
 import com.zionhuang.innertube.models.SongItem
-import com.zionhuang.innertube.utils.completed
+import com.zionhuang.innertube.models.YTItem
+import com.zionhuang.innertube.utils.Walked
+import com.zionhuang.innertube.utils.walkItems
+import com.zionhuang.innertube.utils.walkSongs
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.withContext
@@ -49,6 +55,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -57,6 +64,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.io.File
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import javax.inject.Inject
@@ -99,17 +107,35 @@ class SyncUtils @Inject constructor(
          * that a genuine unlike made on another device still lands within a couple of days.
          */
         const val UNLIKE_GRACE_DAYS = 3L
+
+        /** Under filesDir: the LM ids seen at each account's last complete liked sync. */
+        const val LIKED_SNAPSHOT_DIR = "liked_sync"
     }
 
-    suspend fun tryAutoSync(bypassCd: Boolean = false) {
-        if (!context.isAutoSyncEnabled()) {
-            return
+    /**
+     * Every enabled kind of content. [bypassCd] is someone asking for it (the Sync now button, a
+     * pull on the Library's All tab): that needs only a signed-in account, and runs whatever the
+     * cooldowns say. It used to return at once when "Automatically sync" was off, and to call each
+     * kind without the bypass, so the button mostly did nothing and then said "Sync complete".
+     *
+     * On IO whoever calls it: the kinds below still block their thread on parts of their work,
+     * and the button ran all of it on the main thread.
+     */
+    suspend fun tryAutoSync(bypassCd: Boolean = false): SyncResult = withContext(Dispatchers.IO) {
+        autoSync(bypassCd)
+    }
+
+    private suspend fun autoSync(bypassCd: Boolean): SyncResult {
+        if (bypassCd) {
+            if (!context.isUserLoggedIn()) return SyncResult.NOTHING
+        } else if (!context.isAutoSyncEnabled()) {
+            return SyncResult.NOTHING
         }
         // bypassCd is the user pressing Sync now, which should always try. An automatic sync is
         // the "work nobody asked for" the throttle exists to drop.
         if (!bypassCd && Throttle.isBlocked) {
             Log.d(TAG, "Skipping auto sync, backing off")
-            return
+            return SyncResult.NOTHING
         }
         Log.d(TAG, "Starting auto sync job")
         if (!bypassCd) {
@@ -120,18 +146,21 @@ class SyncUtils @Inject constructor(
             val elapsed = currentTime - lastSync
             if (elapsed < SYNC_CD) {
                 Log.d(TAG, "Aborting auto sync. ${(SYNC_CD - elapsed) / 60} minutes until eligible")
-                return
+                return SyncResult.NOTHING
             }
         }
 
-        syncRemoteLikedSongs()
-        syncRemoteSongs()
-        syncRemoteAlbums()
-        syncRemoteArtists()
-        syncRemotePlaylists()
+        val results = listOf(
+            syncRemoteLikedSongs(bypassCd),
+            syncRemoteSongs(bypassCd),
+            syncRemoteAlbums(bypassCd),
+            syncRemoteArtists(bypassCd),
+            syncRemotePlaylists(bypassCd),
+        )
         context.dataStore.edit { settings ->
             settings[LastFullSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
         }
+        return SyncResult.combine(results)
     }
 
     private fun checkEnabled(item: SyncContent): Boolean {
@@ -160,7 +189,7 @@ class SyncUtils @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     fun likeSong(s: SongEntity) {
         scope.launch {
-            YouTube.likeVideo(s.id, s.liked)
+            if (!s.isLocal && context.mayPushToYouTube()) YouTube.likeVideo(s.id, s.liked)
         }
     }
 
@@ -177,31 +206,38 @@ class SyncUtils @Inject constructor(
     /**
      * Singleton syncRemoteLikedSongs
      */
-    suspend fun syncRemoteLikedSongs(bypass: Boolean = false) {
-        // REQUIRED: internet, no ongoing sync, and category enabled
-        if (_isSyncingRemoteLikedSongs.value || !checkEnabled(SyncContent.LIKED_SONGS) || !context.isInternetConnected()) {
+    suspend fun syncRemoteLikedSongs(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { likedSongs(bypass) }
+
+    private suspend fun likedSongs(bypass: Boolean): SyncResult {
+        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in. The sign-in
+        // check used to live only in the optional block below, so a pull-to-refresh (bypass)
+        // synced a signed-out session, whose empty answers read as "everything was removed".
+        if (_isSyncingRemoteLikedSongs.value || !checkEnabled(SyncContent.LIKED_SONGS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             if (_isSyncingRemoteLikedSongs.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
-            return
+            return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
         if (!bypass) {
             if (!context.isAutoSyncEnabled() || !checkPartialSyncEligibility(LastLikeSongSyncKey)) {
-                return
+                return SyncResult.NOTHING
             }
         }
         _isSyncingRemoteLikedSongs.value = true
+        // Failed until shown otherwise: a fetch that throws or comes back short says so.
+        var result = SyncResult.FAILED
 
         try {
             Log.d(TAG, "Liked songs synchronization started")
 
             // Get remote and local liked songs
-            YouTube.playlist("LM").completed().onSuccess { page ->
+            YouTube.playlist("LM").onSuccess { page ->
+                val walked = page.walkSongs()
                 if (!context.isInternetConnected()) {
-                    return
+                    return SyncResult.FAILED
                 }
 
-                val remoteSongs = page.songs.reversed()
+                val remoteSongs = walked.items.reversed()
 
                 // An empty answer is not "you have unliked everything", it is a fetch that did
                 // not work: a throttled request, a session that came back signed out, a bad page.
@@ -213,22 +249,44 @@ class SyncUtils @Inject constructor(
                     return@onSuccess
                 }
 
-                // Identify local songs to unlike
-                val songsToUnlike = database.likedSongsByNameAsc().first()
-                    .filterNot { it.song.isLocal }
-                    .filterNot { localSong -> remoteSongs.any { it.id == localSong.id } }
-                    // A like is pushed to YouTube by SongEntity.toggleLike in a coroutine whose
-                    // result nothing reads, so a like made offline, or while YouTube was refusing
-                    // us, never arrives. It is still absent from LM on the next sync, and this
-                    // would then delete it as though the listener had changed their mind. Anything
-                    // liked recently is left alone; if the push really did fail, a later sync with
-                    // a working connection still reconciles it.
-                    .filterNot { localSong ->
-                        localSong.song.likedDate?.isAfter(LocalDateTime.now().minusDays(UNLIKE_GRACE_DAYS)) == true
-                    }
+                // Complete means every continuation answered, and the count in LM's header agrees
+                // with what came back. A page that went missing makes every older like look
+                // unliked, and a 1,500-song LM would lose everything after it.
+                val headerCount = LikedSync.parseSongCount(page.playlist.songCountText)
+                val complete = walked.complete && LikedSync.readLooksComplete(remoteSongs.size, headerCount)
+                if (!complete) {
+                    Log.w(TAG, "LM read looks incomplete (${remoteSongs.size} of ${headerCount ?: "?"}, " +
+                            "walk complete: ${walked.complete}), refusing to unlike anything")
+                }
+                val remoteIds = remoteSongs.mapTo(HashSet()) { it.id }
+
+                // Only a like YouTube is known to have had can be taken back: one that was in LM
+                // at this account's last complete sync and is gone now. Everything else missing
+                // from LM (liked signed out, offline, under another account) was never there to be
+                // unliked, and used to be unliked anyway, all of it on a first sign-in.
+                val accountKey = LikedSync.accountKey(
+                    context.dataStore[DataSyncIdKey], context.dataStore[AccountEmailKey]
+                )
+                val snapshots = LikedSnapshotStore(File(context.filesDir, LIKED_SNAPSHOT_DIR))
+                val snapshot = accountKey?.let { snapshots.read(it) }
+                val localLikes = database.likedSongsByNameAsc().first().filterNot { it.song.isLocal }
+                val idsToUnlike = LikedSync.idsToUnlike(
+                    localLikes = localLikes.map { LikedSync.LocalLike(it.id, it.song.likedDate) },
+                    remoteIds = remoteIds,
+                    complete = complete,
+                    snapshot = snapshot,
+                    // "Keep all local content": sync never takes anything away, likes included.
+                    addOnly = !checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE),
+                    now = LocalDateTime.now(),
+                    // A like pushed by toggleLike may simply not have arrived yet.
+                    graceDays = UNLIKE_GRACE_DAYS,
+                )
+                val songsToUnlike = localLikes.filter { it.id in idsToUnlike }
 
                 if (songsToUnlike.isNotEmpty()) {
-                    Log.i(TAG, "Unliking ${songsToUnlike.size} songs absent from LM")
+                    Log.i(TAG, "Unliking ${songsToUnlike.size} songs YouTube had and has since unliked")
+                } else if (snapshot == null) {
+                    Log.i(TAG, "No liked snapshot for this account yet, only adding")
                 }
 
                 // Unlike local songs in the database
@@ -252,10 +310,19 @@ class SyncUtils @Inject constructor(
                     }
                 }
 
+                // What LM held, for the next sync to compare against. Only a complete read is
+                // worth remembering: a song missing from a short one would drop out of the
+                // snapshot, and its later unlike on YouTube would never reach the app.
+                if (complete && accountKey != null) {
+                    runCatching { snapshots.write(accountKey, remoteIds) }
+                        .onFailure { Log.w(TAG, "Could not save the liked snapshot", it) }
+                }
+
                 // Songs liked on YouTube never pass through a like button, so without this a fresh
                 // login syncs hundreds of liked songs and downloads none of them, under a setting
                 // that says it downloads your liked songs. One bounded snapshot, no collector.
                 downloadUtil.downloadLikedSongs()
+                result = if (walked.complete) SyncResult.SYNCED else SyncResult.FAILED
             }
 
         } finally {
@@ -270,46 +337,54 @@ class SyncUtils @Inject constructor(
             }
             Log.i(TAG, "Liked songs synchronization ended")
         }
+        return result
     }
 
     /**
      * Singleton syncRemoteSongs
      */
-    suspend fun syncRemoteSongs(bypass: Boolean = false) {
-        // REQUIRED: internet, no ongoing sync, and category enabled
-        if (_isSyncingRemoteSongs.value || !checkEnabled(SyncContent.PRIVATE_SONGS) || !context.isInternetConnected()) {
+    suspend fun syncRemoteSongs(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { librarySongs(bypass) }
+
+    private suspend fun librarySongs(bypass: Boolean): SyncResult {
+        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
+        if (_isSyncingRemoteSongs.value || !checkEnabled(SyncContent.PRIVATE_SONGS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             if (_isSyncingRemoteSongs.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
-            return
+            return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
         if (!bypass) {
             if (!context.isAutoSyncEnabled() || !checkPartialSyncEligibility(LastLibSongSyncKey)) {
-                return
+                return SyncResult.NOTHING
             }
         }
         _isSyncingRemoteSongs.value = true
+        // Failed until shown otherwise: a fetch that throws or comes back short says so.
+        var result = SyncResult.FAILED
 
         try {
             Log.i(TAG, "Library songs synchronization started")
 
             // Get remote songs (from library and uploads)
-            val remoteSongs = getRemoteData<SongItem>("FEmusic_liked_videos", "FEmusic_library_privately_owned_tracks")
+            val remote = getRemoteData<SongItem>("FEmusic_liked_videos", "FEmusic_library_privately_owned_tracks")
+            val remoteSongs = remote.items
             if (!context.isInternetConnected()) {
-                return
+                return SyncResult.FAILED
             }
 
-            if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE)) {
+            if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE) && removalAllowed(remote, "songs")) {
                 // Identify local songs to remove
+                val remoteIds = remoteSongs.mapTo(HashSet()) { it.id }
                 val songsToRemoveFromLibrary = database.songsByNameAsc().first()
                     .filterNot { it.song.isLocal }
-                    .filterNot { localSong -> remoteSongs.any { it.id == localSong.id } }
+                    .filterNot { localSong -> localSong.id in remoteIds }
 
-                // Remove local songs from the database
+                // Remove local songs from the library, and only from the library: toggleLibrary
+                // also unliked them, and whether a song is liked is the liked sync's business.
                 runBlocking {
                     songsToRemoveFromLibrary.forEach { song ->
                         launch(Dispatchers.IO) {
-                            database.update(song.song.toggleLibrary())
+                            database.update(song.song.copy(inLibrary = null))
                         }
                     }
                 }
@@ -331,6 +406,7 @@ class SyncUtils @Inject constructor(
                 }
                 jobs.joinAll()
             }
+            result = if (remote.complete) SyncResult.SYNCED else SyncResult.FAILED
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
@@ -343,37 +419,43 @@ class SyncUtils @Inject constructor(
             }
             Log.i(TAG, "Library songs synchronization ended")
         }
+        return result
     }
 
     /**
      * Singleton syncRemoteAlbums
      */
-    suspend fun syncRemoteAlbums(bypass: Boolean = false) {
-        // REQUIRED: internet, no ongoing sync, and category enabled
-        if (_isSyncingRemoteAlbums.value || !checkEnabled(SyncContent.ALBUMS) || !context.isInternetConnected()) {
+    suspend fun syncRemoteAlbums(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { albums(bypass) }
+
+    private suspend fun albums(bypass: Boolean): SyncResult {
+        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
+        if (_isSyncingRemoteAlbums.value || !checkEnabled(SyncContent.ALBUMS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             if (_isSyncingRemoteAlbums.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
-            return
+            return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
         if (!bypass) {
             if (!context.isAutoSyncEnabled() || !checkPartialSyncEligibility(LastAlbumSyncKey)) {
-                return
+                return SyncResult.NOTHING
             }
         }
         _isSyncingRemoteAlbums.value = true
+        // Failed until shown otherwise: a fetch that throws or comes back short says so.
+        var result = SyncResult.FAILED
 
         try {
             Log.i(TAG, "Library albums synchronization started")
 
             // Get remote albums (from library and uploads)
-            val remoteAlbums =
+            val remote =
                 getRemoteData<AlbumItem>("FEmusic_liked_albums", "FEmusic_library_privately_owned_releases")
+            val remoteAlbums = remote.items
             if (!context.isInternetConnected()) {
-                return
+                return SyncResult.FAILED
             }
 
-            if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE)) {
+            if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE) && removalAllowed(remote, "albums")) {
                 // Identify local albums to remove
                 val albumsToRemoveFromLibrary = database.albumsLikedAsc().first()
                     .filterNot { it.album.isLocal }
@@ -405,6 +487,7 @@ class SyncUtils @Inject constructor(
                     }
                 }
             }
+            result = if (remote.complete) SyncResult.SYNCED else SyncResult.FAILED
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
@@ -417,38 +500,44 @@ class SyncUtils @Inject constructor(
             }
             Log.i(TAG, "Library albums synchronization ended")
         }
+        return result
     }
 
     /**
      * Singleton syncRemoteArtists
      */
-    suspend fun syncRemoteArtists(bypass: Boolean = false) {
-        // REQUIRED: internet, no ongoing sync, and category enabled
-        if (_isSyncingRemoteArtists.value || !checkEnabled(SyncContent.ARTISTS) || !context.isInternetConnected()) {
+    suspend fun syncRemoteArtists(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { artists(bypass) }
+
+    private suspend fun artists(bypass: Boolean): SyncResult {
+        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
+        if (_isSyncingRemoteArtists.value || !checkEnabled(SyncContent.ARTISTS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             if (_isSyncingRemoteArtists.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
-            return
+            return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
         if (!bypass) {
             if (!context.isAutoSyncEnabled() || !checkPartialSyncEligibility(LastArtistSyncKey)) {
-                return
+                return SyncResult.NOTHING
             }
         }
         _isSyncingRemoteArtists.value = true
+        // Failed until shown otherwise: a fetch that throws or comes back short says so.
+        var result = SyncResult.FAILED
 
         try {
             Log.i(TAG, "Artist subscriptions synchronization started")
 
             // Get remote artists (from library and uploads)
-            val likedArtists = getRemoteData<ArtistItem>(
+            val likedRemote = getRemoteData<ArtistItem>(
                 "FEmusic_library_corpus_artists",
                 "FEmusic_library_privately_owned_artists"
             )
+            val likedArtists = likedRemote.items
             val trackArtists = getRemoteData<ArtistItem>(
                 "FEmusic_library_corpus_track_artists",
                 "FEmusic_library_privately_owned_artists"
-            )
+            ).items
             val remoteArtists = mutableListOf<ArtistItem>().apply {
                 addAll(likedArtists)
                 addAll(trackArtists.filterNot { trackArtist ->
@@ -457,10 +546,10 @@ class SyncUtils @Inject constructor(
             }
 
             if (!context.isInternetConnected()) {
-                return
+                return SyncResult.FAILED
             }
 
-            if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE)) {
+            if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE) && removalAllowed(likedRemote, "artists")) {
                 // Get local artists
                 val artistsToRemoveFromSubscriptions = database.artistsBookmarkedAsc().first()
                     .filterNot { it.artist.isLocal }
@@ -501,6 +590,7 @@ class SyncUtils @Inject constructor(
                     }
                 }
             }
+            result = if (likedRemote.complete) SyncResult.SYNCED else SyncResult.FAILED
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
@@ -513,42 +603,50 @@ class SyncUtils @Inject constructor(
             }
             Log.i(TAG, "Artist subscriptions synchronization ended")
         }
+        return result
     }
 
     /**
      * Singleton syncRemotePlaylists
      */
-    suspend fun syncRemotePlaylists(bypass: Boolean = false) {
-        // REQUIRED: internet, no ongoing sync, and category enabled
-        if (_isSyncingRemotePlaylists.value || !checkEnabled(SyncContent.PLAYLISTS) || !context.isInternetConnected()) {
+    suspend fun syncRemotePlaylists(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { playlists(bypass) }
+
+    private suspend fun playlists(bypass: Boolean): SyncResult {
+        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
+        if (_isSyncingRemotePlaylists.value || !checkEnabled(SyncContent.PLAYLISTS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             if (_isSyncingRemotePlaylists.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
-            return
+            return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
         if (!bypass) {
             if (!context.isAutoSyncEnabled() || !checkPartialSyncEligibility(LastPlaylistSyncKey)) {
-                return
+                return SyncResult.NOTHING
             }
         }
         _isSyncingRemotePlaylists.value = true
+        // Failed until shown otherwise: a fetch that throws or comes back short says so.
+        var result = SyncResult.FAILED
 
         try {
             Log.i(TAG, "Library playlist synchronization started")
 
             // Get remote and local playlists
-            YouTube.library("FEmusic_liked_playlists").completed().onSuccess { page ->
+            YouTube.library("FEmusic_liked_playlists").onSuccess { firstPage ->
+                val walked = firstPage.walkItems()
                 if (!context.isInternetConnected()) {
-                    return
+                    return SyncResult.FAILED
                 }
 
-                val remotePlaylists = page.items.filterIsInstance<PlaylistItem>()
+                val remotePlaylists = walked.items.filterIsInstance<PlaylistItem>()
                     .filterNot { it.id == "LM" || it.id == "SE" }
                     .reversed()
 
                 val localPlaylists = database.playlistInLibraryAsc().first()
 
-                if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE)) {
+                if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE) &&
+                    removalAllowed(Walked(remotePlaylists, walked.complete), "playlists")
+                ) {
                     // Identify playlists to remove
                     val playlistsToRemove = localPlaylists
                         .filterNot { it.playlist.isLocal }
@@ -596,7 +694,10 @@ class SyncUtils @Inject constructor(
                             val updatedPlaylist =
                                 database.playlistByBrowseId(remotePlaylist.id).firstOrNull()
                             updatedPlaylist?.let {
-                                val playlistSongMaps = database.songMapsToPlaylist(updatedPlaylist.id)
+                                // The (playlistId, from) query. The one-argument overload takes a
+                                // song id, so this was always empty and a saved playlist that is
+                                // not ours was never refreshed.
+                                val playlistSongMaps = database.songMapsToPlaylist(updatedPlaylist.id, 0)
                                 if (updatedPlaylist.playlist.isEditable || playlistSongMaps.isNotEmpty()) {
                                     syncPlaylist(remotePlaylist.id, updatedPlaylist.id)
                                 }
@@ -604,6 +705,7 @@ class SyncUtils @Inject constructor(
                         }
                     }
                 }
+                result = if (walked.complete) SyncResult.SYNCED else SyncResult.FAILED
             }
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
@@ -617,55 +719,72 @@ class SyncUtils @Inject constructor(
             }
             Log.i(TAG, "Library playlist synchronization ended")
         }
+        return result
     }
 
-    suspend fun syncPlaylist(browseId: String, playlistId: String) {
+    /**
+     * Replaces a playlist's songs with YouTube's copy of it. True when that happened.
+     *
+     * The local songs are cleared before the remote ones go in, so a read that stopped early used
+     * to cut the playlist short, and one that came back empty emptied it. Only a whole read is
+     * copied now; anything less leaves the playlist as it was.
+     */
+    suspend fun syncPlaylist(browseId: String, playlistId: String): Boolean = withContext(Dispatchers.IO) {
         // this is also used for individual playlist sync
         if (!context.isInternetConnected()) {
-            return
+            return@withContext false
         }
-        YouTube.playlist(browseId).completed().onSuccess { playlistPage ->
-            if (!context.isInternetConnected()) {
-                return
-            }
-
-            runBlocking {
-                launch(Dispatchers.IO) {
-                    database.transaction {
-                        clearPlaylist(playlistId)
-                        val songEntities = playlistPage.songs
-                            .map(SongItem::toMediaMetadata)
-                            .onEach { insert(it) }
-
-                        val playlistSongMaps = songEntities.mapIndexed { position, song ->
-                            PlaylistSongMap(
-                                songId = song.id,
-                                playlistId = playlistId,
-                                position = position,
-                                setVideoId = song.setVideoId
-                            )
-                        }
-                        playlistSongMaps.forEach { insert(it) }
-                    }
-                }
-            }
+        val playlistPage = YouTube.playlist(browseId).getOrElse {
+            Log.w(TAG, "Could not read playlist $browseId: ${it.message}")
+            return@withContext false
         }
+        val walked = playlistPage.walkSongs()
+        if (!context.isInternetConnected()) {
+            return@withContext false
+        }
+        val hasLocalSongs = database.songMapsToPlaylist(playlistId, 0).isNotEmpty()
+        if (!mayReplacePlaylist(walked.complete, walked.items.size, hasLocalSongs)) {
+            Log.w(TAG, "Playlist $browseId was not read in full (${walked.items.size} songs), keeping the local copy")
+            return@withContext false
+        }
+
+        database.transaction {
+            clearPlaylist(playlistId)
+            val songEntities = walked.items
+                .map(SongItem::toMediaMetadata)
+                .onEach { insert(it) }
+
+            val playlistSongMaps = songEntities.mapIndexed { position, song ->
+                PlaylistSongMap(
+                    songId = song.id,
+                    playlistId = playlistId,
+                    position = position,
+                    setVideoId = song.setVideoId
+                )
+            }
+            playlistSongMaps.forEach { insert(it) }
+        }
+        true
     }
 
-    suspend fun syncRecentActivity(bypass: Boolean = false) {
-        // REQUIRED: internet, no ongoing sync, and category enabled
-        if (_isSyncingRecentActivity.value || !checkEnabled(SyncContent.RECENT_ACTIVITY) || !context.isInternetConnected()) {
+    suspend fun syncRecentActivity(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { recentActivity(bypass) }
+
+    private suspend fun recentActivity(bypass: Boolean): SyncResult {
+        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
+        if (_isSyncingRecentActivity.value || !checkEnabled(SyncContent.RECENT_ACTIVITY) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             if (_isSyncingRecentActivity.value)
                 Log.i(TAG, "Recent activity synchronization already in progress")
-            return
+            return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
         if (!bypass) {
             if (!context.isAutoSyncEnabled() || !checkPartialSyncEligibility(LastRecentActivitySyncKey)) {
-                return
+                return SyncResult.NOTHING
             }
         }
         _isSyncingRecentActivity.value = true
+        // Failed until shown otherwise: a fetch that throws or comes back short says so.
+        var result = SyncResult.FAILED
 
         try {
             Log.i(TAG, "Recent activity synchronization started")
@@ -679,6 +798,7 @@ class SyncUtils @Inject constructor(
                         recentActivity.reversed().forEach { database.insertRecentActivityItem(it) }
                     }
                 }
+                result = SyncResult.SYNCED
             }
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
@@ -692,27 +812,38 @@ class SyncUtils @Inject constructor(
             }
             Log.i(TAG, "Recent activity synchronization ended")
         }
+        return result
     }
 
-    private suspend inline fun <reified T> getRemoteData(libraryId: String, uploadsId: String): MutableList<T> {
-        val browseIds = mapOf(
-            libraryId to 0,
-            uploadsId to 1
-        )
-
-        val remote = mutableListOf<T>()
-        runBlocking {
-            val fetchJobs = browseIds.map { (browseId, tab) ->
+    /**
+     * The library and uploads tabs together, and whether both were read in full.
+     *
+     * This used to hand back whatever arrived: a tab that failed added nothing, and a walk that
+     * stopped half-way counted as finished, so a 429 or a timeout looked exactly like a library
+     * that had been emptied. What was read is still fine to add; only a complete read may remove.
+     */
+    private suspend inline fun <reified T> getRemoteData(libraryId: String, uploadsId: String): Walked<T> {
+        val tabs = coroutineScope {
+            listOf(libraryId to 0, uploadsId to 1).map { (browseId, tab) ->
                 async {
-                    YouTube.library(browseId, tab).completed().onSuccess { page ->
-                        val data = page.items.filterIsInstance<T>().reversed()
-                        synchronized(remote) { remote.addAll(data) }
-                    }
+                    YouTube.library(browseId, tab).fold(
+                        onSuccess = { it.walkItems() },
+                        onFailure = {
+                            Log.w(TAG, "Could not read $browseId: ${it.message}")
+                            Walked(emptyList<YTItem>(), complete = false)
+                        }
+                    )
                 }
-            }
-            fetchJobs.awaitAll()
+            }.awaitAll()
         }
-
-        return remote
+        return Walked(
+            items = tabs.flatMap { it.items.filterIsInstance<T>().reversed() },
+            complete = tabs.all { it.complete }
+        )
     }
+
+    private fun removalAllowed(remote: Walked<*>, what: String): Boolean =
+        mayRemoveMissing(remote.complete, remote.items.size).also {
+            if (!it) Log.w(TAG, "Not removing any $what: the remote list was not read in full (${remote.items.size} read)")
+        }
 }

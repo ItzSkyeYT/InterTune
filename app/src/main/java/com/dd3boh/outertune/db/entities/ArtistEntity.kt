@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
@@ -33,10 +34,12 @@ data class ArtistEntity(
 
     fun toggleLike() = localToggleLike().also {
         CoroutineScope(syncCoroutine).launch {
-            if (channelId == null)
-                YouTube.subscribeChannel(YouTube.getChannelId(id), bookmarkedAt == null)
-            else
-                YouTube.subscribeChannel(channelId, bookmarkedAt == null)
+            if (!isLocal && mayPushToYouTube()) {
+                if (channelId == null)
+                    YouTube.subscribeChannel(YouTube.getChannelId(id), bookmarkedAt == null)
+                else
+                    YouTube.subscribeChannel(channelId, bookmarkedAt == null)
+            }
             this.cancel()
         }
     }

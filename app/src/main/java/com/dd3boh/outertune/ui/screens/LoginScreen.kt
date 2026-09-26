@@ -189,8 +189,14 @@ fun LoginScreen(
                                 loadUrl("javascript:Android.onRetrieveDataSyncId(window.yt.config_.DATASYNC_ID)")
 
                                 if (isYouTubeMusicPage(url)) {
-                                    innerTubeCookie = CookieManager.getInstance().getCookie(url)
+                                    val cookie = CookieManager.getInstance().getCookie(url)
+                                    innerTubeCookie = cookie
                                     GlobalScope.launch {
+                                        // The preference write above reaches YouTube.cookie through
+                                        // App's collector, some time later. Asked before that, this
+                                        // answered for the account signed in before, or for nobody,
+                                        // and stored that name and address.
+                                        runCatching { YouTube.cookie = cookie }
                                         YouTube.accountInfo().onSuccess {
                                             accountName = it.name
                                             accountEmail = it.email.orEmpty()
