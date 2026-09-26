@@ -226,6 +226,13 @@ val OobeStatusKey = intPreferencesKey("oobeStatus")
 val SwipeToSkipKey = booleanPreferencesKey("swipeToSkip")
 
 /**
+ * Whether the player opens the queue from a button beside its other buttons, rather than from the
+ * sheet pulled up from its bottom edge. Off keeps the sheet, which is how the player has always
+ * worked, so nobody loses the gesture they know.
+ */
+val QueueButtonKey = booleanPreferencesKey("queueButton")
+
+/**
  * Whether swiping the mini player downwards closes it and stops playback.
  *
  * Default true, which is the long-standing behaviour. Off leaves the mini player pinned: the drag

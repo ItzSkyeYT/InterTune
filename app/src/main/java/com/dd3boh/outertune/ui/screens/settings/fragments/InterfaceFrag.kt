@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LocationOn
@@ -55,6 +56,7 @@ import com.dd3boh.outertune.constants.ListItemHeight
 import com.dd3boh.outertune.constants.SYSTEM_DEFAULT
 import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.constants.SwipeToSkipKey
+import com.dd3boh.outertune.constants.QueueButtonKey
 import com.dd3boh.outertune.constants.SwipeToDismissPlayerKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.extensions.move
@@ -419,6 +421,17 @@ fun ColumnScope.SwipeGesturesFrag() {
         icon = { Icon(Icons.Rounded.SwipeDown, null) },
         checked = swipeToDismissPlayer,
         onCheckedChange = onSwipeToDismissPlayerChange
+    )
+
+    // Off keeps the sheet pulled up from the bottom of the player, as it has always been. On puts
+    // a queue button first in the row beside the title, with like and the menu where they were.
+    val (queueAsButton, onQueueAsButtonChange) = rememberPreference(QueueButtonKey, defaultValue = false)
+    SwitchPreference(
+        title = { Text(stringResource(R.string.queue_button)) },
+        description = stringResource(R.string.queue_button_description),
+        icon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
+        checked = queueAsButton,
+        onCheckedChange = onQueueAsButtonChange
     )
 }
 

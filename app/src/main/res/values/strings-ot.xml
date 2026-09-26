@@ -823,4 +823,6 @@ while also allowing users to translate our app as well. New, specific strings to
 -->
     <string name="quick_picks_source_description_basic">Where the Quick picks row gets its songs. YouTube Music picks them for your account. Your library builds the row instead from songs related to what you have already played. This changes that one row; the rest of the home screen is the same either way.</string>
     <string name="quick_picks_source_info_basic">YouTube Music shows the shelf YouTube builds for your account, falling back to the library row when a load finds no shelf, offline for one. Your library ranks songs related to your last five plays, your week\'s top five and your last ten likes. Off removes the row.\n\nOnly this row changes, nothing else on Home: the carousels, the Similar to rows and the mood tiles are YouTube\'s either way.</string>
+    <string name="queue_button">Queue button</string>
+    <string name="queue_button_description">Opens the queue from a button next to the other player buttons, instead of pulling it up from the bottom of the player.</string>
 </resources>

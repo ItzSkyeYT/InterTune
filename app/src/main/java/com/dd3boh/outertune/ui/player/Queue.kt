@@ -184,6 +184,12 @@ fun QueueSheet(
     onBackgroundColor: Color,
     navController: NavController,
     modifier: Modifier = Modifier,
+    /**
+     * Whether the collapsed sheet shows its handle, the arrow that pulls it up. Off when the queue
+     * opens from a button instead, where the sheet collapses to nothing and only ever comes up
+     * from that button.
+     */
+    showHandle: Boolean = true,
 ) {
     Log.v("QueueSheet", "Q-1")
     val haptic = LocalHapticFeedback.current
@@ -199,7 +205,7 @@ fun QueueSheet(
         modifier = modifier,
         collapsedContent = {
             Log.v("QueueSheet", "Q-2")
-            Row(
+            if (showHandle) Row(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.Top,
                 modifier = Modifier

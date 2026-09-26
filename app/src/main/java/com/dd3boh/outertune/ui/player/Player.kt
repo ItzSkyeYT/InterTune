@@ -144,6 +144,8 @@ import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.constants.PlayerHorizontalPadding
 import com.dd3boh.outertune.constants.QueuePeekHeight
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import com.dd3boh.outertune.constants.QueueButtonKey
 import com.dd3boh.outertune.constants.SeekIncrement
 import com.dd3boh.outertune.constants.SeekIncrementKey
 import com.dd3boh.outertune.constants.ShowLyricsKey
@@ -351,8 +353,12 @@ fun BottomSheetPlayer(
 
     // ignoringVisibility so hiding the bars in immersive landscape does not change this bound and
     // rebuild the sheet state mid-gesture. See the matching note in MainActivity.
-    val dismissedBound =
-        QueuePeekHeight + WindowInsets.systemBarsIgnoringVisibility.asPaddingValues().calculateBottomPadding()
+    val navigationBarHeight = WindowInsets.systemBarsIgnoringVisibility.asPaddingValues().calculateBottomPadding()
+    val dismissedBound = QueuePeekHeight + navigationBarHeight
+
+    // A tablet keeps the sheet whatever the setting says: it shows no buttons by the title, so with
+    // the queue on a button the saved queues would have no way in.
+    val queueAsButton = rememberPreference(QueueButtonKey, defaultValue = false).value && !tabMode
 
     /**
      * The collapsed queue sheet is [QueuePeekHeight] taller than the peek it actually needs, and
@@ -367,13 +373,19 @@ fun BottomSheetPlayer(
      * empty range). Velocity-based dismiss is unaffected.
      */
     val queueSheetState = rememberBottomSheetState(
-        dismissedBound = dismissedBound,
+        // With the queue on a button the sheet collapses to nothing at all: it sits wholly below the
+        // screen, so the player has no strip, no handle and no pull-up gesture at the bottom, and
+        // the button is the only way up.
+        dismissedBound = if (queueAsButton) 0.dp else dismissedBound,
         expandedBound = state.expandedBound,
         // No queue peek on a tablet: the queue is permanently in the side pane, so reserving a
         // strip for a preview of it wastes the bottom of the screen, squashes the artwork (which
         // is sized by the height left over) and pushes the handle up into the middle of nowhere.
-        collapsedBound = if (landscapeTwoPane || tabletTwoPane) dismissedBound
-        else dismissedBound + QueuePeekHeight,
+        collapsedBound = when {
+            queueAsButton -> 0.dp
+            landscapeTwoPane || tabletTwoPane -> dismissedBound
+            else -> dismissedBound + QueuePeekHeight
+        },
         initialAnchor = 1
     )
 
@@ -584,9 +596,35 @@ fun BottomSheetPlayer(
             val transportIconSize = if (landscapePlayer) 42.dp else 32.dp
             val playButtonSize = if (landscapePlayer) 84.dp else 72.dp
 
+            // Like and the menu beside the title. With the queue on a button it comes first, so like
+            // and the menu stay where they always were at the end of the row.
             val actionButtons: @Composable RowScope.() -> Unit = {
                 Log.v(TAG, "PLR-3.xa")
                 Spacer(modifier = Modifier.width(10.dp))
+
+                if (queueAsButton) {
+                    Box(
+                        modifier = Modifier
+                            .offset(y = 5.dp)
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                    ) {
+                        ResizableIconButton(
+                            icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .align(Alignment.Center),
+                            onClick = {
+                                queueSheetState.expandSoft()
+                                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(7.dp))
+                }
 
                 Box(
                     modifier = Modifier
@@ -1101,8 +1139,12 @@ fun BottomSheetPlayer(
                         // artwork is sized from whatever the column has left. Reserve only the
                         // handle.
                         .padding(
-                            bottom = if (tabletTwoPane) TabletQueueHandleReserve
-                            else queueSheetState.collapsedBound
+                            bottom = when {
+                                // No sheet to keep clear at all, only the navigation bar.
+                                queueAsButton -> navigationBarHeight
+                                tabletTwoPane -> TabletQueueHandleReserve
+                                else -> queueSheetState.collapsedBound
+                            }
                         )
                 ) {
                     BoxWithConstraints(
@@ -1226,7 +1268,8 @@ fun BottomSheetPlayer(
                 playerConnection.service.queueBoard.detachedHead = false
             },
             onBackgroundColor = onBackgroundColor,
-            navController = navController
+            navController = navController,
+            showHandle = !queueAsButton
         )
     }
 }
