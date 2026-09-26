@@ -283,6 +283,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="polls_enabled_info">Now and then InterTune downloads a short list of questions from GitHub and shows the next one at the top of Home. Nothing is downloaded while this and news are both off.\n\nWhat is sent, to count answers and views:\n• When you answer a question: the question, your choice and the app version.\n• The first time you open a question: its title and the app version.\n\nNever your account, your device or anything about your library.</string>
     <string name="polls_none">No question right now</string>
     <string name="polls_one_waiting">There is a question waiting</string>
+    <string name="news_one_waiting">There is news waiting</string>
+    <string name="news_none">No news right now</string>
     <string name="polls_forget">Let me be asked again</string>
     <string name="announcement_banner_hint">Tap to read</string>
     <string name="announcement_dismiss">Dismiss this announcement</string>
@@ -290,7 +292,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="announcement_done">Got it</string>
     <string name="announcement_picture">Picture %1$d of %2$d. Tap to see it whole.</string>
     <string name="announcement_picture_failed">This picture could not be loaded.</string>
-    <string name="polls_forget_description">Clears the record of what you have answered and dismissed, so past questions can come back.</string>
+    <string name="polls_forget_description">Clears the record of what you have answered, dismissed and read, so past questions and news can come back.</string>
     <string name="catch_up_title">A few quick questions</string>
     <string name="catch_up_body">These settings need your say-so, and this install has never been asked. It shows up after an update, or after restoring a backup that did not carry your answers.</string>
     <string name="catch_up_done">Done</string>

@@ -325,8 +325,10 @@
     <string name="polls_enabled_info">De temps en temps, InterTune télécharge depuis GitHub une courte liste de questions et affiche la suivante en haut de l\'accueil. Rien n\'est téléchargé tant que ceci et les nouvelles sont désactivés.\n\nCe qui est envoyé, pour compter les réponses et les vues :\n• Quand vous répondez à une question : la question, votre choix et la version de l\'application.\n• La première fois que vous ouvrez une question : son titre et la version de l\'application.\n\nJamais votre compte, votre appareil ni rien sur votre bibliothèque.</string>
     <string name="polls_none">Aucune question pour le moment</string>
     <string name="polls_one_waiting">Une question vous attend</string>
+    <string name="news_one_waiting">Il y a une nouvelle en attente</string>
+    <string name="news_none">Pas de nouvelles pour le moment</string>
     <string name="polls_forget">Me permettre d\'être à nouveau sollicité</string>
-    <string name="polls_forget_description">Efface la trace de ce que vous avez répondu et ignoré, afin que les questions passées puissent revenir.</string>
+    <string name="polls_forget_description">Efface ce que vous avez répondu, ignoré et lu, pour que les anciennes questions et nouvelles puissent revenir.</string>
     <string name="catch_up_title">Quelques questions rapides</string>
     <string name="catch_up_body">Ces réglages ont besoin de votre accord, et cette installation n\'a jamais été interrogée. Cela apparaît après une mise à jour, ou après la restauration d\'une sauvegarde qui ne contenait pas vos réponses.</string>
     <string name="catch_up_done">Terminé</string>

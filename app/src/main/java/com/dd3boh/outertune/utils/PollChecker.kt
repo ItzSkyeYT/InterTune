@@ -18,6 +18,7 @@ import com.dd3boh.outertune.constants.ViewedPollIdsKey
 import com.dd3boh.outertune.constants.DismissedPollIdsKey
 import com.dd3boh.outertune.constants.LastPollFetchKey
 import com.dd3boh.outertune.constants.Polls
+import com.dd3boh.outertune.constants.PollFetchVersionKey
 import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.extensions.isInternetConnected
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -138,7 +139,11 @@ class PollChecker @Inject constructor(
 
         val last = store.get(LastPollFetchKey, 0L)
         val now = System.currentTimeMillis()
-        if (!force && now - last < MIN_FETCH_INTERVAL_MS) {
+        // The saved document is only good for the build that fetched it. After an update the old
+        // copy was shown for up to six hours, so the first announcement of a release reached
+        // everyone who updated as whatever the file said before it, pictures missing.
+        val fetchedByThisBuild = store.get(PollFetchVersionKey, 0) == BuildConfig.VERSION_CODE
+        if (!force && fetchedByThisBuild && now - last < MIN_FETCH_INTERVAL_MS) {
             // Re-derive from the cached document rather than reporting the in-memory value, which
             // is null on every process start. Same fault the update checker had.
             return@withContext restoreFromCache()
@@ -160,6 +165,7 @@ class PollChecker @Inject constructor(
         context.dataStore.edit {
             it[LastPollFetchKey] = now
             it[CachedPollsJsonKey] = body
+            it[PollFetchVersionKey] = BuildConfig.VERSION_CODE
         }
 
         pick(body)
@@ -396,6 +402,9 @@ class PollChecker @Inject constructor(
             it.remove(DismissedPollIdsKey)
             it.remove(CachedPollsJsonKey)
             it.remove(LastPollFetchKey)
+            // Announcements too: once read one never came back, even for whoever wanted to look
+            // at it again. What was counted stays counted, so reading it again sends nothing.
+            it.remove(DismissedAnnouncementIdsKey)
         }
         _current.value = null
     }

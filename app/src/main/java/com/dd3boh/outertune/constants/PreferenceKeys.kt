@@ -444,6 +444,9 @@ val ViewedPollIdsKey = stringSetPreferencesKey("viewedPollIds")
 /** Epoch millis of the last poll fetch, for the rate limit floor. */
 val LastPollFetchKey = longPreferencesKey("lastPollFetch")
 
+/** The versionCode of the build that made the last fetch; any other build fetches afresh. */
+val PollFetchVersionKey = intPreferencesKey("pollFetchVersion")
+
 /**
  * The last poll document, verbatim.
  *

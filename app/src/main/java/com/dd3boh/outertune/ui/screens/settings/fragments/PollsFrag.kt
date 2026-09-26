@@ -30,7 +30,9 @@ import com.dd3boh.outertune.constants.AnnouncementsEnabledKey
 import com.dd3boh.outertune.constants.Polls
 import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
+import com.dd3boh.outertune.ui.component.currentLocales
 import com.dd3boh.outertune.ui.component.PreferenceEntry
+import com.dd3boh.outertune.utils.Announcement
 import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.rememberPreference
@@ -105,17 +107,25 @@ fun ColumnScope.PollsFrag() {
         }
     )
 
-    if (enabled) {
+    // For either switch: both come in the same download, and news used to have no way to be
+    // looked for again from here, nor to come back once read.
+    val note: Announcement? by pollChecker.currentAnnouncement.collectAsState()
+    val noteBanner = note?.textFor(currentLocales())?.banner
+    if (enabled || newsOn) {
         PreferenceEntry(
             title = {
                 Text(
                     stringResource(
-                        if (poll != null) R.string.polls_one_waiting
-                        else R.string.polls_none
+                        when {
+                            poll != null -> R.string.polls_one_waiting
+                            note != null -> R.string.news_one_waiting
+                            enabled -> R.string.polls_none
+                            else -> R.string.news_none
+                        }
                     )
                 )
             },
-            description = poll?.banner,
+            description = poll?.banner ?: noteBanner,
             icon = { Icon(Icons.Rounded.Refresh, null) },
             isEnabled = !checking,
             onClick = {

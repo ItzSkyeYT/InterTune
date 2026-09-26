@@ -83,6 +83,7 @@ InterTune can count this install once a day: one short message with a random nam
 - **Favourite artists** beside Liked songs and Downloaded songs: a mix of the artists you have bookmarked, one song from each in turn, so one big catalogue cannot take it over.
 - **News from InterTune**: announcements with their own switch, asked once after updating (already on if you said yes to questions). They open full screen like a question, with pictures and up to three buttons, and questions and announcements can have paragraphs, lists and bold text. There is a Discord server too.
 - The first opening of a question or an announcement is counted once: its id, its title and the app version, nothing about you or your device.
+- After an update, questions and news are downloaded fresh instead of taken from the copy the old version saved, so a new announcement shows as it is now. The check-now row and "Let me be asked again" cover news as well as questions.
 - If InterTune crashes, it offers to report it the next time it opens, with the error already filled in. Nothing is sent unless you choose to.
 - Predictive back and reveal transitions (switch, on).
 - **Keep the queue up to date**: drops songs further down the queue that stop suiting what you are playing, and reacts to whether you stay with the current song or skip past it. Most of the queue is hidden while it settles, so you see what is actually coming rather than a list that is about to change.

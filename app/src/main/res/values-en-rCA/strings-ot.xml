@@ -30,7 +30,7 @@
     <string name="polls_none">No question right now</string>
     <string name="polls_one_waiting">There is a question waiting</string>
     <string name="polls_forget">Let me be asked again</string>
-    <string name="polls_forget_description">Clears the record of what you have answered and dismissed, so past questions can come back.</string>
+    <string name="polls_forget_description">Clears the record of what you have answered, dismissed and read, so past questions and news can come back.</string>
     <string name="catch_up_title">A few quick questions</string>
     <string name="catch_up_body">These settings need your say-so, and this install has never been asked. It shows up after an update, or after restoring a backup that did not carry your answers.</string>
     <string name="catch_up_done">Done</string>
