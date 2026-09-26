@@ -4,10 +4,12 @@ import com.dd3boh.lrclib.models.Track
 import com.dd3boh.lrclib.models.bestMatchingFor
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import kotlin.math.abs
@@ -46,6 +48,31 @@ object LrcLib {
             if (album != null) parameter("album_name", album)
         }.body<List<Track>>()
         .filter { it.syncedLyrics != null }
+
+    /**
+     * LRCLIB's exact lookup: the one entry for this title and artist whose length is within two
+     * seconds of [duration], or null when it has none.
+     *
+     * No album is sent. LRCLIB treats it as part of the signature, so an album name that differs
+     * from its entry's, as YouTube's single and compilation names usually do, turns a hit into a
+     * 404: "Bailando" by Paradisio at 230 s was found without one and not found with a made-up one.
+     */
+    suspend fun get(title: String, artist: String, duration: Int): Track? = try {
+        client.get("/api/get") {
+            parameter("track_name", title)
+            parameter("artist_name", artist)
+            parameter("duration", duration)
+        }.body<Track>()
+    } catch (e: ClientRequestException) {
+        if (e.response.status == HttpStatusCode.NotFound) null else throw e
+    }
+
+    /** Every entry LRCLIB's search returns for this title and artist, with or without lyrics. */
+    suspend fun search(title: String, artist: String): List<Track> = client
+        .get("/api/search") {
+            parameter("track_name", title)
+            parameter("artist_name", artist)
+        }.body<List<Track>>()
 
     suspend fun getLyrics(
         title: String,

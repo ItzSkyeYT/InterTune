@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -75,7 +76,10 @@ class PlayerConnection(
     val currentSong = mediaMetadata.flatMapLatest {
         database.song(it?.id)
     }
-    val currentLyrics: Flow<SemanticLyrics> = mediaMetadata.flatMapLatest { mediaMetadata ->
+    // By song rather than by metadata object. Every MediaMetadata carries a random field, so a second
+    // copy of the song already playing, from a queue rebuilt around it for instance, never compares
+    // equal, and would cancel the lookup in progress only to start the same one again.
+    val currentLyrics: Flow<SemanticLyrics> = mediaMetadata.distinctUntilChangedBy { it?.id }.flatMapLatest { mediaMetadata ->
         if (mediaMetadata != null) {
             return@flatMapLatest flowOf(service.lyricsHelper.getLyrics(mediaMetadata) ?: uninitializedLyric)
         } else {

@@ -17,6 +17,10 @@ data class SearchSongResponse(
         data class Info(
             val duration: Int,
             val hash: String,
+            // Names as KuGou lists them, several singers joined by "、". Read so a result can be
+            // checked against the song asked for, not just its length.
+            val songname: String = "",
+            val singername: String = "",
         )
     }
 }

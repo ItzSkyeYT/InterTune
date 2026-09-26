@@ -13,12 +13,22 @@ import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withTimeoutOrNull
 import org.akanework.gramophone.logic.utils.LrcUtils
 import org.akanework.gramophone.logic.utils.SemanticLyrics
 import org.akanework.gramophone.logic.utils.parseLrc
 import javax.inject.Inject
+import javax.inject.Singleton
 
+// One instance for the app, so the player and the lyrics menu share the lookups in flight below.
+@Singleton
 class LyricsHelper @Inject constructor(
     @ApplicationContext private val context: Context,
     val database: MusicDatabase
@@ -26,6 +36,16 @@ class LyricsHelper @Inject constructor(
     private val lyricsProviders =
         listOf(YouTubeSubtitleLyricsProvider, LrcLibLyricsProvider, KuGouLyricsProvider, YouTubeLyricsProvider)
     private val cache = LruCache<String, List<LyricsResult>>(MAX_CACHE_SIZE)
+
+    /**
+     * One lookup per song at a time.
+     *
+     * Everything that shows the lyrics collects PlayerConnection.currentLyrics on its own, and each
+     * collection ran a lookup of its own: on 26 Sep 2026 every provider's failure for a song was
+     * logged twice, two full lookups side by side. Callers for the same song now wait on one run,
+     * and one of them going away no longer cuts it short for the others.
+     */
+    private val lookups = SharedLookup<String, SemanticLyrics?>(CoroutineScope(SupervisorJob() + Dispatchers.IO))
 
     /**
      * Retrieve lyrics from all sources
@@ -40,7 +60,10 @@ class LyricsHelper @Inject constructor(
      * @param database MusicDatabase connection. Database lyrics are prioritized over all sources.
      * If no database is provided, the database source is disabled
      */
-    suspend fun getLyrics(mediaMetadata: MediaMetadata): SemanticLyrics? {
+    suspend fun getLyrics(mediaMetadata: MediaMetadata): SemanticLyrics? =
+        lookups.get(mediaMetadata.id) { resolveLyrics(mediaMetadata) }
+
+    private suspend fun resolveLyrics(mediaMetadata: MediaMetadata): SemanticLyrics? {
         val trim = context.dataStore.get(LyricTrimKey, defaultValue = false)
         val multiline = context.dataStore.get(MultilineLrcKey, defaultValue = true)
 
@@ -99,6 +122,9 @@ class LyricsHelper @Inject constructor(
 
         }
 
+        // The write below runs on Room's executor whether or not this coroutine is still wanted, so
+        // a lookup cancelled partway must stop here rather than record the song as having none.
+        currentCoroutineContext().ensureActive()
         database.query {
             upsert(
                 LyricsEntity(
@@ -114,21 +140,33 @@ class LyricsHelper @Inject constructor(
      * Lookup lyrics from remote providers
      */
     private suspend fun getRemoteLyrics(mediaMetadata: MediaMetadata): String? {
-        lyricsProviders.forEach { provider ->
-            if (provider.isEnabled(context)) {
-                provider.getLyrics(
-                    mediaMetadata.id,
-                    mediaMetadata.title,
-                    mediaMetadata.artists.joinToString { it.name },
-                    mediaMetadata.duration
-                ).onSuccess { lyrics ->
-                    return lyrics
-                }.onFailure {
-                    reportException(it)
-                }
-            }
+        val query = LyricsQuery(
+            id = mediaMetadata.id,
+            title = mediaMetadata.title,
+            artists = mediaMetadata.artists.map { it.name }.filter { it.isNotBlank() },
+            album = mediaMetadata.album?.title,
+            duration = knownDuration(mediaMetadata),
+        )
+        return LyricsLookup.firstFound(lyricsProviders.filter { it.isEnabled(context) }, query) { _, e ->
+            reportException(e)
         }
-        return null
+    }
+
+    /**
+     * The song's length in seconds, waiting a little for it when the player does not have it yet.
+     *
+     * A song tapped in search results reaches the player with -1, because search rows carry no
+     * length. LRCLIB's choice needed an entry within two seconds of that, so it never found one:
+     * "Bailando (Video Edit)" by Paradisio failed there although LRCLIB has it timed at 230 s, and
+     * KuGou, which ignored length when it had none, was left to take the first song its search
+     * listed. recoverSong writes the real length to the database from the stream's own details as
+     * soon as playback starts, so the lookup waits for that.
+     */
+    private suspend fun knownDuration(mediaMetadata: MediaMetadata): Int {
+        if (mediaMetadata.duration > 0) return mediaMetadata.duration
+        return withTimeoutOrNull(DURATION_WAIT_MS) {
+            database.song(mediaMetadata.id).map { it?.song?.duration ?: -1 }.first { it > 0 }
+        } ?: -1
     }
 
     /**
@@ -177,6 +215,10 @@ class LyricsHelper @Inject constructor(
 
     companion object {
         private const val MAX_CACHE_SIZE = 3
+
+        // Long enough for the stream to be resolved on a slow connection, short enough that lyrics
+        // without a length still arrive while the song plays.
+        private const val DURATION_WAIT_MS = 10_000L
     }
 }
 
