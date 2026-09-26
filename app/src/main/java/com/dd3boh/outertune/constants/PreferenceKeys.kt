@@ -346,6 +346,13 @@ val BackgroundCheckHoursKey = intPreferencesKey("backgroundCheckHours")
 
 val PollsEnabledKey = booleanPreferencesKey("pollsEnabled")
 
+/**
+ * Whether announcements are shown, separately from questions. Unset means never asked. Someone who
+ * had said yes to questions before announcements had their own switch has it set to yes once, the
+ * first time the checker runs, since the two used to be one switch.
+ */
+val AnnouncementsEnabledKey = booleanPreferencesKey("announcementsEnabled")
+
 /** Poll ids already answered. Never asked again, on any device that shares this datastore. */
 val AnsweredPollIdsKey = stringSetPreferencesKey("answeredPollIds")
 

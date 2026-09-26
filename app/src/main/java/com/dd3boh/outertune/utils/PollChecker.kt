@@ -10,6 +10,7 @@ import android.content.Context
 import android.util.Log
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.BuildConfig
+import com.dd3boh.outertune.constants.AnnouncementsEnabledKey
 import com.dd3boh.outertune.constants.AnsweredPollIdsKey
 import com.dd3boh.outertune.constants.CachedPollsJsonKey
 import com.dd3boh.outertune.constants.DismissedAnnouncementIdsKey
@@ -52,8 +53,8 @@ import javax.inject.Singleton
  * works out its own visitor figure server side from a rotating hash it computes itself, so the app
  * has no need to identify anyone and does not.
  *
- * Opt in, and silent about it. Until [PollsEnabledKey] is true nothing is fetched at all, so there
- * is not even a request to explain.
+ * Opt in, and silent about it. Until [PollsEnabledKey] or [AnnouncementsEnabledKey] is true nothing
+ * is fetched at all, so there is not even a request to explain. Each only shows what it is for.
  */
 @Singleton
 class PollChecker @Inject constructor(
@@ -125,7 +126,14 @@ class PollChecker @Inject constructor(
         if (!Polls.isConfigured) return@withContext null
 
         val store = context.dataStore
-        if (!store.get(PollsEnabledKey, false)) return@withContext null
+        // One document holds both, so it is fetched when either is wanted, and neither is shown
+        // unless it is wanted itself. Both off clears what is on screen, so switching off takes
+        // the banner away at once rather than at the next launch.
+        if (!store.get(PollsEnabledKey, false) && !store.get(AnnouncementsEnabledKey, false)) {
+            _current.value = null
+            _currentAnnouncement.value = null
+            return@withContext null
+        }
         if (!context.isInternetConnected()) return@withContext null
 
         val last = store.get(LastPollFetchKey, 0L)
@@ -157,6 +165,19 @@ class PollChecker @Inject constructor(
         pick(body)
     }
 
+    /**
+     * Announcements rode on the questions switch until they got their own. Whoever had said yes to
+     * questions and was never asked about news keeps getting it: written down at launch, so from
+     * then on the two switches are independent. Someone answering both for the first time is asked
+     * about each, and the catch-up screen decides who that is when it opens.
+     */
+    suspend fun adoptNewsChoice() = withContext(Dispatchers.IO) {
+        val store = context.dataStore
+        if (store[AnnouncementsEnabledKey] == null && store.get(PollsEnabledKey, false)) {
+            store.edit { it[AnnouncementsEnabledKey] = true }
+        }
+    }
+
     /** Re-reads the cached document and picks again, since what counts as unanswered has moved. */
     private suspend fun restoreFromCache(): Poll? {
         val cached = context.dataStore.get(CachedPollsJsonKey, "")
@@ -175,7 +196,8 @@ class PollChecker @Inject constructor(
         val answered = store.get(AnsweredPollIdsKey, emptySet())
         val dismissed = store.get(DismissedPollIdsKey, emptySet())
 
-        val chosen = runCatching { parse(json) }.getOrNull().orEmpty().firstOrNull {
+        val chosen = if (!store.get(PollsEnabledKey, false)) null
+        else runCatching { parse(json) }.getOrNull().orEmpty().firstOrNull {
             it.id !in answered && it.id !in dismissed
         }
         _current.value = chosen
@@ -185,7 +207,8 @@ class PollChecker @Inject constructor(
         // is not answered, only closed, so it has its own dismissed set and neither hides the
         // other.
         val dismissedNotes = store.get(DismissedAnnouncementIdsKey, emptySet())
-        val note = AnnouncementParser.parse(json, BuildConfig.VERSION_CODE, System.currentTimeMillis())
+        val note = if (!store.get(AnnouncementsEnabledKey, false)) null
+        else AnnouncementParser.parse(json, BuildConfig.VERSION_CODE, System.currentTimeMillis())
             .firstOrNull { it.id !in dismissedNotes }
         _currentAnnouncement.value = note
         if (note != null) Log.i(TAG, "Announcement available: ${note.id}")

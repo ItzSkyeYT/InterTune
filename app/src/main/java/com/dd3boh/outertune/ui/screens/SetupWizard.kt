@@ -65,6 +65,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.NavigateBefore
 import androidx.compose.material.icons.automirrored.rounded.NavigateNext
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.Block
@@ -131,6 +132,7 @@ import com.dd3boh.outertune.LocalPollChecker
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.AnnouncementsEnabledKey
 import com.dd3boh.outertune.constants.AutomaticScannerKey
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_FILTERS
 import com.dd3boh.outertune.constants.DEFAULT_ENABLED_TABS
@@ -876,6 +878,8 @@ fun SetupWizard(
 
                                     PollsOptInCard()
 
+                                    NewsOptInCard()
+
                                     Row(
                                         horizontalArrangement = Arrangement.Center,
                                         modifier = Modifier.padding(vertical = 16.dp)
@@ -1222,6 +1226,77 @@ fun PollsOptInCard() {
                 title = { Text(stringResource(R.string.polls_enabled)) },
                 description = stringResource(R.string.oobe_polls_answered),
                 icon = { Icon(Icons.Rounded.Poll, null) },
+                checked = answered,
+                onCheckedChange = { answer(it) }
+            )
+        }
+    }
+}
+
+
+/**
+ * Whether to show announcements, asked on its own since announcements got their own switch.
+ *
+ * Built exactly like [PollsOptInCard]: never asked stays distinguishable from said no, and an
+ * answered card becomes the switch it set. Saying yes fetches at once, so the banner is there on
+ * the way out of setup rather than on the next launch.
+ */
+@Composable
+fun NewsOptInCard() {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val pollChecker = LocalPollChecker.current
+
+    val choice by rememberNullablePreference(AnnouncementsEnabledKey)
+
+    fun answer(enabled: Boolean) {
+        coroutineScope.launch {
+            context.dataStore.edit { it[AnnouncementsEnabledKey] = enabled }
+            pollChecker.check(force = enabled)
+        }
+    }
+
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp)
+    ) {
+        val answered = choice
+        if (answered == null) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.news_opt_in_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = stringResource(R.string.news_opt_in_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                ) {
+                    TextButton(onClick = { answer(false) }) {
+                        Text(stringResource(R.string.polls_opt_in_no))
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Button(onClick = { answer(true) }) {
+                        Text(stringResource(R.string.news_opt_in_yes))
+                    }
+                }
+            }
+        } else {
+            SwitchPreference(
+                title = { Text(stringResource(R.string.news_enabled)) },
+                description = stringResource(R.string.oobe_news_answered),
+                icon = { Icon(Icons.Rounded.Campaign, null) },
                 checked = answered,
                 onCheckedChange = { answer(it) }
             )

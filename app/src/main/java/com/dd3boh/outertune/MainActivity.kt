@@ -148,6 +148,7 @@ import com.dd3boh.outertune.constants.NavigationBarAnimationSpec
 import com.dd3boh.outertune.constants.NavigationBarHeight
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
+import com.dd3boh.outertune.constants.AnnouncementsEnabledKey
 import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.SlimNavBarKey
@@ -457,7 +458,10 @@ class MainActivity : ComponentActivity() {
 
                 // Same contract as the update check: nothing happens unless the user opted in, it
                 // rate limits itself, and failure is silent.
-                coroutineScope.launch { pollChecker.check() }
+                coroutineScope.launch {
+                    pollChecker.adoptNewsChoice()
+                    pollChecker.check()
+                }
                 // Re-applied on every launch, cheap because the work is keyed by name and replaced
                 // rather than stacked. This is also what puts the schedule back after a reboot,
                 // since WorkManager needs the app to run once before it will restore its own.
@@ -826,13 +830,17 @@ class MainActivity : ComponentActivity() {
                          */
                         val updateChoice by rememberNullablePreference(UpdateCheckEnabledKey)
                         val pollChoice by rememberNullablePreference(PollsEnabledKey)
+                        val newsChoice by rememberNullablePreference(AnnouncementsEnabledKey)
 
                         var catchUpOpen by rememberSaveable { mutableStateOf(false) }
                         var catchUpDone by rememberSaveable { mutableStateOf(false) }
 
-                        LaunchedEffect(updateChoice, pollChoice, oobeStatus) {
+                        LaunchedEffect(updateChoice, pollChoice, newsChoice, oobeStatus) {
+                            // News is owed only by those who did not say yes to questions: the
+                            // rest get it from the checker, which writes their yes down.
                             if (!catchUpDone && oobeStatus >= OOBE_VERSION &&
-                                (updateChoice == null || pollChoice == null)
+                                (updateChoice == null || pollChoice == null ||
+                                    (newsChoice == null && pollChoice != true))
                             ) {
                                 catchUpOpen = true
                             }

@@ -23,6 +23,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -32,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.AnnouncementsEnabledKey
 import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.utils.rememberNullablePreference
@@ -63,6 +65,11 @@ import com.dd3boh.outertune.utils.rememberNullablePreference
 fun OptInCatchUp(onDone: () -> Unit) {
     val updateChoice by rememberNullablePreference(UpdateCheckEnabledKey)
     val pollChoice by rememberNullablePreference(PollsEnabledKey)
+    val newsChoice by rememberNullablePreference(AnnouncementsEnabledKey)
+    // Decided once, as the screen opens: whoever had already said yes to questions is given news
+    // by the checker, and is not asked. Deciding it live instead made the card vanish from under
+    // somebody the moment they said yes to questions here, and then switched news on unasked.
+    val askNews = remember { pollChoice != true }
 
     Dialog(
         onDismissRequest = { },
@@ -108,8 +115,11 @@ fun OptInCatchUp(onDone: () -> Unit) {
 
                 PollsOptInCard()
 
+                if (askNews || newsChoice != null) NewsOptInCard()
+
                 Button(
-                    enabled = updateChoice != null && pollChoice != null,
+                    enabled = updateChoice != null && pollChoice != null &&
+                        (newsChoice != null || !askNews),
                     onClick = onDone,
                     modifier = Modifier
                         .fillMaxWidth()
