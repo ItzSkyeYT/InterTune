@@ -207,6 +207,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="announcement_title">News from InterTune</string>
     <string name="announcement_done">Got it</string>
     <string name="announcement_picture">Picture %1$d of %2$d. Tap to see it whole.</string>
+    <string name="announcement_picture_failed">This picture could not be loaded.</string>
     <string name="polls_forget_description">Clears the record of what you have answered and dismissed, so past questions can come back.</string>
     <string name="catch_up_title">A few quick questions</string>
     <string name="catch_up_body">These settings need your say-so, and this install has never been asked. It shows up after an update, or after restoring a backup that did not carry your answers.</string>

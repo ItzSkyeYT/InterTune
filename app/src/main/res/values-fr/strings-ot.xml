@@ -332,6 +332,7 @@
     <string name="announcement_title">Des nouvelles d\'InterTune</string>
     <string name="announcement_done">Compris</string>
     <string name="announcement_picture">Image %1$d sur %2$d. Touchez pour la voir en entier.</string>
+    <string name="announcement_picture_failed">Impossible de charger cette image.</string>
     <string name="explain_what_this_does">À quoi sert %1$s</string>
     <string name="explain_close">Fermer</string>
     <string name="poll_anonymous_notice">Votre réponse est anonyme. Sont envoyés uniquement : de quelle question il s\'agissait, ce que vous avez choisi, et la version de l\'application. Aucun compte, aucune information sur l\'appareil, rien sur votre bibliothèque.</string>
