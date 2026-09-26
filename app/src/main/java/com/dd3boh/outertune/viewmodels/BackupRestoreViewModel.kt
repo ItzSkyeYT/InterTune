@@ -19,6 +19,7 @@ import com.dd3boh.outertune.utils.reportException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -48,21 +49,27 @@ class BackupRestoreViewModel @Inject constructor(
         if (backupInProgress.value) return
         backupInProgress.value = true
         viewModelScope.launch {
-            val result = runCatching {
-                withContext(Dispatchers.IO) {
-                    context.applicationContext.contentResolver.openOutputStream(uri)?.use { stream ->
-                        // The zip layout lives in BackupWriter so the scheduled backup writes the
-                        // very same file.
-                        BackupWriter.write(context, database, stream)
+            // Finished, and reported, even if the screen is left while it writes. Leaving cancelled
+            // this scope: the blocking write carried on to the end anyway, and the cancellation then
+            // surfaced as a failure, "Couldn't create backup" for a file that had been written in
+            // full. The dispatcher stays Main in here, so the toast is safe.
+            withContext(NonCancellable) {
+                val result = runCatching {
+                    withContext(Dispatchers.IO) {
+                        context.applicationContext.contentResolver.openOutputStream(uri)?.use { stream ->
+                            // The zip layout lives in BackupWriter so the scheduled backup writes the
+                            // very same file.
+                            BackupWriter.write(context, database, stream)
+                        }
                     }
                 }
-            }
-            backupInProgress.value = false
-            result.onSuccess {
-                Toast.makeText(context, R.string.backup_create_success, Toast.LENGTH_SHORT).show()
-            }.onFailure {
-                reportException(it)
-                Toast.makeText(context, R.string.backup_create_failed, Toast.LENGTH_SHORT).show()
+                backupInProgress.value = false
+                result.onSuccess {
+                    Toast.makeText(context, R.string.backup_create_success, Toast.LENGTH_SHORT).show()
+                }.onFailure {
+                    reportException(it)
+                    Toast.makeText(context, R.string.backup_create_failed, Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
