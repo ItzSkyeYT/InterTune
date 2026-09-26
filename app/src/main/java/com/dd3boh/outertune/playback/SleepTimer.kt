@@ -133,7 +133,10 @@ class SleepTimer(
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-        if (pauseWhenSongEnd) finishSongEnd()
+        // Only the song ending by itself, or starting over on repeat, ends it. Next, previous and a
+        // new queue counted as well, so with the timer set to the end of the song, pressing next
+        // paused the song just chosen. The timer now carries over to that song instead.
+        if (pauseWhenSongEnd && endsSong(reason)) finishSongEnd()
     }
 
     override fun onPlaybackStateChanged(@Player.State playbackState: Int) {
@@ -141,6 +144,10 @@ class SleepTimer(
     }
 
     companion object {
+        /** Whether a transition for [reason] means the song before it played to its end. */
+        internal fun endsSong(reason: Int): Boolean =
+            reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
+
         /** Poll interval while actively fading. ~25 steps/s is smooth without being costly. */
         private const val FADE_TICK_MS = 40L
 
