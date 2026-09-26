@@ -18,6 +18,7 @@ class ArtistAlbumsViewModel @Inject constructor(
     val artist = database.artist(artistId)
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
 
-    val albums = database.artistAlbumsPreview(artistId)
+    // Every album: this is the page the artist's six-album preview leads to, and it stopped at six.
+    val albums = database.artistAlbumsPreview(artistId, previewSize = Int.MAX_VALUE)
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 }
