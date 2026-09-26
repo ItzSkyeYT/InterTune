@@ -316,12 +316,8 @@ fun LocalPlaylistScreen(
                 TextButton(
                     onClick = {
                         showRemoveDownloadDialog = false
-                        if (!editable) {
-                            database.transaction {
-                                playlistWithSongs.first?.id?.let { clearPlaylist(it) }
-                            }
-                        }
-
+                        // Downloads only, as the dialog says. For a playlist that cannot be edited
+                        // here this also emptied the playlist.
                         playlistWithSongs.second.forEach { song ->
                             downloadUtil.removeDownload(song.song.id)
                         }
