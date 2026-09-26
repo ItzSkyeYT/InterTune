@@ -15,6 +15,7 @@ InterTune can count this install once a day: one short message with a random nam
 - **Context chips** under the row: Auto, Discover, Favourites, Focus, Chill and Party. The three moods learn from what you play while they are on.
 - **Why these?** on the Quick picks heading: the songs the row was built around (each can be turned down), the lanes, and the exclusions in force. A line under each card says what put it there.
 - **Adventurousness** and **Familiarity** dials, **New songs only**, and an **Off** option for the row.
+- Adventurousness puts one song by an artist you have never played in the row at its lowest and three at its highest, two by default, so new names never crowd out the rest.
 - Long-press a card for **Not this song**, **Less of this artist** or **Never this artist**. Exclusions touch the recommendation rows only, never search, your library, playlists or radio, and banning a song covers its other versions. **Rest songs I skip** (off by default) rests a song you skip early for a week.
 - It learns from what you play and pass over, a little at a time, never more than a set amount per day. **How it's doing** under Settings > Recommendations shows cards played of cards seen per source, how often each row held what you played next, how well it predicts, and every weight beside where it started. **Learn from listening**, **Forget the last session**, **Forget today**, **Reset**, **Rebuild from history** and **Export** are all there.
 - Your play history from earlier versions is converted once at first start, so recommendations begin from everything you have played.
@@ -68,6 +69,8 @@ InterTune can count this install once a day: one short message with a random nam
 
 - Top bars float over the page, the way One UI 8 draws them: a round back button, the title in a pill beside it, and the screen's buttons in one pill at the other edge.
 - With Liquid glass on, the search pill and the floating buttons are glass as well.
+- The glass intensity slider shows a live sample as you drag it, and setup's back and forward buttons follow it too.
+- **Signing in to YouTube Music** starts with your phone's own account picker, and Google's page opens with that address filled in, so it is usually a tap on your phone to confirm. The page shows Google's address with a lock, InterTune never sees your password, and Switch or Another account is right there.
 - A short walkthrough after an update, covering only what is new. A fresh install gets the whole tour. Skip is there from the first screen.
 - **Favourite artists** beside Liked songs and Downloaded songs: a mix of the artists you have bookmarked, one song from each in turn, so one big catalogue cannot take it over.
 - Announcements appear on the same banner as the occasional question, and there is a Discord server.
@@ -91,6 +94,7 @@ InterTune can count this install once a day: one short message with a random nam
 - Every "i" explanation was rewritten: shorter, plainer, and sized to fit without scrolling.
 - A button to report an issue, on GitHub or Discord.
 - Automatic backups run every 6 hours, day, week, month, 6 months or year, and the backup button shows progress while it works.
+- **Backup and restore** is its own entry in Settings again, rather than the bottom of Storage and downloads.
 - The proxy fields carry working examples.
 - **New songs only** is a chip on Quick picks instead of a setting buried in Recommendations.
 - Recommendation engine data can be imported as well as exported.
