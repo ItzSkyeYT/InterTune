@@ -134,6 +134,7 @@ InterTune can count this install once a day: one short message with a random nam
 - A search of the queue kept showing the old queue after Start radio from a result.
 - With the sleep timer set to the end of the song, skipping to another song paused it straight away. The timer now moves to the song you picked.
 - Turning the phone during the walkthrough started it again from the beginning.
+- Leaving the Backup screen while a backup was being written said it had failed, though the file was complete.
 - Dragging songs with the add panel open moved the wrong rows.
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
 - **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
