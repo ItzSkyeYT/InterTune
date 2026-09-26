@@ -135,6 +135,9 @@ InterTune can count this install once a day: one short message with a random nam
 - With the sleep timer set to the end of the song, skipping to another song paused it straight away. The timer now moves to the song you picked.
 - Turning the phone during the walkthrough started it again from the beginning.
 - Leaving the Backup screen while a backup was being written said it had failed, though the file was complete.
+- A song paused before it had faded in, for example by the sleep timer at the end of the song before it, came back silent and took the whole fade to reach full volume.
+- A link in a question or announcement typed as Https:// did nothing when tapped, and a closing quote or bracket could end up inside it.
+- The glass intensity preview no longer sits there unchanged where glass cannot be drawn (below Android 13, or with the side navigation); a line says why instead.
 - Dragging songs with the add panel open moved the wrong rows.
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
 - **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
