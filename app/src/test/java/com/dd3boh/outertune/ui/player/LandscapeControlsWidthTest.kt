@@ -28,7 +28,7 @@ class LandscapeControlsWidthTest {
     }
 
     @Test
-    fun `every transport button fits at full size on any phone wide enough for two panes`() {
+    fun `with the usual four buttons every icon keeps its full size on any phone wide enough for two panes`() {
         // Two panes start at 600dp. A navigation bar at the side and a cutout opposite can take
         // 80dp of that, so the row can be as narrow as 520dp.
         var available = 520.dp
@@ -41,6 +41,28 @@ class LandscapeControlsWidthTest {
             )
             available += 10.dp
         }
+    }
+
+    @Test
+    fun `with the seek buttons on the artwork keeps its share and the buttons get the rest`() {
+        // Six buttons in full 56dp slots need 484dp, more than 62% of any row narrower than about
+        // 780dp. There the artwork, or the lyrics in its place, keeps its 38% and the buttons take
+        // what is left: never less than the even split gave them, icons at full size from about
+        // 645dp, and full slots on a 1440p phone.
+        var available = 520.dp
+        while (available <= 1400.dp) {
+            val controls = landscapeControlsWidth(available, play, 6, gutter)
+            assertTrue("less than half at $available", controls >= available / 2)
+            assertTrue(
+                "the artwork kept less than 38% at $available",
+                available - controls >= available * 0.38f - 0.01.dp
+            )
+            if (available >= 650.dp) assertTrue("an icon squeezed at $available", slot(controls, 6) >= icon)
+            if (available >= 790.dp) assertTrue("a slot short of 56dp at $available", slot(controls, 6) >= 56.dp - 0.01.dp)
+            available += 10.dp
+        }
+        // Narrower than that the icons shrink to fit their slots, by design rather than by accident.
+        assertTrue(slot(landscapeControlsWidth(600.dp, play, 6, gutter), 6) < icon)
     }
 
     @Test

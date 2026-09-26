@@ -1508,9 +1508,9 @@ private val TabletQueueHandleReserve = 48.dp
 private val PlayButtonGap = 8.dp
 
 /**
- * The least width each transport button's slot gets in the landscape player: the 42dp icon and
- * 7dp either side, so neighbours never touch and the outer buttons stay clear of the glass bar's
- * rounded ends.
+ * The width the landscape player gives each transport button's slot wherever the screen has room
+ * for it: the 42dp icon and 7dp either side, so neighbours never touch and the outer buttons stay
+ * clear of the glass bar's rounded ends.
  */
 private val LandscapeTransportSlot = 56.dp
 
@@ -1518,12 +1518,19 @@ private val LandscapeTransportSlot = 56.dp
  * How wide the landscape player's controls column is, out of the [available] width it shares with
  * the artwork.
  *
- * Half, but never less than the transport bar needs to hold its [slots] buttons beside the play
- * button at full size with air between them. Half is not always enough: a phone that only just
- * counts as wide gives the bar under 300dp, and the buttons then crowd together until the outer
- * ones run into the bar's rounded ends. Never more than 62% either, so the artwork, or the lyrics
- * in its place, keeps a proper share of the screen. Lyrics play no part in it, so the controls are
- * the same with them on or off.
+ * Half, or more where half cannot give each of the transport bar's [slots] buttons a full
+ * [LandscapeTransportSlot] beside the play button. Half is not always enough: a phone that only
+ * just counts as wide gives the bar under 300dp, and the buttons then crowd together until the
+ * outer ones run into the bar's rounded ends. Never more than 62%, though, and that limit wins, so
+ * the artwork, or the lyrics in its place, always keeps a proper share of the screen.
+ *
+ * With the usual four buttons that keeps every icon at full size on the narrowest two-pane row,
+ * about 520dp, and gives full slots from 600dp. With the seek buttons on, six buttons get full
+ * slots only from about 780dp, which a 1440p phone has, and below about 645dp their icons shrink
+ * to fit. That is still never less than the even split gave them, and letting the buttons win
+ * there would leave the lyrics a quarter of the width or less.
+ *
+ * Lyrics play no part in it, so the controls are the same with them on or off.
  */
 internal fun landscapeControlsWidth(available: Dp, playButton: Dp, slots: Int, gutter: Dp): Dp {
     val needed = LandscapeTransportSlot * slots + playButton + PlayButtonGap * 2 + gutter * 2
