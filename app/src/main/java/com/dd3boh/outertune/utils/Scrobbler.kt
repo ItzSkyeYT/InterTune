@@ -7,7 +7,9 @@ import com.dd3boh.lastfm.SimilarTrack
 import com.dd3boh.outertune.constants.LastFmScrobbleKey
 import com.dd3boh.outertune.constants.LastFmSessionKey
 import com.dd3boh.outertune.constants.LastFmUsernameKey
+import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.playback.ListenReporting
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -71,6 +73,7 @@ class Scrobbler @Inject constructor(
     }
 
     suspend fun nowPlaying(metadata: MediaMetadata) {
+        if (!ListenReporting.sendsNowPlaying(context.dataStore.get(PauseListenHistoryKey, false))) return
         val session = sessionOrNull() ?: return
         val artist = primaryArtist(metadata.artists.map { it.name }) ?: return
         api.updateNowPlaying(
