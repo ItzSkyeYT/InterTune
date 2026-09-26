@@ -651,13 +651,13 @@ class MusicService : MediaLibraryService(),
         // lateinit tasks
         offloadScope.launch {
             Log.i(TAG, "Launching MusicService offloadScope tasks")
-            if (!qbInit.value) {
-                initQueue()
-                resumeOnLaunchIfAsked()
+            // The legacy play log becomes listens, once; nothing to do after the first run. On its
+            // own, because it still walks related_song_map on every start, and everything below
+            // used to wait for it.
+            offloadScope.launch {
+                runCatching { LegacyBackfill(DatabaseBackfillIo(database)).run() }
+                    .onFailure { Log.w(TAG, "Could not backfill the play log", it) }
             }
-            // The legacy play log becomes listens, once; nothing to do after the first run.
-            runCatching { LegacyBackfill(DatabaseBackfillIo(database)).run() }
-                .onFailure { Log.w(TAG, "Could not backfill the play log", it) }
 
             combine(
                 playerVolume,
@@ -1069,6 +1069,14 @@ class MusicService : MediaLibraryService(),
                         }
                     }
                 }
+            }
+
+            // Last, once everything above is watching: a queue resumed here used to start before
+            // any of it, so its first moments played at full volume with no normalisation, and
+            // spatial audio then restarted it to switch the renderer on.
+            if (!qbInit.value) {
+                initQueue()
+                resumeOnLaunchIfAsked()
             }
         }
     }
