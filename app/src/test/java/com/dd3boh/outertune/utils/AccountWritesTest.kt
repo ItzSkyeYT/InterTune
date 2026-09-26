@@ -11,7 +11,6 @@ import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -59,12 +58,19 @@ class AccountWritesTest {
             YouTube.moveSongPlaylist("PLx", "set", "next"),
             YouTube.renamePlaylist("PLx", "name"),
             YouTube.deletePlaylist("PLx"),
+            YouTube.createPlaylist("name"),
         )
         results.forEach { result ->
             assertTrue(result.exceptionOrNull() is YouTube.AccountWriteRefused)
         }
-        assertThrows(YouTube.AccountWriteRefused::class.java) {
-            YouTube.createPlaylist("name")
-        }
+    }
+
+    @Test
+    fun `creating a playlist that fails is a failed result, not a crash`() = runBlocking {
+        // Offline this used to throw out of a runBlocking into a bare launch, and the app died.
+        // Any failure now comes back as a value the dialog can report.
+        YouTube.accountWritesAllowed = { throw IllegalStateException("offline") }
+        val result = YouTube.createPlaylist("name")
+        assertTrue(result.isFailure)
     }
 }

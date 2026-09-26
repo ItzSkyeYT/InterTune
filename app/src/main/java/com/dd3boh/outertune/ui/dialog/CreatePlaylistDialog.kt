@@ -8,6 +8,8 @@
 
 package com.dd3boh.outertune.ui.dialog
 
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -35,8 +36,10 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.zionhuang.innertube.YouTube
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 
 @Composable
@@ -47,7 +50,6 @@ fun CreatePlaylistDialog(
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
-    val coroutineScope = rememberCoroutineScope()
     var syncedPlaylist by remember { mutableStateOf(false) }
 
     TextFieldDialog(
@@ -56,10 +58,21 @@ fun CreatePlaylistDialog(
         initialTextFieldValue = TextFieldValue(initialTextFieldValue ?: ""),
         onDismiss = onDismiss,
         onDone = { playlistName ->
-            coroutineScope.launch(Dispatchers.IO) {
-                val browseId = if (syncedPlaylist)
-                    YouTube.createPlaylist(playlistName)
-                else null
+            val appContext = context.applicationContext
+            // On a scope of its own: the dialog's goes as soon as it closes, which is now.
+            CoroutineScope(Dispatchers.IO).launch {
+                val browseId = if (syncedPlaylist) {
+                    // Offline or throttled this used to throw straight out of the coroutine and
+                    // crash the app. Now nothing is created, rather than a synced playlist with
+                    // no YouTube side, and the person is told.
+                    YouTube.createPlaylist(playlistName).getOrElse {
+                        Log.w("CreatePlaylistDialog", "Could not create the playlist on YouTube Music", it)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(appContext, R.string.create_sync_playlist_failed, Toast.LENGTH_LONG).show()
+                        }
+                        return@launch
+                    }
+                } else null
 
                 database.query {
                     insert(
