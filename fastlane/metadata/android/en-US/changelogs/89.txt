@@ -1,8 +1,8 @@
 Version 0.10.9.5
 
-- News about InterTune can now appear on the same banner as the occasional question, with a button to follow it up. The first is about the new Discord server.
-- Links in questions and announcements can be tapped.
-- The Discord server is linked from About.
-- If you said yes to questions, opening one or an announcement is counted once, anonymously, so we can see how many people saw it.
+- News about InterTune can appear on the question banner, starting with the new Discord server. Links in it can be tapped, and Discord is in About.
+- With questions on, opening one is counted once, anonymously.
+- Lyrics are found for songs played from search, and each song is looked up once.
+- The player's buttons keep their size with lyrics on.
 
 Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.10.9.5
