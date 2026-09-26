@@ -469,15 +469,26 @@ fun BottomSheetPlayer(
     val queueReserve = if (landscapeTwoPane || tabletTwoPane) dismissedBound else dismissedBound + QueuePeekHeight
 
     /**
+     * Whether the queue opens from its button rather than from the sheet's handle.
+     *
+     * Only while a song is loaded. The button sits with the controls, which are not drawn without
+     * one, so a queue emptied by swiping its last song away left the player with no controls and,
+     * with the handle gone as well, no way to the saved queues. The handle comes back until
+     * something is loaded again, and since the player keeps queueReserve clear either way, nothing
+     * moves when it does.
+     */
+    val queueOnButton = queueAsButton && mediaMetadata != null
+
+    /**
      * With the queue on a button the sheet collapses to nothing at all: it sits wholly below the
      * screen, so the player has no handle and no pull-up gesture at the bottom, and the button is
      * the only way up. Opened, it is the same sheet with the same queue in it, and back or a drag
      * down puts it away again.
      */
     val queueSheetState = rememberBottomSheetState(
-        dismissedBound = if (queueAsButton) 0.dp else dismissedBound,
+        dismissedBound = if (queueOnButton) 0.dp else dismissedBound,
         expandedBound = state.expandedBound,
-        collapsedBound = if (queueAsButton) 0.dp else queueReserve,
+        collapsedBound = if (queueOnButton) 0.dp else queueReserve,
         initialAnchor = 1
     )
 
@@ -1480,7 +1491,7 @@ fun BottomSheetPlayer(
             },
             onBackgroundColor = onBackgroundColor,
             navController = navController,
-            showHandle = !queueAsButton
+            showHandle = !queueOnButton
         )
     }
 }
