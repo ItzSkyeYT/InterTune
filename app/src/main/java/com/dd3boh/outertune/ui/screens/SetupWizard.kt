@@ -141,6 +141,7 @@ import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.applyNewInstallDefaults
+import com.dd3boh.outertune.constants.markFirstSetup
 import com.dd3boh.outertune.constants.ScanPathsKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.ui.component.ListPreference
@@ -211,6 +212,12 @@ fun SetupWizard(
 
     var oobeStatus by rememberPreference(OobeStatusKey, defaultValue = 0)
 
+    // Whether this is a new install is settled now, while the page number is still missing on one,
+    // not as setup finishes. See markFirstSetup.
+    LaunchedEffect(Unit) {
+        context.dataStore.edit { markFirstSetup(it) }
+    }
+
     // Leaving setup writes a preference and then navigates. The setter behind oobeStatus is fire
     // and forget, so doing both in one breath is a race: MainActivity can re-read the old value
     // while the write is still in flight and send you straight back into the wizard, which by then
@@ -222,7 +229,7 @@ fun SetupWizard(
     val finishSetup: () -> Unit = {
         coroutineScope.launch {
             context.dataStore.edit {
-                // Before the status moves, since that is what tells a new install apart.
+                // Same edit as the status, so the mark markFirstSetup left cannot outlive setup.
                 applyNewInstallDefaults(it)
                 it[OobeStatusKey] = OOBE_VERSION
             }
