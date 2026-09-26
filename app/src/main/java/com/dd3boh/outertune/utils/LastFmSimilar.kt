@@ -114,7 +114,11 @@ class LastFmSimilar @Inject constructor(
                 Outcome.WAITING -> {}
             }
         }
-        _caughtUpAt.value = System.currentTimeMillis()
+        // Only a catch-up that finished tells Home it has new neighbours to build from. One that
+        // gave up, offline at launch or with Last.fm down, used to as well, and each forced a full
+        // Home refresh that could swap the row in front of the listener for nothing new. It is
+        // tried again at the next start either way, since nothing is recorded until it finishes.
+        if (!gaveUp) _caughtUpAt.value = System.currentTimeMillis()
         return !gaveUp
     }
 
