@@ -104,7 +104,7 @@ interface AlbumsDao : ArtistsDao {
     fun albumWithSongs(albumId: String): Flow<AlbumWithSongs?>
 
     @Transaction
-    @Query("SELECT song.* FROM song JOIN song_album_map ON song.id = song_album_map.songId WHERE song_album_map.albumId = :albumId")
+    @Query(LibrarySql.ALBUM_SONGS)
     fun albumSongs(albumId: String): Flow<List<Song>>
 
     @Transaction

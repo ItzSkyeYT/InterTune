@@ -57,6 +57,20 @@ class LibrarySqlTest {
     )
 
     @Test
+    fun `an album's songs come in the album's order`() {
+        album("MPREb_album", "Album", local = false)
+        // Written the way an album page is: the songs new to the database first, the one stored
+        // before (track 2, played earlier) last.
+        for ((id, index) in listOf("t1" to 0, "t3" to 2, "t4" to 3, "t2" to 1)) {
+            song(id)
+            exec("INSERT INTO song_album_map(songId, albumId, `index`) VALUES ('$id', 'MPREb_album', $index)")
+        }
+        album("other", "Other", local = false)
+        exec("INSERT INTO song_album_map(songId, albumId, `index`) VALUES ('t1', 'other', 0)")
+        assertEquals(listOf("t1", "t2", "t3", "t4"), ids(LibrarySql.ALBUM_SONGS.replace(":albumId", "'MPREb_album'")))
+    }
+
+    @Test
     fun `a title finds only a local album`() {
         album("MPREb_queen", "Greatest Hits", local = false)
         assertEquals(emptyList<String>(), ids(LibrarySql.LOCAL_ALBUM_BY_TITLE.replace(":title", "'Greatest Hits'")))

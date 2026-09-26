@@ -33,5 +33,18 @@ object LibrarySql {
      * reads a new album id, so this is how a file's song finds the album the others went into.
      * Only local albums: a YouTube album with the same title is a different album.
      */
+    /**
+     * An album's songs in the album's order, as its page shows them. With no ORDER BY they came in
+     * whatever order SQLite found the rows, and writing an album's page stores the songs new to
+     * the database before the ones it already had, so the album menu's Play next, Add to queue and
+     * Add to playlist, Android Auto and I'm feeling lucky could all start part way through.
+     */
+    const val ALBUM_SONGS = """
+        SELECT song.* FROM song
+            JOIN song_album_map ON song.id = song_album_map.songId
+        WHERE song_album_map.albumId = :albumId
+        ORDER BY song_album_map.`index`
+    """
+
     const val LOCAL_ALBUM_BY_TITLE = "SELECT * FROM album WHERE isLocal = 1 AND title = :title ORDER BY rowid LIMIT 1"
 }
