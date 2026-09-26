@@ -23,6 +23,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.TopBarGlassDestination
 import com.dd3boh.outertune.ui.screens.AccountScreen
 import com.dd3boh.outertune.ui.screens.AlbumScreen
@@ -61,6 +62,7 @@ import com.dd3boh.outertune.ui.screens.settings.AttributionScreen
 import com.dd3boh.outertune.ui.screens.settings.EngineDeveloperSettings
 import com.dd3boh.outertune.ui.screens.settings.ExclusionsSettings
 import com.dd3boh.outertune.ui.screens.settings.LibrariesScreen
+import com.dd3boh.outertune.ui.screens.settings.LibraryImportScreen
 import com.dd3boh.outertune.ui.screens.settings.LibrarySettings
 import com.dd3boh.outertune.ui.screens.settings.LocalPlayerSettings
 import com.dd3boh.outertune.ui.screens.settings.LookAndFeelSettings
@@ -347,6 +349,11 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("settings/backup") {
             BackupSettings(navController, scrollBehavior)
+        }
+        if (Unreleased.LIBRARY_IMPORT) {
+            screen("settings/backup/import") {
+                LibraryImportScreen(navController)
+            }
         }
         screen("settings/local") {
             LocalPlayerSettings(navController, scrollBehavior)

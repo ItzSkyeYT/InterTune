@@ -1248,4 +1248,72 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">Show %1$s more</item>
     </plurals>
     <string name="stats_show_fewer">Show fewer</string>
+
+    <!-- Import from another service. Behind Unreleased.LIBRARY_IMPORT, debug builds only for now. -->
+    <string name="import_library_title">Import from another service</string>
+    <string name="import_library_entry">Bring playlists over from Spotify, Apple Music and others, using an export file</string>
+    <string name="import_library_intro">Export your playlists to a file with one of the tools below, then choose that file here. Each song is looked up on YouTube Music, and the playlists are made on this phone.</string>
+    <string name="import_library_spotify">Spotify: Exportify (exportify.app) saves each playlist, and your liked songs, as a CSV file. Its Export All button makes a zip of every playlist, and that works too.</string>
+    <string name="import_library_others">Apple Music, Deezer, Tidal and others: TuneMyMusic or Soundiiz can export your playlists to a CSV file. In Apple Music or iTunes on a computer, File, Library, Export Library works too, and brings every playlist at once.</string>
+    <string name="import_library_review_note">Songs it is not sure about wait for you to check them. Nothing is added until you tap Create playlists.</string>
+    <string name="import_library_premium">With YouTube Music Premium, YouTube\'s own transfer, under Settings, Privacy and data, can also move playlists over.</string>
+    <string name="import_library_choose">Choose a file</string>
+    <string name="import_library_reading">Reading the file</string>
+    <string name="import_library_error_unreadable">That file could not be opened.</string>
+    <string name="import_library_error_empty">That file is empty.</string>
+    <string name="import_library_error_not_text">That does not look like a CSV file. Export again as CSV and choose that one.</string>
+    <string name="import_library_error_no_title">There is no column of song titles in that file. Its first line reads: %1$s</string>
+    <string name="import_library_error_no_tracks">That file has column names but no songs under them.</string>
+    <string name="import_library_error_not_songs">That is a list of albums or artists. Only songs can be imported for now: export the playlist or your liked songs instead.</string>
+    <string name="import_library_contents">%1$s in %2$s</string>
+    <string name="import_library_checked">Looked up %1$d of %2$d</string>
+    <string name="import_library_matched">Matched</string>
+    <string name="import_library_to_review">To check</string>
+    <string name="import_library_not_found">Not found</string>
+    <string name="import_library_cancel">Cancel</string>
+    <string name="import_library_continue">Continue</string>
+    <string name="import_library_start_over">Start over</string>
+    <string name="import_library_start_over_title">Start over?</string>
+    <string name="import_library_start_over_body">Everything matched and picked from this file is dropped. Playlists already created stay as they are.</string>
+    <string name="import_library_stopped">Stopped. What was found so far is kept, and Continue picks up where it left off.</string>
+    <string name="import_library_offline">YouTube could not be reached. Check the connection, then continue.</string>
+    <string name="import_library_review_title">Check these (%1$d)</string>
+    <string name="import_library_review_help">Tap the right version, or Skip. Anything you do not pick is left out.</string>
+    <string name="import_library_missing_title">Not found (%1$d)</string>
+    <string name="import_library_missing_help">Nothing close came up for these, even searching for the title alone. They are left out.</string>
+    <string name="import_library_skip">Skip</string>
+    <string name="import_library_skipped">Skipped. Tap to undo</string>
+    <string name="import_library_picked">Picked</string>
+    <string name="import_library_create">Create playlists</string>
+    <string name="import_library_creating">Creating playlists</string>
+    <string name="import_library_created">Made %1$s with %2$s. They are in your library under Playlists.</string>
+    <string name="import_library_matched_title">Matched (%1$d)</string>
+    <string name="import_library_matched_help">These went in without asking. If one is the wrong version, Leave out takes it out of every playlist.</string>
+    <string name="import_library_show">Show</string>
+    <string name="import_library_hide">Hide</string>
+    <string name="import_library_from_file">In the file: %1$s</string>
+    <string name="import_library_leave_out">Leave out</string>
+    <string name="import_library_undo">Undo</string>
+    <string name="import_library_done">Done</string>
+    <string name="import_library_another">Import another file</string>
+    <plurals name="import_library_songs">
+        <item quantity="one">%1$d song</item>
+        <item quantity="other">%1$d songs</item>
+    </plurals>
+    <plurals name="import_library_playlists">
+        <item quantity="one">%1$d playlist</item>
+        <item quantity="other">%1$d playlists</item>
+    </plurals>
+    <plurals name="import_library_skipped_rows">
+        <item quantity="one">%1$d entry was left out: it had no title, or was not a song.</item>
+        <item quantity="other">%1$d entries were left out: they had no title, or were not songs.</item>
+    </plurals>
+    <plurals name="import_library_ready">
+        <item quantity="one">%1$d song is ready to go into playlists.</item>
+        <item quantity="other">%1$d songs are ready to go into playlists.</item>
+    </plurals>
+    <plurals name="import_library_undecided">
+        <item quantity="one">%1$d still to check. It is left out unless you pick one.</item>
+        <item quantity="other">%1$d still to check. They are left out unless you pick one.</item>
+    </plurals>
 </resources>

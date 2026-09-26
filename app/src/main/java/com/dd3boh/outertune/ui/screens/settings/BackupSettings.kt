@@ -7,6 +7,12 @@
 package com.dd3boh.outertune.ui.screens.settings
 
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.LibraryAdd
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.dialog.InfoLabel
@@ -46,6 +54,17 @@ fun BackupSettings(
             .padding(horizontal = 16.dp)
     ) {
         BackupAndRestoreFrag(viewModel)
+        if (Unreleased.LIBRARY_IMPORT) {
+            Spacer(modifier = Modifier.height(16.dp))
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.import_library_title)) },
+                    description = stringResource(R.string.import_library_entry),
+                    icon = { Icon(Icons.Rounded.LibraryAdd, null) },
+                    onClick = { navController.navigate("settings/backup/import") },
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(16.dp))
         InfoLabel(stringResource(R.string.import_innertune_tooltip))
         Spacer(modifier = Modifier.height(8.dp))
