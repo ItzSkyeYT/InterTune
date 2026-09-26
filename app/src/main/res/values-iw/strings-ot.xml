@@ -201,7 +201,6 @@
     <string name="scanner_type_title">מחלץ נתוני מטא</string>
     <string name="scanner_type_taglib">השתמש במחלץ נתוני מטא משולב של TagLib</string>
     <string name="scanner_online_artist_linking">נסה לקשר בין קבצי אמנים מקומיים לאמנים ב-YouTube Music</string>
-    <string name="clear_downloads_confirm">האם אתה בטוח שברצונך להסיר את כל ההורדות? רק הורדות בתיקיית ההורדות הראשית יוסרו.</string>
     <string name="clear_image_cache_confirm">האם אתה בטוח שאתה רוצה לנקות את מטמון התמונות? כל התמונות הממוזערות של האלבום הקיימים יוסרו.</string>
     <string name="clear_song_cache_confirm">האם אתה בטוח שאתה רוצה לנקות את מטמון השירים?</string>
     <string name="dl_calculate_size">לחץ כדי לחשב את גודל ההורדה</string>

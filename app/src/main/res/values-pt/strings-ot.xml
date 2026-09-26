@@ -167,7 +167,6 @@
     <string name="scanner_type_ffmpeg_ext">Utilize o extrator de metadados FFmpeg. Utilize apenas a versão completa da aplicação. A versão principal pode causar problemas com o rastreio de música</string>
     <string name="scanner_variant_rescan">Analisar a biblioteca inteira novamente e recarregar os metadados de todas as músicas</string>
     <string name="scanner_online_artist_linking">Tentar sincronizar os artistas dos ficheiros locais com os no YouTube Music</string>
-    <string name="clear_downloads_confirm">Tem certeza que quer remover todas as descargas? Somente descargas na pasta principal de descargas serão removidos.</string>
     <string name="clear_image_cache_confirm">Tem certeza que quer limpar a cache de imagens? Todas as miniaturas de álbuns serão removidas.</string>
     <string name="clear_song_cache_confirm">Tem certeza que quer limpar a cache de músicas?</string>
     <string name="dl_calculate_size">Toque para calcular o tamanho das descargas</string>

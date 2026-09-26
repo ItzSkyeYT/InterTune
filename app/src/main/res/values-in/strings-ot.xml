@@ -163,7 +163,6 @@
     <string name="scanner_type_ffmpeg_ext">Gunakan ekstraktor metadata FFmpeg. Memerlukan paket eksternal untuk dipasang</string>
     <string name="scanner_variant_rescan">Pindai ulang seluruh pustaka dan muat ulang semua metadata lagu</string>
     <string name="scanner_online_artist_linking">Coba tautkan artis dari file lokal dengan yang ada di YouTube Music</string>
-    <string name="clear_downloads_confirm">Apakah Anda yakin ingin menghapus semua unduhan? Hanya unduhan di folder unduhan utama yang akan dihapus.</string>
     <string name="clear_image_cache_confirm">Apakah Anda yakin ingin membersihkan cache gambar? Semua gambar mini album yang sudah ada akan dihapus.</string>
     <string name="clear_song_cache_confirm">Apakah Anda yakin ingin membersihkan cache lagu?</string>
     <string name="dl_calculate_size">Ketuk untuk menghitung ukuran unduhan</string>

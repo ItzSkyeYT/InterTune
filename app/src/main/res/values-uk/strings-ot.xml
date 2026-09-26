@@ -184,7 +184,6 @@
     <string name="oobe_local_music_support">Широка підтримка місцевої музики</string>
     <string name="dl_main_path_description">Виберіть місце зберігання завантажень</string>
     <string name="oobe_downloads_subtitle">Виберіть папку, де будуть збережені завантажені пісні.</string>
-    <string name="clear_downloads_confirm">Ви впевнені, що хочете видалити всі завантаження? Будуть видалені лише завантаження з головної папки завантажень.</string>
     <string name="oobe_ytm_integration_description">Отримуйте безперешкодний доступ до своїх улюблених треків</string>
     <string name="oobe_ytm_integration">Інтеграція з YouTube Music</string>
     <string name="clear_song_cache_confirm">Ви впевнені, що хочете очистити кеш пісень?</string>

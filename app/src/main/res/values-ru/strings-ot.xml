@@ -191,7 +191,6 @@
     <string name="oobe_local_music_support_description">Воспроизводите ваши музыкальные файлы (например, MP3, OGG, FLAC и т.д.)</string>
     <string name="oobe_interface_subtitle">Настройте внешний вид InterTune и то, какой контент он вам показывает.</string>
     <string name="oobe_local_music_support">Обширная музыкальная поддержка</string>
-    <string name="clear_downloads_confirm">Вы уверены, что хотите удалить все загрузки? Будут удалены только загрузки из основной папки загрузки.</string>
     <string name="clear_song_cache_confirm">Вы уверены, что хотите очистить кэш песен?</string>
     <string name="oobe_ytm_logon_subtitle">Войдите в учётную запись YouTube Music, чтобы синхронизировать данные и получить доступ к личному контенту. Это необязательно.</string>
     <string name="dl_migrate_confirm">Это приведет к переносу ВСЕХ внутренних загрузок в \"%s\", и отменить это действие будет невозможно. Продолжить?</string>

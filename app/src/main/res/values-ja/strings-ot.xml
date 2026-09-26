@@ -165,7 +165,6 @@
     <string name="oobe_downloads_subtitle">ダウンロードした曲を保存するフォルダを選択します。</string>
     <string name="oobe_complete_title">準備完了です！</string>
     <string name="scan_paths_description">曲をスキャンしたい端末内の保存領域のフォルダを選択</string>
-    <string name="clear_downloads_confirm">すべてのダウンロードメディアを削除しますか？メインのダウンロードフォルダ内のダウンロードのみが削除されます。</string>
     <string name="clear_image_cache_confirm">画像のキャッシュを削除しますか？ 既存のアルバムのサムネイルはすべて削除されます。</string>
     <string name="dl_extra_path_title">追加のインポート場所を設定…</string>
     <string name="dl_extra_path_description">これらのフォルダの曲は、以前に再生したか再生リストに追加した場合にのみアプリに表示されます</string>

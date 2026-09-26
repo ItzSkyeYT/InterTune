@@ -507,20 +507,12 @@ fun ColumnScope.DownloadsFrag() {
                 TextButton(
                     onClick = {
                         showClearConfirmDialog = false
+                        // Through media3, so its index, the database and the map of downloads
+                        // all hear about it. Deleting the cache's files directly left every song
+                        // marked as downloaded, pinned offline and skipped by the Download buttons,
+                        // with nothing left to play. Songs in a download folder are not touched.
+                        downloadUtil.removeAllInternalDownloads()
                         coroutineScope.launch(Dispatchers.IO) {
-                            // clear internal downloads
-                            downloadCache?.keys?.forEach { key ->
-                                downloadCache.removeResource(key)
-                            }
-
-                            // TODO: Delete external downloads. Rememebr to exclude extra paths
-                            // clear external downloads
-//                            database.downloadSongs(SongSortType.NAME, true).collect { songs ->
-//                                songs.forEach { song ->
-//                                    downloadUtil.delete(song)
-//                                }
-//                            }
-
                             downloadMainPathSize = downloadUtil.localMgr.getMainDlStorageUsage()
                             downloadExtraPathSize = downloadUtil.localMgr.getExtraDlStorageUsage()
                         }

@@ -560,6 +560,15 @@ class DownloadUtil @Inject constructor(
         }
     }
 
+    /**
+     * Removes every download kept inside the app, the way removing one does: media3 drops each
+     * from its index and its files, and the listener clears the database and the map as each goes.
+     * Songs in a download folder are left alone.
+     */
+    fun removeAllInternalDownloads() {
+        DownloadService.sendRemoveAllDownloads(context, ExoDownloadService::class.java, false)
+    }
+
     fun resumeDownloadsOnStart() {
         DownloadService.sendResumeDownloads(
             context,
