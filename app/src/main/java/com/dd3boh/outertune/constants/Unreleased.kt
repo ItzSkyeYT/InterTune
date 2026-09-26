@@ -42,4 +42,14 @@ object Unreleased {
      * of what is played to Last.fm, and what that means for F-Droid's anti-features.
      */
     val ENGINE = BuildConfig.DEBUG
+
+    /**
+     * Import from another service, under Settings > Backup and restore: an export file from
+     * Exportify, TuneMyMusic, Soundiiz or Apple Music, matched against YouTube with TrackMatch,
+     * with a review screen for what it is unsure of, made into local playlists.
+     *
+     * Not tied to any release yet. When one takes it, set this to true or delete it along with the
+     * two checks that read it, in BackupSettings and the nav graph.
+     */
+    val LIBRARY_IMPORT = BuildConfig.DEBUG
 }
