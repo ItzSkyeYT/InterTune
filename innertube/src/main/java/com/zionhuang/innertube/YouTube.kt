@@ -102,6 +102,21 @@ object YouTube {
             innerTube.useLoginForBrowse = value
         }
 
+    /**
+     * Asked before every request that changes the signed-in account: likes, saved albums and
+     * playlists, subscriptions, and playlist creation and edits. The app points it at its own rule
+     * (signed in, and sync set to read and write), so "Read only" holds even at a call site that
+     * forgot to check. Left alone, nothing is refused.
+     */
+    @Volatile
+    var accountWritesAllowed: () -> Boolean = { true }
+
+    class AccountWriteRefused : IllegalStateException("Not signed in, or sync is read only")
+
+    private fun requireAccountWrites() {
+        if (!accountWritesAllowed()) throw AccountWriteRefused()
+    }
+
     suspend fun searchSuggestions(query: String): Result<SearchSuggestions> = runCatching {
         val response = innerTube.getSearchSuggestions(WEB_REMIX, query).body<GetSearchSuggestionsResponse>()
         SearchSuggestions(
@@ -664,6 +679,7 @@ object YouTube {
     }
 
     suspend fun likeVideo(videoId: String, like: Boolean) = runCatching {
+        requireAccountWrites()
         if (like)
             innerTube.likeVideo(WEB_REMIX, videoId)
         else
@@ -671,6 +687,7 @@ object YouTube {
     }
 
     suspend fun likePlaylist(playlistId: String, like: Boolean) = runCatching {
+        requireAccountWrites()
         if (like)
             innerTube.likePlaylist(WEB_REMIX, playlistId)
         else
@@ -678,6 +695,7 @@ object YouTube {
     }
 
     suspend fun subscribeChannel(channelId: String, subscribe: Boolean) = runCatching {
+        requireAccountWrites()
         if (subscribe)
             innerTube.subscribeChannel(WEB_REMIX, channelId)
         else
@@ -692,30 +710,37 @@ object YouTube {
     }
 
     suspend fun addToPlaylist(playlistId: String, videoId: String) = runCatching {
+        requireAccountWrites()
         innerTube.addToPlaylist(WEB_REMIX, playlistId, videoId)
     }
 
     suspend fun addPlaylistToPlaylist(playlistId: String, addPlaylistId: String) = runCatching {
+        requireAccountWrites()
         innerTube.addPlaylistToPlaylist(WEB_REMIX, playlistId, addPlaylistId)
     }
 
     suspend fun removeFromPlaylist(playlistId: String, videoId: String, setVideoId: String) = runCatching {
+        requireAccountWrites()
         innerTube.removeFromPlaylist(WEB_REMIX, playlistId, videoId, setVideoId)
     }
 
     suspend fun moveSongPlaylist(playlistId: String, setVideoId: String, successorSetVideoId: String) = runCatching {
+        requireAccountWrites()
         innerTube.moveSongPlaylist(WEB_REMIX, playlistId, setVideoId, successorSetVideoId)
     }
 
     fun createPlaylist(title: String) = runBlocking {
+        requireAccountWrites()
         innerTube.createPlaylist(WEB_REMIX, title).body<CreatePlaylistResponse>().playlistId
     }
 
     suspend fun renamePlaylist(playlistId: String, name: String) = runCatching {
+        requireAccountWrites()
         innerTube.renamePlaylist(WEB_REMIX, playlistId, name)
     }
 
     suspend fun deletePlaylist(playlistId: String) = runCatching {
+        requireAccountWrites()
         innerTube.deletePlaylist(WEB_REMIX, playlistId)
     }
 

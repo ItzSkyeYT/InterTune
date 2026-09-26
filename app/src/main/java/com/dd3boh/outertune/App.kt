@@ -48,6 +48,7 @@ import com.dd3boh.outertune.utils.CrashLog
 import com.dd3boh.outertune.utils.LocalArtworkPathKeyer
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
+import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.reportException
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.YouTubeLocale
@@ -81,6 +82,9 @@ class App : Application(), SingletonImageLoader.Factory {
         }
 
         instance = this;
+        // Every request that changes the account asks this first, so "Read only" and signed out
+        // hold even where a call site forgot to check.
+        YouTube.accountWritesAllowed = { mayPushToYouTube() }
 
         val locale = Locale.getDefault()
         val languageTag = locale.toLanguageTag().replace("-Hant", "") // replace zh-Hant-* to zh-*

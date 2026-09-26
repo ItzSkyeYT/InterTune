@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.db.entities.PlaylistEntity
-import com.dd3boh.outertune.extensions.isUserLoggedIn
+import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -75,7 +75,9 @@ fun CreatePlaylistDialog(
             }
         },
         extraContent = {
-            if (allowSyncing && context.isUserLoggedIn()) {
+            // Only where the account may be changed: in "Read only" a synced playlist would have
+            // to be created in the account, which that setting promises never to do.
+            if (allowSyncing && context.mayPushToYouTube()) {
                 Row(
                     modifier = Modifier.padding(vertical = 16.dp, horizontal = 40.dp)
                 ) {
