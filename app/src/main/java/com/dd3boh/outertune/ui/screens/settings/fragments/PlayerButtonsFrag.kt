@@ -34,10 +34,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
+import com.dd3boh.outertune.constants.QueueButtonKey
 import com.dd3boh.outertune.ui.component.PreferenceEntry
+import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
+import com.dd3boh.outertune.utils.rememberPreference
 
 /**
  * Picks the player's buttons by a picture of each rather than by name, since "classic" and
@@ -114,4 +118,16 @@ fun ColumnScope.PlayerButtonsFrag() {
             }
         }
     }
+
+    // Off keeps the sheet pulled up from the bottom of the player, as it has always been. On puts
+    // a queue button with the others: beside lyrics under the controls in Connected, and first in
+    // the row by the title in Classic.
+    val (queueAsButton, onQueueAsButtonChange) = rememberPreference(QueueButtonKey, defaultValue = false)
+    SwitchPreference(
+        title = { Text(stringResource(R.string.queue_button)) },
+        description = stringResource(R.string.queue_button_description),
+        icon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
+        checked = queueAsButton,
+        onCheckedChange = onQueueAsButtonChange
+    )
 }

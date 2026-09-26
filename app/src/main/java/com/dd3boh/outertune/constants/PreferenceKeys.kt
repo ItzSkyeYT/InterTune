@@ -277,6 +277,13 @@ val GroupedPlayerControlsKey = booleanPreferencesKey("groupedPlayerControls")
 /** Which set of buttons the player shows. See [PlayerButtonsStyle]. */
 val PlayerButtonsStyleKey = stringPreferencesKey("playerButtonsStyle")
 
+/**
+ * Whether the player opens the queue from a button beside its other buttons, rather than from the
+ * sheet pulled up from its bottom edge. Off keeps the sheet, which is how the player has always
+ * worked, so nobody loses the gesture they know.
+ */
+val QueueButtonKey = booleanPreferencesKey("queueButton")
+
 
 /**
  * Non-settings UI preferences
