@@ -138,6 +138,8 @@ InterTune can count this install once a day: one short message with a random nam
 - A song paused before it had faded in, for example by the sleep timer at the end of the song before it, came back silent and took the whole fade to reach full volume.
 - A link in a question or announcement typed as Https:// did nothing when tapped, and a closing quote or bracket could end up inside it.
 - The glass intensity preview no longer sits there unchanged where glass cannot be drawn (below Android 13, or with the side navigation); a line says why instead.
+- The Search shortcut on the launcher icon opened Home. It opens search now.
+- Turning the phone during setup could open a second copy of it, whose last page had no way forward.
 - Dragging songs with the add panel open moved the wrong rows.
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
 - **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
