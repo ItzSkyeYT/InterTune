@@ -2731,8 +2731,10 @@ class MusicService : MediaLibraryService(),
         session: MediaSession,
         startInForegroundRequired: Boolean,
     ) {
-        // FG keep alive
-        if (player.isPlaying || !dataStore.get(KeepAliveKey, false)) {
+        // FG keep alive. Never skipped when media3 has to start the foreground: a service started
+        // by a headset or the widget must reach startForeground, and a cold start is still
+        // buffering, not playing, so skipping it here had Android kill the app ten seconds later.
+        if (startInForegroundRequired || player.isPlaying || !dataStore.get(KeepAliveKey, false)) {
             super.onUpdateNotification(session, startInForegroundRequired)
         }
     }

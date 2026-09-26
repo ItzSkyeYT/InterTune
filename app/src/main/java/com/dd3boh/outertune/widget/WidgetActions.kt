@@ -15,18 +15,18 @@ import androidx.core.content.ContextCompat
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
-import androidx.media3.session.MediaButtonReceiver
 import com.dd3boh.outertune.MainActivity
 import com.dd3boh.outertune.playback.MusicService
+import com.dd3boh.outertune.playback.ResumingMediaButtonReceiver
 
 /**
  * The buttons on the widget.
  *
  * A press has to work whether or not the app is running, which is the whole difficulty of a media
  * widget. While the service is alive the key goes straight to it. While it is not, the same key
- * goes to media3's own media button receiver, which starts the service and asks it to resume the
- * queue it was on: the identical path a headset button or a car takes, already implemented here as
- * onPlaybackResumption. Nothing new decides what to play.
+ * goes to the media button receiver, which starts the service, when there is a queue to resume,
+ * and asks it to resume the queue it was on: the identical path a headset button or a car takes,
+ * already implemented here as onPlaybackResumption. Nothing new decides what to play.
  */
 object WidgetCommands {
     private const val TAG = "WidgetCommands"
@@ -51,7 +51,7 @@ object WidgetCommands {
             } else if (startsPlayback) {
                 // Cold: the receiver starts the service and media3 waits for the session before it
                 // delivers the key, so the queue is back by the time play means anything.
-                intent.component = ComponentName(context, MediaButtonReceiver::class.java)
+                intent.component = ComponentName(context, ResumingMediaButtonReceiver::class.java)
                 context.sendBroadcast(intent)
                 true
             } else {
