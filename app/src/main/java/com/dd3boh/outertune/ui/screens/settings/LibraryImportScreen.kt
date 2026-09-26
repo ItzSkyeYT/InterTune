@@ -61,6 +61,7 @@ import com.dd3boh.outertune.migration.LibraryImport
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.items.YouTubeListItem
+import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.viewmodels.LibraryImportViewModel
@@ -92,6 +93,16 @@ fun LibraryImportScreen(
     val stage = state.stage
     // Folded away at first: they went in without asking, and most people will not want to look.
     var showMatched by rememberSaveable { mutableStateOf(false) }
+    // Start over sits beside Create playlists, and a slip there would throw away minutes of
+    // searching and every pick, so once anything has been looked up it asks first.
+    var confirmStartOver by rememberSaveable { mutableStateOf(false) }
+    val startOver: () -> Unit = {
+        if ((progress?.checked ?: 0) > 0) {
+            confirmStartOver = true
+        } else {
+            session.reset()
+        }
+    }
     val started = stage !in listOf(LibraryImport.Stage.IDLE, LibraryImport.Stage.READING, LibraryImport.Stage.FAILED)
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
@@ -131,7 +142,7 @@ fun LibraryImportScreen(
                     state = state,
                     onCancel = session::cancel,
                     onResume = session::resume,
-                    onStartOver = session::reset,
+                    onStartOver = startOver,
                     onCreate = session::create,
                     onDone = {
                         session.reset()
@@ -233,6 +244,24 @@ fun LibraryImportScreen(
                     ) { Text(stringResource(R.string.import_library_create)) }
                 }
             }
+        }
+    }
+
+    if (confirmStartOver) {
+        ActionPromptDialog(
+            title = stringResource(R.string.import_library_start_over_title),
+            onDismiss = { confirmStartOver = false },
+            onCancel = { confirmStartOver = false },
+            onConfirm = {
+                confirmStartOver = false
+                session.reset()
+            },
+        ) {
+            Text(
+                text = stringResource(R.string.import_library_start_over_body),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 12.dp),
+            )
         }
     }
 

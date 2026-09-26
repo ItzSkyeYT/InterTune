@@ -1124,6 +1124,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="import_library_cancel">Cancel</string>
     <string name="import_library_continue">Continue</string>
     <string name="import_library_start_over">Start over</string>
+    <string name="import_library_start_over_title">Start over?</string>
+    <string name="import_library_start_over_body">Everything matched and picked from this file is dropped. Playlists already created stay as they are.</string>
     <string name="import_library_stopped">Stopped. What was found so far is kept, and Continue picks up where it left off.</string>
     <string name="import_library_offline">YouTube could not be reached. Check the connection, then continue.</string>
     <string name="import_library_review_title">Check these (%1$d)</string>
