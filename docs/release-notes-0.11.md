@@ -126,6 +126,10 @@ InterTune can count this install once a day: one short message with a random nam
 - **Shuffle** on a local artist played three songs.
 - In a shuffled queue, moving or removing a song and then adding one to the queue jumped to a different song.
 - Lyrics without timings started every line after the first with a comma.
+- Lyrics were often missing for songs started from search, even obvious ones, and every song was looked up twice. Songs named in Chinese or Japanese find KuGou's lyrics whichever script they are written in.
+- Removing a song from a playlist while searching it could send a different song to the bottom.
+- A drag in a playlist synced with YouTube Music could move a different song on YouTube.
+- Tapping a song in an artist's song list could play a different one, and with no connection it waited before playing anything.
 - Dragging songs with the add panel open moved the wrong rows.
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
 - **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
