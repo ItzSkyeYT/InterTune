@@ -8,7 +8,6 @@ package com.dd3boh.outertune.utils
 
 import android.content.Context
 import android.os.Build
-import android.util.Log
 import com.dd3boh.outertune.BuildConfig
 import java.io.File
 import java.text.SimpleDateFormat
@@ -54,6 +53,8 @@ object CrashLog {
         appendLine("Time: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.US).format(Date())}")
         appendLine("Thread: ${thread.name}")
         appendLine()
-        append(Log.getStackTraceString(throwable))
+        // Not Log.getStackTraceString, which returns nothing at all when an UnknownHostException is
+        // anywhere in the chain, so a crash that began with the phone offline came with no trace.
+        append(throwable.stackTraceToString())
     }
 }
