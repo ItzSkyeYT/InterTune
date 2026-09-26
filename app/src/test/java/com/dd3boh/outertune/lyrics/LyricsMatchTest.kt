@@ -225,4 +225,77 @@ class LyricsMatchTest {
         assertEquals(listOf("Paradisio, Marisa", "Paradisio"), query("Bailando", "Paradisio", "Marisa", duration = 230).artistVariants)
         assertEquals(listOf("Paradisio"), query("Bailando", "Paradisio", duration = 230).artistVariants)
     }
+
+    // The names below are how KuGou answered on 26 Sep 2026 when asked in the script on the left.
+
+    @Test
+    fun `Traditional and Simplified Chinese are the same name`() {
+        assertTrue(LyricsMatch.titleMatches("告白氣球", "告白气球"))
+        assertTrue(LyricsMatch.titleMatches("說好的幸福呢", "说好的幸福呢"))
+        assertTrue(LyricsMatch.artistMatches(listOf("周杰倫"), "周杰伦"))
+        assertTrue(LyricsMatch.artistMatches(listOf("薛之謙"), "薛之谦"))
+        assertFalse(LyricsMatch.titleMatches("演員", "认真的雪"))
+        assertFalse(LyricsMatch.artistMatches(listOf("周杰倫"), "薛之谦"))
+    }
+
+    @Test
+    fun `an artist in another script is left to the title and length`() {
+        assertTrue(LyricsMatch.artistMatches(listOf("Kenshi Yonezu"), "米津玄師"))
+        assertTrue(LyricsMatch.artistMatches(listOf("Jay Chou"), "周杰伦"))
+        // Written in both, one half is enough.
+        assertTrue(LyricsMatch.artistMatches(listOf("G.E.M."), "G.E.M.邓紫棋"))
+        assertTrue(LyricsMatch.artistMatches(listOf("G.E.M."), "华晨宇、G.E.M.邓紫棋"))
+        assertTrue(LyricsMatch.artistMatches(listOf("G.E.M. 鄧紫棋"), "邓紫棋"))
+        assertTrue(LyricsMatch.artistMatches(listOf("BTS"), "BTS (防弹少年团)"))
+        // Two names in the same script are still compared.
+        assertFalse(LyricsMatch.artistMatches(listOf("G.E.M."), "Pink Floyd"))
+        assertFalse(LyricsMatch.artistMatches(listOf("米津玄師"), "周杰伦"))
+        // Digits alone are no script, so they do not count as one that differs.
+        assertFalse(LyricsMatch.artistMatches(listOf("112"), "Boyz II Men"))
+    }
+
+    @Test
+    fun `a title in another script is not taken for the song`() {
+        assertFalse(LyricsMatch.titleMatches("Racing Into The Night", "夜に駆ける"))
+        assertFalse(LyricsMatch.titleMatches("Racing Into The Night", "たぶん"))
+    }
+
+    @Test
+    fun `a concert recording marked only in Chinese is not the studio song`() {
+        assertFalse(LyricsMatch.titleMatches("小幸運", "小幸运 (2015如果巡回演唱会高雄站)"))
+        assertFalse(LyricsMatch.titleMatches("演員", "演员 (2021成都超乐音乐节现场)"))
+        assertTrue(LyricsMatch.titleMatches("演員 (現場)", "演员 (现场)"))
+    }
+
+    @Test
+    fun `titles that only start the same are different songs`() {
+        assertFalse(LyricsMatch.titleMatches("MONTAGEM - XONADA", "MONTAGEM - CORAL"))
+        assertFalse(LyricsMatch.titleMatches("MONTAGEM - XONADA (Slowed)", "MONTAGEM - CORAL (Slowed)"))
+        assertFalse(LyricsMatch.titleMatches("Song (Part 1)", "Song (Part 2)"))
+        assertFalse(LyricsMatch.titleMatches("Les Misérables - I Dreamed a Dream", "Les Misérables - On My Own"))
+        // One addition the other title lacks is still the same song, as before.
+        assertTrue(LyricsMatch.titleMatches("Macarena (Bayside Boys Remix)", "Macarena"))
+        assertTrue(LyricsMatch.titleMatches("Macarena", "Macarena (Bayside Boys Remix)"))
+        assertTrue(LyricsMatch.titleMatches("Macarena (Bayside Boys Remix) (Remasterizado)", "Macarena (Bayside Boys remix)"))
+    }
+
+    @Test
+    fun `a featured artist comes off without what follows`() {
+        assertEquals("Song (Live)", LyricsMatch.cleanTitle("Song feat. Someone (Live)"))
+        assertEquals("Song - Live", LyricsMatch.cleanTitle("Song feat. Someone - Live"))
+        assertEquals("Song", LyricsMatch.cleanTitle("Song feat. Someone (Official Video)"))
+        assertEquals("Song", LyricsMatch.cleanTitle("Song ft. Someone & Other"))
+        assertFalse(LyricsMatch.titleMatches("Song feat. Someone (Live)", "Song"))
+        assertTrue(LyricsMatch.titleMatches("Song feat. Someone (Live)", "Song (Live)"))
+    }
+
+    @Test
+    fun `folding Chinese twice changes nothing more, and Latin text not at all`() {
+        for (c in '㐀'..'鿿') {
+            val once = HanFold.fold(c.toString())
+            assertEquals("U+%04X".format(c.code), once, HanFold.fold(once))
+        }
+        assertEquals("Bailando (Video Edit)", HanFold.fold("Bailando (Video Edit)"))
+        assertEquals("夜に駆ける", HanFold.fold("夜に駆ける"))
+    }
 }

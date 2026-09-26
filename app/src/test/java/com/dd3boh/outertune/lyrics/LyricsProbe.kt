@@ -26,6 +26,8 @@ import org.junit.Assume.assumeTrue
  * falls back to if the length never arrives. Makes real requests, so it only runs when asked:
  *
  *     LYRICS_PROBE=1 ./gradlew :app:testCoreDebugUnitTest --tests "*LyricsProbe*" -i
+ *
+ * [kugouNames] asks KuGou alone about songs with Chinese and Japanese names.
  */
 class LyricsProbe {
 
@@ -126,5 +128,33 @@ class LyricsProbe {
         assertNotNull("the phonk track was not resolved on YouTube Music", phonk)
         assertNull("the phonk track got lyrics at its length", phonk!!.first)
         assertNull("the phonk track got lyrics with no length", phonk.second)
+    }
+
+    /**
+     * KuGou alone, asked in the scripts a player can hold: Traditional Chinese, and artists written in
+     * Latin letters, which KuGou answers in Simplified Chinese and in the artist's own script.
+     */
+    @Test
+    fun kugouNames() = runBlocking {
+        assumeTrue("set LYRICS_PROBE=1 to run", System.getenv("LYRICS_PROBE") == "1")
+        val timed = listOf(
+            LyricsQuery("x", "告白氣球", listOf("周杰倫"), duration = 215),
+            LyricsQuery("x", "晴天", listOf("周杰倫"), duration = 269),
+            LyricsQuery("x", "告白氣球", listOf("Jay Chou"), duration = 215),
+            LyricsQuery("x", "光年之外", listOf("G.E.M."), duration = 235),
+            LyricsQuery("x", "Lemon", listOf("Kenshi Yonezu"), duration = 255),
+        )
+        for (query in timed) {
+            val t = System.currentTimeMillis()
+            val found = KuGouLyricsProvider.getLyrics(query)
+            println("LYRICS KuGou '${query.title}' by ${query.artist} at ${query.duration} s: ${describe(found.getOrNull(), listOfNotNull(found.exceptionOrNull()?.message), System.currentTimeMillis() - t)}")
+            assertTrue("KuGou had no timed lyrics for ${query.title} by ${query.artist}", found.getOrNull()?.let(LyricsMatch::isSynced) == true)
+            delay(500)
+        }
+        // Listed only under its Japanese title, next to another YOASOBI song three seconds shorter.
+        val english = LyricsQuery("x", "Racing Into The Night", listOf("YOASOBI"), duration = 261)
+        val found = KuGouLyricsProvider.getLyrics(english)
+        println("LYRICS KuGou '${english.title}' by ${english.artist}: ${describe(found.getOrNull(), listOfNotNull(found.exceptionOrNull()?.message), 0)}")
+        assertNull("KuGou guessed at a title in another script", found.getOrNull())
     }
 }

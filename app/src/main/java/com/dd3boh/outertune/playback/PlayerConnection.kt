@@ -28,6 +28,7 @@ import com.dd3boh.outertune.extensions.currentMetadata
 import com.dd3boh.outertune.extensions.getCurrentQueueIndex
 import com.dd3boh.outertune.extensions.getQueueWindows
 import com.dd3boh.outertune.extensions.metadata
+import com.dd3boh.outertune.lyrics.LyricsLookup
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.utils.reportException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -37,9 +38,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.akanework.gramophone.logic.utils.SemanticLyrics
@@ -76,15 +75,8 @@ class PlayerConnection(
     val currentSong = mediaMetadata.flatMapLatest {
         database.song(it?.id)
     }
-    // By song rather than by metadata object. Every MediaMetadata carries a random field, so a second
-    // copy of the song already playing, from a queue rebuilt around it for instance, never compares
-    // equal, and would cancel the lookup in progress only to start the same one again.
-    val currentLyrics: Flow<SemanticLyrics> = mediaMetadata.distinctUntilChangedBy { it?.id }.flatMapLatest { mediaMetadata ->
-        if (mediaMetadata != null) {
-            return@flatMapLatest flowOf(service.lyricsHelper.getLyrics(mediaMetadata) ?: uninitializedLyric)
-        } else {
-            return@flatMapLatest flowOf()
-        }
+    val currentLyrics: Flow<SemanticLyrics> = LyricsLookup.bySong(mediaMetadata) { mediaMetadata ->
+        service.lyricsHelper.getLyrics(mediaMetadata) ?: uninitializedLyric
     }
 
     private val currentMediaItemIndex = MutableStateFlow(-1)

@@ -7,18 +7,29 @@
 package com.dd3boh.outertune.lyrics
 
 import android.content.Context
+import com.dd3boh.outertune.models.MediaMetadata
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
-/** The order the providers are asked in, and when the lookup stops. */
+/** The order the providers are asked in, when the lookup stops, and what it waits for. */
 class LyricsLookupTest {
 
     private val query = LyricsQuery(id = "x", title = "Song", artists = listOf("A"), duration = 200)
@@ -99,5 +110,65 @@ class LyricsLookupTest {
         yield()
         assertEquals(0, b.calls)
         assertEquals(emptyList<String>(), failures)
+    }
+
+    @Test
+    fun `a length the player has is used at once`() = runBlocking {
+        assertEquals(230, LyricsLookup.awaitLength(230, flow { fail("the database was asked") }, waitMs = 1_000))
+    }
+
+    @Test
+    fun `a song tapped in search waits for the length the stream brings`() = runBlocking {
+        // The row starts at -1 and recoverSong writes the real length once the stream is resolved.
+        val lengths = flow { emit(-1); delay(30); emit(0); delay(30); emit(230); awaitCancellation() }
+        assertEquals(230, LyricsLookup.awaitLength(-1, lengths, waitMs = 5_000))
+    }
+
+    @Test
+    fun `no length within the wait is -1, and so is a source that ends without one`() = runBlocking {
+        val start = System.nanoTime()
+        assertEquals(-1, LyricsLookup.awaitLength(-1, flow { emit(-1); awaitCancellation() }, waitMs = 100))
+        assertTrue((System.nanoTime() - start) / 1_000_000 >= 100)
+        assertEquals(-1, LyricsLookup.awaitLength(-1, flowOf(-1, 0), waitMs = 5_000))
+    }
+
+    @Test
+    fun `a second copy of the song playing does not restart its lookup`() = runBlocking {
+        fun song(id: String) = MediaMetadata(id = id, title = id, artists = emptyList(), duration = 200, genre = null)
+        val first = song("a")
+        val copy = song("a")
+        // The random field every MediaMetadata carries makes them unequal, as a rebuilt queue's copy is.
+        assertNotEquals(first, copy)
+
+        val metadata = MutableStateFlow<MediaMetadata?>(first)
+        val seen = Channel<MediaMetadata?>(Channel.UNLIMITED)
+        val results = Channel<String>(Channel.UNLIMITED)
+        val started = mutableListOf<String>()
+        val cancelled = mutableListOf<String>()
+        val release = CompletableDeferred<Unit>()
+        val collector = launch {
+            LyricsLookup.bySong(metadata.onEach { seen.send(it) }) { song ->
+                started += song.id
+                try {
+                    if (song.id == "a") release.await()
+                } catch (e: CancellationException) {
+                    cancelled += song.id
+                    throw e
+                }
+                "lyrics of ${song.id}"
+            }.collect { results.send(it) }
+        }
+        assertEquals(first, seen.receive())
+        metadata.value = copy
+        assertEquals(copy, seen.receive())
+        yield()
+        release.complete(Unit)
+        assertEquals("lyrics of a", results.receive())
+        metadata.value = song("b")
+        assertEquals("lyrics of b", results.receive())
+        collector.cancel()
+
+        assertEquals(listOf("a", "b"), started)
+        assertEquals(emptyList<String>(), cancelled)
     }
 }

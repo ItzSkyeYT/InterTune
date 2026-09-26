@@ -6,11 +6,42 @@
 
 package com.dd3boh.outertune.lyrics
 
+import com.dd3boh.outertune.models.MediaMetadata
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** The automatic lookup's walk through the providers, apart from Android so it can be tested. */
 object LyricsLookup {
+
+    /**
+     * The lyrics for each song [metadata] names, looked up again only when the song changes.
+     *
+     * By song rather than by metadata object. Every MediaMetadata carries a random field, so a second
+     * copy of the song already playing, from a queue rebuilt around it for instance, never compares
+     * equal, and would cancel the lookup in progress only to start the same one again.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun <T> bySong(metadata: Flow<MediaMetadata?>, lookUp: suspend (MediaMetadata) -> T): Flow<T> =
+        metadata.distinctUntilChangedBy { it?.id }.flatMapLatest { song ->
+            if (song != null) flowOf(lookUp(song)) else emptyFlow()
+        }
+
+    /**
+     * The song's length in seconds: [known] when the player has it, or else the first real length
+     * [lengths] gives within [waitMs], or -1 when none comes.
+     */
+    suspend fun awaitLength(known: Int, lengths: Flow<Int>, waitMs: Long): Int {
+        if (known > 0) return known
+        return withTimeoutOrNull(waitMs) { lengths.firstOrNull { it > 0 } } ?: -1
+    }
 
     /**
      * Asks each provider in turn and returns the first timed lyrics any of them has.

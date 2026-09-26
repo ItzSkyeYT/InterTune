@@ -20,7 +20,6 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withTimeoutOrNull
 import org.akanework.gramophone.logic.utils.LrcUtils
 import org.akanework.gramophone.logic.utils.SemanticLyrics
 import org.akanework.gramophone.logic.utils.parseLrc
@@ -162,12 +161,11 @@ class LyricsHelper @Inject constructor(
      * listed. recoverSong writes the real length to the database from the stream's own details as
      * soon as playback starts, so the lookup waits for that.
      */
-    private suspend fun knownDuration(mediaMetadata: MediaMetadata): Int {
-        if (mediaMetadata.duration > 0) return mediaMetadata.duration
-        return withTimeoutOrNull(DURATION_WAIT_MS) {
-            database.song(mediaMetadata.id).map { it?.song?.duration ?: -1 }.first { it > 0 }
-        } ?: -1
-    }
+    private suspend fun knownDuration(mediaMetadata: MediaMetadata): Int = LyricsLookup.awaitLength(
+        known = mediaMetadata.duration,
+        lengths = database.song(mediaMetadata.id).map { it?.song?.duration ?: -1 },
+        waitMs = DURATION_WAIT_MS,
+    )
 
     /**
      * Lookup lyrics from local disk (.lrc) file
