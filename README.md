@@ -138,7 +138,7 @@ cherry-picked. The m3u import bugs were reported by
 [cchery2512](https://github.com/cchery2512). Liquid glass was
 [rii2609](https://github.com/rii2609)'s idea, and he caught the intensity slider running
 backwards. It is built on [AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass)
-(`io.github.kyant0:backdrop`, Apache-2.0).
+(`io.github.kyant0:backdrop`, Apache-2.0). Lyrics matching folds Traditional Chinese to Simplified with a table from [ICU](https://icu.unicode.org) (Unicode License v3, notice in [docs/licenses](docs/licenses/ICU-Unicode-3.0.txt)).
 
 ## Licence
 
