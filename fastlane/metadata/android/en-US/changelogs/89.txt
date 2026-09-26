@@ -1,6 +1,6 @@
 Version 0.10.9.5
 
-- News on the question banner, starting with the new Discord server. Links in it can be tapped, and Discord is in About.
+- News on the question banner, with pictures and links, starting with the new Discord server. Discord is also in About.
 - With questions on, opening one is counted once, anonymously.
 - Lyrics are found for songs played from search.
 - The player's buttons keep their size with lyrics on, and a long title fades out before them.
