@@ -580,6 +580,18 @@ class DownloadUtil @Inject constructor(
     }
 
 
+    /**
+     * Removes a song's download wherever it is kept: its file in a download folder, and media3's
+     * copy inside the app. Every Remove download goes through here. Only the song's own menu used
+     * to look at the download folders; the player's, album, playlist and selection menus told
+     * media3 alone, which knows nothing of them, so for a song downloaded there they did nothing.
+     * media3 ignores a song it has no download for.
+     */
+    fun removeDownload(id: String) {
+        deleteSong(id)
+        DownloadService.sendRemoveDownload(context, ExoDownloadService::class.java, id, false)
+    }
+
 // Deletes from custom dl
 
     fun delete(song: PlaylistSong) = deleteSong(song.song.id)

@@ -2,6 +2,7 @@ package com.dd3boh.outertune.playback.downloadManager
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.documentfile.provider.TreeDocumentFileOt
@@ -63,8 +64,14 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         }
     }
 
+    /**
+     * Deletes a song's file, from the main download folder only. The list holds the extra import
+     * folders' files too, and those folders are promised never to be changed (the storage
+     * tooltip), so a song imported from one keeps its file and has to be removed by hand.
+     */
     fun deleteFile(mediaId: String): Boolean {
         val file = isExists(mediaId) ?: return false
+        if (!isInMainDir(file)) return false
         val deleted = file.delete()
         // Out of the list as well, or the player went on handing out the deleted file for the
         // rest of the session and the song could not be streamed instead.
@@ -91,6 +98,14 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         }
 
         return null
+    }
+
+    /** Files found under a folder keep that folder's tree in their address. */
+    private fun isInMainDir(file: DocumentFile): Boolean {
+        val main = mainDir ?: return false
+        return runCatching {
+            DocumentsContract.getTreeDocumentId(file.uri) == DocumentsContract.getTreeDocumentId(main.uri)
+        }.getOrDefault(false)
     }
 
     fun isExists(mediaId: String): DocumentFile? {

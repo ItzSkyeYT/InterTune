@@ -84,7 +84,6 @@ import androidx.compose.ui.util.fastSumBy
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.exoplayer.offline.Download
-import androidx.media3.exoplayer.offline.DownloadService
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.PlayOrigin
@@ -119,7 +118,6 @@ import com.dd3boh.outertune.db.entities.PlaylistSong
 import com.dd3boh.outertune.extensions.move
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.toMediaMetadata
-import com.dd3boh.outertune.playback.ExoDownloadService
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.AutoResizeText
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
@@ -168,6 +166,7 @@ fun LocalPlaylistScreen(
     val density = LocalDensity.current
     val menuState = LocalMenuState.current
     val database = LocalDatabase.current
+    val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val snackbarHostState = LocalSnackbarHostState.current
 
@@ -324,12 +323,7 @@ fun LocalPlaylistScreen(
                         }
 
                         playlistWithSongs.second.forEach { song ->
-                            DownloadService.sendRemoveDownload(
-                                context,
-                                ExoDownloadService::class.java,
-                                song.song.id,
-                                false
-                            )
+                            downloadUtil.removeDownload(song.song.id)
                         }
                     }
                 ) {
@@ -955,12 +949,7 @@ fun LocalPlaylistHeader(
                                 IconButton(
                                     onClick = {
                                         songs.forEach { song ->
-                                            DownloadService.sendRemoveDownload(
-                                                context,
-                                                ExoDownloadService::class.java,
-                                                song.song.id,
-                                                false
-                                            )
+                                            downloadUtil.removeDownload(song.song.id)
                                         }
                                     }
                                 ) {
