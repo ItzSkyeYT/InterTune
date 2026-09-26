@@ -2210,7 +2210,11 @@ class MusicService : MediaLibraryService(),
                 q.playlistId = (anchor ?: mediaItems.takeLast(4).shuffled().first().id)
                     .also { lastRadioSeed = it }
                 Log.d(TAG, "onMediaItemTransition: Got ${mediaItems.size} songs from radio")
-                if (player.playbackState != STATE_IDLE && songCount > 1) { // initial radio loading is handled by playQueue()
+                // Only into the queue that asked for them. A page still on its way when a list from
+                // the car became current went to the end of that list instead, and reloaded it.
+                if (player.playbackState != STATE_IDLE && songCount > 1 &&
+                    queueBoard.getCurrentQueue()?.id == q.id
+                ) { // initial radio loading is handled by playQueue()
                     queueBoard.enqueueEnd(mediaItems.drop(1))
                 }
             }
