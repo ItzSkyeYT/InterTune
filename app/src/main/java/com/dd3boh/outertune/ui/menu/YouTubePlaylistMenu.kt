@@ -253,6 +253,12 @@ fun YouTubePlaylistMenu(
                 state = downloadState,
                 onDownload = {
                     val _songs = songs.map { it.toMediaMetadata() }
+                    // Into the library's song table first, as the song menu does. A finished
+                    // download is recorded by updating the song's row, and these songs had none,
+                    // so after a restart nothing knew they had been downloaded.
+                    database.transaction {
+                        _songs.forEach { insert(it) }
+                    }
                     downloadUtil.download(_songs)
                 },
                 onRemoveDownload = {
