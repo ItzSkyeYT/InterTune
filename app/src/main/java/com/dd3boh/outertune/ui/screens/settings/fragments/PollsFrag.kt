@@ -8,6 +8,7 @@ package com.dd3boh.outertune.ui.screens.settings.fragments
 
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.HistoryToggleOff
 import androidx.compose.material.icons.rounded.Poll
 import androidx.compose.material.icons.rounded.Refresh
@@ -25,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.LocalPollChecker
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.AnnouncementsEnabledKey
 import com.dd3boh.outertune.constants.Polls
 import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
@@ -74,12 +76,31 @@ fun ColumnScope.PollsFrag() {
         checked = enabled,
         onCheckedChange = {
             onEnabledChange(it)
-            if (it) coroutineScope.launch {
+            coroutineScope.launch {
                 // Wait for the preference to actually land before looking. The setter is
                 // fire and forget, so checking straight after it read the old value and
                 // reported "no question right now" to somebody who had just switched it on.
-                context.dataStore.edit { prefs -> prefs[PollsEnabledKey] = true }
-                pollChecker.check(force = true)
+                // Switching off looks again too, without fetching, so the banner goes at once.
+                context.dataStore.edit { prefs -> prefs[PollsEnabledKey] = it }
+                pollChecker.check(force = it)
+            }
+        }
+    )
+
+    // Its own switch since 0.10.9.5: somebody can want the news without being asked questions.
+    // Same document, so the same fetch serves both.
+    val (newsOn, onNewsChange) = rememberPreference(AnnouncementsEnabledKey, defaultValue = false)
+    ExplainedSwitchPreference(
+        title = stringResource(R.string.news_enabled),
+        explanation = stringResource(R.string.news_enabled_info),
+        description = stringResource(R.string.news_enabled_description),
+        icon = { Icon(Icons.Rounded.Campaign, null) },
+        checked = newsOn,
+        onCheckedChange = {
+            onNewsChange(it)
+            coroutineScope.launch {
+                context.dataStore.edit { prefs -> prefs[AnnouncementsEnabledKey] = it }
+                pollChecker.check(force = it)
             }
         }
     )

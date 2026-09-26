@@ -965,6 +965,8 @@ fun SetupWizard(
 
                                     PollsOptInCard()
 
+                                    NewsOptInCard()
+
                                     UsageCountOptInCard()
 
                                     LastFmSimilarOptInCard()

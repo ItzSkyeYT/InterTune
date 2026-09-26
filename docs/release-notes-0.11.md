@@ -81,8 +81,8 @@ InterTune can count this install once a day: one short message with a random nam
 - **Signing in to YouTube Music** starts with your phone's own account picker, and Google's page opens with that address filled in, so it is usually a tap on your phone to confirm. The page shows Google's address with a lock, InterTune never sees your password, and Switch or Another account is right there.
 - A short walkthrough after an update, covering only what is new. A fresh install gets the whole tour. Skip is there from the first screen.
 - **Favourite artists** beside Liked songs and Downloaded songs: a mix of the artists you have bookmarked, one song from each in turn, so one big catalogue cannot take it over.
-- Announcements appear on the same banner as the occasional question and open full screen like one, with pictures and up to three buttons. Questions and announcements can have paragraphs, lists and bold text. There is a Discord server too.
-- With questions on, the first opening of a question or an announcement is counted once: its id, its title and the app version, nothing about you or your device.
+- **News from InterTune**: announcements with their own switch, asked once after updating (already on if you said yes to questions). They open full screen like a question, with pictures and up to three buttons, and questions and announcements can have paragraphs, lists and bold text. There is a Discord server too.
+- The first opening of a question or an announcement is counted once: its id, its title and the app version, nothing about you or your device.
 - If InterTune crashes, it offers to report it the next time it opens, with the error already filled in. Nothing is sent unless you choose to.
 - Predictive back and reveal transitions (switch, on).
 - **Keep the queue up to date**: drops songs further down the queue that stop suiting what you are playing, and reacts to whether you stay with the current song or skip past it. Most of the queue is hidden while it settles, so you see what is actually coming rather than a list that is about to change.

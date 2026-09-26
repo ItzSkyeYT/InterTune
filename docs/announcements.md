@@ -57,5 +57,5 @@ Only `id`, `banner` and `title` are needed.
 - Buttons and pictures take web addresses only. Use `https://`: phones refuse to load pictures over plain `http://`.
 - Pictures are downloaded on the phone's connection when the announcement opens. Keep each one well under 1 MB.
 - The app checks the gist at most every six hours, so a change takes up to that long to reach phones.
-- Only phones with questions switched on fetch the document at all (Settings, Questions).
+- Only phones with news or questions switched on fetch the document at all (Settings, Privacy and history, Questions and news). Announcements need News from InterTune on. Phones that had said yes to questions before news had its own switch have news on too.
 - The first time a phone opens an announcement it sends its id, its title and the app version to Umami, as `poll_view` with type `announcement`. That is the view count on the dashboard. Nothing else is sent.

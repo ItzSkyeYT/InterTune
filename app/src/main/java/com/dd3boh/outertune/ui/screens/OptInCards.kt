@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Hub
@@ -41,6 +42,7 @@ import com.dd3boh.outertune.utils.installSource
 import com.dd3boh.outertune.LocalPollChecker
 import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.AnnouncementsEnabledKey
 import com.dd3boh.outertune.constants.AutoInstallUpdatesKey
 import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
@@ -236,7 +238,78 @@ fun PollsOptInCard() {
 
 
 /**
- * The third and last of these, and the only one that sends anything without being looked at.
+ * Whether to show announcements, asked on its own since announcements got their own switch.
+ *
+ * Built exactly like [PollsOptInCard]: never asked stays distinguishable from said no, and an
+ * answered card becomes the switch it set. Saying yes fetches at once, so the banner is there on
+ * the way out of setup rather than on the next launch.
+ */
+@Composable
+fun NewsOptInCard() {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val pollChecker = LocalPollChecker.current
+
+    val choice by rememberNullablePreference(AnnouncementsEnabledKey)
+
+    fun answer(enabled: Boolean) {
+        coroutineScope.launch {
+            context.dataStore.edit { it[AnnouncementsEnabledKey] = enabled }
+            pollChecker.check(force = enabled)
+        }
+    }
+
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp)
+    ) {
+        val answered = choice
+        if (answered == null) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.news_opt_in_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = stringResource(R.string.news_opt_in_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Row(
+                    horizontalArrangement = Arrangement.End,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                ) {
+                    TextButton(onClick = { answer(false) }) {
+                        Text(stringResource(R.string.polls_opt_in_no))
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Button(onClick = { answer(true) }) {
+                        Text(stringResource(R.string.news_opt_in_yes))
+                    }
+                }
+            }
+        } else {
+            SwitchPreference(
+                title = { Text(stringResource(R.string.news_enabled)) },
+                description = stringResource(R.string.oobe_news_answered),
+                icon = { Icon(Icons.Rounded.Campaign, null) },
+                checked = answered,
+                onCheckedChange = { answer(it) }
+            )
+        }
+    }
+}
+
+
+/**
+ * The only one of these that sends anything without being looked at.
  *
  * Its own card rather than a line inside the questions one, because they are different bargains:
  * a poll is a thing you are shown and may answer, this is a thing that happens quietly once a day.
