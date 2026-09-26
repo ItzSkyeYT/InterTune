@@ -24,14 +24,15 @@ import com.dd3boh.outertune.playback.ResumingMediaButtonReceiver
  *
  * A press has to work whether or not the app is running, which is the whole difficulty of a media
  * widget. While the service is alive the key goes straight to it. While it is not, the same key
- * goes to the media button receiver, which starts the service, when there is a queue to resume,
- * and asks it to resume the queue it was on: the identical path a headset button or a car takes,
- * already implemented here as onPlaybackResumption. Nothing new decides what to play.
+ * goes to the media button receiver, which starts the service and asks it to resume the queue it
+ * was on: the identical path a headset button or a car takes, already implemented here as
+ * onPlaybackResumption. Nothing new decides what to play. With no queue saved there is nothing to
+ * resume, and play opens the app instead.
  */
 object WidgetCommands {
     private const val TAG = "WidgetCommands"
 
-    fun mediaKey(context: Context, keyCode: Int) {
+    suspend fun mediaKey(context: Context, keyCode: Int) {
         val event = KeyEvent(KeyEvent.ACTION_DOWN, keyCode)
         val intent = Intent(Intent.ACTION_MEDIA_BUTTON).putExtra(Intent.EXTRA_KEY_EVENT, event)
         // Only play and pause can start playback, and only playback calls startForeground, so only
@@ -48,7 +49,7 @@ object WidgetCommands {
                 // below then opens the app instead.
                 else context.startService(intent)
                 true
-            } else if (startsPlayback) {
+            } else if (startsPlayback && ResumingMediaButtonReceiver.hasSavedQueue(context)) {
                 // Cold: the receiver starts the service and media3 waits for the session before it
                 // delivers the key, so the queue is back by the time play means anything.
                 intent.component = ComponentName(context, ResumingMediaButtonReceiver::class.java)
@@ -56,7 +57,9 @@ object WidgetCommands {
                 true
             } else {
                 // The receiver drops every key but play from a cold start, so next and previous did
-                // nothing at all with the app closed. The app can do them.
+                // nothing at all with the app closed. The app can do them. So can it play with no
+                // queue saved, where the receiver now starts nothing rather than a service that
+                // Android would kill the app over.
                 false
             }
         }.onFailure { Log.w(TAG, "Could not send $keyCode to the player", it) }.getOrDefault(false)

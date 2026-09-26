@@ -53,13 +53,16 @@ class ResumingMediaButtonReceiver : MediaButtonReceiver() {
         return startService
     }
 
-    /** The same queue onPlaybackResumption would resume. Unreadable counts as none: it would fail there too. */
-    private suspend fun hasSavedQueue(context: Context): Boolean = runCatching {
-        EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
-            .database().getResumptionQueue() != null
-    }.getOrDefault(false)
+    companion object {
+        private const val TAG = "ResumingMediaButton"
 
-    private companion object {
-        const val TAG = "ResumingMediaButton"
+        /**
+         * Whether there is a saved queue to resume: the one onPlaybackResumption would load.
+         * Unreadable counts as none, since resuming would fail on it too.
+         */
+        suspend fun hasSavedQueue(context: Context): Boolean = runCatching {
+            EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
+                .database().getResumptionQueue() != null
+        }.getOrDefault(false)
     }
 }
