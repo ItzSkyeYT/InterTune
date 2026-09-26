@@ -1640,7 +1640,11 @@ class MusicService : MediaLibraryService(),
             //
             // Only from the start of the song. Mid-song, a new stream would fill the gaps of a
             // cache entry that holds the old one, two encodings in one file.
-            val staleQuality = isCache && !isDownload && dataSpec.position == 0L && shouldUpgradeCached(mediaId)
+            //
+            // And only with a network. Offline the fetch cannot succeed, and the copy here is the
+            // only way the song plays at all.
+            val staleQuality = isCache && !isDownload && dataSpec.position == 0L &&
+                    isNetworkConnected.value && shouldUpgradeCached(mediaId)
             if ((isDownload || isCache) && !staleQuality) {
                 Log.d(TAG, "PLAYING: remote song (cache = ${isCache}, download = ${isDownload})")
                 offloadScope.launch { recoverSong(mediaId) }
@@ -1662,6 +1666,14 @@ class MusicService : MediaLibraryService(),
                     connectivityManager = connectivityManager,
                 )
             }.getOrElse { throwable ->
+                // The upgrade could not be had (the network went, or the video is gone from
+                // YouTube), but the copy it was meant to replace is still here. Play that rather
+                // than fail a song that plays fine, and leave its row as it is, so the upgrade is
+                // tried again next time.
+                if (staleQuality) {
+                    Log.d(TAG, "PLAYING: remote song (cache kept, the new stream could not be fetched)", throwable)
+                    return@Factory dataSpec
+                }
                 when (throwable) {
                     is PlaybackException -> throw throwable
 
