@@ -34,6 +34,13 @@ import com.dd3boh.outertune.constants.CountryCodeToName
 import com.dd3boh.outertune.constants.DataSyncIdKey
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.LanguageCodeToName
+import com.dd3boh.outertune.constants.LastAlbumSyncKey
+import com.dd3boh.outertune.constants.LastArtistSyncKey
+import com.dd3boh.outertune.constants.LastFullSyncKey
+import com.dd3boh.outertune.constants.LastLibSongSyncKey
+import com.dd3boh.outertune.constants.LastLikeSongSyncKey
+import com.dd3boh.outertune.constants.LastPlaylistSyncKey
+import com.dd3boh.outertune.constants.LastRecentActivitySyncKey
 import com.dd3boh.outertune.constants.MaxImageCacheSizeKey
 import com.dd3boh.outertune.constants.ProxyEnabledKey
 import com.dd3boh.outertune.constants.ProxyTypeKey
@@ -241,6 +248,13 @@ class App : Application(), SingletonImageLoader.Factory {
                     settings.remove(AccountNameKey)
                     settings.remove(AccountEmailKey)
                     settings.remove(AccountChannelHandleKey)
+                    // The last sync times belong to the account that is going. Left behind,
+                    // they held the next account's first sync back behind the old one's
+                    // cooldowns, up to half an hour.
+                    listOf(
+                        LastFullSyncKey, LastLikeSongSyncKey, LastLibSongSyncKey, LastAlbumSyncKey,
+                        LastArtistSyncKey, LastPlaylistSyncKey, LastRecentActivitySyncKey,
+                    ).forEach { settings.remove(it) }
                 }
             }
         }
