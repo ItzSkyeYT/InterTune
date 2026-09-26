@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
+        android:shortcutId="play_liked"
+        android:enabled="true"
+        android:icon="@drawable/shortcut_liked"
+        android:shortcutShortLabel="@string/shortcut_play_liked">
+        <intent
+            android:targetClass="com.dd3boh.outertune.MainActivity"
+            android:targetPackage="dev.skye.intertune.preview"
+            android:action="dev.skye.intertune.action.PLAY_LIKED" />
+    </shortcut>
+    <shortcut
         android:shortcutId="search"
         android:enabled="true"
         android:icon="@drawable/shortcut_search"

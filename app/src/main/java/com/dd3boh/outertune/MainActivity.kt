@@ -76,6 +76,13 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
+import androidx.lifecycle.lifecycleScope
+import com.dd3boh.outertune.constants.SongSortDescendingKey
+import com.dd3boh.outertune.constants.SongSortType
+import com.dd3boh.outertune.constants.SongSortTypeKey
+import com.dd3boh.outertune.extensions.toEnum
+import com.dd3boh.outertune.playback.queues.ListQueue
+import kotlinx.coroutines.flow.filterNotNull
 import com.dd3boh.outertune.widget.WidgetCommands
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -346,6 +353,31 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleOpenPoll(intent)
+        if (intent.action == ACTION_PLAY_LIKED) playLikedWhenReady()
+    }
+
+    /**
+     * The "Play liked songs" shortcut: the liked songs in the order the Liked songs screen shows
+     * them, as its Play button plays them. It waits for the player, which on a cold start from
+     * the shortcut is not connected yet.
+     */
+    private fun playLikedWhenReady() {
+        lifecycleScope.launch {
+            val connection = snapshotFlow { playerConnection }.filterNotNull().first()
+            val prefs = dataStore.data.first()
+            val songs = database.likedSongs(
+                prefs[SongSortTypeKey].toEnum(SongSortType.CREATE_DATE),
+                prefs[SongSortDescendingKey] ?: true,
+            ).first()
+            if (songs.isEmpty()) {
+                Toast.makeText(this@MainActivity, R.string.shortcut_no_liked_songs, Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            connection.playQueue(
+                ListQueue(title = getString(R.string.liked_songs), items = songs.map { it.toMediaMetadata() }),
+                origin = PlayOrigin.PLAYLIST,
+            )
+        }
     }
 
     override fun onDestroy() {
@@ -370,6 +402,8 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Not again after a rotation or a restored process: the shortcut was tapped once.
+        if (savedInstanceState == null && intent?.action == ACTION_PLAY_LIKED) playLikedWhenReady()
         lifecycle.addObserver(controllerViewModel)
         controllerViewModel.addControllerCallback(lifecycle) { controller, _ ->
             playerConnection = PlayerConnection(controllerViewModel, database)
@@ -1415,6 +1449,7 @@ class MainActivity : ComponentActivity() {
         const val ACTION_SONGS = "dev.skye.intertune.action.SONGS"
         const val ACTION_ALBUMS = "dev.skye.intertune.action.ALBUMS"
         const val ACTION_PLAYLISTS = "dev.skye.intertune.action.PLAYLISTS"
+        const val ACTION_PLAY_LIKED = "dev.skye.intertune.action.PLAY_LIKED"
     }
 }
 

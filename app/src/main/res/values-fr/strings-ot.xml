@@ -313,6 +313,8 @@
     <string name="announcement_banner_hint">Touchez pour lire</string>
     <string name="announcement_dismiss">Ignorer cette annonce</string>
     <string name="announcement_title">Des nouvelles d\'InterTune</string>
+    <string name="shortcut_play_liked">Lire les titres aimés</string>
+    <string name="shortcut_no_liked_songs">Aucun titre aimé pour l\'instant</string>
     <string name="announcement_done">Compris</string>
     <string name="announcement_picture">Image %1$d sur %2$d. Touchez pour la voir en entier.</string>
     <string name="announcement_picture_failed">Impossible de charger cette image.</string>
