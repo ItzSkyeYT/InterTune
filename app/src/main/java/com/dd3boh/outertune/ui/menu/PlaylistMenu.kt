@@ -408,7 +408,13 @@ fun PlaylistMenu(
                         if (!playlist.playlist.isLocal) {
                             coroutineScope.launch(syncCoroutine) {
                                 if (context.mayPushToYouTube()) {
-                                    playlist.playlist.browseId?.let { YouTube.deletePlaylist(it) }
+                                    playlist.playlist.browseId?.let { browseId ->
+                                        // Someone else's playlist cannot be deleted, only taken out
+                                        // of the library, as the heart does. Deleting it always
+                                        // failed, and the next sync brought it back.
+                                        if (playlist.playlist.isEditable) YouTube.deletePlaylist(browseId)
+                                        else YouTube.likePlaylist(browseId, false)
+                                    }
                                 }
                             }
                         }

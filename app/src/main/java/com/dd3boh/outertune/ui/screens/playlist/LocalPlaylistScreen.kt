@@ -377,7 +377,13 @@ fun LocalPlaylistScreen(
                         // whatever the setting said, which cannot be undone.
                         viewModel.viewModelScope.launch(Dispatchers.IO) {
                             if (context.mayPushToYouTube()) {
-                                playlistWithSongs.first?.playlist?.browseId?.let { YouTube.deletePlaylist(it) }
+                                playlistWithSongs.first?.playlist?.let { playlist ->
+                                    val browseId = playlist.browseId ?: return@let
+                                    // Someone else's playlist cannot be deleted, only taken out
+                                    // of the library, as the heart does.
+                                    if (playlist.isEditable) YouTube.deletePlaylist(browseId)
+                                    else YouTube.likePlaylist(browseId, false)
+                                }
                             }
                         }
 
