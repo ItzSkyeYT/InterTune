@@ -15,8 +15,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -30,6 +34,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.StatPeriod
 import com.dd3boh.outertune.constants.SwipeToQueueKey
+import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.ChipsRow
@@ -41,6 +46,7 @@ import com.dd3boh.outertune.ui.component.items.ArtistGridItem
 import com.dd3boh.outertune.ui.component.items.SongListItem
 import com.dd3boh.outertune.ui.menu.AlbumMenu
 import com.dd3boh.outertune.ui.menu.ArtistMenu
+import com.dd3boh.outertune.ui.menu.SongMenu
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.StatsViewModel
 import kotlin.math.roundToInt
@@ -64,11 +70,42 @@ fun StatsScreen(
     val mostPlayedSongs by viewModel.mostPlayedSongs.collectAsState()
     val mostPlayedArtists by viewModel.mostPlayedArtists.collectAsState()
     val mostPlayedAlbums by viewModel.mostPlayedAlbums.collectAsState()
+    val insights by viewModel.insights.collectAsState()
+    var showAllInsights by rememberSaveable { mutableStateOf(false) }
+    // Two cards to a row once there is room for two, as on a phone turned sideways.
+    val wide = LocalConfiguration.current.screenWidthDp >= 600
 
     val coroutineScope = rememberCoroutineScope()
     val lazyListState = rememberLazyListState()
 
     val mostPlayedSongTitle = stringResource(R.string.most_played_songs)
+    val statsTitle = stringResource(R.string.stats)
+    // A song in a finding does what it does in the list below: tapped, it plays, or pauses if it
+    // is the one playing; held, it opens the song menu. An artist opens the artist's page.
+    val insightActions = InsightActions(
+        activeSongId = mediaMetadata?.id,
+        isPlaying = isPlaying,
+        onSong = { song ->
+            if (song.id == mediaMetadata?.id) {
+                playerConnection.player.togglePlayPause()
+            } else {
+                playerConnection.playQueue(
+                    ListQueue(title = statsTitle, items = listOf(song.toMediaMetadata())),
+                    origin = PlayOrigin.STATS,
+                )
+            }
+        },
+        onSongMenu = { song ->
+            menuState.show {
+                SongMenu(
+                    originalSong = song,
+                    navController = navController,
+                    onDismiss = menuState::dismiss,
+                )
+            }
+        },
+        onArtist = { artist -> navController.navigate("artist/${artist.id}") },
+    )
 
     LazyColumn(
         state = lazyListState,
@@ -87,7 +124,19 @@ fun StatsScreen(
                     StatPeriod.ALL to stringResource(R.string.filter_all)
                 ),
                 currentValue = statPeriod,
-                onValueUpdate = { viewModel.statPeriod.value = it }
+                onValueUpdate = { viewModel.statPeriod.value = it },
+                isLoading = { it == statPeriod && insights?.period != statPeriod },
+            )
+        }
+
+        insights?.let { shown ->
+            statsInsights(
+                shown = shown,
+                loading = shown.period != statPeriod,
+                wide = wide,
+                expanded = showAllInsights,
+                onExpandedChange = { showAllInsights = it },
+                actions = insightActions,
             )
         }
 
