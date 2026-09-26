@@ -43,6 +43,10 @@ InterTune can count this install once a day: one short message with a random nam
 - Each widget is set up on its own, when you add it and again from the launcher afterwards: what it shows (what's playing, a list, or both), which list (Quick picks, Forgotten favourites, Keep listening, Recently played), how many rows, the background (the system's, dark, light, taken from the artwork, or none), how solid it is, which buttons, the text size, whether artwork, artists and the heading are drawn, and whether the corners are rounded.
 - It changes shape with its size rather than scaling: one cell is the cover with a play button, four by two is the song and two rows, taller adds rows, narrow stacks the cover over the song, and given only what's playing and enough room the cover fills it.
 
+## Stats
+
+- The Stats page now says something about your listening, above the most played lists: how much you listened and how that compares with the period before, the hours you listen at, and findings such as the song you played most in one day and how many of those plays were back to back, a song that came back after weeks away, the artist you always hear to the end, your longest session and nights past midnight. Each only shows when your listening backs it up. Nothing leaves the phone.
+
 ## Player
 
 - An M3E seekbar: a bar thumb with a gap either side, and a thicker track.
