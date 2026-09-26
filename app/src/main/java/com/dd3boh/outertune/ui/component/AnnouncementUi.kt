@@ -205,6 +205,9 @@ fun AnnouncementDialog(
                     .windowInsetsPadding(WindowInsets.systemBars)
             ) {
                 val wide = maxWidth >= 720.dp
+                // A phone on its side is wide but short: buttons fixed at the bottom there left
+                // the words a strip a few lines high, so they scroll with the words instead.
+                val short = maxHeight < 480.dp
                 val pictures = announcement.heroUrl != null || announcement.gallery.isNotEmpty()
 
                 Column(Modifier.fillMaxSize()) {
@@ -242,8 +245,9 @@ fun AnnouncementDialog(
                                 ) {
                                     AnnouncementWords(text)
                                     Spacer(Modifier.height(16.dp))
+                                    if (short) AnnouncementFooter(text.actions, onAction, onDismiss)
                                 }
-                                AnnouncementFooter(text.actions, onAction, onDismiss)
+                                if (!short) AnnouncementFooter(text.actions, onAction, onDismiss)
                             }
                         }
                     } else {
@@ -489,7 +493,10 @@ private fun EnlargedPicture(url: String, onClose: () -> Unit) {
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .windowInsetsPadding(WindowInsets.systemBars)
-                    .padding(8.dp),
+                    .padding(8.dp)
+                    // A white cross alone vanishes on a bright picture.
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.45f)),
             ) {
                 Icon(Icons.Rounded.Close, stringResource(R.string.poll_close), tint = Color.White)
             }
