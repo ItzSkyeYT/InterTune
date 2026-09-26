@@ -4,7 +4,6 @@ import android.accounts.Account
 import android.accounts.AccountManager
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.view.View
@@ -26,6 +25,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +42,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -65,6 +66,8 @@ import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 @SuppressLint("SetJavaScriptEnabled")
 @OptIn(DelicateCoroutinesApi::class)
@@ -86,8 +89,9 @@ fun LoginScreen(
     var canGoBack by remember { mutableStateOf(false) }
     // The page actually showing, for the address above it. A web view with no address is a box
     // that asks for your Google password, and there is no way to tell it from one that is not
-    // Google's; the address and its lock are what a browser would show you.
-    var currentUrl by remember { mutableStateOf(LOGIN_URL) }
+    // Google's; the address and its lock are what a browser would show you. Null until a page has
+    // arrived, so nothing is vouched for while the picker is up or the page is on its way.
+    var currentUrl by remember { mutableStateOf<String?>(null) }
 
     // Most people signing in already have their Google account on this phone. The app cannot use
     // that session itself, since YouTube Music takes only a sign-in made on Google's page, but it
@@ -163,15 +167,13 @@ fun LoginScreen(
                 factory = { context ->
                     WebView(context).apply {
                         webViewClient = object : WebViewClient() {
-                            override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
-                                // A page given up for another account says nothing about this one.
-                                if (view !== webView) return
-                                if (url != null) currentUrl = url
-                            }
-
-                            // Google's sign-in moves between steps without loading a new page, so
-                            // the address is also read from the history it pushes.
+                            // The address is read from the page's history, which changes once a
+                            // page has arrived, and not from onPageStarted: a load can start for
+                            // one address and end without ever showing it, leaving the page before
+                            // it on screen. Google's sign-in also moves between its steps without
+                            // loading a new page, and those steps come here too.
                             override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+                                // A page given up for another account says nothing about this one.
                                 if (view !== webView) return
                                 if (url != null) currentUrl = url
                                 canGoBack = view.canGoBack()
@@ -179,6 +181,9 @@ fun LoginScreen(
 
                             override fun onPageFinished(view: WebView, url: String?) {
                                 if (view !== webView) return
+                                // The web view's own address rather than this url, which is also
+                                // given for a load that was abandoned before it arrived.
+                                view.url?.let { currentUrl = it }
                                 canGoBack = view.canGoBack()
                                 loadUrl("javascript:Android.onRetrieveVisitorData(window.yt.config_.VISITOR_DATA)")
                                 loadUrl("javascript:Android.onRetrieveDataSyncId(window.yt.config_.DATASYNC_ID)")
@@ -224,6 +229,7 @@ fun LoginScreen(
                         }, "Android")
                         webView = this
                         canGoBack = false
+                        currentUrl = null
                         loadUrl(loginUrl(email))
                     }
                 },
@@ -275,15 +281,39 @@ internal fun pickerDeclinedAfter(previous: String?, picked: String?, declined: B
     else -> declined
 }
 
+/** [url] parsed, when it is an https address; null for anything else, and for no page at all. */
+private fun httpsUrl(url: String?): HttpUrl? = url?.toHttpUrlOrNull()?.takeIf { it.isHttps }
+
+/**
+ * Whether [url] is a page on exactly https://[host]: on that host itself, not on one that only
+ * starts or ends the same, and on https's own port.
+ */
+private fun isHttpsPageOn(url: String?, host: String): Boolean =
+    httpsUrl(url)?.let { it.host == host && it.port == 443 } == true
+
+/** Whether [url] came over https, for the lock in the address bar. */
+internal fun isHttpsPage(url: String?): Boolean = httpsUrl(url) != null
+
+/** Google's own sign-in page: the only one the address bar calls Google's. */
+internal fun isGoogleSignInPage(url: String?): Boolean = isHttpsPageOn(url, "accounts.google.com")
+
+/**
+ * What the address bar shows for [url]: its whole host, which the line cuts from the start when it
+ * is too long, or the address itself when it has no host.
+ */
+internal fun addressBarHost(url: String): String = url.toHttpUrlOrNull()?.host ?: url
+
 /**
  * The address of the page being shown, with a lock when the connection is encrypted, and one line
  * on what InterTune keeps. Only the host: the full sign-in address is a screen of parameters that
- * says nothing more about whose page it is.
+ * says nothing more about whose page it is. A host too long for the line loses its start, never its
+ * end, since the end is what says whose it is: accounts.google.com.example.net is not Google's. The
+ * page is called Google's own sign-in only over https on exactly accounts.google.com, and before a
+ * page has arrived ([url] null) nothing is claimed at all.
  */
 @Composable
-private fun LoginAddressBar(url: String) {
-    val uri = remember(url) { Uri.parse(url) }
-    val secure = uri.scheme.equals("https", ignoreCase = true)
+private fun LoginAddressBar(url: String?) {
+    val secure = isHttpsPage(url)
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -297,21 +327,36 @@ private fun LoginAddressBar(url: String) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(
-                    imageVector = if (secure) Icons.Rounded.Lock else Icons.Rounded.Warning,
-                    contentDescription = stringResource(if (secure) R.string.login_secure else R.string.login_not_secure),
-                    tint = if (secure) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    imageVector = when {
+                        url == null -> Icons.Rounded.Public
+                        secure -> Icons.Rounded.Lock
+                        else -> Icons.Rounded.Warning
+                    },
+                    contentDescription = when {
+                        url == null -> null
+                        secure -> stringResource(R.string.login_secure)
+                        else -> stringResource(R.string.login_not_secure)
+                    },
+                    tint = when {
+                        url == null -> MaterialTheme.colorScheme.onSurfaceVariant
+                        secure -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.error
+                    },
                     modifier = Modifier.size(18.dp),
                 )
                 Text(
-                    text = uri.host ?: url,
+                    text = if (url == null) stringResource(R.string.login_no_page_yet) else addressBarHost(url),
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = if (url == null) null else FontWeight.Bold,
+                    color = if (url == null) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    overflow = TextOverflow.StartEllipsis,
                 )
             }
             Text(
-                text = stringResource(R.string.login_reassurance),
+                text = stringResource(
+                    if (isGoogleSignInPage(url)) R.string.login_reassurance else R.string.login_reassurance_other_page
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp),
