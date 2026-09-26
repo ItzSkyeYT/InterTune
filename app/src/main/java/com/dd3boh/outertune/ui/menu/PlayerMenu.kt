@@ -83,6 +83,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.models.withArtistIds
 import com.dd3boh.outertune.playback.ExoDownloadService
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.BigSeekBar
@@ -143,6 +144,7 @@ fun PlayerMenu(
     var showSelectArtistDialog by rememberSaveable {
         mutableStateOf(false)
     }
+    val artists = remember(mediaMetadata) { mediaMetadata.artists.withArtistIds() }
 
 
     var showPitchTempoDialog by rememberSaveable {
@@ -287,17 +289,19 @@ fun PlayerMenu(
                 }
             }
         }
-        GridMenuItem(
-            icon = R.drawable.artist,
-            title = R.string.view_artist
-        ) {
-            if (mediaMetadata.artists.size == 1) {
-                ActivityLog.note(context, database, mediaMetadata.id, SignalKind.ARTIST_PAGE)
-                navController.navigate("artist/${mediaMetadata.artists[0].id}")
-                playerBottomSheetState.collapseSoft()
-                onDismiss()
-            } else {
-                showSelectArtistDialog = true
+        if (artists.isNotEmpty()) {
+            GridMenuItem(
+                icon = R.drawable.artist,
+                title = R.string.view_artist
+            ) {
+                if (artists.size == 1) {
+                    ActivityLog.note(context, database, mediaMetadata.id, SignalKind.ARTIST_PAGE)
+                    navController.navigate("artist/${artists[0].id}")
+                    playerBottomSheetState.collapseSoft()
+                    onDismiss()
+                } else {
+                    showSelectArtistDialog = true
+                }
             }
         }
         if (mediaMetadata.album != null && !mediaMetadata.isLocal) {
@@ -453,7 +457,7 @@ fun PlayerMenu(
     if (showSelectArtistDialog) {
         ArtistDialog(
             navController = navController,
-            artists = mediaMetadata.artists,
+            artists = artists,
             onDismiss = {
                 playerBottomSheetState.collapseSoft()
                 showSelectArtistDialog = false

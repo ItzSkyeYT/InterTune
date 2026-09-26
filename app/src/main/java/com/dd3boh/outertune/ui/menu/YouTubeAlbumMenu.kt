@@ -38,6 +38,7 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.models.withArtistIds
 import com.dd3boh.outertune.playback.ExoDownloadService
 import com.dd3boh.outertune.playback.queues.YouTubeAlbumRadio
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -73,6 +74,7 @@ fun YouTubeAlbumMenu(
     var showSelectArtistDialog by rememberSaveable {
         mutableStateOf(false)
     }
+    val artists = remember(albumItem) { albumItem.artists.orEmpty().withArtistIds() }
 
     LaunchedEffect(Unit) {
         database.album(albumItem.id).collect { album ->
@@ -174,7 +176,7 @@ fun YouTubeAlbumMenu(
                 }
             }
         )
-        albumItem.artists?.let { artists ->
+        if (artists.isNotEmpty()) {
             GridMenuItem(
                 icon = R.drawable.artist,
                 title = R.string.view_artist
@@ -245,7 +247,7 @@ fun YouTubeAlbumMenu(
     if (showSelectArtistDialog) {
         ArtistDialog(
             navController = navController,
-            artists = album?.artists.orEmpty(),
+            artists = artists,
             onDismiss = { showSelectArtistDialog = false }
         )
     }
