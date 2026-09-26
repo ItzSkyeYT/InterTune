@@ -137,6 +137,16 @@ public class TreeDocumentFileOt extends DocumentFile {
     }
     @Override
     public DocumentFile @NonNull [] listFiles() {
+        final DocumentFile[] files = listFilesOrNull();
+        return files != null ? files : new DocumentFile[0];
+    }
+
+    /**
+     * The children, or null when the folder could not be listed at all: a volume that is not
+     * mounted, a grant that is gone, a provider that failed. listFiles() reads all of those as an
+     * empty folder, which a scan cannot tell apart from a folder whose files were deleted.
+     */
+    public DocumentFile @Nullable [] listFilesOrNull() {
         final ContentResolver resolver = mContext.getContentResolver();
         final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(mUri,
                 DocumentsContract.getDocumentId(mUri));
@@ -162,6 +172,7 @@ public class TreeDocumentFileOt extends DocumentFile {
             }
         } catch (Exception e) {
             Log.w(TAG, "Failed query: " + e);
+            return null;
         } finally {
             closeQuietly(c);
         }

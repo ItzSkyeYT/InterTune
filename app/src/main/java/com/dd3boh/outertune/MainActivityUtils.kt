@@ -164,6 +164,10 @@ suspend fun scanInit(
 
     if (!autoScan || oobeStatus < OOBE_VERSION) {
         Log.i(MAIN_TAG, "Automatic scan is disabled, and/or user has not passed OOBE")
+        // media3 starts with downloads paused and only the download service resumes them, and this
+        // is the only thing that starts it at launch. Without it, downloads cut short last time
+        // waited until the next one was started by hand.
+        downloadUtil.resumeDownloadsOnStart()
         return
     }
     val timeNow = LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli()

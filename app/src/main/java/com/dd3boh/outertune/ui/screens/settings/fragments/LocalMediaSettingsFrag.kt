@@ -99,6 +99,7 @@ import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.scannerRe
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.scannerState
 import com.dd3boh.outertune.utils.scanners.ScannerAbortException
 import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
+import com.dd3boh.outertune.utils.scanners.FolderNesting
 import com.dd3boh.outertune.utils.scanners.stringFromUriList
 import com.dd3boh.outertune.utils.scanners.uriListFromString
 import kotlinx.coroutines.delay
@@ -528,6 +529,12 @@ fun ColumnScope.LocalScannerFrag() {
                 // scan path cannot be the download directory or subdir of download directory
                 !it.toString().contains(uriListFromString(downloadPath).firstOrNull().toString())
                         && uriListFromString(dlPathExtra).none { f -> it.toString().contains(f.toString()) }
+                        // nor hold one, or every download there is scanned in as a local song as
+                        // well. Only for folders to scan: excluding such a folder is harmless.
+                        && (showAddFolderDialog != true ||
+                        (uriListFromString(downloadPath) + uriListFromString(dlPathExtra)).none { dl ->
+                            FolderNesting.isSameOrInside(dl.toString(), it.toString())
+                        })
             } || tempScanPaths.isEmpty()
         ) {
             val dirPickerLauncher = rememberLauncherForActivityResult(

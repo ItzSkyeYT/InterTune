@@ -153,7 +153,6 @@
     <string name="no_updates_available">Няма налични актуализации</string>
     <string name="scanner_rejected_dir">Невалиден избор. Папката за сканиране не може да бъде поддиректория на папката за изтегляне или самата папка за изтегляне</string>
     <string name="scanner_progress_discovering">Откриване…</string>
-    <string name="clear_downloads_confirm">Сигурни ли сте, че искате да премахнете всички изтегляния? Ще бъдат премахнати само изтеглянията в основната папка за изтегляния.</string>
     <string name="oobe_local_music_support_description">Възпроизвеждайте музикалните си файлове (напр. MP3, OGG, FLAC и др.)</string>
     <string name="oobe_downloads_title">Изтеглени песни</string>
     <string name="oobe_downloads_subtitle">Изберете папка, където ще се запазят изтеглените песни.</string>

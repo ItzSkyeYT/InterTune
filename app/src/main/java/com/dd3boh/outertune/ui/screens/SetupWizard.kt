@@ -165,6 +165,7 @@ import com.dd3boh.outertune.utils.dlCoroutine
 import com.dd3boh.outertune.utils.formatFileSize
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.utils.scanners.FolderNesting
 import com.dd3boh.outertune.utils.scanners.stringFromUriList
 import com.dd3boh.outertune.utils.scanners.uriListFromString
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -856,8 +857,7 @@ fun SetupWizard(
                                         },
                                         isInputValid = uriListFromString(scanPaths).none {
                                             // download path cannot a scan path, or a subdir of a scan path
-                                            tempFilePath.toString().length <= it.toString().length && tempFilePath.toString()
-                                                .contains(it.toString())
+                                            FolderNesting.isSameOrInside(tempFilePath.toString(), it.toString())
                                         }
                                     ) {
 
@@ -878,8 +878,7 @@ fun SetupWizard(
 
                                         val valid = uriListFromString(scanPaths).none {
                                             // download path cannot a scan path, or a subdir of a scan path
-                                            tempFilePath.toString().length <= it.toString().length && tempFilePath.toString()
-                                                .contains(it.toString())
+                                            FolderNesting.isSameOrInside(tempFilePath.toString(), it.toString())
                                         }
 
                                         Text(

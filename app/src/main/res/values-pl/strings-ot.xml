@@ -191,7 +191,6 @@
     <string name="oobe_local_media_subtitle">Wybierz foldery, które zawierają twoją muzykę. Zostaną one przeskanowane, by znaleźć piosenki gotowe do importu.</string>
     <string name="no_updates_available">Posiadasz najnowszą wersję aplikacji</string>
     <string name="m3u_ytm_lookup">Szukaj w YouTube Music by znaleźć piosenki nie znalezione w bazie danych aplikacji</string>
-    <string name="clear_downloads_confirm">Czy jesteś pewien, że chcesz usunąć wszystkie pobrane piosenki? Tylko te znajdujące się w głównym folderze pobrań zostaną usunięte.</string>
     <string name="clear_song_cache_confirm">Czy na pewno chcesz usunąć pamięć piosenek?</string>
     <string name="scan_paths_description">Wybierz foldery znajdujące się w pamięci lokalne, który mają zostać zeskanowane w celu znalezienia piosenek</string>
     <string name="dl_oobe_tooltip">Piosenki są pobierane do prywatnej pamięci wewnętrznej aplikacji. By pobierać piosenki do zewnętrznej pamięci, musisz wybrać folder. Możesz dodawać, zmieniać lub usuwać foldery, albo zmieniać pobrania wewnątrz aplikacji na zewnętrzne później za pomocą ustawień.</string>

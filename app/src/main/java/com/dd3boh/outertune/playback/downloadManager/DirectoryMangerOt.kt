@@ -2,6 +2,7 @@ package com.dd3boh.outertune.playback.downloadManager
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import androidx.documentfile.provider.TreeDocumentFileOt
@@ -63,9 +64,19 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         }
     }
 
+    /**
+     * Deletes a song's file, from the main download folder only. The list holds the extra import
+     * folders' files too, and those folders are promised never to be changed (the storage
+     * tooltip), so a song imported from one keeps its file and has to be removed by hand.
+     */
     fun deleteFile(mediaId: String): Boolean {
-        val file = isExists(mediaId)
-        return file?.delete() == true
+        val file = isExists(mediaId) ?: return false
+        if (!isInMainDir(file)) return false
+        val deleted = file.delete()
+        // Out of the list as well, or the player went on handing out the deleted file for the
+        // rest of the session and the song could not be streamed instead.
+        if (deleted) availableFiles = availableFiles - file
+        return deleted
     }
 
     fun saveFile(mediaId: String, input: InputStream, displayName: String?): Uri? {
@@ -77,16 +88,27 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         }
 
         val fileName = "$displayName [$mediaId].mka"
-        val newFile = directory.createFile("audio/mka", fileName)
+        val newFile = directory.createFile("audio/mka", fileName) ?: return null
 
-        newFile?.uri?.let { uri ->
-            resolver.openOutputStream(uri)?.use { out ->
-                input.copyTo(out)
-            }
-            return uri
+        try {
+            // A stream that would not open used to return the new file's address all the same,
+            // for an empty file.
+            val out = resolver.openOutputStream(newFile.uri) ?: throw IOException("Could not open $fileName")
+            out.use { input.copyTo(it) }
+            return newFile.uri
+        } catch (e: Exception) {
+            // Not left behind half written, where the next scan would take it for the download.
+            newFile.delete()
+            throw e
         }
+    }
 
-        return null
+    /** Files found under a folder keep that folder's tree in their address. */
+    private fun isInMainDir(file: DocumentFile): Boolean {
+        val main = mainDir ?: return false
+        return runCatching {
+            DocumentsContract.getTreeDocumentId(file.uri) == DocumentsContract.getTreeDocumentId(main.uri)
+        }.getOrDefault(false)
     }
 
     fun isExists(mediaId: String): DocumentFile? {

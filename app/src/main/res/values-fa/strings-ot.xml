@@ -143,7 +143,6 @@
     <string name="scanner_type_ffmpeg_ext">از استخراج‌ کننده‌ فراداده‌ FFmpeg استفاده کنید. نیاز به نصب بسته‌ ی خارجی دارد</string>
     <string name="scanner_variant_rescan">کل کتابخانه را دوباره اسکن کنید و ابرداده همه آهنگ‌ها را دوباره بارگیری کنید</string>
     <string name="scanner_online_artist_linking">سعی کند هنرمندان فایل‌های محلی را با هنرمندان موجود در یوتیوب موزیک مرتبط کند</string>
-    <string name="clear_downloads_confirm">آیا از حذف همه دانلودها مطمئن هستید؟ فقط دانلودهای موجود در پوشه اصلی دانلود حذف خواهند شد.</string>
     <string name="clear_image_cache_confirm">آیا از پاک کردن حافظه پنهان تصاویر مطمئن هستید؟ تمام تصاویر کوچک آلبوم‌های موجود حذف خواهند شد.</string>
     <string name="clear_song_cache_confirm">آیا مطمئن هستید که می‌خواهید حافظه پنهان آهنگ را پاک کنید؟</string>
     <string name="dl_calculate_size">برای محاسبه حجم دانلود، ضربه بزنید</string>

@@ -1632,10 +1632,13 @@ class MusicService : MediaLibraryService(),
 
                     return@Factory dataSpec.withUri(file.toUri())
                 } else {
-                    val isDownloadNew = downloadUtil.localMgr.getFilePathIfExists(mediaId)
+                    // A file deleted outside the app is still in the list until the next scan, so
+                    // it is checked, and a song whose file has gone is played from the cache or
+                    // streamed instead of failing.
+                    val isDownloadNew = downloadUtil.localMgr.isExists(mediaId)?.takeIf { it.exists() }
                     isDownloadNew?.let {
                         Log.d(TAG, "PLAYING: Custom downloaded song")
-                        return@Factory dataSpec.withUri(it)
+                        return@Factory dataSpec.withUri(it.uri)
                     }
                 }
             }
@@ -1651,8 +1654,18 @@ class MusicService : MediaLibraryService(),
             //
             // Only from the start of the song. Mid-song, a new stream would fill the gaps of a
             // cache entry that holds the old one, two encodings in one file.
-            val staleQuality = isCache && !isDownload && dataSpec.position == 0L && shouldUpgradeCached(mediaId)
-            if ((isDownload || isCache) && !staleQuality) {
+            //
+            // And only with a network. Offline the fetch cannot succeed, and the copy here is the
+            // only way the song plays at all.
+            val staleQuality = isCache && !isDownload && dataSpec.position == 0L &&
+                    isNetworkConnected.value && shouldUpgradeCached(mediaId)
+            // Part of the song cached, met at its start while online. The stream is resolved before
+            // the copy is used, and if it is not the stream the copy came from, the copy goes: the
+            // rest of the song used to be fetched as whatever stream came back and written on from
+            // where the copy stopped, two encodings in one file. Offline the copy plays as it is.
+            val partialCopy = !isDownload && dataSpec.position == 0L &&
+                    isNetworkConnected.value && playerCache.holdsPartFromStart(mediaId)
+            if ((isDownload || isCache) && !staleQuality && !partialCopy) {
                 Log.d(TAG, "PLAYING: remote song (cache = ${isCache}, download = ${isDownload})")
                 offloadScope.launch { recoverSong(mediaId) }
                 return@Factory dataSpec
@@ -1673,6 +1686,14 @@ class MusicService : MediaLibraryService(),
                     connectivityManager = connectivityManager,
                 )
             }.getOrElse { throwable ->
+                // The upgrade could not be had (the network went, or the video is gone from
+                // YouTube), but the copy it was meant to replace is still here. Play that rather
+                // than fail a song that plays fine, and leave its row as it is, so the upgrade is
+                // tried again next time.
+                if (staleQuality || partialCopy) {
+                    Log.d(TAG, "PLAYING: remote song (cache kept, the new stream could not be fetched)", throwable)
+                    return@Factory dataSpec
+                }
                 when (throwable) {
                     is PlaybackException -> throw throwable
 
@@ -1710,13 +1731,25 @@ class MusicService : MediaLibraryService(),
             // taken unchecked, and one of those failing partway would have cost the offline copy.
             // Without the check the cached copy plays, as if the upgrade had never been asked
             // for, and nothing about the song is rewritten.
-            if (staleQuality && !playbackData.validated) {
+            // A copy that stops partway is not kept this way: carried on from with a stream other
+            // than its own, it would hold two encodings. It goes below instead.
+            if (staleQuality && !playbackData.validated && !partialCopy) {
                 Log.d(TAG, "PLAYING: remote song (cache kept, the new stream was not checked)")
                 return@Factory dataSpec
             }
             if (staleQuality) {
                 runCatching { playerCache.removeResource(mediaId) }
                     .onFailure { Log.w(TAG, "Could not drop the lower-quality copy of $mediaId", it) }
+            } else if (partialCopy) {
+                // The format row was written by the fetch that filled the copy.
+                val copyItag = runCatching {
+                    runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
+                }.getOrNull()?.itag
+                if (copyItag != format.itag) {
+                    Log.d(TAG, "PLAYING: remote song (partial copy was itag $copyItag, the stream is ${format.itag}, starting over)")
+                    runCatching { playerCache.removeResource(mediaId) }
+                        .onFailure { Log.w(TAG, "Could not drop the partial copy of $mediaId", it) }
+                }
             }
 
             database.query {
@@ -2076,10 +2109,16 @@ class MusicService : MediaLibraryService(),
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
 
-        // wait for reconnection
-        val isConnectionError = (error.cause?.cause is PlaybackException)
-                && (error.cause?.cause as PlaybackException).errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
-        if (!isNetworkConnected.value || isConnectionError) {
+        // Wait for reconnection, but only where a network could help. See waitsForNetwork: a
+        // local file that has gone missing used to wait here for good whenever the phone was
+        // offline, instead of skipping or stopping as set.
+        val causeCode = generateSequence(error.cause) { it.cause }
+            .filterIsInstance<PlaybackException>()
+            .firstOrNull()?.errorCode
+        val localSong = player.currentMediaItem?.mediaId?.let { id ->
+            queueBoard.getCurrentQueue()?.findSong(id)?.isLocal
+        } == true
+        if (NetworkRetryPolicy.waitsForNetwork(!isNetworkConnected.value, error.errorCode, causeCode, localSong)) {
             waitOnNetworkError()
             return
         }

@@ -14,6 +14,7 @@ import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheSpan
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.offline.DefaultDownloadIndex
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadManager
 import androidx.media3.exoplayer.offline.DownloadNotificationHelper
@@ -62,6 +63,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -117,7 +120,18 @@ class DownloadUtil @Inject constructor(
     ) { dataSpec ->
         val mediaId = dataSpec.key ?: error("No media id")
         val length = if (dataSpec.length >= 0) dataSpec.length else 1
-        if (playerCache.isCached(mediaId, dataSpec.position, length)) {
+        if (dataSpec.position == 0L) {
+            // From the start, the player's copy is read through only when it holds the whole
+            // song. A part of one used to be read through as soon as its first byte was there,
+            // and the rest came from whatever stream was resolved below, so a song cached on
+            // mobile data and downloaded on Wi-Fi joined two formats in one file. The part goes,
+            // and the download takes the whole song from the new stream.
+            if (playerCache.holdsWhole(mediaId)) return@Factory dataSpec
+            if (playerCache.holdsPartFromStart(mediaId)) {
+                runCatching { playerCache.removeResource(mediaId) }
+                    .onFailure { Log.w(TAG, "Could not drop the partial copy of $mediaId", it) }
+            }
+        } else if (playerCache.isCached(mediaId, dataSpec.position, length)) {
             return@Factory dataSpec
         }
 
@@ -560,6 +574,15 @@ class DownloadUtil @Inject constructor(
         }
     }
 
+    /**
+     * Removes every download kept inside the app, the way removing one does: media3 drops each
+     * from its index and its files, and the listener clears the database and the map as each goes.
+     * Songs in a download folder are left alone.
+     */
+    fun removeAllInternalDownloads() {
+        DownloadService.sendRemoveAllDownloads(context, ExoDownloadService::class.java, false)
+    }
+
     fun resumeDownloadsOnStart() {
         DownloadService.sendResumeDownloads(
             context,
@@ -568,6 +591,18 @@ class DownloadUtil @Inject constructor(
         )
     }
 
+
+    /**
+     * Removes a song's download wherever it is kept: its file in a download folder, and media3's
+     * copy inside the app. Every Remove download goes through here. Only the song's own menu used
+     * to look at the download folders; the player's, album, playlist and selection menus told
+     * media3 alone, which knows nothing of them, so for a song downloaded there they did nothing.
+     * media3 ignores a song it has no download for.
+     */
+    fun removeDownload(id: String) {
+        deleteSong(id)
+        DownloadService.sendRemoveDownload(context, ExoDownloadService::class.java, id, false)
+    }
 
 // Deletes from custom dl
 
@@ -590,10 +625,10 @@ class DownloadUtil @Inject constructor(
             }
         }
 
-        runBlocking {
-            database.song(id).first()?.song?.copy(localPath = null)
-            database.updateDownloadStatus(id, null)
-        }
+        // Both columns. This used to build a copy of the song without its path and throw it away,
+        // so the row went on pointing at the deleted file. Off the calling thread, which is a
+        // menu's click handler and may not touch the database.
+        database.query { removeDownloadSong(id) }
         return true
     }
 
@@ -624,8 +659,7 @@ class DownloadUtil @Inject constructor(
     /**
      * Migrated existing downloads from the download cache to the new system in external storage
      */
-    suspend fun migrateDownloads() {
-        if (isProcessingDownloads.value) return
+    suspend fun migrateDownloads() = scanLock.withLock {
         isProcessingDownloads.value = true
 
         var runs = 0
@@ -664,6 +698,7 @@ class DownloadUtil @Inject constructor(
 
             // copy all completed downloads
             val toMigrate = downloadedSongs.filter { it.value.state == Download.STATE_COMPLETED }
+            val migratedIndex = DefaultDownloadIndex(databaseProvider)
             toMigrate.forEach { s ->
                 if (runs++ % 10 == 0) {
                     Log.d(TAG, "Migrating download: $runs/${toMigrate.size}")
@@ -675,14 +710,29 @@ class DownloadUtil @Inject constructor(
                 }
                 val songFromCache = getFromCache(downloadCache, s.key)
                 if (songFromCache != null) {
+                    // The file is written, and checked, before anything of the old copy goes. The
+                    // cache used to be emptied first and a failed write swallowed, so a folder
+                    // that refused the file cost the song outright.
+                    val displayName = database.song(s.key).first()?.title ?: ""
+                    val saved = localMgr.getFilePathIfExists(s.key) ?: runCatching {
+                        localMgr.saveFile(s.key, songFromCache.inputStream(), displayName)
+                    }.onFailure { reportException(it) }.getOrNull()
+                    if (saved == null) {
+                        Log.w(TAG, "Could not migrate ${s.key}, its download stays in the app")
+                        return@forEach
+                    }
+                    // The index entry goes as well. Left behind it still said completed, and each
+                    // later scan registered the song as downloaded again, even once its file in the
+                    // folder had been deleted.
+                    runCatching { migratedIndex.removeDownload(s.key) }
+                        .onFailure { Log.w(TAG, "Could not drop the index entry of ${s.key}", it) }
                     downloadCache.removeResource(s.key)
-                    downloadMgr.enqueue(
-                        mediaId = s.key,
-                        data = songFromCache,
-                        displayName = runBlocking { database.song(s.key).first()?.title ?: "" })
                 }
             }
-            scanDownloads()
+            // The scan is what registers the copied files, so the songs play from them. Called
+            // through scanDownloads() it returned at once, since this had already set the flag it
+            // checks, and the migrated songs would not play offline until some later scan.
+            scanDownloadsLocked()
         } catch (e: Exception) {
             reportException(e)
         } finally {
@@ -700,11 +750,23 @@ class DownloadUtil @Inject constructor(
     }
 
     /**
+     * One pass over the downloads at a time, and a second waits for the first to finish rather
+     * than being dropped. The startup scan used to be skipped whenever it landed while init's
+     * rescan was still walking the download folders, and a scan after changing the folders the
+     * same way, because each checked a flag the running pass had set and returned.
+     */
+    private val scanLock = Mutex()
+
+    /**
      * Rescan download directory and updates songs
      */
-    suspend fun rescanDownloads() {
+    suspend fun rescanDownloads() = scanLock.withLock { rescanDownloadsLocked() }
+
+    private suspend fun rescanDownloadsLocked() {
         Log.i(TAG, "+rescanDownloads()")
         isProcessingDownloads.value = true
+        // What scans before this version stored for failed and queued downloads. See DownloadSql.
+        database.clearDownloadSentinels()
         val dbDownloads = database.downloadedOrQueuedSongs().first()
         val result = mutableMapOf<String, LocalDateTime>()
 
@@ -712,9 +774,18 @@ class DownloadUtil @Inject constructor(
         val missingFiles =
             localMgr.getMissingFiles(dbDownloads.filterNot { it.song.dateDownload == null }).toMutableList()
         Log.d(TAG, "Found ${missingFiles.size}/${dbDownloads.size} songs not in custom download directories")
-        val cursor = downloadManager.downloadIndex.getDownloads()
-        while (cursor.moveToNext()) {
-            missingFiles.removeIf { it.id == cursor.download.request.id }
+        // Downloads media3 still has queued or running show as downloading. The database records
+        // only finished downloads, so these come from the index, as the scan's sentinel used to
+        // bring them.
+        val inFlight = mutableMapOf<String, LocalDateTime>()
+        downloadManager.downloadIndex.getDownloads().use { cursor ->
+            while (cursor.moveToNext()) {
+                val download = cursor.download
+                missingFiles.removeIf { it.id == download.request.id }
+                if (stateToLocalDateTime(download) == STATE_DOWNLOADING) {
+                    inFlight[download.request.id] = STATE_DOWNLOADING
+                }
+            }
         }
         Log.d(
             TAG,
@@ -733,6 +804,7 @@ class DownloadUtil @Inject constructor(
         availableDownloads.forEach { s ->
             result[s.song.id] = s.song.dateDownload!! // sql should cover our butts
         }
+        inFlight.forEach { (id, state) -> result.putIfAbsent(id, state) }
 
         downloads.value = result
         isProcessingDownloads.value = false
@@ -746,21 +818,21 @@ class DownloadUtil @Inject constructor(
      * This is intended for re-importing existing songs (ex. songs get moved, after restoring app backup), thus all
      * songs will already need to exist in the database.
      */
-    suspend fun scanDownloads() {
+    suspend fun scanDownloads() = scanLock.withLock { scanDownloadsLocked() }
+
+    private suspend fun scanDownloadsLocked() {
         Log.i(TAG, "+scanDownloads()")
-        if (isProcessingDownloads.value) {
-            Log.i(TAG, "-scanDownloads()")
-            return
-        }
         isProcessingDownloads.value = true
 
 //            val scanner = LocalMediaScanner.getScanner(context, ScannerImpl.TAGLIB, SCANNER_OWNER_DL)
         database.removeAllDownloadedSongs()
         val timeNow = LocalDateTime.now()
 
-        // add custom downloads
+        // add custom downloads. Written before going on, here and below: queued on the database's
+        // executor, the writes could still be pending when the map is rebuilt from the database at
+        // the end, and the songs then read as not downloaded until the next rebuild.
         val availableFiles = localMgr.getAvailableFiles(false)
-        database.transaction {
+        database.transactionNow {
             availableFiles.forEach { f ->
                 try {
                     val file = fileFromUri(context, f.value)
@@ -780,19 +852,24 @@ class DownloadUtil @Inject constructor(
 //            LocalMediaScanner.destroyScanner(SCANNER_OWNER_DL)
         Log.d(TAG, "Registered ${availableFiles.size} files from custom downloads")
 
-        // add internal downloads
-        val cursor = downloadManager.downloadIndex.getDownloads()
+        // add internal downloads. Finished ones only, as the listener writes them: failed, stopped
+        // and queued ones used to be stored as the sentinels 0 and 1, which every downloaded list
+        // and count took for downloads. See DownloadSql.
         var count = 0
-        database.transaction {
-            while (cursor.moveToNext()) {
-                updateDownloadStatus(cursor.download.request.id, stateToLocalDateTime(cursor.download))
-                count ++
+        database.transactionNow {
+            downloadManager.downloadIndex.getDownloads().use { cursor ->
+                while (cursor.moveToNext()) {
+                    val download = cursor.download
+                    val completedAt = completedDownloadTime(download.state, download.updateTimeMs) ?: continue
+                    updateDownloadStatus(download.request.id, completedAt)
+                    count++
+                }
             }
         }
         Log.d(TAG, "Registered $count files from internal downloads")
         isProcessingDownloads.value = false
         Log.d(TAG, "Database registration complete, triggering map registry rebuild")
-        rescanDownloads()
+        rescanDownloadsLocked()
         Log.i(TAG, "-scanDownloads()")
     }
 
@@ -865,6 +942,13 @@ class DownloadUtil @Inject constructor(
 
 fun stateToLocalDateTime(download: Download): LocalDateTime =
     stateToLocalDateTime(download.state, download.updateTimeMs)
+
+/**
+ * What a download scan stores in dateDownload for one of media3's downloads: when it finished, or
+ * nothing for one that has not. The same as the download listener writes.
+ */
+fun completedDownloadTime(state: Int, updateTimeMs: Long): LocalDateTime? =
+    if (state == Download.STATE_COMPLETED) stateToLocalDateTime(state, updateTimeMs) else null
 
 /** The same rule taking plain values, so a test can feed it without building a media3 Download. */
 fun stateToLocalDateTime(state: Int, updateTimeMs: Long): LocalDateTime {

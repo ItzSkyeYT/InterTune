@@ -200,7 +200,6 @@
     <string name="dl_oobe_tooltip">يتم تنزيل الأغاني إلى وحدة التخزين الداخلية الخاصة بالتطبيق. لتنزيل الأغاني إلى وحدة التخزين الخارجية، عليك اختيار مجلد أولًا. يمكنك إضافة مجلدات أو تغييرها أو إزالتها، أو نقل التنزيلات الداخلية.</string>
     <string name="dl_rescan_title">إعادة مسح مجلدات التنزيل…</string>
     <string name="dl_rescan_description">قم بتحديث قاعدة البيانات وتحديث سجل التنزيل إذا تغيرت أي ملفات أو مجلدات</string>
-    <string name="clear_downloads_confirm">هل أنت متأكد من رغبتك في حذف جميع التنزيلات؟ سيتم حذف التنزيلات الموجودة في مجلد التنزيلات الرئيسي فقط.</string>
     <string name="dl_rescan_confirm">هل تريد إعادة مسح جميع مجلدات التنزيل الآن؟ قد يستغرق هذا بضع دقائق حسب حجم مكتبتك.</string>
     <string name="dl_size_used_cache">داخليًا: %s مستخدم</string>
     <string name="dl_size_used_main">خارجيًا: %s مستخدم</string>
