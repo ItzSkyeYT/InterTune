@@ -107,8 +107,10 @@ fun LibraryPlaylistsScreen(
     val menuState = LocalMenuState.current
     val coroutineScope = rememberCoroutineScope()
 
+    // Not forced to Library when shown inside the Library tab any more. That write ran on every
+    // composition, so Filter > Downloaded there flipped straight back; the Albums and Artists
+    // lists leave their filter to the same menu.
     var filter by rememberEnumPreference(PlaylistFilterKey, PlaylistFilter.LIBRARY)
-    libraryFilterContent?.let { filter = PlaylistFilter.LIBRARY }
     val localLibEnable by rememberPreference(LocalLibraryEnableKey, defaultValue = true)
 
     var playlistViewType by rememberEnumPreference(PlaylistViewTypeKey, LibraryViewType.GRID)
