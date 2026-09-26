@@ -2077,10 +2077,16 @@ class MusicService : MediaLibraryService(),
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
 
-        // wait for reconnection
-        val isConnectionError = (error.cause?.cause is PlaybackException)
-                && (error.cause?.cause as PlaybackException).errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
-        if (!isNetworkConnected.value || isConnectionError) {
+        // Wait for reconnection, but only where a network could help. See waitsForNetwork: a
+        // local file that has gone missing used to wait here for good whenever the phone was
+        // offline, instead of skipping or stopping as set.
+        val causeCode = generateSequence(error.cause) { it.cause }
+            .filterIsInstance<PlaybackException>()
+            .firstOrNull()?.errorCode
+        val localSong = player.currentMediaItem?.mediaId?.let { id ->
+            queueBoard.getCurrentQueue()?.findSong(id)?.isLocal
+        } == true
+        if (NetworkRetryPolicy.waitsForNetwork(!isNetworkConnected.value, error.errorCode, causeCode, localSong)) {
             waitOnNetworkError()
             return
         }
