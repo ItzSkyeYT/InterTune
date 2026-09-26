@@ -333,9 +333,14 @@ class BottomSheetState(
                 collapse()
             }
         } else {
+            // A slow release goes to whichever anchor the sheet is nearer, so the thresholds are
+            // the midpoints between neighbouring anchors. They used to be half the gaps instead,
+            // which is only the same thing for an anchor sitting at zero. The one between collapsed
+            // and expanded fell short of halfway by the whole collapsed height, so a player let go
+            // two thirds of the way down still sprang back open.
             val l0 = dismissedBound
-            val l1 = (collapsedBound - dismissedBound) / 2
-            val l2 = (expandedBound - collapsedBound) / 2
+            val l1 = (dismissedBound + collapsedBound) / 2
+            val l2 = (collapsedBound + expandedBound) / 2
             val l3 = expandedBound
 
             when (value) {
