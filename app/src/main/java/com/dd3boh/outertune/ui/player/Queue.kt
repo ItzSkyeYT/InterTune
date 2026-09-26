@@ -1510,24 +1510,28 @@ fun BoxScope.QueueContent(
                         .windowInsetsPadding(InsetsSafeT)
                 ) {
                     Log.v("QueueContent", "QC-2.4a")
-                    Spacer(Modifier.windowInsetsPadding(InsetsSafeT))
-                    searchBar()
-                    if (inSelectMode) {
-                        Row {
-                            SelectHeader(
-                                navController = navController,
-                                selectedItems = selectedItems.mapNotNull { uidHash ->
-                                    filteredSongs.find { it.hashCode() == uidHash }
-                                },
-                                totalItemCount = filteredSongs.size,
-                                onSelectAll = {
-                                    selectedItems.clear()
-                                    selectedItems.addAll(filteredSongs.map { it.hashCode() })
-                                },
-                                onDeselectAll = { selectedItems.clear() },
-                                menuState = menuState,
-                                onDismiss = onExitSelectionMode
-                            )
+                    // In a Column: AnimatedVisibility lays its children on top of each other, so
+                    // the selection header was drawn over the search field and its back arrow.
+                    Column {
+                        Spacer(Modifier.windowInsetsPadding(InsetsSafeT))
+                        searchBar()
+                        if (inSelectMode) {
+                            Row {
+                                SelectHeader(
+                                    navController = navController,
+                                    selectedItems = selectedItems.mapNotNull { uidHash ->
+                                        filteredSongs.find { it.hashCode() == uidHash }
+                                    },
+                                    totalItemCount = filteredSongs.size,
+                                    onSelectAll = {
+                                        selectedItems.clear()
+                                        selectedItems.addAll(filteredSongs.map { it.hashCode() })
+                                    },
+                                    onDeselectAll = { selectedItems.clear() },
+                                    menuState = menuState,
+                                    onDismiss = onExitSelectionMode
+                                )
+                            }
                         }
                     }
                 }

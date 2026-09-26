@@ -140,6 +140,7 @@ InterTune can count this install once a day: one short message with a random nam
 - Tapping a song in an artist's song list could play a different one, and with no connection it waited before playing anything.
 - Deleting a saved queue listed below the one playing made the queue above it current, so the song you were on was saved into the wrong queue. Saved queues can be dragged into a new order again.
 - A search of the queue kept showing the old queue after Start radio from a result.
+- Selecting songs while searching the queue drew the selection bar over the search field and its back arrow.
 - With the sleep timer set to the end of the song, skipping to another song paused it straight away. The timer now moves to the song you picked.
 - Turning the phone during the walkthrough started it again from the beginning.
 - Leaving the Backup screen while a backup was being written said it had failed, though the file was complete.
