@@ -13,6 +13,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC
+import androidx.media3.common.Player
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
@@ -33,17 +34,20 @@ import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.extensions.toggleShuffleMode
 import com.dd3boh.outertune.utils.reportException
 import com.google.common.collect.ImmutableList
+import com.google.common.util.concurrent.AsyncFunction
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.MoreExecutors
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.plus
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class MediaLibrarySessionCallback @Inject constructor(
@@ -52,7 +56,10 @@ class MediaLibrarySessionCallback @Inject constructor(
     val downloadUtil: DownloadUtil,
 ) : MediaLibrarySession.Callback {
     private val TAG = MediaLibrarySessionCallback::class.simpleName.toString()
-    private val scope = CoroutineScope(Dispatchers.Main) + Job()
+    // A supervisor, so one request that throws fails on its own. Under a plain Job the first
+    // failure cancelled the scope, and every later browse, search and play from the car failed
+    // with it until the service was restarted.
+    private val scope = CoroutineScope(Dispatchers.Main) + SupervisorJob()
     lateinit var service: MusicService
     var toggleLike: () -> Unit = {}
     var toggleStartRadio: () -> Unit = {}
@@ -100,34 +107,45 @@ class MediaLibrarySessionCallback @Inject constructor(
     override fun onPlaybackResumption(
         mediaSession: MediaSession,
         controller: MediaSession.ControllerInfo
-    ): ListenableFuture<MediaItemsWithStartPosition> = scope.future(Dispatchers.IO) {
-        val isForPlayback = true
+    ): ListenableFuture<MediaItemsWithStartPosition> = scope.future {
         // TODO: when this is stable, change to debug
-        Log.i(TAG, "onPlaybackResumption() called. isForPlayback = $isForPlayback")
-        val q = database.getResumptionQueue()
-        if (q == null) {
+        Log.i(TAG, "onPlaybackResumption() called")
+        resumptionItems() ?: run {
             Log.w(TAG, "No resumption queue data. Loading empty list")
-            return@future MediaItemsWithStartPosition(emptyList(), C.INDEX_UNSET, C.TIME_UNSET)
+            MediaItemsWithStartPosition(emptyList(), C.INDEX_UNSET, C.TIME_UNSET)
         }
-        Log.i(TAG, "Resumption queue found. Loading queue: size = ${q.queue.size}, queue name = ${q.title}, " +
-                "queuePosShuffled = ${q.getQueuePosShuffled()}, lastSongPos = ${q.lastSongPos},")
+    }
+
+    /**
+     * The saved queue to resume, for a media button, the system's resumption controls, or a request
+     * to play that names nothing. Null when there is no saved queue.
+     */
+    private suspend fun resumptionItems(): MediaItemsWithStartPosition? {
+        val (q, items) = withContext(Dispatchers.IO) {
+            val q = database.getResumptionQueue() ?: return@withContext null
+            Log.i(TAG, "Resumption queue found. Loading queue: size = ${q.queue.size}, queue name = ${q.title}, " +
+                    "queuePosShuffled = ${q.getQueuePosShuffled()}, lastSongPos = ${q.lastSongPos},")
+            q to MediaItemsWithStartPosition(
+                q.getCurrentQueueShuffled().map { it.toMediaItem() },
+                q.getQueuePosShuffled(),
+                q.lastSongPos
+            )
+        } ?: return null
         // The system asked for this, from a media button or its own resumption notification, not
         // the listener choosing a song. The fragment it continues carries the real origin.
         service.pendingOrigin = PlayOrigin.RESUMED
-
-       if (isForPlayback) {
-           return@future MediaItemsWithStartPosition(
-               q.getCurrentQueueShuffled().map { it.toMediaItem() },
-               q.getQueuePosShuffled(),
-               q.lastSongPos
-           )
-       } else {
-           return@future MediaItemsWithStartPosition(
-               listOf(q.getCurrentSong()!!.toMediaItem()),
-               q.getQueuePosShuffled(),
-               q.lastSongPos
-           )
-       }
+        // The player's shuffle flag is whatever the last run left, off on a cold start, so a
+        // shuffled queue came back in its shuffled order with the flag off, and the first press of
+        // shuffle in the notification or the car changed nothing. Only when no other queue is
+        // current, or the same one is, flag and all: against another queue the change would read
+        // as a shuffle press on that one and load it into the player.
+        val current = service.queueBoard.getCurrentQueue()
+        if ((current == null || (current.id == q.id && current.shuffled == q.shuffled)) &&
+            service.player.shuffleModeEnabled != q.shuffled
+        ) {
+            service.player.shuffleModeEnabled = q.shuffled
+        }
+        return items
     }
 
     override fun onGetLibraryRoot(
@@ -295,97 +313,117 @@ class MediaLibrarySessionCallback @Inject constructor(
         mediaItems: MutableList<MediaItem>,
         startIndex: Int,
         startPositionMs: Long,
-    ): ListenableFuture<MediaItemsWithStartPosition> = scope.future {
-        // Play from Android Auto
+    ): ListenableFuture<MediaItemsWithStartPosition> {
+        // Play from Android Auto, the assistant, or any controller that plays by id or by search
         Log.d(TAG, "MediaLibrarySessionCallback.onSetMediaItems")
-        val defaultResult = MediaItemsWithStartPosition(emptyList(), startIndex, startPositionMs)
-        val path = mediaItems.firstOrNull()?.mediaId?.split("/")
-            ?: return@future defaultResult
-        Log.d(TAG, "Path: " + path.joinToString(";"))
+        val request = mediaItems.firstOrNull()
+        val resolved = scope.future { request?.let { resolvePlayRequest(it, startPositionMs) } }
+        // A request this cannot place fails rather than answering with an empty list. media3 puts
+        // whatever it is given into the player, so an empty answer emptied it, which is what a
+        // voice request did. A failed one it leaves alone, in 1.8.0 on both paths: the legacy
+        // stub's onFailure does nothing, and a media3 controller gets an error with the player
+        // untouched.
+        return Futures.transformAsync(
+            resolved,
+            AsyncFunction<MediaItemsWithStartPosition?, MediaItemsWithStartPosition> { result ->
+                if (result != null) Futures.immediateFuture(result)
+                else Futures.immediateFailedFuture<MediaItemsWithStartPosition>(UnsupportedOperationException("Nothing to play for \"${request?.mediaId}\""))
+            },
+            MoreExecutors.directExecutor()
+        )
+    }
 
-        val queue: Triple<List<MediaItem>, Int, Long> = when (path.firstOrNull()) {
-            MusicService.SONG -> {
-                val songId = path.getOrNull(1) ?: return@future defaultResult
-                val allSongs = database.songsByCreateDateAsc().first()
-                Triple(
-                    allSongs.map { it.toMediaItem() },
-                    allSongs.indexOfFirst { it.id == songId }.takeIf { it != -1 } ?: 0,
-                    startPositionMs
-                )
-            }
-
-            MusicService.ARTIST -> {
-                val songId = path.getOrNull(2) ?: return@future defaultResult
-                val artistId = path.getOrNull(1) ?: return@future defaultResult
-                val songs = database.artistSongsByCreateDateAsc(artistId).first()
-                Triple(
-                    songs.map { it.toMediaItem() },
-                    songs.indexOfFirst { it.id == songId }.takeIf { it != -1 } ?: 0,
-                    startPositionMs
-                )
-            }
-
-            MusicService.ALBUM -> {
-                val songId = path.getOrNull(2) ?: return@future defaultResult
-                val albumId = path.getOrNull(1) ?: return@future defaultResult
-                val albumWithSongs = database.albumWithSongs(albumId).first() ?: return@future defaultResult
-                Triple(
-                    albumWithSongs.songs.map { it.toMediaItem() },
-                    albumWithSongs.songs.indexOfFirst { it.id == songId }.takeIf { it != -1 } ?: 0,
-                    startPositionMs
-                )
-            }
-
-            MusicService.PLAYLIST -> {
-                val songId = path.getOrNull(2) ?: return@future defaultResult
-                val playlistId = path.getOrNull(1) ?: return@future defaultResult
-                val songs = when (playlistId) {
-                    PlaylistEntity.LIKED_PLAYLIST_ID -> database.likedSongs(SongSortType.CREATE_DATE, descending = true)
-                    PlaylistEntity.DOWNLOADED_PLAYLIST_ID -> database.downloadNoLocalSongs()
-                    else -> database.playlistSongs(playlistId).map { list ->
-                        list.map { it.song }
-                    }
-                }.first()
-                Triple(
-                    songs.map { it.toMediaItem() },
-                    songs.indexOfFirst { it.id == songId }.takeIf { it != -1 } ?: 0,
-                    startPositionMs
-                )
-            }
-
-            MusicService.SEARCH -> {
-                val songId = path.getOrNull(2) ?: return@future defaultResult
-                val searchQuery = path.getOrNull(1) ?: return@future defaultResult
-                var results = combine(
-                    database.searchSongs(searchQuery),
-                    database.searchArtistSongs(searchQuery),
-                ) { songs, artistSongs ->
-                    (songs + artistSongs).distinctBy { it.id }
-                }
-
-                val items = results.first().map { it.toMediaItem() }
-                val index = items.indexOfFirst { it.mediaId == songId }
-                Triple(items, if (index > 0) index else 0, C.TIME_UNSET)
-            }
-
-            else -> Triple(emptyList<MediaItem>(), startIndex, startPositionMs)
+    /** What a request to play should put in the player, or null when this cannot place it. */
+    private suspend fun resolvePlayRequest(request: MediaItem, startPositionMs: Long): MediaItemsWithStartPosition? {
+        val mediaId = request.mediaId
+        if (mediaId.isEmpty()) {
+            // No id: media3 builds these from a search, "Hey Google, play X" in the car, and from a
+            // request that names nothing at all. A uri is not something this app plays by.
+            if (request.requestMetadata.mediaUri != null) return null
+            val query = request.requestMetadata.searchQuery?.trim().orEmpty()
+            if (query.isEmpty()) return continueCurrentQueue()
+            return startExternalQueue(searchLibrary(query).map { it.toMediaItem() }, 0, C.TIME_UNSET)
         }
 
-        val queueTitle = context.getString(R.string.android_auto)
-        service.queueBoard.addQueue(
-            queueTitle,
-            queue.first.map { it.metadata },
+        val target = PlayRequest.parse(mediaId) ?: return null
+        Log.d(TAG, "Play request: $target")
+        val songs: List<Song> = when (target) {
+            is PlayRequest.Song -> database.songsByCreateDateAsc().first()
+            is PlayRequest.Artist -> database.artistSongsByCreateDateAsc(target.artistId).first()
+            is PlayRequest.Album -> database.albumWithSongs(target.albumId).first()?.songs ?: return null
+            is PlayRequest.Playlist -> when (target.playlistId) {
+                PlaylistEntity.LIKED_PLAYLIST_ID -> database.likedSongs(SongSortType.CREATE_DATE, descending = true)
+                PlaylistEntity.DOWNLOADED_PLAYLIST_ID -> database.downloadNoLocalSongs()
+                else -> database.playlistSongs(target.playlistId).map { list ->
+                    list.map { it.song }
+                }
+            }.first()
+
+            is PlayRequest.Search -> searchLibrary(target.query)
+        }
+        val index = songs.indexOfFirst { it.id == target.songId }.coerceAtLeast(0)
+        val position = if (target is PlayRequest.Search) C.TIME_UNSET else startPositionMs
+        return startExternalQueue(songs.map { it.toMediaItem() }, index, position)
+    }
+
+    /**
+     * "Play" with nothing named, said to the assistant or the car: carry on with the queue there is.
+     *
+     * With songs in the player it plays them and returns null, so the request fails and media3
+     * leaves the player as it is rather than loading it again. With none it returns the saved
+     * queue, which is what a headset press would resume.
+     */
+    private suspend fun continueCurrentQueue(): MediaItemsWithStartPosition? {
+        val player = service.player
+        if (player.mediaItemCount == 0) return resumptionItems()
+        when (player.playbackState) {
+            Player.STATE_IDLE -> player.prepare()
+            Player.STATE_ENDED -> player.seekToDefaultPosition()
+        }
+        player.play()
+        return null
+    }
+
+    /**
+     * Hand the player a list somebody else chose, and make it the board's current queue.
+     *
+     * The board has to be told. addQueue never makes a queue current and the player is loaded by
+     * media3 here, not by the board, so the queue playing before stayed current: every song change
+     * wrote the car's position into it, radio topped it up and reloaded it over the car's music,
+     * and shuffle swapped the car's music for it.
+     */
+    private fun startExternalQueue(items: List<MediaItem>, startIndex: Int, startPositionMs: Long): MediaItemsWithStartPosition? {
+        // Nothing found is a request that fails, not an empty player.
+        if (items.isEmpty()) return null
+        val board = service.queueBoard
+        val q = board.addQueue(
+            context.getString(R.string.android_auto),
+            items.map { it.metadata },
             shuffled = false,
             replace = true,
             delta = false,
-            startIndex = queue.second
-        )?.apply {
-            origin = PlayOrigin.EXTERNAL.code
-            runId = System.currentTimeMillis()
-        }
+            startIndex = startIndex
+        ) ?: return null
+        q.origin = PlayOrigin.EXTERNAL.code
+        q.runId = System.currentTimeMillis()
+        // The list plays in the order it came in, whatever this queue was the last time the car
+        // started one; replacing its songs kept the old shuffled flag.
+        q.shuffled = false
+        board.setCurrQueueWithoutLoading(q)
+        // The player keeps its shuffle flag across a new list. Changed only once this queue is
+        // current, or the change reads as a shuffle press on the old queue and loads it back in.
+        if (service.player.shuffleModeEnabled) service.player.shuffleModeEnabled = false
         service.userChoicePending = true
-        MediaItemsWithStartPosition(queue.first, queue.second, queue.third)
+        return MediaItemsWithStartPosition(items, startIndex, startPositionMs)
     }
+
+    /** The library search the search results list, so a spoken query plays what a typed one shows. */
+    private suspend fun searchLibrary(query: String): List<Song> = combine(
+        database.searchSongs(query),
+        database.searchArtistSongs(query),
+    ) { songs, artistSongs ->
+        (songs + artistSongs).distinctBy { it.id }
+    }.first()
 
     override fun onSearch(
         session: MediaLibrarySession,
@@ -413,19 +451,14 @@ class MediaLibrarySessionCallback @Inject constructor(
             }
 
             try {
-                var results = combine(
-                    database.searchSongs(query),
-                    database.searchArtistSongs(query),
-                ) { songs, artistSongs ->
-                    (songs + artistSongs).distinctBy { it.id }
-                }
-
-                val items = results.first()
+                // Playable and not browsable. Marked both, a result could open as a folder in the
+                // car, and a search result has no children, so it opened empty.
+                val items = searchLibrary(query)
                     .map {
                         it.toMediaItem(
                             path = "${MusicService.SEARCH}/$query",
                             isPlayable = true,
-                            isBrowsable = true
+                            isBrowsable = false
                         )
                     }
                 LibraryResult.ofItemList(items, params)

@@ -194,8 +194,12 @@
                 android:resource="@xml/music_widget_info" />
         </receiver>
 
+        <!--
+          Replaces media3's own receiver rather than sitting beside it: media3 expects exactly one
+          receiver for MEDIA_BUTTON and throws on two.
+        -->
         <receiver
-            android:name="androidx.media3.session.MediaButtonReceiver"
+            android:name=".playback.ResumingMediaButtonReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_BUTTON" />

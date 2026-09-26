@@ -652,13 +652,13 @@ class MusicService : MediaLibraryService(),
         // lateinit tasks
         offloadScope.launch {
             Log.i(TAG, "Launching MusicService offloadScope tasks")
-            if (!qbInit.value) {
-                initQueue()
-                resumeOnLaunchIfAsked()
+            // The legacy play log becomes listens, once; nothing to do after the first run. On its
+            // own, because it still walks related_song_map on every start, and everything below
+            // used to wait for it.
+            offloadScope.launch {
+                runCatching { LegacyBackfill(DatabaseBackfillIo(database)).run() }
+                    .onFailure { Log.w(TAG, "Could not backfill the play log", it) }
             }
-            // The legacy play log becomes listens, once; nothing to do after the first run.
-            runCatching { LegacyBackfill(DatabaseBackfillIo(database)).run() }
-                .onFailure { Log.w(TAG, "Could not backfill the play log", it) }
 
             combine(
                 playerVolume,
@@ -1072,6 +1072,14 @@ class MusicService : MediaLibraryService(),
                         }
                     }
                 }
+            }
+
+            // Last, once everything above is watching: a queue resumed here used to start before
+            // any of it, so its first moments played at full volume with no normalisation, and
+            // spatial audio then restarted it to switch the renderer on.
+            if (!qbInit.value) {
+                initQueue()
+                resumeOnLaunchIfAsked()
             }
         }
     }
@@ -1502,10 +1510,12 @@ class MusicService : MediaLibraryService(),
     fun deInitQueue() {
         Log.i(TAG, "+deInitQueue()")
         val pos = player.currentPosition
+        // Null when the player holds nothing, which is most runs that never pressed play.
+        val playerSongId = player.currentMediaItem?.mediaId
         queueBoard.shutdown()
         if (dataStore.get(PersistentQueueKey, true)) {
             runBlocking(Dispatchers.IO) {
-                saveQueueToDisk(pos)
+                saveQueueToDisk(pos, playerSongId)
             }
         }
         // do not replace the object. Can lead to entire queue being deleted even though it is supposed to be saved already
@@ -1513,7 +1523,7 @@ class MusicService : MediaLibraryService(),
         Log.i(TAG, "-deInitQueue()")
     }
 
-    suspend fun saveQueueToDisk(currentPosition: Long) {
+    suspend fun saveQueueToDisk(currentPosition: Long, playerSongId: String?) {
         val data = queueBoard.getAllQueues()
         // An empty board is ordinary: a fresh install that has been opened and browsed but never
         // played has one, and so does anybody who has deleted every saved queue from the sheet.
@@ -1526,7 +1536,12 @@ class MusicService : MediaLibraryService(),
         // before initQueue has read them back, and that window is exactly where the quiet version
         // of this bug would delete somebody's queues instead of crashing.
         if (data.isEmpty()) return
-        data.last().lastSongPos = currentPosition
+        // Only when the player is holding this queue on its current song. A run that never loaded
+        // it has an empty player at 0, and writing that sent the next resume back to the start.
+        val last = data.last()
+        last.lastSongPos = ResumePoint.onStop(
+            playerSongId, last.queue.getOrNull(last.queuePos)?.id, currentPosition, last.lastSongPos
+        )
         database.updateAllQueues(data)
     }
 
@@ -2243,12 +2258,18 @@ class MusicService : MediaLibraryService(),
                 q.playlistId = (anchor ?: mediaItems.takeLast(4).shuffled().first().id)
                     .also { lastRadioSeed = it }
                 Log.d(TAG, "onMediaItemTransition: Got ${mediaItems.size} songs from radio")
-                if (player.playbackState != STATE_IDLE && songCount > 1) { // initial radio loading is handled by playQueue()
+                // Only into the queue that asked for them. A page still on its way when a list from
+                // the car became current went to the end of that list instead, and reloaded it.
+                if (player.playbackState != STATE_IDLE && songCount > 1 &&
+                    queueBoard.getCurrentQueue()?.id == q.id
+                ) { // initial radio loading is handled by playQueue()
                     queueBoard.enqueueEnd(mediaItems.drop(1))
                 }
             }
         }
 
+        // The pause point belongs to the song before this one, and the save below writes it.
+        q?.let { it.lastSongPos = ResumePoint.afterTransition(reason, player.currentPosition, it.lastSongPos) }
         queueBoard.setCurrQueuePosIndex(player.currentMediaItemIndex)
 
         // reshuffle queue when shuffle AND repeat all are enabled
@@ -2762,7 +2783,12 @@ class MusicService : MediaLibraryService(),
     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
         val q = queueBoard.getCurrentQueue()
         player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(player.mediaItemCount))
-        if (q == null || q.shuffled == shuffleModeEnabled) return
+        if (q == null || q.shuffled == shuffleModeEnabled) {
+            // The button reads the player's flag, so it has to be redrawn even when the queue has
+            // nothing to change, or it shows the old state after a resume sets the flag.
+            updateNotification()
+            return
+        }
         triggerShuffle()
     }
 
@@ -2771,8 +2797,10 @@ class MusicService : MediaLibraryService(),
         session: MediaSession,
         startInForegroundRequired: Boolean,
     ) {
-        // FG keep alive
-        if (player.isPlaying || !dataStore.get(KeepAliveKey, false)) {
+        // FG keep alive. Never skipped when media3 has to start the foreground: a service started
+        // by a headset or the widget must reach startForeground, and a cold start is still
+        // buffering, not playing, so skipping it here had Android kill the app ten seconds later.
+        if (startInForegroundRequired || player.isPlaying || !dataStore.get(KeepAliveKey, false)) {
             super.onUpdateNotification(session, startInForegroundRequired)
         }
     }

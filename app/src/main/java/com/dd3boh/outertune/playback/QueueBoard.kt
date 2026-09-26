@@ -418,10 +418,13 @@ class QueueBoard(
                 ret = item.queue.remove(s)
                 Log.d(TAG, "Removing song: ${s.title}, $ret")
             }
-        } else {
+        } else if (index in item.queue.indices) {
             item.queue.removeAt(index)
             ret = true
         }
+        // An index past the end is one from a list this queue is not, and it used to throw on the
+        // application looper. Nothing removed means nothing else here may move either.
+        if (!ret) return false
         item.getCurrentQueueShuffled().fastForEachIndexed { index, s -> s.shuffleIndex = index }
 
         // update current position only if the move will affect it
@@ -486,7 +489,7 @@ class QueueBoard(
      * @return New current position tracker
      */
     fun unShuffle(index: Int): Int {
-        val item = masterQueues[index]
+        val item = masterQueues.getOrNull(index) ?: return 0
         if (item.shuffled) {
             if (QUEUE_DEBUG)
                 Log.d(TAG, "Un-shuffling queue ${item.title}")
@@ -544,14 +547,13 @@ class QueueBoard(
         preserveCurrent: Boolean = true,
         bypassSaveToDb: Boolean = false
     ): Int {
-        if (index <= -1) {
-            return 0
-        }
-
-        val item = masterQueues[index]
+        val item = masterQueues.getOrNull(index) ?: return 0
+        if (item.queue.isEmpty()) return 0
         if (QUEUE_DEBUG)
             Log.d(TAG, "Shuffling queue ${item.title}")
 
+        // A stale position read past the end of the list here and crashed the app.
+        item.validateQueuePos()
         val currentSong = item.queue[item.queuePos]
 
         // shuffle & push the current song to top if requested to
@@ -832,6 +834,17 @@ class QueueBoard(
         }
         return queuePos
     }
+
+    /**
+     * Make a queue current without loading it into the player, for a list that someone else is
+     * about to hand the player: Android Auto, or any controller that plays by id.
+     *
+     * addQueue never makes a queue current. The app's own play paths do that when they load the
+     * queue, but these lists reach the player through media3, so the board went on calling the old
+     * queue current. Every song change then wrote the car's position into that queue, radio topped
+     * it up and reloaded it over the car's music, and shuffle swapped the car's music for it.
+     */
+    fun setCurrQueueWithoutLoading(item: MultiQueueObject) = bubbleUp(item)
 
     /**
      * Update the current position index of the current queue
