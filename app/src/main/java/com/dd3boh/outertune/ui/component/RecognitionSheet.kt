@@ -202,11 +202,9 @@ fun RecognitionSheet(
             // Another run going is said plainly in place of its progress. What one left on show once
             // it stopped is not this playlist's either, and is shown as nothing at all.
             if (run is SheetRun.Other) Elsewhere(
-                title = if (run.playlist != null) {
-                    stringResource(R.string.recognition_elsewhere_playlist, run.playlist)
-                } else {
-                    stringResource(R.string.recognition_elsewhere_screen, stringResource(R.string.recognise))
-                },
+                run = run,
+                listenHere = stringResource(R.string.recognition_listen_here_instead),
+                note = stringResource(R.string.recognition_elsewhere_desc),
                 onListenHere = { start(instead = true) },
             ) else when (val s = if (own) state else RecognitionEngine.State.Idle) {
                 // Idle is only listening in the moment before a run's first update. Otherwise
@@ -566,12 +564,19 @@ private fun Found(
  * Another run has the microphone: the What's playing? screen's, or another playlist's.
  *
  * In place of that run's progress, which the sheet used to show as its own while nothing it heard
- * went into this playlist. The one thing offered is to listen for this playlist instead, and
- * closing the sheet leaves the other run going.
+ * went into this playlist. The one thing offered is to listen here instead, which [listenHere]
+ * words for the sheet or the screen, and closing the sheet leaves the other run going, as [note]
+ * says. The screen shows the same over a playlist's run, without a note, having nothing to close.
  */
 @Composable
-private fun Elsewhere(title: String, onListenHere: () -> Unit) {
-    Title(title)
+internal fun Elsewhere(run: SheetRun.Other, listenHere: String, note: String?, onListenHere: () -> Unit) {
+    Title(
+        if (run.playlist != null) {
+            stringResource(R.string.recognition_elsewhere_playlist, run.playlist)
+        } else {
+            stringResource(R.string.recognition_elsewhere_screen, stringResource(R.string.recognise))
+        }
+    )
     Spacer24()
     Box(
         contentAlignment = Alignment.Center,
@@ -588,14 +593,16 @@ private fun Elsewhere(title: String, onListenHere: () -> Unit) {
         )
     }
     Spacer24()
-    Text(
-        text = stringResource(R.string.recognition_elsewhere_desc),
-        style = MaterialTheme.typography.bodyLarge,
-        textAlign = TextAlign.Center,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Spacer24()
-    Button(onClick = onListenHere) { Text(stringResource(R.string.recognition_listen_here_instead)) }
+    if (note != null) {
+        Text(
+            text = note,
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer24()
+    }
+    Button(onClick = onListenHere) { Text(listenHere) }
 }
 
 @Composable
