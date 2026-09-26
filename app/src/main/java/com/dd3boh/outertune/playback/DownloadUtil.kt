@@ -120,7 +120,18 @@ class DownloadUtil @Inject constructor(
     ) { dataSpec ->
         val mediaId = dataSpec.key ?: error("No media id")
         val length = if (dataSpec.length >= 0) dataSpec.length else 1
-        if (playerCache.isCached(mediaId, dataSpec.position, length)) {
+        if (dataSpec.position == 0L) {
+            // From the start, the player's copy is read through only when it holds the whole
+            // song. A part of one used to be read through as soon as its first byte was there,
+            // and the rest came from whatever stream was resolved below, so a song cached on
+            // mobile data and downloaded on Wi-Fi joined two formats in one file. The part goes,
+            // and the download takes the whole song from the new stream.
+            if (playerCache.holdsWhole(mediaId)) return@Factory dataSpec
+            if (playerCache.holdsPartFromStart(mediaId)) {
+                runCatching { playerCache.removeResource(mediaId) }
+                    .onFailure { Log.w(TAG, "Could not drop the partial copy of $mediaId", it) }
+            }
+        } else if (playerCache.isCached(mediaId, dataSpec.position, length)) {
             return@Factory dataSpec
         }
 

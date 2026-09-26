@@ -1648,7 +1648,13 @@ class MusicService : MediaLibraryService(),
             // only way the song plays at all.
             val staleQuality = isCache && !isDownload && dataSpec.position == 0L &&
                     isNetworkConnected.value && shouldUpgradeCached(mediaId)
-            if ((isDownload || isCache) && !staleQuality) {
+            // Part of the song cached, met at its start while online. The stream is resolved before
+            // the copy is used, and if it is not the stream the copy came from, the copy goes: the
+            // rest of the song used to be fetched as whatever stream came back and written on from
+            // where the copy stopped, two encodings in one file. Offline the copy plays as it is.
+            val partialCopy = !isDownload && dataSpec.position == 0L &&
+                    isNetworkConnected.value && playerCache.holdsPartFromStart(mediaId)
+            if ((isDownload || isCache) && !staleQuality && !partialCopy) {
                 Log.d(TAG, "PLAYING: remote song (cache = ${isCache}, download = ${isDownload})")
                 offloadScope.launch { recoverSong(mediaId) }
                 return@Factory dataSpec
@@ -1673,7 +1679,7 @@ class MusicService : MediaLibraryService(),
                 // YouTube), but the copy it was meant to replace is still here. Play that rather
                 // than fail a song that plays fine, and leave its row as it is, so the upgrade is
                 // tried again next time.
-                if (staleQuality) {
+                if (staleQuality || partialCopy) {
                     Log.d(TAG, "PLAYING: remote song (cache kept, the new stream could not be fetched)", throwable)
                     return@Factory dataSpec
                 }
@@ -1714,13 +1720,25 @@ class MusicService : MediaLibraryService(),
             // taken unchecked, and one of those failing partway would have cost the offline copy.
             // Without the check the cached copy plays, as if the upgrade had never been asked
             // for, and nothing about the song is rewritten.
-            if (staleQuality && !playbackData.validated) {
+            // A copy that stops partway is not kept this way: carried on from with a stream other
+            // than its own, it would hold two encodings. It goes below instead.
+            if (staleQuality && !playbackData.validated && !partialCopy) {
                 Log.d(TAG, "PLAYING: remote song (cache kept, the new stream was not checked)")
                 return@Factory dataSpec
             }
             if (staleQuality) {
                 runCatching { playerCache.removeResource(mediaId) }
                     .onFailure { Log.w(TAG, "Could not drop the lower-quality copy of $mediaId", it) }
+            } else if (partialCopy) {
+                // The format row was written by the fetch that filled the copy.
+                val copyItag = runCatching {
+                    runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
+                }.getOrNull()?.itag
+                if (copyItag != format.itag) {
+                    Log.d(TAG, "PLAYING: remote song (partial copy was itag $copyItag, the stream is ${format.itag}, starting over)")
+                    runCatching { playerCache.removeResource(mediaId) }
+                        .onFailure { Log.w(TAG, "Could not drop the partial copy of $mediaId", it) }
+                }
             }
 
             database.query {
