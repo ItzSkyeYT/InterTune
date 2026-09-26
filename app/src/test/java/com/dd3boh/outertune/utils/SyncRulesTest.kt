@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.utils
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -36,5 +37,15 @@ class SyncRulesTest {
         assertFalse(mayReplacePlaylist(complete = true, remoteCount = 0, hasLocalSongs = true))
         // Nothing here and nothing there: copying nothing over nothing is harmless.
         assertTrue(mayReplacePlaylist(complete = true, remoteCount = 0, hasLocalSongs = false))
+    }
+
+    @Test
+    fun `a manual sync reports what actually happened`() {
+        // The button used to say "Sync complete" whatever happened, including nothing at all.
+        assertEquals(SyncResult.SYNCED, SyncResult.combine(listOf(SyncResult.SYNCED, SyncResult.NOTHING)))
+        assertEquals(SyncResult.FAILED, SyncResult.combine(listOf(SyncResult.SYNCED, SyncResult.FAILED)))
+        assertEquals(SyncResult.FAILED, SyncResult.combine(listOf(SyncResult.NOTHING, SyncResult.FAILED)))
+        assertEquals(SyncResult.NOTHING, SyncResult.combine(listOf(SyncResult.NOTHING, SyncResult.NOTHING)))
+        assertEquals(SyncResult.NOTHING, SyncResult.combine(emptyList()))
     }
 }

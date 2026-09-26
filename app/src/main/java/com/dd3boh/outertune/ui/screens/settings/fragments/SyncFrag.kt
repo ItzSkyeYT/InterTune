@@ -58,6 +58,7 @@ import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.SwitchPreference
+import com.dd3boh.outertune.utils.SyncResult
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
@@ -113,15 +114,25 @@ fun ColumnScope.SyncManualFrag() {
         icon = { Icon(Icons.Rounded.Sync, null) },
         onClick = {
             coroutineScope.launch(Dispatchers.Main) {
+                // Shown while the sync runs, not before it: showSnackbar waits for the snackbar
+                // to go, so the sync used to start only once "Syncing" had timed out.
+                val active = launch {
+                    snackbarHostState.showSnackbar(
+                        message = context.getString(R.string.sync_progress_active),
+                        withDismissAction = true,
+                        duration = SnackbarDuration.Indefinite
+                    )
+                }
+                val result = syncUtils.tryAutoSync(true)
+                active.cancel()
                 snackbarHostState.showSnackbar(
-                    message = context.getString(R.string.sync_progress_active),
-                    withDismissAction = true,
-                    duration = SnackbarDuration.Short
-                )
-
-                syncUtils.tryAutoSync(true)
-                snackbarHostState.showSnackbar(
-                    message = context.getString(R.string.sync_progress_success),
+                    message = context.getString(
+                        when (result) {
+                            SyncResult.SYNCED -> R.string.sync_progress_success
+                            SyncResult.FAILED -> R.string.sync_progress_failed
+                            SyncResult.NOTHING -> R.string.sync_progress_nothing
+                        }
+                    ),
                     withDismissAction = true,
                     duration = SnackbarDuration.Short
                 )

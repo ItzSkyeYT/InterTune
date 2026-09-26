@@ -112,15 +112,30 @@ class SyncUtils @Inject constructor(
         const val LIKED_SNAPSHOT_DIR = "liked_sync"
     }
 
-    suspend fun tryAutoSync(bypassCd: Boolean = false) {
-        if (!context.isAutoSyncEnabled()) {
-            return
+    /**
+     * Every enabled kind of content. [bypassCd] is someone asking for it (the Sync now button, a
+     * pull on the Library's All tab): that needs only a signed-in account, and runs whatever the
+     * cooldowns say. It used to return at once when "Automatically sync" was off, and to call each
+     * kind without the bypass, so the button mostly did nothing and then said "Sync complete".
+     *
+     * On IO whoever calls it: the kinds below still block their thread on parts of their work,
+     * and the button ran all of it on the main thread.
+     */
+    suspend fun tryAutoSync(bypassCd: Boolean = false): SyncResult = withContext(Dispatchers.IO) {
+        autoSync(bypassCd)
+    }
+
+    private suspend fun autoSync(bypassCd: Boolean): SyncResult {
+        if (bypassCd) {
+            if (!context.isUserLoggedIn()) return SyncResult.NOTHING
+        } else if (!context.isAutoSyncEnabled()) {
+            return SyncResult.NOTHING
         }
         // bypassCd is the user pressing Sync now, which should always try. An automatic sync is
         // the "work nobody asked for" the throttle exists to drop.
         if (!bypassCd && Throttle.isBlocked) {
             Log.d(TAG, "Skipping auto sync, backing off")
-            return
+            return SyncResult.NOTHING
         }
         Log.d(TAG, "Starting auto sync job")
         if (!bypassCd) {
@@ -131,18 +146,21 @@ class SyncUtils @Inject constructor(
             val elapsed = currentTime - lastSync
             if (elapsed < SYNC_CD) {
                 Log.d(TAG, "Aborting auto sync. ${(SYNC_CD - elapsed) / 60} minutes until eligible")
-                return
+                return SyncResult.NOTHING
             }
         }
 
-        syncRemoteLikedSongs()
-        syncRemoteSongs()
-        syncRemoteAlbums()
-        syncRemoteArtists()
-        syncRemotePlaylists()
+        val results = listOf(
+            syncRemoteLikedSongs(bypassCd),
+            syncRemoteSongs(bypassCd),
+            syncRemoteAlbums(bypassCd),
+            syncRemoteArtists(bypassCd),
+            syncRemotePlaylists(bypassCd),
+        )
         context.dataStore.edit { settings ->
             settings[LastFullSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
         }
+        return SyncResult.combine(results)
     }
 
     private fun checkEnabled(item: SyncContent): Boolean {
@@ -188,22 +206,26 @@ class SyncUtils @Inject constructor(
     /**
      * Singleton syncRemoteLikedSongs
      */
-    suspend fun syncRemoteLikedSongs(bypass: Boolean = false) {
+    suspend fun syncRemoteLikedSongs(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { likedSongs(bypass) }
+
+    private suspend fun likedSongs(bypass: Boolean): SyncResult {
         // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in. The sign-in
         // check used to live only in the optional block below, so a pull-to-refresh (bypass)
         // synced a signed-out session, whose empty answers read as "everything was removed".
         if (_isSyncingRemoteLikedSongs.value || !checkEnabled(SyncContent.LIKED_SONGS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             if (_isSyncingRemoteLikedSongs.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
-            return
+            return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
         if (!bypass) {
             if (!context.isAutoSyncEnabled() || !checkPartialSyncEligibility(LastLikeSongSyncKey)) {
-                return
+                return SyncResult.NOTHING
             }
         }
         _isSyncingRemoteLikedSongs.value = true
+        // Failed until shown otherwise: a fetch that throws or comes back short says so.
+        var result = SyncResult.FAILED
 
         try {
             Log.d(TAG, "Liked songs synchronization started")
@@ -212,7 +234,7 @@ class SyncUtils @Inject constructor(
             YouTube.playlist("LM").onSuccess { page ->
                 val walked = page.walkSongs()
                 if (!context.isInternetConnected()) {
-                    return
+                    return SyncResult.FAILED
                 }
 
                 val remoteSongs = walked.items.reversed()
@@ -300,6 +322,7 @@ class SyncUtils @Inject constructor(
                 // login syncs hundreds of liked songs and downloads none of them, under a setting
                 // that says it downloads your liked songs. One bounded snapshot, no collector.
                 downloadUtil.downloadLikedSongs()
+                result = if (walked.complete) SyncResult.SYNCED else SyncResult.FAILED
             }
 
         } finally {
@@ -314,25 +337,30 @@ class SyncUtils @Inject constructor(
             }
             Log.i(TAG, "Liked songs synchronization ended")
         }
+        return result
     }
 
     /**
      * Singleton syncRemoteSongs
      */
-    suspend fun syncRemoteSongs(bypass: Boolean = false) {
+    suspend fun syncRemoteSongs(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { librarySongs(bypass) }
+
+    private suspend fun librarySongs(bypass: Boolean): SyncResult {
         // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
         if (_isSyncingRemoteSongs.value || !checkEnabled(SyncContent.PRIVATE_SONGS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             if (_isSyncingRemoteSongs.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
-            return
+            return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
         if (!bypass) {
             if (!context.isAutoSyncEnabled() || !checkPartialSyncEligibility(LastLibSongSyncKey)) {
-                return
+                return SyncResult.NOTHING
             }
         }
         _isSyncingRemoteSongs.value = true
+        // Failed until shown otherwise: a fetch that throws or comes back short says so.
+        var result = SyncResult.FAILED
 
         try {
             Log.i(TAG, "Library songs synchronization started")
@@ -341,7 +369,7 @@ class SyncUtils @Inject constructor(
             val remote = getRemoteData<SongItem>("FEmusic_liked_videos", "FEmusic_library_privately_owned_tracks")
             val remoteSongs = remote.items
             if (!context.isInternetConnected()) {
-                return
+                return SyncResult.FAILED
             }
 
             if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE) && removalAllowed(remote, "songs")) {
@@ -378,6 +406,7 @@ class SyncUtils @Inject constructor(
                 }
                 jobs.joinAll()
             }
+            result = if (remote.complete) SyncResult.SYNCED else SyncResult.FAILED
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
@@ -390,25 +419,30 @@ class SyncUtils @Inject constructor(
             }
             Log.i(TAG, "Library songs synchronization ended")
         }
+        return result
     }
 
     /**
      * Singleton syncRemoteAlbums
      */
-    suspend fun syncRemoteAlbums(bypass: Boolean = false) {
+    suspend fun syncRemoteAlbums(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { albums(bypass) }
+
+    private suspend fun albums(bypass: Boolean): SyncResult {
         // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
         if (_isSyncingRemoteAlbums.value || !checkEnabled(SyncContent.ALBUMS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             if (_isSyncingRemoteAlbums.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
-            return
+            return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
         if (!bypass) {
             if (!context.isAutoSyncEnabled() || !checkPartialSyncEligibility(LastAlbumSyncKey)) {
-                return
+                return SyncResult.NOTHING
             }
         }
         _isSyncingRemoteAlbums.value = true
+        // Failed until shown otherwise: a fetch that throws or comes back short says so.
+        var result = SyncResult.FAILED
 
         try {
             Log.i(TAG, "Library albums synchronization started")
@@ -418,7 +452,7 @@ class SyncUtils @Inject constructor(
                 getRemoteData<AlbumItem>("FEmusic_liked_albums", "FEmusic_library_privately_owned_releases")
             val remoteAlbums = remote.items
             if (!context.isInternetConnected()) {
-                return
+                return SyncResult.FAILED
             }
 
             if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE) && removalAllowed(remote, "albums")) {
@@ -453,6 +487,7 @@ class SyncUtils @Inject constructor(
                     }
                 }
             }
+            result = if (remote.complete) SyncResult.SYNCED else SyncResult.FAILED
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
@@ -465,25 +500,30 @@ class SyncUtils @Inject constructor(
             }
             Log.i(TAG, "Library albums synchronization ended")
         }
+        return result
     }
 
     /**
      * Singleton syncRemoteArtists
      */
-    suspend fun syncRemoteArtists(bypass: Boolean = false) {
+    suspend fun syncRemoteArtists(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { artists(bypass) }
+
+    private suspend fun artists(bypass: Boolean): SyncResult {
         // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
         if (_isSyncingRemoteArtists.value || !checkEnabled(SyncContent.ARTISTS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             if (_isSyncingRemoteArtists.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
-            return
+            return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
         if (!bypass) {
             if (!context.isAutoSyncEnabled() || !checkPartialSyncEligibility(LastArtistSyncKey)) {
-                return
+                return SyncResult.NOTHING
             }
         }
         _isSyncingRemoteArtists.value = true
+        // Failed until shown otherwise: a fetch that throws or comes back short says so.
+        var result = SyncResult.FAILED
 
         try {
             Log.i(TAG, "Artist subscriptions synchronization started")
@@ -506,7 +546,7 @@ class SyncUtils @Inject constructor(
             }
 
             if (!context.isInternetConnected()) {
-                return
+                return SyncResult.FAILED
             }
 
             if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE) && removalAllowed(likedRemote, "artists")) {
@@ -550,6 +590,7 @@ class SyncUtils @Inject constructor(
                     }
                 }
             }
+            result = if (likedRemote.complete) SyncResult.SYNCED else SyncResult.FAILED
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
@@ -562,25 +603,30 @@ class SyncUtils @Inject constructor(
             }
             Log.i(TAG, "Artist subscriptions synchronization ended")
         }
+        return result
     }
 
     /**
      * Singleton syncRemotePlaylists
      */
-    suspend fun syncRemotePlaylists(bypass: Boolean = false) {
+    suspend fun syncRemotePlaylists(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { playlists(bypass) }
+
+    private suspend fun playlists(bypass: Boolean): SyncResult {
         // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
         if (_isSyncingRemotePlaylists.value || !checkEnabled(SyncContent.PLAYLISTS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             if (_isSyncingRemotePlaylists.value)
                 Log.i(TAG, "Library songs synchronization already in progress")
-            return
+            return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
         if (!bypass) {
             if (!context.isAutoSyncEnabled() || !checkPartialSyncEligibility(LastPlaylistSyncKey)) {
-                return
+                return SyncResult.NOTHING
             }
         }
         _isSyncingRemotePlaylists.value = true
+        // Failed until shown otherwise: a fetch that throws or comes back short says so.
+        var result = SyncResult.FAILED
 
         try {
             Log.i(TAG, "Library playlist synchronization started")
@@ -589,7 +635,7 @@ class SyncUtils @Inject constructor(
             YouTube.library("FEmusic_liked_playlists").onSuccess { firstPage ->
                 val walked = firstPage.walkItems()
                 if (!context.isInternetConnected()) {
-                    return
+                    return SyncResult.FAILED
                 }
 
                 val remotePlaylists = walked.items.filterIsInstance<PlaylistItem>()
@@ -659,6 +705,7 @@ class SyncUtils @Inject constructor(
                         }
                     }
                 }
+                result = if (walked.complete) SyncResult.SYNCED else SyncResult.FAILED
             }
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
@@ -672,6 +719,7 @@ class SyncUtils @Inject constructor(
             }
             Log.i(TAG, "Library playlist synchronization ended")
         }
+        return result
     }
 
     /**
@@ -719,20 +767,24 @@ class SyncUtils @Inject constructor(
         true
     }
 
-    suspend fun syncRecentActivity(bypass: Boolean = false) {
+    suspend fun syncRecentActivity(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { recentActivity(bypass) }
+
+    private suspend fun recentActivity(bypass: Boolean): SyncResult {
         // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
         if (_isSyncingRecentActivity.value || !checkEnabled(SyncContent.RECENT_ACTIVITY) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             if (_isSyncingRecentActivity.value)
                 Log.i(TAG, "Recent activity synchronization already in progress")
-            return
+            return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
         if (!bypass) {
             if (!context.isAutoSyncEnabled() || !checkPartialSyncEligibility(LastRecentActivitySyncKey)) {
-                return
+                return SyncResult.NOTHING
             }
         }
         _isSyncingRecentActivity.value = true
+        // Failed until shown otherwise: a fetch that throws or comes back short says so.
+        var result = SyncResult.FAILED
 
         try {
             Log.i(TAG, "Recent activity synchronization started")
@@ -746,6 +798,7 @@ class SyncUtils @Inject constructor(
                         recentActivity.reversed().forEach { database.insertRecentActivityItem(it) }
                     }
                 }
+                result = SyncResult.SYNCED
             }
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
@@ -759,6 +812,7 @@ class SyncUtils @Inject constructor(
             }
             Log.i(TAG, "Recent activity synchronization ended")
         }
+        return result
     }
 
     /**

@@ -157,3 +157,23 @@ class LikedSnapshotStore(private val dir: File) {
         }
     }
 }
+
+/** What a sync did, so the button that started it can say so instead of always "Sync complete". */
+enum class SyncResult {
+    /** Read in full and applied. */
+    SYNCED,
+
+    /** A fetch failed or came back short, or the connection went. Nothing was removed on its account. */
+    FAILED,
+
+    /** Nothing ran: every kind switched off, already running, cooling down, or signed out. */
+    NOTHING;
+
+    companion object {
+        fun combine(results: Collection<SyncResult>): SyncResult = when {
+            FAILED in results -> FAILED
+            SYNCED in results -> SYNCED
+            else -> NOTHING
+        }
+    }
+}

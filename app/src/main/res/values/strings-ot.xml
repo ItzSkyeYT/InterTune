@@ -157,6 +157,9 @@ while also allowing users to translate our app as well. New, specific strings to
 <!-- Sync-->
     <string name="sync_progress_active">Syncing with YouTube account…</string>
     <string name="sync_progress_success">Sync complete</string>
+    <string name="sync_progress_failed">Sync did not finish. Nothing was removed; try again later.</string>
+    <string name="sync_progress_nothing">Nothing to sync. Check that sync is on for at least one kind of content.</string>
+    <string name="playlist_sync_failed">Could not sync this playlist. It was left as it was.</string>
 
 <!-- Settings -->
     <string name="settings_debug">Debug</string>
