@@ -134,6 +134,17 @@ class MediaLibrarySessionCallback @Inject constructor(
         // The system asked for this, from a media button or its own resumption notification, not
         // the listener choosing a song. The fragment it continues carries the real origin.
         service.pendingOrigin = PlayOrigin.RESUMED
+        // The player's shuffle flag is whatever the last run left, off on a cold start, so a
+        // shuffled queue came back in its shuffled order with the flag off, and the first press of
+        // shuffle in the notification or the car changed nothing. Only when no other queue is
+        // current, or the same one is, flag and all: against another queue the change would read
+        // as a shuffle press on that one and load it into the player.
+        val current = service.queueBoard.getCurrentQueue()
+        if ((current == null || (current.id == q.id && current.shuffled == q.shuffled)) &&
+            service.player.shuffleModeEnabled != q.shuffled
+        ) {
+            service.player.shuffleModeEnabled = q.shuffled
+        }
         return items
     }
 

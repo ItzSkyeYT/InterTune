@@ -2717,7 +2717,12 @@ class MusicService : MediaLibraryService(),
     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
         val q = queueBoard.getCurrentQueue()
         player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(player.mediaItemCount))
-        if (q == null || q.shuffled == shuffleModeEnabled) return
+        if (q == null || q.shuffled == shuffleModeEnabled) {
+            // The button reads the player's flag, so it has to be redrawn even when the queue has
+            // nothing to change, or it shows the old state after a resume sets the flag.
+            updateNotification()
+            return
+        }
         triggerShuffle()
     }
 
