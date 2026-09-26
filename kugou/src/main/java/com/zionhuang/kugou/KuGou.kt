@@ -83,6 +83,23 @@ object KuGou {
         }
     }
 
+    /** The songs KuGou's search lists for this title and artist, with their names and lengths. */
+    suspend fun songs(title: String, artist: String): List<SearchSongResponse.Data.Info> =
+        searchSongs(generateKeyword(title, artist)).data.info
+
+    /** The lyrics KuGou keeps for one song from [songs], found by its audio hash. */
+    suspend fun candidatesForHash(hash: String): List<SearchLyricsResponse.Candidate> =
+        searchLyricsByHash(hash).candidates
+
+    /** KuGou's lyrics search by name and length in seconds, for when no listed song has any. */
+    suspend fun candidatesForKeyword(title: String, artist: String, duration: Int): List<SearchLyricsResponse.Candidate> =
+        searchLyricsByKeyword(generateKeyword(title, artist), duration).candidates
+
+    /** One candidate's lyrics, or null when they are empty or only KuGou's note that the track has no words. */
+    suspend fun download(candidate: SearchLyricsResponse.Candidate): String? =
+        downloadLyrics(candidate.id, candidate.accesskey).content.decodeBase64String().normalize()
+            .takeUnless { it.isBlank() || "纯音乐，请欣赏" in it || "酷狗音乐  就是歌多" in it }
+
     suspend fun getLyricsCandidate(
         keyword: Keyword, duration: Int
     ): SearchLyricsResponse.Candidate? {
@@ -139,11 +156,13 @@ object KuGou {
             parameter("accesskey", accessKey)
         }.body<DownloadLyricsResponse>()
 
+    // Lazy, so each bracket goes on its own. Greedy, the first "(" and the last ")" took everything
+    // between them, and "(It Goes Like) Nanana (Edit)" was searched for as an empty title.
     private fun normalizeTitle(title: String) =
-        title.replace("\\(.*\\)".toRegex(), "").replace("（.*）".toRegex(), "")
-            .replace("「.*」".toRegex(), "").replace("『.*』".toRegex(), "")
-            .replace("<.*>".toRegex(), "").replace("《.*》".toRegex(), "")
-            .replace("〈.*〉".toRegex(), "").replace("＜.*＞".toRegex(), "")
+        title.replace("\\(.*?\\)".toRegex(), "").replace("（.*?）".toRegex(), "")
+            .replace("「.*?」".toRegex(), "").replace("『.*?』".toRegex(), "")
+            .replace("<.*?>".toRegex(), "").replace("《.*?》".toRegex(), "")
+            .replace("〈.*?〉".toRegex(), "").replace("＜.*?＞".toRegex(), "")
 
     private fun normalizeArtist(artist: String) =
         artist.replace(", ", "、").replace(" & ", "、").replace(".", "").replace("和", "、")

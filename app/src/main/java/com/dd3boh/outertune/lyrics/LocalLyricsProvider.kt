@@ -19,12 +19,7 @@ object LocalLyricsProvider : LyricsProvider {
      *
      * @param title file path of the song, NOT the song title
      */
-    override suspend fun getLyrics(
-        id: String,
-        title: String,
-        artist: String,
-        duration: Int,
-    ): Result<String> {
+    override suspend fun getLyrics(query: LyricsQuery): Result<String> {
         throw NotImplementedError()
     }
 
