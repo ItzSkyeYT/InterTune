@@ -139,10 +139,10 @@ class LikedSyncTest {
     fun `song counts parse with their thousands separators`() {
         assertEquals(1234, LikedSync.parseSongCount("1,234 songs"))
         assertEquals(1234, LikedSync.parseSongCount("1.234 Titel"))
-        assertEquals(1234, LikedSync.parseSongCount("1 234 titres"))
-        assertEquals(1234, LikedSync.parseSongCount("1 234 titres"))
+        assertEquals(1234, LikedSync.parseSongCount("1\u00A0234 titres"))
+        assertEquals(1234, LikedSync.parseSongCount("1\u202F234 titres"))
         assertEquals(87, LikedSync.parseSongCount("87 songs"))
-        assertEquals(12, LikedSync.parseSongCount("12 songs • 45 minutes"))
+        assertEquals(12, LikedSync.parseSongCount("12 songs \u2022 45 minutes"))
         assertEquals(1, LikedSync.parseSongCount("1 song"))
         assertNull(LikedSync.parseSongCount("No songs"))
         assertNull(LikedSync.parseSongCount(null))

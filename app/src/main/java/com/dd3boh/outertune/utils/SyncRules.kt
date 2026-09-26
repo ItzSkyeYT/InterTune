@@ -93,7 +93,7 @@ object LikedSync {
      */
     fun parseSongCount(text: String?): Int? {
         if (text.isNullOrBlank()) return null
-        val match = Regex("""\d(?:[\d,.'   ]*\d)?""").find(text) ?: return null
+        val match = Regex("\\d(?:[\\d,.'\u00A0\u202F ]*\\d)?").find(text) ?: return null
         return match.value.filter { it.isDigit() }.toIntOrNull()
     }
 
