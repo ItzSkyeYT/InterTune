@@ -17,11 +17,14 @@ import androidx.core.content.getSystemService
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.cast.CastDevice
+import com.dd3boh.outertune.cast.CastLinkException
 import com.dd3boh.outertune.cast.CastLinks
 import com.dd3boh.outertune.cast.CastNetwork
 import com.dd3boh.outertune.cast.CastServer
 import com.dd3boh.outertune.cast.FCastLink
+import com.dd3boh.outertune.cast.LinkProblem
 import com.dd3boh.outertune.cast.ReceiverLink
+import com.dd3boh.outertune.cast.ReceiverStatus
 import com.dd3boh.outertune.constants.Unreleased
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -137,7 +140,7 @@ class CastSession(
                 Log.w(TAG, "Could not connect to ${device.name}", e)
                 link.close()
                 service.stopCastServer(server)
-                gaveUp(e.message ?: service.getString(R.string.cast_could_not_reach, device.name))
+                gaveUp(say((e as? CastLinkException)?.problem ?: LinkProblem.UNREACHABLE, link.device.name))
                 return@launch
             }
             val remote = service.handOverTo(link, server, play = carryOn, onLost = ::lost)
@@ -182,13 +185,26 @@ class CastSession(
         scope.cancel()
     }
 
-    private fun lost(reason: String) {
-        if (remote == null) return
-        Log.i(TAG, "Lost the receiver: $reason")
+    private fun lost(status: ReceiverStatus) {
+        val remote = remote ?: return
+        Log.i(TAG, "Lost the receiver: ${status.error}")
+        val reason = say(status.problem ?: LinkProblem.LOST, remote.device.name)
         end(playHere = false)
         _problem.value = reason
         Toast.makeText(service, service.getString(R.string.cast_lost, reason), Toast.LENGTH_LONG).show()
     }
+
+    /** What went wrong with the receiver called [name], in the listener's language. */
+    private fun say(problem: LinkProblem, name: String): String = service.getString(
+        when (problem) {
+            LinkProblem.UNREACHABLE -> R.string.cast_could_not_reach
+            LinkProblem.NOT_A_RECEIVER -> R.string.cast_not_a_receiver
+            LinkProblem.HUNG_UP -> R.string.cast_hung_up
+            LinkProblem.STOPPED_ANSWERING -> R.string.cast_stopped_answering
+            LinkProblem.LOST -> R.string.cast_lost_connection
+        },
+        name,
+    )
 
     /** [playHere] null keeps playing on the phone if the receiver was playing. */
     private fun end(playHere: Boolean?) {

@@ -75,8 +75,8 @@ class RemotePlayer(
     playWhenReady: Boolean,
     repeatMode: Int,
     private var shuffle: Boolean,
-    /** Called on the main thread when the receiver is gone, with the reason to show. */
-    private val onLost: (String) -> Unit,
+    /** Called on the main thread when the receiver is gone, with the link's last status, which says why. */
+    private val onLost: (ReceiverStatus) -> Unit,
 ) : SimpleBasePlayer(looper) {
     private val playback = RemotePlayback<MediaItem>(now = ::linkClock)
     // Not immediate: the status watcher started in init must not run before construction is done.
@@ -348,7 +348,7 @@ class RemotePlayer(
     private fun onStatus(status: ReceiverStatus) {
         if (released) return
         if (status.link == LinkState.LOST) {
-            onLost(status.error ?: "Lost ${link.device.name}")
+            onLost(status)
             return
         }
         if (volumeBeforeMute == null) status.volume?.let { deviceVolume = (it * MAX_VOLUME).roundToInt().coerceIn(0, MAX_VOLUME) }

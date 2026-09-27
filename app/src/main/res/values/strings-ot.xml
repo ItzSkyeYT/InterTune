@@ -1348,5 +1348,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="cast_address_invalid">Not an address this can use</string>
     <string name="cast_needs_wifi">Casting needs Wi-Fi</string>
     <string name="cast_could_not_reach">Could not reach %1$s</string>
-    <string name="cast_lost">Casting stopped: %1$s. Paused on this phone.</string>
+    <string name="cast_not_a_receiver">%1$s is not a receiver this can cast to</string>
+    <string name="cast_hung_up">%1$s ended the connection</string>
+    <string name="cast_stopped_answering">%1$s stopped answering</string>
+    <string name="cast_lost_connection">Lost the connection to %1$s</string>
+    <string name="cast_lost">Casting stopped. %1$s. Paused on this phone.</string>
 </resources>

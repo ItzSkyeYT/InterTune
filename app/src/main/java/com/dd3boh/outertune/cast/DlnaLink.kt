@@ -97,14 +97,19 @@ class DlnaLink(
             check(_status.value.link == LinkState.NEW) { "A link connects once" }
             _status.update { it.copy(link = LinkState.CONNECTING) }
         }
-        val location = device.location ?: throw CastLinkException("${device.name} has no description to read")
+        val location = device.location
+            ?: throw CastLinkException("${device.name} has no description to read", problem = LinkProblem.NOT_A_RECEIVER)
         val found = try {
             val answer = withContext(Dispatchers.IO) { http.get(location) }
-            if (answer.status != 200) throw CastLinkException("${device.name} did not describe itself (HTTP ${answer.status})")
-            UpnpDevice.parse(answer.text, location) ?: throw CastLinkException("${device.name} is not something that plays music")
+            if (answer.status != 200) {
+                throw CastLinkException("${device.name} did not describe itself (HTTP ${answer.status})", problem = LinkProblem.NOT_A_RECEIVER)
+            }
+            UpnpDevice.parse(answer.text, location)
+                ?: throw CastLinkException("${device.name} is not something that plays music", problem = LinkProblem.NOT_A_RECEIVER)
         } catch (e: IOException) {
-            lose("Could not reach ${device.name}")
-            throw e as? CastLinkException ?: CastLinkException("Could not reach ${device.name}", e)
+            val failure = e as? CastLinkException ?: CastLinkException("Could not reach ${device.name}", e, LinkProblem.UNREACHABLE)
+            lose(failure.message ?: "Could not reach ${device.name}", failure.problem)
+            throw failure
         }
         renderer = found
         device = device.copy(
@@ -271,7 +276,7 @@ class DlnaLink(
             } catch (e: IOException) {
                 if (++failures >= timing.failuresBeforeLost) {
                     Log.i(TAG, "${device.name} stopped answering: ${e.message}")
-                    lose("Lost ${device.name}")
+                    lose("Lost ${device.name}", LinkProblem.LOST)
                     return
                 }
             }
@@ -331,12 +336,12 @@ class DlnaLink(
         }
     }
 
-    private fun lose(reason: String) {
+    private fun lose(reason: String, problem: LinkProblem) {
         synchronized(stateLock) {
             if (closed) return
             val link = _status.value.link
             if (link == LinkState.LOST || link == LinkState.CLOSED) return
-            _status.update { it.copy(link = LinkState.LOST, error = reason) }
+            _status.update { it.copy(link = LinkState.LOST, error = reason, problem = problem) }
         }
         poller?.cancel()
     }

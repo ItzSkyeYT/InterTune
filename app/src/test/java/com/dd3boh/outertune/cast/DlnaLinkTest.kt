@@ -239,8 +239,24 @@ class DlnaLinkTest {
             fail("Connected without a description")
         } catch (e: CastLinkException) {
             assertEquals("Speaker did not describe itself (HTTP 404)", e.message)
+            assertEquals(LinkProblem.NOT_A_RECEIVER, e.problem)
         }
         assertEquals(LinkState.LOST, link.status.value.link)
+        assertEquals(LinkProblem.NOT_A_RECEIVER, link.status.value.problem)
+    }
+
+    @Test
+    fun `a renderer that cannot be reached says so`() {
+        val renderer = FakeRenderer().apply { close() }
+        val link = link(renderer, name = "Speaker")
+        try {
+            runBlocking { link.connect() }
+            fail("Connected to nothing")
+        } catch (e: CastLinkException) {
+            assertEquals("Could not reach Speaker", e.message)
+            assertEquals(LinkProblem.UNREACHABLE, e.problem)
+        }
+        assertEquals(LinkProblem.UNREACHABLE, link.status.value.problem)
     }
 
     @Test
@@ -386,6 +402,7 @@ class DlnaLinkTest {
         renderer.close()
         val lost = link.await { it.link == LinkState.LOST }
         assertEquals("Lost Kitchen speaker", lost.error)
+        assertEquals(LinkProblem.LOST, lost.problem)
         try {
             runBlocking { link.play() }
             fail("Played on a lost renderer")

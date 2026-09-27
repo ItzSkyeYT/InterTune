@@ -60,6 +60,28 @@ enum class LinkState {
     CLOSED,
 }
 
+/**
+ * Why a link could not be made, or went away, as the app puts it to people. The links' own
+ * messages stay in English, for the log; this is what the picker and the notice of a lost receiver
+ * say, in the listener's language.
+ */
+enum class LinkProblem {
+    /** Nothing answered at the receiver's address. */
+    UNREACHABLE,
+
+    /** Something answered, but not as a receiver: no description to read, or not a renderer. */
+    NOT_A_RECEIVER,
+
+    /** The receiver closed the connection. */
+    HUNG_UP,
+
+    /** The receiver stopped answering. */
+    STOPPED_ANSWERING,
+
+    /** The connection broke. */
+    LOST,
+}
+
 /** What the receiver is doing with the song it was last given. */
 enum class ReceiverState {
     /** Nothing loaded, stopped, or stopped on the device itself. */
@@ -84,7 +106,8 @@ enum class ReceiverState {
  * before, even when the same song is sent twice. [positionMs] was true at [reportedAt], on the
  * link's own clock; [positionAt] carries it on while the song plays. [volume] is from 0 to 1, or
  * null until the receiver says. ENDED and FAILED are kept until the next load, so whoever watches
- * the status sees them even when it looks late.
+ * the status sees them even when it looks late. Once [link] is LOST, [error] says why in English
+ * and [problem] says it for the app to put in words.
  */
 data class ReceiverStatus(
     val link: LinkState = LinkState.NEW,
@@ -97,6 +120,7 @@ data class ReceiverStatus(
     val reportedAt: Long = 0,
     val volume: Float? = null,
     val error: String? = null,
+    val problem: LinkProblem? = null,
 ) {
     /** The position at [now], moved on from the last report at the playing speed. */
     fun positionAt(now: Long): Long {
@@ -151,5 +175,12 @@ interface ReceiverLink {
     fun close()
 }
 
-/** The receiver cannot be reached, or refused, with a reason fit to show. */
-open class CastLinkException(message: String, cause: Throwable? = null) : IOException(message, cause)
+/**
+ * The receiver cannot be reached, or refused, with a reason for the log, and a [problem] for the
+ * words shown when it happens while connecting.
+ */
+open class CastLinkException(
+    message: String,
+    cause: Throwable? = null,
+    val problem: LinkProblem = LinkProblem.LOST,
+) : IOException(message, cause)

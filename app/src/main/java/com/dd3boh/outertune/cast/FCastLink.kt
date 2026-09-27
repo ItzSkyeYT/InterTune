@@ -139,8 +139,8 @@ class FCastLink(
                 connection.keepAlive = true
             } catch (e: IOException) {
                 runCatching { connection.close() }
-                lose("Could not reach ${device.name}")
-                throw CastLinkException("Could not reach ${device.name}", e)
+                lose("Could not reach ${device.name}", LinkProblem.UNREACHABLE)
+                throw CastLinkException("Could not reach ${device.name}", e, LinkProblem.UNREACHABLE)
             }
             socket = connection
             output = connection.getOutputStream()
@@ -151,7 +151,7 @@ class FCastLink(
 
             val theirs = withTimeoutOrNull(timing.versionWaitMs) { versionHeard.await() }
             if (closed || _status.value.link == LinkState.LOST) {
-                throw CastLinkException("${device.name} hung up")
+                throw CastLinkException("${device.name} hung up", problem = _status.value.problem ?: LinkProblem.HUNG_UP)
             }
             // A receiver that says nothing is an old one; the Android receiver itself assumes v2
             // of a sender that does the same. One that speaks a later version than ours is spoken
@@ -273,7 +273,7 @@ class FCastLink(
                 out.flush()
             }
         } catch (e: IOException) {
-            lose("Lost ${device.name}")
+            lose("Lost ${device.name}", LinkProblem.LOST)
             throw CastLinkException("Lost ${device.name}", e)
         }
     }
@@ -288,10 +288,10 @@ class FCastLink(
                 pingSentAt = -1
                 handle(frame)
             }
-            lose("${device.name} hung up")
+            lose("${device.name} hung up", LinkProblem.HUNG_UP)
         } catch (e: IOException) {
             if (!closed) Log.i(TAG, "Reading from ${device.name} failed: ${e.message}")
-            lose("Lost ${device.name}")
+            lose("Lost ${device.name}", LinkProblem.LOST)
         }
     }
 
@@ -394,7 +394,7 @@ class FCastLink(
             val quiet = now() - lastHeardAt
             if (quiet >= timing.deadAfterMs) {
                 Log.i(TAG, "${device.name} stopped answering")
-                lose("${device.name} stopped answering")
+                lose("${device.name} stopped answering", LinkProblem.STOPPED_ANSWERING)
                 runCatching { socket?.close() }
                 return
             }
@@ -405,14 +405,14 @@ class FCastLink(
         }
     }
 
-    private fun lose(reason: String) {
+    private fun lose(reason: String, problem: LinkProblem) {
         synchronized(stateLock) {
             if (closed) return
             val link = _status.value.link
             if (link == LinkState.LOST || link == LinkState.CLOSED) return
-            _status.update { it.copy(link = LinkState.LOST, error = reason) }
+            _status.update { it.copy(link = LinkState.LOST, error = reason, problem = problem) }
         }
-        versionHeard.completeExceptionally(CastLinkException(reason))
+        versionHeard.completeExceptionally(CastLinkException(reason, problem = problem))
         keepAlive?.cancel()
         runCatching { socket?.close() }
     }

@@ -253,8 +253,10 @@ class FCastLinkTest {
             fail("Connected to nothing")
         } catch (e: CastLinkException) {
             assertEquals("Could not reach Nobody", e.message)
+            assertEquals(LinkProblem.UNREACHABLE, e.problem)
         }
         assertEquals(LinkState.LOST, link.status.value.link)
+        assertEquals(LinkProblem.UNREACHABLE, link.status.value.problem)
     }
 
     // Loading
@@ -491,13 +493,15 @@ class FCastLinkTest {
         receiver.next(FCast.PING, timeoutMs = 2_000)
         val lost = link.await(3_000) { it.link == LinkState.LOST }
         assertEquals("Test TV stopped answering", lost.error)
+        assertEquals(LinkProblem.STOPPED_ANSWERING, lost.problem)
     }
 
     @Test
     fun `a receiver that hangs up loses the link, and commands then say so`() {
         val (receiver, link) = connected()
         receiver.socket!!.close()
-        link.await { it.link == LinkState.LOST }
+        val lost = link.await { it.link == LinkState.LOST }
+        assertEquals(LinkProblem.HUNG_UP, lost.problem)
         try {
             runBlocking { link.play() }
             fail("Sent to a receiver that hung up")

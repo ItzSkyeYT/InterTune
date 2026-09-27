@@ -1249,5 +1249,9 @@
     <string name="cast_address_invalid">Adresse inutilisable</string>
     <string name="cast_needs_wifi">Le cast nécessite le Wi-Fi</string>
     <string name="cast_could_not_reach">Impossible de joindre %1$s</string>
-    <string name="cast_lost">Cast arrêté : %1$s. En pause sur ce téléphone.</string>
+    <string name="cast_not_a_receiver">%1$s n\'est pas un récepteur utilisable</string>
+    <string name="cast_hung_up">%1$s a coupé la connexion</string>
+    <string name="cast_stopped_answering">%1$s ne répond plus</string>
+    <string name="cast_lost_connection">Connexion perdue avec %1$s</string>
+    <string name="cast_lost">Cast arrêté. %1$s. En pause sur ce téléphone.</string>
 </resources>

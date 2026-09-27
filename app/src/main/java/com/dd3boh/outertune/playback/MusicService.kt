@@ -85,6 +85,7 @@ import com.dd3boh.outertune.cast.CastFormats
 import com.dd3boh.outertune.cast.CastNetwork
 import com.dd3boh.outertune.cast.CastServer
 import com.dd3boh.outertune.cast.ReceiverLink
+import com.dd3boh.outertune.cast.ReceiverStatus
 import com.dd3boh.outertune.constants.AutoLoadMoreKey
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.KeepAliveKey
@@ -1991,7 +1992,7 @@ class MusicService : MediaLibraryService(),
      * stands, through the analytics listener that stays on it; with no transition behind it, it is
      * recorded as a stop.
      */
-    internal fun handOverTo(link: ReceiverLink, server: CastServer, play: Boolean?, onLost: (String) -> Unit): RemotePlayer? {
+    internal fun handOverTo(link: ReceiverLink, server: CastServer, play: Boolean?, onLost: (ReceiverStatus) -> Unit): RemotePlayer? {
         val routed = routedPlayer ?: return null
         val exo = exoPlayer
         val remote = RemotePlayer(
