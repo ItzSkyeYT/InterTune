@@ -884,6 +884,35 @@ class MainActivity : ComponentActivity() {
                         playFromWidget(intent, database, playerConnection, coroutineScope)
                     }
 
+                    // A YouTube link that started the app: shared to it, or tapped with it closed.
+                    // The listener below only hears links that arrive while it is open, and the
+                    // effect that handled this one went with upstream's MainActivity refactor
+                    // (25d504fe1), so a song link opened InterTune on Home and did nothing else.
+                    // Held until the player is connected, which on a cold start comes a moment
+                    // later, and until setup is finished, then cleared, so a rotation does not
+                    // open it again.
+                    var pendingLaunchLink by rememberSaveable {
+                        mutableStateOf(
+                            launchLink(
+                                action = intent?.action,
+                                data = intent?.dataString,
+                                text = intent?.getStringExtra(Intent.EXTRA_TEXT),
+                                fromRecents = savedInstanceState != null ||
+                                        ((intent?.flags ?: 0) and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0,
+                            )
+                        )
+                    }
+                    LaunchedEffect(pendingLaunchLink, playerConnection, oobeStatus) {
+                        val link = pendingLaunchLink ?: return@LaunchedEffect
+                        val connection = playerConnection ?: return@LaunchedEffect
+                        if (oobeStatus < OOBE_VERSION) return@LaunchedEffect
+                        snapshotFlow { navBackStackEntry }.first { it != null }
+                        pendingLaunchLink = null
+                        youtubeNavigator(
+                            this@MainActivity, navController, coroutineScope, connection, snackbarHostState, link.toUri()
+                        )
+                    }
+
                     DisposableEffect(Unit) {
                         val listener = Consumer<Intent> { intent ->
                             if (playFromWidget(intent, database, playerConnection, coroutineScope)) return@Consumer
@@ -1561,6 +1590,15 @@ internal fun libraryShortcut(action: String?, navigationItems: List<Screens>): L
     }
     return if (tab in navigationItems) LibraryShortcut(tab, null) else LibraryShortcut(Screens.Library, filter)
 }
+
+/**
+ * What to open for the intent that started the activity: its link, or the text it was shared
+ * with, which youtubeNavigator reads as a link or ignores. Null for a widget tap, which plays its
+ * own song, and for an intent started again from recents or restored with the activity, which
+ * would open an old link over whatever is on screen now.
+ */
+internal fun launchLink(action: String?, data: String?, text: String?, fromRecents: Boolean): String? =
+    if (fromRecents || action == WidgetCommands.ACTION_PLAY_SONG) null else data ?: text
 
 /**
  * The words of a play-from-search intent, empty when it names nothing ("play some music"), or
