@@ -185,6 +185,51 @@ class RemotePlaybackTest {
     }
 
     @Test
+    fun aReportHeardWhileAPauseIsOnItsWayCannotUndoItHoweverLate() {
+        // A DLNA poll under way when pause is pressed holds the line: the pause waits for it, and
+        // its "playing" comes back long after the press, past the grace, before the pause is sent.
+        casting()
+        playback.sending()
+        playback.delivered()
+        later()
+        report(ReceiverState.PLAYING, positionMs = 60_000)
+        assertEquals(listOf(RemoteCommand.Pause), playback.setPlayWhenReady(false))
+        playback.sending()
+        later(RemotePlayback.ASK_GRACE_MS * 2)
+        report(ReceiverState.PLAYING, positionMs = 64_000)
+        assertFalse(playback.playWhenReady)
+        assertFalse(playback.changedOnReceiver)
+        // Once through, the grace runs from then, and after it the receiver's word counts again.
+        playback.delivered()
+        clock += 500
+        report(ReceiverState.PLAYING, positionMs = 64_500)
+        assertFalse(playback.playWhenReady)
+        later()
+        report(ReceiverState.PLAYING, positionMs = 67_000)
+        assertTrue(playback.playWhenReady)
+        assertTrue(playback.changedOnReceiver)
+    }
+
+    @Test
+    fun aPauseDuringASlowLoadIsNotUndoneByTheLoadStartingToPlay() {
+        casting()
+        playback.sending()
+        assertEquals(listOf(RemoteCommand.Pause), playback.setPlayWhenReady(false))
+        playback.sending()
+        // The load, sent to play, gets there and starts; the pause behind it has not yet.
+        playback.delivered()
+        later()
+        report(ReceiverState.PLAYING, positionMs = 30_500)
+        assertFalse(playback.playWhenReady)
+        playback.delivered()
+        later()
+        report(ReceiverState.PAUSED, positionMs = 31_000)
+        assertFalse(playback.playWhenReady)
+        assertFalse(playback.changedOnReceiver)
+        assertEquals(RemotePhase.READY, playback.phase)
+    }
+
+    @Test
     fun nextAndPreviousAreOnlyThereWhenThereIsASongToGoTo() {
         casting()
         assertTrue(playback.hasPrevious)

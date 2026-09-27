@@ -253,14 +253,27 @@ class RemotePlayer(
         latestTicket.set(playback.ticket)
         for (command in commands) {
             when (command) {
-                is RemoteCommand.Load -> work.trySend { send(command, aac = null) }
+                is RemoteCommand.Load -> delivering { send(command, aac = null) }
                 is RemoteCommand.Seek -> work.trySend { if (command.ticket == latestTicket.get()) link.seek(command.positionMs) }
-                RemoteCommand.Play -> work.trySend { link.play() }
-                RemoteCommand.Pause -> work.trySend { link.pause() }
+                RemoteCommand.Play -> delivering { link.play() }
+                RemoteCommand.Pause -> delivering { link.pause() }
                 RemoteCommand.Stop -> work.trySend { link.stop() }
             }
         }
         return Futures.immediateVoidFuture()
+    }
+
+    /** Queues [job], telling the playback rules when it has gone through (RemotePlayback.sending). */
+    private fun delivering(job: suspend () -> Unit) {
+        playback.sending()
+        val queued = work.trySend {
+            try {
+                job()
+            } finally {
+                scope.launch { if (!released) playback.delivered() }
+            }
+        }
+        if (queued.isFailure) playback.delivered()
     }
 
     /**

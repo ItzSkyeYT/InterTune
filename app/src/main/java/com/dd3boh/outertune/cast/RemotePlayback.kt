@@ -93,6 +93,9 @@ class RemotePlayback<T>(private val now: () -> Long) {
     /** When the receiver was last asked to play, pause, load or seek, on [now]'s clock. */
     private var askedAt = Long.MIN_VALUE / 2
 
+    /** Plays, pauses and loads the caller has taken on ([sending]) and not yet got to the receiver. */
+    private var undelivered = 0
+
     /** A seek was asked for within [ASK_GRACE_MS], so reports far from where it went are old. */
     private var seeking = false
 
@@ -130,6 +133,23 @@ class RemotePlayback<T>(private val now: () -> Long) {
      * sleep timer's end of song and the listen history both go by.
      */
     fun takeAutoTransition(): Boolean = autoTransition.also { autoTransition = false }
+
+    /**
+     * The caller is sending a play, pause or load from here. Until it reaches the receiver
+     * ([delivered]), what the receiver says about playing or pausing is from before it, however late
+     * it arrives: a DLNA renderer is asked in polls that hold the line, so a pause pressed during
+     * one waits for it, and its "playing" is heard after the pause was pressed. With a renderer
+     * slow to answer, that was after the grace too, and the pause was taken back.
+     */
+    fun sending() {
+        undelivered++
+    }
+
+    /** A command from [sending] reached the receiver, or failed to; the grace runs from now. */
+    fun delivered() {
+        if (undelivered > 0) undelivered--
+        askedAt = now()
+    }
 
     /**
      * Sets up what the receiver starts from when casting begins: the phone's list, song, position and
@@ -314,8 +334,8 @@ class RemotePlayback<T>(private val now: () -> Long) {
         // A receiver reports every second or so, and a report made just before it heard a pause
         // can arrive just after it: believed, it would start the player again by itself. So for a
         // moment after asking, a report that says the opposite of what was asked is left for the
-        // next one.
-        val fresh = status.reportedAt - askedAt >= ASK_GRACE_MS
+        // next one. Nor is one heard while a command is still on its way (see [sending]).
+        val fresh = undelivered == 0 && status.reportedAt - askedAt >= ASK_GRACE_MS
         if (fresh) seeking = false
         // The same goes for where it is: a report from before a seek landed would pull the progress
         // bar back to where the listener left for a second.
