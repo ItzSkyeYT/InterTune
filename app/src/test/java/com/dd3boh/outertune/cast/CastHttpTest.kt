@@ -186,11 +186,19 @@ class CastHttpTest {
     }
 
     @Test
+    fun `the AAC copy of a song has a url of its own`() {
+        val url = CastHttp.songUrl(InetAddress.getByName("192.168.1.20"), 47800, token, "dQw4w9WgXcQ", "m4a", aac = true)
+        assertEquals("http://192.168.1.20:47800/c/$token/aac/dQw4w9WgXcQ.m4a", url)
+        assertEquals(CastPath(token, "dQw4w9WgXcQ", aac = true), CastHttp.parsePath(url))
+        assertEquals(CastPath(token, "abc", aac = false), CastHttp.parsePath("/c/$token/s/abc.m4a?load=3"))
+    }
+
+    @Test
     fun `anything that is not a song url is refused`() {
         for (path in listOf(
             "/", "", "/c", "/c/$token", "/c/$token/s", "/c/$token/s/", "/c/$token/s/.webm",
             "/c//s/abc.webm", "/x/$token/s/abc.webm", "/c/$token/a/abc.jpg", "/c/$token/s/abc/def",
-            "c/$token/s/abc.webm", "http://host", "/c/$token/s/%zz.webm",
+            "c/$token/s/abc.webm", "http://host", "/c/$token/s/%zz.webm", "/c/$token/AAC/abc.m4a", "/c/$token/aac/",
         )) {
             assertNull(path, CastHttp.parsePath(path))
         }

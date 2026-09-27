@@ -19,6 +19,13 @@ fun interface CastSource {
      * main thread. Throws [CastUnavailableException] when the song cannot be had.
      */
     fun open(mediaId: String): CastSong
+
+    /**
+     * The same song fetched as AAC in MP4, for a receiver that does not play what [open] gives
+     * (CastFormats). Kept apart from the song as it is: a separate fetch, never written to the
+     * caches. A source that has no way to fetch one says so.
+     */
+    fun openAac(mediaId: String): CastSong = throw CastUnavailableException("No AAC copy of this song can be had")
 }
 
 /** A song ready to be served: its type, its length, and a way to read it from any byte. */

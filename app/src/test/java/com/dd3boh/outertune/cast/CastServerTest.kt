@@ -87,13 +87,20 @@ class CastServerTest {
 
     private inner class FakeSource(vararg songs: Pair<String, CastSong>) : CastSource {
         val songs = ConcurrentHashMap(songs.toMap())
+        val aacSongs = ConcurrentHashMap<String, CastSong>()
         val opens = AtomicInteger()
+        val aacOpens = AtomicInteger()
         var unavailable: String? = null
 
         override fun open(mediaId: String): CastSong {
             opens.incrementAndGet()
             unavailable?.let { throw CastUnavailableException(it) }
             return songs[mediaId] ?: throw CastUnavailableException("No such song")
+        }
+
+        override fun openAac(mediaId: String): CastSong {
+            aacOpens.incrementAndGet()
+            return aacSongs[mediaId] ?: throw CastUnavailableException("No AAC stream")
         }
     }
 
@@ -319,6 +326,44 @@ class CastServerTest {
         assertEquals(4321L, offer.length)
         assertEquals("http://127.0.0.1:${server.boundPort}/c/${server.token}/s/a%2Eb.m4a", offer.url)
         get(offer.url).use { assertArrayEquals(expected(0, 4321), it.body!!.bytes()) }
+    }
+
+    @Test
+    fun `the AAC copy is resolved and served apart from the song as it is`() {
+        val source = FakeSource("v" to FakeSong(6000, mimeType = "audio/webm")).apply {
+            aacSongs["v"] = FakeSong(7000, mimeType = "audio/mp4")
+        }
+        val server = serve(source)
+        val offer = server.prepare("v", aac = true)
+        assertEquals("http://127.0.0.1:${server.boundPort}/c/${server.token}/aac/v.m4a", offer.url)
+        assertEquals("audio/mp4", offer.mimeType)
+        assertEquals(7000L, offer.length)
+        get(offer.url, "bytes=6000-").use {
+            assertEquals(206, it.code)
+            assertEquals("bytes 6000-6999/7000", it.header("Content-Range"))
+        }
+        get(server.url("v")).use { assertEquals("6000", it.header("Content-Length")) }
+        assertEquals(1, source.aacOpens.get())
+        assertEquals(1, source.opens.get())
+
+        // Forgetting a song forgets both.
+        server.forget("v")
+        head(offer.url).close()
+        head(server.url("v")).close()
+        assertEquals(2, source.aacOpens.get())
+        assertEquals(2, source.opens.get())
+    }
+
+    @Test
+    fun `a source with no AAC says so, and a song outside the session has no AAC url either`() {
+        val plain = CastSource { FakeSong(100) }
+        val server = serve(plain, servable = { it == "in" })
+        val url = "http://127.0.0.1:${server.boundPort}/c/${server.token}/aac/in.m4a"
+        get(url).use {
+            assertEquals(503, it.code)
+            assertEquals("No AAC copy of this song can be had\n", it.body!!.string())
+        }
+        get("http://127.0.0.1:${server.boundPort}/c/${server.token}/aac/out.m4a").use { assertEquals(404, it.code) }
     }
 
     @Test

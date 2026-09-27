@@ -196,15 +196,20 @@ object YTPlayerUtils {
      * One pass of the chain, and when VISIONOS turned it down, one more with a visitorData YouTube
      * has only just issued: see [StreamCheck.mayRetryWithNewVisitor]. The throttle hears the
      * outcome once both are done, so a refusal the second pass clears never trips the back off.
+     *
+     * [preferredMime] limits the streams to one type, for casting to a receiver that does not play
+     * the one the player would take (Opus in WebM): `audio/mp4` gets AAC. Null, as the player and
+     * downloads always pass it, changes nothing.
      */
     suspend fun playerResponseForPlayback(
         videoId: String,
         playlistId: String? = null,
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
+        preferredMime: String? = null,
     ): Result<PlaybackData> {
         val first = ChainNotes()
-        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first)
+        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, preferredMime)
         val sinceFailedSwap = lastSwapFailedAt.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
         if (result.isSuccess || !StreamCheck.mayRetryWithNewVisitor(first.visionosRefused, sinceFailedSwap)) {
             first.tellThrottle()
@@ -220,7 +225,7 @@ object YTPlayerUtils {
         Log.i(TAG, "[$videoId] VISIONOS refused, trying again with a visitorData YouTube has just issued")
         YouTube.visitorData = fresh
         val second = ChainNotes()
-        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second)
+        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, preferredMime)
         second.tellThrottle()
         if (retried.isSuccess) {
             lastSwapFailedAt = 0L
@@ -253,6 +258,7 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
         notes: ChainNotes,
+        preferredMime: String? = null,
     ): Result<PlaybackData> = runCatching {
         Log.d(TAG, "Playback info requested: $videoId")
 
@@ -425,6 +431,7 @@ object YTPlayerUtils {
                         streamPlayerResponse,
                         audioQuality,
                         connectivityManager,
+                        preferredMime,
                     ) ?: continue
                 streamUrl = findUrlOrNull(format, videoId) ?: continue
                 streamExpiresInSeconds =
@@ -605,8 +612,10 @@ object YTPlayerUtils {
         playerResponse: PlayerResponse,
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
+        preferredMime: String? = null,
     ): PlayerResponse.StreamingData.Format? {
-        val audioFormats = playerResponse.streamingData?.adaptiveFormats?.filter { it.isAudio }
+        val audioFormats = playerResponse.streamingData?.adaptiveFormats
+            ?.filter { it.isAudio && (preferredMime == null || it.mimeType.startsWith(preferredMime)) }
         if (audioFormats.isNullOrEmpty()) return null
         if (TRACE_FORMATS) {
             android.util.Log.d(

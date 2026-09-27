@@ -32,8 +32,11 @@ class CastRequest(val method: String, val target: String, val headers: Map<Strin
     fun header(name: String): String? = headers[name.lowercase()]
 }
 
-/** A song url taken apart: the session's token and the song's id. */
-data class CastPath(val token: String, val mediaId: String)
+/**
+ * A song url taken apart: the session's token, the song's id, and whether it is the song fetched
+ * again as AAC for a receiver that takes no Opus (`/aac/` rather than `/s/`).
+ */
+data class CastPath(val token: String, val mediaId: String, val aac: Boolean = false)
 
 /** What reading a request head off a connection came to. */
 sealed interface HeadRead {
@@ -142,14 +145,15 @@ object CastHttp {
     // Urls
 
     /**
-     * The url a receiver fetches a song from: `http://host:port/c/{token}/s/{id}.{ext}`.
+     * The url a receiver fetches a song from: `http://host:port/c/{token}/s/{id}.{ext}`, or with
+     * [aac] `/c/{token}/aac/{id}.m4a` for the same song fetched as AAC.
      *
      * The extension is for the renderers that will not play a url without one; the server itself
      * goes by the id. The id is percent-encoded, dots included, so the last dot is always the one
      * before the extension.
      */
-    fun songUrl(host: InetAddress, port: Int, token: String, mediaId: String, extension: String): String =
-        "http://${hostForUrl(host)}:$port/c/$token/s/${encodeSegment(mediaId)}.$extension"
+    fun songUrl(host: InetAddress, port: Int, token: String, mediaId: String, extension: String, aac: Boolean = false): String =
+        "http://${hostForUrl(host)}:$port/c/$token/${if (aac) "aac" else "s"}/${encodeSegment(mediaId)}.$extension"
 
     /** An address as it goes in a url: IPv6 in brackets, with a zone's % escaped. */
     fun hostForUrl(host: InetAddress): String {
@@ -211,13 +215,13 @@ object CastHttp {
             path = if (slash < 0) "/" else path.substring(slash)
         }
         val parts = path.split('/')
-        if (parts.size != 5 || parts[0].isNotEmpty() || parts[1] != "c" || parts[3] != "s") return null
+        if (parts.size != 5 || parts[0].isNotEmpty() || parts[1] != "c" || (parts[3] != "s" && parts[3] != "aac")) return null
         val token = parts[2].takeIf { it.isNotEmpty() } ?: return null
         val file = parts[4]
         val dot = file.lastIndexOf('.')
         val encodedId = if (dot >= 0) file.substring(0, dot) else file
         val mediaId = decodeSegment(encodedId)?.takeIf { it.isNotEmpty() } ?: return null
-        return CastPath(token, mediaId)
+        return CastPath(token, mediaId, aac = parts[3] == "aac")
     }
 
     // Requests

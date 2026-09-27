@@ -81,6 +81,7 @@ import com.dd3boh.outertune.constants.AudioOffloadKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.cast.CastFormats
 import com.dd3boh.outertune.cast.CastNetwork
 import com.dd3boh.outertune.cast.CastServer
 import com.dd3boh.outertune.constants.AutoLoadMoreKey
@@ -1869,6 +1870,21 @@ class MusicService : MediaLibraryService(),
                 playerCache = playerCache,
                 contentResolver = contentResolver,
                 storedFormat = { id -> runBlocking(Dispatchers.IO) { database.format(id).first() } },
+                directSource = DefaultDataSource.Factory(
+                    this,
+                    OkHttpDataSource.Factory(OkHttpClient.Builder().proxy(YouTube.proxy).build()),
+                ),
+                isLocalFile = { id -> queueBoard.getCurrentQueue()?.findSong(id)?.isLocal == true },
+                fetchAac = { id ->
+                    runBlocking(Dispatchers.IO) {
+                        YTPlayerUtils.playerResponseForPlayback(
+                            id,
+                            audioQuality = audioQualityNow(),
+                            connectivityManager = connectivityManager,
+                            preferredMime = CastFormats.AAC_MIME,
+                        )
+                    }.getOrThrow()
+                },
             )
             val server = CastServer(
                 source,

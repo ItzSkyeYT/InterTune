@@ -28,6 +28,7 @@ import com.dd3boh.outertune.cast.FileCastSong
 import com.dd3boh.outertune.cast.RefreshingOpener
 import com.dd3boh.outertune.cast.StreamCastReader
 import com.dd3boh.outertune.db.entities.FormatEntity
+import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.zionhuang.innertube.models.response.PlayerResponse
 import java.io.File
 import java.io.FileNotFoundException
@@ -48,6 +49,12 @@ import java.io.IOException
  *   from YouTube is cached on the phone just as one played on it would be.
  *
  * [resolver] is the server's own, so its stream urls never mix with the player's.
+ *
+ * A receiver that takes no Opus gets the song as AAC instead ([openAac]): resolved straight from
+ * YouTube by [fetchAac], read through [directSource] with no cache in the way, and written nowhere.
+ * The cache and the format row keep the one encoding the player plays; a second one under the same
+ * id would be taken for a partial copy of another stream and cost the good one
+ * (design.md section 4).
  */
 class ServiceCastSource(
     private val resolver: MusicService.SongResolver,
@@ -56,6 +63,9 @@ class ServiceCastSource(
     private val playerCache: Cache,
     private val contentResolver: ContentResolver,
     private val storedFormat: (mediaId: String) -> FormatEntity?,
+    private val directSource: DataSource.Factory,
+    private val isLocalFile: (mediaId: String) -> Boolean,
+    private val fetchAac: (mediaId: String) -> YTPlayerUtils.PlaybackData,
 ) : CastSource {
 
     override fun open(mediaId: String): CastSong = when (val resolved = resolve(mediaId, 0)) {
@@ -64,6 +74,50 @@ class ServiceCastSource(
         ResolvedSong.Cached -> cachedSong(mediaId)
         is ResolvedSong.KnownStream -> streamSong(mediaId, resolved.url, resolved.format)
         is ResolvedSong.NewStream -> streamSong(mediaId, resolved.data.streamUrl, resolved.data.format)
+    }
+
+    override fun openAac(mediaId: String): CastSong {
+        if (isLocalFile(mediaId)) throw CastUnavailableException("A song on the phone can only be sent as it is")
+        val data = aacStream(mediaId)
+        val format = data.format
+        val mime = CastMime.bare(format.mimeType)
+        val size = format.contentLength?.takeIf { it > 0 } ?: -1L
+        val opener = RefreshingOpener(
+            data.streamUrl,
+            open = { url, position ->
+                val chunk = if (size >= 0) minOf(MusicService.CHUNK_LENGTH, size - position) else C.LENGTH_UNSET.toLong()
+                openDirect(url.toUri(), position, chunk)
+            },
+            // Only the same stream carries on from a position; anything else is noise there.
+            refresh = { _ -> runCatching { aacStream(mediaId) }.getOrNull()?.takeIf { it.format.itag == format.itag }?.streamUrl },
+        )
+        return object : CastSong {
+            override val mimeType = mime
+            override val length = size
+            override fun openAt(position: Long): CastReader = ChunkedReader(position, size) { from -> opener.openAt(from) }
+        }
+    }
+
+    private fun aacStream(mediaId: String): YTPlayerUtils.PlaybackData = try {
+        fetchAac(mediaId)
+    } catch (e: Exception) {
+        throw CastUnavailableException(e.message?.takeIf { it.isNotBlank() } ?: "No AAC stream could be found", e)
+    }
+
+    /** A read of [uri] straight from the network, past every cache. */
+    private fun openDirect(uri: Uri, position: Long, length: Long): CastReader {
+        val source = directSource.createDataSource()
+        val spec = DataSpec.Builder().setUri(uri).setPosition(position).setLength(length).build()
+        try {
+            source.open(spec)
+        } catch (e: IOException) {
+            runCatching { source.close() }
+            throw e
+        }
+        return object : CastReader {
+            override fun read(buffer: ByteArray, offset: Int, length: Int) = source.read(buffer, offset, length)
+            override fun close() = source.close()
+        }
     }
 
     private fun resolve(mediaId: String, position: Long): ResolvedSong = try {

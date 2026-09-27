@@ -61,7 +61,9 @@ class CastServer(
     private var workers: ThreadPoolExecutor? = null
     private var used = false
     private val connections: MutableSet<Socket> = ConcurrentHashMap.newKeySet()
+    /** What each song resolved to, by id, and apart from it what its AAC fetch resolved to. */
     private val songs = ConcurrentHashMap<String, Lazy<CastSong>>()
+    private val aacSongs = ConcurrentHashMap<String, Lazy<CastSong>>()
 
     val isRunning: Boolean get() = serverSocket?.isClosed == false
 
@@ -128,33 +130,40 @@ class CastServer(
             workers?.shutdownNow()
             workers = null
             songs.clear()
+            aacSongs.clear()
             Log.i(TAG, "Stopped")
         }
     }
 
     /**
-     * Resolves [mediaId] now and says where a receiver fetches it. Blocking, and it may go to the
-     * network, so never on the main thread. Throws [CastUnavailableException] with the reason when
-     * the song cannot be had.
+     * Resolves [mediaId] now and says where a receiver fetches it; with [aac], the song fetched
+     * again as AAC for a receiver that takes no Opus. Blocking, and it may go to the network, so
+     * never on the main thread. Throws [CastUnavailableException] with the reason when the song
+     * cannot be had.
      */
-    fun prepare(mediaId: String): CastOffer {
-        val song = songFor(mediaId)
-        return CastOffer(urlFor(mediaId, song.mimeType), song.mimeType, song.length)
+    fun prepare(mediaId: String, aac: Boolean = false): CastOffer {
+        val song = songFor(mediaId, aac)
+        return CastOffer(urlFor(mediaId, song.mimeType, aac), song.mimeType, song.length)
     }
 
     /** The url for [mediaId], ending in the extension that goes with [mimeType]. */
-    fun urlFor(mediaId: String, mimeType: String): String {
+    fun urlFor(mediaId: String, mimeType: String, aac: Boolean = false): String {
         val port = boundPort.takeIf { it > 0 } ?: error("The cast server is not running")
-        return CastHttp.songUrl(bindAddress, port, token, mediaId, CastMime.extensionFor(mimeType))
+        return CastHttp.songUrl(bindAddress, port, token, mediaId, CastMime.extensionFor(mimeType), aac)
     }
 
     /** Resolves [mediaId] afresh on its next request, after the receiver said it failed. */
     fun forget(mediaId: String) {
         songs.remove(mediaId)
+        aacSongs.remove(mediaId)
     }
 
-    private fun songFor(mediaId: String): CastSong =
-        songs.getOrPut(mediaId) { lazy(LazyThreadSafetyMode.SYNCHRONIZED) { source.open(mediaId) } }.value
+    private fun songFor(mediaId: String, aac: Boolean = false): CastSong =
+        if (aac) {
+            aacSongs.getOrPut(mediaId) { lazy(LazyThreadSafetyMode.SYNCHRONIZED) { source.openAac(mediaId) } }.value
+        } else {
+            songs.getOrPut(mediaId) { lazy(LazyThreadSafetyMode.SYNCHRONIZED) { source.open(mediaId) } }.value
+        }
 
     private fun acceptLoop(socket: ServerSocket, pool: ThreadPoolExecutor) {
         while (!socket.isClosed) {
@@ -220,7 +229,7 @@ class CastServer(
         if (!isServable(path.mediaId)) return sendText(output, method, 404, "Not found")
 
         val song = try {
-            songFor(path.mediaId)
+            songFor(path.mediaId, path.aac)
         } catch (e: CastUnavailableException) {
             Log.i(TAG, "Cannot serve ${path.mediaId}: ${e.message}")
             return sendText(output, method, 503, e.message ?: "Unavailable")
