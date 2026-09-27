@@ -68,9 +68,14 @@ object CastFormats {
     /**
      * How a song of [mimeType] goes to a receiver with [support]. [canFetchAac] says whether an AAC
      * copy can be had at all: true for a YouTube song, false for a local file.
+     *
+     * [refused] is what this receiver has shown it does not play, though it never said so: types
+     * it failed and then played the same song as AAC. Its later songs of that type go as AAC
+     * straight away rather than each failing first, which on a real receiver can take seconds.
      */
-    fun choose(support: FormatSupport, mimeType: String, canFetchAac: Boolean): FormatChoice = when (support) {
-        FormatSupport.Unknown -> FormatChoice.AsIs
+    fun choose(support: FormatSupport, mimeType: String, canFetchAac: Boolean, refused: Set<String> = emptySet()): FormatChoice = when (support) {
+        FormatSupport.Unknown ->
+            if (canFetchAac && !isAac(mimeType) && CastMime.bare(mimeType) in refused) FormatChoice.Aac else FormatChoice.AsIs
         is FormatSupport.Listed -> when {
             plays(support.mimeTypes, mimeType) -> FormatChoice.AsIs
             canFetchAac && !isAac(mimeType) && plays(support.mimeTypes, AAC_MIME) -> FormatChoice.Aac

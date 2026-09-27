@@ -17,6 +17,7 @@ import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.Util
 import com.dd3boh.outertune.cast.CastFormats
 import com.dd3boh.outertune.cast.CastItem
+import com.dd3boh.outertune.cast.CastMime
 import com.dd3boh.outertune.cast.CastServer
 import com.dd3boh.outertune.cast.FormatChoice
 import com.dd3boh.outertune.cast.LinkState
@@ -39,6 +40,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.roundToInt
 
@@ -89,7 +91,22 @@ class RemotePlayer(
     @Volatile
     private var sent: Sent? = null
 
-    private class Sent(val load: RemoteCommand.Load<MediaItem>, val linkLoad: Int, val mimeType: String, val choice: FormatChoice, val local: Boolean)
+    private class Sent(
+        val load: RemoteCommand.Load<MediaItem>,
+        val linkLoad: Int,
+        val mimeType: String,
+        val choice: FormatChoice,
+        val local: Boolean,
+        /** The one retry as AAC after the song failed as it is. */
+        val retry: Boolean,
+    )
+
+    /**
+     * Types this receiver failed and then played as AAC, which its later songs skip straight to
+     * (CastFormats.choose). Only a receiver that never said what it plays ends up here, and only
+     * for this cast.
+     */
+    private val refusedAsIs: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     private var released = false
     private var deviceVolume = MAX_VOLUME
@@ -288,7 +305,7 @@ class RemotePlayer(
         val local = song?.isLocal == true
         try {
             val asIs = server.prepare(mediaId)
-            val choice = if (aac == true) FormatChoice.Aac else CastFormats.choose(link.caps.formats, asIs.mimeType, canFetchAac = !local)
+            val choice = if (aac == true) FormatChoice.Aac else CastFormats.choose(link.caps.formats, asIs.mimeType, canFetchAac = !local, refused = refusedAsIs)
             if (choice is FormatChoice.Unplayable) {
                 failed(load.ticket, "${link.device.name} does not play ${choice.mimeType}")
                 return
@@ -310,7 +327,7 @@ class RemotePlayer(
             Log.i(TAG, "Sending $mediaId to ${link.device.name} as $choice (${offer.mimeType}), from ${load.startMs} ms")
             // Noted before the load, since a receiver can refuse the song before load returns. Loads
             // are sent one at a time, so this one is the next number on the link.
-            sent = Sent(load, link.status.value.load + 1, asIs.mimeType, choice, local)
+            sent = Sent(load, link.status.value.load + 1, asIs.mimeType, choice, local, retry = aac == true)
             link.load(item, load.startMs, load.play)
         } catch (e: CancellationException) {
             throw e
@@ -341,6 +358,11 @@ class RemotePlayer(
         if (volumeBeforeMute == null) status.volume?.let { deviceVolume = (it * MAX_VOLUME).roundToInt().coerceIn(0, MAX_VOLUME) }
         val sent = sent
         if (sent != null && status.load == sent.linkLoad) {
+            if (sent.retry && (status.state == ReceiverState.PLAYING || status.state == ReceiverState.PAUSED) &&
+                refusedAsIs.add(CastMime.bare(sent.mimeType))
+            ) {
+                Log.i(TAG, "${link.device.name} plays AAC where it failed ${sent.mimeType}; sending AAC from now on")
+            }
             if (status.state == ReceiverState.FAILED) {
                 // Resolved again on its next request, whatever happens next: the url may simply
                 // have expired.

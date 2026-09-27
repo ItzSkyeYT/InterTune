@@ -59,4 +59,17 @@ class CastFormatsTest {
         assertFalse(CastFormats.retryAsAac(unknown, FormatChoice.AsIs, "audio/webm", canFetchAac = false))
         assertFalse(CastFormats.retryAsAac(tv, FormatChoice.AsIs, "audio/webm", canFetchAac = true))
     }
+
+    @Test
+    fun `a type a silent receiver failed and then played as AAC goes as AAC from then on`() {
+        val unknown = FormatSupport.Unknown
+        val refused = setOf("audio/webm")
+        assertEquals(FormatChoice.Aac, CastFormats.choose(unknown, "audio/webm; codecs=\"opus\"", canFetchAac = true, refused = refused))
+        assertEquals(FormatChoice.AsIs, CastFormats.choose(unknown, "audio/mp4", canFetchAac = true, refused = refused))
+        assertEquals(FormatChoice.AsIs, CastFormats.choose(unknown, "audio/flac", canFetchAac = true, refused = refused))
+        // A file on the phone has only itself to send.
+        assertEquals(FormatChoice.AsIs, CastFormats.choose(unknown, "audio/webm", canFetchAac = false, refused = refused))
+        // A receiver that listed what it plays is taken at its word.
+        assertEquals(FormatChoice.AsIs, CastFormats.choose(FormatSupport.Listed(setOf("audio/webm")), "audio/webm", canFetchAac = true, refused = refused))
+    }
 }
