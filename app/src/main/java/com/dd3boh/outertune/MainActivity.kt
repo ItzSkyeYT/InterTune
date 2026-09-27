@@ -1326,10 +1326,13 @@ class MainActivity : ComponentActivity() {
                                             contentDescription = null
                                         )
                                     },
+                                    // The offset goes before verticalScroll so the scroll container
+                                    // slides away with the rail. After it, only the rail's content
+                                    // moved: the scroll container stayed where the rail had been, on
+                                    // top of the open player, and swallowed every tap on its left strip.
                                     modifier = Modifier
                                         .align(alignment)
                                         .fillMaxHeight()
-                                        .verticalScroll(rememberScrollState())
                                         .offset {
                                             if (navigationBarHeight == 0.dp) {
                                                 IntOffset(
@@ -1347,7 +1350,8 @@ class MainActivity : ComponentActivity() {
                                                     y = 0
                                                 )
                                             }
-                                        },
+                                        }
+                                        .verticalScroll(rememberScrollState()),
                                 ) {
                                     navigationItems.fastForEach { screen ->
                                         // TODO: display selection when based on root page user entered
