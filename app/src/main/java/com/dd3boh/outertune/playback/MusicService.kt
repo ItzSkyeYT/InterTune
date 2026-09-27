@@ -80,6 +80,9 @@ import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.AudioOffloadKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.cast.CastNetwork
+import com.dd3boh.outertune.cast.CastServer
 import com.dd3boh.outertune.constants.AutoLoadMoreKey
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.KeepAliveKey
@@ -202,6 +205,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.File
+import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -275,6 +279,12 @@ class MusicService : MediaLibraryService(),
 
     private val binder = MusicBinder()
     private lateinit var connectivityManager: ConnectivityManager
+
+    private val castLock = Any()
+
+    /** The cast server while a casting session has one. Only ever set with Unreleased.CASTING on. */
+    private var castServer: CastServer? = null
+    private var castNetworkWatch: ConnectivityManager.NetworkCallback? = null
 
     val qbInit = MutableStateFlow(false)
     var queueBoard = QueueBoard(this, maxQueues = 1)
@@ -1831,6 +1841,71 @@ class MusicService : MediaLibraryService(),
         }
     }
 
+    /**
+     * Starts the server a receiver fetches the queue's songs from, or returns the one already
+     * running.
+     *
+     * It listens on the phone's address on Wi-Fi and nowhere else, serves only songs in the
+     * current queue, finds them through a [SongResolver] of its own, and stops by itself when that
+     * Wi-Fi goes. Debug builds try port 47800 first, so one adb forward covers every test run.
+     * Null with casting off, without Wi-Fi, or when no socket can be opened.
+     */
+    fun startCastServer(): CastServer? {
+        if (!Unreleased.CASTING) return null
+        synchronized(castLock) {
+            castServer?.let { running ->
+                if (running.isRunning) return running
+                stopCastServerLocked()
+            }
+            val wifi = CastNetwork.wifi(connectivityManager)
+            if (wifi == null) {
+                Log.i(TAG, "Casting needs Wi-Fi")
+                return null
+            }
+            val source = ServiceCastSource(
+                resolver = SongResolver(),
+                cacheSource = createCacheDataSource(),
+                downloadCache = downloadCache,
+                playerCache = playerCache,
+                contentResolver = contentResolver,
+                storedFormat = { id -> runBlocking(Dispatchers.IO) { database.format(id).first() } },
+            )
+            val server = CastServer(
+                source,
+                wifi.address,
+                isServable = { id -> queueBoard.getCurrentQueue()?.findSong(id) != null },
+                port = if (BuildConfig.DEBUG) CastServer.DEBUG_PORT else 0,
+            )
+            try {
+                server.start()
+            } catch (e: IOException) {
+                Log.w(TAG, "The cast server could not start", e)
+                return null
+            }
+            castServer = server
+            castNetworkWatch = CastNetwork.watch(connectivityManager, wifi) { stopCastServer(server) }
+            return server
+        }
+    }
+
+    /**
+     * Stops the cast server, which ends every song it is sending. With [only], stops it only if it
+     * is still that one, so a late word about an old network cannot stop a newer server.
+     */
+    fun stopCastServer(only: CastServer? = null) {
+        synchronized(castLock) {
+            if (only != null && castServer !== only) return
+            stopCastServerLocked()
+        }
+    }
+
+    private fun stopCastServerLocked() {
+        castNetworkWatch?.let { runCatching { connectivityManager.unregisterNetworkCallback(it) } }
+        castNetworkWatch = null
+        castServer?.stop()
+        castServer = null
+    }
+
     /** What the setting says right now. Read live, because it can change between songs. */
     private fun audioQualityNow(): AudioQuality {
         val quality by enumPreference(this@MusicService, AudioQualityKey, AudioQuality.AUTO)
@@ -2887,6 +2962,9 @@ class MusicService : MediaLibraryService(),
         // long as it stays registered. The unregister in onCreate cannot let go of it: it runs on
         // the next instance, whose field is still empty.
         if (::connectivityObserver.isInitialized) runCatching { connectivityObserver.unregister() }
+        // A receiver left fetching from a service that is gone gets a closed connection and says
+        // so, rather than waiting on a socket nothing answers.
+        stopCastServer()
         Log.i(TAG, "Terminating MusicService.")
 
         // Only clear it if it is still ours; a newer service instance may already have replaced it.
