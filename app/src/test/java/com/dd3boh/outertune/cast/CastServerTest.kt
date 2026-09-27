@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import javax.net.SocketFactory
 
 /**
  * The whole server, on a loopback port, against a fake source, fetched with OkHttp the way a
@@ -434,6 +435,151 @@ class CastServerTest {
         } finally {
             gate.countDown()
             held.forEach { it.use { response -> assertEquals(100_000, response.body!!.bytes().size) } }
+        }
+    }
+
+    @Test
+    fun `a connection that sends nothing is let go at the first byte's deadline`() {
+        val server = CastServer(FakeSource("a" to FakeSong(100)), loopback, { true }, headTimeoutMs = 5_000, firstByteTimeoutMs = 300)
+            .also { servers += it; it.start() }
+        Socket("127.0.0.1", server.boundPort).use { socket ->
+            socket.soTimeout = 5000
+            val started = System.nanoTime()
+            val answer = try {
+                socket.getInputStream().read()
+            } catch (e: IOException) {
+                -1
+            }
+            val elapsedMs = (System.nanoTime() - started) / 1_000_000
+            assertEquals(-1, answer)
+            assertTrue("closed after $elapsedMs ms", elapsedMs in 200..2500)
+        }
+        // One that does send its request in time is answered as ever.
+        get(server.url("a")).use { assertEquals(200, it.code) }
+    }
+
+    /** OkHttp connecting from [local], one of the other loopback addresses, as another device would. */
+    private fun clientFrom(local: String): OkHttpClient = client.newBuilder().socketFactory(object : SocketFactory() {
+        override fun createSocket(): Socket = Socket().apply { bind(InetSocketAddress(local, 0)) }
+        override fun createSocket(host: String, port: Int): Socket = createSocket().apply { connect(InetSocketAddress(host, port)) }
+        override fun createSocket(host: String, port: Int, localHost: InetAddress, localPort: Int): Socket =
+            Socket(host, port, localHost, localPort)
+        override fun createSocket(host: InetAddress, port: Int): Socket = createSocket().apply { connect(InetSocketAddress(host, port)) }
+        override fun createSocket(address: InetAddress, port: Int, localAddress: InetAddress, localPort: Int): Socket =
+            Socket(address, port, localAddress, localPort)
+    }).build()
+
+    @Test
+    fun `one address gets only so many connections, and others are still answered`() {
+        val gate = CountDownLatch(1)
+        val server = CastServer(FakeSource("a" to FakeSong(100_000, gate = gate)), loopback, { true }, maxPerPeer = 2)
+            .also { servers += it; it.start() }
+        // Each of these has its head and then waits for the gate, holding its place.
+        val held = List(2) { get(server.url("a")) }
+        val other = clientFrom("127.0.0.2")
+        try {
+            get(server.url("a")).use {
+                assertEquals(503, it.code)
+                assertEquals("Busy\n", it.body!!.string())
+            }
+            other.newCall(Request.Builder().url(server.url("a")).build()).execute().use { response ->
+                assertEquals(200, response.code)
+                gate.countDown()
+                assertEquals(100_000, response.body!!.bytes().size)
+            }
+        } finally {
+            gate.countDown()
+            held.forEach { it.use { response -> assertEquals(100_000, response.body!!.bytes().size) } }
+        }
+        // Their places are free again once they are done.
+        get(server.url("a")).use { assertEquals(200, it.code) }
+    }
+
+    @Test
+    fun `connections refused in a burst do not hold up the next one`() {
+        val gate = CountDownLatch(1)
+        val server = CastServer(
+            FakeSource("a" to FakeSong(100_000, gate = gate)), loopback, { true }, maxConnections = 1, maxPerPeer = 100,
+        ).also { servers += it; it.start() }
+        val held = get(server.url("a"))
+        // Each is refused and then waited on for a moment, since it never closes; twelve of them one
+        // after another took the accept loop three seconds.
+        val silent = List(12) { Socket("127.0.0.1", server.boundPort) }
+        try {
+            Thread.sleep(200)
+            gate.countDown()
+            held.use { assertEquals(100_000, it.body!!.bytes().size) }
+            val started = System.nanoTime()
+            var code = 0
+            while (code != 200 && System.nanoTime() - started < 5_000_000_000L) {
+                code = get(server.url("a")).use { it.code }
+                if (code != 200) Thread.sleep(20)
+            }
+            val elapsedMs = (System.nanoTime() - started) / 1_000_000
+            assertEquals(200, code)
+            assertTrue("answered after $elapsedMs ms", elapsedMs < 1_500)
+        } finally {
+            silent.forEach { runCatching { it.close() } }
+        }
+    }
+
+    /** Sends a request for [id] on a raw socket and reads nothing, as a receiver that paused would. */
+    private fun stalled(server: CastServer, id: String): Socket = Socket("127.0.0.1", server.boundPort).apply {
+        soTimeout = 10_000
+        getOutputStream().write("GET /c/${server.token}/s/$id.webm HTTP/1.1\r\nHost: x\r\n\r\n".toByteArray())
+    }
+
+    /** Reads everything [socket] still has, until the end, and says how much. */
+    private fun readAll(socket: Socket): Long {
+        val buffer = ByteArray(256 * 1024)
+        var total = 0L
+        try {
+            while (true) {
+                val count = socket.getInputStream().read(buffer)
+                if (count < 0) break
+                total += count
+            }
+        } catch (e: IOException) {
+            // Reset by the server, after what it had sent.
+        }
+        return total
+    }
+
+    @Test
+    fun `a connection that stopped reading is let go when its worker is wanted`() {
+        val length = 64L * 1024 * 1024
+        val server = CastServer(
+            FakeSource("a" to FakeSong(length, chunk = 512 * 1024)), loopback, { true }, maxConnections = 1, stalledAfterMs = 300,
+        ).also { servers += it; it.start() }
+        stalled(server, "a").use { paused ->
+            // Long enough to fill every buffer on the way and wait past the limit.
+            Thread.sleep(1_500)
+            // Told the server is busy once, while the stalled answer's worker lets go of it.
+            val started = System.nanoTime()
+            var code = 0
+            while (code != 206 && System.nanoTime() - started < 10_000_000_000L) {
+                code = get(server.url("a"), "bytes=0-99").use { it.code }
+                if (code != 206) Thread.sleep(50)
+            }
+            assertEquals(206, code)
+            assertTrue("the stalled answer was cut short", readAll(paused) < length)
+        }
+    }
+
+    @Test
+    fun `a connection that stopped reading is kept while nothing else needs its worker`() {
+        val length = 64L * 1024 * 1024
+        val server = CastServer(
+            FakeSource("a" to FakeSong(length, chunk = 512 * 1024)), loopback, { true }, maxConnections = 2, stalledAfterMs = 300,
+        ).also { servers += it; it.start() }
+        stalled(server, "a").use { paused ->
+            Thread.sleep(1_500)
+            // A worker is free for this one, so the paused receiver keeps its own.
+            get(server.url("a"), "bytes=0-99").use { assertEquals(206, it.code) }
+            Thread.sleep(500)
+            val all = readAll(paused)
+            // Everything, after the head.
+            assertTrue("read $all of $length", all > length)
         }
     }
 
