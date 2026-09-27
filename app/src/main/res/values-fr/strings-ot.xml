@@ -568,9 +568,9 @@
 
     <!-- Descriptions for rows whose titles alone did not say what they do -->
     <plurals name="throttle_banner_body">
-        <item quantity="one">Les recommandations, les téléchargements et la synchronisation sont en pause pendant environ %1$d minute. La lecture fonctionne toujours.</item>
-        <item quantity="many">Les recommandations, les téléchargements et la synchronisation sont en pause pendant environ %1$d minutes. La lecture fonctionne toujours.</item>
-        <item quantity="other">Les recommandations, les téléchargements et la synchronisation sont en pause pendant environ %1$d minutes. La lecture fonctionne toujours.</item>
+        <item quantity="one">Les recommandations, les téléchargements et la synchronisation sont en pause pendant environ %1$d minute. Toucher un titre tente quand même de le lire.</item>
+        <item quantity="many">Les recommandations, les téléchargements et la synchronisation sont en pause pendant environ %1$d minutes. Toucher un titre tente quand même de le lire.</item>
+        <item quantity="other">Les recommandations, les téléchargements et la synchronisation sont en pause pendant environ %1$d minutes. Toucher un titre tente quand même de le lire.</item>
     </plurals>
     <string name="share_audio_focus">Laisser d\'autres applications jouer en même temps</string>
     <string name="share_audio_focus_description">Lire la musique par-dessus le son d\'une autre application au lieu de l\'arrêter.</string>
