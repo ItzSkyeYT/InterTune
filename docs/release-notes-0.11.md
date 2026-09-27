@@ -4,7 +4,7 @@ Quick picks learns how you listen, InterTune can name the song playing around yo
 
 ## One thing to know
 
-InterTune can count this install once a day: one short message with a random name that is replaced by an unrelated one every month, and whether you installed from F-Droid or elsewhere. It is off until you say yes, it asks once, and **Forget this install** removes it. Nothing about what you listen to is ever sent.
+InterTune can count this install once a day: one short message with a random name that is replaced by an unrelated one every month, whether you installed from F-Droid or elsewhere, and the app and Android versions. It is off until you say yes, it asks once, and **Forget my current name** drops the name. Nothing about what you listen to is ever sent.
 
 After the update, a few quick questions come up once, for what needs your say-so and was never asked on this phone: this count, and whether recommendations may use Last.fm (below).
 
