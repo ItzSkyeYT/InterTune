@@ -128,6 +128,16 @@
                 <data android:scheme="vnd.youtube.launch" />
             </intent-filter>
 
+            <!-- Play from search: "play X" from a voice assistant, a car or an automation app, with
+                 the words in SearchManager.QUERY and no data. The YouTube filters above name this
+                 action too, but they also want a link, so a plain request never matched them.
+                 MainActivity hands the words to the media session. -->
+            <intent-filter>
+                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
             <!-- Share filter -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

@@ -48,7 +48,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
+
+/** The longest a request to play waits for the saved queues to load at the service's start. */
+private const val QUEUES_LOADED_TIMEOUT_MS = 5_000L
 
 class MediaLibrarySessionCallback @Inject constructor(
     @ApplicationContext val context: Context,
@@ -335,6 +339,12 @@ class MediaLibrarySessionCallback @Inject constructor(
 
     /** What a request to play should put in the player, or null when this cannot place it. */
     private suspend fun resolvePlayRequest(request: MediaItem, startPositionMs: Long): MediaItemsWithStartPosition? {
+        // Not before the service has read back its saved queues. A request that brings the
+        // service up, from the car or from an assistant's play-from-search, can arrive first, and
+        // loading them replaces the queue board: the queue added here was dropped, and the board
+        // was left on a saved queue while the player played the request. Bounded, so a load that
+        // failed does not hold the request for ever.
+        withTimeoutOrNull(QUEUES_LOADED_TIMEOUT_MS) { service.qbInit.first { it } }
         val mediaId = request.mediaId
         if (mediaId.isEmpty()) {
             // No id: media3 builds these from a search, "Hey Google, play X" in the car, and from a

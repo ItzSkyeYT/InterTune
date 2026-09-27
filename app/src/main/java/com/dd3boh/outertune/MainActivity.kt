@@ -12,11 +12,16 @@ package com.dd3boh.outertune
 import com.dd3boh.outertune.ui.navigation.appDestinations
 import android.annotation.SuppressLint
 import android.app.NotificationManager
+import android.app.SearchManager
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
+import androidx.media3.common.MediaItem
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.guava.await
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -354,6 +359,49 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         handleOpenPoll(intent)
         if (intent.action == ACTION_PLAY_LIKED) playLikedWhenReady()
+        handlePlayFromSearch(intent)
+    }
+
+    private fun handlePlayFromSearch(intent: Intent) {
+        searchToPlay(intent.action, intent.data != null, intent.getStringExtra(SearchManager.QUERY))
+            ?.let(::playFromSearch)
+    }
+
+    /**
+     * "Play X" from a voice assistant, a car or an automation app. The words go to the media
+     * session the way a voice request in Android Auto reaches it, so the same search of the
+     * library plays, and with no words the queue there is carries on, or the saved one starts.
+     *
+     * The session takes requests from a connected controller. On a cold start the activity's own
+     * is still connecting, and an activity brought back from the background released its own
+     * when it stopped, so without one this waits for the next. The session's search is asked
+     * first: a request it cannot place fails and leaves the player alone, and the play() after it
+     * would have started whatever was there before.
+     */
+    private fun playFromSearch(query: String) {
+        controllerViewModel.addControllerCallback(lifecycle) { browser, _ ->
+            if (!browser.isConnected) return@addControllerCallback
+            dispose()
+            lifecycleScope.launch {
+                if (query.isNotEmpty()) {
+                    val found = try {
+                        browser.getSearchResult(query, 0, 1, null).await().value
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.w(MAIN_TAG, "Could not search for a play from search", e)
+                        null
+                    }
+                    if (found.isNullOrEmpty()) {
+                        Toast.makeText(this@MainActivity, R.string.no_results_found, Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+                }
+                browser.setMediaItems(listOf(searchPlayRequest(query)))
+                browser.prepare()
+                browser.play()
+            }
+        }
     }
 
     /**
@@ -407,6 +455,13 @@ class MainActivity : ComponentActivity() {
         lifecycle.addObserver(controllerViewModel)
         controllerViewModel.addControllerCallback(lifecycle) { controller, _ ->
             playerConnection = PlayerConnection(controllerViewModel, database)
+        }
+        // A play-from-search request, once: not after a rotation or a restored process, and not
+        // when the task is reopened from recents, which starts it again with the intent it was
+        // first started with and would play an old request over whatever is playing now.
+        if (savedInstanceState == null) {
+            intent?.takeIf { (it.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0 }
+                ?.let(::handlePlayFromSearch)
         }
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
@@ -1506,6 +1561,23 @@ internal fun libraryShortcut(action: String?, navigationItems: List<Screens>): L
     }
     return if (tab in navigationItems) LibraryShortcut(tab, null) else LibraryShortcut(Screens.Library, filter)
 }
+
+/**
+ * The words of a play-from-search intent, empty when it names nothing ("play some music"), or
+ * null when the intent is not one. One that carries data came in through a YouTube link filter,
+ * which names the action as well, and is left to the link handling.
+ */
+internal fun searchToPlay(action: String?, hasData: Boolean, query: String?): String? =
+    if (action == MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH && !hasData) query?.trim().orEmpty() else null
+
+/**
+ * A search as the media session takes one: no id, and the words in the request metadata. This is
+ * what media3 makes of "Hey Google, play X" in Android Auto, so
+ * MediaLibrarySessionCallback.onSetMediaItems plays it the same way, and empty words resume.
+ */
+internal fun searchPlayRequest(query: String): MediaItem = MediaItem.Builder()
+    .setRequestMetadata(MediaItem.RequestMetadata.Builder().setSearchQuery(query).build())
+    .build()
 
 
 val LocalDatabase = staticCompositionLocalOf<MusicDatabase> { error("No database provided") }
