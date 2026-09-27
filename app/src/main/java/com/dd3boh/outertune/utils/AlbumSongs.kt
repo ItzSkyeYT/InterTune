@@ -7,10 +7,26 @@
 package com.dd3boh.outertune.utils
 
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.db.entities.AlbumWithSongs
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.zionhuang.innertube.YouTube
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+
+/**
+ * An album with its songs in the album's own order.
+ *
+ * The albumWithSongs relation reads through the sorted_song_album_map view, and SQLite drops a
+ * view's ORDER BY once it is joined, so the songs came out in the order they were stored: a song
+ * heard before the album was opened led it, on the album page (fixed there first), in the album
+ * menu from search, on the play button of an album's cover and in the car. albumSongs sorts in the
+ * query itself. Everything that plays or lists an album's songs reads this; only code that wants
+ * the set of ids, where order does not matter, reads the relation directly.
+ */
+fun MusicDatabase.albumWithOrderedSongs(albumId: String): Flow<AlbumWithSongs?> =
+    combine(albumWithSongs(albumId), albumSongs(albumId)) { album, ordered -> album?.copy(songs = ordered) }
 
 /**
  * The songs the play button on an album's cover plays: the stored ones, or, for a YouTube album
@@ -21,7 +37,7 @@ import kotlinx.coroutines.flow.first
  * on with whatever queue it had. Empty when there is nothing to play; the caller plays nothing.
  */
 suspend fun albumSongsToPlay(database: MusicDatabase, albumId: String): List<MediaMetadata> {
-    val stored = database.albumWithSongs(albumId).first()
+    val stored = database.albumWithOrderedSongs(albumId).first()
     if (stored != null && (stored.songs.isNotEmpty() || stored.album.isLocal)) {
         return stored.songs.map { it.toMediaMetadata() }
     }

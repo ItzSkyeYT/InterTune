@@ -46,6 +46,7 @@ import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
+import com.dd3boh.outertune.utils.albumWithOrderedSongs
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.reportException
 import com.zionhuang.innertube.YouTube
@@ -62,7 +63,7 @@ fun YouTubeAlbumMenu(
     val database = LocalDatabase.current
     val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current ?: return
-    val album by database.albumWithSongs(albumItem.id).collectAsState(initial = null)
+    val album by database.albumWithOrderedSongs(albumItem.id).collectAsState(initial = null)
     val coroutineScope = rememberCoroutineScope()
 
     var showChooseQueueDialog by rememberSaveable {

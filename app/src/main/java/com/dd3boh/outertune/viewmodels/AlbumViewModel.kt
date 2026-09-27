@@ -6,12 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.db.AlbumRows
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.albumWithOrderedSongs
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.AlbumItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -30,9 +30,7 @@ class AlbumViewModel @Inject constructor(
      * the songs came out in the order they were first stored: a song heard before the album was
      * opened headed the tracklist as number one. albumSongs sorts in the query itself.
      */
-    val albumWithSongs = combine(database.albumWithSongs(albumId), database.albumSongs(albumId)) { album, ordered ->
-        album?.copy(songs = ordered)
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    val albumWithSongs = database.albumWithOrderedSongs(albumId).stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val otherVersions = MutableStateFlow<List<AlbumItem>>(emptyList())
 
     val isLoading = MutableStateFlow(true)

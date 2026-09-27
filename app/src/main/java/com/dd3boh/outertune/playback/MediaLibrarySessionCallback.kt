@@ -32,6 +32,7 @@ import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.extensions.toggleShuffleMode
+import com.dd3boh.outertune.utils.albumWithOrderedSongs
 import com.dd3boh.outertune.utils.reportException
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.AsyncFunction
@@ -360,7 +361,7 @@ class MediaLibrarySessionCallback @Inject constructor(
         val songs: List<Song> = when (target) {
             is PlayRequest.Song -> database.songsByCreateDateAsc().first()
             is PlayRequest.Artist -> database.artistSongsByCreateDateAsc(target.artistId).first()
-            is PlayRequest.Album -> database.albumWithSongs(target.albumId).first()?.songs ?: return null
+            is PlayRequest.Album -> database.albumWithOrderedSongs(target.albumId).first()?.songs ?: return null
             is PlayRequest.Playlist -> when (target.playlistId) {
                 PlaylistEntity.LIKED_PLAYLIST_ID -> database.likedSongs(SongSortType.CREATE_DATE, descending = true)
                 PlaylistEntity.DOWNLOADED_PLAYLIST_ID -> database.downloadNoLocalSongs()
