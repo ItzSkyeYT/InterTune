@@ -308,6 +308,28 @@ class DlnaLinkTest {
     }
 
     @Test
+    fun `a failed song is reported once, not again at every poll`() {
+        val renderer = FakeRenderer()
+        val link = DlnaLink(
+            CastDevice(CastProtocol.DLNA, "x", "TV", "127.0.0.1", renderer.server.localPort, renderer.location),
+            scope, LanHttp(answerTimeoutMs = 3_000), timing = fast.copy(startGraceMs = 300),
+        ).also { links += it }
+        runBlocking {
+            link.connect()
+            link.load(song, 0, play = true)
+        }
+        renderer.state = "STOPPED"
+        val failed = link.await { it.state == ReceiverState.FAILED }
+        // Four more polls, 80 ms apart once the song is no longer active.
+        val polled = renderer.calls("GetTransportInfo").size
+        val deadline = System.currentTimeMillis() + 5_000
+        while (renderer.calls("GetTransportInfo").size < polled + 4 && System.currentTimeMillis() < deadline) Thread.sleep(20)
+        assertTrue(renderer.calls("GetTransportInfo").size >= polled + 4)
+        // The same report, at the same time: nothing new went out to whoever acts on failures.
+        assertEquals(failed, link.status.value)
+    }
+
+    @Test
     fun `a start past 0 is sought once the renderer plays`() {
         val (renderer, link) = connected()
         runBlocking { link.load(song, 90_000, play = true) }

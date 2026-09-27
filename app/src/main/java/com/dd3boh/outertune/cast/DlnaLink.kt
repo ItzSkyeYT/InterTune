@@ -290,6 +290,13 @@ class DlnaLink(
             val position = if (loaded != null) rawCall(avTransport, "GetPositionInfo", listOf("InstanceID" to "0")) else null
             val seek = synchronized(stateLock) {
                 if (loaded == null || current !== loaded || !loaded.sent) return
+                // An ended or failed song stays as it is (DlnaTracker.report), so published again at
+                // every poll it only sent the same end or failure out once more, with a new time.
+                // Anything else is published even when it looks the same: the time of the report is
+                // what lets the playback rules believe one that came too soon after a pause or a
+                // play, and what stops the position running on for a renderer that says it plays
+                // but has stalled.
+                val finished = loaded.tracker.isFinished
                 loaded.tracker.report(
                     transportState = transport["CurrentTransportState"],
                     transportStatus = transport["CurrentTransportStatus"],
@@ -297,7 +304,7 @@ class DlnaLink(
                     trackDurationMs = DlnaTime.parse(position?.get("TrackDuration")),
                     at = now(),
                 )
-                publish(loaded)
+                if (!finished) publish(loaded)
                 loaded.tracker.takePendingSeek()
             }
             if (seek != null && seek > 1000) {

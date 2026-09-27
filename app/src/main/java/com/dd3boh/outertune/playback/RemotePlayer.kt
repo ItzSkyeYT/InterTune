@@ -17,7 +17,6 @@ import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.Util
 import com.dd3boh.outertune.cast.CastFormats
 import com.dd3boh.outertune.cast.CastItem
-import com.dd3boh.outertune.cast.CastMime
 import com.dd3boh.outertune.cast.CastServer
 import com.dd3boh.outertune.cast.FormatChoice
 import com.dd3boh.outertune.cast.LinkState
@@ -29,6 +28,8 @@ import com.dd3boh.outertune.cast.RemoteError
 import com.dd3boh.outertune.cast.RemotePhase
 import com.dd3boh.outertune.cast.RemotePlayback
 import com.dd3boh.outertune.cast.RemoteSong
+import com.dd3boh.outertune.cast.ReportAction
+import com.dd3boh.outertune.cast.SentSong
 import com.dd3boh.outertune.extensions.metadata
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -89,17 +90,7 @@ class RemotePlayer(
 
     /** The last song sent, and in what form; read by the status watcher on the main thread. */
     @Volatile
-    private var sent: Sent? = null
-
-    private class Sent(
-        val load: RemoteCommand.Load<MediaItem>,
-        val linkLoad: Int,
-        val mimeType: String,
-        val choice: FormatChoice,
-        val local: Boolean,
-        /** The one retry as AAC after the song failed as it is. */
-        val retry: Boolean,
-    )
+    private var sent: SentSong<MediaItem>? = null
 
     /**
      * Types this receiver failed and then played as AAC, which its later songs skip straight to
@@ -303,6 +294,9 @@ class RemotePlayer(
         val mediaId = load.entry.mediaId
         val song = load.entry.item.metadata
         val local = song?.isLocal == true
+        // This attempt's own, once it is on its way to the receiver. A retry as AAC reuses the load
+        // of the attempt that failed, so [sent] can still be that attempt while this one resolves.
+        var attempt: SentSong<MediaItem>? = null
         try {
             val asIs = server.prepare(mediaId)
             val choice = if (aac == true) FormatChoice.Aac else CastFormats.choose(link.caps.formats, asIs.mimeType, canFetchAac = !local, refused = refusedAsIs)
@@ -327,7 +321,8 @@ class RemotePlayer(
             Log.i(TAG, "Sending $mediaId to ${link.device.name} as $choice (${offer.mimeType}), from ${load.startMs} ms")
             // Noted before the load, since a receiver can refuse the song before load returns. Loads
             // are sent one at a time, so this one is the next number on the link.
-            sent = Sent(load, link.status.value.load + 1, asIs.mimeType, choice, local, retry = aac == true)
+            attempt = SentSong(load, link.status.value.load + 1, asIs.mimeType, choice, local, retry = aac == true)
+            sent = attempt
             link.load(item, load.startMs, load.play)
         } catch (e: CancellationException) {
             throw e
@@ -335,10 +330,11 @@ class RemotePlayer(
             Log.w(TAG, "Could not send $mediaId to ${link.device.name}", e)
             // A DLNA renderer that refuses the song is reported as FAILED on the link before load
             // throws, and onStatus has taken that already, perhaps to try the song as AAC. Failing
-            // it here too would stop the player while the retry plays.
-            val sentThis = sent?.takeIf { it.load === load }
+            // it here too would stop the player while the retry plays. Only this attempt's own
+            // report counts: a retry that could not even get the AAC copy has none, and the
+            // failure before it was taken for the retry, so the player hears of it only here.
             val status = link.status.value
-            val reported = sentThis != null && status.load == sentThis.linkLoad && status.state == ReceiverState.FAILED
+            val reported = attempt != null && status.load == attempt.linkLoad && status.state == ReceiverState.FAILED
             if (!reported) failed(load.ticket, e.message ?: "Could not send the song to ${link.device.name}")
         }
     }
@@ -357,25 +353,24 @@ class RemotePlayer(
         }
         if (volumeBeforeMute == null) status.volume?.let { deviceVolume = (it * MAX_VOLUME).roundToInt().coerceIn(0, MAX_VOLUME) }
         val sent = sent
-        if (sent != null && status.load == sent.linkLoad) {
-            if (sent.retry && (status.state == ReceiverState.PLAYING || status.state == ReceiverState.PAUSED) &&
-                refusedAsIs.add(CastMime.bare(sent.mimeType))
-            ) {
-                Log.i(TAG, "${link.device.name} plays AAC where it failed ${sent.mimeType}; sending AAC from now on")
+        if (sent != null) {
+            sent.refusedType(status)?.let { type ->
+                if (refusedAsIs.add(type)) Log.i(TAG, "${link.device.name} plays AAC where it failed $type; sending AAC from now on")
             }
-            if (status.state == ReceiverState.FAILED) {
-                // Resolved again on its next request, whatever happens next: the url may simply
-                // have expired.
-                server.forget(sent.load.entry.mediaId)
-                if (sent.load.ticket == latestTicket.get() &&
-                    CastFormats.retryAsAac(link.caps.formats, sent.choice, sent.mimeType, canFetchAac = !sent.local)
-                ) {
+            when (sent.onReport(status, latestTicket.get(), link.caps.formats)) {
+                ReportAction.IGNORE -> Unit
+                ReportAction.FOLLOW -> enqueue(playback.onReceiver(sent.load.ticket, status))
+                ReportAction.RETRY_AS_AAC -> {
+                    // Resolved again whatever happens next: the url may simply have expired.
+                    server.forget(sent.load.entry.mediaId)
                     Log.i(TAG, "${link.device.name} failed ${sent.load.entry.mediaId}; trying it once more as AAC")
                     work.trySend { send(sent.load, aac = true) }
-                    return
+                }
+                ReportAction.FAILED -> {
+                    server.forget(sent.load.entry.mediaId)
+                    enqueue(playback.onReceiver(sent.load.ticket, status))
                 }
             }
-            enqueue(playback.onReceiver(sent.load.ticket, status))
         }
         invalidateState()
     }
