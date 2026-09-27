@@ -89,9 +89,13 @@ object Ssdp {
         return runCatching { InetAddress.getByName(host) }.getOrNull()
     }
 
-    /** Private, link-local or loopback: the addresses a home network hands out. */
+    /**
+     * Private or link-local: the addresses a home network hands out. Not loopback: any device
+     * answering a search could otherwise send the phone to its own loopback, to whatever other apps
+     * serve there. A renderer on the phone itself answers from loopback, which [isLocalUrl] takes.
+     */
     fun isLanAddress(address: InetAddress): Boolean {
-        if (address.isSiteLocalAddress || address.isLinkLocalAddress || address.isLoopbackAddress) return true
+        if (address.isSiteLocalAddress || address.isLinkLocalAddress) return true
         val bytes = address.address
         return when (address) {
             // 100.64.0.0/10, which some routers and mesh systems hand out.

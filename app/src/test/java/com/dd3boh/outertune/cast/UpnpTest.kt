@@ -304,13 +304,30 @@ class UpnpTest {
 
     @Test
     fun `addresses on a home network`() {
-        for (lan in listOf("10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.0.10", "169.254.1.1", "100.64.0.1", "100.127.255.255", "127.0.0.1", "fd12:3456::1", "fe80::1")) {
+        for (lan in listOf("10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.0.10", "169.254.1.1", "100.64.0.1", "100.127.255.255", "fd12:3456::1", "fe80::1")) {
             assertTrue(lan, Ssdp.isLanAddress(InetAddress.getByName(lan)))
         }
         for (wan in listOf("8.8.8.8", "172.32.0.1", "100.128.0.1", "2001:4860:4860::8888")) {
             assertFalse(wan, Ssdp.isLanAddress(InetAddress.getByName(wan)))
         }
         assertTrue(Ssdp.isLocalUrl("http://[fe80::1]:8080/d.xml"))
+    }
+
+    @Test
+    fun `a device cannot send the phone to its own loopback`() {
+        for (url in listOf(
+            "http://127.0.0.1:8080/desc.xml",
+            "http://127.1.2.3/desc.xml",
+            "http://[::1]:8080/desc.xml",
+            "http://[::ffff:127.0.0.1]/desc.xml",
+            "http://0.0.0.0:8080/desc.xml",
+        )) {
+            assertFalse(url, Ssdp.isLocalUrl(url))
+            assertNull(url, Ssdp.parseReply(reply(url), InetAddress.getByName("192.168.1.30")))
+        }
+        // A renderer on the phone itself answers from loopback, and may point there.
+        val phone = InetAddress.getByName("127.0.0.1")
+        assertNotNull(Ssdp.parseReply(reply("http://127.0.0.1:8080/desc.xml"), phone))
     }
 
     @Test
