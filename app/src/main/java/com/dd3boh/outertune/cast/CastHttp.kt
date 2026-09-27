@@ -71,7 +71,7 @@ object CastHttp {
     const val MAX_HEAD_BYTES = 8 * 1024
 
     /** The byte-range flags DLNA renderers look for before they offer seeking. */
-    private const val DLNA_FLAGS = "DLNA.ORG_FLAGS=01700000000000000000000000000000"
+    const val DLNA_FLAGS = "DLNA.ORG_FLAGS=01700000000000000000000000000000"
 
     // Range
 
