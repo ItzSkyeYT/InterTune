@@ -343,10 +343,11 @@ fun BottomSheetPlayer(
     // and length under the new title until the new one played. ExoPlayer hides it, having no length
     // while it loads, so the song's own fills in below; a cast receiver has one all along, and two
     // quick skips while casting showed the first song's length for the second.
-    var position by rememberSaveable(playbackState, mediaMetadata?.id) {
+    val songId = mediaMetadata?.id
+    var position by rememberSaveable(playbackState, songId) {
         mutableLongStateOf(playerConnection.player.currentPosition)
     }
-    var duration by rememberSaveable(playbackState, mediaMetadata?.id) {
+    var duration by rememberSaveable(playbackState, songId) {
         mutableLongStateOf(playerConnection.player.duration)
     }
     var sliderPosition by remember {
@@ -416,8 +417,14 @@ fun BottomSheetPlayer(
     // left playing: 7200 reads an hour to move a progress bar nobody was looking at. STARTED
     // rather than RESUMED because the mini player is still visible behind a dialog or a partially
     // covering screen, and the bar should keep moving there.
+    //
+    // Keyed on the song as well, exactly as position and duration are: the loop writes into the
+    // state it started with, and a new song makes new state. ExoPlayer goes on from a song into the
+    // next one it has already buffered without leaving READY, so a loop keyed on the state alone
+    // went on writing into the old song's state, and the time and both progress bars stood still
+    // from the change of song until the next pause, seek or buffering.
     val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(playbackState, lifecycleOwner) {
+    LaunchedEffect(playbackState, songId, lifecycleOwner) {
         if (playbackState != STATE_READY) return@LaunchedEffect
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (isActive) {
