@@ -90,6 +90,9 @@ class CastSession(
     private val closing = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var connecting: Job? = null
+
+    /** Receivers still being told to stop by casts that have ended, and the jobs doing it. Main thread. */
+    private val stopping = mutableListOf<Pair<CastDevice, Job>>()
     private var keepAwake: Job? = null
     private var link: ReceiverLink? = null
     private var server: CastServer? = null
@@ -121,6 +124,9 @@ class CastSession(
             val sender = FCastLink.Sender(Build.MODEL, service.getString(R.string.app_name), BuildConfig.VERSION_NAME)
             val link = CastLinks.create(device, scope, sender, CastNetwork.wifi(connectivityManager)?.network)
             try {
+                // Straight back to a receiver just left, its stop must not land after the new song.
+                stopping.filter { (left, _) -> left.protocol == device.protocol && left.host == device.host }
+                    .forEach { (_, job) -> job.join() }
                 link.connect()
             } catch (e: CancellationException) {
                 // Given up on by end(), which also stops the server, or by a newer castTo, which
@@ -202,12 +208,16 @@ class CastSession(
         this.server = null
         if (remote != null) service.takeBack(remote, play = playHere ?: remote.playWhenReady)
         if (link != null) {
-            // Told to stop before the link closes, off the main thread, and not for long: a receiver
-            // that is gone would otherwise hold the close up.
-            closing.launch {
+            // Told to stop before the link closes, off the main thread. Not for ever, since a
+            // receiver that is gone would hold the close up, but long enough for the stop to wait
+            // out a DLNA poll already under way: a renderer slow to answer took more than the 3 s
+            // this once allowed, the stop was dropped, and it played on after the cast had ended.
+            val job = closing.launch {
                 withTimeoutOrNull(STOP_TIMEOUT_MS) { runCatching { link.stop() } }
                 link.close()
             }
+            stopping.removeAll { it.second.isCompleted }
+            stopping += link.device to job
         }
         if (server != null) service.stopCastServer(server)
         locks.release()
@@ -247,7 +257,7 @@ class CastSession(
 
     private companion object {
         const val TAG = "CastSession"
-        const val STOP_TIMEOUT_MS = 3_000L
+        const val STOP_TIMEOUT_MS = 15_000L
 
         /** Typed-in receivers kept; a few is plenty. */
         const val MAX_ADDED = 5
