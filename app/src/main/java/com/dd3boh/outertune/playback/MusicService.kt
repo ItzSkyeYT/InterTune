@@ -287,6 +287,9 @@ class MusicService : MediaLibraryService(),
     private var castServer: CastServer? = null
     private var castNetworkWatch: ConnectivityManager.NetworkCallback? = null
 
+    /** Casting driven from adb until the picker exists. Only with Unreleased.CASTING on. */
+    private var castProbe: CastProbe? = null
+
     val qbInit = MutableStateFlow(false)
     var queueBoard = QueueBoard(this, maxQueues = 1)
     var queuePlaylistId: String? = null
@@ -644,6 +647,7 @@ class MusicService : MediaLibraryService(),
         )
 
         connectivityManager = getSystemService()!!
+        if (Unreleased.CASTING) castProbe = CastProbe(this, connectivityManager).also { it.register() }
 
         currentSong.collect(scope) {
             updateNotification()
@@ -2981,6 +2985,8 @@ class MusicService : MediaLibraryService(),
         if (::connectivityObserver.isInitialized) runCatching { connectivityObserver.unregister() }
         // A receiver left fetching from a service that is gone gets a closed connection and says
         // so, rather than waiting on a socket nothing answers.
+        castProbe?.unregister()
+        castProbe = null
         stopCastServer()
         Log.i(TAG, "Terminating MusicService.")
 
