@@ -33,6 +33,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -66,6 +67,22 @@ class CastSession(
     /** What went wrong last, for the picker to say, until the next attempt. */
     private val _problem = MutableStateFlow<String?>(null)
     val problem: StateFlow<String?> = _problem.asStateFlow()
+
+    private val _added = MutableStateFlow<List<CastDevice>>(emptyList())
+
+    /**
+     * Receivers typed in by address, the latest first, for as long as the app runs. Nothing finds
+     * them on the network (that is why they were typed), and the picker looks for receivers afresh
+     * each time it opens, so without this the address had to be typed again for every cast.
+     */
+    val added: StateFlow<List<CastDevice>> = _added.asStateFlow()
+
+    /** Keeps [device], typed in by address, for the picker to list again. */
+    fun rememberAdded(device: CastDevice) {
+        _added.update { list -> (listOf(device) + list.filterNot { it.sameAs(device) }).take(MAX_ADDED) }
+    }
+
+    private fun CastDevice.sameAs(other: CastDevice) = protocol == other.protocol && id == other.id
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -128,6 +145,9 @@ class CastSession(
             this@CastSession.server = server
             this@CastSession.remote = remote
             connecting = null
+            // A receiver typed in by address is listed from now on as it named itself on
+            // connecting; a DLNA renderer also changes its id to its own, which discovery uses too.
+            _added.update { list -> list.map { if (it.sameAs(device)) link.device else it }.distinctBy { it.protocol to it.id } }
             locks.hold()
             keepAwake = scope.launch {
                 // The wake lock has a time limit, so a cast of any length renews it.
@@ -228,5 +248,8 @@ class CastSession(
     private companion object {
         const val TAG = "CastSession"
         const val STOP_TIMEOUT_MS = 3_000L
+
+        /** Typed-in receivers kept; a few is plenty. */
+        const val MAX_ADDED = 5
     }
 }

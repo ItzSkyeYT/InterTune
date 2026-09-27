@@ -107,9 +107,10 @@ fun CastButton(tint: Color, modifier: Modifier = Modifier) {
 }
 
 /**
- * Where to cast: the receivers found on the Wi-Fi while this is open, and one typed in by address,
+ * Where to cast: the receivers found on the Wi-Fi while this is open, and those typed in by address,
  * which the emulator needs (multicast does not cross its NAT) and so does a network that blocks
- * multicast. While casting it says where, and stops.
+ * multicast; the session keeps those, so they are listed again next time. While casting it says
+ * where, and stops.
  *
  * It stays open while a receiver is being reached, so a receiver that does not answer says so
  * here, and closes by itself once the music plays there.
@@ -131,6 +132,7 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
         onDispose { discovery.stop() }
     }
     val found by discovery.devices.collectAsState()
+    val added by session.added.collectAsState()
 
     // Closed once a receiver picked here plays, not by opening the picker while already casting.
     var picked by remember { mutableStateOf(false) }
@@ -149,7 +151,8 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
         if (device == null) {
             addressInvalid = true
         } else {
-            discovery.add(device)
+            session.rememberAdded(device)
+            address = ""
             castTo(device)
         }
     }
@@ -201,7 +204,7 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
             )
         }
 
-        val devices = (found + listOfNotNull(current)).distinctBy { it.protocol to it.id }
+        val devices = (found + added + listOfNotNull(current)).distinctBy { it.protocol to it.id }
         if (found.isEmpty()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

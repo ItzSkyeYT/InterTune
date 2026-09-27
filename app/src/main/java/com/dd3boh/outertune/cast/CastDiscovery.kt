@@ -163,14 +163,6 @@ class CastDiscovery(
         }
     }
 
-    /** Adds a receiver typed in by address to the list. */
-    fun add(device: CastDevice) {
-        synchronized(lock) {
-            if (device.protocol == CastProtocol.FCAST) fcast[device.id] = device else dlna[device.id] = device
-            publish()
-        }
-    }
-
     private suspend fun searchDlna() {
         val wifi = network()
         val found = runCatching {
