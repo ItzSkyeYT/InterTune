@@ -181,10 +181,7 @@ fun MiniPlayer(
                 onClick = {
                     // Same three-tap bug as the full player. togglePlayPause now prepares,
                     // rewinds when ended, and plays.
-                    if (playerConnection.player.currentMediaItem == null) {
-                        playerConnection.service.queueBoard.setCurrQueue()
-                    }
-                    playerConnection.player.togglePlayPause()
+                    playerConnection.loadQueueIfEmpty().togglePlayPause()
                 }
             ) {
                 Icon(

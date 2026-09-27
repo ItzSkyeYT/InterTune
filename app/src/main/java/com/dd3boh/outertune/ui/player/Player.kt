@@ -1178,10 +1178,7 @@ fun BottomSheetPlayer(
                                 .align(Alignment.Center),
                             color = onBackgroundColor,
                             onClick = {
-                                if (playerConnection.player.currentMediaItem == null) {
-                                    playerConnection.service.queueBoard.setCurrQueue()
-                                }
-                                playerConnection.player.seekToPrevious()
+                                playerConnection.loadQueueIfEmpty().seekToPrevious()
                                 haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                             }
                         )
@@ -1215,10 +1212,7 @@ fun BottomSheetPlayer(
                                 // One branch. setCurrQueue loads the queue but never prepares,
                                 // and togglePlayPause used to flip playWhenReady instead of
                                 // starting, so this took up to three taps to make a sound.
-                                if (playerConnection.player.currentMediaItem == null) {
-                                    playerConnection.service.queueBoard.setCurrQueue()
-                                }
-                                playerConnection.player.togglePlayPause()
+                                playerConnection.loadQueueIfEmpty().togglePlayPause()
                                 // play/pause is slightly harder haptic
                                 haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                             }
@@ -1946,7 +1940,6 @@ private fun SwipeableArtwork(
  * still empty, so the restored queue goes into it first, as the previous button does.
  */
 private fun skipFromArtwork(playerConnection: PlayerConnection, forward: Boolean) {
-    val player = playerConnection.player
-    if (player.currentMediaItem == null) playerConnection.service.queueBoard.setCurrQueue()
+    val player = playerConnection.loadQueueIfEmpty()
     if (forward) player.seekToNext() else player.seekToPreviousMediaItem()
 }

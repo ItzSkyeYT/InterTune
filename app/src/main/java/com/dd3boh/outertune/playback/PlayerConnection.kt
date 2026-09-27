@@ -256,6 +256,20 @@ class PlayerConnection(
         player.removeListener(this)
     }
 
+    /**
+     * Loads the saved queue into the player when nothing is loaded yet, as after a cold start, and
+     * returns the player to act on in the same tap.
+     *
+     * That is the service's own player rather than [player]. With casting built in, [player] is the
+     * routed player, which only hears of what the queue board loaded on the main looper's next turn.
+     * Asked in the same tap it still held an empty list, so play did nothing, previous and a swipe
+     * on the artwork were ignored, and it took a second tap. With casting off they are one player.
+     */
+    fun loadQueueIfEmpty(): Player {
+        if (player.currentMediaItem == null) service.queueBoard.setCurrQueue()
+        return service.activePlayer
+    }
+
     fun softKillPlayer() {
         Log.i(TAG, "Stopping player and uninitializing queue")
         // Dismissing the player ends a cast too; the receiver would otherwise sit there with the
