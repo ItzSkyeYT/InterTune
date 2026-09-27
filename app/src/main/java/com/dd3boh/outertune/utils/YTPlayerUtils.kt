@@ -14,7 +14,7 @@ import androidx.media3.common.PlaybackException
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.utils.YTPlayerUtils.MAIN_CLIENT
 import com.dd3boh.outertune.utils.YTPlayerUtils.STREAM_FALLBACK_CLIENTS
-import com.dd3boh.outertune.utils.YTPlayerUtils.validateStatus
+import com.dd3boh.outertune.utils.YTPlayerUtils.streamStatus
 import com.dd3boh.outertune.utils.potoken.PoTokenGenerator
 import com.dd3boh.outertune.utils.potoken.PoTokenResult
 import com.zionhuang.innertube.NewPipeUtils
@@ -69,8 +69,9 @@ object YTPlayerUtils {
          * the "Source error (2004)" that cut every song off partway through. VISIONOS is exempt,
          * so it plays a track to the end.
          *
-         * Note the loop below skips validateStatus for whichever client is LAST, so anything
-         * placed after this is accepted unchecked. Keep IOS last and keep this ahead of it.
+         * Every client's url gets the [streamStatus] check, the last one's included. It used to go
+         * to the player unchecked, which is how a refused VISIONOS became IOS's 403 on every song
+         * (see [StreamCheck.accept]). Keep this ahead of IOS all the same: IOS urls fail that check.
          */
         VISIONOS,
         // Could not parse deobfuscation function
@@ -95,6 +96,18 @@ object YTPlayerUtils {
      */
     @Volatile
     var lastStreamClient: String? = null
+        private set
+
+    /**
+     * What every client in the chain answered for the last song resolved, for the error report:
+     * "ANDROID_VR LOGIN_REQUIRED, VISIONOS LOGIN_REQUIRED, IOS OK, HEAD 403".
+     *
+     * [lastStreamClient] names the client that ended the chain and nothing about the ones before
+     * it, and for a 403 the ones before it are the story: issue #17 reported IOS's 403, and the
+     * cause was VISIONOS turning the request down one step earlier.
+     */
+    @Volatile
+    var lastStreamTrail: String? = null
         private set
 
     /**
@@ -257,6 +270,12 @@ object YTPlayerUtils {
         // at all, and the reason two clients had already supplied was dropped on the floor in
         // favour of "Unknown error".
         var explained: PlayerResponse.PlayabilityStatus? = null
+        // What a fallback client said when it turned the request down outright, and the status the
+        // last refused url got. Together they explain a chain that found urls and had every one
+        // refused, where the reason is the cause and the status only its symptom.
+        var fallbackRefusal: PlayerResponse.PlayabilityStatus? = null
+        var refusedStatus: Int? = null
+        val trail = mutableListOf<String>()
         for (clientIndex in (-1 until streamClients.size)) {
             // reset for each client
             format = null
@@ -291,6 +310,14 @@ object YTPlayerUtils {
             streamPlayerResponse?.playabilityStatus
                 ?.takeIf { it.status != null && it.status != "OK" && explained == null }
                 ?.let { explained = it }
+            if (clientIndex >= 0) {
+                streamPlayerResponse?.playabilityStatus
+                    ?.takeIf { it.status != null && it.status != "OK" && fallbackRefusal == null }
+                    ?.let { fallbackRefusal = it }
+            }
+            val clientLabel =
+                if (client.loginSupported && isLoggedIn) "${client.clientName} (account)" else client.clientName
+            trail += StreamCheck.trailStep(clientLabel, streamPlayerResponse?.playabilityStatus?.status, null, checked = false)
 
             Log.d(TAG, "[$videoId] stream client: ${client.clientName}, " +
                     "playabilityStatus: ${streamPlayerResponse?.playabilityStatus?.let {
@@ -313,18 +340,18 @@ object YTPlayerUtils {
                     streamUrl += "&pot=$webStreamingPot";
                 }
 
-                if (clientIndex == streamClients.size - 1) {
-                    /** skip [validateStatus] for last client */
+                val isLast = clientIndex == streamClients.size - 1
+                val status = streamStatus(streamUrl)
+                trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", status, checked = true)
+                if (StreamCheck.accept(status, isLast)) {
+                    // working stream found, or the last one left with nothing to say it is not
+                    Log.i(TAG, "[$videoId] [${client.clientName}] found working stream ($status)")
+                    validated = status != null
                     break
                 }
-                if (validateStatus(streamUrl)) {
-                    // working stream found
-                    Log.i(TAG, "[$videoId] [${client.clientName}] found working stream")
-                    validated = true
-                    break
-                } else {
-                    Log.w(TAG, "[$videoId] [${client.clientName}] got bad http status code")
-                }
+                Log.w(TAG, "[$videoId] [${client.clientName}] got bad http status code $status")
+                if (status != null) refusedStatus = status
+                streamUrl = null
             }
         }
 
@@ -333,11 +360,25 @@ object YTPlayerUtils {
         lastStreamClient = lastClient?.let {
             if (it.loginSupported && isLoggedIn) "${it.clientName} (account)" else it.clientName
         }
+        lastStreamTrail = trail.joinToString(", ")
+        Log.d(TAG, "[$videoId] chain: $lastStreamTrail")
 
         if (streamUrl != null) {
             Throttle.note("OK", null)
         } else {
             blockedStatus?.let { Throttle.note(it.status, it.reason) }
+        }
+
+        // Every url the chain produced was refused by its check. Say why in the words of the client
+        // that turned the request down, rather than "Could not find stream url".
+        refusedStatus?.let { status ->
+            if (streamUrl == null) {
+                throw PlaybackException(
+                    StreamCheck.refusalMessage(fallbackRefusal?.reason, status),
+                    null,
+                    PlaybackException.ERROR_CODE_REMOTE_ERROR,
+                )
+            }
         }
 
         if (streamPlayerResponse == null) {
@@ -511,21 +552,17 @@ object YTPlayerUtils {
     }
 
     /**
-     * Checks if the stream url returns a successful status.
-     * If this returns true the url is likely to work.
-     * If this returns false the url might cause an error during playback.
+     * The status a HEAD request for the stream url gets, or null when the request itself fails.
+     *
+     * 2xx means the url plays to the end. IOS and ANDROID urls answer 403 here while still serving
+     * the first 512 KB of a ranged GET, so a url that fails this check fails partway through the
+     * song, not at the start. [StreamCheck.accept] turns the answer into a decision.
      */
-    private fun validateStatus(url: String): Boolean {
-        try {
-            val requestBuilder = okhttp3.Request.Builder()
-                .head()
-                .url(url)
-            val response = httpClient.newCall(requestBuilder.build()).execute()
-            return response.isSuccessful
-        } catch (e: Exception) {
-            reportException(e)
-        }
-        return false
+    private fun streamStatus(url: String): Int? = try {
+        httpClient.newCall(okhttp3.Request.Builder().head().url(url).build()).execute().use { it.code }
+    } catch (e: Exception) {
+        reportException(e)
+        null
     }
 
     /**

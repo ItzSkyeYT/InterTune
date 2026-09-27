@@ -147,6 +147,9 @@ fun ThumbnailPlaybackError(
                 // partway through a song says nothing about which of three clients to go and
                 // look at, and that is the question every one of these has turned out to be.
                 appendLine("stream client: ${YTPlayerUtils.lastStreamClient ?: "unknown"}")
+                // And what every client answered on the way there. The one that ended the chain is
+                // rarely the cause: issue #17 reported IOS's 403, and VISIONOS had refused first.
+                appendLine("stream chain: ${YTPlayerUtils.lastStreamTrail ?: "unknown"}")
             }
             val headline = "${error.message} (${error.errorCode}): " +
                     (error.cause?.message ?: error.cause?.cause?.message ?: "")
