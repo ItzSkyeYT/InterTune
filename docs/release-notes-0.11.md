@@ -107,6 +107,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 
 ## Fixes
 
+- Songs could stop with "Source error (2004): Response code: 403" every time when YouTube turned the usual source down, which also happened whenever "Failed to get visitorData." showed at launch. InterTune now asks again with a new visitor id, and when YouTube still refuses, the error says what YouTube said. Copied error reports list what each source answered. (Also in 0.10.9.6.)
 - Search could come back empty when YouTube added a section after the results.
 - Songs listed under an artist's top search result showed their length where the artist should be, and podcast episodes showed their date.
 - A song uploaded as "Artist - Track" could lose its name and keep the artist's.
