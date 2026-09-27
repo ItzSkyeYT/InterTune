@@ -438,7 +438,6 @@ class MainActivity : ComponentActivity() {
 
             val (oobeStatus) = rememberPreference(OobeStatusKey, defaultValue = 0)
 
-            var filter by rememberEnumPreference(LibraryFilterKey, Screens.LibraryFilter.ALL)
             val (slimNavPreference) = rememberPreference(SlimNavBarKey, defaultValue = false)
 
             /**
@@ -714,25 +713,6 @@ class MainActivity : ComponentActivity() {
                  */
                 var searchActive by rememberSaveable { mutableStateOf(false) }
 
-                val tabOpenedFromShortcut = remember {
-                    // reroute to library page for new layout is handled in NavHost section
-                    when (intent?.action) {
-                        ACTION_SONGS -> if (navigationItems.contains(Screens.Songs)) Screens.Songs else Screens.Library
-                        ACTION_ALBUMS -> if (navigationItems.contains(Screens.Albums)) Screens.Albums else Screens.Library
-                        ACTION_PLAYLISTS -> if (navigationItems.contains(Screens.Playlists)) Screens.Playlists else Screens.Library
-                        else -> null
-                    }
-                }
-                // setup filters for new layout
-                if (tabOpenedFromShortcut != null && navigationItems.contains(Screens.Library)) {
-                    filter = when (intent?.action) {
-                        ACTION_SONGS -> Screens.LibraryFilter.SONGS
-                        ACTION_ALBUMS -> Screens.LibraryFilter.ALBUMS
-                        ACTION_PLAYLISTS -> Screens.LibraryFilter.PLAYLISTS
-                        else -> Screens.LibraryFilter.ALL
-                    }
-                }
-
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxSize()
@@ -817,6 +797,28 @@ class MainActivity : ComponentActivity() {
                         withFrameNanos { }
                         searchActive = true
                         searchFromShortcut = false
+                    }
+
+                    // The Songs, Albums and Playlists shortcuts, handled the same way: their tab,
+                    // or Library on their filter, once the first destination is there. Since
+                    // upstream 25d504fe1 stopped making the tab the start destination they only
+                    // set the filter and opened on the default tab, and the filter was written
+                    // from composition, again on every recomposition of this scope, putting it
+                    // back over whatever had been picked since. Now it is written once for the
+                    // tap, and before Library opens, which reads it when it first draws.
+                    var libraryShortcutAction by rememberSaveable {
+                        mutableStateOf(
+                            intent?.action?.takeIf {
+                                libraryShortcut(it, navigationItems) != null && oobeStatus >= OOBE_VERSION
+                            }
+                        )
+                    }
+                    LaunchedEffect(libraryShortcutAction) {
+                        val target = libraryShortcut(libraryShortcutAction, navigationItems) ?: return@LaunchedEffect
+                        target.filter?.let { filter -> dataStore.edit { it[LibraryFilterKey] = filter.name } }
+                        snapshotFlow { navBackStackEntry }.first { it != null }
+                        navigateToNavTab(navController, target.screen.route, navigationItems, navController.currentBackStackEntry)
+                        libraryShortcutAction = null
                     }
 
 
@@ -1486,6 +1488,23 @@ private fun navigateToNavTab(
         launchSingleTop = true
         restoreState = leavingATab
     }
+}
+
+/** Where a library launcher shortcut opens: [screen], and the Library filter to show there, if any. */
+internal data class LibraryShortcut(val screen: Screens, val filter: Screens.LibraryFilter?)
+
+/**
+ * The Songs, Albums and Playlists shortcuts open their own tab when the navigation bar has it,
+ * and otherwise Library showing that filter. Null for any other action.
+ */
+internal fun libraryShortcut(action: String?, navigationItems: List<Screens>): LibraryShortcut? {
+    val (tab, filter) = when (action) {
+        MainActivity.ACTION_SONGS -> Screens.Songs to Screens.LibraryFilter.SONGS
+        MainActivity.ACTION_ALBUMS -> Screens.Albums to Screens.LibraryFilter.ALBUMS
+        MainActivity.ACTION_PLAYLISTS -> Screens.Playlists to Screens.LibraryFilter.PLAYLISTS
+        else -> return null
+    }
+    return if (tab in navigationItems) LibraryShortcut(tab, null) else LibraryShortcut(Screens.Library, filter)
 }
 
 
