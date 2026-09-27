@@ -6,9 +6,19 @@
 
 package com.dd3boh.outertune.cast
 
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.ServerSocket
+import java.net.Socket
+import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.concurrent.thread
 
 /** Receivers typed in by address, and the list both searches make. */
 class CastDiscoveryTest {
@@ -56,5 +66,42 @@ class CastDiscoveryTest {
         val speaker = CastDevice(CastProtocol.DLNA, "uuid:spk", "bedroom speaker", "192.168.1.31", 1400, "http://192.168.1.31:1400/d.xml")
         val merged = CastDevices.merge(listOf(fcastTv), listOf(dlnaTv, speaker, speaker))
         assertEquals(listOf(speaker, fcastTv), merged)
+    }
+
+    @Test
+    fun `a renderer that never sends its description is given up within the search's limits`() {
+        val loopback = InetAddress.getByName("127.0.0.1")
+        // Takes the connection and says nothing, for ever.
+        val silent = ServerSocket(0, 4, loopback)
+        val held = CopyOnWriteArrayList<Socket>()
+        thread(isDaemon = true) { runCatching { while (true) held += silent.accept() } }
+        val responder = DatagramSocket(0, loopback)
+        thread(isDaemon = true) {
+            val buffer = ByteArray(2048)
+            runCatching {
+                while (true) {
+                    val packet = DatagramPacket(buffer, buffer.size)
+                    responder.receive(packet)
+                    val reply = ("HTTP/1.1 200 OK\r\nLOCATION: http://127.0.0.1:${silent.localPort}/desc.xml\r\n" +
+                        "ST: ${Ssdp.MEDIA_RENDERER}\r\nUSN: uuid:silent::${Ssdp.MEDIA_RENDERER}\r\n\r\n").toByteArray()
+                    responder.send(DatagramPacket(reply, reply.size, packet.socketAddress))
+                }
+            }
+        }
+        try {
+            val started = System.nanoTime()
+            val found = runBlocking {
+                DlnaDiscovery.search(timeoutMs = 500, http = DlnaDiscovery.descriptionHttp(), destination = InetSocketAddress(loopback, responder.localPort))
+            }
+            val elapsedMs = (System.nanoTime() - started) / 1_000_000
+            assertTrue(found.isEmpty())
+            assertTrue("asked, then waited on its description", held.isNotEmpty())
+            // Half a second of search and four of waiting for the answer; it used to be eight.
+            assertTrue("gave up after $elapsedMs ms", elapsedMs in 4_000..6_500)
+        } finally {
+            responder.close()
+            silent.close()
+            held.forEach { runCatching { it.close() } }
+        }
     }
 }

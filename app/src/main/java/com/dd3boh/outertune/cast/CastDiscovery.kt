@@ -25,7 +25,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.URI
@@ -168,7 +167,7 @@ class CastDiscovery(
         val found = runCatching {
             DlnaDiscovery.search(
                 prepare = { socket -> wifi?.bindSocket(socket) },
-                http = LanHttp(socketFactory = wifi?.socketFactory ?: javax.net.SocketFactory.getDefault()),
+                http = DlnaDiscovery.descriptionHttp(wifi?.socketFactory ?: javax.net.SocketFactory.getDefault()),
             )
         }.onFailure { Log.i(TAG, "SSDP search failed: ${it.message}") }.getOrNull() ?: return
         synchronized(lock) {
@@ -259,10 +258,15 @@ class CastDiscovery(
 
 /** DLNA renderers on the network: an SSDP search, then each one's description. */
 object DlnaDiscovery {
+    /**
+     * [http] reads the descriptions, all at once, so a search lasts [timeoutMs] and then as long as
+     * the slowest description, which is at most its connect and answer limits put together:
+     * [descriptionHttp] in the app.
+     */
     suspend fun search(
         timeoutMs: Long = 3_000,
         prepare: (DatagramSocket) -> Unit = {},
-        http: LanHttp = LanHttp(),
+        http: LanHttp = descriptionHttp(),
         destination: java.net.InetSocketAddress = java.net.InetSocketAddress(Ssdp.MULTICAST_ADDRESS, Ssdp.PORT),
     ): List<CastDevice> {
         val replies = withContext(Dispatchers.IO) {
@@ -270,12 +274,19 @@ object DlnaDiscovery {
         }
         return coroutineScope {
             replies.distinctBy { it.location }.map { reply ->
-                async(Dispatchers.IO) {
-                    withTimeoutOrNull(DESCRIPTION_TIMEOUT_MS) { describe(reply.location, http) }
-                }
+                async(Dispatchers.IO) { describe(reply.location, http) }
             }.awaitAll().filterNotNull().distinctBy { it.id }
         }
     }
+
+    /**
+     * Six seconds at most for a description while searching, as two for the connection and four
+     * for the answer. A timeout around [describe] cannot do it, since a blocking read does not
+     * stop for a cancelled coroutine; only the socket's own limits end it. A renderer slower than
+     * that is left out of this search and found by the next.
+     */
+    fun descriptionHttp(socketFactory: javax.net.SocketFactory = javax.net.SocketFactory.getDefault()) =
+        LanHttp(socketFactory, connectTimeoutMs = 2_000, answerTimeoutMs = 4_000)
 
     /** The renderer at [location] as a [CastDevice], or null when it is not one or cannot be read. */
     fun describe(location: String, http: LanHttp = LanHttp()): CastDevice? {
@@ -293,6 +304,4 @@ object DlnaDiscovery {
             model = listOfNotNull(renderer.manufacturer, renderer.modelName).joinToString(" ").takeIf { it.isNotBlank() },
         )
     }
-
-    private const val DESCRIPTION_TIMEOUT_MS = 6_000L
 }
