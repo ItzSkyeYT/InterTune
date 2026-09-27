@@ -44,10 +44,12 @@ After the update, a few quick questions come up once, for what needs your say-so
 - It takes the shape of its size rather than scaling: one cell is the cover with play over it, a single row is one slim line, four by two is the song with rows under it, square lets the cover fill it with the song over it, and wide and tall puts a big cover beside the song. Nothing is cut off at any size or text size.
 - Each widget is set up on its own, when you add it and later from the launcher: what it shows (what's playing, a list, or both), which list (Quick picks, Forgotten favourites, Keep listening, Recently played), how many rows, the background (the system's, dark, light, taken from the artwork, or none), how solid it is, which buttons, the text size, whether artwork, artists and the heading are drawn, and whether the corners are rounded. The settings show the widget itself, changing as you choose.
 - **Play liked songs** on the app icon: long-press it, or pin the shortcut to your home screen.
+- The Songs, Albums and Playlists shortcuts on the app icon open their tab again. They had been opening the app on its first tab.
 
 ## Stats
 
 - The Stats page now says something about your listening, above the most played lists: how much you listened and how that compares with the period before, the hours you listen at, and findings such as the song you played most in one day and how many of those plays were back to back, a song that came back after weeks away, the artist you always hear to the end, your longest session and nights past midnight. Each only shows when your listening backs it up. Nothing leaves the phone.
+- **Most played artists** covers the period you pick. At 1 week it showed the month so far.
 
 ## Player
 
@@ -63,6 +65,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 - **Fade between tracks** (off by default): each song fades out over its last few seconds and the next fades in, 2 to 12 seconds. The songs do not overlap, so it is not a crossfade, and songs from the same album play straight through.
 - **Use my account to play**: when YouTube refuses to play a song without an account, playback can ask again as you, if you are signed in. Never, Only when a song is refused (the default), or Always.
 - Raise the audio quality and a song cached at the lower one is fetched again the next time it starts. If that fails, the cached copy plays.
+- Apps that ask a music player to play something by name, such as automation apps and some car systems, now reach InterTune, and it plays the best match from your library. Asked for nothing in particular, it carries on with the queue.
 - **Keep the queue up to date** (on by default, for the songs InterTune added itself): drops songs further down the queue that stop suiting what you are playing, and reacts to whether you stay with the current song or skip past it. Most of the queue is hidden while it settles, so you see what is actually coming rather than a list that is about to change.
 
 ## Sound
@@ -157,6 +160,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
 - **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
 - Deleting a synced playlist that someone else made came back with the next sync. It is now unsaved on YouTube as well. **Delete** in an online playlist's menu did nothing at all; it now shows only for a playlist in your library, and removes it.
+- An album's songs are listed in the album's order. One you had already heard came first.
 - Saving a YouTube playlist kept only about its first hundred songs, and sync never refreshed saved playlists.
 - **Remove download** on a playlist you cannot edit, such as a read-only synced one, emptied it.
 - A download folder inside a folder InterTune scans is now refused, and so is a scan folder holding the download folder. Each download was also being scanned in as a local song, and tidying those up could delete the YouTube song with its likes and history.
