@@ -450,8 +450,15 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Not again after a rotation or a restored process: the shortcut was tapped once.
-        if (savedInstanceState == null && intent?.action == ACTION_PLAY_LIKED) playLikedWhenReady()
+        // Not again after a rotation or a restored process: the shortcut was tapped once. Nor when
+        // the task is reopened from recents, which starts it again with the shortcut's intent and
+        // replayed the liked songs over whatever was playing (Android 11 and older, where Back
+        // finishes the activity instead of keeping it).
+        if (savedInstanceState == null && intent?.action == ACTION_PLAY_LIKED &&
+            ((intent?.flags ?: 0) and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
+        ) {
+            playLikedWhenReady()
+        }
         lifecycle.addObserver(controllerViewModel)
         controllerViewModel.addControllerCallback(lifecycle) { controller, _ ->
             playerConnection = PlayerConnection(controllerViewModel, database)
