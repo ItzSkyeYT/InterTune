@@ -47,6 +47,7 @@ import com.dd3boh.outertune.utils.LocalArtworkPathKeyer
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.YouTubeLocale
 import com.zionhuang.kugou.KuGou
@@ -107,6 +108,12 @@ class App : Application(), SingletonImageLoader.Factory {
             YouTube.useLoginForBrowse = true
         }
 
+        // A visitorData the player had to take from a /player answer, because the fetch below
+        // failed or left something unusable. Saved, so the next launch has one and does not
+        // fetch (and fail) again.
+        YTPlayerUtils.onVisitorDataFound = { found ->
+            GlobalScope.launch { dataStore.edit { it[VisitorDataKey] = found } }
+        }
         GlobalScope.launch {
             dataStore.data
                 .map { it[VisitorDataKey] }

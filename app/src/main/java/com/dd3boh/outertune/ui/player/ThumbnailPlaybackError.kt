@@ -53,6 +53,7 @@ import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.ui.utils.fadingEdge
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.Throttle
+import com.dd3boh.outertune.utils.YTPlayerUtils
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 
@@ -142,6 +143,11 @@ fun ThumbnailPlaybackError(
                 appendLine("${BuildConfig.APPLICATION_ID} | ${BuildConfig.BUILD_TYPE}")
                 appendLine("${Build.BRAND} ${Build.DEVICE} (${Build.MODEL})")
                 appendLine("Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT} (${Build.ID})")
+                // What every player client answered for the last song resolved, and what its url
+                // got. A report of a 403 used to say nothing about which of three clients to go and
+                // look at, and the one that ended the chain is rarely the cause: issue #17 reported
+                // IOS's 403, and VISIONOS had refused first.
+                appendLine("stream chain: ${YTPlayerUtils.lastStreamTrail ?: "unknown"}")
             }
             val headline = "${error.message} (${error.errorCode}): " +
                     (error.cause?.message ?: error.cause?.cause?.message ?: "")

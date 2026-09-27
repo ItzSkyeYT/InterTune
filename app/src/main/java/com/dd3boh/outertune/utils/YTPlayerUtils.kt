@@ -9,12 +9,13 @@
 package com.dd3boh.outertune.utils
 
 import android.net.ConnectivityManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.media3.common.PlaybackException
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.utils.YTPlayerUtils.MAIN_CLIENT
 import com.dd3boh.outertune.utils.YTPlayerUtils.STREAM_FALLBACK_CLIENTS
-import com.dd3boh.outertune.utils.YTPlayerUtils.validateStatus
+import com.dd3boh.outertune.utils.YTPlayerUtils.streamStatus
 import com.dd3boh.outertune.utils.potoken.PoTokenGenerator
 import com.dd3boh.outertune.utils.potoken.PoTokenResult
 import com.zionhuang.innertube.NewPipeUtils
@@ -68,8 +69,9 @@ object YTPlayerUtils {
          * the "Source error (2004)" that cut every song off partway through. VISIONOS is exempt,
          * so it plays a track to the end.
          *
-         * Note the loop below skips validateStatus for whichever client is LAST, so anything
-         * placed after this is accepted unchecked. Keep IOS last and keep this ahead of it.
+         * Every client's url gets the [streamStatus] check, the last one's included. It used to go
+         * to the player unchecked, which is how a refused VISIONOS became IOS's 403 on every song
+         * (see [StreamCheck.accept]). Keep this ahead of IOS all the same: IOS urls fail that check.
          */
         VISIONOS,
         // Could not parse deobfuscation function
@@ -81,6 +83,25 @@ object YTPlayerUtils {
     )
 
 
+    /**
+     * What every client in the chain answered for the last song resolved, for the error report:
+     * "ANDROID_VR LOGIN_REQUIRED, VISIONOS LOGIN_REQUIRED, IOS OK, HEAD 403".
+     *
+     * A report used to say "Source error (2004)" and nothing about which client produced the url,
+     * and for a 403 the clients before the last are the story: issue #17 reported IOS's 403, and
+     * the cause was VISIONOS turning the request down one step earlier.
+     */
+    @Volatile
+    var lastStreamTrail: String? = null
+        private set
+
+    /**
+     * Receives a visitorData taken from a /player answer because the app had none, so it can be
+     * saved and the next launch starts with one. Set by App, which owns the stored value.
+     */
+    @Volatile
+    var onVisitorDataFound: ((String) -> Unit)? = null
+
     data class PlaybackData(
         val audioConfig: PlayerResponse.PlayerConfig.AudioConfig?,
         val videoDetails: PlayerResponse.VideoDetails?,
@@ -90,16 +111,87 @@ object YTPlayerUtils {
         val streamExpiresInSeconds: Int,
     )
 
+    /** What one pass of the chain learned, for [playerResponseForPlayback] to act on. */
+    private class ChainNotes {
+        /** VISIONOS gave the bot check, or answered with a url that failed the check. */
+        var visionosRefused = false
+        var gotStream = false
+        var blocked: PlayerResponse.PlayabilityStatus? = null
+
+        fun tellThrottle() {
+            if (gotStream) Throttle.note("OK", null) else blocked?.let { Throttle.note(it.status, it.reason) }
+        }
+    }
+
+    /** When a try with a new visitorData last failed too, in elapsed realtime; 0 if none has. */
+    @Volatile
+    private var lastSwapFailedAt = 0L
+
     /**
      * Custom player response intended to use for playback.
      * Metadata like audioConfig and videoDetails are from [MAIN_CLIENT].
      * Format & stream can be from [MAIN_CLIENT] or [STREAM_FALLBACK_CLIENTS].
+     *
+     * One pass of the chain, and when VISIONOS turned it down, one more with a visitorData YouTube
+     * has only just issued: see [StreamCheck.mayRetryWithNewVisitor]. The throttle hears the
+     * outcome once both are done, so a refusal the second pass clears never trips the back off.
      */
     suspend fun playerResponseForPlayback(
         videoId: String,
         playlistId: String? = null,
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
+    ): Result<PlaybackData> {
+        val first = ChainNotes()
+        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first)
+        val sinceFailedSwap = lastSwapFailedAt.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
+        if (result.isSuccess || !StreamCheck.mayRetryWithNewVisitor(first.visionosRefused, sinceFailedSwap)) {
+            first.tellThrottle()
+            return result
+        }
+        val previous = YouTube.visitorData
+        val fresh = mintVisitorData(videoId)?.takeIf { it != previous }
+        if (fresh == null) {
+            first.tellThrottle()
+            return result
+        }
+
+        Log.i(TAG, "[$videoId] VISIONOS refused, trying again with a visitorData YouTube has just issued")
+        YouTube.visitorData = fresh
+        val second = ChainNotes()
+        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second)
+        second.tellThrottle()
+        if (retried.isSuccess) {
+            lastSwapFailedAt = 0L
+            // Kept for good only when signed out. Signed in, the stored one came from the
+            // account's own sign-in page and goes with its cookie, so this one lasts until the
+            // app restarts, and a bad stored one costs one extra pass per launch.
+            if (YouTube.cookie == null) onVisitorDataFound?.invoke(fresh)
+        } else {
+            YouTube.visitorData = previous
+            lastSwapFailedAt = SystemClock.elapsedRealtime()
+        }
+        return retried
+    }
+
+    /**
+     * A visitorData YouTube has only just issued: the main client asked without one, whose answer
+     * carries a new one whatever it says. sw.js_data would do as well, but it is the very fetch
+     * that failed at every launch in issue #17.
+     */
+    private suspend fun mintVisitorData(videoId: String): String? =
+        YouTube.player(videoId, null, MAIN_CLIENT, visitorData = null)
+            .onFailure { Throttle.noteFailure(it) }
+            .getOrNull()
+            ?.responseContext?.visitorData
+            ?.takeIf { StreamCheck.looksLikeVisitorData(it) }
+
+    private suspend fun resolveOnce(
+        videoId: String,
+        playlistId: String?,
+        audioQuality: AudioQuality,
+        connectivityManager: ConnectivityManager,
+        notes: ChainNotes,
     ): Result<PlaybackData> = runCatching {
         Log.d(TAG, "Playback info requested: $videoId")
 
@@ -166,6 +258,17 @@ object YTPlayerUtils {
                 .getOrThrow()
         mainPlayerResponse.rememberBlock()
 
+        // Without a visitorData YouTube issued, VISIONOS refuses every song and the chain ends in
+        // IOS's 403 (issue #17: sw.js_data failed at every launch). The main client has just
+        // answered, and its answer carries a fresh one whatever it said, so take that before
+        // VISIONOS is asked. See StreamCheck.visitorDataToAdopt.
+        StreamCheck.visitorDataToAdopt(YouTube.visitorData, mainPlayerResponse.responseContext.visitorData)
+            ?.let { found ->
+                Log.i(TAG, "[$videoId] no usable visitorData, taking the one ${MAIN_CLIENT.clientName}'s answer carried")
+                YouTube.visitorData = found
+                onVisitorDataFound?.invoke(found)
+            }
+
         val videoDetails = mainPlayerResponse.videoDetails
         val playbackTracking = mainPlayerResponse.playbackTracking
 
@@ -174,6 +277,12 @@ object YTPlayerUtils {
         var streamExpiresInSeconds: Int? = null
 
         var streamPlayerResponse: PlayerResponse? = null
+        // What a fallback client said when it turned the request down outright, and the status the
+        // last refused url got. Together they explain a chain that found urls and had every one
+        // refused, where the reason is the cause and the status only its symptom.
+        var fallbackRefusal: PlayerResponse.PlayabilityStatus? = null
+        var refusedStatus: Int? = null
+        val trail = mutableListOf<String>()
         for (clientIndex in (-1 until STREAM_FALLBACK_CLIENTS.size)) {
             // reset for each client
             format = null
@@ -204,6 +313,17 @@ object YTPlayerUtils {
                 streamPlayerResponse?.rememberBlock()
             }
 
+            if (clientIndex >= 0) {
+                streamPlayerResponse?.playabilityStatus
+                    ?.takeIf { it.status != "OK" && fallbackRefusal == null }
+                    ?.let { fallbackRefusal = it }
+            }
+            val isVisionos = client.clientName == VISIONOS.clientName
+            if (isVisionos && Throttle.looksLikeBlock(streamPlayerResponse?.playabilityStatus?.reason)) {
+                notes.visionosRefused = true
+            }
+            trail += StreamCheck.trailStep(client.clientName, streamPlayerResponse?.playabilityStatus?.status, null, checked = false)
+
             Log.d(TAG, "[$videoId] stream client: ${client.clientName}, " +
                     "playabilityStatus: ${streamPlayerResponse?.playabilityStatus?.let {
                         it.status + (it.reason?.let { " - $it" } ?: "")
@@ -225,24 +345,41 @@ object YTPlayerUtils {
                     streamUrl += "&pot=$webStreamingPot";
                 }
 
-                if (clientIndex == STREAM_FALLBACK_CLIENTS.size - 1) {
-                    /** skip [validateStatus] for last client */
+                val isLast = clientIndex == STREAM_FALLBACK_CLIENTS.size - 1
+                val status = streamStatus(streamUrl)
+                trail[trail.lastIndex] = StreamCheck.trailStep(client.clientName, "OK", status, checked = true)
+                if (StreamCheck.accept(status, isLast)) {
+                    // working stream found, or the last one left with nothing to say it is not
+                    Log.i(TAG, "[$videoId] [${client.clientName}] found working stream ($status)")
                     break
                 }
-                if (validateStatus(streamUrl)) {
-                    // working stream found
-                    Log.i(TAG, "[$videoId] [${client.clientName}] found working stream")
-                    break
-                } else {
-                    Log.w(TAG, "[$videoId] [${client.clientName}] got bad http status code")
+                Log.w(TAG, "[$videoId] [${client.clientName}] got bad http status code $status")
+                if (status != null) {
+                    refusedStatus = status
+                    if (isVisionos) notes.visionosRefused = true
                 }
+                streamUrl = null
             }
         }
 
-        if (streamUrl != null) {
-            Throttle.note("OK", null)
-        } else {
-            blockedStatus?.let { Throttle.note(it.status, it.reason) }
+        lastStreamTrail = trail.joinToString(", ")
+        Log.d(TAG, "[$videoId] chain: $lastStreamTrail")
+
+        // For the throttle, which playerResponseForPlayback tells once it knows whether a second
+        // pass is needed and how it went.
+        notes.gotStream = streamUrl != null
+        notes.blocked = blockedStatus
+
+        // Every url the chain produced was refused by its check. Say why in the words of the client
+        // that turned the request down, rather than "Could not find stream url".
+        refusedStatus?.let { status ->
+            if (streamUrl == null) {
+                throw PlaybackException(
+                    StreamCheck.refusalMessage(fallbackRefusal?.reason, status),
+                    null,
+                    PlaybackException.ERROR_CODE_REMOTE_ERROR,
+                )
+            }
         }
 
         if (streamPlayerResponse == null) {
@@ -386,21 +523,17 @@ object YTPlayerUtils {
     }
 
     /**
-     * Checks if the stream url returns a successful status.
-     * If this returns true the url is likely to work.
-     * If this returns false the url might cause an error during playback.
+     * The status a HEAD request for the stream url gets, or null when the request itself fails.
+     *
+     * 2xx means the url plays to the end. IOS and ANDROID urls answer 403 here while still serving
+     * the first 512 KB of a ranged GET, so a url that fails this check fails partway through the
+     * song, not at the start. [StreamCheck.accept] turns the answer into a decision.
      */
-    private fun validateStatus(url: String): Boolean {
-        try {
-            val requestBuilder = okhttp3.Request.Builder()
-                .head()
-                .url(url)
-            val response = httpClient.newCall(requestBuilder.build()).execute()
-            return response.isSuccessful
-        } catch (e: Exception) {
-            reportException(e)
-        }
-        return false
+    private fun streamStatus(url: String): Int? = try {
+        httpClient.newCall(okhttp3.Request.Builder().head().url(url).build()).execute().use { it.code }
+    } catch (e: Exception) {
+        reportException(e)
+        null
     }
 
     /**

@@ -138,6 +138,8 @@ class InnerTube {
         playlistId: String?,
         signatureTimestamp: Int?,
         webPlayerPot: String?,
+        // Null asks as a visitor YouTube has never seen, and the answer carries a new visitorData.
+        visitorData: String? = this.visitorData,
     ) = httpClient.post("player") {
         ytClient(client, setLogin = true)
         setBody(
