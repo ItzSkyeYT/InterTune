@@ -82,8 +82,16 @@ class CastProbe(
     @Volatile
     private var sent: Sent? = null
 
-    /** The last song sent: which load it was on the link, and in what form. */
-    private data class Sent(val load: Int, val mediaId: String, val mimeType: String, val choice: FormatChoice, val local: Boolean)
+    /**
+     * The last song sent: which load it was on the link, and in what form. A failure is acted on
+     * once for each song sent, as the remote player does (SentSong): the receiver keeps saying
+     * FAILED until the next song, and sends its whole status again when anything else in it
+     * changes, its volume for one.
+     */
+    private class Sent(val load: Int, val mediaId: String, val mimeType: String, val choice: FormatChoice, val local: Boolean) {
+        @Volatile
+        var failureTaken = false
+    }
 
     private val action = "${BuildConfig.APPLICATION_ID}.CAST_PROBE"
 
@@ -210,7 +218,8 @@ class CastProbe(
                 "${status.positionMs} of ${status.durationMs} ms" + (status.error?.let { ", error: $it" } ?: ""),
         )
         if (status.state != ReceiverState.FAILED) return
-        val sent = sent?.takeIf { it.load == status.load && it.mediaId == status.mediaId } ?: return
+        val sent = sent?.takeIf { it.load == status.load && it.mediaId == status.mediaId && !it.failureTaken } ?: return
+        sent.failureTaken = true
         val link = link ?: return
         // What the remote player will do: the song is resolved again on its next request, and a
         // receiver that never said what it plays gets one more try as AAC.
