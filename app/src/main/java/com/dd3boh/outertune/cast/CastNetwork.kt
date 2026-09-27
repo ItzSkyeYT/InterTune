@@ -12,6 +12,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import java.net.Inet4Address
+import java.net.Inet6Address
 import java.net.InetAddress
 
 /**
@@ -44,14 +45,20 @@ object CastNetwork {
     }
 
     /**
-     * The address to listen on and hand to receivers: IPv4 first, since that is what every
-     * receiver can reach, then a routable IPv6 one. Never loopback, link-local or multicast: a
-     * link-local IPv6 address needs a zone no receiver would be given.
+     * The address to listen on and hand to receivers: IPv4, which is what every receiver can reach,
+     * or failing that a unique local IPv6 address (fc00::/7), which stays on the local network.
+     * Never a global IPv6 address: phones have no firewall for what comes in, so on a router that
+     * lets IPv6 in, the server would be open to the internet with only its token to guard it. Never
+     * loopback, link-local or multicast either: a link-local IPv6 address needs a zone no receiver
+     * would be given. A Wi-Fi with none of these counts as no Wi-Fi.
      */
     fun pickAddress(addresses: List<InetAddress>): InetAddress? = addresses
         .filter { !it.isLoopbackAddress && !it.isLinkLocalAddress && !it.isAnyLocalAddress && !it.isMulticastAddress }
+        .filter { it is Inet4Address || (it is Inet6Address && isUniqueLocal(it)) }
         .sortedBy { if (it is Inet4Address) 0 else 1 }
         .firstOrNull()
+
+    private fun isUniqueLocal(address: Inet6Address) = (address.address[0].toInt() and 0xFE) == 0xFC
 
     /**
      * Calls [onGone] when [wifi] goes away or the phone loses its address on it, and returns the

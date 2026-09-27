@@ -241,8 +241,15 @@ class CastReadersTest {
     }
 
     @Test
-    fun `a routable IPv6 address does when there is no IPv4`() {
-        assertEquals(InetAddress.getByName("2a01:e0a::5"), CastNetwork.pickAddress(addresses("fe80::1", "2a01:e0a::5")))
+    fun `a unique local IPv6 address does when there is no IPv4`() {
+        assertEquals(InetAddress.getByName("fd12:3456::5"), CastNetwork.pickAddress(addresses("fe80::1", "2a01:e0a::5", "fd12:3456::5")))
+        assertEquals(InetAddress.getByName("192.168.1.20"), CastNetwork.pickAddress(addresses("fd12:3456::5", "192.168.1.20")))
+    }
+
+    @Test
+    fun `a global IPv6 address is never picked, since the internet could reach it`() {
+        assertNull(CastNetwork.pickAddress(addresses("fe80::1", "2a01:e0a::5")))
+        assertNull(CastNetwork.pickAddress(addresses("2001:4860:4860::8888")))
     }
 
     @Test
