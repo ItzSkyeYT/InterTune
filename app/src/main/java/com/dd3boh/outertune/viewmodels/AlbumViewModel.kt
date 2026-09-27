@@ -11,6 +11,7 @@ import com.zionhuang.innertube.models.AlbumItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -23,8 +24,15 @@ class AlbumViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     val albumId = savedStateHandle.get<String>("albumId")!!
-    val albumWithSongs = database.albumWithSongs(albumId)
-        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    /**
+     * The album with its songs in the album's order. The relation in AlbumWithSongs goes through
+     * a view sorted by position, but SQLite folds the view into the join and keeps no order, so
+     * the songs came out in the order they were first stored: a song heard before the album was
+     * opened headed the tracklist as number one. albumSongs sorts in the query itself.
+     */
+    val albumWithSongs = combine(database.albumWithSongs(albumId), database.albumSongs(albumId)) { album, ordered ->
+        album?.copy(songs = ordered)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val otherVersions = MutableStateFlow<List<AlbumItem>>(emptyList())
 
     val isLoading = MutableStateFlow(true)
