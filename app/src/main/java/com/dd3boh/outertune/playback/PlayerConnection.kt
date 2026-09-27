@@ -87,6 +87,17 @@ class PlayerConnection(
     val currentWindowIndex = MutableStateFlow(-1)
 
     val shuffleModeEnabled = MutableStateFlow(false)
+
+    /**
+     * Where the restored song stopped, until it is loaded into the player; null once it is.
+     *
+     * After a cold start the player is empty until something is played: the saved queue sits in
+     * the queue board and only goes into the player on play. The song shown meanwhile comes from
+     * the saved queue (see init), but its position and shuffle came from the empty player, so a
+     * song that resumes at 1:12 in a shuffled queue showed 0:00 with shuffle off. That read as the
+     * position being lost, the very thing 0.11 fixed.
+     */
+    val restoredPosition = MutableStateFlow<Long?>(null)
     val repeatMode = MutableStateFlow(REPEAT_MODE_OFF)
 
     val canSkipPrevious = MutableStateFlow(true)
@@ -107,7 +118,12 @@ class PlayerConnection(
         repeatMode.value = player.repeatMode
 
         scope.launch {
-            mediaMetadata.value = player.currentMetadata ?: database.getResumptionQueue()?.getCurrentSong()
+            val resumption = if (player.currentMetadata == null) database.getResumptionQueue() else null
+            mediaMetadata.value = player.currentMetadata ?: resumption?.getCurrentSong()
+            if (resumption != null && player.currentMediaItem == null) {
+                restoredPosition.value = resumption.lastSongPos.takeIf { it > 0 }
+                shuffleModeEnabled.value = resumption.shuffled
+            }
         }
     }
 
@@ -181,6 +197,7 @@ class PlayerConnection(
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        if (mediaItem != null) restoredPosition.value = null
         mediaMetadata.value = mediaItem?.metadata
         currentMediaItemIndex.value = player.currentMediaItemIndex
         currentWindowIndex.value = player.getCurrentQueueIndex()
@@ -188,6 +205,7 @@ class PlayerConnection(
     }
 
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+        if (!timeline.isEmpty) restoredPosition.value = null
         queueWindows.value = player.getQueueWindows()
         queuePlaylistId.value = service.queuePlaylistId
         currentMediaItemIndex.value = player.currentMediaItemIndex

@@ -348,6 +348,18 @@ fun BottomSheetPlayer(
         mutableStateOf<Long?>(null)
     }
 
+    // A restored song shows where it stopped until it is loaded into the player, which on a cold
+    // start is not until play (see PlayerConnection.restoredPosition).
+    val restoredPosition by playerConnection.restoredPosition.collectAsState()
+    val shownPosition = restoredPosition ?: position
+    // The song's own length while the player has none: before a restored song is loaded, and while
+    // any song is still loading, when the bar used to drop to the start and the length went blank.
+    val shownDuration = if (duration == C.TIME_UNSET) {
+        mediaMetadata?.duration?.takeIf { it > 0 }?.let { it * 1000L } ?: duration
+    } else {
+        duration
+    }
+
     var gradientColors by remember {
         mutableStateOf<List<Color>>(emptyList())
     }
@@ -679,8 +691,8 @@ fun BottomSheetPlayer(
         pinAtCollapsed = !swipeToDismissPlayer,
         collapsedContent = {
             MiniPlayer(
-                position = position,
-                duration = duration
+                position = shownPosition,
+                duration = shownDuration
             )
         }
     ) {
@@ -1035,8 +1047,8 @@ fun BottomSheetPlayer(
 
                 val seekInteraction = remember { MutableInteractionSource() }
                 Slider(
-                    value = (sliderPosition ?: position).toFloat(),
-                    valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+                    value = (sliderPosition ?: shownPosition).toFloat(),
+                    valueRange = 0f..(if (shownDuration == C.TIME_UNSET) 0f else shownDuration.toFloat()),
                     onValueChange = {
                         sliderPosition = it.toLong()
                         // slider too granular for this haptic to feel right
@@ -1044,8 +1056,15 @@ fun BottomSheetPlayer(
                     },
                     onValueChangeFinished = {
                         sliderPosition?.let {
-                            playerConnection.player.seekTo(it)
-                            position = it
+                            if (restoredPosition != null && playerConnection.player.currentMediaItem == null) {
+                                // Nothing is loaded yet, so there is nothing to seek: move where
+                                // the restored song will start instead.
+                                playerConnection.service.queueBoard.getCurrentQueue()?.lastSongPos = it
+                                playerConnection.restoredPosition.value = it
+                            } else {
+                                playerConnection.player.seekTo(it)
+                                position = it
+                            }
                         }
                         sliderPosition = null
                         haptic.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -1078,7 +1097,7 @@ fun BottomSheetPlayer(
                         .padding(horizontal = hPadding + 4.dp)
                 ) {
                     Text(
-                        text = makeTimeString(sliderPosition ?: position),
+                        text = makeTimeString(sliderPosition ?: shownPosition),
                         style = MaterialTheme.typography.labelMedium,
                         color = onBackgroundColor,
                         maxLines = 1,
@@ -1086,7 +1105,7 @@ fun BottomSheetPlayer(
                     )
 
                     Text(
-                        text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
+                        text = if (shownDuration != C.TIME_UNSET) makeTimeString(shownDuration) else "",
                         style = MaterialTheme.typography.labelMedium,
                         color = onBackgroundColor,
                         maxLines = 1,
