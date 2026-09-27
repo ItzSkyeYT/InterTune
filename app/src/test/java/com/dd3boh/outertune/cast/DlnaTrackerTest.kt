@@ -69,6 +69,46 @@ class DlnaTrackerTest {
     }
 
     @Test
+    fun `a poll that straddles the end, playing then back at 0, is still followed by the end`() {
+        // GetTransportInfo answered just before the song ended, GetPositionInfo just after, when
+        // the renderer had already gone back to 0. Seen on the emulator, where each call took a
+        // second.
+        val song = tracker(durationMs = 40_000)
+        song.playAsked(0)
+        song.poll("PLAYING", 1_000, rel = 37_000)
+        val straddled = song.poll("PLAYING", 3_000, rel = 0)
+        assertEquals(ReceiverState.PLAYING, straddled.state)
+        assertEquals(39_000L, straddled.positionMs)
+        assertEquals(ReceiverState.ENDED, song.poll("STOPPED", 5_000, rel = 0).state)
+    }
+
+    @Test
+    fun `a song that really starts again near its end is followed from the start`() {
+        // The renderer's own repeat, or someone pressing restart on it: the second poll at the
+        // start is believed.
+        val song = tracker(durationMs = 40_000)
+        song.playAsked(0)
+        song.poll("PLAYING", 1_000, rel = 37_000)
+        song.poll("PLAYING", 3_000, rel = 0)
+        val again = song.poll("PLAYING", 5_000, rel = 2_000)
+        assertEquals(ReceiverState.PLAYING, again.state)
+        assertEquals(2_000L, again.positionMs)
+        val stopped = song.poll("STOPPED", 7_000, rel = 0)
+        assertEquals(ReceiverState.IDLE, stopped.state)
+        assertEquals("Stopped on TV", stopped.error)
+    }
+
+    @Test
+    fun `a seek back to the start near the end is not doubted`() {
+        val song = tracker(durationMs = 40_000)
+        song.playAsked(0)
+        song.poll("PLAYING", 1_000, rel = 37_000)
+        song.seekAsked(0)
+        val playing = song.poll("PLAYING", 2_000, rel = 500)
+        assertEquals(500L, playing.positionMs)
+    }
+
+    @Test
     fun `NO_MEDIA_PRESENT at the end counts too`() {
         val song = tracker()
         song.playAsked(0)

@@ -16,6 +16,10 @@ package com.dd3boh.outertune.cast
  * - STOPPED (or NO_MEDIA_PRESENT) after the song has played is its end when the position last
  *   heard, carried on to now, is within [endSlackMs] of the length, and otherwise a stop made on
  *   the device itself;
+ * - PLAYING back at the start when the song had got within [endSlackMs] of its end is doubted
+ *   once: a poll asks two questions, and when the song ends between them the renderer says it is
+ *   playing and then that it is at 0, which taken as it stands would make the stop that follows
+ *   look like one made on the device, and the queue would stop there;
  * - STOPPED before the song has ever played is the renderer still opening it, until
  *   [startGraceMs] after Play, when it is taken as a failure: renderers that cannot fetch or
  *   decode a url mostly just stop, without an error;
@@ -47,6 +51,10 @@ class DlnaTracker(
 
     /** Whether the renderer was playing at the last report, so the position was moving since. */
     private var moving = false
+
+    /** Whether the last report was a position back at the start that was not believed. */
+    private var doubted = false
+
     private var durationMs = durationHintMs
 
     var view = View(if (play) ReceiverState.LOADING else ReceiverState.PAUSED, startMs.coerceAtLeast(0), durationHintMs)
@@ -100,11 +108,20 @@ class DlnaTracker(
         view = when (state) {
             "PLAYING" -> {
                 sawPlaying = true
-                val position = relTimeMs ?: carriedOn(at)
-                lastPlayingMs = position
-                lastPlayingAt = at
-                moving = true
-                View(ReceiverState.PLAYING, waiting ?: position, durationMs)
+                val reached = carriedOn(at)
+                if (!doubted && moving && relTimeMs != null && isBackAtStart(relTimeMs, reached)) {
+                    // Carried on from before instead; the next poll says whether the song ended
+                    // (stopped) or really began again (playing from near the start).
+                    doubted = true
+                    View(ReceiverState.PLAYING, waiting ?: reached.coerceAtMost(durationMs), durationMs)
+                } else {
+                    doubted = false
+                    val position = relTimeMs ?: reached
+                    lastPlayingMs = position
+                    lastPlayingAt = at
+                    moving = true
+                    View(ReceiverState.PLAYING, waiting ?: position, durationMs)
+                }
             }
             "PAUSED_PLAYBACK", "PAUSED_RECORDING" -> {
                 val position = relTimeMs ?: view.positionMs
@@ -141,6 +158,14 @@ class DlnaTracker(
         at - playAskedAt >= startGraceMs -> View(ReceiverState.FAILED, view.positionMs, durationMs, "$deviceName stopped without playing it")
         else -> View(ReceiverState.LOADING, view.positionMs, durationMs)
     }
+
+    /**
+     * Whether [heardMs] is the renderer back at the start when the song had [reachedMs] of its
+     * length behind it, within [endSlackMs] of the end. Only a jump back: a short song moving on
+     * normally is near its start and its end at once.
+     */
+    private fun isBackAtStart(heardMs: Long, reachedMs: Long): Boolean =
+        durationMs > 0 && reachedMs >= durationMs - endSlackMs && heardMs < endSlackMs && heardMs + endSlackMs < reachedMs
 
     /** The last position heard, moved on to [at] if the renderer was playing then. */
     private fun carriedOn(at: Long): Long = when {
