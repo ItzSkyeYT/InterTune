@@ -35,12 +35,17 @@ data class CastOffer(val url: String, val mimeType: String, val length: Long)
  * expires. So the phone serves every song itself, through [source], which in the app is the
  * player's own resolver (experiments/casting/design.md, sections 3 and 4).
  *
- * One server is one casting session. It listens on [bindAddress] alone, which the app sets to the
- * phone's address on Wi-Fi, so nothing on mobile data can reach it. Every url carries [token], new
- * for each server, and a request without it gets the same 404 as a url that names nothing, as does
- * a song that [isServable] says is not in the session. Only GET, HEAD and OPTIONS are answered, one
- * request per connection, at most [maxConnections] at once, and a request head has 10 seconds
- * ([headTimeoutMs]) and 8 KB to arrive.
+ * One server is one casting session. It listens on [bindAddress], which the app sets to the
+ * phone's address on Wi-Fi, so nothing on mobile data can reach it. With [alsoLoopback] it also
+ * listens on 127.0.0.1 at the same port, which debug builds use: `adb forward` arrives on the
+ * device's loopback, and a server bound only to the Wi-Fi address refuses it, so a receiver on the
+ * development machine could never fetch a song (design.md section 10). Urls always name
+ * [bindAddress]; a receiver reached through adb is pointed at 127.0.0.1 itself.
+ *
+ * Every url carries [token], new for each server, and a request without it gets the same 404 as a
+ * url that names nothing, as does a song that [isServable] says is not in the session. Only GET,
+ * HEAD and OPTIONS are answered, one request per connection, at most [maxConnections] at once,
+ * and a request head has 10 seconds ([headTimeoutMs]) and 8 KB to arrive.
  *
  * Songs are streamed in 64 KB pieces, never held whole, and a song is resolved once per session:
  * the HEAD, the first GET and every seek after it reuse what [source] said the first time.
@@ -53,11 +58,13 @@ class CastServer(
     val token: String = CastHttp.newToken(),
     private val maxConnections: Int = MAX_CONNECTIONS,
     private val headTimeoutMs: Int = HEAD_TIMEOUT_MS,
+    private val alsoLoopback: Boolean = false,
 ) {
     private val lock = Any()
 
     @Volatile
     private var serverSocket: ServerSocket? = null
+    private var loopbackSocket: ServerSocket? = null
     private var workers: ThreadPoolExecutor? = null
     private var used = false
     private val connections: MutableSet<Socket> = ConcurrentHashMap.newKeySet()
@@ -94,6 +101,32 @@ class CastServer(
                 start()
             }
             Log.i(TAG, "Serving on ${CastHttp.hostForUrl(bindAddress)}:${socket.localPort}")
+            if (alsoLoopback && bindAddress != LOOPBACK && !bindAddress.isAnyLocalAddress) {
+                val loopback = bindLoopback(socket.localPort) ?: return
+                loopbackSocket = loopback
+                Thread({ acceptLoop(loopback, pool) }, "CastServer-accept-loopback").apply {
+                    isDaemon = true
+                    start()
+                }
+                Log.i(TAG, "Also serving on 127.0.0.1:${loopback.localPort}")
+            }
+        }
+    }
+
+    /**
+     * The loopback listener, on [port] like the main one so that one forward reaches both. Only a
+     * convenience for testing, so when that port is taken on loopback it goes without.
+     */
+    private fun bindLoopback(port: Int): ServerSocket? {
+        val socket = ServerSocket()
+        return try {
+            socket.reuseAddress = true
+            socket.bind(InetSocketAddress(LOOPBACK, port), BACKLOG)
+            socket
+        } catch (e: IOException) {
+            Log.w(TAG, "Could not also listen on 127.0.0.1:$port", e)
+            runCatching { socket.close() }
+            null
         }
     }
 
@@ -125,6 +158,8 @@ class CastServer(
             val socket = serverSocket ?: return
             serverSocket = null
             runCatching { socket.close() }
+            loopbackSocket?.let { runCatching { it.close() } }
+            loopbackSocket = null
             connections.forEach { runCatching { it.close() } }
             connections.clear()
             workers?.shutdownNow()
@@ -301,6 +336,7 @@ class CastServer(
         const val DEBUG_PORT = 47800
 
         const val MAX_CONNECTIONS = 8
+        private val LOOPBACK: InetAddress = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
         private const val BACKLOG = 16
         private const val HEAD_TIMEOUT_MS = 10_000
         private const val BUFFER_BYTES = 64 * 1024

@@ -490,6 +490,37 @@ class CastServerTest {
     }
 
     @Test
+    fun `asked to, it also answers on loopback at the same port, and its urls still name its own address`() {
+        val own = InetAddress.getByName("127.0.0.2")
+        val plain = CastServer(FakeSource("a" to FakeSong(100)), own, { true }).also { servers += it; it.start() }
+        try {
+            Socket().use { it.connect(InetSocketAddress("127.0.0.1", plain.boundPort), 2000) }
+            fail("Reachable on loopback without being asked")
+        } catch (expected: IOException) {
+        }
+
+        val server = CastServer(FakeSource("a" to FakeSong(100)), own, { true }, alsoLoopback = true)
+            .also { servers += it; it.start() }
+        val port = server.boundPort
+        val url = server.urlFor("a", "audio/webm")
+        assertTrue(url, url.startsWith("http://127.0.0.2:$port/c/"))
+        get(url).use { assertEquals(200, it.code) }
+        get(url.replace("127.0.0.2", "127.0.0.1"), "bytes=10-19").use { response ->
+            assertEquals(206, response.code)
+            assertArrayEquals(expected(10, 10), response.body!!.bytes())
+        }
+
+        server.stop()
+        for (host in listOf("127.0.0.1", "127.0.0.2")) {
+            try {
+                Socket().use { it.connect(InetSocketAddress(host, port), 2000) }
+                fail("Still listening on $host after stop")
+            } catch (expected: IOException) {
+            }
+        }
+    }
+
+    @Test
     fun `a port already taken gives way to one the system picks`() {
         val first = serve(FakeSource("a" to FakeSong(100)))
         val second = serve(FakeSource("a" to FakeSong(200)), port = first.boundPort)

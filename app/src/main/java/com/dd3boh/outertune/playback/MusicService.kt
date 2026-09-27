@@ -1846,10 +1846,10 @@ class MusicService : MediaLibraryService(),
      * Starts the server a receiver fetches the queue's songs from, or returns the one already
      * running.
      *
-     * It listens on the phone's address on Wi-Fi and nowhere else, serves only songs in the
-     * current queue, finds them through a [SongResolver] of its own, and stops by itself when that
-     * Wi-Fi goes. Debug builds try port 47800 first, so one adb forward covers every test run.
-     * Null with casting off, without Wi-Fi, or when no socket can be opened.
+     * It listens on the phone's address on Wi-Fi, serves only songs in the current queue, finds
+     * them through a [SongResolver] of its own, and stops by itself when that Wi-Fi goes. Debug
+     * builds try port 47800 first and also listen on loopback there, so one adb forward covers
+     * every test run. Null with casting off, without Wi-Fi, or when no socket can be opened.
      */
     fun startCastServer(): CastServer? {
         if (!Unreleased.CASTING) return null
@@ -1891,6 +1891,7 @@ class MusicService : MediaLibraryService(),
                 wifi.address,
                 isServable = { id -> queueBoard.getCurrentQueue()?.findSong(id) != null },
                 port = if (BuildConfig.DEBUG) CastServer.DEBUG_PORT else 0,
+                alsoLoopback = BuildConfig.DEBUG,
             )
             try {
                 server.start()
