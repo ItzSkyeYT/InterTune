@@ -156,7 +156,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Dragging songs with the add panel open moved the wrong rows.
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
 - **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
-- Deleting a saved YouTube playlist that someone else made did nothing. It now goes, and is unsaved on YouTube too.
+- Deleting a synced playlist that someone else made came back with the next sync. It is now unsaved on YouTube as well. **Delete** in an online playlist's menu did nothing at all; it now shows only for a playlist in your library, and removes it.
 - Saving a YouTube playlist kept only about its first hundred songs, and sync never refreshed saved playlists.
 - **Remove download** on a playlist you cannot edit, such as a read-only synced one, emptied it.
 - A download folder inside a folder InterTune scans is now refused, and so is a scan folder holding the download folder. Each download was also being scanned in as a local song, and tidying those up could delete the YouTube song with its likes and history.

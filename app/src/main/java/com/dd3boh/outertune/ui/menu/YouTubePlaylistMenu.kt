@@ -54,6 +54,8 @@ import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.utils.getDownloadState
+import com.dd3boh.outertune.utils.mayPushToYouTube
+import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.PlaylistItem
 import com.zionhuang.innertube.models.SongItem
@@ -280,11 +282,14 @@ fun YouTubePlaylistMenu(
             onDismiss()
         }
 
-        GridMenuItem(
-            icon = Icons.Rounded.PlaylistRemove,
-            title = R.string.delete
-        ) {
-            showDeletePlaylistDialog = true
+        // Only for a playlist that is in the library: there is nothing here to delete otherwise.
+        if (dbPlaylist?.playlist != null) {
+            GridMenuItem(
+                icon = Icons.Rounded.PlaylistRemove,
+                title = R.string.delete
+            ) {
+                showDeletePlaylistDialog = true
+            }
         }
     }
 
@@ -403,8 +408,24 @@ fun YouTubePlaylistMenu(
                     onClick = {
                         showDeletePlaylistDialog = false
                         onDismiss()
-                        database.transaction {
-                            deletePlaylistById(playlist.id)
+                        // What the library's own Delete does. This used to delete by the YouTube
+                        // id, which is no playlist's id here (the library gives its playlists ids
+                        // of their own and keeps YouTube's as browseId), so it did nothing at all.
+                        val saved = dbPlaylist?.playlist ?: return@TextButton
+                        database.query {
+                            delete(saved)
+                        }
+                        if (!saved.isLocal) {
+                            coroutineScope.launch(syncCoroutine) {
+                                if (context.mayPushToYouTube()) {
+                                    saved.browseId?.let { browseId ->
+                                        // Someone else's playlist cannot be deleted, only taken
+                                        // out of the library, as the heart does.
+                                        if (saved.isEditable) YouTube.deletePlaylist(browseId)
+                                        else YouTube.likePlaylist(browseId, false)
+                                    }
+                                }
+                            }
                         }
                     }
                 ) {
