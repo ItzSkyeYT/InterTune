@@ -25,6 +25,7 @@ class LauncherShortcutsTest {
         MainActivity.ACTION_SONGS,
         MainActivity.ACTION_ALBUMS,
         MainActivity.ACTION_PLAYLISTS,
+        MainActivity.ACTION_PLAY_LIKED,
     )
 
     @Test
