@@ -27,21 +27,19 @@ import com.dd3boh.outertune.BuildConfig
  * build was installed was a gate that had outgrown its job. The release is what 0.10.8 is about,
  * and `assembleCoreRelease` is what proves the gate still holds.
  *
- * For 0.11: the widget is on already (both components enabled in AndroidManifest.xml, with the
- * version at 90). What is left is to set [ENGINE] to true outright and delete this file along with
- * the three `if (Unreleased.` checks that reference it.
+ * For 0.11: the widget is on already (both components enabled in AndroidManifest.xml), and [ENGINE]
+ * is on in releases too, decided on 27 Sep 2026. The file stays for what is still held back.
  */
 object Unreleased {
     /**
      * The engine as a Quick picks source: Best recommendations, Try both, the context chips that
      * only appear above its row, and the settings that only steer it.
      *
-     * It also holds back Last.fm for similar songs: SimilarSources.effective reads every release
-     * as YouTube only while this is false, so no release sends anything to Last.fm. Before this
-     * gate goes in 0.11, decide whether releases default to Both, which sends the title and artist
-     * of what is played to Last.fm, and what that means for F-Droid's anti-features.
+     * It also gated Last.fm for similar songs. Decided for 0.11: it stays opt in. Nothing goes to
+     * Last.fm until the listener says yes, and the question (LastFmSimilarOptInCard) is put to them
+     * in setup and, after the update, in the catch-up screen; lastFmQuestionAskable reads this.
      */
-    val ENGINE = BuildConfig.DEBUG
+    val ENGINE = true
 
     /**
      * Import from another service, under Settings > Backup and restore: an export file from
