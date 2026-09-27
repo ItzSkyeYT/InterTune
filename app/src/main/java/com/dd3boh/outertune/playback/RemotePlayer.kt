@@ -297,7 +297,13 @@ class RemotePlayer(
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Could not send $mediaId to ${link.device.name}", e)
-            failed(load.ticket, e.message ?: "Could not send the song to ${link.device.name}")
+            // A DLNA renderer that refuses the song is reported as FAILED on the link before load
+            // throws, and onStatus has taken that already, perhaps to try the song as AAC. Failing
+            // it here too would stop the player while the retry plays.
+            val sentThis = sent?.takeIf { it.load === load }
+            val status = link.status.value
+            val reported = sentThis != null && status.load == sentThis.linkLoad && status.state == ReceiverState.FAILED
+            if (!reported) failed(load.ticket, e.message ?: "Could not send the song to ${link.device.name}")
         }
     }
 
