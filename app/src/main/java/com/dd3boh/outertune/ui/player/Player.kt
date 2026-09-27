@@ -1348,6 +1348,14 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
+
+                        // Top right of the artwork's half, in the space beside it: the controls'
+                        // half has its buttons at the top in Classic and its title there in
+                        // Connected. The window's top is already clear of the status bar here.
+                        CastButton(
+                            tint = onBackgroundColor,
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        )
                     }
 
                     Column(
@@ -1463,6 +1471,16 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
+
+                        // Laid over the empty top right corner, under the status bar, so nothing
+                        // else on the player moves for it (DECISION.md).
+                        CastButton(
+                            tint = onBackgroundColor,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
+                                .padding(end = 4.dp)
+                        )
                     }
 
                     // Shrunk as a block when the window is too short for them, as the landscape
