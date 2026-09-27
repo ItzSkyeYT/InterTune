@@ -167,7 +167,7 @@ The user-facing version of all of this is in the wiki:
 
 ## Liquid glass
 
-Optional. **Settings → Appearance → Liquid glass**, off by default.
+Optional. **Settings → Look and feel → Liquid glass**, off by default.
 
 The bottom bar becomes a floating frosted dock and the mini player a separate slab above it,
 both refracting the album grid that scrolls underneath. The player's transport row gets the same
