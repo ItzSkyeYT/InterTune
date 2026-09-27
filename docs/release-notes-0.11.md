@@ -1,27 +1,28 @@
 # InterTune 0.11
 
-Quick picks learns how you listen, and InterTune can name the song playing around you. Most of what follows is a switch or a choice and stays off until you turn it on. What changes for everyone: the two tidy-ups marked "on by default", which each have an off, the new seekbar, and the top bars.
+Quick picks learns how you listen, InterTune can name the song playing around you, and there is a home screen widget. Most of what follows is a switch or a choice and stays off until you turn it on. What changes for everyone: whatever is marked "on by default", each with an off, the new seekbar and the top bars.
 
 ## One thing to know
 
 InterTune can count this install once a day: one short message with a random name that is replaced by an unrelated one every month, and whether you installed from F-Droid or elsewhere. It is off until you say yes, it asks once, and **Forget this install** removes it. Nothing about what you listen to is ever sent.
 
+After the update, a few quick questions come up once, for what needs your say-so and was never asked on this phone: this count, and whether recommendations may use Last.fm (below).
+
 ## Recommendations
 
 - **Best recommendations (experimental)**, a new Quick picks source beside YouTube Music and Your library, and where a new install starts. Updating keeps the source you had. It builds the row from how you actually listen: what you finish, search for and like, when you play it, what you come back to and what you pass over. Twenty cards from five lanes: related to what you play, songs you come back to, more from artists you finish, favourites gone quiet, and artists you have never played.
 - **Try both**: a row that mixes Best recommendations with the other source, card for card, so you can compare them fairly.
-- **Rank with your listening** (on by default): the YouTube Music and Your library rows ordered by what you tend to finish, search for and like. Off keeps the source's own order.
-- **Tidy Home rows** (on by default): no song twice on Home, no live or remixed version beside its original, and nothing you have just heard in Quick picks.
+- **Rank with your listening** and **Tidy Home rows** are switches now. Since 0.10.8 Home has ordered the YouTube Music and Your library rows by what you finish, search for and like, and kept repeats and other versions of a song out of its rows; both stay on unless you turn them off.
 - **Context chips** under the row: Auto, Discover, Favourites, Focus, Chill and Party. The three moods learn from what you play while they are on.
 - **Why these?** on the Quick picks heading: the songs the row was built around (each can be turned down), the lanes, and the exclusions in force. A line under each card says what put it there.
-- **Adventurousness** and **Familiarity** dials, **New songs only**, and an **Off** option for the row.
+- **Adventurousness** and **Familiarity** dials, **New songs only** (also a chip on the row), and an **Off** option for the row.
 - Adventurousness puts one song by an artist you have never played in the row at its lowest and three at its highest, two by default, so new names never crowd out the rest.
 - Long-press a card for **Not this song**, **Less of this artist** or **Never this artist**. Exclusions touch the recommendation rows only, never search, your library, playlists or radio, and banning a song covers its other versions. **Rest songs I skip** (off by default) rests a song you skip early for a week.
 - It learns from what you play and pass over, a little at a time, never more than a set amount per day. **How it's doing** under Settings > Recommendations shows cards played of cards seen per source, how often each row held what you played next, how well it predicts, and every weight beside where it started. **Learn from listening**, **Forget the last session**, **Forget today**, **Reset**, **Rebuild from history** and **Export** are all there.
-- Your play history from earlier versions is converted once at first start, so recommendations begin from everything you have played.
 
 - **Discover something new** (on by default): a second row under Quick picks, of songs you have never played at all, picked the way Best recommendations picks. A song you skipped after a few seconds counts as played. Pull to refresh for other songs.
 - **Similar songs from Last.fm and YouTube**: InterTune asks once whether Best recommendations may use Last.fm as well as YouTube. Say yes and it takes similar songs from both, what Last.fm's listeners play alongside a song and what YouTube lists beside it, and leans toward whichever you actually play, never more than four in five either way so it can swing back. Or pick one in Settings. With Last.fm, InterTune sends it the title and artist of each song you play, and once, of the songs you played in the last month and the ones you liked, and nothing else. Until you answer, nothing is sent.
+- Quick picks never has more than two songs by one artist.
 
 ## Song recognition
 
@@ -40,8 +41,9 @@ InterTune can count this install once a day: one short message with a random nam
 ## Home screen
 
 - A **widget**: what is playing, with previous, play or pause and next, and a list under it. Tap a row to play it. It works with the app closed, and its play button brings back the queue you were on.
-- Each widget is set up on its own, when you add it and again from the launcher afterwards: what it shows (what's playing, a list, or both), which list (Quick picks, Forgotten favourites, Keep listening, Recently played), how many rows, the background (the system's, dark, light, taken from the artwork, or none), how solid it is, which buttons, the text size, whether artwork, artists and the heading are drawn, and whether the corners are rounded.
-- It changes shape with its size rather than scaling: one cell is the cover with a play button, four by two is the song and two rows, taller adds rows, narrow stacks the cover over the song, and given only what's playing and enough room the cover fills it.
+- It takes the shape of its size rather than scaling: one cell is the cover with play over it, a single row is one slim line, four by two is the song with rows under it, square lets the cover fill it with the song over it, and wide and tall puts a big cover beside the song. Nothing is cut off at any size or text size.
+- Each widget is set up on its own, when you add it and later from the launcher: what it shows (what's playing, a list, or both), which list (Quick picks, Forgotten favourites, Keep listening, Recently played), how many rows, the background (the system's, dark, light, taken from the artwork, or none), how solid it is, which buttons, the text size, whether artwork, artists and the heading are drawn, and whether the corners are rounded. The settings show the widget itself, changing as you choose.
+- **Play liked songs** on the app icon: long-press it, or pin the shortcut to your home screen.
 
 ## Stats
 
@@ -53,16 +55,15 @@ InterTune can count this install once a day: one short message with a random nam
 - A sleep timer button beside like and the menu.
 - **Player buttons**: Classic, or Connected, which joins the controls into one frosted row. Classic by default.
 - Swiping the artwork changes song again, including straight after the app opens.
-- **Queue button** (Look and feel, under Player buttons): opens the queue from a button beside the other player buttons instead of pulling it up from the bottom. Off by default, and turning it on moves none of the other controls.
-- Lyrics no longer shrink the player's buttons: the controls stay where they are and the lyrics take the artwork's place.
-- A long title or artist line fades out before the buttons beside it instead of stopping mid-letter against them.
 - In landscape the controls always have room for all five transport buttons, and nothing is cut off at the ends of the Connected row.
+- In a small pop-up window the controls shrink together to fit, rather than the last ones being squashed.
 
 ## Playback
 
-- A pause, a closed app and a return later is one listen, not a stop. The app also comes back where you paused even when Android closed it in the meantime.
-- Audio quality has a **Highest available** tier, and the settings show what is actually playing: codec, bitrate and sample rate.
 - **Fade between tracks** (off by default): each song fades out over its last few seconds and the next fades in, 2 to 12 seconds. The songs do not overlap, so it is not a crossfade, and songs from the same album play straight through.
+- **Use my account to play**: when YouTube refuses to play a song without an account, playback can ask again as you, if you are signed in. Never, Only when a song is refused (the default), or Always.
+- Raise the audio quality and a song cached at the lower one is fetched again the next time it starts. If that fails, the cached copy plays.
+- **Keep the queue up to date** (on by default, for the songs InterTune added itself): drops songs further down the queue that stop suiting what you are playing, and reacts to whether you stay with the current song or skip past it. Most of the queue is hidden while it settles, so you see what is actually coming rather than a list that is about to change.
 
 ## Sound
 
@@ -71,7 +72,7 @@ InterTune can count this install once a day: one short message with a random nam
 - **Head tracking**, on headphones that report their orientation. The music stays where it is when you turn your head, including when you look up or down, so a song sounds like it is coming from a fixed point in the room rather than from the headphones.
 - **Tracking response** picks how tightly the sound follows: Smooth, Balanced, Quick or Instant. **Tracking lead** compensates for the delay between your headphones reporting a movement and the sound arriving. **Recentre** puts the stage back in front of you, and there is a one-off calibration that learns your headphones' delay while you listen.
 - The status row under Player and audio says whether your headphones and phone actually support tracking, and links out if yours should but does not.
-- **Quieter as you walk away**. Treats your phone as where the music is coming from, so the volume falls as you leave it behind and comes back as you return. Off by default.
+- **Quieter as you walk away** (Android 12 and later). Treats your phone as where the music is coming from, so the volume falls as you leave it behind and comes back as you return. It asks for the Nearby devices permission, to measure how far away your headphones are. Off by default.
 
 ## Interface
 
@@ -79,34 +80,18 @@ InterTune can count this install once a day: one short message with a random nam
 - With Liquid glass on, the search pill and the floating buttons are glass as well.
 - The glass intensity slider shows a live sample as you drag it, and setup's back and forward buttons follow it too.
 - **Signing in to YouTube Music** starts with your phone's own account picker, and Google's page opens with that address filled in, so it is usually a tap on your phone to confirm. The page shows Google's address with a lock, InterTune never sees your password, and Switch or Another account is right there.
-- A short walkthrough after an update, covering only what is new. A fresh install gets the whole tour. Skip is there from the first screen.
+- A short tour of the app, once after this update and on a fresh install. Skip is there from the first screen.
 - **Favourite artists** beside Liked songs and Downloaded songs: a mix of the artists you have bookmarked, one song from each in turn, so one big catalogue cannot take it over.
-- **News from InterTune**: announcements with their own switch, asked once after updating (already on if you said yes to questions). They open full screen like a question, with pictures and up to three buttons, and questions and announcements can have paragraphs, lists and bold text. There is a Discord server too.
-- The first opening of a question or an announcement is counted once: its id, its title and the app version, nothing about you or your device.
-- After an update, questions and news are downloaded fresh instead of taken from the copy the old version saved, so a new announcement shows as it is now. The check-now row and "Let me be asked again" cover news as well as questions.
+- Questions and news are fetched fresh after an update rather than taken from the copy the old version saved, and the check-now row and "Let me be asked again" cover news as well as questions.
 - If InterTune crashes, it offers to report it the next time it opens, with the error already filled in. Nothing is sent unless you choose to.
-- Predictive back and reveal transitions (switch, on).
-- **Keep the queue up to date**: drops songs further down the queue that stop suiting what you are playing, and reacts to whether you stay with the current song or skip past it. Most of the queue is hidden while it settles, so you see what is actually coming rather than a list that is about to change.
-- Quick picks is balanced across categories now. One genre can no longer take over the row.
-- An Offline tab: the songs that will play with no connection.
-- Remove a song from its playlist without leaving the player.
-- Resume playback when the app opens, as a setting.
-- The Quick picks row no longer blanks on every refresh, and Home no longer shows two rows both called Quick picks.
-- On the YouTube Music source the row is YouTube's own Quick picks shelf. A feed that also carries a shelf of hour-long mixes no longer puts those under the heading.
-- A card you play from Quick picks stays where it is, playing, until you refresh. The row never changes while you are away in the player.
-- Pull to refresh brings new songs to Quick picks, Forgotten favourites and Keep listening, not the same ones in a new order. On the YouTube Music source each pull reaches past the shelf into the feed's other song shelves and into what YouTube lists as related to them.
-- The app says so when the song cache is turned off.
-- Screen shots and the store listing were redone.
+- Home opens on what it last showed rather than fetching a new row every time.
 
 ## Settings
 
 - Spatial audio has its own category rather than sitting inside the audio card.
 - Every "i" explanation was rewritten: shorter, plainer, and sized to fit without scrolling.
-- A button to report an issue, on GitHub or Discord.
-- Automatic backups run every 6 hours, day, week, month, 6 months or year, and the backup button shows progress while it works.
 - **Backup and restore** is its own entry in Settings again, rather than the bottom of Storage and downloads.
 - The proxy fields carry working examples.
-- **New songs only** is a chip on Quick picks instead of a setting buried in Recommendations.
 - Recommendation engine data can be imported as well as exported.
 - Back buttons on the screens that were missing one, including the Last.fm login.
 
@@ -123,7 +108,6 @@ InterTune can count this install once a day: one short message with a random nam
 - Songs listed under an artist's top search result showed their length where the artist should be, and podcast episodes showed their date.
 - A song uploaded as "Artist - Track" could lose its name and keep the artist's.
 - Replaying a shuffled playlist that had lost songs started the wrong track, then turned shuffle off.
-- **Not this song** hid every other song with the same name, for good.
 - Saving an album, then hearing a song from it, unsaved the album.
 - An album with no songs kept its loading shimmer forever.
 - Playing one of your most played songs from Stats started the first one in the list instead.
@@ -136,7 +120,6 @@ InterTune can count this install once a day: one short message with a random nam
 - **Shuffle** on a local artist played three songs.
 - In a shuffled queue, moving or removing a song and then adding one to the queue jumped to a different song.
 - Lyrics without timings started every line after the first with a comma.
-- Lyrics were often missing for songs started from search, even obvious ones, and every song was looked up twice. Songs named in Chinese or Japanese find KuGou's lyrics whichever script they are written in.
 - Removing a song from a playlist while searching it could send a different song to the bottom.
 - A drag in a playlist synced with YouTube Music could move a different song on YouTube.
 - Tapping a song in an artist's song list could play a different one, and with no connection it waited before playing anything.
@@ -144,11 +127,7 @@ InterTune can count this install once a day: one short message with a random nam
 - A search of the queue kept showing the old queue after Start radio from a result.
 - Selecting songs while searching the queue drew the selection bar over the search field and its back arrow.
 - With the sleep timer set to the end of the song, skipping to another song paused it straight away. The timer now moves to the song you picked.
-- Turning the phone during the walkthrough started it again from the beginning.
 - Leaving the Backup screen while a backup was being written said it had failed, though the file was complete.
-- A song paused before it had faded in, for example by the sleep timer at the end of the song before it, came back silent and took the whole fade to reach full volume.
-- A link in a question or announcement typed as Https:// did nothing when tapped, and a closing quote or bracket could end up inside it.
-- The glass intensity preview no longer sits there unchanged where glass cannot be drawn (below Android 13, or with the side navigation); a line says why instead.
 - The Search shortcut on the launcher icon opened Home. It opens search now.
 - Turning the phone during setup could open a second copy of it, whose last page had no way forward.
 - A full rescan of your local files took every local song out of Liked and reset its date added. A scan folder that could not be read, such as an SD card that was not mounted, hid the whole local library.
@@ -177,13 +156,16 @@ InterTune can count this install once a day: one short message with a random nam
 - Dragging songs with the add panel open moved the wrong rows.
 - The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
 - **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
-
-## Updates
-
-- Installs from F-Droid update through F-Droid; the in-app updater steps aside for them.
-- **If InterTune reaches F-Droid**, its copy will be the same APK as the one here, built from the same source and signed with the same key, so you can move between F-Droid and GitHub updates without reinstalling or losing anything.
-
-## Under the hood
-
-- Two long-standing defects in the library Quick picks query were fixed: it counted the same seed twice, and Forgotten favourites could surface songs still being played.
-- Versions of one song (live, slowed, remastered, official video) are recognised and never shown side by side.
+- Deleting a saved YouTube playlist that someone else made did nothing. It now goes, and is unsaved on YouTube too.
+- Saving a YouTube playlist kept only about its first hundred songs, and sync never refreshed saved playlists.
+- **Remove download** on a playlist you cannot edit, such as a read-only synced one, emptied it.
+- A download folder inside a folder InterTune scans is now refused, and so is a scan folder holding the download folder. Each download was also being scanned in as a local song, and tidying those up could delete the YouTube song with its likes and history.
+- Start radio on a long album did nothing but show an error. Karaoke lyrics could close the app, and so could coming back to it while selecting songs in a YouTube playlist, or opening the Cached tab past 999 songs on Android 11 and older.
+- A partly cached song could be finished from a different stream of it.
+- One background task failing could stop the volume, normalisation and sleep timer from working until the app restarted.
+- While signed out, playing a song no longer tells YouTube about it, and a like reaches YouTube once instead of twice.
+- Adding to a playlist could put songs in the wrong place, lose them from YouTube if the dialog closed too soon, and Skip or Add anyway after the duplicates question sent nothing to YouTube.
+- A failed search or artist page offers Retry. Folders with #, ?, % or ; in their name open. The open search bar no longer slides under the status bar. Tapping a Library tab again goes back to the top.
+- In Android Auto, search results are songs to play rather than folders.
+- After a resume, the shuffle button showed the wrong state for a shuffled queue.
+- While a song played, the app told the whole system its position every three seconds, for nobody.

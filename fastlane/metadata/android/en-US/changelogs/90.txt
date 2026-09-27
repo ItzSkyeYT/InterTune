@@ -1,29 +1,10 @@
 Version 0.11
 
-Quick picks that learn how you listen, and InterTune can name the song playing around you. Most of what is new stays off until you turn it on.
-
-=== Recommendations ===
-• Best recommendations: a Quick picks row built from what you finish, search for, like and come back to. New installs start on it, updates keep their source
-• Discover something new: a second row of songs you have never played
-• Why these?, dials for adventurousness and familiarity, and Not this song, Less of this artist or Never this artist on a long press
-• Similar songs from YouTube and, if you say yes, Last.fm
-
-=== Song recognition ===
-• Tap the waveform in the search bar: Listen once, or Keep listening in the background and build a playlist from what it hears
-
-=== Player and sound ===
-• Spatial audio for any headphones, with head tracking where they support it
-• Fade between tracks, a new seekbar, a sleep timer button, and Connected buttons as an option
-• The queue can open from a button instead of the sheet
-
-=== Home screen ===
-• A widget with what is playing and a list, set up per widget
-
-=== Fixes ===
-• Account sync no longer unlikes or removes things on a bad connection or a first sign-in, and Read only really writes nothing
-• A local rescan keeps your likes, and Clear all downloads really clears them
-• Lyrics found for songs played from search, and looked up once
-• Saved queues, queue search, playlist search and synced playlist drags act on the right songs
-• Many more, see the full changelog
+- Quick picks can learn how you listen: Best recommendations, with Why these?, mood chips and a Discover row.
+- What's playing? names the song around you and can fill a playlist.
+- A home screen widget that takes the shape of its size.
+- Spatial audio with head tracking, and fading between tracks.
+- A Stats page that says something about your listening.
+- Many fixes to sync, downloads and playlists.
 
 Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.11
