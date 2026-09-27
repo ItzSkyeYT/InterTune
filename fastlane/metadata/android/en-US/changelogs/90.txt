@@ -1,0 +1,7 @@
+Version 0.10.9.6
+
+- Songs that stopped with "Source error (2004): Response code: 403" play again. It hit anyone who saw "Failed to get visitorData." when opening the app, or whose visitor id YouTube had stopped accepting.
+- When YouTube does refuse a song, the error says what YouTube said instead of the 403.
+- Copied error reports list what each source answered.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.10.9.6
