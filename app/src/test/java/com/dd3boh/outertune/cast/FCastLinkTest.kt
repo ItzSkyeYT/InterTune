@@ -201,6 +201,39 @@ class FCastLinkTest {
     }
 
     @Test
+    fun `a receiver typed in by address is named as it names itself in Initial`() {
+        val receiver = FakeReceiver()
+        val typed = receiver.device.copy(name = "127.0.0.1")
+        val link = FCastLink(typed, scope, FCastLink.Sender("Test phone", "InterTune", "0.11"), now = { clock }).also { links += it }
+        // As the receivers do: Initial once the sender's Version is in.
+        thread(isDaemon = true) {
+            receiver.next(FCast.VERSION_MESSAGE)
+            receiver.send(FCast.INITIAL, """{"displayName":"Living room TV","appName":"FCast","appVersion":"2.0"}""")
+        }
+        runBlocking { link.connect() }
+        assertEquals("Living room TV", link.device.name)
+        assertEquals(typed.id, link.device.id)
+    }
+
+    @Test
+    fun `a receiver found by name keeps it, and one that never says its name still connects`() {
+        val (receiver, link) = connected()
+        receiver.next(FCast.VERSION_MESSAGE)
+        receiver.send(FCast.INITIAL, """{"displayName":"Something else"}""")
+        receiver.next(FCast.INITIAL)
+        Thread.sleep(200)
+        assertEquals("Test TV", link.device.name)
+
+        val silent = FakeReceiver()
+        val typed = silent.device.copy(name = "127.0.0.1")
+        val quiet = FCastLink(typed, scope, FCastLink.Sender("Test phone", "InterTune", "0.11"), now = { clock }, timing = FCastLink.Timing(initialWaitMs = 200))
+            .also { links += it }
+        runBlocking { quiet.connect() }
+        assertEquals(LinkState.CONNECTED, quiet.status.value.link)
+        assertEquals("127.0.0.1", quiet.device.name)
+    }
+
+    @Test
     fun `a receiver that never says its version is taken for v2`() {
         val (_, link) = connected(version = null, timing = FCastLink.Timing(versionWaitMs = 300))
         assertEquals(2L, link.version)

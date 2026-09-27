@@ -46,7 +46,7 @@ import kotlin.math.abs
  * - it reports a failure as idle followed by PlaybackError, and the error wins.
  */
 class FCastLink(
-    override val device: CastDevice,
+    device: CastDevice,
     private val scope: CoroutineScope,
     private val sender: Sender,
     private val socketFactory: SocketFactory = SocketFactory.getDefault(),
@@ -63,7 +63,18 @@ class FCastLink(
         val pingAfterMs: Long = 3_000,
         val deadAfterMs: Long = 9_000,
         val tickMs: Long = 1_000,
+        /** How long a receiver typed in by address is given to say its name in Initial. */
+        val initialWaitMs: Long = 1_500,
     )
+
+    /**
+     * The receiver. One typed in by address is known only by that address until it says its own
+     * name in Initial, which it does as soon as it hears from the link; found ones keep the name
+     * they were found by.
+     */
+    @Volatile
+    override var device: CastDevice = device
+        private set
 
     @Volatile
     override var caps: LinkCaps = LinkCaps()
@@ -113,6 +124,7 @@ class FCastLink(
     private var loads = 0
     private var current: Loaded? = null
     private val versionHeard = CompletableDeferred<Long>()
+    private val initialHeard = CompletableDeferred<Unit>()
 
     override suspend fun connect() {
         synchronized(stateLock) {
@@ -148,6 +160,8 @@ class FCastLink(
             if (version >= 3) {
                 send(FCast.INITIAL, FCast.initialBody(sender.displayName, sender.appName, sender.appVersion))
                 send(FCast.SUBSCRIBE_EVENT, FCast.subscribeBody(FCast.EVENT_MEDIA_ITEM_END))
+                // So the picker and the notice of a lost receiver name it rather than its address.
+                if (device.name == device.host) withTimeoutOrNull(timing.initialWaitMs) { initialHeard.await() }
             }
             caps = LinkCaps(formats = FormatSupport.Unknown, canSetSpeed = version >= 2, hasVolume = true)
             synchronized(stateLock) {
@@ -286,7 +300,7 @@ class FCastLink(
             FCast.VERSION_MESSAGE -> FCast.parseVersion(frame.body)?.let { versionHeard.complete(it) }
             FCast.PING -> runCatching { send(FCast.PONG) }
             FCast.PONG -> Unit
-            FCast.INITIAL -> receiverInfo = FCast.parseInitial(frame.body)
+            FCast.INITIAL -> onInitial(FCast.parseInitial(frame.body))
             FCast.PLAYBACK_UPDATE -> FCast.parsePlaybackUpdate(frame.body)?.let(::onPlaybackUpdate)
             FCast.VOLUME_UPDATE -> FCast.parseVolume(frame.body)?.let { volume -> _status.update { it.copy(volume = volume) } }
             FCast.PLAYBACK_ERROR -> onError(FCast.parseError(frame.body))
@@ -294,6 +308,13 @@ class FCastLink(
             FCast.PLAY_UPDATE -> onPlayUpdate(FCast.parsePlayUpdateUrl(frame.body))
             else -> Log.d(TAG, "Ignored opcode ${frame.opcode} from ${device.name}")
         }
+    }
+
+    private fun onInitial(info: FCast.ReceiverInfo?) {
+        receiverInfo = info
+        val name = info?.displayName?.trim()?.takeIf { it.isNotEmpty() }
+        if (name != null && device.name == device.host) device = device.copy(name = name)
+        initialHeard.complete(Unit)
     }
 
     private fun onPlaybackUpdate(update: FCast.PlaybackUpdate) = synchronized(stateLock) {
