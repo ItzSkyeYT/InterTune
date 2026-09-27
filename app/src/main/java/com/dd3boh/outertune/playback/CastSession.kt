@@ -47,12 +47,12 @@ import kotlinx.coroutines.withTimeoutOrNull
  * [castTo] starts the cast server, connects to the receiver, and only once it answers moves
  * playback there (MusicService.handOverTo), so a receiver that cannot be reached leaves the music
  * playing on the phone. [stop] brings it back at the receiver's song and position, playing if it
- * was. A receiver that goes away brings it back paused (design.md section 12, decision 3), with a
- * word to say why.
+ * was. A receiver that goes away brings it back paused, rather than playing out of the phone's own
+ * speaker wherever the phone is, with a word to say why.
  *
- * While casting, the phone stays awake and on Wi-Fi (DECISION.md): the receiver fetches every
- * song from the server here, whenever it likes, and ExoPlayer's own locks are idle because it is
- * not playing. Only exists with Unreleased.CASTING on. Main thread.
+ * While casting, the phone stays awake and on Wi-Fi: the receiver fetches every song from the
+ * server here, whenever it likes, and ExoPlayer's own locks are idle because it is not playing.
+ * Only exists with Unreleased.CASTING on. Main thread.
  */
 class CastSession(
     private val service: MusicService,

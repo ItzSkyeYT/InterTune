@@ -21,9 +21,9 @@ import java.net.URI
  * SSDP, the search half of UPnP: one UDP datagram to the multicast group, answered by every
  * renderer on the network with the url of its description.
  *
- * Replies come back unicast to the socket that asked, so no multicast lock is needed to hear them
- * (design.md section 7). UDP drops packets, so the search is sent three times, and replies are
- * collected for a few seconds and kept once per device.
+ * Replies come back unicast to the socket that asked, so no multicast lock is needed to hear them.
+ * UDP drops packets, so the search is sent three times, and replies are collected for a few
+ * seconds and kept once per device.
  */
 object Ssdp {
     const val MULTICAST_ADDRESS = "239.255.255.250"

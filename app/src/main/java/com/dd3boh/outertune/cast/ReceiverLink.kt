@@ -9,7 +9,7 @@ package com.dd3boh.outertune.cast
 import kotlinx.coroutines.flow.StateFlow
 import java.io.IOException
 
-/** The kinds of receiver casting talks to, in the order they were built (DECISION.md). */
+/** The kinds of receiver casting talks to, in the order they were built. */
 enum class CastProtocol { FCAST, DLNA }
 
 /**

@@ -31,7 +31,7 @@ import java.net.URI
 
 /**
  * Receivers typed in by address, for the emulator, whose NAT neither mDNS nor SSDP crosses, and
- * for networks that block multicast (design.md section 8).
+ * for networks that block multicast.
  *
  * - `fcast 10.0.2.2:46899`, `fcast://10.0.2.2`, or an address alone: an FCast receiver, on 46899
  *   unless a port is given;

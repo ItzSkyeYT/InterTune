@@ -71,9 +71,8 @@ import com.dd3boh.outertune.ui.dialog.DefaultDialog
  * The cast button: the picker when tapped, and what casting is doing at a glance. Filled in the
  * accent colour while a receiver plays, faded while connecting.
  *
- * It sits in the empty space at the top right of the full player (DECISION.md), laid over it by
- * the caller, so no control around it moves or changes size. Nothing at all with
- * Unreleased.CASTING off.
+ * It sits in the empty space at the top right of the full player, laid over it by the caller, so
+ * no control around it moves or changes size. Nothing at all with Unreleased.CASTING off.
  */
 @Composable
 fun CastButton(tint: Color, modifier: Modifier = Modifier) {

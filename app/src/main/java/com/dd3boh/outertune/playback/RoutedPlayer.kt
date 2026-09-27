@@ -16,10 +16,10 @@ import androidx.media3.common.Player
  *
  * Switching the session's player alone would not do, because the screens never go through the
  * session: they use MusicService.player directly, in some ninety places, and would go on driving
- * an ExoPlayer that has stopped (design.md section 6). This is the shape media3's own CastPlayer
- * has from 1.9 on, built on the ForwardingSimpleBasePlayer.setPlayer that 1.8 already has. Each
- * switch is reported to whoever listens as the changes between the two players' states, so the
- * screens and the notification follow without being told.
+ * an ExoPlayer that has stopped. This is the shape media3's own CastPlayer has from 1.9 on, built
+ * on the ForwardingSimpleBasePlayer.setPlayer that 1.8 already has. Each switch is reported to
+ * whoever listens as the changes between the two players' states, so the screens and the
+ * notification follow without being told.
  *
  * Only built with Unreleased.CASTING on. With it off MusicService.player is the ExoPlayer itself,
  * and nothing about playback goes through here.

@@ -1478,7 +1478,7 @@ fun BottomSheetPlayer(
                         }
 
                         // Laid over the empty top right corner, under the status bar, so nothing
-                        // else on the player moves for it (DECISION.md).
+                        // else on the player moves or changes size for it.
                         CastButton(
                             tint = onBackgroundColor,
                             modifier = Modifier

@@ -32,13 +32,14 @@ import java.util.concurrent.TimeUnit
 
 /**
  * The whole path without hardware: the real cast server serving real audio files, the real links
- * driving the Python mock receivers in experiments/casting/mock_receivers, and each mock fetching
- * the songs from the server as a receiver would, with its log read back to see what it got.
+ * driving Python mock receivers, and each mock fetching the songs from the server as a receiver
+ * would, with its log read back to see what it got.
  *
- * It needs python3 and ffmpeg on the machine, so it only runs when CAST_MOCKS_DIR names the mocks'
- * folder (CAST_MOCKS_KEEP=1 as well keeps their logs):
+ * The mocks (mock_fcast.py, mock_dlna.py and the receiver_common.py they share) are not part of
+ * the app. With python3 and ffmpeg on the machine, this runs when CAST_MOCKS_DIR names the folder
+ * that holds them, and is skipped otherwise (CAST_MOCKS_KEEP=1 as well keeps their logs):
  *
- *     CAST_MOCKS_DIR=/home/melb/projects/intertune/experiments/casting/mock_receivers \
+ *     CAST_MOCKS_DIR=<the mocks' folder> \
  *         ./gradlew :app:testCoreDebugUnitTest --tests '*CastMockReceiversTest*' --rerun
  */
 class CastMockReceiversTest {

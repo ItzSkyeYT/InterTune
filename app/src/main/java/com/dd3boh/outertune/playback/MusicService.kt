@@ -2448,9 +2448,9 @@ class MusicService : MediaLibraryService(),
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
-        // A cast play records nothing in the listening history for now: nothing would ever close
-        // the row, since the stats that do come from the phone's own player (design.md section 12,
-        // decision 5).
+        // A cast play records nothing in the listening history for now. A row is closed by what the
+        // phone's own player reports, and it reports nothing while casting, so a row opened here
+        // would never be closed. Whether cast plays should count at all is still to be decided.
         if (!isCasting) noteTransition(mediaItem, reason)
         // Every song change, not only when the queue itself changes. A skip is the strongest
         // opinion anyone gives without pressing anything, so it reaches further than a song that

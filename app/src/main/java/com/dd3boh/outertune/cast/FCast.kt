@@ -39,7 +39,7 @@ object FCast {
     const val PORT = 46899
     const val SERVICE_TYPE = "_fcast._tcp"
 
-    /** The version this sender speaks. v4 (TLS and FlatBuffers) is for later, design.md 2.1.4. */
+    /** The version this sender speaks. v4, over TLS and with FlatBuffers, is for later. */
     const val VERSION = 3L
 
     /**

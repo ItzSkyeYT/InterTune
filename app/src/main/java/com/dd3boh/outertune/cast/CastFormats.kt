@@ -31,7 +31,7 @@ sealed interface FormatChoice {
 }
 
 /**
- * Opus where the receiver says it plays it, AAC otherwise (DECISION.md, and design.md section 5).
+ * Opus where the receiver says it plays it, AAC otherwise.
  *
  * YouTube songs usually come as Opus in WebM, which every FCast receiver plays and most DLNA TVs,
  * AV receivers and speakers do not. YouTube also offers the same song as AAC in MP4, so a renderer

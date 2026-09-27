@@ -1335,7 +1335,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$d still to check. It is left out unless you pick one.</item>
         <item quantity="other">%1$d still to check. They are left out unless you pick one.</item>
     </plurals>
-    <!-- Casting, behind Unreleased.CASTING (experiments/casting/design.md) -->
+    <!-- Casting, behind Unreleased.CASTING -->
     <string name="cast">Cast</string>
     <string name="cast_to">Cast to</string>
     <string name="cast_playing_on">Playing on %1$s</string>

@@ -53,8 +53,7 @@ import java.io.IOException
  * A receiver that takes no Opus gets the song as AAC instead ([openAac]): resolved straight from
  * YouTube by [fetchAac], read through [directSource] with no cache in the way, and written nowhere.
  * The cache and the format row keep the one encoding the player plays; a second one under the same
- * id would be taken for a partial copy of another stream and cost the good one
- * (design.md section 4).
+ * id would be taken for a partial copy of another stream and cost the good one.
  */
 class ServiceCastSource(
     private val resolver: MusicService.SongResolver,

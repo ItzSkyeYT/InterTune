@@ -8,8 +8,7 @@ package com.dd3boh.outertune.cast
 
 /**
  * Follows one song on a DLNA renderer from what polling says, since a renderer tells a sender
- * nothing unless asked (GENA events would, at the price of a callback server on the phone;
- * design.md section 2.2).
+ * nothing unless asked (GENA events would, at the price of a callback server on the phone).
  *
  * What a poll says is turned into a [ReceiverState] by these rules:
  * - PLAYING, PAUSED_PLAYBACK and TRANSITIONING mean what they say;

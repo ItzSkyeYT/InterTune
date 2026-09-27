@@ -38,7 +38,7 @@ sealed interface RemoteCommand<out T> {
 }
 
 /**
- * Everything the remote player decides, with no Android in it (design.md section 6).
+ * Everything the remote player decides, with no Android in it, so that it can be unit tested.
  *
  * It holds the list the phone's queue put in the player, which song is current, whether playback
  * is wanted, and where the song is. The receiver only ever holds the current song: each change of

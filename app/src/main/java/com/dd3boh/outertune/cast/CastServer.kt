@@ -35,14 +35,14 @@ data class CastOffer(val url: String, val mimeType: String, val length: Long)
  * A receiver cannot reach what the player plays: local files are paths on the phone, downloads and
  * cached songs live only in the app's caches, and a googlevideo url is tied to the phone and
  * expires. So the phone serves every song itself, through [source], which in the app is the
- * player's own resolver (experiments/casting/design.md, sections 3 and 4).
+ * player's own resolver.
  *
  * One server is one casting session. It listens on [bindAddress], which the app sets to the
  * phone's address on Wi-Fi, so nothing on mobile data can reach it. With [alsoLoopback] it also
  * listens on 127.0.0.1 at the same port, which debug builds use: `adb forward` arrives on the
  * device's loopback, and a server bound only to the Wi-Fi address refuses it, so a receiver on the
- * development machine could never fetch a song (design.md section 10). Urls always name
- * [bindAddress]; a receiver reached through adb is pointed at 127.0.0.1 itself.
+ * development machine could never fetch a song. Urls always name [bindAddress]; a receiver reached
+ * through adb is pointed at 127.0.0.1 itself.
  *
  * Every url carries [token], new for each server, and a request without it gets the same 404 as a
  * url that names nothing, as does a song that [isServable] says is not in the session. Only GET,

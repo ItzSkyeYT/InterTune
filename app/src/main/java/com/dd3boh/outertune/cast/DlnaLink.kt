@@ -25,7 +25,7 @@ import kotlin.math.roundToInt
 
 /**
  * A link to a DLNA/UPnP media renderer: its description read once, then SOAP calls to its
- * AVTransport and RenderingControl, and polling to follow what it does (design.md section 2.2).
+ * AVTransport and RenderingControl, and polling to follow what it does.
  *
  * On connecting it asks ConnectionManager what the renderer plays, which is what decides Opus or
  * AAC for it (CastFormats), and reads its volume. A song goes as SetAVTransportURI with DIDL-Lite

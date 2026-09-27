@@ -1236,7 +1236,7 @@
         <item quantity="many">%1$d encore à vérifier. Ils sont écartés sauf si vous en choisissez un.</item>
         <item quantity="other">%1$d encore à vérifier. Ils sont écartés sauf si vous en choisissez un.</item>
     </plurals>
-    <!-- Casting, behind Unreleased.CASTING (experiments/casting/design.md) -->
+    <!-- Casting, behind Unreleased.CASTING -->
     <string name="cast">Caster</string>
     <string name="cast_to">Caster vers</string>
     <string name="cast_playing_on">Lecture sur %1$s</string>
