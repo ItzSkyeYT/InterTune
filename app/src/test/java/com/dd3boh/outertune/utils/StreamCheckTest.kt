@@ -8,6 +8,7 @@ package com.dd3boh.outertune.utils
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -49,6 +50,48 @@ class StreamCheckTest {
     fun `the message keeps what Throttle and the error screen look for`() {
         val message = StreamCheck.refusalMessage("Sign in to confirm you’re not a bot", 403)
         assertTrue(Throttle.looksLikeBlock(message))
+    }
+
+    @Test
+    fun `a missing or broken visitorData is replaced by the one a player answer carried`() {
+        // Synthetic, in the shape YouTube issues them: visitor id TESTVISITOR, region FR.
+        val offered = "CgtURVNUVklTSVRPUiiA98TVBjIECgJGUg%3D%3D"
+        // Issue #17: sw.js_data failed at every launch, so there was none at all.
+        assertEquals(offered, StreamCheck.visitorDataToAdopt(null, offered))
+        // And what a failed sign-in capture or an old bug leaves behind.
+        for (broken in listOf("", "   ", "null", "undefined")) {
+            assertEquals(broken, offered, StreamCheck.visitorDataToAdopt(broken, offered))
+        }
+    }
+
+    @Test
+    fun `a visitorData the app already has is kept`() {
+        val offered = "CgtURVNUVklTSVRPUiiA98TVBjIECgJGUg%3D%3D"
+        assertNull(StreamCheck.visitorDataToAdopt("CgtLRVBUVklTSVRPUiiA98TVBjIECgJGUg%3D%3D", offered))
+        assertNull(StreamCheck.visitorDataToAdopt("CgswS0VQVFZJU0lUUiiA98TVBjIECgJGUg%3D%3D", offered))
+    }
+
+    @Test
+    fun `nothing is adopted that does not look like a visitorData`() {
+        for (offered in listOf(null, "", "undefined", "null", "hello")) {
+            assertNull(offered, StreamCheck.visitorDataToAdopt(null, offered))
+        }
+    }
+
+    @Test
+    fun `a refused VISIONOS earns one try with a new visitorData`() {
+        assertTrue(StreamCheck.mayRetryWithNewVisitor(visionosRefused = true, msSinceFailedSwap = null))
+        // Refused for some other reason (a song that is not available, the network down): no.
+        assertFalse(StreamCheck.mayRetryWithNewVisitor(visionosRefused = false, msSinceFailedSwap = null))
+    }
+
+    @Test
+    fun `after a failed try, not again until the wait is over`() {
+        val wait = StreamCheck.NEW_VISITOR_RETRY_MS
+        assertFalse(StreamCheck.mayRetryWithNewVisitor(true, 0))
+        assertFalse(StreamCheck.mayRetryWithNewVisitor(true, wait - 1))
+        assertTrue(StreamCheck.mayRetryWithNewVisitor(true, wait))
+        assertFalse(StreamCheck.mayRetryWithNewVisitor(false, wait * 3))
     }
 
     @Test

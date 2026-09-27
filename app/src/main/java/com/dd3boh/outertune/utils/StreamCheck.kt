@@ -17,6 +17,9 @@ package com.dd3boh.outertune.utils
  * everything after it.
  */
 object StreamCheck {
+    /** How long after a failed try with a new visitorData before trying one again. */
+    const val NEW_VISITOR_RETRY_MS = 10 * 60 * 1000L
+
     /**
      * Whether a url whose HEAD check got [status] goes to the player. Null means the check itself
      * failed: no connection, a timeout.
@@ -46,6 +49,43 @@ object StreamCheck {
      */
     fun refusalMessage(reason: String?, status: Int): String =
         reason?.takeIf { it.isNotBlank() } ?: "YouTube refused the stream (HTTP $status)"
+
+    /**
+     * The visitorData to take from a /player answer, or null to keep the one the app has.
+     *
+     * VISIONOS clears the bot check only with a visitorData YouTube issued: none at all, or one it
+     * does not recognise, gets "Sign in to confirm you're not a bot", and the chain then falls
+     * through to IOS. The app fetches its one from sw.js_data at launch and never again, and in
+     * issue #17 that fetch failed at every launch ("Failed to get visitorData."), so there was
+     * none and every song ended in IOS's 403. Every /player answer carries a fresh one in
+     * responseContext, refusals included, and VISIONOS accepts it (probed 27 Sep 2026).
+     *
+     * Only replaces what is not a visitorData at all: nothing, blank, and the "null" and
+     * "undefined" that an old bug and a failed sign-in capture leave behind. Every one YouTube
+     * issues starts Cgs or Cgt (a protobuf whose first field is the 11 character visitor id), so a
+     * value that does is kept, even if it has stopped working.
+     */
+    fun visitorDataToAdopt(current: String?, offered: String?): String? {
+        if (current != null && looksLikeVisitorData(current)) return null
+        return offered?.takeIf { looksLikeVisitorData(it) }
+    }
+
+    fun looksLikeVisitorData(value: String) = value.startsWith("Cgt") || value.startsWith("Cgs")
+
+    /**
+     * Whether a chain VISIONOS turned down is worth one more try with a visitorData YouTube has only
+     * just issued. [msSinceFailedSwap] is how long ago the last such try failed too, null if none has.
+     *
+     * A visitorData issued while YouTube distrusted the network stays distrusted after the network
+     * is fine again: VISIONOS answers OK and its urls fail the check, every time (6 of 6 on
+     * 27 Sep 2026, over IPv4 and IPv6 alike), while a new one passes. 0.10.9.5 kept its
+     * visitorData forever, so a phone that got a bad one stayed on IOS's 403 for good.
+     *
+     * After a failed try, not again for [NEW_VISITOR_RETRY_MS]: a network YouTube is refusing
+     * outright refuses every visitorData, and each try is two more requests to it.
+     */
+    fun mayRetryWithNewVisitor(visionosRefused: Boolean, msSinceFailedSwap: Long?): Boolean =
+        visionosRefused && (msSinceFailedSwap == null || msSinceFailedSwap >= NEW_VISITOR_RETRY_MS)
 
     /** One client's part of the error report's trail, as in "VISIONOS OK, HEAD 200". */
     fun trailStep(client: String, playability: String?, head: Int?, checked: Boolean): String =
