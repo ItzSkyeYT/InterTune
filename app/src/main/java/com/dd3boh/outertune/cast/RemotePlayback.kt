@@ -101,6 +101,16 @@ class RemotePlayback<T>(private val now: () -> Long) {
 
     val current: RemoteEntry<T>? get() = entries.getOrNull(index)
 
+    /**
+     * Whether a skip forward has a song to go to, as ExoPlayer decides it: repeat all wraps round,
+     * and repeat one skips as if it were off. The player offers next only then, so the button and
+     * the notification's are not left enabled on the last song, doing nothing.
+     */
+    val hasNext: Boolean get() = index in entries.indices && (index + 1 < entries.size || repeatMode == Player.REPEAT_MODE_ALL)
+
+    /** Whether a skip back has a song to go to, by the same rules as [hasNext]. */
+    val hasPrevious: Boolean get() = index in entries.indices && (index > 0 || repeatMode == Player.REPEAT_MODE_ALL)
+
     /** Where the current song is now, carried on from the last report while it plays. */
     fun positionMs(): Long = position(anchorMs, anchorAt, moving, current?.durationMs ?: -1, now())
 

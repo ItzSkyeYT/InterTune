@@ -141,7 +141,13 @@ class RemotePlayer(
         val position = playback.positionSnapshot()
         val supplier = PositionSupplier { position.at(linkClock()) }
         builder
-            .setAvailableCommands(if (link.caps.hasVolume) COMMANDS_WITH_VOLUME else COMMANDS)
+            .setAvailableCommands(
+                (if (link.caps.hasVolume) COMMANDS_WITH_VOLUME else COMMANDS).buildUpon()
+                    .addIf(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM, playback.hasPrevious)
+                    .addIf(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM, playback.hasNext)
+                    .addIf(Player.COMMAND_SEEK_TO_NEXT, playback.hasNext)
+                    .build(),
+            )
             .setPlayWhenReady(
                 playback.playWhenReady,
                 if (playback.changedOnReceiver) Player.PLAY_WHEN_READY_CHANGE_REASON_REMOTE else Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST,
@@ -364,6 +370,7 @@ class RemotePlayer(
         /** The links' clock, which every reported position is timed by. */
         fun linkClock(): Long = System.nanoTime() / 1_000_000L
 
+        /** Always offered; skipping to the next or previous song is added when there is one (getState). */
         private val COMMANDS: Player.Commands = Player.Commands.Builder()
             .addAll(
                 Player.COMMAND_PLAY_PAUSE,
@@ -371,10 +378,8 @@ class RemotePlayer(
                 Player.COMMAND_STOP,
                 Player.COMMAND_SEEK_TO_DEFAULT_POSITION,
                 Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM,
-                Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+                // Back to the start of the song, which there always is.
                 Player.COMMAND_SEEK_TO_PREVIOUS,
-                Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
-                Player.COMMAND_SEEK_TO_NEXT,
                 Player.COMMAND_SEEK_TO_MEDIA_ITEM,
                 Player.COMMAND_SEEK_BACK,
                 Player.COMMAND_SEEK_FORWARD,

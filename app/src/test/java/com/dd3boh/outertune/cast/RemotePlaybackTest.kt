@@ -185,6 +185,27 @@ class RemotePlaybackTest {
     }
 
     @Test
+    fun nextAndPreviousAreOnlyThereWhenThereIsASongToGoTo() {
+        casting()
+        assertTrue(playback.hasPrevious)
+        assertTrue(playback.hasNext)
+        playback.seekTo(2, 0)
+        assertFalse(playback.hasNext)
+        playback.repeatMode = Player.REPEAT_MODE_ONE
+        assertFalse(playback.hasNext)
+        playback.repeatMode = Player.REPEAT_MODE_ALL
+        assertTrue(playback.hasNext)
+        playback.seekTo(0, 0)
+        assertTrue(playback.hasPrevious)
+        playback.repeatMode = Player.REPEAT_MODE_OFF
+        assertFalse(playback.hasPrevious)
+        assertTrue(playback.hasNext)
+        playback.setItems(emptyList(), 0, 0)
+        assertFalse(playback.hasNext)
+        assertFalse(playback.hasPrevious)
+    }
+
+    @Test
     fun playOrPausePressedOnTheReceiverIsFollowed() {
         casting()
         later()
