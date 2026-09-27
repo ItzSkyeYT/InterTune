@@ -1445,11 +1445,26 @@ fun BottomSheetPlayer(
                         }
                     }
 
-                    mediaMetadata?.let {
-                        controlsContent(it)
+                    // Shrunk as a block when the window is too short for them, as the landscape
+                    // column already was. A pop-up window was short enough for the Column to hand
+                    // the whole shortfall to whatever came last: the lyrics, timer and menu row
+                    // came out a few pixels tall, or, a few dp shorter, the play button squashed
+                    // into a pill and that row gone. The cover above had already given up all its
+                    // height by then, so the top of the block also keeps clear of the status bar,
+                    // which the cover had been covering for.
+                    val controlsFor = mediaMetadata
+                    if (controlsFor != null) {
+                        val statusBar = WindowInsets.systemBars.getTop(LocalDensity.current)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.shrinkToFitHeight(keepClearAtTop = statusBar)
+                        ) {
+                            controlsContent(controlsFor)
+                            Spacer(Modifier.height(24.dp))
+                        }
+                    } else {
+                        Spacer(Modifier.height(24.dp))
                     }
-
-                    Spacer(Modifier.height(24.dp))
                 }
 
                     // The right pane. Same list the queue sheet shows, so there is one queue
@@ -1545,15 +1560,18 @@ internal fun landscapeControlsWidth(available: Dp, playButton: Dp, slots: Int, g
  * so whatever comes last took the whole shortfall: on a 1440p phone at a larger screen zoom,
  * about 340dp tall, the buttons under the controls came out less than half their height. Scaled
  * as a block they lose a few percent each instead, and where everything fits nothing is touched.
+ *
+ * [keepClearAtTop] is height in px, the status bar's, that a block which has to shrink stays under.
  */
-private fun Modifier.shrinkToFitHeight(): Modifier = layout { measurable, constraints ->
+private fun Modifier.shrinkToFitHeight(keepClearAtTop: Int = 0): Modifier = layout { measurable, constraints ->
     val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity))
-    if (!constraints.hasBoundedHeight || placeable.height <= constraints.maxHeight) {
+    val room = constraints.maxHeight - keepClearAtTop
+    if (!constraints.hasBoundedHeight || placeable.height <= room) {
         layout(placeable.width, placeable.height) { placeable.place(0, 0) }
     } else {
-        val scale = constraints.maxHeight.toFloat() / placeable.height
+        val scale = room.coerceAtLeast(1).toFloat() / placeable.height
         layout(placeable.width, constraints.maxHeight) {
-            placeable.placeWithLayer(0, 0) {
+            placeable.placeWithLayer(0, keepClearAtTop) {
                 scaleX = scale
                 scaleY = scale
                 transformOrigin = TransformOrigin(0.5f, 0f)
