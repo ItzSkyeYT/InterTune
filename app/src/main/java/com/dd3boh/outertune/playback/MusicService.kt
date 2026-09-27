@@ -206,6 +206,7 @@ import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.time.LocalDateTime
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlin.math.min
 import kotlin.math.pow
@@ -1621,14 +1622,53 @@ class MusicService : MediaLibraryService(),
     }
 
     private fun createDataSourceFactory(): DataSource.Factory {
-        val songUrlCache = HashMap<String, Pair<String, Long>>()
+        val resolver = SongResolver()
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
+            when (val resolved = resolver.resolve(mediaId, dataSpec.position, dataSpec.length)) {
+                is ResolvedSong.LocalFile -> dataSpec.withUri(resolved.file.toUri())
+                is ResolvedSong.Downloaded -> dataSpec.withUri(resolved.file.uri)
+                ResolvedSong.Cached -> dataSpec
+                is ResolvedSong.KnownStream -> dataSpec.withUri(resolved.url.toUri())
+                is ResolvedSong.NewStream -> dataSpec.withUri(resolved.data.streamUrl.toUri())
+                    .subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
+            }
+        }
+    }
+
+    /**
+     * Decides where a song's bytes come from: a local file, a download, the caches, or a stream
+     * from YouTube, fetched when nothing nearer has the song.
+     *
+     * This was the body of the player's data source, and the player still asks it every time it
+     * opens a piece of a song. It came out so that the cast server asks the very same questions
+     * (ServiceCastSource): a song cast to a TV is found, upgraded, recovered and cached exactly as
+     * one played on the phone. Each instance keeps its own stream urls, so the server's resolves
+     * never disturb the player's.
+     */
+    inner class SongResolver {
+        /**
+         * Stream urls already resolved, with when they expire. Concurrent because the cast server
+         * resolves on several threads at once.
+         */
+        private val knownStreams = ConcurrentHashMap<String, Pair<ResolvedSong.KnownStream, Long>>()
+
+        /** Drops the stream url kept for [mediaId], after it was refused, so the next resolve fetches one. */
+        fun forgetStream(mediaId: String) {
+            knownStreams.remove(mediaId)
+        }
+
+        /**
+         * Where the bytes of [mediaId] come from for a read of [length] bytes (C.LENGTH_UNSET for
+         * the rest of the song) from [position]. Blocking. Throws PlaybackException when the song
+         * cannot be had.
+         */
+        fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {
             Log.d(TAG, "PLAYING: song id = $mediaId")
 
-            var song = queueBoard.getCurrentQueue()?.findSong(dataSpec.key ?: "")
+            var song = queueBoard.getCurrentQueue()?.findSong(mediaId)
             if (song == null) { // in the case of resumption, queueBoard may not be ready yet
-                song = runBlocking { database.song(dataSpec.key).first()?.toMediaMetadata() }
+                song = runBlocking { database.song(mediaId).first()?.toMediaMetadata() }
             }
             // local song
             if (song?.localPath != null) {
@@ -1643,7 +1683,7 @@ class MusicService : MediaLibraryService(),
                         )
                     }
 
-                    return@Factory dataSpec.withUri(file.toUri())
+                    return ResolvedSong.LocalFile(file)
                 } else {
                     // A file deleted outside the app is still in the list until the next scan, so
                     // it is checked, and a song whose file has gone is played from the cache or
@@ -1651,14 +1691,14 @@ class MusicService : MediaLibraryService(),
                     val isDownloadNew = downloadUtil.localMgr.isExists(mediaId)?.takeIf { it.exists() }
                     isDownloadNew?.let {
                         Log.d(TAG, "PLAYING: Custom downloaded song")
-                        return@Factory dataSpec.withUri(it.uri)
+                        return ResolvedSong.Downloaded(it)
                     }
                 }
             }
 
             val isDownload =
-                downloadCache.isCached(mediaId, dataSpec.position, if (dataSpec.length >= 0) dataSpec.length else 1)
-            val isCache = playerCache.isCached(mediaId, dataSpec.position, CHUNK_LENGTH)
+                downloadCache.isCached(mediaId, position, if (length >= 0) length else 1)
+            val isCache = playerCache.isCached(mediaId, position, CHUNK_LENGTH)
             // A copy fetched at a lower setting is fetched again, once, at the higher one. Only
             // upwards: re-fetching to make something worse would spend data to lose quality, and
             // the bytes are already here. Downloads are left alone whatever the setting says,
@@ -1670,24 +1710,24 @@ class MusicService : MediaLibraryService(),
             //
             // And only with a network. Offline the fetch cannot succeed, and the copy here is the
             // only way the song plays at all.
-            val staleQuality = isCache && !isDownload && dataSpec.position == 0L &&
+            val staleQuality = isCache && !isDownload && position == 0L &&
                     isNetworkConnected.value && shouldUpgradeCached(mediaId)
             // Part of the song cached, met at its start while online. The stream is resolved before
             // the copy is used, and if it is not the stream the copy came from, the copy goes: the
             // rest of the song used to be fetched as whatever stream came back and written on from
             // where the copy stopped, two encodings in one file. Offline the copy plays as it is.
-            val partialCopy = !isDownload && dataSpec.position == 0L &&
+            val partialCopy = !isDownload && position == 0L &&
                     isNetworkConnected.value && playerCache.holdsPartFromStart(mediaId)
             if ((isDownload || isCache) && !staleQuality && !partialCopy) {
                 Log.d(TAG, "PLAYING: remote song (cache = ${isCache}, download = ${isDownload})")
                 offloadScope.launch { recoverSong(mediaId) }
-                return@Factory dataSpec
+                return ResolvedSong.Cached
             }
 
-            songUrlCache[mediaId]?.takeIf { !staleQuality && it.second > System.currentTimeMillis() }?.let {
+            knownStreams[mediaId]?.takeIf { !staleQuality && it.second > System.currentTimeMillis() }?.let {
                 Log.d(TAG, "PLAYING: remote song (temp cache)")
                 offloadScope.launch { recoverSong(mediaId) }
-                return@Factory dataSpec.withUri(it.first.toUri())
+                return it.first
             }
 
             Log.d(TAG, "PLAYING: remote song (online fetch)")
@@ -1705,7 +1745,7 @@ class MusicService : MediaLibraryService(),
                 // tried again next time.
                 if (staleQuality || partialCopy) {
                     Log.d(TAG, "PLAYING: remote song (cache kept, the new stream could not be fetched)", throwable)
-                    return@Factory dataSpec
+                    return ResolvedSong.Cached
                 }
                 when (throwable) {
                     is PlaybackException -> throw throwable
@@ -1748,7 +1788,7 @@ class MusicService : MediaLibraryService(),
             // than its own, it would hold two encodings. It goes below instead.
             if (staleQuality && !playbackData.validated && !partialCopy) {
                 Log.d(TAG, "PLAYING: remote song (cache kept, the new stream was not checked)")
-                return@Factory dataSpec
+                return ResolvedSong.Cached
             }
             if (staleQuality) {
                 runCatching { playerCache.removeResource(mediaId) }
@@ -1785,9 +1825,9 @@ class MusicService : MediaLibraryService(),
 
             val streamUrl = playbackData.streamUrl
 
-            songUrlCache[mediaId] =
-                streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
-            dataSpec.withUri(streamUrl.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
+            knownStreams[mediaId] = ResolvedSong.KnownStream(streamUrl, format) to
+                System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
+            return ResolvedSong.NewStream(playbackData)
         }
     }
 
