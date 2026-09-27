@@ -338,10 +338,15 @@ fun BottomSheetPlayer(
     val buttonsStyle by rememberEnumPreference(PlayerButtonsStyleKey, defaultValue = PlayerButtonsStyle.CLASSIC)
     val queueAsButton by rememberPreference(QueueButtonKey, defaultValue = false)
 
-    var position by rememberSaveable(playbackState) {
+    // Read again on a new song as well as on a new state, since the loop below only reads while the
+    // player is ready. A song changed while the one before was still loading kept that song's place
+    // and length under the new title until the new one played. ExoPlayer hides it, having no length
+    // while it loads, so the song's own fills in below; a cast receiver has one all along, and two
+    // quick skips while casting showed the first song's length for the second.
+    var position by rememberSaveable(playbackState, mediaMetadata?.id) {
         mutableLongStateOf(playerConnection.player.currentPosition)
     }
-    var duration by rememberSaveable(playbackState) {
+    var duration by rememberSaveable(playbackState, mediaMetadata?.id) {
         mutableLongStateOf(playerConnection.player.duration)
     }
     var sliderPosition by remember {
