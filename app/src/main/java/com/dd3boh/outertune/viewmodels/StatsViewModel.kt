@@ -53,9 +53,11 @@ class StatsViewModel @Inject constructor(
         database.mostPlayedSongs(period.toTimeMillis())
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    // Counted from the play events over the period itself, as the songs above and the albums
+    // below are, and not from the monthly play counts, which could only start at the first of a
+    // month: 1 week was the month so far.
     val mostPlayedArtists = statPeriod.flatMapLatest { period ->
-        val time = period.toLocalDateTime()
-        database.mostPlayedArtists(time.year, time.month.value).map { artists ->
+        database.mostPlayedArtistsSince(period.toTimeMillis()).map { artists ->
             artists.filter { it.artist.isYouTubeArtist }
         }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -124,14 +126,14 @@ class StatsViewModel @Inject constructor(
         //
         // Once for each period the user picks, not on every change to the list. This used to
         // collect mostPlayedArtists, which is a Room query that runs again whenever the artist,
-        // song, song_artist_map or playCount table is written, for as long as this view model
+        // song, song_artist_map or event table is written, for as long as this view model
         // lives, and that includes while the stats screen is open or on the back stack with the
-        // phone screen off. Every counted play adds one to a playCount row and can reorder the
-        // list, and each new list was rescanned and every artist that still qualified was
-        // fetched again, including one whose page kept failing. An artist whose page has no
-        // picture kept it going with no playback at all: the fetch stamps lastUpdateTime, which
-        // is a change to the list, and the picture is still missing, so it qualified again and
-        // was fetched again, round and round.
+        // phone screen off. Every counted play adds an event and can reorder the list, and each
+        // new list was rescanned and every artist that still qualified was fetched again,
+        // including one whose page kept failing. An artist whose page has no picture kept it
+        // going with no playback at all: the fetch stamps lastUpdateTime, which is a change to
+        // the list, and the picture is still missing, so it qualified again and was fetched
+        // again, round and round.
         //
         // It reads the Room query itself because mostPlayedArtists is a StateFlow seeded with
         // an empty list, and right after the period changes it still holds the old period's
@@ -141,8 +143,7 @@ class StatsViewModel @Inject constructor(
         // again when its period is picked again or the next time this view model is created.
         viewModelScope.launch {
             statPeriod.collect { period ->
-                val time = period.toLocalDateTime()
-                database.mostPlayedArtists(time.year, time.month.value).first()
+                database.mostPlayedArtistsSince(period.toTimeMillis()).first()
                     .map { it.artist }
                     .filter {
                         it.isYouTubeArtist && (it.thumbnailUrl == null || Duration.between(it.lastUpdateTime, LocalDateTime.now()) > Duration.ofDays(10))

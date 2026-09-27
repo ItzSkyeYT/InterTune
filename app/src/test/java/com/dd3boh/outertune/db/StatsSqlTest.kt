@@ -60,6 +60,13 @@ class StatsSqlTest {
         return db.createStatement().use { st -> st.executeQuery("SELECT last_insert_rowid()").use { it.next(); it.getLong(1) } }
     }
 
+    /** A counted play in the event table, which the Most played lists read. */
+    private fun event(song: String, at: Long, playTime: Long = 3 * minute) =
+        exec("INSERT INTO event(songId, timestamp, playTime) VALUES ('$song', $at, $playTime)")
+
+    private fun mostPlayedArtists(from: Long, limit: Long = 6): List<String> =
+        query(StatsSql.MOST_PLAYED_ARTISTS, from, limit) { it.getString("id") }
+
     private fun <T> query(sql: String, vararg args: Long, row: (ResultSet) -> T): List<T> = db.prepareStatement(sql).use { ps ->
         args.forEachIndexed { i, v -> ps.setLong(i + 1, v) }
         ps.executeQuery().use { rs -> buildList { while (rs.next()) add(row(rs)) } }
@@ -169,5 +176,59 @@ class StatsSqlTest {
             listOf(t - 100 * minute, t - 10 * minute),
             query(StatsSql.BOUNDS) { listOf(it.longOrNull("firstAt"), it.longOrNull("firstLiveAt")) }.single(),
         )
+    }
+
+    @Test
+    fun `most played artists count only the plays inside the period`() {
+        val day = 24 * 60 * minute
+        song("this week", "weekly")
+        song("earlier this month", "monthly")
+        song("together", "main", "featured")
+        song("long ago", "gone")
+        repeat(3) { event("this week", t - (it + 1) * day) }
+        repeat(10) { event("earlier this month", t - 20 * day) }
+        event("earlier this month", t - day)
+        repeat(2) { event("together", t - 2 * day) }
+        repeat(5) { event("long ago", t - 40 * day) }
+
+        // A week holds one of monthly's eleven plays, and gone, not played in it, does not fill a
+        // place. Both artists of a song get its plays; alike in everything, they go by id.
+        assertEquals(listOf("weekly", "featured", "main", "monthly"), mostPlayedArtists(t - 7 * day))
+        // All of it, and then only the top two.
+        assertEquals(listOf("monthly", "gone", "weekly", "featured", "main"), mostPlayedArtists(0))
+        assertEquals(listOf("monthly", "gone"), mostPlayedArtists(0, limit = 2))
+    }
+
+    @Test
+    fun `most played artists count every play, and under each the songs played and downloaded`() {
+        val day = 24 * 60 * minute
+        song("saved, never played", "artist")
+        song("downloaded", "artist")
+        song("heard on the radio", "artist")
+        song("played last month", "artist")
+        song("radio only", "stranger")
+        exec("UPDATE song SET inLibrary = $t WHERE id = 'saved, never played'")
+        exec("UPDATE song SET dateDownload = $t WHERE id = 'downloaded'")
+        event("downloaded", t)
+        repeat(2) { event("heard on the radio", t) }
+        event("played last month", t - 30 * day)
+        repeat(4) { event("radio only", t) }
+
+        // None of the songs played is in the library, and they all count: four plays of one song
+        // for stranger, three of two songs for artist, one of them downloaded. The saved song
+        // nobody played and last month's play are not in the week.
+        val rows = query(StatsSql.MOST_PLAYED_ARTISTS, t - 7 * day, 6) { rs ->
+            listOf(rs.getString("id"), rs.getLong("songCount"), rs.getLong("downloadCount"))
+        }
+        assertEquals(listOf(listOf("stranger", 1L, 0L), listOf("artist", 2L, 1L)), rows)
+    }
+
+    @Test
+    fun `the same number of plays goes to the artist listened to for longer`() {
+        song("long", "patient")
+        song("short", "hasty")
+        event("long", t, playTime = 5 * minute)
+        event("short", t, playTime = minute)
+        assertEquals(listOf("patient", "hasty"), mostPlayedArtists(0))
     }
 }
