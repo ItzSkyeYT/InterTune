@@ -387,7 +387,7 @@
     <string name="image_cache_max_size">Taille maximale du cache des pochettes</string>
     <string name="max_queues_description">Combien de files d\'attente l\'application conserve à la fois. La plus ancienne est supprimée au-delà de ce nombre.</string>
     <string name="enable_proxy_description">Faire passer tout ce que l\'application récupère par un autre serveur. Laissez ceci désactivé sauf si vous savez que vous en avez besoin.</string>
-    <string name="show_liked_and_downloaded_playlist_description">Afficher Morceaux aimés et Morceaux téléchargés comme des playlists dans votre bibliothèque.</string>
+    <string name="show_liked_and_downloaded_playlist_description">Afficher Titres aimés et Titres téléchargés comme des playlists dans votre bibliothèque.</string>
     <string name="pause_listen_history_description">Ne plus ajouter de morceaux à votre historique. Rien de ce qui s\'y trouve déjà n\'est supprimé.</string>
     <string name="pause_remote_listen_history_description">Ne plus indiquer à YouTube Music ce que vous écoutez. Votre historique dans cette application continue quoi qu\'il arrive.</string>
     <string name="clear_listen_history_description">Supprimer tout ce que l\'application a enregistré sur ce que vous avez écouté.</string>
