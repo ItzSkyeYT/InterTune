@@ -465,9 +465,10 @@ fun BottomSheetPlayer(
      * arrow floating in the middle of the transport controls.
      *
      * Landscape therefore collapses to exactly the peek. Safe: [rememberBottomSheetState] already
-     * defaults collapsedBound to dismissedBound, and the slow-drag dismiss branch that compares the
-     * two is unreachable with stock values anyway (l0 = 48dp+inset, l1 = 24dp, so `in l0..l1` is an
-     * empty range). Velocity-based dismiss is unaffected.
+     * defaults collapsedBound to dismissedBound, and a slow release below the collapsed midpoint
+     * can only collapse this sheet, because QueueSheet passes no onDismiss. With the two bounds
+     * equal, that range is the single point where the sheet already rests. Velocity-based dismiss
+     * is unaffected.
      *
      * No queue peek on a tablet either: the queue is permanently in the side pane, so reserving a
      * strip for a preview of it wastes the bottom of the screen, squashes the artwork (which is
