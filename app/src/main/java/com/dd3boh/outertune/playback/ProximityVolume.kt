@@ -87,10 +87,12 @@ class ProximityVolume(private val context: Context) {
      * hears nothing within [WIDEN_AFTER_MS] is swapped for the unfiltered one this used before: it
      * pauses with the screen off, but it works with the screen on, as it always did.
      */
+    // On the property, as on startInternal and stop: on the local below it covered reading the
+    // scanner and not the two calls after it, which lint then failed the build over.
+    @SuppressLint("MissingPermission")
     private val widenIfSilent = Runnable {
-        if (!running || heard) return@Runnable
+        if (!running || heard || !hasPermission()) return@Runnable
         runCatching {
-            @SuppressLint("MissingPermission")
             val scanner = adapter?.bluetoothLeScanner ?: return@runCatching
             scanner.stopScan(callback)
             scanner.startScan(null, ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_BALANCED).setReportDelay(0).build(), callback)
