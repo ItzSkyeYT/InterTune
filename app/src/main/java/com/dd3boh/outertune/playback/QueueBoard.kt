@@ -408,7 +408,7 @@ class QueueBoard(
      */
     fun removeSong(item: MultiQueueObject, index: Int): Boolean {
         var ret = false
-        val currentMediaItemIndex = player.player.currentMediaItemIndex
+        val currentMediaItemIndex = player.activePlayer.currentMediaItemIndex
         var newQueuePos = item.getQueuePosShuffled()
 
         if (item.shuffled) {
@@ -638,7 +638,7 @@ class QueueBoard(
     ): Int {
         val items = queue.getCurrentQueueShuffled()
         var newQueuePos = queue.getQueuePosShuffled()
-        val currentMediaItemIndex = player.player.currentMediaItemIndex
+        val currentMediaItemIndex = player.activePlayer.currentMediaItemIndex
 
         // update current position only if the move will affect it
         if (currentMediaItemIndex >= min(fromIndex, toIndex) && currentMediaItemIndex <= max(fromIndex, toIndex)) {
@@ -776,7 +776,7 @@ class QueueBoard(
         )
 
         if (item == null || item.queue.isEmpty()) {
-            player.player.setMediaItems(ArrayList())
+            player.activePlayer.setMediaItems(ArrayList())
             return null
         }
 
@@ -791,46 +791,46 @@ class QueueBoard(
         Log.d(
             TAG, "Setting current queue. in bounds: ${queuePos >= 0 && queuePos < mediaItems.size}, " +
                     "queuePos: $queuePos, real queuePos: ${realQueuePos}, lastSongPos: $lastSongPos" +
-                    "ids: ${player.player.currentMetadata?.id}, ${mediaItems[queuePos].id}"
+                    "ids: ${player.activePlayer.currentMetadata?.id}, ${mediaItems[queuePos].id}"
         )
         /**
          * current playing == jump target, do seamlessly
          */
         val seamlessSupported = (queuePos < mediaItems.size)
-                && player.player.currentMetadata?.id == mediaItems[queuePos].id
+                && player.activePlayer.currentMetadata?.id == mediaItems[queuePos].id
         if (seamlessSupported) {
             Log.d(TAG, "Trying seamless queue switch. Is first song?: ${queuePos == 0}")
-            val playerIndex = player.player.currentMediaItemIndex
+            val playerIndex = player.activePlayer.currentMediaItemIndex
 
             if (queuePos == 0) {
-                val playerItemCount = player.player.mediaItemCount
-                // player.player.replaceMediaItems seems to stop playback so we
+                val playerItemCount = player.activePlayer.mediaItemCount
+                // player.activePlayer.replaceMediaItems seems to stop playback so we
                 // remove all songs except the currently playing one and then add the list of new items
                 if (playerIndex < playerItemCount - 1) {
-                    player.player.removeMediaItems(playerIndex + 1, playerItemCount)
+                    player.activePlayer.removeMediaItems(playerIndex + 1, playerItemCount)
                 }
                 if (playerIndex > 0) {
-                    player.player.removeMediaItems(0, playerIndex)
+                    player.activePlayer.removeMediaItems(0, playerIndex)
                 }
                 // add all songs except the first one since it is already present and playing
-                player.player.addMediaItems(mediaItems.drop(1).map { it.toMediaItem() })
+                player.activePlayer.addMediaItems(mediaItems.drop(1).map { it.toMediaItem() })
             } else {
                 // replace items up to current playing, then replace items after current
-                player.player.replaceMediaItems(
+                player.activePlayer.replaceMediaItems(
                     0, playerIndex,
                     mediaItems.subList(0, queuePos).map { it.toMediaItem() })
-                player.player.replaceMediaItems(
+                player.activePlayer.replaceMediaItems(
                     queuePos + 1, Int.MAX_VALUE,
                     mediaItems.subList(queuePos + 1, mediaItems.size).map { it.toMediaItem() })
             }
         } else {
             Log.d(TAG, "Seamless is not supported. Loading songs in directly")
-            player.player.setMediaItems(mediaItems.map { it.toMediaItem() }, queuePos, lastSongPos)
+            player.activePlayer.setMediaItems(mediaItems.map { it.toMediaItem() }, queuePos, lastSongPos)
         }
 
         bubbleUp(item)
-        if (player.player.shuffleModeEnabled != item.shuffled) {
-            player.player.shuffleModeEnabled = item.shuffled
+        if (player.activePlayer.shuffleModeEnabled != item.shuffled) {
+            player.activePlayer.shuffleModeEnabled = item.shuffled
         }
         return queuePos
     }

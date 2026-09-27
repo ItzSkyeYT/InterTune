@@ -330,6 +330,16 @@ class MusicService : MediaLibraryService(),
      */
     lateinit var exoPlayer: ExoPlayer
     private var routedPlayer: RoutedPlayer? = null
+
+    /**
+     * The player this service and the queue board drive and read themselves: [exoPlayer], or the
+     * remote player while casting. Never the routed [player]. It learns what happened inside the
+     * player it forwards to only once that player has called all its listeners, and most of this
+     * service runs inside those very calls, where the routed player would still describe the song
+     * before: the queue position saved on a song change would be the previous song's. With
+     * Unreleased.CASTING off this is [player] itself.
+     */
+    val activePlayer: Player get() = routedPlayer?.target ?: exoPlayer
     private lateinit var mediaSession: MediaLibrarySession
 
     // Player components
@@ -658,7 +668,7 @@ class MusicService : MediaLibraryService(),
             .setPeriodicPositionUpdateEnabled(false)
             .build()
 
-        player.repeatMode = dataStore.get(RepeatModeKey, REPEAT_MODE_OFF)
+        activePlayer.repeatMode = dataStore.get(RepeatModeKey, REPEAT_MODE_OFF)
 
         // Released the moment it connects, which the inherited version never did, and that is the
         // difference between a service that can stop and one that cannot.
@@ -854,7 +864,7 @@ class MusicService : MediaLibraryService(),
                 .collectLatest(scope) { want ->
                     proximityWanted = want
                     withContext(Dispatchers.Main) {
-                        if (want && player.isPlaying) proximityVolume.start() else proximityVolume.stop()
+                        if (want && exoPlayer.isPlaying) proximityVolume.start() else proximityVolume.stop()
                     }
                 }
 
@@ -864,13 +874,13 @@ class MusicService : MediaLibraryService(),
                     binauralProcessor.fullSphere = want
                     headTracking.fullSphere = want
                     withContext(Dispatchers.Main) {
-                        if (player.currentMediaItem != null && binauralProcessor.enabled) {
-                            val at = player.currentPosition
-                            val wasPlaying = player.playWhenReady
-                            player.stop()
-                            player.prepare()
-                            player.seekTo(at)
-                            player.playWhenReady = wasPlaying
+                        if (exoPlayer.currentMediaItem != null && binauralProcessor.enabled) {
+                            val at = exoPlayer.currentPosition
+                            val wasPlaying = exoPlayer.playWhenReady
+                            exoPlayer.stop()
+                            exoPlayer.prepare()
+                            exoPlayer.seekTo(at)
+                            exoPlayer.playWhenReady = wasPlaying
                         }
                     }
                 }
@@ -900,7 +910,7 @@ class MusicService : MediaLibraryService(),
                     // rather than holding the sensor until the next play and pause.
                     delay(window + 5_000L)
                     withContext(Dispatchers.Main) {
-                        if (!(headTrackingWanted && binauralProcessor.enabled && player.isPlaying)) headTracking.stop(glideHome = false)
+                        if (!(headTrackingWanted && binauralProcessor.enabled && exoPlayer.isPlaying)) headTracking.stop(glideHome = false)
                     }
                 }
 
@@ -908,7 +918,7 @@ class MusicService : MediaLibraryService(),
                 .collectLatest(scope) { want ->
                     headTrackingWanted = want
                     withContext(Dispatchers.Main) {
-                        if (want && binauralProcessor.enabled && player.isPlaying) headTracking.start()
+                        if (want && binauralProcessor.enabled && exoPlayer.isPlaying) headTracking.start()
                         else if (!want) headTracking.stop(glideHome = true)
                     }
                 }
@@ -932,19 +942,19 @@ class MusicService : MediaLibraryService(),
                         // Rotating a field nobody is rendering does nothing, and the sensor costs
                         // battery, so tracking follows the renderer rather than being independent.
                         if (!wantHeadphones) headTracking.stop(glideHome = false)
-                        else if (headTrackingWanted && player.isPlaying) headTracking.start()
+                        else if (headTrackingWanted && exoPlayer.isPlaying) headTracking.start()
                         // Offload hands the stream to the phone's low power audio path, which
                         // skips the processor chain entirely. Leaving it on would mean the
                         // setting appears to do nothing for anyone who turned offload on, with
                         // no way to tell why, so spatial audio takes it off itself.
                         applyOffload()
-                        if (player.currentMediaItem != null) {
-                            val at = player.currentPosition
-                            val wasPlaying = player.playWhenReady
-                            player.stop()
-                            player.prepare()
-                            player.seekTo(at)
-                            player.playWhenReady = wasPlaying
+                        if (exoPlayer.currentMediaItem != null) {
+                            val at = exoPlayer.currentPosition
+                            val wasPlaying = exoPlayer.playWhenReady
+                            exoPlayer.stop()
+                            exoPlayer.prepare()
+                            exoPlayer.seekTo(at)
+                            exoPlayer.playWhenReady = wasPlaying
                         }
                     }
                 }
@@ -1123,9 +1133,9 @@ class MusicService : MediaLibraryService(),
                             // Only resume something that actually stalled. A flag that outlived its
                             // fault used to mean music starting by itself out of a pocket at the
                             // next network change.
-                            if (player.playbackState == STATE_IDLE) {
-                                player.prepare()
-                                player.play()
+                            if (activePlayer.playbackState == STATE_IDLE) {
+                                activePlayer.prepare()
+                                activePlayer.play()
                             }
                         }
                     }
@@ -1260,7 +1270,7 @@ class MusicService : MediaLibraryService(),
         if (mediaId in recoverySettled) return
         val song = database.song(mediaId).first()
         val mediaMetadata = withContext(Dispatchers.Main) {
-            player.findNextMediaItemById(mediaId)?.metadata
+            activePlayer.findNextMediaItemById(mediaId)?.metadata
         } ?: return
         val duration = song?.song?.duration?.takeIf { it != -1 }
             ?: mediaMetadata.duration.takeIf { it != -1 }
@@ -1355,7 +1365,7 @@ class MusicService : MediaLibraryService(),
     }
 
     fun toggleStartRadio() {
-        val mediaMetadata = player.currentMetadata ?: return
+        val mediaMetadata = activePlayer.currentMetadata ?: return
         playQueue(YouTubeQueue.radio(mediaMetadata), isRadio = true)
     }
 
@@ -1446,8 +1456,8 @@ class MusicService : MediaLibraryService(),
                     queueBoard.setCurrQueue(q, shouldResume)
                 }
 
-                player.prepare()
-                player.playWhenReady = playWhenReady
+                activePlayer.prepare()
+                activePlayer.playWhenReady = playWhenReady
             } catch (e: Exception) {
                 reportException(e)
                 Toast.makeText(this@MusicService, "plr: ${e.message}", Toast.LENGTH_LONG)
@@ -1477,7 +1487,7 @@ class MusicService : MediaLibraryService(),
             } else {
                 // enqueue next
                 queueBoard.getCurrentQueue()?.let {
-                    queueBoard.addSongsToQueue(it, player.currentMediaItemIndex + 1, items.mapNotNull { it.metadata })
+                    queueBoard.addSongsToQueue(it, activePlayer.currentMediaItemIndex + 1, items.mapNotNull { it.metadata })
                 }
             }
         }
@@ -1491,7 +1501,7 @@ class MusicService : MediaLibraryService(),
     }
 
     fun triggerShuffle() {
-        val oldIndex = player.currentMediaItemIndex
+        val oldIndex = activePlayer.currentMediaItemIndex
         queueBoard.setCurrQueuePosIndex(oldIndex)
         val currentQueue = queueBoard.getCurrentQueue() ?: return
 
@@ -1546,9 +1556,9 @@ class MusicService : MediaLibraryService(),
             // player on a cold start, so waiting for them was the second wrong guess: fifteen
             // seconds passed and the player was still empty, because normally it is the UI that
             // asks for the queue when somebody presses play. Load it here instead.
-            if (player.mediaItemCount == 0) {
+            if (activePlayer.mediaItemCount == 0) {
                 val loaded = queueBoard.setCurrQueue(shouldResume = true)
-                if (loaded == null || player.mediaItemCount == 0) {
+                if (loaded == null || activePlayer.mediaItemCount == 0) {
                     Log.i(TAG, "Resume on launch asked for, but there is no queue to restore")
                     return@withContext
                 }
@@ -1560,16 +1570,16 @@ class MusicService : MediaLibraryService(),
             // playing, pause button and all, while never resolving a stream or opening an audio
             // track. Normally the UI's own play path does this, which is why nothing else needed it.
             Log.i(TAG, "Resuming playback on launch")
-            player.prepare()
-            player.play()
+            activePlayer.prepare()
+            activePlayer.play()
         }
     }
 
     fun deInitQueue() {
         Log.i(TAG, "+deInitQueue()")
-        val pos = player.currentPosition
+        val pos = activePlayer.currentPosition
         // Null when the player holds nothing, which is most runs that never pressed play.
-        val playerSongId = player.currentMediaItem?.mediaId
+        val playerSongId = activePlayer.currentMediaItem?.mediaId
         queueBoard.shutdown()
         if (dataStore.get(PersistentQueueKey, true)) {
             runBlocking(Dispatchers.IO) {
@@ -2039,8 +2049,8 @@ class MusicService : MediaLibraryService(),
         remote.release()
         // This service missed the new list going in, so it starts on the song as a new queue would.
         noteTransition(exo.currentMediaItem, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)
-        currentMediaMetadata.value = player.currentMetadata
-        queueBoard.setCurrQueuePosIndex(player.currentMediaItemIndex)
+        currentMediaMetadata.value = activePlayer.currentMetadata
+        queueBoard.setCurrQueuePosIndex(activePlayer.currentMediaItemIndex)
         updateWidget()
         updateNotification()
     }
@@ -2193,18 +2203,18 @@ class MusicService : MediaLibraryService(),
         }
         adaptiveTailActive.value = true
 
-        val current = player.currentMediaItemIndex
-        val count = player.mediaItemCount
+        val current = activePlayer.currentMediaItemIndex
+        val count = activePlayer.mediaItemCount
         val locked = if (strong) AdaptiveQueue.STRONG_LOCKED else AdaptiveQueue.LOCKED
         val start = AdaptiveQueue.tailStart(current, count, locked) ?: return
 
         val recent = (current downTo maxOf(0, current - TagFit.WINDOW + 1))
-            .mapNotNull { runCatching { player.getMediaItemAt(it).mediaMetadata.title?.toString() }.getOrNull() }
+            .mapNotNull { runCatching { activePlayer.getMediaItemAt(it).mediaMetadata.title?.toString() }.getOrNull() }
         val context = TagFit.context(recent.map { SongTags.of(it) })
         if (!context.known) return
 
         val tail = (start until count).mapNotNull { i ->
-            runCatching { i to player.getMediaItemAt(i).mediaMetadata.title?.toString() }.getOrNull()
+            runCatching { i to activePlayer.getMediaItemAt(i).mediaMetadata.title?.toString() }.getOrNull()
         }
         if (tail.isEmpty()) return
 
@@ -2219,7 +2229,7 @@ class MusicService : MediaLibraryService(),
         // Descending, so each removal cannot shift the index of the next one.
         plan.dropped.sortedByDescending { it.first }.forEach { (index, _) ->
             if (queueBoard.removeCurrentQueueSong(index)) {
-                runCatching { player.removeMediaItem(index) }
+                runCatching { activePlayer.removeMediaItem(index) }
             }
         }
         hiddenTailChanged.value = hiddenTailChanged.value + 1
@@ -2244,12 +2254,12 @@ class MusicService : MediaLibraryService(),
                 // toggleShuffleMode, which sets player.shuffleModeEnabled and never touches the
                 // queue. So pressing it moved the icon and left the label behind, sometimes for
                 // good.
-                CommandButton.Builder(if (player.shuffleModeEnabled) CommandButton.ICON_SHUFFLE_ON else CommandButton.ICON_SHUFFLE_OFF)
-                    .setDisplayName(getString(if (player.shuffleModeEnabled) R.string.action_shuffle_off else R.string.action_shuffle_on))
+                CommandButton.Builder(if (activePlayer.shuffleModeEnabled) CommandButton.ICON_SHUFFLE_ON else CommandButton.ICON_SHUFFLE_OFF)
+                    .setDisplayName(getString(if (activePlayer.shuffleModeEnabled) R.string.action_shuffle_off else R.string.action_shuffle_on))
                     .setSessionCommand(CommandToggleShuffle)
                     .build(),
                 CommandButton.Builder(
-                    when (player.repeatMode) {
+                    when (activePlayer.repeatMode) {
                         REPEAT_MODE_OFF -> CommandButton.ICON_REPEAT_OFF
                         REPEAT_MODE_ONE -> CommandButton.ICON_REPEAT_ONE
                         REPEAT_MODE_ALL -> CommandButton.ICON_REPEAT_ALL
@@ -2258,7 +2268,7 @@ class MusicService : MediaLibraryService(),
                 )
                     .setDisplayName(
                         getString(
-                            when (player.repeatMode) {
+                            when (activePlayer.repeatMode) {
                                 REPEAT_MODE_OFF -> R.string.repeat_mode_off
                                 REPEAT_MODE_ONE -> R.string.repeat_mode_one
                                 REPEAT_MODE_ALL -> R.string.repeat_mode_all
@@ -2325,9 +2335,9 @@ class MusicService : MediaLibraryService(),
             delay(NetworkRetryPolicy.delayMillis(attempt))
             // Anything that recovered, or that the listener touched, has already cleared the flag,
             // and re-preparing a player that is not idle would restart the song under them.
-            if (!waitingForNetworkConnection.value || player.playbackState != STATE_IDLE) return@launch
-            player.prepare()
-            player.play()
+            if (!waitingForNetworkConnection.value || activePlayer.playbackState != STATE_IDLE) return@launch
+            activePlayer.prepare()
+            activePlayer.play()
         }
     }
 
@@ -2347,26 +2357,26 @@ class MusicService : MediaLibraryService(),
          * too many errors come up too quickly. Pause to show player "stopped" state
          */
         consecutivePlaybackErr += 2
-        val nextWindowIndex = player.nextMediaItemIndex
+        val nextWindowIndex = activePlayer.nextMediaItemIndex
 
         if (consecutivePlaybackErr <= MAX_PLAYER_CONSECUTIVE_ERR && nextWindowIndex != C.INDEX_UNSET) {
-            player.seekTo(nextWindowIndex, C.TIME_UNSET)
-            player.prepare()
-            player.play()
+            activePlayer.seekTo(nextWindowIndex, C.TIME_UNSET)
+            activePlayer.prepare()
+            activePlayer.play()
 
             Toast.makeText(this@MusicService, getString(R.string.err_play_next_on_error), Toast.LENGTH_SHORT).show()
             return
         }
 
         stoppedByError = true
-        player.pause()
+        activePlayer.pause()
         Toast.makeText(this@MusicService, getString(R.string.err_stop_on_too_many_errors), Toast.LENGTH_LONG).show()
         consecutivePlaybackErr = 0
     }
 
     fun stopOnError() {
         stoppedByError = true
-        player.pause()
+        activePlayer.pause()
         Toast.makeText(this@MusicService, getString(R.string.err_stop_on_error), Toast.LENGTH_LONG).show()
     }
 
@@ -2382,7 +2392,7 @@ class MusicService : MediaLibraryService(),
         val causeCode = generateSequence(error.cause) { it.cause }
             .filterIsInstance<PlaybackException>()
             .firstOrNull()?.errorCode
-        val localSong = player.currentMediaItem?.mediaId?.let { id ->
+        val localSong = activePlayer.currentMediaItem?.mediaId?.let { id ->
             queueBoard.getCurrentQueue()?.findSong(id)?.isLocal
         } == true
         if (NetworkRetryPolicy.waitsForNetwork(!isNetworkConnected.value, error.errorCode, causeCode, localSong)) {
@@ -2416,13 +2426,13 @@ class MusicService : MediaLibraryService(),
         // Scanning is the cost, so it only runs while there is something to turn down.
         if (isPlaying && proximityWanted && !isCasting) proximityVolume.start() else if (!isPlaying) proximityVolume.stop()
         if (isPlaying && !isCasting) {
-            player.currentMediaItem?.mediaId?.let { id -> currentStart(id)?.takeIf { !it.opened }?.let { openListen(id, it) } }
+            activePlayer.currentMediaItem?.mediaId?.let { id -> currentStart(id)?.takeIf { !it.opened }?.let { openListen(id, it) } }
         }
         if (!isPlaying) {
-            val pos = player.currentPosition
+            val pos = activePlayer.currentPosition
             // A pause is where a stop will have happened if the app dies now, so the open row
             // learns the position at once rather than at the next minute mark.
-            player.currentMediaItem?.mediaId?.let { id ->
+            activePlayer.currentMediaItem?.mediaId?.let { id ->
                 lastKnownPosition[id] = pos
                 currentStart(id)?.let { checkpointListen(it, pos) }
             }
@@ -2473,15 +2483,15 @@ class MusicService : MediaLibraryService(),
         // and left paused, which is what they asked for. The runaway guard is not weakened,
         // because that counts automatic skips and this is a hand on a button.
         if (reason == MEDIA_ITEM_TRANSITION_REASON_SEEK &&
-            (player.isPlaying || player.playbackState == STATE_IDLE)
+            (activePlayer.isPlaying || activePlayer.playbackState == STATE_IDLE)
         ) {
             val afterError = stoppedByError
             stoppedByError = false
-            player.prepare()
+            activePlayer.prepare()
             // playWhenReady carries the listener's intent, except after an error, where the app
             // cleared it on their behalf by pausing. Skipping then is them asking for the next
             // song, so it plays.
-            if (player.playWhenReady || afterError) player.play()
+            if (activePlayer.playWhenReady || afterError) activePlayer.play()
         }
 
         // Auto load more songs
@@ -2490,7 +2500,7 @@ class MusicService : MediaLibraryService(),
         val playlistId = q?.playlistId
         if (autoLoadMore &&
             reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT &&
-            player.mediaItemCount - player.currentMediaItemIndex <= 5 &&
+            activePlayer.mediaItemCount - activePlayer.currentMediaItemIndex <= 5 &&
             playlistId != null // aka "hasNext"
         ) {
             Log.d(TAG, "onMediaItemTransition: Triggering queue auto load more")
@@ -2518,7 +2528,7 @@ class MusicService : MediaLibraryService(),
                 Log.d(TAG, "onMediaItemTransition: Got ${mediaItems.size} songs from radio")
                 // Only into the queue that asked for them. A page still on its way when a list from
                 // the car became current went to the end of that list instead, and reloaded it.
-                if (player.playbackState != STATE_IDLE && songCount > 1 &&
+                if (activePlayer.playbackState != STATE_IDLE && songCount > 1 &&
                     queueBoard.getCurrentQueue()?.id == q.id
                 ) { // initial radio loading is handled by playQueue()
                     queueBoard.enqueueEnd(mediaItems.drop(1))
@@ -2527,19 +2537,19 @@ class MusicService : MediaLibraryService(),
         }
 
         // The pause point belongs to the song before this one, and the save below writes it.
-        q?.let { it.lastSongPos = ResumePoint.afterTransition(reason, player.currentPosition, it.lastSongPos) }
-        queueBoard.setCurrQueuePosIndex(player.currentMediaItemIndex)
+        q?.let { it.lastSongPos = ResumePoint.afterTransition(reason, activePlayer.currentPosition, it.lastSongPos) }
+        queueBoard.setCurrQueuePosIndex(activePlayer.currentMediaItemIndex)
 
         // reshuffle queue when shuffle AND repeat all are enabled
         // no, when repeat mode is on, player does not "STATE_ENDED"
-        if (player.currentMediaItemIndex == player.mediaItemCount - 1 &&
+        if (activePlayer.currentMediaItemIndex == activePlayer.mediaItemCount - 1 &&
             (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == MEDIA_ITEM_TRANSITION_REASON_SEEK) &&
-            player.shuffleModeEnabled && player.repeatMode == REPEAT_MODE_ALL
+            activePlayer.shuffleModeEnabled && activePlayer.repeatMode == REPEAT_MODE_ALL
         ) {
             scope.launch(SilentHandler) {
                 // or else race condition: Assertions.checkArgument(eventTime.realtimeMs >= currentPlaybackStateStartTimeMs) fails in updatePlaybackState()
                 delay(200)
-                queueBoard.shuffleCurrent(player.mediaItemCount > 2)
+                queueBoard.shuffleCurrent(activePlayer.mediaItemCount > 2)
                 queueBoard.setCurrQueue()
             }
         }
@@ -2598,9 +2608,9 @@ class MusicService : MediaLibraryService(),
      * respecting on its own, since seeding radio from a rejection is how it got lost.
      */
     private fun lastCompletedId(): String? {
-        val current = player.currentMediaItemIndex
+        val current = activePlayer.currentMediaItemIndex
         for (i in current downTo maxOf(0, current - radioAnchorLookback)) {
-            val id = runCatching { player.getMediaItemAt(i).mediaId }.getOrNull() ?: continue
+            val id = runCatching { activePlayer.getMediaItemAt(i).mediaId }.getOrNull() ?: continue
             if (pendingEndReasons[id] == EndReason.ENDED) return id
         }
         return null
@@ -2627,9 +2637,9 @@ class MusicService : MediaLibraryService(),
         pendingOrigin = null
         // Going back is a choice, and it used to be counted as the opposite of one. See
         // AutoplayDepth, which holds the rule so a test can hold it to account.
-        val wentBack = AutoplayDepth.wentBack(reason, lastQueueIndex, player.currentMediaItemIndex)
+        val wentBack = AutoplayDepth.wentBack(reason, lastQueueIndex, activePlayer.currentMediaItemIndex)
         autoplayRun = AutoplayDepth.next(autoplayRun, chosen, wentBack, reason)
-        lastQueueIndex = player.currentMediaItemIndex
+        lastQueueIndex = activePlayer.currentMediaItemIndex
         checkpointJob?.cancel()
         val q = queueBoard.getCurrentQueue()
         val id = mediaItem?.mediaId ?: run { lastMediaId = null; return }
@@ -2648,7 +2658,7 @@ class MusicService : MediaLibraryService(),
         // A loaded item is not a listen: the queue restored at launch sits here unplayed. The row
         // opens when sound starts, which is now if playback carried straight over, and otherwise
         // in onIsPlayingChanged.
-        if (player.isPlaying) openListen(id, info)
+        if (activePlayer.isPlaying) openListen(id, info)
         checkpointJob = offloadScope.launch {
             while (true) {
                 delay(CHECKPOINT_MS)
@@ -2659,9 +2669,9 @@ class MusicService : MediaLibraryService(),
                 // other people's queries once a minute forever. Now it simply waits.
                 val pos = withContext(Dispatchers.Main) {
                     when {
-                        player.currentMediaItem?.mediaId != id -> FINISHED
-                        !player.isPlaying -> PAUSED
-                        else -> player.currentPosition
+                        activePlayer.currentMediaItem?.mediaId != id -> FINISHED
+                        !activePlayer.isPlaying -> PAUSED
+                        else -> activePlayer.currentPosition
                     }
                 }
                 if (pos == FINISHED) break
@@ -2694,9 +2704,9 @@ class MusicService : MediaLibraryService(),
     private fun openListen(mediaId: String, info: StartInfo) {
         info.opened = true
         info.startedAt = System.currentTimeMillis()
-        info.startPositionMs = player.currentPosition.coerceAtLeast(0L)
+        info.startPositionMs = activePlayer.currentPosition.coerceAtLeast(0L)
         if (listenHistoryPaused) { info.rowReady.complete(0L); return }
-        val metadata = player.currentMediaItem?.takeIf { it.mediaId == mediaId }?.metadata
+        val metadata = activePlayer.currentMediaItem?.takeIf { it.mediaId == mediaId }?.metadata
         database.transaction {
             runCatching {
                 // The row points at the song table, and recoverSong may still be fetching the
@@ -2783,12 +2793,12 @@ class MusicService : MediaLibraryService(),
     private val volumeReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", -1) != android.media.AudioManager.STREAM_MUSIC) return
-            if (!player.isPlaying || isCasting) return
+            if (!activePlayer.isPlaying || isCasting) return
             val now = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_VALUE", -1)
             val before = intent.getIntExtra("android.media.EXTRA_PREV_VOLUME_STREAM_VALUE", -1)
             if (now < 0 || before < 0 || now == before) return
-            val id = player.currentMediaItem?.mediaId ?: return
-            noteSignal(id, if (now > before) SignalKind.VOLUME_UP else SignalKind.VOLUME_DOWN, player.currentPosition, (now - before).toFloat())
+            val id = activePlayer.currentMediaItem?.mediaId ?: return
+            noteSignal(id, if (now > before) SignalKind.VOLUME_UP else SignalKind.VOLUME_DOWN, activePlayer.currentPosition, (now - before).toFloat())
         }
     }
 
@@ -3030,7 +3040,7 @@ class MusicService : MediaLibraryService(),
             else -> null
         }
         lastRepeatMode = repeatMode
-        if (kind != null && !isCasting) player.currentMediaItem?.mediaId?.let { id -> noteSignal(id, kind, player.currentPosition) }
+        if (kind != null && !isCasting) activePlayer.currentMediaItem?.mediaId?.let { id -> noteSignal(id, kind, activePlayer.currentPosition) }
         updateNotification()
         offloadScope.launch {
             dataStore.edit { settings ->
@@ -3062,7 +3072,7 @@ class MusicService : MediaLibraryService(),
         //
         // A cast keeps it in the foreground, paused too: the receiver fetches every song from the
         // server here, and a service out of the foreground loses the network in Doze.
-        if (startInForegroundRequired || player.isPlaying || isCasting || !dataStore.get(KeepAliveKey, false)) {
+        if (startInForegroundRequired || activePlayer.isPlaying || isCasting || !dataStore.get(KeepAliveKey, false)) {
             super.onUpdateNotification(session, startInForegroundRequired || isCasting)
         }
     }
@@ -3077,7 +3087,7 @@ class MusicService : MediaLibraryService(),
             runCatching {
                 WidgetStore.setNowPlaying(this@MusicService) {
                     if (stopped) WidgetStore.NowState(currentMediaMetadata.value, false)
-                    else withContext(Dispatchers.Main) { WidgetStore.NowState(currentMediaMetadata.value, player.isPlaying) }
+                    else withContext(Dispatchers.Main) { WidgetStore.NowState(currentMediaMetadata.value, activePlayer.isPlaying) }
                 }
             }.onFailure { Log.w(TAG, "Could not update the widget", it) }
         }
