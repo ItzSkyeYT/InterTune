@@ -302,7 +302,20 @@ class MusicService : MediaLibraryService(),
     @DownloadCache
     lateinit var downloadCache: SimpleCache
 
-    lateinit var player: ExoPlayer
+    /**
+     * The player everything talks to. With Unreleased.CASTING off it is [exoPlayer] itself, and
+     * playback is exactly what it was before casting existed. With it on it is a [RoutedPlayer]
+     * around [exoPlayer], which a cast will send to a receiver instead.
+     */
+    lateinit var player: Player
+
+    /**
+     * The phone's own player, for what only it has: the audio session and its effects, the output
+     * format, audio focus, offload, skip silence and the volume the gain stages set. Those stay
+     * with the phone's sound while casting, and must never reach a receiver.
+     */
+    lateinit var exoPlayer: ExoPlayer
+    private var routedPlayer: RoutedPlayer? = null
     private lateinit var mediaSession: MediaLibrarySession
 
     // Player components
@@ -480,11 +493,11 @@ class MusicService : MediaLibraryService(),
     private fun measureOutputLatency() {
         val processed = binauralProcessor.framesProcessed
         if (processed <= 0L) return
-        val rate = player.audioFormat?.sampleRate ?: return
+        val rate = exoPlayer.audioFormat?.sampleRate ?: return
         if (rate <= 0) return
-        val speed = player.playbackParameters.speed.takeIf { it > 0.01f } ?: 1f
+        val speed = exoPlayer.playbackParameters.speed.takeIf { it > 0.01f } ?: 1f
         val renderedMs = processed * 1000.0 / rate / speed
-        val heardMs = player.currentPosition - (currentTrackStartMs ?: return)
+        val heardMs = exoPlayer.currentPosition - (currentTrackStartMs ?: return)
         val latency = ((renderedMs - heardMs) / 1000.0).toFloat()
         if (latency < MIN_PLAUSIBLE_LATENCY || latency > MAX_PLAUSIBLE_LATENCY) return
         val now = headTracking.lookaheadSeconds
@@ -556,7 +569,7 @@ class MusicService : MediaLibraryService(),
         installedNowPlayingProvider = provider
         loudnessRepair.nowPlayingIdProvider = provider
 
-        player = ExoPlayer.Builder(this)
+        exoPlayer = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(createDataSourceFactory()))
             .setRenderersFactory(createRenderersFactory(isGaplessOffloadAllowed))
             .setHandleAudioBecomingNoisy(true)
@@ -581,8 +594,12 @@ class MusicService : MediaLibraryService(),
             .apply {
                 // listeners
                 addListener(this@MusicService)
-                sleepTimer = SleepTimer(scope, this)
-                addListener(sleepTimer)
+                // The sleep timer pauses whatever plays, so with casting possible it follows the
+                // routed player below instead, and pauses a receiver too.
+                if (!Unreleased.CASTING) {
+                    sleepTimer = SleepTimer(scope, this)
+                    addListener(sleepTimer)
+                }
                 transitionFade = TransitionFade(scope, this)
                 addListener(transitionFade)
                 addAnalyticsListener(PlaybackStatsListener(false, this@MusicService))
@@ -590,6 +607,14 @@ class MusicService : MediaLibraryService(),
                 // misc
                 setOffloadEnabled(dataStore.get(AudioOffloadKey, false))
             }
+        player = exoPlayer
+        if (Unreleased.CASTING) {
+            val routed = RoutedPlayer(exoPlayer)
+            routedPlayer = routed
+            player = routed
+            sleepTimer = SleepTimer(scope, routed)
+            routed.addListener(sleepTimer)
+        }
 
         mediaLibrarySessionCallback.apply {
             service = this@MusicService
@@ -710,7 +735,7 @@ class MusicService : MediaLibraryService(),
                     // cannot skip it. So do both fades, the sleep timer's and the one between
                     // songs. The combine above only decides when to recompute, so anything left
                     // out of this line does nothing at all.
-                    player.volume = min(total, 1f) * sleepTimer.fadeFactor.value *
+                    exoPlayer.volume = min(total, 1f) * sleepTimer.fadeFactor.value *
                         proximityVolume.factor.value * transitionFade.factor.value
                 }
             }
@@ -726,7 +751,7 @@ class MusicService : MediaLibraryService(),
                 .distinctUntilChanged()
                 .collectLatest(scope) {
                     withContext(Dispatchers.Main) {
-                        player.skipSilenceEnabled = it
+                        exoPlayer.skipSilenceEnabled = it
                     }
                 }
 
@@ -936,7 +961,7 @@ class MusicService : MediaLibraryService(),
                 .distinctUntilChanged()
                 .collectLatest(scope) { share ->
                     withContext(Dispatchers.Main) {
-                        player.setAudioAttributes(musicAudioAttributes, !share)
+                        exoPlayer.setAudioAttributes(musicAudioAttributes, !share)
                     }
                 }
 
@@ -1570,7 +1595,7 @@ class MusicService : MediaLibraryService(),
      */
     private fun applyOffload() {
         val needsOffloadOff = spatialUpmixProcessor.enabled || binauralProcessor.enabled || transitionFade.enabled
-        player.setOffloadEnabled(!needsOffloadOff && dataStore.get(AudioOffloadKey, false))
+        exoPlayer.setOffloadEnabled(!needsOffloadOff && dataStore.get(AudioOffloadKey, false))
     }
 
     private fun openAudioEffectSession() {
@@ -1589,7 +1614,7 @@ class MusicService : MediaLibraryService(),
         isAudioEffectSessionOpened = true
         sendBroadcast(
             Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
-                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
+                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, exoPlayer.audioSessionId)
                 putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
                 putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
             }
@@ -1601,7 +1626,7 @@ class MusicService : MediaLibraryService(),
         isAudioEffectSessionOpened = false
         sendBroadcast(
             Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
-                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
+                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, exoPlayer.audioSessionId)
                 putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
             }
         )
@@ -2918,7 +2943,7 @@ class MusicService : MediaLibraryService(),
 
     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
         val q = queueBoard.getCurrentQueue()
-        player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(player.mediaItemCount))
+        exoPlayer.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(exoPlayer.mediaItemCount))
         if (q == null || q.shuffled == shuffleModeEnabled) {
             // The button reads the player's flag, so it has to be redrawn even when the queue has
             // nothing to change, or it shows the old state after a resume sets the flag.
