@@ -84,6 +84,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.cast.CastFormats
 import com.dd3boh.outertune.cast.CastNetwork
 import com.dd3boh.outertune.cast.CastServer
+import com.dd3boh.outertune.cast.ReceiverLink
 import com.dd3boh.outertune.constants.AutoLoadMoreKey
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.KeepAliveKey
@@ -287,8 +288,21 @@ class MusicService : MediaLibraryService(),
     private var castServer: CastServer? = null
     private var castNetworkWatch: ConnectivityManager.NetworkCallback? = null
 
-    /** Casting driven from adb until the picker exists. Only with Unreleased.CASTING on. */
+    /** Casting driven from adb, for tests on the emulator. Only with Unreleased.CASTING on. */
     private var castProbe: CastProbe? = null
+
+    /** Choosing a receiver, handing playback to it and back. Only with Unreleased.CASTING on. */
+    var castSession: CastSession? = null
+        private set
+
+    /**
+     * True while a receiver plays. This service then listens to the [RemotePlayer] rather than to
+     * [exoPlayer], so the queue, the notification, the widget, radio and the error handling follow
+     * the receiver, and what only makes sense for sound coming out of the phone is left alone: the
+     * listening history, audio effects, head tracking and proximity volume. Main thread.
+     */
+    var isCasting = false
+        private set
 
     val qbInit = MutableStateFlow(false)
     var queueBoard = QueueBoard(this, maxQueues = 1)
@@ -305,7 +319,7 @@ class MusicService : MediaLibraryService(),
     /**
      * The player everything talks to. With Unreleased.CASTING off it is [exoPlayer] itself, and
      * playback is exactly what it was before casting existed. With it on it is a [RoutedPlayer]
-     * around [exoPlayer], which a cast will send to a receiver instead.
+     * around [exoPlayer], which a cast sends to a [RemotePlayer] instead.
      */
     lateinit var player: Player
 
@@ -672,7 +686,10 @@ class MusicService : MediaLibraryService(),
         )
 
         connectivityManager = getSystemService()!!
-        if (Unreleased.CASTING) castProbe = CastProbe(this, connectivityManager).also { it.register() }
+        if (Unreleased.CASTING) {
+            castProbe = CastProbe(this, connectivityManager).also { it.register() }
+            castSession = CastSession(this, connectivityManager)
+        }
 
         currentSong.collect(scope) {
             updateNotification()
@@ -1952,6 +1969,82 @@ class MusicService : MediaLibraryService(),
         castServer = null
     }
 
+    /**
+     * Hands playback to a receiver. The queue, the song, where it is and whether it plays go to a new
+     * [RemotePlayer]; the screens, the notification and the queue board follow it through [player];
+     * and the phone's own player stops. It plays there if [play], or if the phone was playing when
+     * [play] is null. Null with casting off. Main thread.
+     *
+     * The phone's player is stopped and emptied, not just paused. A player holding a song keeps the
+     * rest of that song's cache locked, so the bytes the server reads for the receiver would not be
+     * cached (seen on the emulator, 27 Sep). Emptying it also closes the play in progress there as it
+     * stands, through the analytics listener that stays on it; with no transition behind it, it is
+     * recorded as a stop.
+     */
+    internal fun handOverTo(link: ReceiverLink, server: CastServer, play: Boolean?, onLost: (String) -> Unit): RemotePlayer? {
+        val routed = routedPlayer ?: return null
+        val exo = exoPlayer
+        val remote = RemotePlayer(
+            Looper.getMainLooper(),
+            link,
+            server,
+            items = List(exo.mediaItemCount) { exo.getMediaItemAt(it) },
+            startIndex = exo.currentMediaItemIndex,
+            startMs = exo.currentPosition,
+            playWhenReady = play ?: exo.playWhenReady,
+            repeatMode = exo.repeatMode,
+            shuffle = exo.shuffleModeEnabled,
+            onLost = onLost,
+        )
+        exo.removeListener(this)
+        isCasting = true
+        checkpointJob?.cancel()
+        lastMediaId = null
+        closeAudioEffectSession()
+        headTracking.stop(glideHome = false)
+        proximityVolume.stop()
+        routed.routeTo(remote)
+        remote.addListener(this)
+        exo.stop()
+        exo.clearMediaItems()
+        remote.prepare()
+        return remote
+    }
+
+    /**
+     * Takes playback back from [remote]: the phone's player gets the list as the cast left it (the
+     * queue board's changes went to the receiver), the song and the position the receiver had
+     * reached, and plays if [play]. Main thread.
+     */
+    internal fun takeBack(remote: RemotePlayer, play: Boolean) {
+        val routed = routedPlayer ?: return
+        val exo = exoPlayer
+        val items = List(remote.mediaItemCount) { remote.getMediaItemAt(it) }
+        val index = remote.currentMediaItemIndex
+        val position = remote.positionNow
+        remote.removeListener(this)
+        // Loaded before anything is routed to it, so the screens and the session go straight from
+        // the receiver's song to the same song here, never through an empty player.
+        if (items.isNotEmpty()) {
+            exo.setMediaItems(items, index.coerceIn(items.indices), position)
+            exo.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(items.size))
+            exo.prepare()
+        }
+        exo.repeatMode = remote.repeatMode
+        exo.shuffleModeEnabled = remote.shuffleModeEnabled
+        exo.playWhenReady = play
+        isCasting = false
+        routed.routeTo(exo)
+        exo.addListener(this)
+        remote.release()
+        // This service missed the new list going in, so it starts on the song as a new queue would.
+        noteTransition(exo.currentMediaItem, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)
+        currentMediaMetadata.value = player.currentMetadata
+        queueBoard.setCurrQueuePosIndex(player.currentMediaItemIndex)
+        updateWidget()
+        updateNotification()
+    }
+
     /** What the setting says right now. Read live, because it can change between songs. */
     private fun audioQualityNow(): AudioQuality {
         val quality by enumPreference(this@MusicService, AudioQualityKey, AudioQuality.AUTO)
@@ -2314,14 +2407,15 @@ class MusicService : MediaLibraryService(),
         updateWidget()
         // The stream is what costs battery, so it runs only while something is playing. Glide the
         // stage home on pause rather than dropping it, since the listener may well be mid-turn.
-        if (isPlaying && headTrackingWanted && binauralProcessor.enabled) {
+        // Both are about sound coming out of the phone, so neither starts for a receiver.
+        if (isPlaying && headTrackingWanted && binauralProcessor.enabled && !isCasting) {
             headTracking.start()
         } else if (!isPlaying) {
             headTracking.stop(glideHome = true)
         }
         // Scanning is the cost, so it only runs while there is something to turn down.
-        if (isPlaying && proximityWanted) proximityVolume.start() else if (!isPlaying) proximityVolume.stop()
-        if (isPlaying) {
+        if (isPlaying && proximityWanted && !isCasting) proximityVolume.start() else if (!isPlaying) proximityVolume.stop()
+        if (isPlaying && !isCasting) {
             player.currentMediaItem?.mediaId?.let { id -> currentStart(id)?.takeIf { !it.opened }?.let { openListen(id, it) } }
         }
         if (!isPlaying) {
@@ -2343,7 +2437,10 @@ class MusicService : MediaLibraryService(),
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
-        noteTransition(mediaItem, reason)
+        // A cast play records nothing in the listening history for now: nothing would ever close
+        // the row, since the stats that do come from the phone's own player (design.md section 12,
+        // decision 5).
+        if (!isCasting) noteTransition(mediaItem, reason)
         // Every song change, not only when the queue itself changes. A skip is the strongest
         // opinion anyone gives without pressing anything, so it reaches further than a song that
         // simply ended.
@@ -2462,7 +2559,7 @@ class MusicService : MediaLibraryService(),
                 player.playbackState == Player.STATE_BUFFERING || player.playbackState == Player.STATE_READY
             // Music is coming out of the speaker again, so whatever stopped it is history.
             if (player.playbackState == Player.STATE_READY) stoppedByError = false
-            if (isBufferingOrReady && player.playWhenReady) {
+            if (isBufferingOrReady && player.playWhenReady && !isCasting) {
                 openAudioEffectSession()
             } else {
                 closeAudioEffectSession()
@@ -2686,7 +2783,7 @@ class MusicService : MediaLibraryService(),
     private val volumeReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", -1) != android.media.AudioManager.STREAM_MUSIC) return
-            if (!player.isPlaying) return
+            if (!player.isPlaying || isCasting) return
             val now = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_VALUE", -1)
             val before = intent.getIntExtra("android.media.EXTRA_PREV_VOLUME_STREAM_VALUE", -1)
             if (now < 0 || before < 0 || now == before) return
@@ -2711,6 +2808,7 @@ class MusicService : MediaLibraryService(),
      */
     override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
         super.onPositionDiscontinuity(oldPosition, newPosition, reason)
+        if (isCasting) return
         val itemChanged = oldPosition.mediaItemIndex != newPosition.mediaItemIndex ||
             oldPosition.mediaItem?.mediaId != newPosition.mediaItem?.mediaId ||
             reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION
@@ -2932,7 +3030,7 @@ class MusicService : MediaLibraryService(),
             else -> null
         }
         lastRepeatMode = repeatMode
-        if (kind != null) player.currentMediaItem?.mediaId?.let { id -> noteSignal(id, kind, player.currentPosition) }
+        if (kind != null && !isCasting) player.currentMediaItem?.mediaId?.let { id -> noteSignal(id, kind, player.currentPosition) }
         updateNotification()
         offloadScope.launch {
             dataStore.edit { settings ->
@@ -2961,8 +3059,11 @@ class MusicService : MediaLibraryService(),
         // FG keep alive. Never skipped when media3 has to start the foreground: a service started
         // by a headset or the widget must reach startForeground, and a cold start is still
         // buffering, not playing, so skipping it here had Android kill the app ten seconds later.
-        if (startInForegroundRequired || player.isPlaying || !dataStore.get(KeepAliveKey, false)) {
-            super.onUpdateNotification(session, startInForegroundRequired)
+        //
+        // A cast keeps it in the foreground, paused too: the receiver fetches every song from the
+        // server here, and a service out of the foreground loses the network in Doze.
+        if (startInForegroundRequired || player.isPlaying || isCasting || !dataStore.get(KeepAliveKey, false)) {
+            super.onUpdateNotification(session, startInForegroundRequired || isCasting)
         }
     }
 
@@ -2983,6 +3084,10 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onDestroy() {
+        // Back on the phone before anything is saved or released: the queue then saves the
+        // receiver's song and position, and the release below reaches the phone's own player.
+        castSession?.release()
+        castSession = null
         headTracking.stop(glideHome = false)
         proximityVolume.stop()
         isRunning = false

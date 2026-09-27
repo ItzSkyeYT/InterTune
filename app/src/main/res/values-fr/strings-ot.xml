@@ -1236,4 +1236,8 @@
         <item quantity="many">%1$d encore à vérifier. Ils sont écartés sauf si vous en choisissez un.</item>
         <item quantity="other">%1$d encore à vérifier. Ils sont écartés sauf si vous en choisissez un.</item>
     </plurals>
+    <!-- Casting, behind Unreleased.CASTING (experiments/casting/design.md) -->
+    <string name="cast_needs_wifi">Le cast nécessite le Wi-Fi</string>
+    <string name="cast_could_not_reach">Impossible de joindre %1$s</string>
+    <string name="cast_lost">Cast arrêté : %1$s. En pause sur ce téléphone.</string>
 </resources>

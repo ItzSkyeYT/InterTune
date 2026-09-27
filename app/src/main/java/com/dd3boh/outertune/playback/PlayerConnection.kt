@@ -258,6 +258,9 @@ class PlayerConnection(
 
     fun softKillPlayer() {
         Log.i(TAG, "Stopping player and uninitializing queue")
+        // Dismissing the player ends a cast too; the receiver would otherwise sit there with the
+        // phone still awake for it, and the cast button with it gone.
+        service.castSession?.stop(play = false)
         player.clearMediaItems()
         service.deInitQueue()
     }

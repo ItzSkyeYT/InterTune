@@ -1335,4 +1335,8 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$d still to check. It is left out unless you pick one.</item>
         <item quantity="other">%1$d still to check. They are left out unless you pick one.</item>
     </plurals>
+    <!-- Casting, behind Unreleased.CASTING (experiments/casting/design.md) -->
+    <string name="cast_needs_wifi">Casting needs Wi-Fi</string>
+    <string name="cast_could_not_reach">Could not reach %1$s</string>
+    <string name="cast_lost">Casting stopped: %1$s. Paused on this phone.</string>
 </resources>

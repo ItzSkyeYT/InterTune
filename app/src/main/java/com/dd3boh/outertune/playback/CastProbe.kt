@@ -37,11 +37,12 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
- * Casting driven from adb, to try the server and the senders on a device before the picker and the
- * remote player exist. Only with Unreleased.CASTING on, and only the shell can use it: the
- * broadcast needs android.permission.DUMP, which the shell holds and no app can.
+ * Casting driven from adb, to try the server and the senders on a device without the screen. Only
+ * with Unreleased.CASTING on, and only the shell can use it: the broadcast needs
+ * android.permission.DUMP, which the shell holds and no app can.
  *
  *     adb shell am broadcast -a dev.skye.intertune.preview.CAST_PROBE -p dev.skye.intertune.preview \
  *         --es cmd "'cast fcast 10.0.2.2:46899'"
@@ -53,7 +54,12 @@ import kotlinx.coroutines.sync.withLock
  *   or a DLNA description url), and sends it the current song;
  * - `load [id]` sends another song from the queue;
  * - `play`, `pause`, `stop`, `seek <ms>` and `volume <0 to 1>` pass on to the receiver;
- * - `end` hangs up and stops the server.
+ * - `end` hangs up and stops the server;
+ * - `session <address>` casts the queue the way the picker does, through CastSession and the
+ *   remote player, and `session end` brings it back to the phone.
+ *
+ * The commands other than `session` drive a link of their own and share the cast server with a
+ * session, so they are refused while one is casting.
  *
  * A song goes in the format the receiver said it plays, and one it fails is tried once more as AAC
  * when it said nothing, the same rules the remote player will follow (CastFormats). Everything
@@ -113,6 +119,22 @@ class CastProbe(
 
     private suspend fun run(command: String) {
         val words = command.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        val session = service.castSession
+        if (words.firstOrNull() == "session") {
+            val rest = command.substringAfter(' ', "").trim()
+            withContext(Dispatchers.Main) {
+                if (rest == "end") {
+                    session?.stop()
+                } else {
+                    val device = CastAddress.parse(rest) ?: error("Not an address: $rest")
+                    session?.castTo(device) ?: error("Casting is off")
+                }
+            }
+            return
+        }
+        if (session != null && session.state.value != CastSession.State.Off) {
+            error("A cast session is running; send \"session end\" first")
+        }
         when (words.firstOrNull()) {
             "serve" -> {
                 val id = words.getOrNull(1)?.takeIf { it != "aac" } ?: currentId()
