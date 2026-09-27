@@ -7,12 +7,12 @@
 package com.dd3boh.outertune.db
 
 /**
- * What the Stats page reads from the listen log for its insights, kept as constants so the DAO
- * and StatsSqlTest run the same text, the way [RecommendationSql] is.
+ * What the Stats page reads from the listen log for its insights, and its Most played artists row,
+ * kept as constants so the DAOs and StatsSqlTest run the same text, the way [RecommendationSql] is.
  *
- * Plain reads, run once for each period the listener picks and never observed: the page must not
- * work everything out again on every write while music plays. Each one is either a range read on
- * the endedAt index or a single pass over the log.
+ * The insights' reads are plain reads, run once for each period the listener picks and never
+ * observed: the page must not work everything out again on every write while music plays. Each
+ * one is either a range read on the endedAt index or a single pass over the log.
  *
  * An open row (endReason 6) is a song still playing or a play the app died in; it has no end yet
  * and is left out everywhere. Where a start is needed and a row has none (one real row carries 0),
@@ -79,5 +79,51 @@ object StatsSql {
             MIN(CASE WHEN endReason != 0 THEN (CASE WHEN startedAt > 0 THEN startedAt ELSE endedAt - playedMs END) END) AS firstLiveAt
         FROM listen
         WHERE endReason != 6
+    """
+
+    /**
+     * Most played artists, the row below the songs: the artists credited on the songs played
+     * since :fromTimeStamp, by plays and then by time played. Unlike the reads above it is a Room
+     * flow over the play events, the table the songs and albums lists beside it read, dated the
+     * same way, by the wall clock stored as if it were UTC.
+     *
+     * It used to add up the monthly play counts from the first of the month the period began in,
+     * so 1 week meant the month so far, and the whole of the month before as well once the week
+     * reached back into it; every other period ran up to a month longer than it said. An artist
+     * with no play in the period sorted last rather than dropping out, so a quiet week filled the
+     * row with artists nobody had played. Every play counts now, as it does for the songs above.
+     * Only songs saved to the library used to, which on a phone that plays mostly from search and
+     * radio is a few hundred songs out of tens of thousands. For the same reason the count under
+     * each artist is of their songs played in the period, and of those downloaded: the library's
+     * count, which other artist rows show, would put 0 songs under most of the artists listed.
+     *
+     * Plays are added up per song first and then shared out to each song's artists, and the CROSS
+     * JOINs keep the events as the outer loop: left to choose, SQLite walked every artist credit
+     * in the database and looked each one up in the events, tens of thousands of lookups to find
+     * a week's few hundred plays. The + in the GROUP BY reads the events in table order rather than
+     * through the songId index, as in [SONGS_BEFORE].
+     */
+    const val MOST_PLAYED_ARTISTS = """
+        SELECT artist.*, played.songCount AS songCount, played.downloadCount AS downloadCount
+        FROM (
+            SELECT sam.artistId,
+                SUM(e.plays) AS plays,
+                SUM(e.playTime) AS playTime,
+                COUNT(*) AS songCount,
+                SUM(CASE WHEN s.dateDownload IS NOT NULL THEN 1 ELSE 0 END) AS downloadCount
+            FROM (
+                SELECT songId, COUNT(*) AS plays, SUM(playTime) AS playTime
+                FROM event
+                WHERE timestamp > :fromTimeStamp
+                GROUP BY +songId
+            ) AS e
+                CROSS JOIN song s ON s.id = e.songId
+                CROSS JOIN song_artist_map sam ON sam.songId = e.songId
+            GROUP BY sam.artistId
+            ORDER BY plays DESC, playTime DESC, sam.artistId
+            LIMIT :limit
+        ) AS played
+            JOIN artist ON artist.id = played.artistId
+        ORDER BY played.plays DESC, played.playTime DESC, artist.id
     """
 }

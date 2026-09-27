@@ -14,6 +14,7 @@ import com.dd3boh.outertune.constants.ArtistFilter
 import com.dd3boh.outertune.constants.ArtistSongSortType
 import com.dd3boh.outertune.constants.ArtistSortType
 import com.dd3boh.outertune.db.LibrarySql
+import com.dd3boh.outertune.db.StatsSql
 import com.dd3boh.outertune.db.entities.Artist
 import com.dd3boh.outertune.db.entities.ArtistEntity
 import com.dd3boh.outertune.db.entities.Song
@@ -114,6 +115,10 @@ interface ArtistsDao {
         LIMIT :limit
     """)
     fun mostPlayedArtists(fromYear: Int, fromMonth: Int, limit: Int = 6): Flow<List<Artist>>
+
+    /** The Stats page's row, over exactly the period picked: see [StatsSql.MOST_PLAYED_ARTISTS]. */
+    @Query(StatsSql.MOST_PLAYED_ARTISTS)
+    fun mostPlayedArtistsSince(fromTimeStamp: Long, limit: Int = 6): Flow<List<Artist>>
 
     @RawQuery(observedEntities = [ArtistEntity::class])
     fun _getArtists(query: SupportSQLiteQuery): Flow<List<Artist>>
