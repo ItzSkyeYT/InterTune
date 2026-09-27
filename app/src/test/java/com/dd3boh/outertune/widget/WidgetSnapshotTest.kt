@@ -84,8 +84,9 @@ class WidgetSnapshotTest {
     }
 
     @Test
-    fun `a flat widget loses the artwork`() {
-        assertFalse(WidgetLayout.showsArtwork(60))
-        assertTrue(WidgetLayout.showsArtwork(110))
+    fun `a flat widget keeps a small cover until it is too flat for one`() {
+        assertTrue(WidgetLayout.plan(400, 60, WidgetSettings(), 6).cover > 0)
+        assertEquals(0, WidgetLayout.plan(400, 40, WidgetSettings(), 6).cover)
+        assertEquals(0, WidgetLayout.plan(400, 60, WidgetSettings(showArtwork = false), 6).cover)
     }
 }

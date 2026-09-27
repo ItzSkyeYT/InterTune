@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The widget picker's picture of the widget (layout/widget_preview.xml). The same, dark. -->
+<resources>
+    <color name="widget_preview_surface">#2B2F3D</color>
+    <color name="widget_preview_on_surface">#E4E1E9</color>
+    <color name="widget_preview_muted">#C5C5D2</color>
+    <color name="widget_preview_primary">#B4C5FF</color>
+    <color name="widget_preview_on_primary">#1B2D60</color>
+    <color name="widget_preview_cover">#3A3F52</color>
+</resources>

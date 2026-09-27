@@ -1048,7 +1048,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_content_list">A list</string>
     <string name="widget_config_which_list">Which list</string>
     <string name="widget_list_recent">Recently played</string>
-    <string name="widget_config_resize_hint">Resize the widget for more or fewer rows. Made small it becomes the cover with a play button; given only what\'s playing and enough room, the cover fills it.</string>
+    <string name="widget_config_preview_hint">This widget at its size now. Resize it on the home screen for more or fewer rows.</string>
+    <string name="widget_config_preview_hint_guess">Shown at a usual size. Once it is on the home screen, resize it for more or fewer rows.</string>
     <string name="widget_config_done">Done</string>
     <string name="widget_config_reset">Reset</string>
     <string name="widget_config_rows">How many rows</string>

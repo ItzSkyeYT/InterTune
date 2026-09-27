@@ -173,7 +173,11 @@ object WidgetStore {
                     thumbnailUrl = song.thumbnailUrl,
                     durationSec = song.duration,
                     isLocal = song.isLocal,
-                    colour = if (same) old.nowPlaying?.colour else artColour(art),
+                    // Kept while the song is the same, and worked out if it never was: a song
+                    // written before any widget existed has no picture and so no colour, and a
+                    // widget told to take its colour from the cover then showed plain dark until
+                    // the next song.
+                    colour = (if (same) old.nowPlaying?.colour else null) ?: artColour(art),
                 )
                 // Recently played is kept here rather than queried: the song that just started is
                 // the newest there is, and the widget should not have to ask the database to know it.
@@ -226,8 +230,9 @@ object WidgetStore {
         mutex.withLock {
             var snapshot = read(context)
             val now = snapshot.nowPlaying
-            if (now != null && now.artPath == null) {
-                snapshot = snapshot.copy(nowPlaying = now.copy(artPath = artFor(context, now.id, artModel(now), ART_NOW_PX)))
+            if (now != null && (now.artPath == null || now.colour == null)) {
+                val art = now.artPath ?: artFor(context, now.id, artModel(now), ART_NOW_PX)
+                snapshot = snapshot.copy(nowPlaying = now.copy(artPath = art, colour = now.colour ?: artColour(art)))
             }
             if (now != null) artFor(context, now.id, artModel(now, ART_BIG_PX), ART_BIG_PX)
             // Every list, not only the one this widget shows: a second widget, or the same one

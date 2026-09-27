@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import kotlin.math.ceil
 
 /**
  * What a widget holds, and what shape it takes at the size the launcher gave it.
@@ -113,102 +114,397 @@ data class WidgetSettings(
     val buttons: WidgetButtons = WidgetButtons.ALL,
     val textSize: WidgetTextSize = WidgetTextSize.NORMAL,
     val rounded: Boolean = true,
-) {
-    /** Rows to draw at this size, under this ceiling. */
-    fun rowsAt(widthDp: Int, heightDp: Int, available: Int): Int {
-        val fits = WidgetLayout.listCount(widthDp, heightDp, content, available)
-        return if (maxRows <= 0) fits else minOf(fits, maxRows)
-    }
-}
+)
 
 /** How the now playing part is drawn, which depends on the room it has. */
 enum class NowShape {
     /** Not drawn at all: this widget is a list. */
     NONE,
 
-    /** Narrower than a title: the artwork alone, which opens the app, with play over it if there is height. */
+    /** Narrower than a title: the cover with play over it, or play under it when the widget is tall. */
     TINY,
 
-    /** Artwork, title and artist in a line, with the buttons at the end. */
+    /** A single cell tall: a small cover, the song on one or two short lines, small buttons. */
+    SLIM,
+
+    /** Cover, title and artist, buttons, in a line. */
     ROW,
 
-    /** Too narrow for a line: artwork above, title under it, buttons under that. */
+    /** Narrow and tall: the cover above the song, the buttons under it. */
     STACKED,
 
-    /** Given the whole widget: artwork as large as it will go, the song under it, then the buttons. */
-    ART,
+    /** Wide and tall: a big cover beside the song, the buttons under the song. */
+    CARD,
+
+    /** Roughly square: the cover fills the widget, with the song and its buttons over it. */
+    POSTER,
+}
+
+/**
+ * Everything one widget draws at one size, in dp, decided before a single view exists.
+ *
+ * Glance cannot measure: it lays out what it is given and clips whatever does not fit. So the sizes
+ * are worked out here from the size and the settings alone, and [MusicWidget] draws exactly these
+ * numbers. That is what lets a test walk every size a launcher can hand out and prove nothing is
+ * ever cut off. The rules before this guessed, and at common sizes lost: a play button clipped at
+ * two by two, a title squeezed to nothing beside a cover, the last row of a list cut in half, and a
+ * band of empty background under nearly everything else.
+ */
+data class WidgetPlan(
+    val shape: NowShape,
+    /** The side of the cover in the now playing part, 0 for none. */
+    val cover: Int = 0,
+    /** Height of the now playing part. Shapes that are the whole widget leave it at 0. */
+    val nowHeight: Int = 0,
+    val showArtist: Boolean = false,
+    /** Lines the title may take: two only where the height was there for them. */
+    val titleLines: Int = 1,
+    val play: Boolean = false,
+    val skips: Boolean = false,
+    /** The side of each transport button. */
+    val button: Int = WidgetLayout.BUTTON_DP,
+    /** TINY and POSTER: the buttons sit on their own line under the song rather than beside it. */
+    val buttonsBelow: Boolean = false,
+    /** Between the now playing part and the list. */
+    val gap: Int = 0,
+    val headingHeight: Int = 0,
+    val rows: Int = 0,
+    val rowHeight: Int = 0,
+    val rowCover: Boolean = true,
+    val rowShowsArtist: Boolean = true,
+    /**
+     * Whether what is drawn sits in the middle of the height. A list that ran out of songs before it
+     * ran out of room is drawn from the top instead, the way any list is.
+     */
+    val centred: Boolean = true,
+) {
+    val heading: Boolean get() = headingHeight > 0
 }
 
 object WidgetLayout {
     /** Narrower than this and there is no room for words beside a picture. */
     const val TINY_WIDTH_DP = 110
 
-    /** Narrower than this and the skip buttons go, leaving play and pause. */
+    /** Shorter than this and the song is one line with small buttons: a single cell on most launchers. */
+    const val SLIM_HEIGHT_DP = 64
+
+    /** Narrower than this and a narrow widget with a list stacks its song above its buttons. */
     const val WIDE_ENOUGH_DP = 180
 
-    /** Below this height a line of song and its buttons is the whole widget. */
-    const val COMPACT_HEIGHT_DP = 110
+    /** From this height, what is playing on its own is a card or a poster rather than a line. */
+    const val TALL_DP = 110
 
-    /** A row of a list, including its padding. */
-    const val PICK_ROW_DP = 56
+    /** A wide widget becomes a card from this height; under it, a line shows the artist and a cover nearly as big. */
+    const val CARD_HEIGHT_DP = 130
 
-    /** The heading over a list. */
-    const val LIST_HEADER_DP = 24
+    const val PAD_H_DP = 12
+    const val PAD_V_DP = 10
 
-    /** What the now playing line takes before any list. */
-    const val ROW_BLOCK_DP = 70
+    /** Between the cover and the words beside it. */
+    const val COVER_GAP_DP = 10
 
-    /** What the stacked form takes: artwork, title, buttons. */
-    const val STACKED_BLOCK_DP = 150
+    /** Between the words and the buttons, and between the now playing part and a list. */
+    const val SMALL_GAP_DP = 6
 
-    /** Below either of these the artwork cannot be given the widget, whatever the setting says. */
-    const val ART_MIN_WIDTH_DP = 180
-    const val ART_MIN_HEIGHT_DP = 220
+    const val BUTTON_DP = 44
+    const val SLIM_BUTTON_DP = 36
+
+    /** Between two transport buttons, so the filled play button does not touch its neighbours. */
+    const val BUTTON_SPACING_DP = 4
+
+    /** Words beside a cover never get less than this: the cover, or the skip buttons, go first. */
+    const val WORDS_MIN_DP = 64
+
+    /** The cover in a line of song with a list under it, and the most it grows to on its own. */
+    const val ROW_COVER_DP = 56
+    const val ROW_COVER_MAX_DP = 72
+
+    /** The cover of a narrow widget stacked above its song, with a list under it. */
+    const val STACKED_COVER_DP = 64
+
+    /** Below this a card's cover is a thumbnail, and the widget is better as a line. */
+    const val CARD_COVER_MIN_DP = 72
+
+    /** A row of a list: never shorter than the first, and grown to at most the second when there is room. */
+    const val LIST_ROW_MIN_DP = 50
+    const val LIST_ROW_DP = 56
+    const val LIST_ROW_MAX_DP = 64
+    const val LIST_COVER_DP = 40
 
     /** Never more than this many rows, however tall the widget is: past that it is a list, not a widget. */
     const val MAX_PICKS = 6
 
-    /** What the song and the buttons take under a cover that has been given the widget. */
-    const val ART_TEXT_AND_BUTTONS_DP = 100
+    /**
+     * The height of a line of text, in dp, at a size in sp under a text scale. Roboto's line is about
+     * 1.33 of its size; the rounding is up, so a guess errs towards room to spare.
+     */
+    fun line(sp: Int, scale: Float): Int = ceil(sp * scale * 1.34f).toInt()
 
-    fun showsSkipButtons(widthDp: Int): Boolean = widthDp >= WIDE_ENOUGH_DP
-
-    /** How tall the cover may be when the widget is given over to it. */
-    fun artHeightDp(heightDp: Int): Int = (heightDp - ART_TEXT_AND_BUTTONS_DP).coerceAtLeast(80)
-
-    fun showsArtwork(heightDp: Int): Boolean = heightDp >= 72
-
-    /** The shape of the now playing part at this size, under this choice of content. */
-    fun nowShape(widthDp: Int, heightDp: Int, content: WidgetContent): NowShape = when {
-        content == WidgetContent.LIST -> NowShape.NONE
-        widthDp < TINY_WIDTH_DP -> NowShape.TINY
-        content == WidgetContent.NOW_PLAYING && widthDp >= ART_MIN_WIDTH_DP && heightDp >= ART_MIN_HEIGHT_DP -> NowShape.ART
-        widthDp < WIDE_ENOUGH_DP && heightDp >= STACKED_BLOCK_DP -> NowShape.STACKED
-        else -> NowShape.ROW
+    /**
+     * What to draw at this size. [available] is how many songs the chosen list holds, and [fontScale]
+     * is the phone's own text size, which Glance applies to every sp on top of the widget's setting.
+     */
+    fun plan(widthDp: Int, heightDp: Int, settings: WidgetSettings, available: Int, fontScale: Float = 1f): WidgetPlan {
+        val w = widthDp.coerceAtLeast(1)
+        val h = heightDp.coerceAtLeast(1)
+        val scale = settings.textSize.scale * fontScale.coerceIn(0.5f, 3f)
+        if (settings.content == WidgetContent.LIST) return listOnly(w, h, settings, available, scale)
+        if (w < TINY_WIDTH_DP) return tiny(w, h, settings)
+        if (h < SLIM_HEIGHT_DP) return slim(w, h, settings, scale)
+        if (settings.content == WidgetContent.BOTH) {
+            withList(w, h, settings, available, scale)?.let { return it }
+        }
+        // What is playing on its own: the proportions choose the shape.
+        if (h < TALL_DP || !settings.showArtwork) return songLine(w, h, settings, scale)
+        val aspect = w.toFloat() / h
+        return when {
+            aspect >= 1.6f -> (if (h >= CARD_HEIGHT_DP) card(w, h, settings, scale) else null) ?: songLine(w, h, settings, scale)
+            aspect >= 0.62f -> poster(w, h, settings, scale)
+            else -> stacked(w, h, settings, scale)
+        }
     }
 
-    /** What the now playing part takes from the height before the list gets any. */
-    fun nowBlockDp(shape: NowShape, heightDp: Int): Int = when (shape) {
-        NowShape.NONE -> 0
-        NowShape.TINY -> heightDp
-        NowShape.ROW -> ROW_BLOCK_DP
-        NowShape.STACKED -> STACKED_BLOCK_DP
-        NowShape.ART -> heightDp
+    private fun controlsWidth(play: Boolean, skips: Boolean, button: Int): Int = when {
+        skips -> 3 * button + 2 * BUTTON_SPACING_DP
+        play -> button
+        else -> 0
     }
 
-    /** How many rows of the list fit under the now playing part, at most [available]. */
-    fun listCount(widthDp: Int, heightDp: Int, content: WidgetContent, available: Int): Int {
-        if (available <= 0) return 0
-        if (content == WidgetContent.NOW_PLAYING) return 0
-        val shape = nowShape(widthDp, heightDp, content)
-        if (shape == NowShape.TINY || shape == NowShape.ART) return 0
-        val room = heightDp - nowBlockDp(shape, heightDp) - LIST_HEADER_DP
-        if (room < PICK_ROW_DP) return 0
-        return (room / PICK_ROW_DP).coerceIn(0, minOf(MAX_PICKS, available))
+    /**
+     * A cover and skip buttons for a line this wide, in order of preference, keeping the first that
+     * leaves the words their minimum. The skip buttons were asked for and the cover was only
+     * offered, so the cover goes first; it comes back if dropping the skips makes room for it.
+     */
+    private fun fitLine(w: Int, padH: Int, coverWanted: Int, settings: WidgetSettings, button: Int): Triple<Int, Boolean, Boolean> {
+        val play = settings.buttons != WidgetButtons.NONE
+        val skipsWanted = settings.buttons == WidgetButtons.ALL
+        val tries = listOf(coverWanted to skipsWanted, 0 to skipsWanted, coverWanted to false, 0 to false).distinct()
+        for ((cover, skips) in tries) {
+            val words = w - 2 * padH - (if (cover > 0) cover + COVER_GAP_DP else 0) -
+                controlsWidth(play, skips, button) - (if (play) SMALL_GAP_DP else 0)
+            if (words >= WORDS_MIN_DP) return Triple(cover, play, skips)
+        }
+        return Triple(0, play, false)
     }
 
-    /** A list-only widget shows its heading; a list under a song does too, to say which row it is. */
-    fun showsListHeader(content: WidgetContent, count: Int): Boolean = count > 0
+    /** Narrower than a title: the cover and play, over it or under it. */
+    private fun tiny(w: Int, h: Int, settings: WidgetSettings): WidgetPlan {
+        val play = settings.buttons != WidgetButtons.NONE
+        val side = w - 16
+        return if (play && w >= BUTTON_DP + 8 && h >= side + 8 + BUTTON_DP + 16) {
+            WidgetPlan(NowShape.TINY, cover = if (settings.showArtwork) side else 0, play = true, buttonsBelow = true)
+        } else {
+            // Over the cover, and only if the cover can spare the room: on a single small cell the
+            // whole tile opens the app instead.
+            val overlay = play && minOf(w, h) >= 56
+            WidgetPlan(
+                NowShape.TINY,
+                cover = if (settings.showArtwork) minOf(w, h) else 0,
+                play = overlay,
+                button = minOf(40, minOf(w, h) - 16).coerceAtLeast(24),
+            )
+        }
+    }
+
+    /** One cell tall: a line of song with small buttons. */
+    private fun slim(w: Int, h: Int, settings: WidgetSettings, scale: Float): WidgetPlan {
+        val inner = h - 8
+        val coverWanted = if (settings.showArtwork && h - 12 >= 32) h - 12 else 0
+        val button = minOf(SLIM_BUTTON_DP, inner)
+        val (cover, play, skips) = fitLine(w, PAD_H_DP, coverWanted, settings, button)
+        return WidgetPlan(
+            NowShape.SLIM,
+            cover = cover,
+            nowHeight = inner,
+            showArtist = settings.showArtist && line(14, scale) + line(12, scale) <= inner,
+            play = play,
+            skips = skips,
+            button = button,
+        )
+    }
+
+    /** A line of song given the whole widget: the cover grows with the height, up to a point. */
+    private fun songLine(w: Int, h: Int, settings: WidgetSettings, scale: Float): WidgetPlan {
+        val inner = h - 2 * PAD_V_DP
+        val coverWanted = if (settings.showArtwork) minOf(inner, ROW_COVER_MAX_DP).takeIf { it >= 40 } ?: 0 else 0
+        val button = minOf(BUTTON_DP, inner)
+        val (cover, play, skips) = fitLine(w, PAD_H_DP, coverWanted, settings, button)
+        return WidgetPlan(
+            NowShape.ROW,
+            cover = cover,
+            nowHeight = inner,
+            showArtist = settings.showArtist && line(15, scale) + line(13, scale) <= inner,
+            play = play,
+            skips = skips,
+            button = button,
+        )
+    }
+
+    /**
+     * The song and a list under it, or null when not a single row fits: then the song has the
+     * widget to itself, which beats a heading over nothing.
+     */
+    private fun withList(w: Int, h: Int, settings: WidgetSettings, available: Int, scale: Float): WidgetPlan? {
+        val play = settings.buttons != WidgetButtons.NONE
+        val now = if (w < WIDE_ENOUGH_DP) {
+            val words = line(14, scale) + if (settings.showArtist) line(12, scale) else 0
+            val cover = if (settings.showArtwork) STACKED_COVER_DP else 0
+            val skips = settings.buttons == WidgetButtons.ALL && controlsWidth(true, true, BUTTON_DP) <= w - 2 * PAD_H_DP
+            WidgetPlan(
+                NowShape.STACKED,
+                cover = cover,
+                nowHeight = (if (cover > 0) cover + SMALL_GAP_DP else 0) + words + (if (play) 2 + BUTTON_DP else 0),
+                showArtist = settings.showArtist,
+                play = play,
+                skips = skips,
+            )
+        } else {
+            val (cover, _, skips) = fitLine(w, PAD_H_DP, if (settings.showArtwork) ROW_COVER_DP else 0, settings, BUTTON_DP)
+            val words = line(15, scale) + if (settings.showArtist) line(13, scale) else 0
+            WidgetPlan(
+                NowShape.ROW,
+                cover = cover,
+                nowHeight = maxOf(cover, if (play) BUTTON_DP else 0, words),
+                showArtist = settings.showArtist,
+                play = play,
+                skips = skips,
+            )
+        }
+        val room = h - 2 * PAD_V_DP - now.nowHeight - SMALL_GAP_DP
+        val list = listRows(w, room, settings, available, scale) ?: return null
+        return list.copy(
+            shape = now.shape,
+            cover = now.cover,
+            nowHeight = now.nowHeight,
+            showArtist = now.showArtist,
+            play = now.play,
+            skips = now.skips,
+            gap = SMALL_GAP_DP,
+        )
+    }
+
+    /** A list and nothing else. Too short for a single row, it is its heading, which opens the app. */
+    private fun listOnly(w: Int, h: Int, settings: WidgetSettings, available: Int, scale: Float): WidgetPlan =
+        listRows(w, h - 2 * PAD_V_DP, settings, available, scale) ?: WidgetPlan(NowShape.NONE)
+
+    /**
+     * As many rows as fit in [room] under their heading, never more than the list holds or the
+     * listener allowed. When the height is what limits them, the rows share out what is left, up to
+     * a comfortable height, and the rest is split above and below; when the songs run out first,
+     * the list starts at the top.
+     */
+    private fun listRows(w: Int, room: Int, settings: WidgetSettings, available: Int, scale: Float): WidgetPlan? {
+        val heading = if (settings.showHeading) line(12, scale) + 4 else 0
+        val space = room - heading
+        val words = line(14, scale) + line(12, scale)
+        val rowCover = settings.showArtwork && w - 2 * PAD_H_DP - LIST_COVER_DP - COVER_GAP_DP >= WORDS_MIN_DP
+        val rowMin = maxOf(LIST_ROW_MIN_DP, words + 8, (if (rowCover) LIST_COVER_DP + 8 else 0))
+        val allowed = minOf(available, if (settings.maxRows > 0) settings.maxRows else MAX_PICKS, MAX_PICKS)
+        if (allowed <= 0 || space < rowMin) return null
+        val fit = space / rowMin
+        val rows = minOf(allowed, fit)
+        val heightLimited = fit <= allowed
+        val rowHeight = if (heightLimited) minOf(space / rows, maxOf(LIST_ROW_MAX_DP, rowMin)) else maxOf(LIST_ROW_DP, rowMin)
+        return WidgetPlan(
+            NowShape.NONE,
+            headingHeight = heading,
+            rows = rows,
+            rowHeight = rowHeight,
+            rowCover = rowCover,
+            rowShowsArtist = settings.showArtist,
+            centred = heightLimited,
+        )
+    }
+
+    /** Wide and tall: the cover as tall as the widget, the song and the buttons beside it. */
+    private fun card(w: Int, h: Int, settings: WidgetSettings, scale: Float): WidgetPlan? {
+        val play = settings.buttons != WidgetButtons.NONE
+        for (skips in listOf(settings.buttons == WidgetButtons.ALL, false).distinct()) {
+            val beside = maxOf(96, controlsWidth(play, skips, BUTTON_DP))
+            val cover = minOf(h - 2 * PAD_H_DP, w - 2 * PAD_H_DP - 14 - beside)
+            if (cover < CARD_COVER_MIN_DP) continue
+            val title = line(16, scale)
+            val artist = line(13, scale)
+            val controls = if (play) SMALL_GAP_DP + BUTTON_DP else 0
+            val showArtist = settings.showArtist && title + artist + controls <= cover
+            val lines = if (2 * title + (if (showArtist) artist else 0) + controls <= cover) 2 else 1
+            if (title + controls > cover) continue
+            return WidgetPlan(
+                NowShape.CARD,
+                cover = cover,
+                showArtist = showArtist,
+                titleLines = lines,
+                play = play,
+                skips = skips,
+            )
+        }
+        return null
+    }
+
+    /** Roughly square: the cover is the widget, the song and its buttons along the bottom of it. */
+    private fun poster(w: Int, h: Int, settings: WidgetSettings, scale: Float): WidgetPlan {
+        val play = settings.buttons != WidgetButtons.NONE
+        val title = line(16, scale)
+        val artist = line(13, scale)
+        // The buttons get a line of their own only where the widget is big enough not to be buried
+        // under them: otherwise play sits at the end of the song's line.
+        val below = settings.buttons == WidgetButtons.ALL && w >= WIDE_ENOUGH_DP &&
+            2 * PAD_H_DP + title + artist + 4 + BUTTON_DP <= h * 0.6f
+        val wordsWidth = w - 2 * PAD_H_DP - if (!below && play) BUTTON_DP + 8 else 0
+        val words = wordsWidth >= 56
+        return WidgetPlan(
+            NowShape.POSTER,
+            cover = maxOf(w, h),
+            showArtist = words && settings.showArtist && 2 * PAD_H_DP + title + artist + (if (below) 4 + BUTTON_DP else 0) <= h,
+            titleLines = if (words) 1 else 0,
+            play = play,
+            skips = below,
+            buttonsBelow = below,
+        )
+    }
+
+    /** Narrow and tall: the cover as wide as the widget, the song under it, the buttons under that. */
+    private fun stacked(w: Int, h: Int, settings: WidgetSettings, scale: Float): WidgetPlan {
+        val play = settings.buttons != WidgetButtons.NONE
+        val skips = settings.buttons == WidgetButtons.ALL && controlsWidth(true, true, BUTTON_DP) <= w - 2 * PAD_H_DP
+        val words = line(14, scale) + if (settings.showArtist) line(12, scale) else 0
+        val controls = if (play) 2 + BUTTON_DP else 0
+        val cover = minOf(w - 2 * PAD_H_DP, h - 2 * PAD_V_DP - SMALL_GAP_DP - words - controls).takeIf { it >= 48 } ?: 0
+        return WidgetPlan(
+            NowShape.STACKED,
+            cover = cover,
+            nowHeight = (if (cover > 0) cover + SMALL_GAP_DP else 0) + words + controls,
+            showArtist = settings.showArtist,
+            play = play,
+            skips = skips,
+        )
+    }
+
+    /**
+     * The narrowest a plan can be drawn without cutting anything off, counting the words beside a
+     * cover at nothing: [fitLine] is what keeps them their minimum wherever the width allows it.
+     */
+    fun widthOf(plan: WidgetPlan): Int {
+        val controls = controlsWidth(plan.play, plan.skips, plan.button)
+        val now = when (plan.shape) {
+            NowShape.NONE -> 0
+            NowShape.TINY -> maxOf(plan.cover, if (plan.play) plan.button else 0)
+            NowShape.POSTER -> 2 * PAD_H_DP + controls
+            NowShape.CARD -> 2 * PAD_H_DP + plan.cover + 14 + controls
+            NowShape.STACKED -> 2 * PAD_H_DP + maxOf(plan.cover, controls)
+            NowShape.ROW, NowShape.SLIM -> 2 * PAD_H_DP + (if (plan.cover > 0) plan.cover + COVER_GAP_DP else 0) +
+                controls + (if (plan.play) SMALL_GAP_DP else 0)
+        }
+        val list = if (plan.rows > 0) 2 * PAD_H_DP + (if (plan.rowCover) LIST_COVER_DP + COVER_GAP_DP else 0) else 0
+        return maxOf(now, list)
+    }
+
+    /** The height a plan takes, for the test that nothing is ever cut off. */
+    fun heightOf(plan: WidgetPlan, heightDp: Int): Int = when (plan.shape) {
+        NowShape.TINY, NowShape.POSTER, NowShape.CARD -> heightDp
+        NowShape.SLIM -> 8 + plan.nowHeight
+        else -> 2 * PAD_V_DP + plan.nowHeight + (if (plan.rows > 0) plan.gap + plan.headingHeight + plan.rows * plan.rowHeight else 0)
+    }
 }
 
 /**

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The widget picker's picture of the widget (layout/widget_preview.xml). The system's own colours, the ones the widget's "Follow the system" background and play button take, light. -->
+<resources>
+    <color name="widget_preview_surface">@android:color/system_accent2_50</color>
+    <color name="widget_preview_on_surface">@android:color/system_neutral1_900</color>
+    <color name="widget_preview_muted">@android:color/system_neutral2_700</color>
+    <color name="widget_preview_primary">@android:color/system_accent1_600</color>
+    <color name="widget_preview_on_primary">@android:color/system_accent1_0</color>
+    <color name="widget_preview_cover">@android:color/system_accent2_100</color>
+</resources>

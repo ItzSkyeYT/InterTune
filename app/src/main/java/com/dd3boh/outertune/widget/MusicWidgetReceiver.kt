@@ -30,16 +30,15 @@ class MusicWidgetReceiver : GlanceAppWidgetReceiver() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
-        // Held open while it runs. A receiver's process is a candidate for death the moment
-        // onReceive returns, and this reads the library and fetches artwork.
-        val pending = goAsync()
+        // Not held open with goAsync, which this used to call: super has already taken the
+        // broadcast's one pending result, so a second call returned null and held nothing. What
+        // keeps the process up while this reads the library and fetches artwork is the Glance
+        // session super just started, which runs as a WorkManager job.
         scope.launch {
             try {
                 WidgetStore.hydrate(context)
             } catch (e: Throwable) {
                 Log.w("MusicWidgetReceiver", "Could not fill the widget", e)
-            } finally {
-                runCatching { pending.finish() }
             }
         }
     }

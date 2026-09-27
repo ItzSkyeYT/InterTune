@@ -403,4 +403,45 @@
     <string name="pure_black_description">Utiliser du vrai noir au lieu du gris foncé. Sur un écran OLED, cela économise aussi un peu de batterie.</string>
     <string name="min_playback_duration_short">Quelle part d\'un morceau doit être écoutée pour compter comme une écoute.</string>
     <string name="throttle_banner_title">YouTube a suspendu cette connexion</string>
+
+    <!-- The home screen widget and its settings. -->
+    <string name="widget_label">En cours de lecture</string>
+    <string name="widget_description">Ce qui joue, ses commandes et la Sélection Rapide.</string>
+    <string name="widget_nothing_playing">Rien en cours de lecture</string>
+    <string name="widget_play">Lecture</string>
+    <string name="widget_pause">Pause</string>
+    <string name="widget_next">Titre suivant</string>
+    <string name="widget_previous">Titre précédent</string>
+    <string name="widget_config_shows">Ce que montre ce widget</string>
+    <string name="widget_content_both">Ce qui joue, et une liste</string>
+    <string name="widget_content_now">Ce qui joue</string>
+    <string name="widget_content_list">Une liste</string>
+    <string name="widget_config_which_list">Quelle liste</string>
+    <string name="widget_list_recent">Écoutés récemment</string>
+    <string name="widget_config_preview_hint">Ce widget à sa taille actuelle. Redimensionnez-le sur l\'écran d\'accueil pour avoir plus ou moins de lignes.</string>
+    <string name="widget_config_preview_hint_guess">Affiché à une taille courante. Une fois sur l\'écran d\'accueil, redimensionnez-le pour avoir plus ou moins de lignes.</string>
+    <string name="widget_config_done">Terminé</string>
+    <string name="widget_config_reset">Réinitialiser</string>
+    <string name="widget_config_rows">Nombre de lignes</string>
+    <string name="widget_rows_auto">Autant que possible</string>
+    <string name="widget_config_background">Arrière-plan</string>
+    <string name="widget_background_system">Comme le système</string>
+    <string name="widget_background_dark">Sombre</string>
+    <string name="widget_background_light">Clair</string>
+    <string name="widget_background_artwork">D\'après la pochette</string>
+    <string name="widget_background_none">Aucun</string>
+    <string name="widget_config_opacity">Opacité de l\'arrière-plan</string>
+    <string name="widget_config_buttons">Boutons</string>
+    <string name="widget_buttons_all">Précédent, lecture et suivant</string>
+    <string name="widget_buttons_play">Lecture et pause seulement</string>
+    <string name="widget_buttons_none">Aucun</string>
+    <string name="widget_config_text_size">Taille du texte</string>
+    <string name="widget_text_small">Petit</string>
+    <string name="widget_text_normal">Normal</string>
+    <string name="widget_text_large">Grand</string>
+    <string name="widget_config_show">Afficher</string>
+    <string name="widget_show_artwork">La pochette</string>
+    <string name="widget_show_artist">Les noms des artistes</string>
+    <string name="widget_show_heading">Le titre de la liste</string>
+    <string name="widget_rounded_corners">Coins arrondis</string>
 </resources>

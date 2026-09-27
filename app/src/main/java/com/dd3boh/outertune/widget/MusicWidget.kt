@@ -19,6 +19,8 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.emptyPreferences
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
@@ -52,9 +54,16 @@ import androidx.glance.layout.size
 import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
+import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.widget.WidgetLayout.BUTTON_SPACING_DP
+import com.dd3boh.outertune.widget.WidgetLayout.COVER_GAP_DP
+import com.dd3boh.outertune.widget.WidgetLayout.LIST_COVER_DP
+import com.dd3boh.outertune.widget.WidgetLayout.PAD_H_DP
+import com.dd3boh.outertune.widget.WidgetLayout.PAD_V_DP
+import com.dd3boh.outertune.widget.WidgetLayout.SMALL_GAP_DP
 
 /**
  * InterTune on the home screen: what is playing, a list to start something from, or both, in
@@ -66,14 +75,21 @@ import com.dd3boh.outertune.R
  * the song, the playback state or one of Home's rows changes.
  *
  * What each widget holds and how it looks is its own: [WidgetConfigActivity] writes the settings
- * into that widget's state, so two widgets side by side can be entirely different things.
+ * into that widget's state, so two widgets side by side can be entirely different things. What it
+ * draws at a given size is [WidgetLayout.plan]'s to decide, down to the dp, and nothing here
+ * measures or guesses.
  */
-class MusicWidget : GlanceAppWidget() {
+class MusicWidget(
+    /** What to draw instead of the snapshot on disk: a preview inside the app, never a widget on a home screen. */
+    private val fixed: WidgetStore.Drawn? = null,
+) : GlanceAppWidget() {
 
     /** Exact, because what fits is decided per size by [WidgetLayout] rather than by a few buckets. */
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
+        // provideContent never returns, so a preview stops here.
+        if (fixed != null) provideContent { GlanceTheme { Body(fixed) } }
         val initial = WidgetStore.load(context)
         provideContent {
             // Collected rather than captured: provideGlance runs once for the life of this
@@ -93,7 +109,26 @@ private data class Paint(
     val background: ColorProvider?,
     val text: ColorProvider,
     val muted: ColorProvider,
+    /**
+     * The play button is the one filled button, so it is found without looking: in the theme's
+     * accent where the launcher's colours are in use, otherwise in the words' colour with the
+     * background's own as its icon.
+     */
+    val playFill: ColorProvider,
+    val playIcon: ColorProvider,
+    /** Behind the note that stands in for a cover not fetched yet. */
+    val placeholder: ColorProvider,
 )
+
+/** Words and buttons over a cover are white whatever the widget's colours: the scrim under them is always dark. */
+private val OnCover = ColorProvider(Color.White)
+private val OnCoverMuted = ColorProvider(Color.White.copy(alpha = 0.78f))
+private val OnCoverIcon = ColorProvider(Color(0xFF101114))
+
+/** Play over a cover with nothing under it to darken it. */
+private val OverCoverFill = ColorProvider(Color.Black.copy(alpha = 0.45f))
+
+private val CornerRadius = 20.dp
 
 @Composable
 private fun paintOf(settings: WidgetSettings, snapshot: WidgetSnapshot): Paint {
@@ -116,73 +151,101 @@ private fun paintOf(settings: WidgetSettings, snapshot: WidgetSnapshot): Paint {
         useSystem -> GlanceTheme.colors.widgetBackground
         else -> ColorProvider(solid.copy(alpha = alpha))
     }
+    val themed = settings.background == WidgetBackground.NONE || useSystem
+    val light = solid != null && solid.luminance() > 0.5f
+    val ink = Color(0xFF101114)
     val text = when {
-        settings.background == WidgetBackground.NONE -> GlanceTheme.colors.onSurface
-        useSystem -> GlanceTheme.colors.onSurface
-        solid != null && solid.luminance() > 0.5f -> ColorProvider(Color(0xFF101114))
+        themed -> GlanceTheme.colors.onSurface
+        light -> ColorProvider(ink)
         else -> ColorProvider(Color.White)
     }
     val muted = when {
-        settings.background == WidgetBackground.NONE || useSystem -> GlanceTheme.colors.onSurfaceVariant
-        solid != null && solid.luminance() > 0.5f -> ColorProvider(Color(0xFF101114).copy(alpha = 0.7f))
+        themed -> GlanceTheme.colors.onSurfaceVariant
+        light -> ColorProvider(ink.copy(alpha = 0.7f))
         else -> ColorProvider(Color.White.copy(alpha = 0.72f))
     }
-    return Paint(settings, background, text, muted)
+    val (playFill, playIcon) = when {
+        themed || solid == null -> GlanceTheme.colors.primary to GlanceTheme.colors.onPrimary
+        else -> text to ColorProvider(solid)
+    }
+    val placeholder = when {
+        themed || solid == null -> GlanceTheme.colors.secondaryContainer
+        light -> ColorProvider(ink.copy(alpha = 0.08f))
+        else -> ColorProvider(Color.White.copy(alpha = 0.12f))
+    }
+    return Paint(settings, background, text, muted, playFill, playIcon, placeholder)
 }
 
 @Composable
 private fun Body(drawn: WidgetStore.Drawn) {
-    val settings = WidgetKeys.read(currentState<Preferences>() ?: androidx.datastore.preferences.core.emptyPreferences())
+    val context = LocalContext.current
+    val settings = WidgetKeys.read(currentState<Preferences>() ?: emptyPreferences())
     val snapshot = drawn.snapshot
     val paint = paintOf(settings, snapshot)
     val size = LocalSize.current
-    val widthDp = size.width.value.toInt()
-    val heightDp = size.height.value.toInt()
-    val shape = WidgetLayout.nowShape(widthDp, heightDp, settings.content)
     val list = snapshot.list(settings.list)
-    val rows = settings.rowsAt(widthDp, heightDp, list.size)
+    val plan = WidgetLayout.plan(
+        size.width.value.toInt(), size.height.value.toInt(), settings, list.size,
+        context.resources.configuration.fontScale,
+    )
+    val song = snapshot.nowPlaying
+    val cover = drawn.art[song?.id]
 
     var frame = GlanceModifier.fillMaxSize().appWidgetBackground()
     paint.background?.let { frame = frame.background(it) }
-    if (settings.rounded) frame = frame.cornerRadius(20.dp)
+    if (settings.rounded) frame = frame.cornerRadius(CornerRadius)
 
-    if (shape == NowShape.TINY) {
-        Tiny(snapshot, drawn.art[snapshot.nowPlaying?.id], heightDp, frame, paint)
-        return
-    }
-
-    Column(modifier = frame.padding(horizontal = 12.dp, vertical = 10.dp)) {
-        when (shape) {
-            NowShape.ART -> BigArtwork(snapshot, drawn.big ?: drawn.art[snapshot.nowPlaying?.id], widthDp, heightDp, paint)
-            NowShape.STACKED -> Stacked(snapshot, drawn.art[snapshot.nowPlaying?.id], widthDp, paint)
-            NowShape.ROW -> NowPlayingRow(snapshot, drawn.art[snapshot.nowPlaying?.id], widthDp, heightDp, paint)
-            else -> Unit
-        }
-        if (rows > 0) {
-            if (shape != NowShape.NONE) Spacer(modifier = GlanceModifier.height(6.dp))
-            if (settings.showHeading) Heading(settings.list, paint)
-            list.take(rows).forEach { ListRow(it, drawn.art[it.id], paint) }
-        } else if (shape == NowShape.NONE) {
-            // A list widget too short for a row of it still says what it is, and opens the app.
-            Heading(settings.list, paint, big = true)
+    when (plan.shape) {
+        NowShape.TINY -> Tiny(plan, snapshot, cover, frame, paint)
+        // The big cover where it is drawn big; the thumbnail stands in until it has been fetched.
+        NowShape.POSTER -> Poster(plan, snapshot, drawn.big ?: cover, frame, paint)
+        NowShape.CARD -> Card(plan, snapshot, drawn.big ?: cover, frame, paint)
+        else -> Column(
+            modifier = frame.padding(
+                horizontal = PAD_H_DP.dp,
+                vertical = (if (plan.shape == NowShape.SLIM) 4 else PAD_V_DP).dp,
+            ),
+            verticalAlignment = if (plan.centred) Alignment.CenterVertically else Alignment.Top,
+        ) {
+            when (plan.shape) {
+                NowShape.SLIM, NowShape.ROW -> SongLine(plan, snapshot, cover, paint)
+                NowShape.STACKED -> Stacked(plan, snapshot, cover, paint)
+                else -> Unit
+            }
+            if (plan.rows > 0) {
+                if (plan.gap > 0) Spacer(modifier = GlanceModifier.height(plan.gap.dp))
+                if (plan.heading) Heading(settings.list, paint, plan.headingHeight)
+                list.take(plan.rows).forEach { ListRow(it, drawn.art[it.id], paint, plan) }
+            } else if (plan.shape == NowShape.NONE) {
+                // A list widget too short for a row of it still says what it is, and opens the app.
+                BigHeading(settings.list, paint)
+            }
         }
     }
 }
 
 @Composable
-private fun Heading(which: WidgetList, paint: Paint, big: Boolean = false) {
+private fun openApp(): Action = actionStartActivity(WidgetCommands.appIntent(LocalContext.current))
+
+@Composable
+private fun Heading(which: WidgetList, paint: Paint, height: Int) {
     Text(
         text = LocalContext.current.getString(headingOf(which)),
-        style = TextStyle(
-            color = if (big) paint.text else paint.muted,
-            fontSize = scaled(if (big) 14 else 12, paint),
-            fontWeight = FontWeight.Medium,
-        ),
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .padding(bottom = 4.dp)
-            .clickable(actionStartActivity(WidgetCommands.appIntent(LocalContext.current))),
+        style = TextStyle(color = paint.muted, fontSize = scaled(12, paint), fontWeight = FontWeight.Medium),
+        maxLines = 1,
+        modifier = GlanceModifier.fillMaxWidth().height(height.dp).clickable(openApp()),
     )
+}
+
+@Composable
+private fun BigHeading(which: WidgetList, paint: Paint) {
+    Box(modifier = GlanceModifier.fillMaxSize().clickable(openApp()), contentAlignment = Alignment.CenterStart) {
+        Text(
+            text = LocalContext.current.getString(headingOf(which)),
+            style = TextStyle(color = paint.text, fontSize = scaled(14, paint), fontWeight = FontWeight.Medium),
+            maxLines = 1,
+        )
+    }
 }
 
 private fun headingOf(which: WidgetList): Int = when (which) {
@@ -195,151 +258,251 @@ private fun headingOf(which: WidgetList): Int = when (which) {
 private fun scaled(sp: Int, paint: Paint): TextUnit = (sp * paint.settings.textSize.scale).sp
 
 /**
- * One cell: the cover, and play over it when there is height for a button. Everything else needs
- * words, and words need width this widget does not have.
+ * Narrower than a title. On a cell, the cover is the tile and play sits over it; on a narrow, tall
+ * widget the cover keeps its shape and play goes under it, rather than the cover being stretched
+ * into a strip.
  */
 @Composable
-private fun Tiny(snapshot: WidgetSnapshot, art: Bitmap?, heightDp: Int, frame: GlanceModifier, paint: Paint) {
-    Box(
-        modifier = frame.clickable(actionStartActivity(WidgetCommands.appIntent(LocalContext.current))),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (paint.settings.showArtwork && art != null) {
+private fun Tiny(plan: WidgetPlan, snapshot: WidgetSnapshot, art: Bitmap?, frame: GlanceModifier, paint: Paint) {
+    val title = snapshot.nowPlaying?.title
+    if (plan.buttonsBelow) {
+        Column(
+            modifier = frame.clickable(openApp()),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            if (plan.cover > 0) {
+                Artwork(art, plan.cover.dp, paint, title)
+                Spacer(modifier = GlanceModifier.height(8.dp))
+            }
+            PlayButton(snapshot, plan.button, paint.playFill, paint.playIcon)
+        }
+        return
+    }
+    val onCover = plan.cover > 0 && art != null
+    Box(modifier = frame.clickable(openApp()), contentAlignment = Alignment.Center) {
+        if (onCover) {
+            Image(
+                provider = ImageProvider(art!!),
+                contentDescription = title,
+                contentScale = ContentScale.Crop,
+                modifier = GlanceModifier.fillMaxSize(),
+            )
+        } else if (!plan.play) {
+            Note(36.dp, paint.muted)
+        }
+        if (plan.play) {
+            if (onCover) PlayButton(snapshot, plan.button, OverCoverFill, OnCover)
+            else PlayButton(snapshot, plan.button, paint.playFill, paint.playIcon)
+        }
+    }
+}
+
+/** The cover as the whole widget, darkened towards the bottom, with the song and its buttons over it. */
+@Composable
+private fun Poster(plan: WidgetPlan, snapshot: WidgetSnapshot, art: Bitmap?, frame: GlanceModifier, paint: Paint) {
+    val song = snapshot.nowPlaying
+    // With no cover to put them on, the words are the widget's own colours on its own background.
+    val onCover = art != null
+    val text = if (onCover) OnCover else paint.text
+    val muted = if (onCover) OnCoverMuted else paint.muted
+    val fill = if (onCover) OnCover else paint.playFill
+    val icon = if (onCover) OnCoverIcon else paint.playIcon
+    Box(modifier = frame.clickable(openApp())) {
+        if (art != null) {
             Image(
                 provider = ImageProvider(art),
-                contentDescription = snapshot.nowPlaying?.title,
+                contentDescription = song?.title,
                 contentScale = ContentScale.Crop,
-                modifier = if (paint.settings.rounded) GlanceModifier.fillMaxSize().cornerRadius(20.dp) else GlanceModifier.fillMaxSize(),
+                modifier = GlanceModifier.fillMaxSize(),
             )
-        } else if (paint.settings.buttons == WidgetButtons.NONE) {
             Image(
-                provider = ImageProvider(R.drawable.music_note),
+                provider = ImageProvider(R.drawable.widget_scrim),
                 contentDescription = null,
-                modifier = GlanceModifier.size(36.dp),
+                contentScale = ContentScale.FillBounds,
+                modifier = GlanceModifier.fillMaxSize(),
             )
-        }
-        if (heightDp >= 90 && paint.settings.buttons != WidgetButtons.NONE) {
-            PlayButton(snapshot, paint)
-        }
-    }
-}
-
-/** The whole widget given to the cover, with the song and its buttons under it. */
-@Composable
-private fun BigArtwork(snapshot: WidgetSnapshot, art: Bitmap?, widthDp: Int, heightDp: Int, paint: Paint) {
-    val song = snapshot.nowPlaying
-    if (paint.settings.showArtwork) {
-        Box(
-            modifier = GlanceModifier
-                .fillMaxWidth()
-                .height(WidgetLayout.artHeightDp(heightDp).dp)
-                .clickable(actionStartActivity(WidgetCommands.appIntent(LocalContext.current))),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (art != null) {
-                Image(
-                    provider = ImageProvider(art),
-                    contentDescription = song?.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = GlanceModifier.fillMaxSize().cornerRadius(14.dp),
-                )
-            } else {
-                Image(provider = ImageProvider(R.drawable.music_note), contentDescription = null, modifier = GlanceModifier.size(48.dp))
+        } else {
+            Box(modifier = GlanceModifier.fillMaxSize().padding(bottom = 48.dp), contentAlignment = Alignment.Center) {
+                Note(48.dp, paint.muted)
             }
         }
-        Spacer(modifier = GlanceModifier.height(8.dp))
-    }
-    Titles(song, paint, 16)
-    Spacer(modifier = GlanceModifier.height(4.dp))
-    Row(modifier = GlanceModifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Controls(snapshot, widthDp, paint)
-    }
-}
-
-/** Too narrow for a line of song and buttons: the cover above, the song under it, buttons below. */
-@Composable
-private fun Stacked(snapshot: WidgetSnapshot, art: Bitmap?, widthDp: Int, paint: Paint) {
-    val song = snapshot.nowPlaying
-    if (paint.settings.showArtwork) {
-        Row(modifier = GlanceModifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Artwork(art, 64.dp, paint)
+        Column(
+            modifier = GlanceModifier.fillMaxSize().padding(PAD_H_DP.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            if (plan.buttonsBelow) {
+                Titles(song, paint, 16, 13, plan.showArtist, text, muted)
+                Spacer(modifier = GlanceModifier.height(4.dp))
+                Row(
+                    modifier = GlanceModifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Controls(plan, snapshot, fill, icon, text)
+                }
+            } else {
+                Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = GlanceModifier.defaultWeight()) {
+                        if (plan.titleLines > 0) Titles(song, paint, 16, 13, plan.showArtist, text, muted)
+                    }
+                    if (plan.play) {
+                        Spacer(modifier = GlanceModifier.width(8.dp))
+                        PlayButton(snapshot, plan.button, fill, icon)
+                    }
+                }
+            }
         }
-        Spacer(modifier = GlanceModifier.height(6.dp))
-    }
-    Titles(song, paint, 14)
-    Row(modifier = GlanceModifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Controls(snapshot, widthDp, paint)
     }
 }
 
-/** Cover, song, buttons, in a line: the shape most widths get. */
+/** Wide and tall: the cover as tall as the widget, the song beside it and the buttons under the song. */
 @Composable
-private fun NowPlayingRow(snapshot: WidgetSnapshot, art: Bitmap?, widthDp: Int, heightDp: Int, paint: Paint) {
+private fun Card(plan: WidgetPlan, snapshot: WidgetSnapshot, art: Bitmap?, frame: GlanceModifier, paint: Paint) {
     val song = snapshot.nowPlaying
     Row(
-        modifier = GlanceModifier.fillMaxWidth().clickable(actionStartActivity(WidgetCommands.appIntent(LocalContext.current))),
+        modifier = frame.padding(PAD_H_DP.dp).clickable(openApp()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (paint.settings.showArtwork && WidgetLayout.showsArtwork(heightDp)) {
-            Artwork(art, 56.dp, paint)
-            Spacer(modifier = GlanceModifier.width(10.dp))
+        Artwork(art, plan.cover.dp, paint, song?.title, radius = 16.dp)
+        Spacer(modifier = GlanceModifier.width(14.dp))
+        Column(modifier = GlanceModifier.defaultWeight().height(plan.cover.dp)) {
+            Titles(song, paint, 16, 13, plan.showArtist, titleLines = plan.titleLines)
+            Spacer(modifier = GlanceModifier.defaultWeight())
+            if (plan.play) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Controls(plan, snapshot, paint.playFill, paint.playIcon, paint.text)
+                }
+            }
+        }
+    }
+}
+
+/** Cover, song and buttons in a line: a single cell tall, or a line with a list under it. */
+@Composable
+private fun SongLine(plan: WidgetPlan, snapshot: WidgetSnapshot, art: Bitmap?, paint: Paint) {
+    val slim = plan.shape == NowShape.SLIM
+    val song = snapshot.nowPlaying
+    Row(
+        modifier = GlanceModifier.fillMaxWidth().height(plan.nowHeight.dp).clickable(openApp()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (plan.cover > 0) {
+            Artwork(art, plan.cover.dp, paint, song?.title, radius = if (slim) 6.dp else 10.dp)
+            Spacer(modifier = GlanceModifier.width(COVER_GAP_DP.dp))
         }
         Column(modifier = GlanceModifier.defaultWeight()) {
-            Titles(song, paint, 15)
+            Titles(song, paint, if (slim) 14 else 15, if (slim) 12 else 13, plan.showArtist)
         }
-        Spacer(modifier = GlanceModifier.width(6.dp))
-        Controls(snapshot, widthDp, paint)
+        if (plan.play) {
+            Spacer(modifier = GlanceModifier.width(SMALL_GAP_DP.dp))
+            Controls(plan, snapshot, paint.playFill, paint.playIcon, paint.text)
+        }
+    }
+}
+
+/** Narrow: the cover above the song, the buttons under it. */
+@Composable
+private fun Stacked(plan: WidgetPlan, snapshot: WidgetSnapshot, art: Bitmap?, paint: Paint) {
+    val song = snapshot.nowPlaying
+    Column(
+        modifier = GlanceModifier.fillMaxWidth().height(plan.nowHeight.dp).clickable(openApp()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (plan.cover > 0) {
+            Artwork(art, plan.cover.dp, paint, song?.title, radius = 12.dp)
+            Spacer(modifier = GlanceModifier.height(SMALL_GAP_DP.dp))
+        }
+        Titles(song, paint, 14, 12, plan.showArtist, centred = true)
+        if (plan.play) {
+            Spacer(modifier = GlanceModifier.height(2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Controls(plan, snapshot, paint.playFill, paint.playIcon, paint.text)
+            }
+        }
     }
 }
 
 @Composable
-private fun Titles(song: WidgetSong?, paint: Paint, titleSp: Int) {
+private fun Titles(
+    song: WidgetSong?,
+    paint: Paint,
+    titleSp: Int,
+    artistSp: Int,
+    showArtist: Boolean,
+    text: ColorProvider = paint.text,
+    muted: ColorProvider = paint.muted,
+    titleLines: Int = 1,
+    centred: Boolean = false,
+) {
+    val align = if (centred) TextAlign.Center else TextAlign.Start
+    val width = if (centred) GlanceModifier.fillMaxWidth() else GlanceModifier
     Text(
         text = song?.title ?: LocalContext.current.getString(R.string.widget_nothing_playing),
-        style = TextStyle(color = paint.text, fontSize = scaled(titleSp, paint), fontWeight = FontWeight.Medium),
-        maxLines = 1,
+        style = TextStyle(color = text, fontSize = scaled(titleSp, paint), fontWeight = FontWeight.Medium, textAlign = align),
+        maxLines = titleLines.coerceAtLeast(1),
+        modifier = width,
     )
-    if (song != null && paint.settings.showArtist) {
+    if (song != null && showArtist) {
         Text(
             text = song.artist,
-            style = TextStyle(color = paint.muted, fontSize = scaled(13, paint)),
+            style = TextStyle(color = muted, fontSize = scaled(artistSp, paint), textAlign = align),
             maxLines = 1,
+            modifier = width,
         )
     }
 }
 
+/** Previous, play and next as the plan has room for, play the filled one among them. */
 @Composable
-private fun Controls(snapshot: WidgetSnapshot, widthDp: Int, paint: Paint) {
-    val buttons = paint.settings.buttons
-    if (buttons == WidgetButtons.NONE) return
-    val skips = buttons == WidgetButtons.ALL && WidgetLayout.showsSkipButtons(widthDp)
-    if (skips) ControlButton(R.drawable.skip_previous, R.string.widget_previous, actionRunCallback<PreviousAction>(), paint)
-    PlayButton(snapshot, paint)
-    if (skips) ControlButton(R.drawable.skip_next, R.string.widget_next, actionRunCallback<NextAction>(), paint)
+private fun Controls(plan: WidgetPlan, snapshot: WidgetSnapshot, fill: ColorProvider, icon: ColorProvider, tint: ColorProvider) {
+    if (plan.skips) {
+        TransportButton(R.drawable.skip_previous, R.string.widget_previous, actionRunCallback<PreviousAction>(), plan.button, tint)
+        Spacer(modifier = GlanceModifier.width(BUTTON_SPACING_DP.dp))
+    }
+    if (plan.play) PlayButton(snapshot, plan.button, fill, icon)
+    if (plan.skips) {
+        Spacer(modifier = GlanceModifier.width(BUTTON_SPACING_DP.dp))
+        TransportButton(R.drawable.skip_next, R.string.widget_next, actionRunCallback<NextAction>(), plan.button, tint)
+    }
 }
 
 @Composable
-private fun PlayButton(snapshot: WidgetSnapshot, paint: Paint) {
-    ControlButton(
-        if (snapshot.isPlaying) R.drawable.pause else R.drawable.play,
-        if (snapshot.isPlaying) R.string.widget_pause else R.string.widget_play,
-        actionRunCallback<PlayPauseAction>(),
-        paint,
+private fun PlayButton(snapshot: WidgetSnapshot, size: Int, fill: ColorProvider, icon: ColorProvider) {
+    CircleIconButton(
+        imageProvider = ImageProvider(if (snapshot.isPlaying) R.drawable.pause else R.drawable.play),
+        contentDescription = LocalContext.current.getString(if (snapshot.isPlaying) R.string.widget_pause else R.string.widget_play),
+        onClick = actionRunCallback<PlayPauseAction>(),
+        backgroundColor = fill,
+        contentColor = icon,
+        modifier = GlanceModifier.size(size.dp),
     )
 }
 
 @Composable
-private fun ListRow(song: WidgetSong, art: Bitmap?, paint: Paint) {
+private fun TransportButton(icon: Int, description: Int, action: Action, size: Int, tint: ColorProvider) {
+    CircleIconButton(
+        imageProvider = ImageProvider(icon),
+        contentDescription = LocalContext.current.getString(description),
+        onClick = action,
+        backgroundColor = null,
+        contentColor = tint,
+        modifier = GlanceModifier.size(size.dp),
+    )
+}
+
+@Composable
+private fun ListRow(song: WidgetSong, art: Bitmap?, paint: Paint, plan: WidgetPlan) {
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .height(WidgetLayout.PICK_ROW_DP.dp)
+            .height(plan.rowHeight.dp)
             .clickable(actionStartActivity(WidgetCommands.playIntent(LocalContext.current, song))),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (paint.settings.showArtwork) {
-            Artwork(art, 40.dp, paint)
-            Spacer(modifier = GlanceModifier.width(10.dp))
+        if (plan.rowCover) {
+            Artwork(art, LIST_COVER_DP.dp, paint, null)
+            Spacer(modifier = GlanceModifier.width(COVER_GAP_DP.dp))
         }
         Column(modifier = GlanceModifier.defaultWeight()) {
             Text(
@@ -347,7 +510,7 @@ private fun ListRow(song: WidgetSong, art: Bitmap?, paint: Paint) {
                 style = TextStyle(color = paint.text, fontSize = scaled(14, paint)),
                 maxLines = 1,
             )
-            if (paint.settings.showArtist) {
+            if (plan.rowShowsArtist) {
                 Text(
                     text = song.artist,
                     style = TextStyle(color = paint.muted, fontSize = scaled(12, paint)),
@@ -358,27 +521,31 @@ private fun ListRow(song: WidgetSong, art: Bitmap?, paint: Paint) {
     }
 }
 
+/** A cover, or while there is none yet a note on a quiet square of the same size, so nothing jumps when it lands. */
 @Composable
-private fun Artwork(art: Bitmap?, size: Dp, paint: Paint) {
-    val provider = if (art != null) ImageProvider(art) else ImageProvider(R.drawable.music_note)
+private fun Artwork(art: Bitmap?, size: Dp, paint: Paint, description: String?, radius: Dp = 8.dp) {
     var modifier = GlanceModifier.size(size)
-    if (paint.settings.rounded) modifier = modifier.cornerRadius(8.dp)
-    Image(
-        provider = provider,
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = modifier,
-    )
+    if (paint.settings.rounded) modifier = modifier.cornerRadius(radius)
+    if (art != null) {
+        Image(
+            provider = ImageProvider(art),
+            contentDescription = description,
+            contentScale = ContentScale.Crop,
+            modifier = modifier,
+        )
+    } else {
+        Box(modifier = modifier.background(paint.placeholder), contentAlignment = Alignment.Center) {
+            Note(size * 0.45f, paint.muted)
+        }
+    }
 }
 
 @Composable
-private fun ControlButton(icon: Int, description: Int, action: Action, paint: Paint) {
-    CircleIconButton(
-        imageProvider = ImageProvider(icon),
-        contentDescription = LocalContext.current.getString(description),
-        onClick = action,
-        backgroundColor = null,
-        contentColor = paint.text,
-        modifier = GlanceModifier.size(44.dp),
+private fun Note(size: Dp, tint: ColorProvider) {
+    Image(
+        provider = ImageProvider(R.drawable.music_note),
+        contentDescription = null,
+        colorFilter = ColorFilter.tint(tint),
+        modifier = GlanceModifier.size(size),
     )
 }

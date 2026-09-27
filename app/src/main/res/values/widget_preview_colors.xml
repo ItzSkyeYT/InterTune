@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The widget picker's picture of the widget (layout/widget_preview.xml). Before Android 12 there are no system colours to follow, so these stand in, light. -->
+<resources>
+    <color name="widget_preview_surface">#F3F1F8</color>
+    <color name="widget_preview_on_surface">#1B1B21</color>
+    <color name="widget_preview_muted">#5E5E69</color>
+    <color name="widget_preview_primary">#4A5C92</color>
+    <color name="widget_preview_on_primary">#FFFFFF</color>
+    <color name="widget_preview_cover">#DDE1F9</color>
+</resources>
