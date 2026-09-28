@@ -71,6 +71,8 @@ import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.lifecycleScope
 import com.dd3boh.outertune.R
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -142,17 +144,24 @@ class WidgetConfigActivity : ComponentActivity() {
         WidgetKeys.read(getAppWidgetState(this, PreferencesGlanceStateDefinition, glanceId))
     }.getOrDefault(WidgetSettings())
 
+    @OptIn(DelicateCoroutinesApi::class)
     private fun save(settings: WidgetSettings) {
         lifecycleScope.launch {
+            val appContext = applicationContext
             runCatching {
                 val glanceId = GlanceAppWidgetManager(this@WidgetConfigActivity).getGlanceIdBy(appWidgetId)
                 updateAppWidgetState(this@WidgetConfigActivity, glanceId) { prefs ->
                     WidgetKeys.write(prefs, settings)
                 }
-                // Filled before it is first drawn, so a new widget is never an empty box.
-                WidgetStore.hydrate(this@WidgetConfigActivity)
                 MusicWidget().update(this@WidgetConfigActivity, glanceId)
             }
+            // hydrate fetches artwork over the network and can take a while, so it runs after this
+            // screen has said yes: waiting for it here would leave Done hanging, and Back or leaving
+            // meanwhile would finish with the RESULT_CANCELED set in onCreate, which makes the
+            // launcher remove the widget. GlobalScope because the work must outlive this activity;
+            // hydrate ends in its own updateAll. Until then a new widget can show its rows empty,
+            // since hydrate writes the snapshot once, after every row's artwork.
+            GlobalScope.launch { runCatching { WidgetStore.hydrate(appContext) } }
             setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
             finish()
         }
