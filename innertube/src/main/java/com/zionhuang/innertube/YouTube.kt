@@ -756,8 +756,13 @@ object YouTube {
         signatureTimestamp: Int? = null,
         webPlayerPot: String? = null,
         visitorData: String? = this.visitorData,
+        // English makes a refusal reason recognisable whatever the app's language, so Throttle
+        // and the error screen can classify it. Null keeps the app's own hl, which the main client
+        // is still asked in. The callers that pass "en" are in YTPlayerUtils: resolveOnce,
+        // playerResponseForMetadata and loudnessFor.
+        hlOverride: String? = null,
     ): Result<PlayerResponse> = runCatchingCancellable {
-        innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData).body<PlayerResponse>()
+        innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData, hlOverride).body<PlayerResponse>()
     }
 
     suspend fun registerPlayback(playlistId: String? = null, playbackTracking: String) = runCatching {

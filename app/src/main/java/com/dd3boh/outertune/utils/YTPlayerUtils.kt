@@ -395,8 +395,15 @@ object YTPlayerUtils {
                     continue
                 }
 
+                // hl=en whatever the app's language. Throttle and the error screen know the bot
+                // check and the age gate only by YouTube's English wording, and a fallback client's
+                // reason is what they read. Any other reason is shown on the error screen as
+                // YouTube wrote it, so a song refused for its own sake now reads in English there.
+                // The main client keeps the app's hl: nothing in its answer is shown, and asking it
+                // in English would let its routine bot check (see blockedStatus) reach the throttle
+                // in every language.
                 val fallbackResult =
-                    YouTube.player(videoId, playlistId, client, signatureTimestampFor(client), webPlayerPot)
+                    YouTube.player(videoId, playlistId, client, signatureTimestampFor(client), webPlayerPot, hlOverride = "en")
                         .onFailure { Throttle.noteFailure(it) }
                 streamPlayerResponse = fallbackResult.getOrNull()
                 if (streamPlayerResponse == null) {
@@ -570,7 +577,9 @@ object YTPlayerUtils {
         videoId: String,
         playlistId: String? = null,
     ): Result<PlayerResponse> =
-        YouTube.player(videoId, playlistId, client = VISIONOS).noteThrottle()
+        // hl=en: noteThrottle hands the reason to Throttle.looksLikeBlock, which knows the bot
+        // check only in English. Nothing here shows the reason.
+        YouTube.player(videoId, playlistId, client = VISIONOS, hlOverride = "en").noteThrottle()
 
     /** Outcome of a loudness lookup. Distinguishes "no value exists" from "the request failed". */
     sealed interface LoudnessResult {
@@ -594,7 +603,9 @@ object YTPlayerUtils {
      * the request. The caller decides what to do about each outcome.
      */
     suspend fun loudnessFor(videoId: String): LoudnessResult {
-        val response = YouTube.player(videoId, client = VISIONOS).noteThrottle()
+        // hl=en for the same reason as playerResponseForMetadata. LoudnessRepair's batch is
+        // exactly the background work the back off exists to stop on a refused network.
+        val response = YouTube.player(videoId, client = VISIONOS, hlOverride = "en").noteThrottle()
             .getOrElse { return LoudnessResult.Failed(it) }
 
         val db = response.playerConfig?.audioConfig?.effectiveLoudnessDb
