@@ -182,7 +182,15 @@ fun RecognitionSheet(
     LaunchedEffect(Unit) {
         if (asked) return@LaunchedEffect
         asked = true
-        if (!viewModel.running.value) permission.launch(Manifest.permission.RECORD_AUDIO)
+        if (!viewModel.running.value) {
+            // The engine's continuous mode is process-wide and outlives whatever run last set it,
+            // including the What's playing? screen's Keep listening card. This sheet's own switch
+            // defaults to off, so a fresh run here should too, not whatever the last run happened
+            // to leave behind. listenInstead is unaffected: it keeps the mode of the run it takes
+            // over.
+            viewModel.setContinuous(false)
+            permission.launch(Manifest.permission.RECORD_AUDIO)
+        }
     }
 
     ModalBottomSheet(
