@@ -215,6 +215,59 @@ class EngineRowTest {
     }
 
     @Test
+    fun `a session of nothing but skips is still the current session, and its songs stay excluded`() {
+        val w = bigWorld()
+        // bigWorld's session 999 ended a good listen about nine minutes ago. Under the app's
+        // 30-minute session rule, skips this soon after it would join that session rather than
+        // open one of their own, so drop it: the last good listen is then session 998, most of a
+        // day back, and the skips below make up a session with no good listen in it.
+        w.listens.removeAll { it.sessionId == 999L }
+        // Right now: the listener skips through four songs of artists 12 to 15 in one session,
+        // none heard well, so stats.latestSessionId (which only ever names a session once it has a
+        // good, artist-credited listen) cannot see this session and would still point at whatever
+        // session last had one, missing this one entirely.
+        val skipped = (12..15).map { "a${it}s0" }
+        skipped.forEachIndexed { i, id -> w.play(id, hoursAgo = 0.01 * (i + 1), ratio = 0.05, session = 9001L, ended = EndReason.SKIPPED) }
+        // The same songs, reachable and counted as novel by newOnly's measure (see "never played
+        // means no listen at all, not no good listen" above), so unless this session is taken as
+        // the one in progress they are picked up as ordinary candidates.
+        repeat(10) { attempt ->
+            val row = EngineRow.build(w.input(), newOnly = true, random = Random(attempt.toLong()))
+            assertTrue("a row to show", (row.cards + row.pool).isNotEmpty())
+            (row.cards + row.pool).forEach { assertTrue("${it.songId} was skipped this session", it.songId !in skipped) }
+        }
+    }
+
+    @Test
+    fun `currentSessionId follows the most recent listen, engagement and artist aside`() {
+        val session = { id: String, hoursAgo: Double, sess: Long, ratio: Double, ended: Int ->
+            val start = now - (hoursAgo * hour).toLong()
+            val played = (200_000 * ratio).toLong()
+            ListenRow(id, start, start + played, played, 200_000, ended, PlayOrigin.SEARCH.code, 0, sess, 0)
+        }
+        // No listens at all.
+        assertEquals(-1L, currentSessionId(emptyList()))
+        // A single, well-engaged, artist-backed listen: the ordinary case.
+        assertEquals(1L, currentSessionId(listOf(session("a", 1.0, 1L, 1.0, EndReason.ENDED))))
+        // The most recent listen is a skip in a newer session than an older, good one: it still wins.
+        assertEquals(
+            2L,
+            currentSessionId(listOf(
+                session("a", 2.0, 1L, 1.0, EndReason.ENDED),
+                session("b", 0.1, 2L, 0.05, EndReason.SKIPPED),
+            )),
+        )
+        // An open row (endedAt already set to now by the loader; startedAt is what is real) still counts.
+        assertEquals(
+            3L,
+            currentSessionId(listOf(
+                session("a", 2.0, 1L, 1.0, EndReason.ENDED),
+                session("b", 0.05, 3L, 1.0, EndReason.OPEN).copy(endedAt = now),
+            )),
+        )
+    }
+
+    @Test
     fun `a card passed over is demoted and a satiated song seeds weakly`() {
         val w = bigWorld()
         val seen = (1..6).map { SeenCard("a1s3", now - it * day) }

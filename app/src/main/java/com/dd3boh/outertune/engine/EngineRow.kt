@@ -9,6 +9,16 @@ package com.dd3boh.outertune.engine
 import kotlin.random.Random
 
 /**
+ * The session actually under way, by recency alone: the session id of the most recent listen in
+ * the log, an open row (already given endedAt = now by the loader, but its startedAt is real)
+ * included, whatever its engagement or whether its song has a resolvable artist. Unlike
+ * [LibraryStats.latestSessionId], which only names a session once it has produced a good,
+ * artist-credited listen, this always finds the session in progress, so a session made so far of
+ * nothing but skips is still recognised as current.
+ */
+internal fun currentSessionId(listens: List<ListenRow>): Long = listens.maxByOrNull { it.startedAt }?.sessionId ?: -1L
+
+/**
  * One build of the Quick picks row: fold the log, pick the seeds, gather four lanes of candidates,
  * score each, fill the row under the shared rules, and keep the survivors as the pool that
  * replaces a card the listener plays before the next build.
@@ -125,8 +135,9 @@ object EngineRow {
         val excludedGroups = HashSet<String>()
         seeds.forEach { excludedGroups += groups.groupOf(it) }
         val justPlayedCut = input.now - p.engineFreshHours * 3_600_000.0
+        val session = currentSessionId(input.listens)
         for (l in input.listens) {
-            if (l.sessionId == stats.latestSessionId && input.now - l.endedAt <= p.sessionGapMs) { excludedGroups += groups.groupOf(l.songId); continue }
+            if (l.sessionId == session && input.now - l.endedAt <= p.sessionGapMs) { excludedGroups += groups.groupOf(l.songId); continue }
             if (l.startedAt >= justPlayedCut) {
                 val liked = input.songs[l.songId]?.likedAt?.takeIf { l.songId !in stats.bulkLikeSongIds }
                 if (Signals.engagement(l, liked, p) >= p.justPlayedEngagement) excludedGroups += groups.groupOf(l.songId)
