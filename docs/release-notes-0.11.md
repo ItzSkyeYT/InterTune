@@ -123,7 +123,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Long-pressing an album, artist or playlist in search results opened an empty menu.
 - **Shuffle** on a local artist played three songs.
 - In a shuffled queue, moving or removing a song and then adding one to the queue jumped to a different song.
-- Lyrics without timings started every line after the first with a comma.
+- Lyrics without timings started every line after the first with a comma, and lost the blank lines between verses.
 - Removing a song from a playlist while searching it could send a different song to the bottom.
 - A drag in a playlist synced with YouTube Music could move a different song on YouTube.
 - Tapping a song in an artist's song list could play a different one, and with no connection it waited before playing anything.
