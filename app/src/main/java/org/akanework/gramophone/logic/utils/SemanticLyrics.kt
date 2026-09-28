@@ -285,23 +285,34 @@ private sealed class SyntacticLrc {
                 out.add(InvalidText(""))
             if (out.isNotEmpty() && out.last() !is NewLine)
                 out.add(NewLine.SyntheticNewLine())
-            return out.let {
+            return out.let { tokens ->
                 // If there isn't a single sync point with timestamp over zero, that is probably not
                 // a valid .lrc file.
-                if (it.find {
+                if (tokens.find {
                         it is SyncPoint && it.timestamp > 0u
                                 || it is WordSyncPoint && it.timestamp > 0u
                     } == null)
-                // Recover only text information to make the most out of this damaged file.
-                    it.flatMap {
-                        when (it) {
-                            is InvalidText -> listOf(it)
-                            is SpeakerTag -> listOf(it)
-                            is LyricText -> listOf(InvalidText(it.text))
+                // Recover only text information to make the most out of this damaged file. A real
+                // newline directly after another real newline was a blank line in the source, the
+                // gap between verses, and is kept as empty lyric text so the caller still shows
+                // that gap. The tokenizer's own synthetic newlines (a trailing one, or one before
+                // [bg:) do not count towards this: the user never typed those.
+                    tokens.mapIndexed { index, token ->
+                        when (token) {
+                            is InvalidText -> listOf(token)
+                            is SpeakerTag -> listOf(token)
+                            is LyricText -> listOf(InvalidText(token.text))
+                            is NewLine.SyntheticNewLine -> listOf()
+                            is NewLine -> {
+                                val previous = tokens.getOrNull(index - 1)
+                                if (previous is NewLine && previous !is NewLine.SyntheticNewLine)
+                                    listOf(InvalidText(""))
+                                else listOf()
+                            }
                             else -> listOf()
                         }
-                    }
-                else it
+                    }.flatten()
+                else tokens
             }.let {
                 if (multiLineEnabled) {
                     val a = AtomicReference<String?>(null)
