@@ -240,6 +240,7 @@ import kotlinx.coroutines.delay
 import android.provider.Settings
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 
 /**
@@ -263,27 +264,42 @@ internal fun freshLaunch(hadSavedInstanceState: Boolean, flags: Int): Boolean =
     !hadSavedInstanceState && (flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
 
 /**
+ * Whether the launch intent's widget song is still owed: true only for a fresh launch whose
+ * action is the widget's ACTION_PLAY_SONG intent. See [freshLaunch].
+ */
+internal fun widgetSongOwed(action: String?, hadSavedInstanceState: Boolean, flags: Int): Boolean =
+    action == WidgetCommands.ACTION_PLAY_SONG && freshLaunch(hadSavedInstanceState, flags)
+
+/**
+ * A widget tap that reached the activity through onNewIntent and is waiting for the player.
+ *
+ * A ViewModel keeps it through a rotation or other recreation, and a new process starts without
+ * it, so a tap cannot start by itself on a later reopen from recents.
+ */
+internal class PendingWidgetTap : ViewModel() {
+    var intent by mutableStateOf<Intent?>(null)
+}
+
+/**
  * A song tapped on the home screen widget.
  *
  * The widget carries enough of the song in its intent to play it without a lookup, because the
  * song it is offering need not be in the library at all: Quick picks on the YouTube source is a
  * shelf from the feed. The library is still asked first, since a song that is there comes with
  * everything else the app knows about it.
- *
- * Returns whether this intent was a widget tap, so the caller knows to leave it alone.
  */
 private fun playFromWidget(
     intent: Intent?,
     database: MusicDatabase,
     playerConnection: PlayerConnection?,
     scope: CoroutineScope,
-): Boolean {
-    if (intent?.action != WidgetCommands.ACTION_PLAY_SONG) return false
-    val id = intent.getStringExtra(WidgetCommands.EXTRA_SONG_ID) ?: return false
+) {
+    if (intent?.action != WidgetCommands.ACTION_PLAY_SONG) return
+    val id = intent.getStringExtra(WidgetCommands.EXTRA_SONG_ID) ?: return
     // Not until the player is connected. With the app closed, the tap creates the activity and the
     // connection arrives a moment later, so the first call has none: taking the id out before
     // this check threw it away, and the call that came with the connection found nothing to play.
-    val connection = playerConnection ?: return true
+    val connection = playerConnection ?: return
     // Taken out of the intent, or every recomposition and every rotation plays it again.
     intent.removeExtra(WidgetCommands.EXTRA_SONG_ID)
     val title = intent.getStringExtra(WidgetCommands.EXTRA_SONG_TITLE).orEmpty()
@@ -306,7 +322,6 @@ private fun playFromWidget(
             origin = PlayOrigin.WIDGET,
         )
     }
-    return true
 }
 
 @AndroidEntryPoint
@@ -345,6 +360,8 @@ class MainActivity : ComponentActivity() {
 
     private var playerConnection by mutableStateOf<PlayerConnection?>(null)
 
+    private val pendingWidgetTap: PendingWidgetTap by viewModels()
+
     val controllerViewModel: MediaControllerViewModel by viewModels()
 
     // storage permission helpers
@@ -368,6 +385,10 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleOpenPoll(intent)
+        // Every later widget tap comes through here, sometimes before the first composition (a
+        // tap on a task whose process died), so it is held until the player is connected.
+        // onNewIntent never replays an old intent, so nothing is gated here.
+        if (intent.action == WidgetCommands.ACTION_PLAY_SONG) pendingWidgetTap.intent = intent
         if (intent.action == ACTION_PLAY_LIKED) playLikedWhenReady()
         handlePlayFromSearch(intent)
     }
@@ -896,11 +917,24 @@ class MainActivity : ComponentActivity() {
                     }
 
 
-                    // A Quick pick tapped on the home screen widget. Handled for the intent that
-                    // opened the app and, through the listener below, for one that arrives while it
-                    // is already open.
-                    LaunchedEffect(playerConnection) {
-                        playFromWidget(intent, database, playerConnection, coroutineScope)
+                    // A Quick pick tapped on the home screen widget. The song that started the app
+                    // is decided once, on a fresh launch, and kept through a rotation. Any later
+                    // tap comes from onNewIntent through pendingWidgetTap. Each plays once, when
+                    // the player is connected.
+                    var widgetSongPending by rememberSaveable {
+                        mutableStateOf(
+                            widgetSongOwed(intent?.action, savedInstanceState != null, intent?.flags ?: 0)
+                        )
+                    }
+                    LaunchedEffect(playerConnection, widgetSongPending, pendingWidgetTap.intent) {
+                        if (widgetSongPending) {
+                            playFromWidget(intent, database, playerConnection, coroutineScope)
+                            if (playerConnection != null) widgetSongPending = false
+                        }
+                        pendingWidgetTap.intent?.let { pending ->
+                            playFromWidget(pending, database, playerConnection, coroutineScope)
+                            if (playerConnection != null) pendingWidgetTap.intent = null
+                        }
                     }
 
                     // A YouTube link that started the app: shared to it, or tapped with it closed.
@@ -933,7 +967,9 @@ class MainActivity : ComponentActivity() {
 
                     DisposableEffect(Unit) {
                         val listener = Consumer<Intent> { intent ->
-                            if (playFromWidget(intent, database, playerConnection, coroutineScope)) return@Consumer
+                            // Widget taps are handled through pendingWidgetTap, and their
+                            // intertune://widget/... data is not a link for youtubeNavigator.
+                            if (intent.action == WidgetCommands.ACTION_PLAY_SONG) return@Consumer
                             val uri =
                                 intent.data ?: intent.extras?.getString(Intent.EXTRA_TEXT)?.toUri()
                                 ?: return@Consumer
