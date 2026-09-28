@@ -355,17 +355,22 @@ object YTPlayerUtils {
 
         var streamPlayerResponse: PlayerResponse? = null
         var lastClient: YouTubeClient? = null
-        // The best explanation any client gave, kept because streamPlayerResponse is overwritten
-        // every iteration and the last client is free to fail outright. Five Hours went VISIONOS
-        // "UNPLAYABLE - This video is not available", IOS the same, then ANDROID returned nothing
-        // at all, and the reason two clients had already supplied was dropped on the floor in
-        // favour of "Unknown error".
+        // The best explanation any fallback client gave, kept because streamPlayerResponse is
+        // overwritten every iteration and the last client is free to fail outright. Five Hours went
+        // VISIONOS "UNPLAYABLE - This video is not available", IOS the same, then ANDROID returned
+        // nothing at all, and the reason two clients had already supplied was dropped on the floor
+        // in favour of "Unknown error". The main client is left out: ANDROID_VR gives the bot check
+        // on nearly every song, so its reason says nothing about why this one failed.
         var explained: PlayerResponse.PlayabilityStatus? = null
         // What a fallback client said when it turned the request down outright, and the status the
         // last refused url got. Together they explain a chain that found urls and had every one
         // refused, where the reason is the cause and the status only its symptom.
         var fallbackRefusal: PlayerResponse.PlayabilityStatus? = null
         var refusedStatus: Int? = null
+        // The most recent fallback client's own failure (a dropped connection, a timeout). Thrown
+        // as itself when no fallback client explained anything, so MusicService can map it to no
+        // connection or a timeout.
+        var lastFallbackFailure: Throwable? = null
         val trail = mutableListOf<String>()
         for (clientIndex in (-1 until streamClients.size)) {
             // reset for each client
@@ -390,18 +395,21 @@ object YTPlayerUtils {
                     continue
                 }
 
-                streamPlayerResponse =
+                val fallbackResult =
                     YouTube.player(videoId, playlistId, client, signatureTimestampFor(client), webPlayerPot)
                         .onFailure { Throttle.noteFailure(it) }
-                        .getOrNull()
+                streamPlayerResponse = fallbackResult.getOrNull()
+                if (streamPlayerResponse == null) {
+                    fallbackResult.exceptionOrNull()?.let { lastFallbackFailure = it }
+                }
                 streamPlayerResponse?.rememberBlock()
             }
 
             lastClient = client
-            streamPlayerResponse?.playabilityStatus
-                ?.takeIf { it.status != null && it.status != "OK" && explained == null }
-                ?.let { explained = it }
             if (clientIndex >= 0) {
+                streamPlayerResponse?.playabilityStatus
+                    ?.takeIf { it.status != null && it.status != "OK" && explained == null }
+                    ?.let { explained = it }
                 streamPlayerResponse?.playabilityStatus
                     ?.takeIf { it.status != null && it.status != "OK" && fallbackRefusal == null }
                     ?.let { fallbackRefusal = it }
@@ -479,17 +487,17 @@ object YTPlayerUtils {
         }
 
         if (streamPlayerResponse == null) {
-            // Prefer whatever an earlier client managed to say. "This video is not available" is
-            // something a person can act on; "Bad stream player response" reaches them as
-            // "Unknown error" and tells them nothing.
-            explained?.let { status ->
-                throw PlaybackException(
-                    status.reason ?: status.status,
+            // A fallback client's reason first, then its own failure, then the generic error: see
+            // StreamCheck.resolveOnceFailure.
+            when (val failure = StreamCheck.resolveOnceFailure(explained, lastFallbackFailure)) {
+                is StreamCheck.ChainFailure.Explained -> throw PlaybackException(
+                    failure.message,
                     null,
                     PlaybackException.ERROR_CODE_REMOTE_ERROR,
                 )
+                is StreamCheck.ChainFailure.LastFailure -> throw failure.cause
+                StreamCheck.ChainFailure.Unknown -> throw Exception("Bad stream player response")
             }
-            throw Exception("Bad stream player response")
         }
         if (streamPlayerResponse.playabilityStatus.status != "OK") {
             throw PlaybackException(
