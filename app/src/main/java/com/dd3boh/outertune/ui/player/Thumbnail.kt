@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalView
 import coil3.compose.AsyncImage
@@ -78,7 +79,14 @@ fun Thumbnail(
     sliderPositionProvider: () -> Long?,
     modifier: Modifier = Modifier,
     showLyricsOnClick: Boolean = false,
-    customMediaMetadata: MediaMetadata? = null
+    customMediaMetadata: MediaMetadata? = null,
+    /**
+     * Extra bottom room to leave clear under the lyrics view's close/more row. Callers whose
+     * layout already reserves space for the collapsed queue sheet around the whole Thumbnail
+     * (portrait, tablet) leave this at zero; the landscape two-pane player does not, since the
+     * artwork itself does not need the room, and passes its own queue clearance through here.
+     */
+    lyricsBottomPadding: Dp = 0.dp
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -210,7 +218,8 @@ fun Thumbnail(
                         showLyrics = false
                         haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                     }
-                } else null
+                } else null,
+                bottomPadding = lyricsBottomPadding
             )
         }
 

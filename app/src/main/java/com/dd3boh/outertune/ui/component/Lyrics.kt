@@ -123,6 +123,12 @@ fun Lyrics(
      * than leaving them on a dead screen that only the menu can escape.
      */
     onNoLyricsClick: (() -> Unit)? = null,
+    /**
+     * Extra room left clear below the close/more button row, on top of its own padding. Used by
+     * the landscape two-pane player, where this view's bottom corner would otherwise sit under
+     * the collapsed queue sheet's expand arrow.
+     */
+    bottomPadding: Dp = 0.dp,
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -508,7 +514,7 @@ fun Lyrics(
             Row(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 12.dp)
+                    .padding(end = 12.dp, bottom = bottomPadding)
             ) {
                 IconButton(
                     onClick = { onShowLyricsChange(false) }
