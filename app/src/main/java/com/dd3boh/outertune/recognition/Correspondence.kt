@@ -31,6 +31,9 @@ internal fun corresponds(track: Recognised, candidate: SongItem): Boolean {
     val artist = normalise(track.artist.orEmpty())
     if (artist.isEmpty()) return false
     val candidateArtists = normalise(candidate.artists.joinToString(" ") { it.name })
+    // A candidate with no artists, or with an artist made only of symbols such as a star,
+    // normalises to "", and String.contains("") is always true: any Shazam artist would pass.
+    if (candidateArtists.isEmpty()) return false
     if (!candidateArtists.contains(artist) && !artist.contains(candidateArtists)) return false
 
     // Titles need only agree from the start. Demanding they be equal was the first attempt and it
@@ -90,13 +93,29 @@ private val NOISE = Regex(
 private fun normalise(text: String): String = text
     .replace(NOISE, " ")
     .lowercase()
+    // Folded before the character class below. Shazam and YouTube do not always agree on
+    // accents, and Shazam's "Beyoncé" has to meet an upload's plain "Beyonce".
+    .let { stripAccents(it) }
     // Apostrophes are dropped rather than turned into a space, because they sit inside a word:
     // "don't" against "dont" has to survive this, and replacing it with a space made "don t",
     // which matched nothing. Every other punctuation mark separates words and becomes a space.
     .replace(Regex("[\u0027\u2019\u00B4\u0060]"), "")
-    .replace(Regex("[^a-z0-9 ]"), " ")
+    // Letters and digits of every script, not a to z: kept to Latin, a Cyrillic or Japanese
+    // title came out empty and never matched. SimilarMatch and MixSearch.words keep every
+    // script for the same reason.
+    .replace(Regex("[^\\p{L}\\p{N} ]"), " ")
     .replace(Regex("\\s+"), " ")
     .trim()
+
+
+/** Folds accented Latin letters onto their plain form; a script with no accents passes through unchanged. */
+private fun stripAccents(text: String): String =
+    java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
+        // Composed again afterwards. Decomposing splits more than Latin accents, and a mark
+        // outside the block just removed, left apart, would turn into a space of its own
+        // below and cut a word in two.
+        .let { java.text.Normalizer.normalize(it, java.text.Normalizer.Form.NFC) }
 
 
 /**
