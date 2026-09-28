@@ -85,6 +85,15 @@ import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
 
+/**
+ * Whether [a] and [b] are the same folder, or one sits inside the other, checked both ways. A
+ * scan folder can hold a candidate extra download folder, or the candidate can hold a scan folder
+ * (adding "Music" when "Music/WhatsApp Audio" is a scan folder); either way the two are not
+ * allowed together. Text `.contains()` used to stand in for this, and refused any folder whose
+ * name only began the same, such as "MusicVideos" against "Music".
+ */
+private fun foldersOverlap(a: Uri, b: Uri): Boolean = FolderNesting.overlaps(a.toString(), b.toString())
+
 @Composable
 fun ColumnScope.DownloadsFrag() {
     val context = LocalContext.current
@@ -554,7 +563,14 @@ fun ColumnScope.DownloadsFrag() {
 
     if (showPathsDialog) {
         var tempScanPaths = remember { mutableStateListOf<Uri>() }
+        // Only a folder picked in this run of the dialog is checked against the overlap rule
+        // below; a path already saved is kept as it is. Otherwise an install that already had a
+        // scan folder inside one of its extra download folders (accepted by older versions) would
+        // open this dialog with OK disabled until that folder was removed, with nothing on screen
+        // explaining why.
+        val sessionAddedPaths = remember { mutableStateListOf<Uri>() }
         LaunchedEffect(dlPathExtra) {
+            sessionAddedPaths.clear()
             tempScanPaths.addAll(uriListFromString(dlPathExtra))
         }
 
@@ -592,9 +608,10 @@ fun ColumnScope.DownloadsFrag() {
                 showPathsDialog = false
                 tempScanPaths.clear()
             },
-            isInputValid = uriListFromString(scanPaths).toList().none { scanPath ->
-                // scan path cannot be contain any dl extras path
-                tempScanPaths.toList().any { it.toString().contains(scanPath.toString()) }
+            isInputValid = tempScanPaths.toList().all { path ->
+                // an extra folder picked in this run cannot overlap a scan folder, either way round
+                path !in sessionAddedPaths ||
+                    uriListFromString(scanPaths).toList().none { scanPath -> foldersOverlap(path, scanPath) }
             }
         ) {
             val dirPickerLauncher = rememberLauncherForActivityResult(
@@ -606,6 +623,7 @@ fun ColumnScope.DownloadsFrag() {
                 val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 contentResolver.takePersistableUriPermission(uri, takeFlags)
                 tempScanPaths.add(uri)
+                sessionAddedPaths.add(uri)
             }
 
             // folders list
@@ -619,24 +637,45 @@ fun ColumnScope.DownloadsFrag() {
                     )
             ) {
                 tempScanPaths.forEach { tmpPath ->
-                    val valid = uriListFromString(scanPaths).toList().none {
-                        tmpPath.toString().contains(it.toString())
+                    val overlaps = uriListFromString(scanPaths).toList().any { foldersOverlap(tmpPath, it) }
+                    // Only a row picked in this run of the dialog can block OK; a saved row that
+                    // overlaps is shown, not enforced.
+                    val blocking = overlaps && tmpPath in sessionAddedPaths
+                    val rowColor = when {
+                        blocking -> MaterialTheme.colorScheme.errorContainer
+                        overlaps -> MaterialTheme.colorScheme.surfaceVariant
+                        else -> Color.Transparent
                     }
+                    val textColor =
+                        if (blocking) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                     Row(
                         modifier = Modifier
                             .padding(horizontal = 8.dp)
-                            .background(if (valid) Color.Transparent else MaterialTheme.colorScheme.errorContainer)
+                            .background(rowColor)
                             .clickable { }) {
-                        Text(
-                            text = absoluteFilePathFromUri(context, tmpPath) ?: tmpPath.toString(),
-                            style = MaterialTheme.typography.bodySmall,
+                        Column(
                             modifier = Modifier
                                 .weight(1f)
                                 .align(Alignment.CenterVertically)
-                        )
+                        ) {
+                            Text(
+                                text = absoluteFilePathFromUri(context, tmpPath) ?: tmpPath.toString(),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            if (overlaps) {
+                                Text(
+                                    text = stringResource(
+                                        if (blocking) R.string.scanner_rejected_dir else R.string.dl_extra_path_overlap_kept
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = textColor,
+                                )
+                            }
+                        }
                         IconButton(
                             onClick = {
                                 tempScanPaths.remove(tmpPath)
+                                sessionAddedPaths.remove(tmpPath)
                             },
                         ) {
                             Icon(
@@ -660,8 +699,9 @@ fun ColumnScope.DownloadsFrag() {
                 )
 
                 if (uriListFromString(scanPaths).toList().any { scanPath ->
-                        // scan path cannot be contain any dl extras path
-                        tempScanPaths.toList().any { it.toString().contains(scanPath.toString()) }
+                        // scan path cannot overlap any dl extras path added this run, either way
+                        // round; a saved one is not a blocking error, so not counted here.
+                        tempScanPaths.toList().any { it in sessionAddedPaths && foldersOverlap(it, scanPath) }
                     }) {
                     InfoLabel(
                         text = stringResource(R.string.scanner_rejected_dir),

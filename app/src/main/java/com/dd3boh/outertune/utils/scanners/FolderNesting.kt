@@ -36,6 +36,12 @@ object FolderNesting {
     }
 
     /**
+     * Whether [a] and [b] are the same folder or one lies inside the other, either way round.
+     * Both are tree addresses.
+     */
+    fun overlaps(a: String, b: String): Boolean = isSameOrInside(a, b) || isSameOrInside(b, a)
+
+    /**
      * The same check as [isSameOrInside], taking the two folders' document ids directly (such as
      * "primary:Music/InterTune") instead of tree addresses. For comparing a found file's own
      * document id, which DocumentsContract.getDocumentId reads correctly from its full uri; a tree
