@@ -216,10 +216,6 @@ private const val SESSION_GAP_MS = 30L * 60 * 1000
 /** How often an open listen row records how far it got, so a death loses at most this much. */
 private const val CHECKPOINT_MS = 60_000L
 
-/** The two things a checkpoint tick can find instead of a position, kept apart because they differ. */
-private const val FINISHED = -1L
-private const val PAUSED = -2L
-
 /**
  * Whether some MusicService instance in this process has already closed the listens an earlier
  * process left open. A top-level field, not one on the class: the gate has to outlive a single
@@ -1125,6 +1121,10 @@ class MusicService : MediaLibraryService(),
         /** When and where sound first came out, set when the row is opened, not when the item was loaded. */
         @Volatile var startedAt: Long = 0L
         @Volatile var startPositionMs: Long = 0L
+        /** Running total written at each checkpoint; only ever grows, so a rewind cannot erase it. */
+        @Volatile var accumulatedPlayedMs: Long = 0L
+        /** Where the last checkpoint (or the last seek) left the position, to measure forward progress from. */
+        @Volatile var lastCheckpointPositionMs: Long = 0L
         @Volatile var opened = false
         /** The open listen row for this play: 0 until its insert has run, and completed for whoever waits. */
         @Volatile var rowId: Long = 0L
@@ -2411,15 +2411,19 @@ class MusicService : MediaLibraryService(),
                 // same position once a minute for as long as it sat there, and each write
                 // invalidates every Room flow watching that table, so a paused app was re-running
                 // other people's queries once a minute forever. Now it simply waits.
-                val pos = withContext(Dispatchers.Main) {
+                // The position is read and checkpointListen accumulates it in this one Main
+                // dispatch, because a seek (onPositionDiscontinuity) and the pause checkpoint
+                // (onIsPlayingChanged) change the same two fields on Main. Were the accumulate to
+                // run on this offload thread instead, a seek could land between the read and the
+                // write and have its reference point overwritten with a stale one.
+                val finished = withContext(Dispatchers.Main) {
                     when {
-                        player.currentMediaItem?.mediaId != id -> FINISHED
-                        !player.isPlaying -> PAUSED
-                        else -> player.currentPosition
+                        player.currentMediaItem?.mediaId != id -> true
+                        !player.isPlaying -> false
+                        else -> { checkpointListen(info, player.currentPosition); false }
                     }
                 }
-                if (pos == FINISHED) break
-                if (pos != PAUSED) checkpointListen(info, pos)
+                if (finished) break
             }
         }
     }
@@ -2449,6 +2453,7 @@ class MusicService : MediaLibraryService(),
         info.opened = true
         info.startedAt = System.currentTimeMillis()
         info.startPositionMs = player.currentPosition.coerceAtLeast(0L)
+        info.lastCheckpointPositionMs = info.startPositionMs
         if (listenHistoryPaused) { info.rowReady.complete(0L); return }
         val metadata = player.currentMediaItem?.takeIf { it.mediaId == mediaId }?.metadata
         database.transaction {
@@ -2494,11 +2499,19 @@ class MusicService : MediaLibraryService(),
         }
     }
 
-    /** How far this play got, written to its open row: a death then loses at most a minute. */
+    /**
+     * How far this play got, written to its open row: a death then loses at most a minute. An
+     * accumulator, not a snapshot against the play's start: only the forward distance since the
+     * last checkpoint (or the last seek) is added, so rewinding to relisten to an earlier part
+     * cannot erase progress already made.
+     */
     private fun checkpointListen(info: StartInfo, positionMs: Long) {
         val rowId = info.rowId.takeIf { it > 0 } ?: return
+        val playedMs = ListenProgress.accumulate(info.accumulatedPlayedMs, info.lastCheckpointPositionMs, positionMs)
+        info.accumulatedPlayedMs = playedMs
+        info.lastCheckpointPositionMs = positionMs
         database.query {
-            runCatching { checkpoint(rowId, (positionMs - info.startPositionMs).coerceAtLeast(0L), positionMs) }
+            runCatching { checkpoint(rowId, playedMs, positionMs) }
                 .onFailure { Log.w(TAG, "Could not checkpoint listen", it) }
         }
     }
@@ -2571,6 +2584,13 @@ class MusicService : MediaLibraryService(),
         }
         if (reason != Player.DISCONTINUITY_REASON_SEEK) return
         val id = newPosition.mediaItem?.mediaId ?: return
+        // Credit what was played since the last checkpoint, up to where the seek left from, then
+        // measure from where it landed. The jump is not played time. A play not yet started
+        // credits nothing; openListen sets its reference point.
+        currentStart(id)?.let {
+            it.accumulatedPlayedMs = ListenProgress.creditBeforeSeek(it.opened, it.accumulatedPlayedMs, it.lastCheckpointPositionMs, oldPosition.positionMs)
+            it.lastCheckpointPositionMs = newPosition.positionMs
+        }
         val delta = newPosition.positionMs - oldPosition.positionMs
         if (kotlin.math.abs(delta) < 3_000) return
         noteSignal(id, if (delta < 0) SignalKind.SEEK_BACK else SignalKind.SEEK_FORWARD, newPosition.positionMs, delta / 1000f)
