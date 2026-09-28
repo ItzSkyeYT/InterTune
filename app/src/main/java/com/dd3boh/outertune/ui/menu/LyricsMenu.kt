@@ -36,6 +36,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -76,7 +77,7 @@ import org.akanework.gramophone.logic.utils.parseLrc
 
 @Composable
 fun LyricsMenu(
-    lyricsProvider: () -> LyricsEntity?,
+    lyricsProvider: suspend () -> LyricsEntity?,
     mediaMetadataProvider: () -> MediaMetadata,
     onDismiss: () -> Unit,
     viewModel: LyricsMenuViewModel = hiltViewModel(),
@@ -88,6 +89,30 @@ fun LyricsMenu(
     val multilineLrc by rememberPreference(MultilineLrcKey, defaultValue = true)
     val lyricTrim by rememberPreference(LyricTrimKey, defaultValue = false)
 
+    // The row is observed, not read in composition. That read blocked the main thread and ran
+    // again on every recomposition, every keystroke in Search included. Room runs the query off
+    // the main thread.
+    //
+    // A flow rather than one read, because Edit saves while this menu stays open: its onDone
+    // upserts the row and closes only the text field dialog. A second Edit has to start from the
+    // saved text, and Delete has to appear once a song with no row has one.
+    val dbRow by remember(mediaMetadataProvider().id) {
+        database.lyrics(mediaMetadataProvider().id)
+    }.collectAsState(initial = null)
+
+    // For a song with no row, the .lrc file is the fallback, read once off the main thread. The
+    // provider returns the row first when there is one, so once lyricsLoaded is true the database
+    // has been asked as well. Edit waits for that read, since TextFieldDialog keeps the first
+    // value it gets and would otherwise start empty for good.
+    var localFallback by remember(mediaMetadataProvider().id) { mutableStateOf<LyricsEntity?>(null) }
+    var lyricsLoaded by remember(mediaMetadataProvider().id) { mutableStateOf(false) }
+    LaunchedEffect(mediaMetadataProvider().id) {
+        localFallback = lyricsProvider()
+        lyricsLoaded = true
+    }
+
+    val dbLyric = dbRow ?: localFallback
+
     var showEditDialog by rememberSaveable {
         mutableStateOf(false)
     }
@@ -97,7 +122,7 @@ fun LyricsMenu(
             onDismiss = { showEditDialog = false },
             icon = { Icon(imageVector = Icons.Rounded.Edit, contentDescription = null) },
             title = { Text(text = mediaMetadataProvider().title) },
-            initialTextFieldValue = TextFieldValue(lyricsProvider()?.lyrics.orEmpty()),
+            initialTextFieldValue = TextFieldValue(dbLyric?.lyrics.orEmpty()),
             singleLine = false,
             onDone = {
                 database.query {
@@ -339,7 +364,7 @@ fun LyricsMenu(
                         showDeleteLyric = false
                         onDismiss()
 
-                        lyricsProvider()?.let {
+                        dbLyric?.let {
                             database.query {
                                 delete(it)
                             }
@@ -411,7 +436,9 @@ fun LyricsMenu(
             icon = Icons.Rounded.Edit,
             title = R.string.edit
         ) {
-            showEditDialog = true
+            // See lyricsLoaded above: opening this before the first answer arrives would seed the
+            // text field with "no lyrics yet" for good, however quickly the real answer follows.
+            if (lyricsLoaded) showEditDialog = true
         }
         GridMenuItem(
             icon = Icons.Rounded.SyncAlt,
@@ -426,7 +453,7 @@ fun LyricsMenu(
         ) {
             showSearchDialog = true
         }
-        if (lyricsProvider() != null) {
+        if (dbLyric != null) {
             // TODO: hide this for when lrc exists and lyrics is not in the database
             GridMenuItem(
                 icon = Icons.Rounded.Delete,

@@ -105,7 +105,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.akanework.gramophone.logic.utils.LrcUtils
 import org.akanework.gramophone.logic.utils.SemanticLyrics
 import org.akanework.gramophone.logic.utils.SemanticLyrics.LyricLine
@@ -524,18 +524,18 @@ fun Lyrics(
                         menuState.show {
                             LyricsMenu(
                                 lyricsProvider = {
-                                    var dbLyric = runBlocking(Dispatchers.IO) {
-                                        playerConnection.service.database.lyrics(mediaMetadata.id).first()
-                                    }
+                                    withContext(Dispatchers.IO) {
+                                        var dbLyric = playerConnection.service.database.lyrics(mediaMetadata.id).first()
 
-                                    // eye bleach to try to load local file for editor
-                                    if (dbLyric == null && mediaMetadata.localPath != null) {
-                                        LrcUtils.loadLyricsFile(File(mediaMetadata.localPath))?.let {
-                                            dbLyric = LyricsEntity(mediaMetadata.id, it)
+                                        // eye bleach to try to load local file for editor
+                                        if (dbLyric == null && mediaMetadata.localPath != null) {
+                                            LrcUtils.loadLyricsFile(File(mediaMetadata.localPath))?.let {
+                                                dbLyric = LyricsEntity(mediaMetadata.id, it)
+                                            }
                                         }
-                                    }
 
-                                    dbLyric
+                                        dbLyric
+                                    }
                                 },
                                 mediaMetadataProvider = { mediaMetadata },
                                 onRefreshRequest = { lyricsModel = it },
