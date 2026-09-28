@@ -960,6 +960,18 @@ class MusicService : MediaLibraryService(),
                     }
                 }
 
+            // Same problem as the switch above: applyOffload() only ran as a side effect of the
+            // spatial audio and fade observers reacting to their own keys, so toggling Audio
+            // offload itself never reached the already running player. It needs its own observer.
+            dataStore.data
+                .map { it[AudioOffloadKey] ?: false }
+                .distinctUntilChanged()
+                .collectLatest(scope) {
+                    withContext(Dispatchers.Main) {
+                        applyOffload()
+                    }
+                }
+
             // The sleep timer's own notification, and the only thing in this app that can be a
             // Live Update: the media notification draws a custom view, which the platform refuses
             // to promote.
@@ -1633,7 +1645,8 @@ class MusicService : MediaLibraryService(),
 
     /**
      * Audio offload as the developer setting has it, unless spatial audio or Fade between tracks
-     * is on, neither of which works under it. Called on the main thread whenever either changes.
+     * is on, neither of which works under it. Called on the main thread whenever any of the three
+     * changes.
      */
     private fun applyOffload() {
         val needsOffloadOff = spatialUpmixProcessor.enabled || binauralProcessor.enabled || transitionFade.enabled
