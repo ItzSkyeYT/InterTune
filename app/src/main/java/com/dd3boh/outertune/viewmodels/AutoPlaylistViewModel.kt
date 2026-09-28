@@ -14,8 +14,10 @@ import com.dd3boh.outertune.constants.SongSortDescendingKey
 import com.dd3boh.outertune.constants.SongSortType
 import com.dd3boh.outertune.constants.SongSortTypeKey
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.holdOrderAppendingNewcomers
 import com.dd3boh.outertune.utils.interleaveBy
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -50,6 +52,13 @@ class AutoPlaylistViewModel @Inject constructor(
      */
     private val mixSeed = Random.nextLong()
 
+    /**
+     * The favourites order established so far, by song id, held for this view model's life so a
+     * newly stored song (any played song, or one recorded as related to whatever is playing) is
+     * appended rather than triggering a full reshuffle of the mix already on screen.
+     */
+    private var favouritesOrder: List<String>? = null
+
     val thumbnail: StateFlow<ImageVector> = MutableStateFlow(
         when (playlistId) {
             "liked" -> Icons.Rounded.Favorite
@@ -71,9 +80,17 @@ class AutoPlaylistViewModel @Inject constructor(
                 // Sorting is deliberately ignored here. The point of this one is the running
                 // order, and any sort at all undoes it: see interleaveByArtist.
                 "favourites" -> database.songsByBookmarkedArtists().map { songs ->
-                    interleaveBy(songs, Random(mixSeed)) { song ->
+                    fun interleaved(list: List<Song>) = interleaveBy(list, Random(mixSeed)) { song ->
                         song.artists.firstOrNull { it.bookmarkedAt != null }?.id
                     }
+                    val order = favouritesOrder
+                    val result = if (order == null) {
+                        interleaved(songs)
+                    } else {
+                        holdOrderAppendingNewcomers(order, songs, { it.id }, ::interleaved)
+                    }
+                    favouritesOrder = result.map { it.id }
+                    result
                 }
                 else -> MutableStateFlow(emptyList())
             }
