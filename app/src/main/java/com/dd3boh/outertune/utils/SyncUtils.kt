@@ -239,20 +239,25 @@ class SyncUtils @Inject constructor(
 
                 val remoteSongs = walked.items.reversed()
 
-                // An empty answer is not "you have unliked everything", it is a fetch that did
-                // not work: a throttled request, a session that came back signed out, a bad page.
-                // Acting on it wipes the entire liked library, and the listener has no way to get
-                // it back. If LM says nothing, believe nothing.
-                if (remoteSongs.isEmpty()) {
-                    Log.w(TAG, "LM came back empty, refusing to unlike anything")
-                    downloadUtil.downloadLikedSongs()
-                    return@onSuccess
-                }
-
                 // Complete means every continuation answered, and the count in LM's header agrees
                 // with what came back. A page that went missing makes every older like look
                 // unliked, and a 1,500-song LM would lose everything after it.
                 val headerCount = LikedSync.parseSongCount(page.playlist.songCountText)
+
+                // An empty answer is far more often a fetch that did not work (a throttled
+                // request, a session that came back signed out, a bad page) than someone who
+                // unliked everything, and acting on it would wipe the whole liked library with no
+                // way to get it back. So an empty LM never unlikes anything; what it reports is
+                // decided below.
+                if (remoteSongs.isEmpty()) {
+                    Log.w(TAG, "LM came back empty, refusing to unlike anything")
+                    downloadUtil.downloadLikedSongs()
+                    // An account with no liked songs is a sync that worked. This path left `result`
+                    // at FAILED, and that beat every other kind's SYNCED in SyncResult.combine.
+                    result = LikedSync.emptyLikedSyncResult(walked.complete, headerCount)
+                    return@onSuccess
+                }
+
                 val complete = walked.complete && LikedSync.readLooksComplete(remoteSongs.size, headerCount)
                 if (!complete) {
                     Log.w(TAG, "LM read looks incomplete (${remoteSongs.size} of ${headerCount ?: "?"}, " +

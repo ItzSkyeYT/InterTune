@@ -88,6 +88,16 @@ object LikedSync {
     }
 
     /**
+     * What a liked songs sync that read no songs at all reports. Nothing is unliked either way.
+     * The sync worked when the walk reached the end and the header allows an empty read, as
+     * [readLooksComplete] judges it: no count, a count of 0, or a count small enough (up to five)
+     * to be only removed or unavailable videos, which are counted but never come back as rows.
+     * Anything else is a read that did not work.
+     */
+    fun emptyLikedSyncResult(walkComplete: Boolean, headerCount: Int?): SyncResult =
+        if (walkComplete && readLooksComplete(0, headerCount)) SyncResult.SYNCED else SyncResult.FAILED
+
+    /**
      * The number in a header such as "1,234 songs", "1 234 titres" or "1.234 Titel". The first
      * run of digits alone would read "1,234" as 1.
      */
