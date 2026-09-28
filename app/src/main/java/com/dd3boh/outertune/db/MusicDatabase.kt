@@ -13,8 +13,10 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.AutoMigrationSpec
 import androidx.room.migration.Migration
+import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.execSQL
 import com.dd3boh.outertune.db.MusicDatabase.Companion.MUSIC_DATABASE_VERSION
 import com.dd3boh.outertune.db.entities.AlbumArtistMap
 import com.dd3boh.outertune.db.entities.AlbumEntity
@@ -78,7 +80,7 @@ class MusicDatabase(
     fun close() = delegate.close()
 
     companion object {
-        const val MUSIC_DATABASE_VERSION = 24
+        const val MUSIC_DATABASE_VERSION = 25
     }
 }
 
@@ -151,6 +153,10 @@ class MusicDatabase(
         // A new version rather than an edit to 23, for the same reason as 23 itself: 23 is on a
         // phone, and a schema changed under an existing database fails the identity check.
         AutoMigration(from = 23, to = 24),
+        // No schema change: albums stored under a made-up id put back under their real ones, see
+        // Migration24To25. A version of its own so it runs once on every library, the ones already
+        // at 24 included. As a step of 23 to 24 it would never run there, and 24 is on a device too.
+        AutoMigration(from = 24, to = 25, spec = Migration24To25::class),
     ]
 )
 @TypeConverters(Converters::class)
@@ -718,3 +724,20 @@ class Migration17To18 : AutoMigrationSpec
     DeleteColumn(tableName = "song", columnName = "totalPlayTime"),
 )
 class Migration19To20 : AutoMigrationSpec
+
+/**
+ * Runs LgAlbumRepair, inside the one transaction the whole upgrade runs in, every step from the
+ * version the library was at: a failure rolls all of them back and leaves it at that version, 21
+ * for anyone coming from 0.10.9.x, not at 24. It runs where the database is first opened, which at
+ * start is off the main thread, as Room refuses queries there. A restore opens the backup to test
+ * it on the thread it was called on, and runs this and every other step there.
+ *
+ * The connection overload rather than the SupportSQLiteDatabase one the older specs use: Room calls
+ * this one on the phone, and MigrationFromReleasedTest calls it over JDBC, where the other is never
+ * reached.
+ */
+class Migration24To25 : AutoMigrationSpec {
+    override fun onPostMigrate(connection: SQLiteConnection) {
+        LgAlbumRepair.STEPS.forEach { connection.execSQL(it) }
+    }
+}

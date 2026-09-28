@@ -7,6 +7,9 @@
 package com.dd3boh.outertune.viewmodels
 
 import com.dd3boh.outertune.constants.QuickPicksSource
+import com.dd3boh.outertune.db.entities.Album
+import com.dd3boh.outertune.db.entities.AlbumEntity
+import com.dd3boh.outertune.db.entities.ArtistEntity
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -54,5 +57,36 @@ class HomeViewModelTest {
     @Test
     fun `the row is off, never YouTube's`() {
         assertFalse(ytRowOnScreenFor(QuickPicksSource.OFF, engineFallback = 2, poolNonEmpty = true))
+    }
+
+    private val queen = ArtistEntity(id = "UCqueen", name = "Queen")
+    private val greatestHits = Album(
+        AlbumEntity(id = "MPREb_queen", title = "Greatest Hits", thumbnailUrl = "cover", songCount = 17, duration = 3600),
+        downloadCount = 0,
+        artists = listOf(queen),
+    )
+
+    @Test
+    fun `Keep listening shows an album with a cover and an artist`() {
+        assertTrue(keepListeningAlbum(greatestHits))
+    }
+
+    @Test
+    fun `Keep listening leaves out an album with no artist yet`() {
+        // Made from songs, as LgAlbumRepair makes most of them: a title and nothing under it.
+        assertFalse(keepListeningAlbum(greatestHits.copy(artists = emptyList())))
+    }
+
+    @Test
+    fun `Keep listening shows a local album, which never has an artist`() {
+        // Only YouTube's pages give an album an artist, and a local album has no page.
+        val tapes = greatestHits.copy(album = greatestHits.album.copy(id = "LBaaaaaaaa", isLocal = true), artists = emptyList())
+        assertTrue(keepListeningAlbum(tapes))
+        assertFalse(keepListeningAlbum(tapes.copy(album = tapes.album.copy(thumbnailUrl = null))))
+    }
+
+    @Test
+    fun `Keep listening leaves out an album with no cover, as before`() {
+        assertFalse(keepListeningAlbum(greatestHits.copy(album = greatestHits.album.copy(thumbnailUrl = null))))
     }
 }

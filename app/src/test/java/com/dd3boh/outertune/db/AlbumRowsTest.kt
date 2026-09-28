@@ -68,4 +68,22 @@ class AlbumRowsTest {
         assertTrue(AlbumRows.pageAddsSongs(saved, emptyList(), listOf("a", "b")))
         assertTrue(AlbumRows.pageAddsSongs(saved, emptyList(), emptyList()))
     }
+
+    @Test
+    fun `an album with no artist is written for the one its page names`() {
+        // A single made from its song: the page adds no song, so the artist was never written.
+        val single = savedQueen.copy(songCount = 1)
+        assertFalse(AlbumRows.pageAddsSongs(single, listOf("a"), listOf("a")))
+        assertTrue(AlbumRows.pageAddsArtist(emptyList(), listOf("Queen")))
+    }
+
+    @Test
+    fun `an album with an artist is not written for it`() {
+        assertFalse(AlbumRows.pageAddsArtist(listOf("UCqueen"), listOf("Queen")))
+    }
+
+    @Test
+    fun `a page naming no artist is not written for one, or every opening would write it`() {
+        assertFalse(AlbumRows.pageAddsArtist(emptyList(), emptyList()))
+    }
 }

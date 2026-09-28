@@ -119,6 +119,16 @@ data class CardReason(val key: String, val arg: String?)
 internal fun ytRowOnScreenFor(source: QuickPicksSource, engineFallback: Int, poolNonEmpty: Boolean): Boolean =
     poolNonEmpty && (source == QuickPicksSource.YOUTUBE || (source != QuickPicksSource.OFF && engineFallback == 2))
 
+/**
+ * Whether a most played album may be a Keep listening card: one with a cover and, unless it is
+ * local, an artist. An album made from songs, as LgAlbumRepair made most of them, has no artist
+ * until its YouTube page is written, and its card was a title with nothing under it; opening it
+ * writes the page. A local album never has an artist, as only YouTube's pages give one, so it
+ * shows as before.
+ */
+internal fun keepListeningAlbum(album: Album): Boolean =
+    album.album.thumbnailUrl != null && (album.artists.isNotEmpty() || album.album.isLocal)
+
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     @ApplicationContext val context: Context,
@@ -1000,7 +1010,7 @@ class HomeViewModel @Inject constructor(
         val keepListeningSongs = recentlyShown.order("keep", database.mostPlayedSongs(fromTimeStamp, limit = 30, offset = 5).first().shuffled()) { it.id }
             .take(10)
         val keepListeningAlbums = database.mostPlayedAlbums(fromTimeStamp, limit = 8, offset = 2)
-            .first().filter { it.album.thumbnailUrl != null }.shuffled().take(5)
+            .first().filter(::keepListeningAlbum).shuffled().take(5)
         val keepListeningArtists = database.mostPlayedArtists(0, 1)
             .first().filter { it.artist.isYouTubeArtist && it.artist.thumbnailUrl != null }.shuffled().take(5)
         keepListeningPool = (keepListeningSongs + keepListeningAlbums + keepListeningArtists).shuffled()
