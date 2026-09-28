@@ -1505,6 +1505,20 @@ class MusicService : MediaLibraryService(),
      * Add items to end of current queue
      */
     fun enqueueEnd(items: List<MediaItem>) {
+        // With the queue board down, as it is once the mini player has been swiped away, the
+        // songs play as a new queue, as they do from Play next. They used to go to the end of the
+        // dismissed queue instead, where nothing showed them and nothing played them.
+        if (!qbInit.value) {
+            if (items.isNotEmpty()) {
+                playQueue(
+                    ListQueue(
+                        title = items.first().mediaMetadata.title.toString(),
+                        items = items.mapNotNull { it.metadata }
+                    )
+                )
+            }
+            return
+        }
         queueBoard.enqueueEnd(items.mapNotNull { it.metadata })
     }
 
