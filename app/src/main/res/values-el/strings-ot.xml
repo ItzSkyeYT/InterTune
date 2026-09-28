@@ -189,7 +189,6 @@
     <string name="settings_look_and_feel_description">Θέμα και χρώματα, οι καρτέλες στο κάτω μέρος, και οι χειρονομίες σύρσιμο.</string>
     <string name="settings_player_description">Ποιότητα ήχου, ηχητικά εφέ, και πώς συμπεριφέρεται η αναπαραγωγή.</string>
     <string name="settings_lyrics_description">Από πού λαμβάνονται οι στίχοι, και πώς εμφανίζονται.</string>
-    <string name="settings_storage_description">Λήψεις, πόσο χώρο μπορεί να πιάσει η προσωρινή μνήμη, και αντίγραφο ασφαλείας της βιβλιοθήκης.</string>
     <string name="settings_privacy_description">Τι καταγράφει η εφαρμογή για εσάς, και τι στέλνει.</string>
     <string name="settings_updates_description">Ελέγξτε για νέα έκδοση και εγκαταστήστε την.</string>
     <string name="settings_advanced_description">Συντήρηση και επιλογές προγραμματιστή.</string>

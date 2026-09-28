@@ -326,7 +326,6 @@
     <string name="settings_look_and_feel_description">테마와 색상, 하단 탭, 그리고 스와이프 동작.</string>
     <string name="settings_player_description">음질, 음향 효과, 그리고 재생 동작.</string>
     <string name="settings_lyrics_description">가사를 어디서 가져오고 어떻게 보여줄지.</string>
-    <string name="settings_storage_description">다운로드, 캐시가 쓸 수 있는 용량, 그리고 라이브러리 백업.</string>
     <string name="settings_privacy_description">앱이 무엇을 기록하고 무엇을 보내는지.</string>
     <string name="settings_updates_description">새 버전을 확인하고 설치합니다.</string>
     <string name="settings_advanced_description">유지 관리 및 개발자 옵션.</string>

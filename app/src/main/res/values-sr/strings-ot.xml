@@ -326,7 +326,6 @@
     <string name="settings_look_and_feel_description">Тема и боје, картице при дну, и потези превлачењем.</string>
     <string name="settings_player_description">Квалитет звука, аудио ефекти и понашање репродукције.</string>
     <string name="settings_lyrics_description">Одакле се преузимају текстови и како се приказују.</string>
-    <string name="settings_storage_description">Преузимања, колико простора кеш сме да заузме, и резервна копија библиотеке.</string>
     <string name="settings_privacy_description">Шта апликација бележи о вама и шта шаље.</string>
     <string name="settings_updates_description">Проверите нову верзију и инсталирајте је.</string>
     <string name="settings_advanced_description">Одржавање и опције за програмере.</string>

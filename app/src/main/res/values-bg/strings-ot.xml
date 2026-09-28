@@ -353,7 +353,6 @@
     <string name="settings_look_and_feel_description">Тема и цветове, разделите долу и жестовете с плъзгане.</string>
     <string name="settings_player_description">Качество на звука, аудио ефекти и как се държи възпроизвеждането.</string>
     <string name="settings_lyrics_description">Откъде се вземат текстовете и как се показват.</string>
-    <string name="settings_storage_description">Изтегляния, колко място може да заеме кешът, и резервно копие на библиотеката.</string>
     <string name="settings_privacy_description">Какво приложението записва за вас и какво изпраща.</string>
     <string name="settings_updates_description">Проверете за нова версия и я инсталирайте.</string>
     <string name="settings_advanced_description">Поддръжка и опции за разработчици.</string>

@@ -277,7 +277,6 @@
     <string name="settings_look_and_feel_description">थीम और रंग, नीचे के टैब, और स्वाइप के इशारे।</string>
     <string name="settings_player_description">ध्वनि की गुणवत्ता, ऑडियो प्रभाव, और प्लेबैक कैसे चलता है।</string>
     <string name="settings_lyrics_description">बोल कहाँ से लाए जाते हैं, और कैसे दिखाए जाते हैं।</string>
-    <string name="settings_storage_description">डाउनलोड, कैश कितनी जगह ले सकता है, और आपकी लाइब्रेरी का बैकअप।</string>
     <string name="settings_privacy_description">ऐप आपके बारे में क्या रिकॉर्ड करता है, और क्या भेजता है।</string>
     <string name="settings_updates_description">नया संस्करण देखें और इंस्टॉल करें।</string>
     <string name="settings_advanced_description">रखरखाव और डेवलपर विकल्प।</string>

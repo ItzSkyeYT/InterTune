@@ -310,7 +310,6 @@
     <string name="settings_look_and_feel_description">السمة والألوان، والتبويبات في الأسفل، وإيماءات السحب.</string>
     <string name="settings_player_description">جودة الصوت، والمؤثرات الصوتية، وكيفية سير التشغيل.</string>
     <string name="settings_lyrics_description">من أين تُجلب كلمات الأغاني، وكيف تُعرض.</string>
-    <string name="settings_storage_description">التنزيلات، والمساحة التي يمكن أن تستخدمها الذاكرة المؤقتة، والنسخ الاحتياطي لمكتبتك.</string>
     <string name="settings_privacy_description">ما الذي يسجّله التطبيق عنك، وما الذي يرسله.</string>
     <string name="settings_updates_description">ابحث عن إصدار جديد وثبّته.</string>
     <string name="settings_advanced_description">الصيانة وخيارات المطوّر.</string>

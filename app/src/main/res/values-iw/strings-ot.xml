@@ -337,7 +337,6 @@
     <string name="settings_look_and_feel_description">ערכת נושא וצבעים, הלשוניות בתחתית, ומחוות החלקה.</string>
     <string name="settings_player_description">איכות סאונד, אפקטים, והתנהגות ההשמעה.</string>
     <string name="settings_lyrics_description">מאיפה נטענות המילים, ואיך הן מוצגות.</string>
-    <string name="settings_storage_description">הורדות, כמה מקום המטמון יכול לתפוס, וגיבוי הספרייה.</string>
     <string name="settings_privacy_description">מה האפליקציה רושמת עליך, ומה היא שולחת.</string>
     <string name="settings_updates_description">בדוק אם יש גרסה חדשה והתקן אותה.</string>
     <string name="settings_advanced_description">תחזוקה ואפשרויות מפתחים.</string>

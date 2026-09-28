@@ -345,7 +345,6 @@
     <string name="settings_look_and_feel_description">テーマと配色、下部のタブ、スワイプ操作。</string>
     <string name="settings_player_description">音質、音響効果、再生の動作。</string>
     <string name="settings_lyrics_description">歌詞の取得元と表示方法。</string>
-    <string name="settings_storage_description">ダウンロード、キャッシュに使える容量、ライブラリのバックアップ。</string>
     <string name="settings_privacy_description">アプリが記録する内容と、送信する内容。</string>
     <string name="settings_updates_description">新しいバージョンを確認してインストールします。</string>
     <string name="settings_advanced_description">メンテナンスと開発者向けオプション。</string>

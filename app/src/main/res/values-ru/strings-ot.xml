@@ -360,7 +360,6 @@
     <string name="settings_look_and_feel_description">Тема и цвета, вкладки внизу и жесты смахивания.</string>
     <string name="settings_player_description">Качество звука, звуковые эффекты и поведение воспроизведения.</string>
     <string name="settings_lyrics_description">Откуда берутся тексты песен и как они показываются.</string>
-    <string name="settings_storage_description">Загрузки, сколько места может занимать кэш, и резервное копирование библиотеки.</string>
     <string name="settings_privacy_description">Что приложение записывает о вас и что оно отправляет.</string>
     <string name="settings_updates_description">Проверить новую версию и установить её.</string>
     <string name="settings_advanced_description">Обслуживание и параметры разработчика.</string>

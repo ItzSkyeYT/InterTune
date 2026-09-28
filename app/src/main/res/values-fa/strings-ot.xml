@@ -336,7 +336,6 @@
     <string name="settings_look_and_feel_description">پوسته و رنگ‌ها، زبانه‌های پایین، و حرکت‌های کشیدن.</string>
     <string name="settings_player_description">کیفیت صدا، جلوه‌های صوتی، و رفتار پخش.</string>
     <string name="settings_lyrics_description">متن ترانه‌ها از کجا گرفته می‌شود و چطور نشان داده می‌شود.</string>
-    <string name="settings_storage_description">دانلودها، اینکه حافظهٔ موقت چقدر جا بگیرد، و پشتیبان‌گیری از کتابخانه.</string>
     <string name="settings_privacy_description">برنامه چه چیزی دربارهٔ شما ثبت می‌کند و چه چیزی می‌فرستد.</string>
     <string name="settings_updates_description">نسخهٔ جدید را بررسی و نصب کنید.</string>
     <string name="settings_advanced_description">نگهداری و گزینه‌های توسعه‌دهنده.</string>

@@ -359,7 +359,6 @@
     <string name="settings_look_and_feel_description">Тема й кольори, вкладки внизу та жести проведення.</string>
     <string name="settings_player_description">Якість звуку, звукові ефекти і поведінка відтворення.</string>
     <string name="settings_lyrics_description">Звідки беруться тексти пісень і як вони показуються.</string>
-    <string name="settings_storage_description">Завантаження, скільки місця може займати кеш, і резервне копіювання бібліотеки.</string>
     <string name="settings_privacy_description">Що застосунок записує про вас і що він надсилає.</string>
     <string name="settings_updates_description">Перевірити нову версію і встановити її.</string>
     <string name="settings_advanced_description">Обслуговування та параметри розробника.</string>

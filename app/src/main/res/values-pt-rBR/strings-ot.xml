@@ -356,7 +356,6 @@
     <string name="settings_look_and_feel_description">Tema e cores, as abas de baixo, e os gestos de deslizar.</string>
     <string name="settings_player_description">Qualidade de som, efeitos de áudio, e como a reprodução se comporta.</string>
     <string name="settings_lyrics_description">De onde vêm as letras, e como elas são exibidas.</string>
-    <string name="settings_storage_description">Downloads, quanto espaço o cache pode usar, e backup da sua biblioteca.</string>
     <string name="settings_privacy_description">O que o app registra sobre você, e o que ele envia.</string>
     <string name="settings_updates_description">Procurar uma versão nova e instalar.</string>
     <string name="settings_advanced_description">Manutenção e opções do desenvolvedor.</string>

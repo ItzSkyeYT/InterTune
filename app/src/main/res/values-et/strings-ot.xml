@@ -238,7 +238,6 @@
     <string name="settings_look_and_feel_description">Teema ja värvid, all olevad vahekaardid ning pühkimisžestid.</string>
     <string name="settings_player_description">Heli kvaliteet, heliefektid ja esitamise käitumine.</string>
     <string name="settings_lyrics_description">Kust laulusõnad tuuakse ja kuidas neid näidatakse.</string>
-    <string name="settings_storage_description">Allalaadimised, kui palju ruumi vahemälu võib kasutada, ja teegi varundamine.</string>
     <string name="settings_privacy_description">Mida rakendus sinu kohta salvestab ja mida ta saadab.</string>
     <string name="settings_updates_description">Otsi uut versiooni ja paigalda see.</string>
     <string name="settings_advanced_description">Hooldus ja arendaja valikud.</string>
