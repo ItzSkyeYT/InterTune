@@ -113,6 +113,11 @@ fun ColumnScope.SyncManualFrag() {
         title = { Text(stringResource(R.string.scanner_manual_btn)) },
         icon = { Icon(Icons.Rounded.Sync, null) },
         onClick = {
+            // Started on SyncUtils' own scope, not this composable's: leaving this screen used to
+            // cancel the sync itself part way, with no snackbar to say so, since it ran in
+            // rememberCoroutineScope here. Only awaiting the result to show it stays local; a
+            // fragment left before it resolves simply never shows the snackbar.
+            val syncResult = syncUtils.startManualSync()
             coroutineScope.launch(Dispatchers.Main) {
                 // Shown while the sync runs, not before it: showSnackbar waits for the snackbar
                 // to go, so the sync used to start only once "Syncing" had timed out.
@@ -123,7 +128,7 @@ fun ColumnScope.SyncManualFrag() {
                         duration = SnackbarDuration.Indefinite
                     )
                 }
-                val result = syncUtils.tryAutoSync(true)
+                val result = syncResult.await()
                 active.cancel()
                 snackbarHostState.showSnackbar(
                     message = context.getString(

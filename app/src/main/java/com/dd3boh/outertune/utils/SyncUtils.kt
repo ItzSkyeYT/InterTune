@@ -49,6 +49,8 @@ import com.zionhuang.innertube.utils.walkItems
 import com.zionhuang.innertube.utils.walkSongs
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +83,11 @@ class SyncUtils @Inject constructor(
 ) {
     private val TAG = "SyncUtils"
 
-    private val scope =  CoroutineScope(syncCoroutine)
+    // A SupervisorJob: Sync now runs here as an async that nobody may be left to await, and its
+    // failure has to stay with it. On a plain Job it would cancel this scope, and every later like
+    // pushed to YouTube and every later sync started here would silently do nothing until the app
+    // restarts.
+    private val scope = CoroutineScope(SupervisorJob() + syncCoroutine)
 
     private val _isSyncingRemoteLikedSongs = MutableStateFlow(false)
     private val _isSyncingRemoteSongs = MutableStateFlow(false)
@@ -123,6 +129,15 @@ class SyncUtils @Inject constructor(
      */
     suspend fun tryAutoSync(bypassCd: Boolean = false): SyncResult = withContext(Dispatchers.IO) {
         autoSync(bypassCd)
+    }
+
+    /**
+     * Starts a manual "Sync now" on this class's own scope and hands back a [Deferred] of its
+     * result, so the sync itself keeps running to completion whichever screen the caller leaves.
+     * The caller awaits this for as long as it wants to show progress; it does not own the sync.
+     */
+    fun startManualSync(): Deferred<SyncResult> = scope.async {
+        tryAutoSync(true)
     }
 
     private suspend fun autoSync(bypassCd: Boolean): SyncResult {
