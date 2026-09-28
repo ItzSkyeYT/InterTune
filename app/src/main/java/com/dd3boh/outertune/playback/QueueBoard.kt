@@ -405,7 +405,9 @@ class QueueBoard(
             masterQueues.remove(match)
             masterIndex = masterIndexAfterDelete(deleted, masterIndex, masterQueues.size)
 
-            CoroutineScope(Dispatchers.IO).launch {
+            // In line with the saves (see saveDispatcher): a save of this queue asked for before
+            // the delete, still waiting its turn, would otherwise put the row back after it.
+            coroutineScope.launch {
                 player.database.deleteQueue(match.id)
             }
         } else {
@@ -813,7 +815,8 @@ class QueueBoard(
     var queueEntity = PriorityQueue<PriorityJob>()
     var queueSongMap = PriorityQueue<PriorityJob>()
     var jobActive = Mutex()
-    val coroutineScope = CoroutineScope(Dispatchers.IO)
+    // One save at a time, in the order they were asked for: see saveDispatcher.
+    val coroutineScope = CoroutineScope(saveDispatcher)
 
     /**
      * Execute the most recent save request, with a 5 second delay from function call
@@ -925,12 +928,17 @@ class QueueBoard(
 
     private fun saveAllQueues(mq: MutableList<MultiQueueObject>) {
         if (player.persistentQueue) {
+            // The list is copied here, on the player's thread, as saveQueueSongs copies the songs.
+            // The save walks it on IO, and bubbleUp moving a queue to the top in the meantime threw
+            // ConcurrentModificationException there: a shuffle followed by loading the queue does
+            // two bubbleUps in a row.
+            val queues = queuesToSave(mq)
             queueEntity.add(
                 // we select most recent task, therefore "lowest" numeric priority at the end of the list == "highest" priority
                 PriorityJob(
                     -1,
                     coroutineScope.launch(start = CoroutineStart.DEFAULT) {
-                        player.database.updateAllQueues(mq)
+                        player.database.updateAllQueues(queues)
                     }
                 )
             )
@@ -941,6 +949,19 @@ class QueueBoard(
     }
 
     companion object {
+
+        /**
+         * Runs the queue saves one at a time, in the order they were asked for, and deletes with
+         * them.
+         *
+         * saveAllQueues hands its save the list as it was when it was called, so saves have to land
+         * in that order: one that ran late would write an older order of the queues back, or
+         * delete the row of a queue added after it was taken. The same goes for the songs
+         * saveQueueSongs copies, and a save that landed after a delete would put the queue back.
+         * Shared by every board, since initQueue replaces the board while the old one's saves may
+         * still be running.
+         */
+        private val saveDispatcher = Dispatchers.IO.limitedParallelism(1)
 
         fun shuffleInPlace(list: List<MediaMetadata>) {
             val rng = (0..(list.size - 1)).shuffled()
@@ -968,3 +989,13 @@ internal fun masterIndexAfterDelete(deleted: Int, current: Int, sizeAfter: Int):
     val index = if (deleted <= current) current - 1 else current
     return index.coerceIn(0, sizeAfter - 1)
 }
+
+/**
+ * The queues for saveAllQueues to write: a copy of the list, taken on the thread that changes it,
+ * so the save can walk it on IO while the list itself goes on changing.
+ *
+ * Only the list is copied, not the queues in it, so each queue's position is still read when the
+ * save runs. A position copied here could land after a newer one written by another save and put
+ * the older one back, which is why saveQueueSongs copies only the songs too.
+ */
+internal fun queuesToSave(queues: List<MultiQueueObject>): List<MultiQueueObject> = queues.toList()
