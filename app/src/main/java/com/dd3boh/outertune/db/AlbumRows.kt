@@ -42,4 +42,20 @@ object AlbumRows {
      */
     fun pageAddsSongs(stored: AlbumEntity?, mappedSongIds: Collection<String>, pageSongIds: Collection<String>): Boolean =
         stored == null || stored.songCount == 0 || !mappedSongIds.toSet().containsAll(pageSongIds)
+
+    /**
+     * Whether a YouTube album page just fetched gives the stored album the artist it has none of,
+     * and so should be written over it as well.
+     *
+     * An album made from a song, by the song path or by LgAlbumRepair, has no artist, year,
+     * playlist id or cover of its own until its page is written. Opening one wrote the page only
+     * when it added a song, which a single never does, nor an album whose songs have all been
+     * heard, so those stayed as they were and only the menu's Refetch filled them in. A page that
+     * names no artist either is not written for this, or every opening would write it again.
+     *
+     * @param storedArtistIds the stored album's artists
+     * @param pageArtistNames the artists YouTube's page names
+     */
+    fun pageAddsArtist(storedArtistIds: Collection<String>, pageArtistNames: Collection<String>): Boolean =
+        storedArtistIds.isEmpty() && pageArtistNames.isNotEmpty()
 }

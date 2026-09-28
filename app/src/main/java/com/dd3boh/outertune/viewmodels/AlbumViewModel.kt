@@ -59,7 +59,9 @@ class AlbumViewModel @Inject constructor(
                 // Set before the wait below, so the other versions are ready when the songs appear.
                 otherVersions.value = it.otherVersions
                 val mapped = database.albumWithSongs(albumId).first()?.songs.orEmpty().map { song -> song.id }
-                if (AlbumRows.pageAddsSongs(album?.album, mapped, it.songs.map { song -> song.id })) {
+                if (AlbumRows.pageAddsSongs(album?.album, mapped, it.songs.map { song -> song.id }) ||
+                    AlbumRows.pageAddsArtist(album?.artists.orEmpty().map { a -> a.id }, it.album.artists.orEmpty().map { a -> a.name })
+                ) {
                     database.transaction {
                         // The row as it is now, not as read before the fetch: update writes the
                         // whole row it is given, so a heart tapped meanwhile would be undone.
