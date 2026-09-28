@@ -11,7 +11,6 @@ package com.dd3boh.outertune.playback
 import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.ui.util.fastFirst
 import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastForEachIndexed
 import androidx.media3.common.C
@@ -338,47 +337,21 @@ class QueueBoard(
         mediaList: List<MediaMetadata>,
         saveToDb: Boolean = true,
     ) {
-        val listPos = if (pos < 0) {
-            0
-        } else if (pos > q.getSize()) {
-            q.getSize()
+        Log.d(TAG, "Inserting at position: $pos")
+
+        // The index bookkeeping lives on MultiQueueObject so it can be unit tested, as with
+        // removeSong: see QueueBoardAddSongsTest.
+        q.insertAtPlayIndex(pos, mediaList)
+
+        // Only into a player that already holds something. After a restart the player stays empty
+        // until play is pressed, and the play button loads the saved queue from where its song
+        // stopped. Loading it here instead started that song from the top and saved the queue
+        // that way, so the point where it had stopped was lost for good.
+        if (player.player.currentMediaItem != null) {
+            setCurrQueue(q, false)
         } else {
-            pos
+            player.unloadedQueueChanged.value += 1
         }
-
-        Log.d(TAG, "Inserting at position: $listPos")
-
-        // assign new indexes to items affected by inserted items
-        if (q.shuffled) {
-            val songsAfter = q.getCurrentQueueShuffled()
-            songsAfter.subList(listPos, songsAfter.size).forEach {
-                it.shuffleIndex += mediaList.size
-            }
-        }
-
-        // add new items
-        mediaList.fastForEachIndexed { index, s ->
-            s.shuffleIndex = listPos + index
-        }
-
-        if (q.shuffled) {
-            q.queue.addAll(mediaList)
-        } else {
-            q.queue.addAll(listPos, mediaList)
-        }
-
-        // adding before current playing song requires tracking new index
-        if (q.getQueuePosShuffled() >= listPos) {
-            if (q.shuffled) {
-                // shuffle index current song + add size
-                val newIndex = q.queue[q.queuePos].shuffleIndex + mediaList.size
-                q.queuePos = q.queue.indexOf(q.queue.fastFirst { it.shuffleIndex == newIndex })
-            } else {
-                q.queuePos += mediaList.size
-            }
-        }
-
-        setCurrQueue(q, false)
 
         if (saveToDb) {
             saveQueueSongs(q)

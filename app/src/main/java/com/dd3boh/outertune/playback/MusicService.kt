@@ -388,6 +388,13 @@ class MusicService : MediaLibraryService(),
 
     /** Bumped whenever the tail is replanned, so the queue view can redraw its summary. */
     val hiddenTailChanged = MutableStateFlow(0)
+
+    /**
+     * Bumped when songs go into a queue while the player holds nothing, which is how Play next and
+     * Add to queue work before play after a restart. The artwork strip and the queue sheet read
+     * that queue from the queue board then, and nothing the player reports tells them it changed.
+     */
+    val unloadedQueueChanged = MutableStateFlow(0)
     @Volatile private var contextChip = 0
     @Volatile var persistentQueue = true
         private set
@@ -1484,8 +1491,11 @@ class MusicService : MediaLibraryService(),
                 }
             } else {
                 // enqueue next
-                queueBoard.getCurrentQueue()?.let {
-                    queueBoard.addSongsToQueue(it, player.currentMediaItemIndex + 1, items.mapNotNull { it.metadata })
+                queueBoard.getCurrentQueue()?.let { q ->
+                    // The player's index means nothing while it holds nothing, which it does after
+                    // a restart until play is pressed. See MultiQueueObject.playNextIndex.
+                    val playerIndex = player.currentMediaItemIndex.takeIf { player.currentMediaItem != null }
+                    queueBoard.addSongsToQueue(q, q.playNextIndex(playerIndex), items.mapNotNull { it.metadata })
                 }
             }
         }

@@ -326,6 +326,8 @@ fun BoxScope.QueueContent(
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE && wideScreen
 
     val queueWindows by playerConnection.queueWindows.collectAsState()
+    // Songs put into the restored queue before play, which the fallback list below shows.
+    val unloadedQueueChanged by playerConnection.service.unloadedQueueChanged.collectAsState()
 
     // multi queue vars
     val fallBackQueue = if (queueWindows.isEmpty()) qb.getCurrentQueue() else null
@@ -527,7 +529,7 @@ fun BoxScope.QueueContent(
     // results still showed the old one, and a tap or a swipe on them then acted on the new queue at
     // the old positions. Not keyed on the search itself, since opening one must not clear a
     // selection made before it.
-    LaunchedEffect(queueWindows, detachedQueue) { // add to songs list & scroll
+    LaunchedEffect(queueWindows, detachedQueue, unloadedQueueChanged) { // add to songs list & scroll
         if (detachedQueue != null) {
             mutableSongs.apply {
                 clear()
