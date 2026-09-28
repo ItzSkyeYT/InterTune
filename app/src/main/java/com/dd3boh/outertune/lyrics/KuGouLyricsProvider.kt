@@ -37,7 +37,13 @@ object KuGouLyricsProvider : LyricsProvider {
      * whatever it was: "DAYS LATER FUNK - SPED UP" got the lyrics of a sped up "Careless Whisper".
      * KuGou only has timed lyrics, so with no length to check them against it is not asked at all.
      */
-    override suspend fun getLyrics(query: LyricsQuery): Result<String> = lookUp(query, KuGouRequests)
+    override suspend fun getLyrics(query: LyricsQuery): Result<String> {
+        // Checked before lookUp, whose own check fails with an ordinary exception, so that
+        // LyricsLookup.firstFound can tell KuGou skipping itself from KuGou answering. With no
+        // length known and every other provider unreachable, nobody was asked.
+        if (!query.knowsDuration) return Result.failure(LyricsLookup.NotAsked("No length to check KuGou's timings against"))
+        return lookUp(query, KuGouRequests)
+    }
 
     internal suspend fun lookUp(query: LyricsQuery, requests: Requests): Result<String> = runCatching {
         check(query.knowsDuration) { "No length to check KuGou's timings against" }

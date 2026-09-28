@@ -8,6 +8,8 @@ package com.dd3boh.outertune.lyrics
 
 import android.content.Context
 import com.dd3boh.outertune.models.MediaMetadata
+import java.io.IOException
+import java.net.UnknownHostException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -56,7 +59,8 @@ class LyricsLookupTest {
         val d = Fake("d") { Result.success("[00:01.00]never asked") }
         val failures = mutableListOf<String>()
         val found = LyricsLookup.firstFound(listOf(a, b, c, d), query) { p, _ -> failures += p.name }
-        assertEquals("[00:01.00]found", found)
+        assertEquals("[00:01.00]found", found.lyrics)
+        assertTrue(found.answered)
         assertEquals(listOf("a", "b"), failures)
         assertEquals(0, d.calls)
     }
@@ -65,7 +69,7 @@ class LyricsLookupTest {
     fun `plain words do not stop the search for synced ones`() = runBlocking {
         val a = Fake("a") { Result.success("plain words") }
         val b = Fake("b") { Result.success("[00:01.00]timed") }
-        assertEquals("[00:01.00]timed", LyricsLookup.firstFound(listOf(a, b), query) { _, _ -> })
+        assertEquals("[00:01.00]timed", LyricsLookup.firstFound(listOf(a, b), query) { _, _ -> }.lyrics)
     }
 
     @Test
@@ -73,7 +77,7 @@ class LyricsLookupTest {
         val a = Fake("a") { Result.success("plain words") }
         val b = failing("b")
         val c = Fake("c", offersSynced = false) { Result.success("other plain words") }
-        assertEquals("plain words", LyricsLookup.firstFound(listOf(a, b, c), query) { _, _ -> })
+        assertEquals("plain words", LyricsLookup.firstFound(listOf(a, b, c), query) { _, _ -> }.lyrics)
         assertEquals(1, b.calls)
         assertEquals(0, c.calls)
     }
@@ -82,15 +86,62 @@ class LyricsLookupTest {
     fun `nothing anywhere is null, with each failure reported once`() = runBlocking {
         val providers = listOf(failing("a"), failing("b"), Fake("c") { Result.success("  ") })
         val failures = mutableListOf<String>()
-        assertNull(LyricsLookup.firstFound(providers, query) { p, _ -> failures += p.name })
+        val outcome = LyricsLookup.firstFound(providers, query) { p, _ -> failures += p.name }
+        assertNull(outcome.lyrics)
         assertEquals(listOf("a", "b", "c"), failures)
+    }
+
+    /**
+     * Every provider unreachable: nobody actually said "no lyrics for this song", so the caller
+     * must not remember that as the answer. A network failure is the IOException family, and
+     * UnknownHostException, from no DNS, is one of its subclasses.
+     */
+    @Test
+    fun `every provider unreachable is not answered`() = runBlocking {
+        val a = Fake("a") { Result.failure(IOException("no route to host")) }
+        val b = Fake("b") { Result.failure(UnknownHostException("lrclib.net")) }
+        val outcome = LyricsLookup.firstFound(listOf(a, b), query) { _, _ -> }
+        assertNull(outcome.lyrics)
+        assertFalse(outcome.answered)
+    }
+
+    /** One provider actually answering is enough, even while another is merely unreachable. */
+    @Test
+    fun `one real answer counts, even if another provider was only unreachable`() = runBlocking {
+        val a = Fake("a") { Result.failure(IOException("offline")) }
+        val b = Fake("b") { Result.success("") }
+        val outcome = LyricsLookup.firstFound(listOf(a, b), query) { _, _ -> }
+        assertNull(outcome.lyrics)
+        assertTrue(outcome.answered)
+    }
+
+    /** A failure that is not a network problem is still a real answer. */
+    @Test
+    fun `a non-network failure still counts as answered`() = runBlocking {
+        val outcome = LyricsLookup.firstFound(listOf(failing("a")), query) { _, _ -> }
+        assertNull(outcome.lyrics)
+        assertTrue(outcome.answered)
+    }
+
+    /**
+     * KuGou skipping itself, with no length to check its timings against, is no more an answer
+     * than a network failure is: it made no request either. Only KuGou fails that way; the others
+     * fail with an IOException when there is no connection.
+     */
+    @Test
+    fun `KuGou's no-length precondition is not answered, same as a network failure`() = runBlocking {
+        val a = Fake("a") { Result.failure(IOException("offline")) }
+        val offline = LyricsQuery(id = "x", title = "Song", artists = listOf("A"), duration = -1)
+        val outcome = LyricsLookup.firstFound(listOf(a, KuGouLyricsProvider), offline) { _, _ -> }
+        assertNull(outcome.lyrics)
+        assertFalse(outcome.answered)
     }
 
     @Test
     fun `a provider that throws is a failure, not the end of the lookup`() = runBlocking {
         val a = Fake("a") { throw IllegalStateException("boom") }
         val b = Fake("b") { Result.success("[00:01.00]found") }
-        assertEquals("[00:01.00]found", LyricsLookup.firstFound(listOf(a, b), query) { _, _ -> })
+        assertEquals("[00:01.00]found", LyricsLookup.firstFound(listOf(a, b), query) { _, _ -> }.lyrics)
     }
 
     @Test

@@ -72,7 +72,7 @@ class LyricsProbe {
     private suspend fun lookUp(query: LyricsQuery): Pair<String?, List<String>> {
         val notes = mutableListOf<String>()
         val found = LyricsLookup.firstFound(providers.map { Noting(it, notes) }, query) { _, _ -> }
-        return found to notes
+        return found.lyrics to notes
     }
 
     private fun describe(found: String?, notes: List<String>, ms: Long): String {

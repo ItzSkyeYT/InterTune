@@ -79,7 +79,7 @@ class LyricsHelper @Inject constructor(
 
         val localLyrics: SemanticLyrics? =
             getLocalLyrics(mediaMetadata, LrcUtils.LrcParserOptions(trim, multiline, "Unable to parse lyrics"))
-        val remoteLyrics: String?
+        val remote: LyricsLookup.Outcome
 
         // fallback to secondary provider when primary is unavailable
         if (prefLocal) {
@@ -91,30 +91,30 @@ class LyricsHelper @Inject constructor(
             }
 
             // "lazy eval" the remote lyrics cuz it is laughably slow
-            remoteLyrics = getRemoteLyrics(mediaMetadata)
-            if (remoteLyrics != null) {
+            remote = getRemoteLyrics(mediaMetadata)
+            if (remote.lyrics != null) {
                 database.query {
                     upsert(
                         LyricsEntity(
                             id = mediaMetadata.id,
-                            lyrics = remoteLyrics
+                            lyrics = remote.lyrics
                         )
                     )
                 }
-                return parseLrc(remoteLyrics, trim, multiline)
+                return parseLrc(remote.lyrics, trim, multiline)
             }
         } else {
-            remoteLyrics = getRemoteLyrics(mediaMetadata)
-            if (remoteLyrics != null) {
+            remote = getRemoteLyrics(mediaMetadata)
+            if (remote.lyrics != null) {
                 database.query {
                     upsert(
                         LyricsEntity(
                             id = mediaMetadata.id,
-                            lyrics = remoteLyrics
+                            lyrics = remote.lyrics
                         )
                     )
                 }
-                return parseLrc(remoteLyrics, trim, multiline)
+                return parseLrc(remote.lyrics, trim, multiline)
             } else if (localLyrics != null) {
                 return localLyrics
             }
@@ -124,13 +124,18 @@ class LyricsHelper @Inject constructor(
         // The write below runs on Room's executor whether or not this coroutine is still wanted, so
         // a lookup cancelled partway must stop here rather than record the song as having none.
         currentCoroutineContext().ensureActive()
-        database.query {
-            upsert(
-                LyricsEntity(
-                    id = mediaMetadata.id,
-                    lyrics = LYRICS_NOT_FOUND
+        // Only when a provider actually answered "no lyrics". Every provider unreachable (no
+        // connection, no DNS, a timeout) must not be remembered as this song having none: that
+        // stuck for good, since nothing but the manual Refetch action ever asks again.
+        if (remote.answered) {
+            database.query {
+                upsert(
+                    LyricsEntity(
+                        id = mediaMetadata.id,
+                        lyrics = LYRICS_NOT_FOUND
+                    )
                 )
-            )
+            }
         }
         return null
     }
@@ -138,7 +143,7 @@ class LyricsHelper @Inject constructor(
     /**
      * Lookup lyrics from remote providers
      */
-    private suspend fun getRemoteLyrics(mediaMetadata: MediaMetadata): String? {
+    private suspend fun getRemoteLyrics(mediaMetadata: MediaMetadata): LyricsLookup.Outcome {
         val query = LyricsQuery(
             id = mediaMetadata.id,
             title = mediaMetadata.title,
