@@ -1995,6 +1995,10 @@ class MusicService : MediaLibraryService(),
     internal fun handOverTo(link: ReceiverLink, server: CastServer, play: Boolean?, onLost: (ReceiverStatus) -> Unit): RemotePlayer? {
         val routed = routedPlayer ?: return null
         val exo = exoPlayer
+        // After a cold start the saved queue waits unloaded until something plays, and a receiver
+        // handed the empty player got nothing: no song there, and a replay button on the phone.
+        // Loaded here instead, at the song and place it was left, as a play would load it.
+        if (exo.mediaItemCount == 0) queueBoard.setCurrQueue()
         val remote = RemotePlayer(
             Looper.getMainLooper(),
             link,
