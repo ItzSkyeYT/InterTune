@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.constants.StatPeriod
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.ArtistEntity
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.stats.ListeningInsights
@@ -37,6 +38,23 @@ data class PeriodInsights(
     val songs: Map<String, Song>,
     val artists: Map<String, ArtistEntity>,
 )
+
+/**
+ * Whether a most played album's page is fetched for Stats: when it has no songs, as a saved album
+ * arrives, or no artist, as an album made from songs has until its page is written. After
+ * LgAlbumRepair that is most of them, and Stats listed them with nothing under their titles. Never
+ * a local album, as in LibraryAlbumsViewModel: it has no page, and YouTube answers its id with an
+ * HTTP 400.
+ */
+internal fun albumPageWanted(album: Album): Boolean =
+    !album.album.isLocal && (album.album.songCount == 0 || album.artists.isEmpty())
+
+/**
+ * Whether a most played album whose page YouTube no longer has is deleted: only one with no songs,
+ * the only kind this fetched before. One with songs, as LgAlbumRepair made them, keeps them
+ * together until someone opens it, and AlbumViewModel decides then.
+ */
+internal fun albumDeletedWhenGone(album: Album): Boolean = album.album.songCount == 0
 
 // redoing this whole feature later, plz ignore the slop code
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -167,18 +185,23 @@ class StatsViewModel @Inject constructor(
         // reordered it. An album whose page really has no songs is written back with a song
         // count of 0, so it qualified on every one of those passes and was fetched again each
         // time.
+        //
+        // One with no artist is fetched too (see albumPageWanted). One whose page names no artist
+        // either is fetched again when its period is picked again, and no more often. The page is
+        // written over the row as it is when written, not as read before the fetch, as in
+        // AlbumViewModel: update writes the whole row, so a heart tapped meanwhile would be undone,
+        // and there are many more of these fetches now. A page YouTube no longer has deletes only
+        // what it deleted before (see albumDeletedWhenGone).
         viewModelScope.launch {
             statPeriod.collect { period ->
-                database.mostPlayedAlbums(period.toTimeMillis()).first().filter {
-                    it.album.songCount == 0
-                }.forEach { album ->
+                database.mostPlayedAlbums(period.toTimeMillis()).first().filter(::albumPageWanted).forEach { album ->
                     YouTube.album(album.id).onSuccess { albumPage ->
-                        database.query {
-                            update(album.album, albumPage)
+                        database.transaction {
+                            albumById(album.id)?.let { current -> update(current, albumPage) }
                         }
                     }.onFailure {
                         reportException(it)
-                        if (it.message?.contains("NOT_FOUND") == true) {
+                        if (it.message?.contains("NOT_FOUND") == true && albumDeletedWhenGone(album)) {
                             database.query {
                                 delete(album.album)
                             }
