@@ -122,13 +122,26 @@ class DownloadUtil @Inject constructor(
     ) { dataSpec ->
         val mediaId = dataSpec.key ?: error("No media id")
         val length = if (dataSpec.length >= 0) dataSpec.length else 1
+        var staleCopy = false
         if (dataSpec.position == 0L) {
             // From the start, the player's copy is read through only when it holds the whole
             // song. A part of one used to be read through as soon as its first byte was there,
             // and the rest came from whatever stream was resolved below, so a song cached on
             // mobile data and downloaded on Wi-Fi joined two formats in one file. The part goes,
             // and the download takes the whole song from the new stream.
-            if (playerCache.holdsWhole(mediaId)) return@Factory dataSpec
+            if (playerCache.holdsWhole(mediaId)) {
+                // Checked before the shortcut takes it, or a download made after raising the
+                // audio quality would copy the old cached bytes straight in and stay at the old
+                // bitrate for good. A copy fetched at a lower setting is replaced, but only once
+                // the new stream is in hand, as MusicService does for playback: if the fetch fails
+                // or the stream is not checked, the download takes the old copy as before rather
+                // than losing the one copy that plays offline.
+                val storedTier = runCatching {
+                    runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
+                }.getOrNull()?.qualityTier
+                if (!isStaleQualityTier(storedTier, audioQuality)) return@Factory dataSpec
+                staleCopy = true
+            }
             if (playerCache.holdsPartFromStart(mediaId)) {
                 runCatching { playerCache.removeResource(mediaId) }
                     .onFailure { Log.w(TAG, "Could not drop the partial copy of $mediaId", it) }
@@ -137,7 +150,9 @@ class DownloadUtil @Inject constructor(
             return@Factory dataSpec
         }
 
-        songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
+        // Not for a stale copy: the cache serves by the song's id whatever address comes back, so
+        // a remembered url would still read the old bytes.
+        songUrlCache[mediaId]?.takeIf { !staleCopy && it.second > System.currentTimeMillis() }?.let {
             return@Factory dataSpec.withUri(it.first.toUri())
         }
 
@@ -164,8 +179,20 @@ class DownloadUtil @Inject constructor(
                 audioQuality = audioQuality,
                 connectivityManager = connectivityManager,
             )
-        }.getOrThrow()
+        }.getOrElse {
+            if (staleCopy) return@Factory dataSpec
+            throw it
+        }
         val format = playbackData.format
+        // The lower-quality copy goes now that the new stream is in hand, and only for a stream
+        // that answered its status check: the last fallback client's is taken unchecked, and one
+        // of those failing partway would cost the copy. Either early return leaves the format row
+        // at the old tier, so the next download tries again.
+        if (staleCopy) {
+            if (!playbackData.validated) return@Factory dataSpec
+            runCatching { playerCache.removeResource(mediaId) }
+                .onFailure { Log.w(TAG, "Could not drop the lower-quality copy of $mediaId", it) }
+        }
 
         database.query {
             upsertFormatKeepingLoudness(
@@ -178,6 +205,7 @@ class DownloadUtil @Inject constructor(
                     sampleRate = format.audioSampleRate,
                     contentLength = format.contentLengthOrZero(),
                     loudnessDb = playbackData.audioConfig?.effectiveLoudnessDb,
+                    qualityTier = audioQuality.name,
                     playbackTrackingUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
                 )
             )
@@ -967,4 +995,34 @@ fun stateToLocalDateTime(state: Int, updateTimeMs: Long): LocalDateTime {
         Download.STATE_DOWNLOADING, Download.STATE_QUEUED -> STATE_DOWNLOADING
         else -> STATE_INVALID
     }
+}
+
+/**
+ * Where a setting sits relative to the others, for deciding what counts as an upgrade. The one
+ * rank table: the download resolver and MusicService.shouldUpgradeCached both go through it, via
+ * isStaleQualityTier.
+ *
+ * Auto and High share a rank because on an unmetered connection they resolve to the same stream,
+ * so treating a move between them as an upgrade would re-fetch for nothing.
+ */
+private fun AudioQuality.upgradeRank() = when (this) {
+    AudioQuality.LOW -> 0
+    AudioQuality.AUTO -> 1
+    AudioQuality.HIGH -> 1
+    AudioQuality.MAX -> 2
+}
+
+/**
+ * Whether a copy recorded at [storedTier] ranks below [current], the quality setting now in
+ * force. A plain function of two values, with no cache or database in it, so the rank rule is
+ * tested without either.
+ *
+ * Null, or a tier the enum no longer has a case for, means the copy predates this field, or came
+ * from before quality tiers were recorded at all; treated as no upgrade, for playback and
+ * downloads alike, rather than re-fetching someone's whole cache the first time they open the app
+ * after an update.
+ */
+fun isStaleQualityTier(storedTier: String?, current: AudioQuality): Boolean {
+    val stored = storedTier?.let { runCatching { AudioQuality.valueOf(it) }.getOrNull() } ?: return false
+    return current.upgradeRank() > stored.upgradeRank()
 }

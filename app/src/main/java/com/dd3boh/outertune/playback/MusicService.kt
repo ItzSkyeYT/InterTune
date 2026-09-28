@@ -1881,31 +1881,20 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
-     * Where a setting sits relative to the others, for deciding what counts as an upgrade.
-     *
-     * Auto and High share a rank because on an unmetered connection they resolve to the same
-     * stream, so treating a move between them as an upgrade would re-fetch for nothing.
-     */
-    private fun AudioQuality.rank() = when (this) {
-        AudioQuality.LOW -> 0
-        AudioQuality.AUTO -> 1
-        AudioQuality.HIGH -> 1
-        AudioQuality.MAX -> 2
-    }
-
-    /**
      * Whether the cached copy was fetched at a lower setting than the one now in force.
      *
      * Null means it was cached before any of this was recorded, which is treated as no and left
      * alone: re-fetching everybody's entire cache the first time they update is not a reasonable
      * thing to do to someone's data allowance.
+     *
+     * Delegates to isStaleQualityTier (DownloadUtil.kt), the same rank rule a download's own
+     * resolver uses to decide whether to copy a cached file or fetch fresh.
      */
     private fun shouldUpgradeCached(mediaId: String): Boolean {
         val stored = runCatching {
             runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
-        }.getOrNull()?.qualityTier ?: return false
-        val was = runCatching { AudioQuality.valueOf(stored) }.getOrNull() ?: return false
-        return audioQualityNow().rank() > was.rank()
+        }.getOrNull()?.qualityTier
+        return isStaleQualityTier(stored, audioQualityNow())
     }
 
     private fun createRenderersFactory(gaplessOffloadAllowed: Boolean): DefaultRenderersFactory {
