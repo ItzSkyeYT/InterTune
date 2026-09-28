@@ -285,6 +285,9 @@ class MusicService : MediaLibraryService(),
     var queueBoard = QueueBoard(this, maxQueues = 1)
     var queuePlaylistId: String? = null
 
+    /** Set at the top of onDestroy; see the checks in playQueue's resolve coroutine below. */
+    @Volatile private var destroyed = false
+
     /**
      * The save deInitQueue launched instead of waiting for, when it was reached from a swipe of
      * the mini player rather than teardown. initQueue joins this before it re-reads the saved
@@ -1375,12 +1378,20 @@ class MusicService : MediaLibraryService(),
         val preloadItem = queue.preloadItem
         // do not use scope.launch ... it breaks randomly... why is this bug back???
         CoroutineScope(Dispatchers.Main).launch {
+            // This coroutine is not a child of anything onDestroy cancels, so it checks
+            // `destroyed` itself before touching the queue board or the player: here, because the
+            // body runs on a later turn of the main loop than the launch, and after each point
+            // where it suspends.
+            if (destroyed) return@launch
             Log.d(TAG, "playQueue: Resolving additional queue data...")
             try {
                 // Suspends here instead of blocking the caller, usually a click handler on the
                 // main thread; ahead of the preload addQueue so the board exists before anything
                 // is added to it.
                 if (!qbInit.value) initQueue(onlyIfNeeded = true)
+                // initQueue can wait for another caller's load or for a pending queue save, and
+                // the service can be torn down meanwhile.
+                if (destroyed) return@launch
                 if (preloadItem != null) {
                     q = queueBoard.addQueue(
                         queueTitle ?: "Radio\u2060temp",
@@ -1396,6 +1407,9 @@ class MusicService : MediaLibraryService(),
                 }
 
                 val initialStatus = withContext(Dispatchers.IO) { queue.getInitialStatus() }
+                // The same after the network wait. Nothing below suspends, and onDestroy runs on
+                // this same main thread, so it cannot slip in between.
+                if (destroyed) return@launch
                 // do not find a title if an override is provided
                 if ((title == null) && initialStatus.title != null) {
                     queueTitle = initialStatus.title
@@ -2920,6 +2934,10 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onDestroy() {
+        // Checked by playQueue's resolve coroutine each time it resumes: that coroutine belongs to
+        // no scope this method cancels (see the comment at its launch site), so this is the only
+        // way it can find out the service is gone before touching the queue board or the player.
+        destroyed = true
         headTracking.stop(glideHome = false)
         proximityVolume.stop()
         isRunning = false
