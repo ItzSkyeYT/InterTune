@@ -128,3 +128,64 @@ class PlaylistSqlTest {
         val SONGS = listOf("X", "A", "Y", "B", "Z", "W")
     }
 }
+
+/**
+ * playlistsContaining: which playlists a song can be taken back out of from the player menu.
+ * Followed playlists the app cannot edit offered a remove that YouTube refused and the next sync
+ * could undo, and a song listed twice in one playlist's map doubled that playlist's songCount.
+ * The Read only sync filter lives in PlayerMenu and is not covered here.
+ */
+class PlaylistsContainingSqlTest {
+    private lateinit var db: Connection
+
+    @Before
+    fun open() {
+        db = SchemaDb.open()
+        exec("INSERT INTO song(id, title, duration, liked) VALUES ('s', 's', 200, 0)")
+    }
+
+    @After
+    fun close() = db.close()
+
+    private fun exec(sql: String) = db.createStatement().use { it.execute(sql) }
+
+    private fun playlist(id: String, isLocal: Boolean = false, isEditable: Boolean = true) = exec(
+        "INSERT INTO playlist(id, name, isLocal, isEditable) VALUES ('$id', '$id', ${if (isLocal) 1 else 0}, ${if (isEditable) 1 else 0})"
+    )
+
+    private fun mapSong(mapId: Int, playlistId: String, songId: String = "s", position: Int = 0) = exec(
+        "INSERT INTO playlist_song_map(id, playlistId, songId, position) VALUES ($mapId, '$playlistId', '$songId', $position)"
+    )
+
+    private fun containing(songId: String = "s"): List<Pair<String, Int>> = db.createStatement().use { st ->
+        st.executeQuery(PlaylistSql.CONTAINING_SONG.replace(":songId", "'$songId'")).use { rs ->
+            buildList { while (rs.next()) add(rs.getString("id") to rs.getInt("songCount")) }
+        }
+    }
+
+    @Test
+    fun `a followed playlist the app cannot edit is left out`() {
+        playlist("followed", isLocal = false, isEditable = false)
+        mapSong(1, "followed")
+        assertEquals(emptyList<Pair<String, Int>>(), containing())
+    }
+
+    @Test
+    fun `a local playlist and an editable synced one are offered`() {
+        playlist("local", isLocal = true, isEditable = false)
+        playlist("editable", isLocal = false, isEditable = true)
+        mapSong(1, "local")
+        mapSong(2, "editable")
+        assertEquals(listOf("editable" to 1, "local" to 1), containing())
+    }
+
+    @Test
+    fun `the song sitting twice in one playlist does not double its songCount`() {
+        playlist("local", isLocal = true, isEditable = false)
+        exec("INSERT INTO song(id, title, duration, liked) VALUES ('other', 'other', 200, 0)")
+        mapSong(1, "local", songId = "s", position = 0)
+        mapSong(2, "local", songId = "s", position = 1)
+        mapSong(3, "local", songId = "other", position = 2)
+        assertEquals(listOf("local" to 3), containing())
+    }
+}
