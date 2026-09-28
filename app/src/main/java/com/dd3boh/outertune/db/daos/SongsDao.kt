@@ -28,6 +28,32 @@ import java.time.ZoneOffset
 @Dao
 interface SongsDao {
 
+    companion object {
+        /**
+         * Most played songs, most played first.
+         *
+         * The ranking has to happen in the subquery and the outer ORDER BY has to repeat it:
+         * without the outer ORDER BY, the outer SELECT is free to come back in whatever order its
+         * own index walk finds fastest (song's primary key, in practice), which is not the play
+         * time order the subquery worked out. Kept as a constant, the way [LibrarySql] does it,
+         * so SongsSqlTest runs the exact same text as the DAO.
+         */
+        const val MOST_PLAYED_SONGS = """
+            SELECT song.*
+            FROM (
+                SELECT songId, SUM(playTime) AS totalPlayTime
+                FROM event
+                WHERE timestamp > :fromTimeStamp
+                GROUP BY songId
+                ORDER BY totalPlayTime DESC
+                LIMIT :limit
+                OFFSET :offset
+            ) ranked
+            JOIN song ON song.id = ranked.songId
+            ORDER BY ranked.totalPlayTime DESC
+        """
+    }
+
     // region Gets
     @Transaction
     @Query("SELECT * FROM song WHERE id = :songId")
@@ -62,17 +88,7 @@ interface SongsDao {
     fun _searchSongsAllLocalInDir(dir: String, query: String, previewSize: Int = Int.MAX_VALUE): Flow<List<Song>>
 
     @Transaction
-    @Query("""
-        SELECT *
-        FROM song
-        WHERE id IN (SELECT songId
-                     FROM event
-                     WHERE timestamp > :fromTimeStamp
-                     GROUP BY songId
-                     ORDER BY SUM(playTime) DESC
-                     LIMIT :limit
-                     OFFSET :offset)
-    """)
+    @Query(MOST_PLAYED_SONGS)
     fun mostPlayedSongs(fromTimeStamp: Long, limit: Int = 6, offset: Int = 0): Flow<List<Song>>
 
     @Query("SELECT sum(count) from playCount WHERE song = :songId")
