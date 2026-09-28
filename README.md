@@ -163,6 +163,16 @@ Needs JDK 21 and an Android SDK carrying `platforms;android-36`, `ndk;29.0.13113
 own submodules and the build fails without them. Flavours, signing and the rest are in
 [docs/BUILDING.md](docs/BUILDING.md).
 
+## Star History
+
+<a href="https://www.star-history.com/?repos=itzskyeyt%2Fintertune&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=itzskyeyt/intertune&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=itzskyeyt/intertune&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=itzskyeyt/intertune&type=date&legend=top-left" />
+ </picture>
+</a>
+
 ## Credits
 
 [InnerTune](https://github.com/z-huang/InnerTune) by z-huang, forked into
