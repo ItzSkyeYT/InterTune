@@ -68,7 +68,10 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
      * Deletes a song's file, from the main download folder only. The list holds the extra import
      * folders' files too, and those folders are promised never to be changed (the storage
      * tooltip), so a song imported from one keeps its file and has to be removed by hand.
+     * Synchronized because deletes run in parallel on dlCoroutine, and the read-modify-write of
+     * availableFiles below would otherwise lose one, leaving the player a deleted file.
      */
+    @Synchronized
     fun deleteFile(mediaId: String): Boolean {
         val file = isExists(mediaId) ?: return false
         if (!isInMainDir(file)) return false

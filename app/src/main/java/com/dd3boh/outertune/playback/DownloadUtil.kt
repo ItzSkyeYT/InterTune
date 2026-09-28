@@ -618,20 +618,25 @@ class DownloadUtil @Inject constructor(
 
     fun delete(song: MediaMetadata) = deleteSong(song.id)
 
-    private fun deleteSong(id: String): Boolean {
-        val deleted = localMgr.deleteFile(id)
-        if (!deleted) return false
-        downloads.update { map ->
-            map.toMutableMap().apply {
-                remove(id)
+    // The delete itself is a storage-provider binder call (DocumentsContract.deleteDocument), one
+    // per file. It used to run straight on the caller's thread, which for every bulk Remove
+    // download menu is a Compose onClick handler: a few hundred songs kept in a download folder
+    // froze the UI for the whole loop and could show an ANR. Fired on dlCoroutine instead, so the
+    // caller returns at once.
+    private fun deleteSong(id: String) {
+        CoroutineScope(dlCoroutine).launch {
+            val deleted = localMgr.deleteFile(id)
+            if (!deleted) return@launch
+            downloads.update { map ->
+                map.toMutableMap().apply {
+                    remove(id)
+                }
             }
-        }
 
-        // Both columns. This used to build a copy of the song without its path and throw it away,
-        // so the row went on pointing at the deleted file. Off the calling thread, which is a
-        // menu's click handler and may not touch the database.
-        database.query { removeDownloadSong(id) }
-        return true
+            // Both columns. This used to build a copy of the song without its path and throw it
+            // away, so the row went on pointing at the deleted file.
+            database.query { removeDownloadSong(id) }
+        }
     }
 
     /**
