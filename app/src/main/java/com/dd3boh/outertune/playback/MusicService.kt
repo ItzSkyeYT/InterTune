@@ -2389,14 +2389,20 @@ class MusicService : MediaLibraryService(),
 
         // reshuffle queue when shuffle AND repeat all are enabled
         // no, when repeat mode is on, player does not "STATE_ENDED"
-        if (player.currentMediaItemIndex == player.mediaItemCount - 1 &&
+        //
+        // From three songs up, keeping the song that has just started. Two songs have nothing to
+        // reshuffle, since repeat all already alternates them, and below three the reshuffle used
+        // to let go of the playing song: half the time it made the other one current, and loading
+        // that cut the new song off after 200 ms and started the other one again.
+        if (player.mediaItemCount > 2 &&
+            player.currentMediaItemIndex == player.mediaItemCount - 1 &&
             (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == MEDIA_ITEM_TRANSITION_REASON_SEEK) &&
             player.shuffleModeEnabled && player.repeatMode == REPEAT_MODE_ALL
         ) {
             scope.launch(SilentHandler) {
                 // or else race condition: Assertions.checkArgument(eventTime.realtimeMs >= currentPlaybackStateStartTimeMs) fails in updatePlaybackState()
                 delay(200)
-                queueBoard.shuffleCurrent(player.mediaItemCount > 2)
+                queueBoard.shuffleCurrent()
                 queueBoard.setCurrQueue()
             }
         }
