@@ -255,11 +255,13 @@ fun BottomSheetPlayer(
     val swipeToSkip by rememberPreference(SwipeToSkipKey, defaultValue = false)
     val queueWindows by playerConnection.queueWindows.collectAsState()
     val shuffleOn by playerConnection.shuffleModeEnabled.collectAsState()
+    // Songs put into the restored queue before play, which only the queue board knows about.
+    val unloadedQueueChanged by playerConnection.service.unloadedQueueChanged.collectAsState()
     // The songs either side of this one, for the artwork strip, worked out again whenever the queue,
     // the song, shuffle or repeat changes. They used to be read straight off the player while the
     // screen drew. With the music paused nothing redraws the screen once the queue has loaded after
     // a launch, so the strip held the current song alone and a swipe had nowhere to go.
-    val (previousMediaMetadata, nextMediaMetadata) = remember(swipeToSkip, qbInit, queueWindows, mediaMetadata, shuffleOn, repeatMode) {
+    val (previousMediaMetadata, nextMediaMetadata) = remember(swipeToSkip, qbInit, queueWindows, mediaMetadata, shuffleOn, repeatMode, unloadedQueueChanged) {
         val none = Pair<MediaMetadata?, MediaMetadata?>(null, null)
         if (!swipeToSkip) return@remember none
         val player = playerConnection.player

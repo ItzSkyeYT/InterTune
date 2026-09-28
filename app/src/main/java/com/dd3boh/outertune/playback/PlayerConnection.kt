@@ -197,7 +197,11 @@ class PlayerConnection(
     }
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-        if (mediaItem != null) restoredPosition.value = null
+        if (mediaItem != null) {
+            restoredPosition.value = null
+            // See onTimelineChanged.
+            shuffleModeEnabled.value = player.shuffleModeEnabled
+        }
         mediaMetadata.value = mediaItem?.metadata
         currentMediaItemIndex.value = player.currentMediaItemIndex
         currentWindowIndex.value = player.getCurrentQueueIndex()
@@ -205,7 +209,16 @@ class PlayerConnection(
     }
 
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
-        if (!timeline.isEmpty) restoredPosition.value = null
+        if (!timeline.isEmpty) {
+            restoredPosition.value = null
+            // The restored queue's shuffle stood in for the player's while the player was empty
+            // (see init), and goes with the position. Playing something else instead of the
+            // restored queue leaves the player's own flag as it was, so no change event came to
+            // replace the stand-in: shuffle showed on over a queue playing in order, and the
+            // first tap turned it on rather than off. Resuming the restored queue does not
+            // flicker, because setCurrQueue sets the flag in the same call that loads the songs.
+            shuffleModeEnabled.value = player.shuffleModeEnabled
+        }
         queueWindows.value = player.getQueueWindows()
         queuePlaylistId.value = service.queuePlaylistId
         currentMediaItemIndex.value = player.currentMediaItemIndex
@@ -258,6 +271,10 @@ class PlayerConnection(
 
     fun softKillPlayer() {
         Log.i(TAG, "Stopping player and uninitializing queue")
+        // Paused first, so the queue keeps the point its song had reached: the service saves it
+        // on a pause while the song is still loaded. Cleared while playing, the player reports
+        // the stop only once the song has gone, too late to read where it was.
+        player.pause()
         player.clearMediaItems()
         // Called straight from the player sheet's swipe-to-dismiss gesture, on the UI thread: the
         // queue save must not block it, so it runs on the service's own scope instead of here.

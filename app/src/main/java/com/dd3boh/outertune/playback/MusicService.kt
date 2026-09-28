@@ -388,6 +388,13 @@ class MusicService : MediaLibraryService(),
 
     /** Bumped whenever the tail is replanned, so the queue view can redraw its summary. */
     val hiddenTailChanged = MutableStateFlow(0)
+
+    /**
+     * Bumped when songs go into a queue while the player holds nothing, which is how Play next and
+     * Add to queue work before play after a restart. The artwork strip and the queue sheet read
+     * that queue from the queue board then, and nothing the player reports tells them it changed.
+     */
+    val unloadedQueueChanged = MutableStateFlow(0)
     @Volatile private var contextChip = 0
     @Volatile var persistentQueue = true
         private set
@@ -1484,8 +1491,11 @@ class MusicService : MediaLibraryService(),
                 }
             } else {
                 // enqueue next
-                queueBoard.getCurrentQueue()?.let {
-                    queueBoard.addSongsToQueue(it, player.currentMediaItemIndex + 1, items.mapNotNull { it.metadata })
+                queueBoard.getCurrentQueue()?.let { q ->
+                    // The player's index means nothing while it holds nothing, which it does after
+                    // a restart until play is pressed. See MultiQueueObject.playNextIndex.
+                    val playerIndex = player.currentMediaItemIndex.takeIf { player.currentMediaItem != null }
+                    queueBoard.addSongsToQueue(q, q.playNextIndex(playerIndex), items.mapNotNull { it.metadata })
                 }
             }
         }
@@ -1495,6 +1505,20 @@ class MusicService : MediaLibraryService(),
      * Add items to end of current queue
      */
     fun enqueueEnd(items: List<MediaItem>) {
+        // With the queue board down, as it is once the mini player has been swiped away, the
+        // songs play as a new queue, as they do from Play next. They used to go to the end of the
+        // dismissed queue instead, where nothing showed them and nothing played them.
+        if (!qbInit.value) {
+            if (items.isNotEmpty()) {
+                playQueue(
+                    ListQueue(
+                        title = items.first().mediaMetadata.title.toString(),
+                        items = items.mapNotNull { it.metadata }
+                    )
+                )
+            }
+            return
+        }
         queueBoard.enqueueEnd(items.mapNotNull { it.metadata })
     }
 
@@ -2259,7 +2283,9 @@ class MusicService : MediaLibraryService(),
                 lastKnownPosition[id] = pos
                 currentStart(id)?.let { checkpointListen(it, pos) }
             }
-            val q = queueBoard.getCurrentQueue()
+            // Only while the player holds a song. Emptied while playing, it reports the stop once
+            // the song has gone and reads 0:00, which is not where the queue stopped.
+            val q = queueBoard.getCurrentQueue()?.takeIf { player.currentMediaItem != null }
             q?.lastSongPos = pos
             // Written through at once, so a process the system kills while paused still comes back
             // where it was. Until now the position only reached the database in onDestroy.
@@ -2318,7 +2344,11 @@ class MusicService : MediaLibraryService(),
         val q = queueBoard.getCurrentQueue()
         val songCount = q?.getSize() ?: -1
         val playlistId = q?.playlistId
+        // Not on a transition to no song at all. That is the player being emptied, by a swipe of
+        // the mini player or a queue with nothing left in it, and an empty player reads as having
+        // no songs left, so every swipe during a radio asked for another page.
         if (autoLoadMore &&
+            mediaItem != null &&
             reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT &&
             player.mediaItemCount - player.currentMediaItemIndex <= 5 &&
             playlistId != null // aka "hasNext"
@@ -2329,6 +2359,19 @@ class MusicService : MediaLibraryService(),
                 val continuation = null // playlistId.substringAfter("\n")
                 val yq = YouTubeQueue(WatchEndpoint(endpoint, continuation))
                 val mediaItems = yq.nextPage()
+                Log.d(TAG, "onMediaItemTransition: Got ${mediaItems.size} songs from radio")
+                // Only into the queue that asked for them. A page still on its way when a list from
+                // the car became current went to the end of that list instead, and reloaded it.
+                // And only while the player still holds something: a page that arrived after the
+                // mini player was swiped away loaded the dismissed queue back into the player,
+                // which then played again. A cleared player is ended, not idle, so the state check
+                // let it through. Checked before the seed below moves on, since a page that is left
+                // out should not move the queue's next page on either.
+                val wanted = player.playbackState != STATE_IDLE &&
+                    songCount > 1 && // initial radio loading is handled by playQueue()
+                    player.mediaItemCount > 0 && qbInit.value &&
+                    queueBoard.getCurrentQueue()?.id == q.id
+                if (!wanted) return@launch
                 // Seed the next page from something the listener actually finished.
                 //
                 // This used to be a random pick from the last four songs of the page just
@@ -2345,31 +2388,35 @@ class MusicService : MediaLibraryService(),
                 val anchor = lastCompletedId()?.takeIf { it != lastRadioSeed }
                 q.playlistId = (anchor ?: mediaItems.takeLast(4).shuffled().first().id)
                     .also { lastRadioSeed = it }
-                Log.d(TAG, "onMediaItemTransition: Got ${mediaItems.size} songs from radio")
-                // Only into the queue that asked for them. A page still on its way when a list from
-                // the car became current went to the end of that list instead, and reloaded it.
-                if (player.playbackState != STATE_IDLE && songCount > 1 &&
-                    queueBoard.getCurrentQueue()?.id == q.id
-                ) { // initial radio loading is handled by playQueue()
-                    queueBoard.enqueueEnd(mediaItems.drop(1))
-                }
+                queueBoard.enqueueEnd(mediaItems.drop(1))
             }
         }
 
         // The pause point belongs to the song before this one, and the save below writes it.
-        q?.let { it.lastSongPos = ResumePoint.afterTransition(reason, player.currentPosition, it.lastSongPos) }
-        queueBoard.setCurrQueuePosIndex(player.currentMediaItemIndex)
+        // Both are skipped for an emptied player, whose index and position read 0 whatever the
+        // queue was on: swiping the mini player away moved the queue back to its first song at
+        // 0:00, and the dismissal then saved it that way.
+        if (mediaItem != null) {
+            q?.let { it.lastSongPos = ResumePoint.afterTransition(reason, player.currentPosition, it.lastSongPos) }
+            queueBoard.setCurrQueuePosIndex(player.currentMediaItemIndex)
+        }
 
         // reshuffle queue when shuffle AND repeat all are enabled
         // no, when repeat mode is on, player does not "STATE_ENDED"
-        if (player.currentMediaItemIndex == player.mediaItemCount - 1 &&
+        //
+        // From three songs up, keeping the song that has just started. Two songs have nothing to
+        // reshuffle, since repeat all already alternates them, and below three the reshuffle used
+        // to let go of the playing song: half the time it made the other one current, and loading
+        // that cut the new song off after 200 ms and started the other one again.
+        if (player.mediaItemCount > 2 &&
+            player.currentMediaItemIndex == player.mediaItemCount - 1 &&
             (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == MEDIA_ITEM_TRANSITION_REASON_SEEK) &&
             player.shuffleModeEnabled && player.repeatMode == REPEAT_MODE_ALL
         ) {
             scope.launch(SilentHandler) {
                 // or else race condition: Assertions.checkArgument(eventTime.realtimeMs >= currentPlaybackStateStartTimeMs) fails in updatePlaybackState()
                 delay(200)
-                queueBoard.shuffleCurrent(player.mediaItemCount > 2)
+                queueBoard.shuffleCurrent()
                 queueBoard.setCurrQueue()
             }
         }

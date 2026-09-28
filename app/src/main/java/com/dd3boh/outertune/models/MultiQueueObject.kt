@@ -147,6 +147,59 @@ data class MultiQueueObject(
     }
 
     /**
+     * The place in play order straight after the current song, which is where Play next inserts.
+     *
+     * [playerIndex] is the player's currentMediaItemIndex, or null while the player holds nothing.
+     * After a restart the saved queue only goes into the player on play, and an empty player
+     * reports index 0 whatever song the queue is on, so going by it put the songs behind the
+     * queue's first song instead of after the restored one. This queue's own position is the one
+     * to go by then.
+     */
+    fun playNextIndex(playerIndex: Int?): Int = (playerIndex ?: getQueuePosShuffled()) + 1
+
+    /**
+     * Inserts [songs] at [index] in play order (the shuffled play order when [shuffled], the
+     * stored order otherwise), and keeps [queuePos] naming the same current song. An index past
+     * the end appends. The queue gets copies of [songs], each with its own uid.
+     */
+    fun insertAtPlayIndex(index: Int, songs: List<MediaMetadata>) {
+        val listPos = index.coerceIn(0, getSize())
+
+        // Copies, because a caller can hand back songs this queue already holds: Play next on songs
+        // selected in the queue sheet before play, or Add to queue on the song playing, with this
+        // queue chosen. The same object then sat in the queue twice. Numbering it for its new place
+        // moved the song rather than adding it again in a shuffled queue, and the queue sheet, which
+        // keys its rows on the song, closed the app on two rows with the same key.
+        val added = songs.map { it.copy(composeUidWorkaround = Math.random()) }
+
+        // Everything from that place on in play order moves along to make room.
+        if (shuffled) {
+            val songsAfter = getCurrentQueueShuffled()
+            songsAfter.subList(listPos, songsAfter.size).forEach {
+                it.shuffleIndex += added.size
+            }
+        }
+
+        added.fastForEachIndexed { i, s -> s.shuffleIndex = listPos + i }
+
+        if (shuffled) {
+            // A shuffled queue keeps new songs at the end of its stored order and places them in
+            // play order through shuffleIndex alone, so the current song keeps its stored index
+            // and queuePos still names it. queuePos used to be moved on as well, by the number of
+            // songs added, on top of the shift the current song's shuffleIndex had just had. That
+            // named a song further down the play order, and when no song held the doubled index
+            // the lookup threw and the app closed.
+            queue.addAll(added)
+        } else {
+            queue.addAll(listPos, added)
+            // Inserting at or before the current song pushes it along the stored order.
+            if (getQueuePosShuffled() >= listPos) {
+                queuePos += added.size
+            }
+        }
+    }
+
+    /**
      * Removes the song at [index] in play order (the shuffled play order when [shuffled], the
      * stored order otherwise), and keeps [queuePos] naming the same current song afterward.
      *

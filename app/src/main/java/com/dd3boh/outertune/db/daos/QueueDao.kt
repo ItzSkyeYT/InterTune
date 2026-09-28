@@ -120,9 +120,12 @@ interface QueueDao {
     // Synchronous on purpose: saveQueueToDisk runs this at teardown and must not return before
     // every row has landed, and @Transaction only covers work done in this body. Both callers are
     // off the main thread (saveQueueToDisk on IO, QueueBoard's saves on its IO scope).
+    //
+    // mqs has to be a list that nothing changes while this runs, such as the copy QueueBoard takes
+    // on the player's thread (queuesToSave). Copying it here instead, on IO, is itself a walk over
+    // the list, and that walk is where the ConcurrentModificationException came from.
     @Transaction
     fun updateAllQueues(mqs: List<MultiQueueObject>) {
-        val mqs = mqs.toList() // please no more ConcurrentModificationException I beg you
         mqs.forEachIndexed { index, q -> q.index = index }
         nukeAliens(mqs.map { it.id })
         mqs.forEach { updateQueue(it) }
