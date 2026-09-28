@@ -201,9 +201,13 @@ fun UpdateSettings(
                         val result = updateChecker.check(force = true)
                         checking = false
                         if (result == null) {
+                            // A null result means nothing new only when the check got an answer.
                             Toast.makeText(
                                 context,
-                                context.getString(R.string.no_updates_available),
+                                context.getString(
+                                    if (updateChecker.lastCheckFailed.value) R.string.update_check_failed
+                                    else R.string.no_updates_available
+                                ),
                                 Toast.LENGTH_SHORT
                             ).show()
                         }

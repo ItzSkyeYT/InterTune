@@ -147,6 +147,7 @@
     <string name="playlist_missing_note">Playlists manquantes ? Cliquez ici pour activer la synchronisation en lecture/écriture dans les paramètres.</string>
     <string name="checking_for_update">Vérification des mises à jour</string>
     <string name="no_updates_available">Aucune mise à jour disponible</string>
+    <string name="update_check_failed">Impossible de vérifier les mises à jour</string>
     <string name="check_for_update">Vérifier les mises à jour</string>
     <string name="grp_behavior">Comportement</string>
     <string name="library_empty">Le contenu de votre bibliothèque s\'affichera ici</string>
