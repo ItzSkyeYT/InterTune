@@ -938,7 +938,11 @@
         <item quantity="many">Score de Brier %1$.3f sur %2$d cartes (0 est parfait, 0,25 revient au hasard). Par probabilité prédite :</item>
         <item quantity="other">Score de Brier %1$.3f sur %2$d cartes (0 est parfait, 0,25 revient au hasard). Par probabilité prédite :</item>
     </plurals>
-    <string name="recommendations_calibration_bucket">%1$.0f%% à %2$.0f%% : %3$d cartes, %4$.0f%% écoutées</string>
+    <plurals name="recommendations_calibration_bucket">
+        <item quantity="one">%1$.0f%% à %2$.0f%% : %3$d carte, %4$.0f%% écoutée</item>
+        <item quantity="many">%1$.0f%% à %2$.0f%% : %3$d cartes, %4$.0f%% écoutées</item>
+        <item quantity="other">%1$.0f%% à %2$.0f%% : %3$d cartes, %4$.0f%% écoutées</item>
+    </plurals>
     <plurals name="recommendations_weights">
         <item quantity="one">Ce qu\'il a appris, après %1$d mise à jour</item>
         <item quantity="many">Ce qu\'il a appris, après %1$d mises à jour</item>

@@ -339,15 +339,19 @@ fun RecommendationsSettings(
         )
         val pairs = calibration.map { it.p.toDouble() to it.y.toDouble() }
         val brier = Calibration.brier(pairs)
-        val calibrationBucketLine = stringResource(R.string.recommendations_calibration_bucket)
         ExplainedPreference(
             title = stringResource(R.string.recommendations_brier),
             explanation = stringResource(R.string.recommendations_brier_info),
             description = if (brier.isNaN()) stringResource(R.string.recommendations_nothing_yet)
                 else pluralStringResource(R.plurals.recommendations_brier_description, pairs.size, brier, pairs.size) + "\n" +
-                    Calibration.reliability(pairs).filter { it.count > 0 }.joinToString("\n") { b ->
-                        String.format(calibrationBucketLine, b.lo * 100, b.hi * 100, b.count, b.playRate * 100)
-                    },
+                    // map, not the joinToString below it directly: map is inline and can call a
+                    // composable function, joinToString's own lambda cannot.
+                    Calibration.reliability(pairs).filter { it.count > 0 }.map { b ->
+                        pluralStringResource(
+                            R.plurals.recommendations_calibration_bucket, b.count,
+                            b.lo * 100, b.hi * 100, b.count, b.playRate * 100
+                        )
+                    }.joinToString("\n"),
         )
         val weightNames = mapOf(
             "x_act" to stringResource(R.string.weight_act), "x_sat" to stringResource(R.string.weight_sat), "x_gap" to stringResource(R.string.weight_gap),

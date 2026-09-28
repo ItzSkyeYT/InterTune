@@ -1007,7 +1007,10 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">Brier score %1$.3f over %2$d card (0 is perfect, 0.25 is guessing). By predicted chance:</item>
         <item quantity="other">Brier score %1$.3f over %2$d cards (0 is perfect, 0.25 is guessing). By predicted chance:</item>
     </plurals>
-    <string name="recommendations_calibration_bucket">%1$.0f%% to %2$.0f%%: %3$d cards, %4$.0f%% played</string>
+    <plurals name="recommendations_calibration_bucket">
+        <item quantity="one">%1$.0f%% to %2$.0f%%: %3$d card, %4$.0f%% played</item>
+        <item quantity="other">%1$.0f%% to %2$.0f%%: %3$d cards, %4$.0f%% played</item>
+    </plurals>
     <plurals name="recommendations_weights">
         <item quantity="one">What it has learned, after %1$d update</item>
         <item quantity="other">What it has learned, after %1$d updates</item>
