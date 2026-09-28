@@ -1003,6 +1003,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_row_shadow">Best recommendations, unseen</string>
     <string name="recommendations_brier">How well it predicts</string>
     <string name="recommendations_brier_description">Brier score %1$.3f over %2$d cards (0 is perfect, 0.25 is guessing). By predicted chance:</string>
+    <string name="recommendations_calibration_bucket">%1$.0f%% to %2$.0f%%: %3$d cards, %4$.0f%% played</string>
     <plurals name="recommendations_weights">
         <item quantity="one">What it has learned, after %1$d update</item>
         <item quantity="other">What it has learned, after %1$d updates</item>
