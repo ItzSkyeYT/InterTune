@@ -23,6 +23,7 @@ object CastLinks {
         return when (device.protocol) {
             CastProtocol.FCAST -> FCastLink(device, scope, sender, sockets)
             CastProtocol.DLNA -> DlnaLink(device, scope, LanHttp(sockets))
+            CastProtocol.CHROMECAST -> ChromecastLink(device, scope, sockets, userAgent = "${sender.appName}/${sender.appVersion}")
         }
     }
 }

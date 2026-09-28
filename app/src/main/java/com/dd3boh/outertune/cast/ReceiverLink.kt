@@ -10,15 +10,16 @@ import kotlinx.coroutines.flow.StateFlow
 import java.io.IOException
 
 /** The kinds of receiver casting talks to, in the order they were built. */
-enum class CastProtocol { FCAST, DLNA }
+enum class CastProtocol { FCAST, DLNA, CHROMECAST }
 
 /**
  * A receiver, found on the network or typed in by address.
  *
  * [id] stays the same from one search to the next, so a list that refreshes while it is open does
- * not jump about: the FCast service name, or a DLNA device's UDN. [host] and [port] are where the
- * link connects: an FCast receiver's TCP port, or for DLNA the host of [location], the device
- * description that says where its services are.
+ * not jump about: the FCast service name, a DLNA device's UDN, or a Chromecast's own id. [host] and
+ * [port] are where the link connects: an FCast receiver's TCP port, a Chromecast's TLS port (8009,
+ * or another for a speaker group), or for DLNA the host of [location], the device description that
+ * says where its services are.
  */
 data class CastDevice(
     val protocol: CastProtocol,
@@ -141,7 +142,7 @@ data class LinkCaps(
 )
 
 /**
- * One connection to one receiver, whatever its protocol: FCastLink or DlnaLink.
+ * One connection to one receiver, whatever its protocol: FCastLink, DlnaLink or ChromecastLink.
  *
  * The remote player drives it and watches [status]; it knows nothing of queues, which stay the
  * app's. Every call blocks on the network, so they suspend, and each throws an [IOException] with

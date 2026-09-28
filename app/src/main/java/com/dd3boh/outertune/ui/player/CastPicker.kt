@@ -50,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -220,9 +221,7 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
                 ListItem(
                     headlineContent = { Text(device.name) },
                     supportingContent = { Text(describe(device)) },
-                    leadingContent = {
-                        Icon(if (device.protocol == CastProtocol.FCAST) Icons.Rounded.Tv else Icons.Rounded.Speaker, contentDescription = null)
-                    },
+                    leadingContent = { Icon(iconOf(device), contentDescription = null) },
                     trailingContent = if (casting != null && isCurrent) {
                         { Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                     } else null,
@@ -272,6 +271,14 @@ private fun describe(device: CastDevice): String {
     val kind = when (device.protocol) {
         CastProtocol.FCAST -> device.model ?: "FCast"
         CastProtocol.DLNA -> listOfNotNull("DLNA", device.model).joinToString(", ")
+        // A Chromecast's model is often just "Chromecast", which needs saying only once.
+        CastProtocol.CHROMECAST -> listOfNotNull("Chromecast", device.model?.takeIf { !it.equals("Chromecast", ignoreCase = true) }).joinToString(", ")
     }
     return "$kind, ${device.host}"
+}
+
+/** A screen for FCast receivers and Chromecasts, a speaker for DLNA renderers. */
+private fun iconOf(device: CastDevice): ImageVector = when (device.protocol) {
+    CastProtocol.FCAST, CastProtocol.CHROMECAST -> Icons.Rounded.Tv
+    CastProtocol.DLNA -> Icons.Rounded.Speaker
 }
