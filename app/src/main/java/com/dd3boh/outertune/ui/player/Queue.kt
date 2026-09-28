@@ -1341,6 +1341,7 @@ fun BoxScope.QueueContent(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .align(Alignment.Center),
+                                enabled = !detachedHead,
                                 onClick = {
                                     playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
                                 }
@@ -1380,6 +1381,7 @@ fun BoxScope.QueueContent(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .align(Alignment.Center),
+                                enabled = !detachedHead,
                                 onClick = {
                                     playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
                                 }
