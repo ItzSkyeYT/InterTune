@@ -98,6 +98,14 @@ class WidgetSnapshotTest {
     }
 
     @Test
+    fun `recent stays put while listen history is paused, and records again once it is not`() {
+        val played = song.copy(id = "new1", title = "New Song")
+        val old = listOf(song.copy(id = "old1"))
+        assertEquals(old, nextRecent(old, played, paused = true, maxPicks = 6))
+        assertEquals(listOf(played) + old, nextRecent(old, played, paused = false, maxPicks = 6))
+    }
+
+    @Test
     fun `a flat widget keeps a small cover until it is too flat for one`() {
         assertTrue(WidgetLayout.plan(400, 60, WidgetSettings(), 6).cover > 0)
         assertEquals(0, WidgetLayout.plan(400, 40, WidgetSettings(), 6).cover)

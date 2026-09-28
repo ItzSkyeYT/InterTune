@@ -20,11 +20,14 @@ import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
+import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.ui.theme.extractThemeColor
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.utils.LocalArtworkPath
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -191,10 +194,17 @@ object WidgetStore {
                 // Recently played is kept here rather than queried: the song that just started is
                 // the newest there is, and the widget should not have to ask the database to know it.
                 // The small picture is for a widget too, and cost a fetch, an encode and a write on
-                // every new song for everyone else.
-                val recent = (listOf(now.copy(artPath = if (widgets) pickArt(context, now) else now.artPath)) + old.recent)
-                    .distinctBy { it.id }
-                    .take(WidgetLayout.MAX_PICKS)
+                // every new song for everyone else. Pause listen history says the app keeps no
+                // record of what plays; the widget's own list is a record too, so it stops as well
+                // while that is on, and so does fetching a picture for a row nextRecent would only
+                // throw away unused.
+                val paused = context.dataStore.get(PauseListenHistoryKey, false)
+                val recent = nextRecent(
+                    old.recent,
+                    now.copy(artPath = if (widgets && !paused) pickArt(context, now) else now.artPath),
+                    paused = paused,
+                    maxPicks = WidgetLayout.MAX_PICKS,
+                )
                 write(context, old.copy(nowPlaying = now, isPlaying = isPlaying, recent = recent, updatedAt = System.currentTimeMillis()))
             }
             prune(context, read(context))
@@ -383,3 +393,12 @@ internal fun <B> coversFor(snapshot: WidgetSnapshot, old: Map<String, B>, decode
     val nowCover = snapshot.nowPlaying?.let { decode(it.artPath) }
     return art to nowCover
 }
+
+/**
+ * The Recently played list after a song starts, honouring Pause listen history: unchanged while
+ * paused, so the widget keeps no record either, otherwise the song prepended, deduplicated by id
+ * and capped the way it always was.
+ */
+internal fun nextRecent(old: List<WidgetSong>, played: WidgetSong, paused: Boolean, maxPicks: Int): List<WidgetSong> =
+    if (paused) old
+    else (listOf(played) + old).distinctBy { it.id }.take(maxPicks)
