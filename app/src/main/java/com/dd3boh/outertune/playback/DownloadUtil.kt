@@ -234,6 +234,14 @@ class DownloadUtil @Inject constructor(
         }
     val downloads = MutableStateFlow<Map<String, LocalDateTime>>(emptyMap())
 
+    /**
+     * ids whose entry in [downloads] the download listener or deleteSong has changed since a
+     * rescan last merged them. A rescan keeps the live value for these instead of its snapshot's.
+     * Concurrent, because media3 calls the listener on its own threads and deleteSong runs on
+     * dlCoroutine.
+     */
+    private val scanTouchedIds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
     var localMgr = DownloadDirectoryManagerOt(
         context,
         context.dataStore.get(DownloadPathKey, "").toUri(),
@@ -655,6 +663,10 @@ class DownloadUtil @Inject constructor(
         CoroutineScope(dlCoroutine).launch {
             val deleted = localMgr.deleteFile(id)
             if (!deleted) return@launch
+            // Recorded before the map update, so a rescan walking the folder concurrently (which
+            // may still list the file this just deleted, or may already have missed it) keeps
+            // this removal instead of the merge putting the song back from its snapshot.
+            scanTouchedIds.add(id)
             downloads.update { map ->
                 map.toMutableMap().apply {
                     remove(id)
@@ -841,7 +853,13 @@ class DownloadUtil @Inject constructor(
         }
         inFlight.forEach { (id, state) -> result.putIfAbsent(id, state) }
 
-        downloads.value = result
+        // The walk above takes a few seconds on a folder with enough files, and the listener goes
+        // on writing to `downloads` the whole time (a download finishing or being removed). A
+        // plain `downloads.value = result` used to throw all of that away with this stale
+        // snapshot, so a song finishing mid-walk dropped out until the next launch, and one
+        // removed mid-walk (Clear all downloads included) came back with its old date. Every id
+        // the listener or deleteSong touched keeps its live value instead of the snapshot's.
+        applyRescanResult(downloads, result, scanTouchedIds)
         isProcessingDownloads.value = false
         Log.i(TAG, "-rescanDownloads()")
     }
@@ -948,6 +966,9 @@ class DownloadUtil @Inject constructor(
                         LikedCatchUp.afterUpdate(it, batch, download.request.id, download.state)
                     }
 
+                    // Before the map changes, so a rescan merging at the same moment keeps this
+                    // value. See scanTouchedIds.
+                    scanTouchedIds.add(download.request.id)
                     downloads.update { map ->
                         map.toMutableMap().apply {
                             val state = stateToLocalDateTime(download)
@@ -1025,4 +1046,44 @@ private fun AudioQuality.upgradeRank() = when (this) {
 fun isStaleQualityTier(storedTier: String?, current: AudioQuality): Boolean {
     val stored = storedTier?.let { runCatching { AudioQuality.valueOf(it) }.getOrNull() } ?: return false
     return current.upgradeRank() > stored.upgradeRank()
+}
+
+/**
+ * What a rescan writes to the live downloads map: [snapshot], the result of the folder walk and
+ * database read, except for [touchedIds], which keep whatever [live] (the map as the download
+ * listener and deleteSong have been updating it in the meantime) has for them right now, gone
+ * entirely if they removed them. A plain function of three maps, so the merge is tested without a walk,
+ * a listener or a StateFlow.
+ */
+fun mergeRescanResult(
+    snapshot: Map<String, LocalDateTime>,
+    live: Map<String, LocalDateTime>,
+    touchedIds: Set<String>
+): Map<String, LocalDateTime> {
+    val merged = snapshot.toMutableMap()
+    for (id in touchedIds) {
+        val liveValue = live[id]
+        if (liveValue != null) merged[id] = liveValue else merged.remove(id)
+    }
+    return merged
+}
+
+/**
+ * Writes a rescan's [snapshot] to [downloads] through mergeRescanResult, reading [touched] inside
+ * the update. The listener and deleteSong add an id before they change the map, so a change racing
+ * this merge either makes the update retry, and the retry reads the id, or lands on the merged
+ * map. Only the ids the winning attempt merged are retired; one added later waits for the next
+ * rescan.
+ */
+fun applyRescanResult(
+    downloads: MutableStateFlow<Map<String, LocalDateTime>>,
+    snapshot: Map<String, LocalDateTime>,
+    touched: MutableSet<String>
+) {
+    var used = emptySet<String>()
+    downloads.update { live ->
+        used = touched.toSet()
+        mergeRescanResult(snapshot, live, used)
+    }
+    touched.removeAll(used)
 }
