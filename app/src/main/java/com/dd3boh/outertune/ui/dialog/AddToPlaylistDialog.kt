@@ -40,6 +40,8 @@ import com.dd3boh.outertune.constants.PlaylistSortType
 import com.dd3boh.outertune.constants.PlaylistSortTypeKey
 import com.dd3boh.outertune.constants.SyncMode
 import com.dd3boh.outertune.constants.YtmSyncModeKey
+import com.dd3boh.outertune.db.daos.playlistDuplicatesChunked
+import com.dd3boh.outertune.db.daos.playlistIdBySongsChunked
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.ui.component.SortHeader
 import com.dd3boh.outertune.ui.component.items.ListItem
@@ -49,7 +51,6 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
@@ -94,7 +95,7 @@ fun AddToPlaylistDialog(
         mutableStateOf<List<String>?>(songIds) // list is not saveable
     }
     var playlistIdsSongParticipation by remember {
-        mutableStateOf<List<String>?>(null)
+        mutableStateOf<Set<String>?>(null)
     }
     var duplicates by remember {
         mutableStateOf(emptyList<String>())
@@ -115,7 +116,7 @@ fun AddToPlaylistDialog(
     LaunchedEffect(playlists, songIds) {
         coroutineScope.launch(Dispatchers.IO) {
             songIds?.let { s ->
-                playlistIdsSongParticipation = database.playlistIdBySongs(s).first()
+                playlistIdsSongParticipation = database.playlistIdBySongsChunked(s)
             }
         }
     }
@@ -197,7 +198,7 @@ fun AddToPlaylistDialog(
                                 songIds = result
                             }
                         }
-                        duplicates = database.playlistDuplicates(playlist.id, songIds!!)
+                        duplicates = database.playlistDuplicatesChunked(playlist.id, songIds!!)
                         if (duplicates.isNotEmpty()) {
                             showDuplicateDialog = true
                         } else {

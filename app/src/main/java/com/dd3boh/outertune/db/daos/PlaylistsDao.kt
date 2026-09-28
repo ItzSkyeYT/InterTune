@@ -21,6 +21,7 @@ import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.extensions.reversed
 import com.zionhuang.innertube.models.PlaylistItem
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 
@@ -263,3 +264,40 @@ interface PlaylistsDao {
     fun delete(playlistSongMap: PlaylistSongMap)
     // endregion
 }
+
+/** Ids in groups of at most [chunkSize], so a query below never binds more than that many. */
+fun chunkSongIds(songIds: List<String>, chunkSize: Int = 900): List<List<String>> = songIds.chunked(chunkSize)
+
+/**
+ * Runs [query] once per chunk of [ids] and unions the results, deduplicated. For a query whose
+ * result should be a set no matter which chunk a row's id happened to fall in, such as which
+ * playlists a big list of songs sits in.
+ */
+suspend fun <T> chunkedUnion(ids: List<String>, chunkSize: Int = 900, query: suspend (List<String>) -> List<T>): Set<T> =
+    chunkSongIds(ids, chunkSize).flatMap { chunk -> query(chunk) }.toSet()
+
+/**
+ * Runs [query] once per chunk of [ids] and concatenates the results in order. Chunks are cut by
+ * position, so this matches one query over all of [ids] only when [ids] has no repeats: an id in
+ * two chunks brings its rows back twice.
+ */
+suspend fun <T> chunkedConcat(ids: List<String>, chunkSize: Int = 900, query: suspend (List<String>) -> List<T>): List<T> =
+    chunkSongIds(ids, chunkSize).flatMap { chunk -> query(chunk) }
+
+/**
+ * [PlaylistsDao.playlistIdBySongs], for any number of songs. SQLite before Android 12 caps bound
+ * query arguments at 999 (SongsDao.songEntitiesByIds has the same note), which the add to playlist
+ * dialog could ask for at once from a big queue, folder, playlist or M3U import, crashing the
+ * dialog as soon as it opened.
+ */
+suspend fun PlaylistsDao.playlistIdBySongsChunked(songIds: List<String>, chunkSize: Int = 900): Set<String> =
+    chunkedUnion(songIds, chunkSize) { chunk -> playlistIdBySongs(chunk).first() }
+
+/**
+ * [PlaylistsDao.playlistDuplicates], for any number of songs, chunked the same way as
+ * [playlistIdBySongsChunked]. The ids go in distinct, so a song listed twice in what is being
+ * added is not counted twice when its copies land in different chunks. A song the playlist
+ * already holds twice still counts twice, as it does in one query.
+ */
+suspend fun PlaylistsDao.playlistDuplicatesChunked(playlistId: String, songIds: List<String>, chunkSize: Int = 900): List<String> =
+    chunkedConcat(songIds.distinct(), chunkSize) { chunk -> playlistDuplicates(playlistId, chunk) }
