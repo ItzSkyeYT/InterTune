@@ -726,10 +726,11 @@ class Migration17To18 : AutoMigrationSpec
 class Migration19To20 : AutoMigrationSpec
 
 /**
- * Runs LgAlbumRepair, inside the transaction the whole upgrade runs in: a failure leaves the
- * library at 24 as it was. It runs where the database is first opened, which at start is off the
- * main thread, as Room refuses queries there. A restore opens the backup to test it on the thread
- * it was called on, and runs this and every other step there.
+ * Runs LgAlbumRepair, inside the one transaction the whole upgrade runs in, every step from the
+ * version the library was at: a failure rolls all of them back and leaves it at that version, 21
+ * for anyone coming from 0.10.9.x, not at 24. It runs where the database is first opened, which at
+ * start is off the main thread, as Room refuses queries there. A restore opens the backup to test
+ * it on the thread it was called on, and runs this and every other step there.
  *
  * The connection overload rather than the SupportSQLiteDatabase one the older specs use: Room calls
  * this one on the phone, and MigrationFromReleasedTest calls it over JDBC, where the other is never
