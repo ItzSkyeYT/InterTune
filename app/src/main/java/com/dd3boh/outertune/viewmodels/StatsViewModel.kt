@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -56,10 +55,12 @@ class StatsViewModel @Inject constructor(
     // Counted from the play events over the period itself, as the songs above and the albums
     // below are, and not from the monthly play counts, which could only start at the first of a
     // month: 1 week was the month so far.
+    //
+    // The YouTube-artist filter lives in StatsSql.MOST_PLAYED_ARTISTS itself, applied before its
+    // LIMIT: filtering here, after the row is already cut to 6, would drop local artists and
+    // leave the row short, or empty, while more played YouTube artists sit outside that top 6.
     val mostPlayedArtists = statPeriod.flatMapLatest { period ->
-        database.mostPlayedArtistsSince(period.toTimeMillis()).map { artists ->
-            artists.filter { it.artist.isYouTubeArtist }
-        }
+        database.mostPlayedArtistsSince(period.toTimeMillis())
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
 
@@ -137,10 +138,11 @@ class StatsViewModel @Inject constructor(
         //
         // It reads the Room query itself because mostPlayedArtists is a StateFlow seeded with
         // an empty list, and right after the period changes it still holds the old period's
-        // artists. That list only has YouTube artists in it, so the same filter is applied
-        // here: a local artist has no page to fetch. Picking a period is a tap, not a write, so
-        // it makes one pass. Whatever fails this time, or has no picture on YouTube, is tried
-        // again when its period is picked again or the next time this view model is created.
+        // artists. The query itself keeps to YouTube artists, and the isYouTubeArtist check
+        // below is only a guard, since a local artist has no page to fetch. Picking a period is
+        // a tap, not a write, so it makes one pass. Whatever fails this time, or has no picture
+        // on YouTube, is tried again when its period is picked again or the next time this view
+        // model is created.
         viewModelScope.launch {
             statPeriod.collect { period ->
                 database.mostPlayedArtistsSince(period.toTimeMillis()).first()

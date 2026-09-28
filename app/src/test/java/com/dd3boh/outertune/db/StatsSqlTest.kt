@@ -180,11 +180,13 @@ class StatsSqlTest {
 
     @Test
     fun `most played artists count only the plays inside the period`() {
+        // YouTube-shaped ids: the row only holds artists with a page to open, so these
+        // fixtures need one to be counted at all (see the filter tests further down).
         val day = 24 * 60 * minute
-        song("this week", "weekly")
-        song("earlier this month", "monthly")
-        song("together", "main", "featured")
-        song("long ago", "gone")
+        song("this week", "UCweekly")
+        song("earlier this month", "UCmonthly")
+        song("together", "UCmain", "UCfeatured")
+        song("long ago", "UCgone")
         repeat(3) { event("this week", t - (it + 1) * day) }
         repeat(10) { event("earlier this month", t - 20 * day) }
         event("earlier this month", t - day)
@@ -193,20 +195,20 @@ class StatsSqlTest {
 
         // A week holds one of monthly's eleven plays, and gone, not played in it, does not fill a
         // place. Both artists of a song get its plays; alike in everything, they go by id.
-        assertEquals(listOf("weekly", "featured", "main", "monthly"), mostPlayedArtists(t - 7 * day))
+        assertEquals(listOf("UCweekly", "UCfeatured", "UCmain", "UCmonthly"), mostPlayedArtists(t - 7 * day))
         // All of it, and then only the top two.
-        assertEquals(listOf("monthly", "gone", "weekly", "featured", "main"), mostPlayedArtists(0))
-        assertEquals(listOf("monthly", "gone"), mostPlayedArtists(0, limit = 2))
+        assertEquals(listOf("UCmonthly", "UCgone", "UCweekly", "UCfeatured", "UCmain"), mostPlayedArtists(0))
+        assertEquals(listOf("UCmonthly", "UCgone"), mostPlayedArtists(0, limit = 2))
     }
 
     @Test
     fun `most played artists count every play, and under each the songs played and downloaded`() {
         val day = 24 * 60 * minute
-        song("saved, never played", "artist")
-        song("downloaded", "artist")
-        song("heard on the radio", "artist")
-        song("played last month", "artist")
-        song("radio only", "stranger")
+        song("saved, never played", "UCartist")
+        song("downloaded", "UCartist")
+        song("heard on the radio", "UCartist")
+        song("played last month", "UCartist")
+        song("radio only", "UCstranger")
         exec("UPDATE song SET inLibrary = $t WHERE id = 'saved, never played'")
         exec("UPDATE song SET dateDownload = $t WHERE id = 'downloaded'")
         event("downloaded", t)
@@ -220,15 +222,57 @@ class StatsSqlTest {
         val rows = query(StatsSql.MOST_PLAYED_ARTISTS, t - 7 * day, 6) { rs ->
             listOf(rs.getString("id"), rs.getLong("songCount"), rs.getLong("downloadCount"))
         }
-        assertEquals(listOf(listOf("stranger", 1L, 0L), listOf("artist", 2L, 1L)), rows)
+        assertEquals(listOf(listOf("UCstranger", 1L, 0L), listOf("UCartist", 2L, 1L)), rows)
     }
 
     @Test
     fun `the same number of plays goes to the artist listened to for longer`() {
-        song("long", "patient")
-        song("short", "hasty")
+        song("long", "UCpatient")
+        song("short", "UChasty")
         event("long", t, playTime = 5 * minute)
         event("short", t, playTime = minute)
-        assertEquals(listOf("patient", "hasty"), mostPlayedArtists(0))
+        assertEquals(listOf("UCpatient", "UChasty"), mostPlayedArtists(0))
+    }
+
+    /** A local artist's id, the shape ArtistEntity.generateArtistId() writes. */
+    private fun localArtistId(seed: String) = "LA$seed"
+
+    @Test
+    fun `a local artist never fills a place, even ahead of every YouTube artist`() {
+        song("local one", localArtistId("a"))
+        song("local two", localArtistId("b"))
+        song("youtube one", "UCyoutube")
+        event("local one", t, playTime = 10 * minute)
+        event("local two", t, playTime = 9 * minute)
+        event("youtube one", t, playTime = minute)
+        // The two local artists outplay the YouTube one by far, but only the YouTube artist has
+        // a page to show, so it is the only one that belongs in the row.
+        assertEquals(listOf("UCyoutube"), mostPlayedArtists(0))
+    }
+
+    @Test
+    fun `filtering out local artists does not shrink the row below the limit`() {
+        // Six local artists ahead of six YouTube ones: filtering after LIMIT 6 would leave the
+        // row empty, although six played YouTube artists exist.
+        repeat(6) { i ->
+            val id = localArtistId(i.toString())
+            song("local-$i", id)
+            event("local-$i", t, playTime = (100 - i) * minute)
+        }
+        repeat(6) { i ->
+            val id = "UC$i"
+            song("yt-$i", id)
+            event("yt-$i", t, playTime = (10 - i) * minute)
+        }
+        assertEquals(listOf("UC0", "UC1", "UC2", "UC3", "UC4", "UC5"), mostPlayedArtists(0))
+    }
+
+    @Test
+    fun `a privately owned library artist counts as a YouTube artist too`() {
+        song("owned", "FEmusic_library_privately_owned_artist_x")
+        song("local", localArtistId("z"))
+        event("owned", t, playTime = minute)
+        event("local", t, playTime = 5 * minute)
+        assertEquals(listOf("FEmusic_library_privately_owned_artist_x"), mostPlayedArtists(0))
     }
 }

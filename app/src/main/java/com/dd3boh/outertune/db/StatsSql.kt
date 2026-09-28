@@ -119,6 +119,12 @@ object StatsSql {
             ) AS e
                 CROSS JOIN song s ON s.id = e.songId
                 CROSS JOIN song_artist_map sam ON sam.songId = e.songId
+            -- Local artists have no YouTube page for the row to open, so they are dropped here,
+            -- before the LIMIT below picks the top artists: filtering them out afterwards could
+            -- turn a full row into a short or empty one while more played YouTube artists sit
+            -- just outside it. GLOB rather than LIKE matches ArtistEntity.isYouTubeArtist
+            -- exactly: it is case-sensitive and does not treat _ as a wildcard.
+            WHERE sam.artistId GLOB 'UC*' OR sam.artistId GLOB 'FEmusic_library_privately_owned_artist*'
             GROUP BY sam.artistId
             ORDER BY plays DESC, playTime DESC, sam.artistId
             LIMIT :limit
