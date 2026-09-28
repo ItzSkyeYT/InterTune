@@ -524,6 +524,14 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
+     * Whether Home can open without going to YouTube: only when Quick picks is the engine's row
+     * and a fresh build of it comes back from the database, so the row is the one that was left.
+     * The restore is kept, and the opening pass shows it without building.
+     */
+    private suspend fun opensAsLeft(): Boolean =
+        quickPicksSource() == QuickPicksSource.ENGINE && restoreEngineRow(System.currentTimeMillis()) != null
+
+    /**
      * With another source showing, the engine still builds its row in the background and keeps
      * it, unseen, so a day later How it's doing can say whether it would have held what was
      * played. Skipped while the last one is fresh, and on battery saver.
@@ -1411,8 +1419,14 @@ class HomeViewModel @Inject constructor(
     }
 
     init {
-        // Local only: show what was there. Anything from YouTube waits for a pull.
-        refresh(localOnly = true)
+        // Local only when the page can come back as it was left: the engine's row, restored fresh
+        // from the database, with anything from YouTube waiting for a pull. Every other Quick picks
+        // source lives in memory, and so does YouTube's feed, so after a cold start there is nothing
+        // to keep in place, and holding the fetch back only left the row and the feed empty until a
+        // pull. That was every start for most people updating, who keep YouTube as the source.
+        viewModelScope.launch(syncCoroutine) {
+            refresh(localOnly = opensAsLeft())
+        }
         viewModelScope.launch(syncCoroutine) {
             syncUtils.tryAutoSync()
         }

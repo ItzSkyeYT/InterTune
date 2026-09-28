@@ -87,7 +87,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 - **Favourite artists** beside Liked songs and Downloaded songs: a mix of the artists you have bookmarked, one song from each in turn, so one big catalogue cannot take it over.
 - Questions and news are fetched fresh after an update rather than taken from the copy the old version saved, and the check-now row and "Let me be asked again" cover news as well as questions.
 - If InterTune crashes, it offers to report it the next time it opens, with the error already filled in. Nothing is sent unless you choose to.
-- Home opens on what it last showed rather than fetching a new row every time.
+- With Best recommendations, Home opens on the row it last showed rather than a new one every time.
 
 ## Settings
 
