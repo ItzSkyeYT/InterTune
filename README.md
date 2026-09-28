@@ -173,6 +173,8 @@ own submodules and the build fails without them. Flavours, signing and the rest 
  </picture>
 </a>
 
+### Thank You so much everyone for your support in this growing project!
+
 ## Credits
 
 [InnerTune](https://github.com/z-huang/InnerTune) by z-huang, forked into
