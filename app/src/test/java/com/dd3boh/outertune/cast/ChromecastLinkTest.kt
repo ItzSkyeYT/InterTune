@@ -720,6 +720,77 @@ class ChromecastLinkTest {
         assertEquals("Something else is playing on Test TV", link.await { it.state == ReceiverState.IDLE }.error)
     }
 
+    /** Waits until the link has read everything the fake sent before now: a ping it answers comes after. */
+    private fun FakeChromecast.pingPong() {
+        send(Chromecast.PLATFORM_RECEIVER, Chromecast.PLATFORM_SENDER, Chromecast.NS_HEARTBEAT, """{"type":"PING"}""")
+        next(Chromecast.NS_HEARTBEAT, "PONG")
+    }
+
+    @Test
+    fun `another sender loading before any song of ours takes the player over`() {
+        val (receiver, link) = connected()
+        receiver.next(Chromecast.NS_RECEIVER, "LAUNCH")
+        // Nothing of ours sent yet, as when a cast starts with an empty queue.
+        receiver.mediaStatus(1, "PLAYING", 0.0, contentId = "http://other/video.mp4")
+        receiver.pingPong()
+
+        link.close()
+        receiver.next(Chromecast.NS_CONNECTION, "CLOSE")
+        receiver.next(Chromecast.NS_CONNECTION, "CLOSE")
+        assertTrue(receiver.everything.none { it.type == "STOP" })
+    }
+
+    @Test
+    fun `another sender loading after our only song was refused takes the player over`() {
+        val (receiver, link) = connected()
+        receiver.answerLoads = false
+        runBlocking { link.load(song, 0, play = true) }
+        val load = receiver.next(Chromecast.NS_MEDIA, "LOAD")
+        receiver.sendMedia("""{"type":"LOAD_FAILED","requestId":${load.requestId}}""")
+        link.await { it.state == ReceiverState.FAILED }
+        receiver.mediaStatus(1, "PLAYING", 0.0, contentId = "http://other/video.mp4")
+        receiver.pingPong()
+        assertEquals(ReceiverState.FAILED, link.status.value.state)
+
+        link.close()
+        receiver.next(Chromecast.NS_CONNECTION, "CLOSE")
+        receiver.next(Chromecast.NS_CONNECTION, "CLOSE")
+        assertTrue(receiver.everything.none { it.type == "STOP" })
+    }
+
+    @Test
+    fun `our last load cancelled after a stop is taken over too`() {
+        val (receiver, link) = connected()
+        receiver.answerLoads = false
+        runBlocking { link.load(song, 0, play = true) }
+        val load = receiver.next(Chromecast.NS_MEDIA, "LOAD")
+        runBlocking { link.stop() }
+        receiver.sendMedia("""{"type":"LOAD_CANCELLED","requestId":${load.requestId}}""")
+        receiver.pingPong()
+
+        link.close()
+        receiver.next(Chromecast.NS_CONNECTION, "CLOSE")
+        receiver.next(Chromecast.NS_CONNECTION, "CLOSE")
+        assertTrue(receiver.everything.none { it.type == "STOP" })
+    }
+
+    @Test
+    fun `a session with no url while our stopped song awaits its answer is asked about, not taken over`() {
+        val (receiver, link) = connected()
+        receiver.answerLoads = false
+        runBlocking { link.load(song, 0, play = true) }
+        receiver.next(Chromecast.NS_MEDIA, "LOAD")
+        runBlocking { link.stop() }
+        receiver.mediaStatus(1, "PLAYING", 0.0)
+        val ask = receiver.next(Chromecast.NS_MEDIA, "GET_STATUS")
+        receiver.mediaStatus(1, "PLAYING", 0.1, contentId = song.url + "?load=1", requestId = ask.requestId)
+        assertEquals(1L, receiver.next(Chromecast.NS_MEDIA, "STOP").body.getValue("mediaSessionId").jsonPrimitive.long)
+
+        // Still our player, so closing stops it.
+        link.close()
+        assertEquals("session-1", receiver.next(Chromecast.NS_RECEIVER, "STOP").body.getValue("sessionId").jsonPrimitive.content)
+    }
+
     @Test
     fun `another app on the device ends the song, and the next song opens the player again`() {
         val (receiver, link) = connected()

@@ -143,6 +143,12 @@ class ChromecastLink(
 
         /** Stopped before its media session was known; it is stopped on the device once it is. */
         var stopWhenKnown = false
+
+        /** The device refused or cancelled the LOAD, so no media session of it is coming. */
+        var refused = false
+
+        /** Sent, and not answered yet: the device has neither named its media session nor refused it. */
+        val awaited: Boolean get() = requestId != 0 && mediaSessionId == null && !refused
     }
 
     /** One thing to say, worked out holding [stateLock] and said after letting go of it. */
@@ -684,16 +690,27 @@ class ChromecastLink(
         return false
     }
 
+    /** The song whose LOAD went out last, holding [stateLock]. */
+    private fun lastSent(): Loaded? = recent.lastOrNull { it.requestId != 0 }
+
+    /** That song, while the device has not answered its LOAD. Holding [stateLock]. */
+    private fun awaitedLoad(): Loaded? = lastSent()?.takeIf { it.awaited }
+
     /**
      * A media session that is none of our songs', holding [stateLock]. True when it may be ours
      * after all, reported without the url that would say so, and it did not answer our own asking.
      */
     private fun onOtherMedia(media: Chromecast.Media, requestId: Int): Boolean {
-        val loaded = current
-        // Until our song's session is known, another may be the one ours replaced, reported late.
-        if (loaded != null && loaded.mediaSessionId == null) return media.contentId == null && requestId != lastPlayerAsk
-        // Sessions are numbered in order, so a newer one than ours is somebody else's load.
-        if (newestSession > 0 && media.mediaSessionId > newestSession) {
+        // While our last LOAD is unanswered, another session may be the one it made, reported
+        // without its url, or the one it replaced, reported late. That holds for a song stopped
+        // before the answer too, which is still to be stopped once its session is known. A
+        // status that answers nothing (requestId 0) is not the answer to our asking, even
+        // before the link has asked anything.
+        if (awaitedLoad() != null) return media.contentId == null && (requestId == 0 || requestId != lastPlayerAsk)
+        // Sessions are numbered in order, so one newer than all of ours is somebody else's load.
+        // So is any session at all on a player where no song of ours has had one: none sent yet,
+        // or the only one refused.
+        if (media.mediaSessionId > newestSession) {
             takenOver = true
             songGone(takenOverReason())
         }
@@ -757,23 +774,25 @@ class ChromecastLink(
 
     /** A refusal, holding [stateLock]; true when the song's status should be asked for again. */
     private fun onMediaError(payload: Chromecast.Payload): Boolean {
-        val loaded = current
-        val aboutLoad = loaded != null && payload.requestId != 0 && payload.requestId == loaded.requestId
         val reason = Chromecast.reasonOf(payload.body)
         Log.i(TAG, "${device.name} said ${payload.type}${reason?.let { " ($it)" }.orEmpty()} to request ${payload.requestId}")
-        if (!aboutLoad) {
+        // The song whose LOAD this answers, if it does.
+        val song = recent.lastOrNull { payload.requestId != 0 && it.requestId == payload.requestId }
+        if (song == null) {
             // About a play, pause or seek: the session it named may be gone, and the status says.
             // Not about asking for the status itself, which would only be refused again.
             if (payload.requestId != 0 && payload.requestId == lastPlayerAsk) return false
             return payload.type != Chromecast.LOAD_FAILED && payload.type != Chromecast.LOAD_CANCELLED
         }
-        if (payload.type == Chromecast.LOAD_CANCELLED) {
-            // Our LOAD gave way to another one, and not one of ours, which would be current.
+        song.refused = true
+        if (payload.type == Chromecast.LOAD_CANCELLED && song === lastSent()) {
+            // Our last LOAD gave way to another one, and not one of ours, which would have gone
+            // after it. Stopped or not, the player is somebody else's now.
             takenOver = true
             songGone(takenOverReason())
             return false
         }
-        if (_status.value.state == ReceiverState.FAILED) return false
+        if (song !== current || _status.value.state == ReceiverState.FAILED) return false
         val message = "${device.name} could not play it" + (reason?.let { " ($it)" } ?: "")
         _status.update { it.copy(state = ReceiverState.FAILED, error = message, reportedAt = now()) }
         return false
