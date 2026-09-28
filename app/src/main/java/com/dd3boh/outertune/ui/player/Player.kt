@@ -1252,6 +1252,11 @@ fun BottomSheetPlayer(
                                 .align(Alignment.Center),
                             color = onBackgroundColor,
                             onClick = {
+                                // Cold start: the restored queue is only in the queue board until
+                                // something loads it into the player, same as Previous and Play above.
+                                if (playerConnection.player.currentMediaItem == null) {
+                                    playerConnection.service.queueBoard.setCurrQueue()
+                                }
                                 playerConnection.player.seekToNext()
                                 haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                             }
