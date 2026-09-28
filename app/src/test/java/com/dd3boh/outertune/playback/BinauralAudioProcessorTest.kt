@@ -8,6 +8,7 @@ package com.dd3boh.outertune.playback
 
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -667,6 +668,44 @@ class BinauralAudioProcessorTest {
                 worst < 3.0,
             )
         }
+    }
+
+    @Test
+    fun `changing stage width mid-stream rebuilds the correction, not just the gain`() {
+        // Settings writes stageWidthDegrees straight onto the running processor with no restart
+        // (MusicService.kt), and queueInput calls applyWidth every buffer. Configure at 30, run a
+        // buffer, move to 60 and run another, then compare what it renders with a processor
+        // configured at 60 from the start. After a flush both hold the same rings, history, speaker
+        // encoding and yaw, so the only thing that can still differ is what was built for the
+        // width: the tonal correction and the gain. They should match, not leave the new width
+        // heard through the inverse built for 30.
+        val moved = BinauralAudioProcessor().apply {
+            enabled = true
+            thirdOrder = false
+            stageWidthDegrees = 30f
+        }
+        moved.configure(stereoFloat())
+        moved.flush()
+        impulse(moved, 1f, 1f, 8)
+
+        moved.stageWidthDegrees = 60f
+        impulse(moved, 1f, 1f, 8)
+
+        val fresh = BinauralAudioProcessor().apply {
+            enabled = true
+            thirdOrder = false
+            stageWidthDegrees = 60f
+        }
+        fresh.configure(stereoFloat())
+        fresh.flush()
+        moved.flush()
+
+        // Off centre, so the harmonics driven by the difference between the channels are heard
+        // as well as those driven by the sum.
+        val heard = impulse(moved, 1f, 0.5f, 256)
+        val expected = impulse(fresh, 1f, 0.5f, 256)
+        assertArrayEquals("left ear, after moving to 60", expected.first, heard.first, 1e-6f)
+        assertArrayEquals("right ear, after moving to 60", expected.second, heard.second, 1e-6f)
     }
 
     @Test
