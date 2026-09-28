@@ -1320,6 +1320,15 @@ fun BottomSheetPlayer(
                 // system bars are hidden, and with no floor the artwork expands flush to the top
                 // edge and its rounded corners get clipped by the display.
                 val vPaddingDp = with(LocalDensity.current) { vPadding.toDp() }.coerceAtLeast(16.dp)
+
+                /**
+                 * How much bottom room the lyrics view must leave clear of the collapsed queue
+                 * sheet, same amount the controls column reserves below. The artwork does not
+                 * need this (see the Row comment above), but the lyrics view's close/more row
+                 * sits in the same bottom corner and was landing right under the queue's expand
+                 * arrow.
+                 */
+                val queueClearance = (queueReserve - vPaddingDp).coerceAtLeast(0.dp)
                 val verticalInsets = WindowInsets(left = 0.dp, top = vPaddingDp, right = 0.dp, bottom = vPaddingDp)
                 BoxWithConstraints(
                     modifier = Modifier
@@ -1354,7 +1363,8 @@ fun BottomSheetPlayer(
 //                                .width(horizontalLazyGridItemWidth)
                                     .animateContentSize(),
                                 showLyricsOnClick = true,
-                                customMediaMetadata = mediaMetadata
+                                customMediaMetadata = mediaMetadata,
+                                lyricsBottomPadding = queueClearance
                             )
                         } else {
                             SwipeableArtwork(
@@ -1371,7 +1381,8 @@ fun BottomSheetPlayer(
                                         .width(maxWidth)
                                         .animateContentSize(),
                                     showLyricsOnClick = true,
-                                    customMediaMetadata = it
+                                    customMediaMetadata = it,
+                                    lyricsBottomPadding = queueClearance
                                 )
                             }
                         }
@@ -1393,7 +1404,7 @@ fun BottomSheetPlayer(
                             // clear, so only the difference is taken here. Taking all of it again
                             // cost 16dp of a height that is only 384dp on a 1440p phone, and that
                             // was enough to crush the row of buttons under the controls.
-                            .padding(bottom = (queueReserve - vPaddingDp).coerceAtLeast(0.dp))
+                            .padding(bottom = queueClearance)
                     ) {
                         // Classic's buttons sit at the very top of the column rather than riding
                         // the centred block, so they line up with the top of the artwork.

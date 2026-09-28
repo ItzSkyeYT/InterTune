@@ -131,6 +131,28 @@ fun RecommendationsSettings(
     )
     val unknown = stringResource(R.string.unknown)
     fun endReasonLabel(code: Int) = endReasonLabels[code] ?: unknown
+    val originLabels = mapOf(
+        PlayOrigin.UNKNOWN to stringResource(R.string.recommendations_origin_unknown),
+        PlayOrigin.SEARCH to stringResource(R.string.recommendations_origin_search),
+        PlayOrigin.QUICK_PICKS to stringResource(R.string.recommendations_origin_quick_picks),
+        PlayOrigin.HOME_ROW to stringResource(R.string.recommendations_origin_home_row),
+        PlayOrigin.PLAYLIST to stringResource(R.string.recommendations_origin_playlist),
+        PlayOrigin.ALBUM to stringResource(R.string.recommendations_origin_album),
+        PlayOrigin.ARTIST to stringResource(R.string.recommendations_origin_artist),
+        PlayOrigin.LIBRARY to stringResource(R.string.recommendations_origin_library),
+        PlayOrigin.RADIO to stringResource(R.string.recommendations_origin_radio),
+        PlayOrigin.HISTORY to stringResource(R.string.recommendations_origin_history),
+        PlayOrigin.STATS to stringResource(R.string.recommendations_origin_stats),
+        PlayOrigin.QUEUE to stringResource(R.string.recommendations_origin_queue),
+        PlayOrigin.LOCAL_FILES to stringResource(R.string.recommendations_origin_local_files),
+        PlayOrigin.MENU to stringResource(R.string.recommendations_origin_menu),
+        PlayOrigin.RESUMED to stringResource(R.string.recommendations_origin_resumed),
+        PlayOrigin.EXTERNAL to stringResource(R.string.recommendations_origin_external),
+        PlayOrigin.RECOGNISED to stringResource(R.string.recommendations_origin_recognised),
+        PlayOrigin.WIDGET to stringResource(R.string.recommendations_origin_widget),
+        PlayOrigin.DISCOVER to stringResource(R.string.recommendations_origin_discover),
+    )
+    fun originLabel(code: Int) = originLabels[PlayOrigin.fromCode(code)] ?: unknown
 
     ColumnWithContentPadding(
         modifier = Modifier.fillMaxHeight(),
@@ -317,15 +339,19 @@ fun RecommendationsSettings(
         )
         val pairs = calibration.map { it.p.toDouble() to it.y.toDouble() }
         val brier = Calibration.brier(pairs)
-        val calibrationBucketLine = stringResource(R.string.recommendations_calibration_bucket)
         ExplainedPreference(
             title = stringResource(R.string.recommendations_brier),
             explanation = stringResource(R.string.recommendations_brier_info),
             description = if (brier.isNaN()) stringResource(R.string.recommendations_nothing_yet)
-                else stringResource(R.string.recommendations_brier_description, brier, pairs.size) + "\n" +
-                    Calibration.reliability(pairs).filter { it.count > 0 }.joinToString("\n") { b ->
-                        String.format(calibrationBucketLine, b.lo * 100, b.hi * 100, b.count, b.playRate * 100)
-                    },
+                else pluralStringResource(R.plurals.recommendations_brier_description, pairs.size, brier, pairs.size) + "\n" +
+                    // map, not the joinToString below it directly: map is inline and can call a
+                    // composable function, joinToString's own lambda cannot.
+                    Calibration.reliability(pairs).filter { it.count > 0 }.map { b ->
+                        pluralStringResource(
+                            R.plurals.recommendations_calibration_bucket, b.count,
+                            b.lo * 100, b.hi * 100, b.count, b.playRate * 100
+                        )
+                    }.joinToString("\n"),
         )
         val weightNames = mapOf(
             "x_act" to stringResource(R.string.weight_act), "x_sat" to stringResource(R.string.weight_sat), "x_gap" to stringResource(R.string.weight_gap),
@@ -443,7 +469,7 @@ fun RecommendationsSettings(
             ExplainedPreference(
                 title = stringResource(R.string.recommendations_where_from),
                 explanation = stringResource(R.string.recommendations_where_from_info),
-                description = byOrigin.joinToString(", ") { "${PlayOrigin.fromCode(it.code).name.lowercase().replace('_', ' ')} ${it.n}" }
+                description = byOrigin.joinToString(", ") { "${originLabel(it.code)} ${it.n}" }
                     .ifBlank { stringResource(R.string.recommendations_nothing_yet) },
             )
             ExplainedPreference(
@@ -474,13 +500,18 @@ fun RecommendationsSettings(
             }
             recent.forEach { row ->
                 val pct = if (row.ratio >= 0f) "${(row.ratio * 100).toInt()}%" else "?"
-                val origin = PlayOrigin.fromCode(row.origin).name.lowercase().replace('_', ' ') +
+                val origin = originLabel(row.origin) +
                         (if (row.originSlot >= 0) " #${row.originSlot + 1}" else "") +
-                        (if (row.autoplayDepth > 0) ", autoplay ${row.autoplayDepth}" else "")
+                        (if (row.autoplayDepth > 0)
+                            stringResource(R.string.recommendations_recent_autoplay, row.autoplayDepth)
+                        else "")
                 PreferenceEntry(
                     title = { Text(row.title) },
-                    description = "${endReasonLabel(row.endReason)} at $pct, ${row.playedMs / 1000}s, from $origin" +
-                            (if (row.counted) "" else ", not counted") +
+                    description = stringResource(
+                        R.string.recommendations_recent_line,
+                        endReasonLabel(row.endReason), pct, row.playedMs / 1000, origin
+                    ) +
+                            (if (row.counted) "" else stringResource(R.string.recommendations_recent_not_counted)) +
                             " · " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(row.endedAt)),
                     onClick = null,
                 )

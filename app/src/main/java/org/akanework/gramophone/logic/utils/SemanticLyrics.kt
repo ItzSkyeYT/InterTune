@@ -285,23 +285,34 @@ private sealed class SyntacticLrc {
                 out.add(InvalidText(""))
             if (out.isNotEmpty() && out.last() !is NewLine)
                 out.add(NewLine.SyntheticNewLine())
-            return out.let {
+            return out.let { tokens ->
                 // If there isn't a single sync point with timestamp over zero, that is probably not
                 // a valid .lrc file.
-                if (it.find {
+                if (tokens.find {
                         it is SyncPoint && it.timestamp > 0u
                                 || it is WordSyncPoint && it.timestamp > 0u
                     } == null)
-                // Recover only text information to make the most out of this damaged file.
-                    it.flatMap {
-                        when (it) {
-                            is InvalidText -> listOf(it)
-                            is SpeakerTag -> listOf(it)
-                            is LyricText -> listOf(InvalidText(it.text))
+                // Recover only text information to make the most out of this damaged file. A real
+                // newline directly after another real newline was a blank line in the source, the
+                // gap between verses, and is kept as empty lyric text so the caller still shows
+                // that gap. The tokenizer's own synthetic newlines (a trailing one, or one before
+                // [bg:) do not count towards this: the user never typed those.
+                    tokens.mapIndexed { index, token ->
+                        when (token) {
+                            is InvalidText -> listOf(token)
+                            is SpeakerTag -> listOf(token)
+                            is LyricText -> listOf(InvalidText(token.text))
+                            is NewLine.SyntheticNewLine -> listOf()
+                            is NewLine -> {
+                                val previous = tokens.getOrNull(index - 1)
+                                if (previous is NewLine && previous !is NewLine.SyntheticNewLine)
+                                    listOf(InvalidText(""))
+                                else listOf()
+                            }
                             else -> listOf()
                         }
-                    }
-                else it
+                    }.flatten()
+                else tokens
             }.let {
                 if (multiLineEnabled) {
                     val a = AtomicReference<String?>(null)
@@ -456,6 +467,18 @@ fun findBidirectionalBarriers(text: CharSequence): List<Pair<Int, Boolean>> {
 sealed class SemanticLyrics {
     abstract val unsyncedText: List<Pair<String, SpeakerEntity?>>
 
+    /**
+     * [unsyncedText]'s lines joined back into one block of text, one "\n" between each line and
+     * nothing else. joinToString's default separator is ", ", which would put a comma at the
+     * start of every line after the first.
+     *
+     * A blank entry (see [parseLrc]'s handling of blank source lines) joins in as an empty line,
+     * which is the point: it is what turns back into the gap between verses. Text that ends in a
+     * blank line therefore now ends with a trailing empty line too, rather than that line being
+     * silently absorbed.
+     */
+    fun joinedUnsyncedText(): String = unsyncedText.joinToString("\n") { it.first }
+
     data class UnsyncedLyrics(override val unsyncedText: List<Pair<String, SpeakerEntity?>>) : SemanticLyrics()
 
     data class SyncedLyrics(val text: List<LyricLine>) : SemanticLyrics() {
@@ -595,22 +618,39 @@ fun parseLrc(lyricText: String, trimEnabled: Boolean, multiLineEnabled: Boolean)
                         val endIndex = idx - endWhitespaceLength
                         if (startIndex == endIndex)
                             continue // word contained only whitespace
-                        val endInclusive = if (i + 1 < currentLine.size) {
-                            // If we have a next word (with sync point), use its sync
-                            // point minus 1ms as end point of this word
-                            currentLine[i + 1].first - 1uL
-                        } else if (lastWordSyncPoint != null &&
+                        // The next mark that actually comes later than this word's own,
+                        // not necessarily the very next entry: words can share a mark (two
+                        // sung together, or a dummy added only to preserve timing) and
+                        // those have nothing to skip past, so the search moves on to
+                        // whichever entry ahead is the first with a genuinely later one.
+                        val nextLaterMark = currentLine.subList(i + 1, currentLine.size)
+                            .firstOrNull { it.first > current.first }?.first
+                        val endInclusive = if (nextLaterMark != null) {
+                            // Use that later mark minus 1ms as this word's end point.
+                            nextLaterMark - 1uL
+                        } else if (i == currentLine.lastIndex && lastWordSyncPoint != null &&
                             lastWordSyncPoint > current.first
                         ) {
-                            // If we have a dedicated sync point just for the last word,
-                            // use it. Similar to dummy words but for the last word only
+                            // The line's own closing mark, only usable for the line's
+                            // actual last word: an earlier word with no later mark
+                            // anywhere ahead of it has nothing reliable to end on and
+                            // estimates instead, same as if there were no marks ahead at
+                            // all.
                             lastWordSyncPoint - 1uL // minus 1ms for consistency
                         } else {
                             // Estimate how long this word will take based on character
                             // to time ratio. To avoid this estimation, add a last word
                             // sync point to the line after the text :)
+                            //
+                            // The ratio is worked out arithmetically rather than with
+                            // ULongRange.count(): Iterable<T>.count() has no arithmetic
+                            // fast path for any of these ranges, so it steps through one
+                            // element at a time, and a bad word above (before this fix,
+                            // one with an underflowed, ~18 quintillion ms range) took long
+                            // enough doing that to look hung before finally throwing on
+                            // the Int it was counting into.
                             current.first + (wout.map {
-                                it.timeRange.count() /
+                                (it.timeRange.last - it.timeRange.first + 1uL).toFloat() /
                                         it.charRange.count().toFloat()
                             }.average().let {
                                 if (it.isNaN()) 100.0 else it
@@ -651,8 +691,11 @@ fun parseLrc(lyricText: String, trimEnabled: Boolean, multiLineEnabled: Boolean)
                     val start = if (currentLine.isNotEmpty()) currentLine.first().first
                     else lastWordSyncPoint ?: lastSyncPoint!!
                     // use last word sync point (even if last word was whitespace only or something)
-                    // if present as end time, otherwise we will fill it later.
-                    out.add(LyricLine(text, start, lastWordSyncPoint?.let { it - 1uL } ?: 0uL, words, speaker, false /* filled later */))
+                    // if present and actually later than the line's own start (an offset can
+                    // coerce it down to the same mark, or below, and then minus 1ms underflows
+                    // or lands before the start either way) as end time, otherwise we will fill
+                    // it in later.
+                    out.add(LyricLine(text, start, lastWordSyncPoint?.takeIf { it > start }?.let { it - 1uL } ?: 0uL, words, speaker, false /* filled later */))
                     compressed.forEach {
                         val diff = it - start
                         out.add(out.last().copy(start = it, words = words?.map {

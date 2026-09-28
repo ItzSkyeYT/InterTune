@@ -1003,8 +1003,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_held_line">%1$s: %2$d of %3$d plays, %4$.0f%%, over %5$d rows</string>
     <string name="recommendations_row_shadow">Best recommendations, unseen</string>
     <string name="recommendations_brier">How well it predicts</string>
-    <string name="recommendations_brier_description">Brier score %1$.3f over %2$d cards (0 is perfect, 0.25 is guessing). By predicted chance:</string>
-    <string name="recommendations_calibration_bucket">%1$.0f%% to %2$.0f%%: %3$d cards, %4$.0f%% played</string>
+    <plurals name="recommendations_brier_description">
+        <item quantity="one">Brier score %1$.3f over %2$d card (0 is perfect, 0.25 is guessing). By predicted chance:</item>
+        <item quantity="other">Brier score %1$.3f over %2$d cards (0 is perfect, 0.25 is guessing). By predicted chance:</item>
+    </plurals>
+    <plurals name="recommendations_calibration_bucket">
+        <item quantity="one">%1$.0f%% to %2$.0f%%: %3$d card, %4$.0f%% played</item>
+        <item quantity="other">%1$.0f%% to %2$.0f%%: %3$d cards, %4$.0f%% played</item>
+    </plurals>
     <plurals name="recommendations_weights">
         <item quantity="one">What it has learned, after %1$d update</item>
         <item quantity="other">What it has learned, after %1$d updates</item>
@@ -1038,6 +1044,28 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_skipped">skipped</string>
     <string name="recommendations_replaced">queue replaced</string>
     <string name="recommendations_stopped">stopped</string>
+    <string name="recommendations_recent_line">%1$s at %2$s, %3$ds, from %4$s</string>
+    <string name="recommendations_recent_autoplay">, autoplay %1$d</string>
+    <string name="recommendations_recent_not_counted">, not counted</string>
+    <string name="recommendations_origin_unknown">unknown</string>
+    <string name="recommendations_origin_search">search</string>
+    <string name="recommendations_origin_quick_picks">quick picks</string>
+    <string name="recommendations_origin_home_row">home row</string>
+    <string name="recommendations_origin_playlist">playlist</string>
+    <string name="recommendations_origin_album">album</string>
+    <string name="recommendations_origin_artist">artist</string>
+    <string name="recommendations_origin_library">library</string>
+    <string name="recommendations_origin_radio">radio</string>
+    <string name="recommendations_origin_history">history</string>
+    <string name="recommendations_origin_stats">stats</string>
+    <string name="recommendations_origin_queue">queue</string>
+    <string name="recommendations_origin_local_files">local files</string>
+    <string name="recommendations_origin_menu">menu</string>
+    <string name="recommendations_origin_resumed">resumed</string>
+    <string name="recommendations_origin_external">external</string>
+    <string name="recommendations_origin_recognised">recognised</string>
+    <string name="recommendations_origin_widget">widget</string>
+    <string name="recommendations_origin_discover">discover</string>
     <string name="audio_quality_max">Highest available</string>
     <string name="audio_quality_now">Playing now at</string>
     <string name="audio_quality_no_lossless">No lossless is offered here, so this takes the largest stream available.</string>

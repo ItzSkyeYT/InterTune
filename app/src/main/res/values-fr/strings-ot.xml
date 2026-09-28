@@ -933,8 +933,16 @@
     <string name="recommendations_held_line">%1$s : %2$d lectures sur %3$d, %4$.0f%%, en %5$d rangées</string>
     <string name="recommendations_row_shadow">Meilleures recommandations, non affichées</string>
     <string name="recommendations_brier">Qualité de ses prédictions</string>
-    <string name="recommendations_brier_description">Score de Brier %1$.3f sur %2$d cartes (0 est parfait, 0,25 revient au hasard). Par probabilité prédite :</string>
-    <string name="recommendations_calibration_bucket">%1$.0f%% à %2$.0f%% : %3$d cartes, %4$.0f%% écoutées</string>
+    <plurals name="recommendations_brier_description">
+        <item quantity="one">Score de Brier %1$.3f sur %2$d carte (0 est parfait, 0,25 revient au hasard). Par probabilité prédite :</item>
+        <item quantity="many">Score de Brier %1$.3f sur %2$d cartes (0 est parfait, 0,25 revient au hasard). Par probabilité prédite :</item>
+        <item quantity="other">Score de Brier %1$.3f sur %2$d cartes (0 est parfait, 0,25 revient au hasard). Par probabilité prédite :</item>
+    </plurals>
+    <plurals name="recommendations_calibration_bucket">
+        <item quantity="one">%1$.0f%% à %2$.0f%% : %3$d carte, %4$.0f%% écoutée</item>
+        <item quantity="many">%1$.0f%% à %2$.0f%% : %3$d cartes, %4$.0f%% écoutées</item>
+        <item quantity="other">%1$.0f%% à %2$.0f%% : %3$d cartes, %4$.0f%% écoutées</item>
+    </plurals>
     <plurals name="recommendations_weights">
         <item quantity="one">Ce qu\'il a appris, après %1$d mise à jour</item>
         <item quantity="many">Ce qu\'il a appris, après %1$d mises à jour</item>
@@ -969,6 +977,28 @@
     <string name="recommendations_skipped">passé</string>
     <string name="recommendations_replaced">file remplacée</string>
     <string name="recommendations_stopped">arrêté</string>
+    <string name="recommendations_recent_line">%1$s à %2$s, %3$d s, depuis %4$s</string>
+    <string name="recommendations_recent_autoplay">, lecture automatique %1$d</string>
+    <string name="recommendations_recent_not_counted">, non compté</string>
+    <string name="recommendations_origin_unknown">inconnu</string>
+    <string name="recommendations_origin_search">recherche</string>
+    <string name="recommendations_origin_quick_picks">Sélection Rapide</string>
+    <string name="recommendations_origin_home_row">rangée de l\'accueil</string>
+    <string name="recommendations_origin_playlist">playlist</string>
+    <string name="recommendations_origin_album">album</string>
+    <string name="recommendations_origin_artist">artiste</string>
+    <string name="recommendations_origin_library">bibliothèque</string>
+    <string name="recommendations_origin_radio">radio</string>
+    <string name="recommendations_origin_history">historique</string>
+    <string name="recommendations_origin_stats">statistiques</string>
+    <string name="recommendations_origin_queue">file d\'attente</string>
+    <string name="recommendations_origin_local_files">fichiers locaux</string>
+    <string name="recommendations_origin_menu">menu</string>
+    <string name="recommendations_origin_resumed">reprise</string>
+    <string name="recommendations_origin_external">externe</string>
+    <string name="recommendations_origin_recognised">identifié</string>
+    <string name="recommendations_origin_widget">widget</string>
+    <string name="recommendations_origin_discover">Découvrir du nouveau</string>
     <string name="audio_quality_max">La meilleure disponible</string>
     <string name="audio_quality_now">Qualité de lecture actuelle</string>
     <string name="audio_quality_no_lossless">Aucun flux sans perte n\'est proposé ici, donc ceci prend le plus gros flux disponible.</string>
