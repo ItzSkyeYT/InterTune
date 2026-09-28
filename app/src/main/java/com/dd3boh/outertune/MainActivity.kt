@@ -193,6 +193,8 @@ import com.dd3boh.outertune.ui.theme.extractThemeColor
 import com.dd3boh.outertune.ui.utils.appBarScrollBehavior
 import com.dd3boh.outertune.ui.utils.resetHeightOffset
 import com.dd3boh.outertune.utils.ActivityLauncherHelper
+import com.dd3boh.outertune.utils.InstallSource
+import com.dd3boh.outertune.utils.installSource
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.Scrobbler
@@ -731,11 +733,20 @@ class MainActivity : ComponentActivity() {
                 val snoozeUntil by rememberPreference(UpdateSnoozeUntilKey, defaultValue = 0L)
                 val installState by updateInstaller.state.collectAsState()
 
-                // Pre-fetch only when asked to, and only once per found update.
+                // Pre-fetch only when asked to, and only once per found update. Never on F-Droid:
+                // the switch that turns autoInstall on is hidden there, but the preference can
+                // still be true from before that install source was checked (an older build, a
+                // restored backup), and a GitHub apk downloaded to an F-Droid install can never be
+                // the one that gets installed.
+                val fromFdroid = remember { installSource() == InstallSource.F_DROID }
                 LaunchedEffect(pendingUpdate, autoInstall) {
                     val u = pendingUpdate
-                    if (u != null && autoInstall && !updateInstaller.isBusy &&
-                        installState is UpdateInstaller.State.Idle
+                    if (u != null && updatePrefetchOwed(
+                            autoInstall = autoInstall,
+                            fromFdroid = fromFdroid,
+                            installerBusy = updateInstaller.isBusy,
+                            installerIdle = installState is UpdateInstaller.State.Idle,
+                        )
                     ) {
                         updateInstaller.download(u.downloadUrl, u.sizeBytes)
                     }
@@ -1697,6 +1708,19 @@ internal fun searchToPlay(action: String?, hasData: Boolean, query: String?): St
 internal fun searchPlayRequest(query: String): MediaItem = MediaItem.Builder()
     .setRequestMetadata(MediaItem.RequestMetadata.Builder().setSearchQuery(query).build())
     .build()
+
+/**
+ * Whether a found update should be pre-fetched: only with auto-install on, only when nothing else
+ * is using the installer, and never on F-Droid. A GitHub apk downloaded there can never be the one
+ * that installs, and the preference can still read true from an older build or a restored backup
+ * even though its switch is hidden there.
+ */
+internal fun updatePrefetchOwed(
+    autoInstall: Boolean,
+    fromFdroid: Boolean,
+    installerBusy: Boolean,
+    installerIdle: Boolean,
+): Boolean = autoInstall && !fromFdroid && !installerBusy && installerIdle
 
 
 val LocalDatabase = staticCompositionLocalOf<MusicDatabase> { error("No database provided") }

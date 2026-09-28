@@ -32,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -82,6 +83,10 @@ fun UpdateOptInCard() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val updateChecker = LocalUpdateChecker.current
+    // One installSource() call for the whole card rather than one per recomposition: it is a
+    // PackageManager binder call that also logs each time, the same reasoning UpdatePrompt.kt and
+    // UpdateSettings.kt already use remember for.
+    val fromFdroid = remember { context.installSource() == InstallSource.F_DROID }
 
     // Nullable on purpose. null is "never asked", which is not "said no".
     val choice by rememberNullablePreference(UpdateCheckEnabledKey)
@@ -115,8 +120,7 @@ fun UpdateOptInCard() {
                     // to accept a GitHub updater on that reasoning is asking them to agree to
                     // something false.
                     text = stringResource(
-                        if (LocalContext.current.installSource() == InstallSource.F_DROID)
-                            R.string.oobe_update_check_description_fdroid
+                        if (fromFdroid) R.string.oobe_update_check_description_fdroid
                         else R.string.oobe_update_check_description
                     ),
                     style = MaterialTheme.typography.bodyMedium,
@@ -153,8 +157,11 @@ fun UpdateOptInCard() {
 
             // A dependent row rather than a card of its own, the same shape Settings > Updates
             // uses. Offering to download updates automatically to somebody who has just declined
-            // update checking is incoherent, so it only exists once they have said yes.
-            AnimatedVisibility(visible = answered) {
+            // update checking is incoherent, so it only exists once they have said yes. Hidden on
+            // F-Droid too, the same as Settings > Updates hides it there: F-Droid signs its own
+            // builds, so a GitHub apk downloaded here can never install, and Settings would offer
+            // no switch to turn it off again.
+            AnimatedVisibility(visible = answered && !fromFdroid) {
                 SwitchPreference(
                     title = { Text(stringResource(R.string.update_auto)) },
                     description = stringResource(R.string.oobe_update_auto_description),
