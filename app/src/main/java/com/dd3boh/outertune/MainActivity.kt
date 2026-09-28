@@ -253,6 +253,16 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 private val NavPopSpec = tween<IntOffset>(300, easing = FastOutSlowInEasing)
 
 /**
+ * Whether this activity was started for the intent it holds.
+ *
+ * False when it was recreated with saved state (a rotation or other configuration change, or a
+ * restore after process death), and when the task was relaunched from recents. Both of those hand
+ * back the task's original intent with its extras.
+ */
+internal fun freshLaunch(hadSavedInstanceState: Boolean, flags: Int): Boolean =
+    !hadSavedInstanceState && (flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
+
+/**
  * A song tapped on the home screen widget.
  *
  * The widget carries enough of the song in its intent to play it without a lookup, because the
@@ -454,9 +464,7 @@ class MainActivity : ComponentActivity() {
         // the task is reopened from recents, which starts it again with the shortcut's intent and
         // replayed the liked songs over whatever was playing (Android 11 and older, where Back
         // finishes the activity instead of keeping it).
-        if (savedInstanceState == null && intent?.action == ACTION_PLAY_LIKED &&
-            ((intent?.flags ?: 0) and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
-        ) {
+        if (intent?.action == ACTION_PLAY_LIKED && freshLaunch(savedInstanceState != null, intent?.flags ?: 0)) {
             playLikedWhenReady()
         }
         lifecycle.addObserver(controllerViewModel)
@@ -466,9 +474,8 @@ class MainActivity : ComponentActivity() {
         // A play-from-search request, once: not after a rotation or a restored process, and not
         // when the task is reopened from recents, which starts it again with the intent it was
         // first started with and would play an old request over whatever is playing now.
-        if (savedInstanceState == null) {
-            intent?.takeIf { (it.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0 }
-                ?.let(::handlePlayFromSearch)
+        if (freshLaunch(savedInstanceState != null, intent?.flags ?: 0)) {
+            intent?.let(::handlePlayFromSearch)
         }
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
@@ -556,8 +563,13 @@ class MainActivity : ComponentActivity() {
 
                 // A notification about a question opens the question. handleOpenPoll is called for
                 // the intent that started this, and again from onNewIntent when the app was already
-                // running, since Android delivers that to the existing instance instead.
-                handleOpenPoll(intent)
+                // running, since Android delivers that to the existing instance instead. Not for a
+                // task reopened from recents or an activity restored after process death: both hand
+                // back the original intent with the extra still in it, because handleOpenPoll's
+                // removeExtra only changed the old process's copy.
+                if (freshLaunch(savedInstanceState != null, intent?.flags ?: 0)) {
+                    handleOpenPoll(intent)
+                }
 
                 // Receives the outcome of an in-app install. Registered here rather than in the
                 // manifest because it is only meaningful while the app is alive to show it.
@@ -904,8 +916,7 @@ class MainActivity : ComponentActivity() {
                                 action = intent?.action,
                                 data = intent?.dataString,
                                 text = intent?.getStringExtra(Intent.EXTRA_TEXT),
-                                fromRecents = savedInstanceState != null ||
-                                        ((intent?.flags ?: 0) and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0,
+                                fromRecents = !freshLaunch(savedInstanceState != null, intent?.flags ?: 0),
                             )
                         )
                     }
