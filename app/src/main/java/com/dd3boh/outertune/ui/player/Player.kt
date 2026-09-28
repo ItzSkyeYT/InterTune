@@ -507,8 +507,17 @@ fun BottomSheetPlayer(
 
     // Nothing may move while the queue is on screen. The service does the re-planning on a
     // background thread and has no idea what is visible, so the screen tells it.
-    LaunchedEffect(queueSheetState.isExpanded) {
-        playerConnection.service.queueSheetOpen = queueSheetState.isExpanded
+    //
+    // queueSheetState stays expanded when the player sheet collapses or is dismissed over it, so
+    // the player's own state is part of the answer. The tablet's queue pane shows the same rows
+    // without ever expanding this sheet, so tabletTwoPane counts as the queue being on screen.
+    LaunchedEffect(queueSheetState.isExpanded, tabletTwoPane, state.isCollapsed, state.isDismissed) {
+        playerConnection.service.queueSheetOpen = computeQueueSheetOpen(
+            queueSheetExpanded = queueSheetState.isExpanded,
+            tabletTwoPane = tabletTwoPane,
+            playerCollapsed = state.isCollapsed,
+            playerDismissed = state.isDismissed,
+        )
     }
 
     DisposableEffect(Unit) {
@@ -564,21 +573,31 @@ fun BottomSheetPlayer(
     }
 
     /**
-     * Single owner of View.keepScreenOn.
+     * This composable's two reasons to keep the screen on, contributed to [KeepScreenOnController]
+     * rather than written to View.keepScreenOn directly. It is one boolean on one View, so two
+     * independent writers race: whichever disposes last wins and silently clears the other's
+     * request, which is exactly how a recognition listen elsewhere used to get its keep-awake
+     * cleared by an unrelated play/pause here. The holder ORs every owner's reasons together
+     * instead, and each owner only ever adds or removes its own.
      *
-     * It is one boolean on one View, so it cannot be written from two places: whichever effect
-     * disposes last wins and silently clears the other's request. [Thumbnail] used to own it for
-     * the lyrics view; that ownership moved here so lyrics and immersive landscape can be OR'd
-     * together instead of clobbering each other.
+     * The lyrics reason counts only while this player sheet is actually open (not collapsed or
+     * dismissed): showLyrics is a persisted preference that outlives the sheet, and without this
+     * gate it kept the screen on everywhere in the app, forever, once lyrics had ever been shown.
      *
-     * [isPlaying] is part of the condition on purpose. "Landscape holds the screen awake" is about
-     * watching playback, and a player left paused overnight in landscape would otherwise hold the
-     * screen on until the battery died. Lyrics keep it awake regardless, matching the old
-     * behaviour.
+     * [isPlaying] is part of the landscape condition on purpose. "Landscape holds the screen awake"
+     * is about watching playback, and a player left paused overnight in landscape would otherwise
+     * hold the screen on until the battery died. Lyrics keep it awake whether or not anything is
+     * playing.
      */
-    DisposableEffect(showLyrics, immersiveLandscape, isPlaying) {
-        currentView.keepScreenOn = showLyrics || (immersiveLandscape && isPlaying)
-        onDispose { currentView.keepScreenOn = false }
+    val lyricsKeepAwake = showLyrics && !state.isCollapsed && !state.isDismissed
+    val landscapeKeepAwake = immersiveLandscape && isPlaying
+    DisposableEffect(currentView, lyricsKeepAwake, landscapeKeepAwake) {
+        KeepScreenOnController.set(currentView, KeepScreenOnReason.LYRICS, lyricsKeepAwake)
+        KeepScreenOnController.set(currentView, KeepScreenOnReason.IMMERSIVE_LANDSCAPE, landscapeKeepAwake)
+        onDispose {
+            KeepScreenOnController.set(currentView, KeepScreenOnReason.LYRICS, false)
+            KeepScreenOnController.set(currentView, KeepScreenOnReason.IMMERSIVE_LANDSCAPE, false)
+        }
     }
 
 
@@ -1057,9 +1076,12 @@ fun BottomSheetPlayer(
                     },
                     onValueChangeFinished = {
                         sliderPosition?.let {
-                            if (restoredPosition != null && playerConnection.player.currentMediaItem == null) {
+                            if (playerConnection.player.currentMediaItem == null) {
                                 // Nothing is loaded yet, so there is nothing to seek: move where
-                                // the restored song will start instead.
+                                // the restored song will start instead, whether or not it already
+                                // had a saved point (restoredPosition is null when the process died
+                                // before ever pausing, since ResumePoint.afterTransition leaves the
+                                // saved position at TIME_UNSET for an ordinary song change).
                                 playerConnection.service.queueBoard.getCurrentQueue()?.lastSongPos = it
                                 playerConnection.restoredPosition.value = it
                             } else {
@@ -1252,6 +1274,11 @@ fun BottomSheetPlayer(
                                 .align(Alignment.Center),
                             color = onBackgroundColor,
                             onClick = {
+                                // Cold start: the restored queue is only in the queue board until
+                                // something loads it into the player, same as Previous and Play above.
+                                if (playerConnection.player.currentMediaItem == null) {
+                                    playerConnection.service.queueBoard.setCurrQueue()
+                                }
                                 playerConnection.player.seekToNext()
                                 haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                             }
@@ -1571,6 +1598,22 @@ internal fun landscapeControlsWidth(available: Dp, playButton: Dp, slots: Int, g
     val needed = LandscapeTransportSlot * slots + playButton + PlayButtonGap * 2 + gutter * 2
     return (available / 2).coerceAtLeast(needed).coerceAtMost(available * 0.62f)
 }
+
+/**
+ * Whether some queue list is genuinely on screen right now, i.e. whether the adaptive queue must
+ * hold what it has shown rather than replan it out from under somebody looking at it.
+ *
+ * True while the queue sheet is expanded, or while the tablet's permanent queue pane is showing
+ * (it has no sheet to expand), but never while the player itself is collapsed or dismissed: the
+ * queue sheet's own expanded state does not reset when the player sheet collapses under it, so
+ * without this the flag could get stuck true after the player closes.
+ */
+internal fun computeQueueSheetOpen(
+    queueSheetExpanded: Boolean,
+    tabletTwoPane: Boolean,
+    playerCollapsed: Boolean,
+    playerDismissed: Boolean,
+): Boolean = (queueSheetExpanded || tabletTwoPane) && !playerCollapsed && !playerDismissed
 
 /**
  * Lays the content out at its natural height, and when that is more than there is room for,

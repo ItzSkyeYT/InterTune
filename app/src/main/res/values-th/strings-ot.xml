@@ -138,7 +138,6 @@
     <string name="settings_look_and_feel_description">ธีมและสี แท็บด้านล่าง และท่าทางการปัด</string>
     <string name="settings_player_description">คุณภาพเสียง เอฟเฟกต์เสียง และลักษณะการเล่น</string>
     <string name="settings_lyrics_description">เนื้อเพลงดึงมาจากไหน และแสดงอย่างไร</string>
-    <string name="settings_storage_description">การดาวน์โหลด แคชใช้พื้นที่ได้เท่าใด และการสำรองข้อมูลคลังของคุณ</string>
     <string name="settings_privacy_description">แอปบันทึกอะไรเกี่ยวกับคุณ และส่งอะไรออกไป</string>
     <string name="settings_updates_description">ตรวจหาเวอร์ชันใหม่และติดตั้ง</string>
     <string name="settings_advanced_description">การบำรุงรักษาและตัวเลือกสำหรับนักพัฒนา</string>

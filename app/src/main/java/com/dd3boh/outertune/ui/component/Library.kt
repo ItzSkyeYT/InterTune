@@ -241,11 +241,7 @@ fun LibraryPlaylistListItem(
     modifier = modifier
         .fillMaxWidth()
         .clickable {
-            if (playlist.playlist.isEditable || playlist.playlist.isLocal || playlist.playlist.browseId == null || playlist.songCount != 0) {
-                navController.navigate("local_playlist/${playlist.id}")
-            } else {
-                navController.navigate("online_playlist/${playlist.playlist.browseId}")
-            }
+            navController.navigate(playlist.navigationRoute)
         }
 )
 
@@ -264,11 +260,7 @@ fun LibraryPlaylistGridItem(
         .fillMaxWidth()
         .combinedClickable(
             onClick = {
-                if (playlist.playlist.isEditable || playlist.playlist.isLocal || playlist.playlist.browseId == null || playlist.songCount != 0) {
-                    navController.navigate("local_playlist/${playlist.id}")
-                } else {
-                    navController.navigate("online_playlist/${playlist.playlist.browseId}")
-                }
+                navController.navigate(playlist.navigationRoute)
             },
             onLongClick = {
                 menuState.show {

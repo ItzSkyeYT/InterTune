@@ -111,7 +111,6 @@
     <string name="settings_look_and_feel_description">Tema och färger, flikarna längst ner, och svepgester.</string>
     <string name="settings_player_description">Ljudkvalitet, ljudeffekter, och hur uppspelningen beter sig.</string>
     <string name="settings_lyrics_description">Var låttexter hämtas ifrån, och hur de visas.</string>
-    <string name="settings_storage_description">Nedladdningar, hur mycket plats cachen får ta, och säkerhetskopiering av biblioteket.</string>
     <string name="settings_privacy_description">Vad appen registrerar om dig, och vad den skickar.</string>
     <string name="settings_updates_description">Leta efter en ny version och installera den.</string>
     <string name="settings_advanced_description">Underhåll och utvecklaralternativ.</string>

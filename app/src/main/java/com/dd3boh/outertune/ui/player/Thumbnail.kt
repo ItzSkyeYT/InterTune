@@ -92,13 +92,21 @@ fun Thumbnail(
     val error by playerConnection.error.collectAsState()
     val mediaMetadata = customMediaMetadata ?: playerMediaMetadata
 
+    // error is one flag for the whole player, but in the swipe-to-skip strip this Thumbnail may be
+    // showing a neighbour of the song that failed. Only the Thumbnail showing the player's current
+    // song takes the error: the strip never holds a neighbour with the current song's id
+    // (nextInStrip and previousInStrip in BottomSheetPlayer), and the other callers pass the
+    // current song itself.
+    val ownsError = customMediaMetadata == null || customMediaMetadata.id == playerMediaMetadata?.id
+
     // keepScreenOn is deliberately NOT set here. It is a single boolean on a single View, and
-    // BottomSheetPlayer now owns it so the lyrics request and the immersive-landscape request can
-    // be OR'd rather than clobbering one another. See the DisposableEffect in Player.kt.
+    // KeepScreenOnController now owns it so every reason that wants the screen held awake (lyrics,
+    // immersive landscape, recognition) can be OR'd rather than clobbering one another. See
+    // KeepScreenOnController.
 
     Box(modifier = modifier) {
         AnimatedVisibility(
-            visible = !showLyrics && error == null,
+            visible = !showLyrics && (error == null || !ownsError),
             enter = ThumbnailEnter,
             exit = ThumbnailExit,
             modifier = Modifier
@@ -207,7 +215,7 @@ fun Thumbnail(
         }
 
         AnimatedVisibility(
-            visible = error != null,
+            visible = error != null && ownsError,
             enter = ThumbnailEnter,
             exit = ThumbnailExit,
         ) {

@@ -25,11 +25,15 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.MainActivity
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.BackgroundCheckHoursKey
+import com.dd3boh.outertune.constants.LastNotifiedPollIdKey
+import com.dd3boh.outertune.constants.LastNotifiedUpdateCodeKey
 import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
+import com.dd3boh.outertune.constants.UpdateSnoozeUntilKey
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -67,13 +71,26 @@ class BackgroundCheckWorker(
         if (context.dataStore.get(UpdateCheckEnabledKey, false)) {
             runCatching { deps.updateChecker().check() }
                 .onSuccess { update ->
-                    if (update != null) {
-                        notify(
+                    // check() returns the same pending update on every run, fetched again or
+                    // restored from disk, so without this every run notified again until the update
+                    // was installed or dismissed. Remind me later is honoured here too.
+                    if (update != null && shouldNotifyUpdate(
+                            versionCode = update.versionCode,
+                            lastNotifiedCode = context.dataStore.get(LastNotifiedUpdateCodeKey, -1),
+                            snoozeUntil = context.dataStore.get(UpdateSnoozeUntilKey, 0L),
+                            now = System.currentTimeMillis(),
+                        )
+                    ) {
+                        val posted = notify(
                             context,
                             UPDATE_NOTIFICATION_ID,
                             context.getString(R.string.background_update_title),
                             context.getString(R.string.background_update_text, update.versionName),
                         )
+                        // Recorded only once something was posted: without POST_NOTIFICATIONS
+                        // notify() posts nothing, and a version recorded then would never be
+                        // announced after the permission is granted.
+                        if (posted) context.dataStore.edit { it[LastNotifiedUpdateCodeKey] = update.versionCode }
                     }
                 }
                 .onFailure { Log.w(TAG, "Update check failed", it) }
@@ -82,14 +99,15 @@ class BackgroundCheckWorker(
         if (context.dataStore.get(PollsEnabledKey, false)) {
             runCatching { deps.pollChecker().check() }
                 .onSuccess { poll ->
-                    if (poll != null) {
-                        notify(
+                    if (poll != null && shouldNotifyPoll(poll.id, context.dataStore.get(LastNotifiedPollIdKey, ""))) {
+                        val posted = notify(
                             context,
                             POLL_NOTIFICATION_ID,
                             context.getString(R.string.background_poll_title),
                             poll.banner,
                             openPoll = true,
                         )
+                        if (posted) context.dataStore.edit { it[LastNotifiedPollIdKey] = poll.id }
                     }
                 }
                 .onFailure { Log.w(TAG, "Poll check failed", it) }
@@ -98,19 +116,20 @@ class BackgroundCheckWorker(
         return Result.success()
     }
 
+    /** Whether it actually posted: false when there was no permission to post anything at all. */
     private fun notify(
         context: Context,
         id: Int,
         title: String,
         text: String,
         openPoll: Boolean = false,
-    ) {
+    ): Boolean {
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
             != PackageManager.PERMISSION_GRANTED
         ) {
             // Nothing to be done about it from a worker, and the badge in Settings still shows.
             Log.i(TAG, "No notification permission, skipping")
-            return
+            return false
         }
 
         // Channels arrived in API 26 and this app still runs on 24, where every call in here
@@ -147,9 +166,14 @@ class BackgroundCheckWorker(
                 .setStyle(NotificationCompat.BigTextStyle().bigText(text))
                 .setContentIntent(open)
                 .setAutoCancel(true)
+                // A newer version or question replaces the notification under the same id; this
+                // keeps that replacement from sounding again while the old one is still in the
+                // shade.
+                .setOnlyAlertOnce(true)
                 .build()
         )
         Log.i(TAG, "Notified: $title")
+        return true
     }
 
     companion object {
@@ -200,3 +224,15 @@ class BackgroundCheckWorker(
         }
     }
 }
+
+/**
+ * Whether a background run should notify about this update: a version it has not already said so
+ * about, and not while "remind me later" is still in effect. Kept apart from [BackgroundCheckWorker]
+ * so the decision is tested without WorkManager or a real notification.
+ */
+internal fun shouldNotifyUpdate(versionCode: Int, lastNotifiedCode: Int, snoozeUntil: Long, now: Long): Boolean =
+    versionCode != lastNotifiedCode && now >= snoozeUntil
+
+/** Whether a background run should notify about this poll: one it has not already said so about. */
+internal fun shouldNotifyPoll(pollId: String, lastNotifiedId: String): Boolean =
+    pollId != lastNotifiedId

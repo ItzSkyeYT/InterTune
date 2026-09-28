@@ -407,47 +407,14 @@ class QueueBoard(
      * @param index Index of item
      */
     fun removeSong(item: MultiQueueObject, index: Int): Boolean {
-        var ret = false
-        val currentMediaItemIndex = player.player.currentMediaItemIndex
-        var newQueuePos = item.getQueuePosShuffled()
-
-        if (item.shuffled) {
-            Log.d(TAG, "Trying remove song at index: $index")
-            val s = item.queue.find { it.shuffleIndex == index }
-            if (s != null) {
-                ret = item.queue.remove(s)
-                Log.d(TAG, "Removing song: ${s.title}, $ret")
-            }
-        } else if (index in item.queue.indices) {
-            item.queue.removeAt(index)
-            ret = true
-        }
-        // An index past the end is one from a list this queue is not, and it used to throw on the
-        // application looper. Nothing removed means nothing else here may move either.
-        if (!ret) return false
-        item.getCurrentQueueShuffled().fastForEachIndexed { index, s -> s.shuffleIndex = index }
-
-        // update current position only if the move will affect it
-        if (index < currentMediaItemIndex) {
-            newQueuePos--
-        } else if (index == currentMediaItemIndex) {
-            newQueuePos++
-        } else {
-            // no need to adjust
-        }
-
-        if (newQueuePos >= item.getSize()) {
-            newQueuePos = item.getSize() - 1
-        } else if (newQueuePos < 0) {
-            newQueuePos = 0
-        }
-        // newQueuePos is a place in play order, and queuePos indexes the stored order, which a
-        // shuffled queue does not play in. Written straight in, it named another song as the
-        // current one, and the next Play next or Add to queue restarted that song from 0.
-        item.setCurrentQueuePos(newQueuePos)
-
-        saveQueueSongs(item)
-        return ret
+        // The bookkeeping (renumbering shuffleIndex, keeping queuePos on the current song or
+        // falling back to a play-order neighbour when the current song itself was removed) lives
+        // on MultiQueueObject: this class needs a live MusicService to construct, so it cannot be
+        // unit tested directly, while MultiQueueObject.removeAtPlayIndex can be, and is, in
+        // QueueBoardRemoveSongTest.
+        val removed = item.removeAtPlayIndex(index, player.player.currentMediaItemIndex)
+        if (removed) saveQueueSongs(item)
+        return removed
     }
 
     /**
@@ -668,9 +635,10 @@ class QueueBoard(
             queue.queue.move(fromIndex, toIndex)
         }
         queue.getCurrentQueueShuffled().fastForEachIndexed { index, s -> s.shuffleIndex = index }
-        // Once the play order is renumbered, and through the play order: see removeSong. A
-        // shuffled queue's stored order does not change on a move, so its current song keeps
-        // its stored place, and writing the play position there named another song as current.
+        // setCurrentQueuePos takes a place in play order, so it runs once the play order is
+        // renumbered. A shuffled queue's stored order does not change on a move, so its current
+        // song keeps its stored place, and writing the play position there named another song as
+        // current.
         queue.setCurrentQueuePos(newQueuePos)
 
         saveQueueSongs(queue)

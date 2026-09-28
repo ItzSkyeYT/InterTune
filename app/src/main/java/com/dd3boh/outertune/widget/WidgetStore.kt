@@ -20,11 +20,14 @@ import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
+import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.ui.theme.extractThemeColor
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.utils.LocalArtworkPath
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -69,6 +72,15 @@ object WidgetStore {
     private val mutex = Mutex()
 
     /**
+     * The song whose big cover was last tried in this process. A cover that cannot be made (no
+     * network, a local file with no embedded art, a thumbnail url that keeps failing) stays
+     * missing, and trying it again on every play and pause would hold the lock, and the write
+     * behind it, until the fetch fails. So a missing cover for the same song is tried once per
+     * process; a song change always tries, and a new process tries again.
+     */
+    private var lastBigArtAttempt: String? = null
+
+    /**
      * What the widget is drawing, held in memory as well as on disk.
      *
      * The file alone is not enough. A Glance widget's provideGlance runs once, when the launcher
@@ -84,8 +96,16 @@ object WidgetStore {
      * A snapshot and the artwork it names, decoded once per change rather than once per draw.
      * [big] is the one large cover, for a widget whose whole face is the artwork; sending that one
      * everywhere would spend the launcher's whole megabyte on a picture nobody can see.
+     * [nowCover] is the now playing song's own 192 px cover. It is kept apart from [art] because
+     * [art] is keyed by id and the song usually also sits in Recently played (or another list),
+     * whose 96 px copy is the one the map keeps.
      */
-    data class Drawn(val snapshot: WidgetSnapshot, val art: Map<String, Bitmap>, val big: Bitmap? = null)
+    data class Drawn(
+        val snapshot: WidgetSnapshot,
+        val art: Map<String, Bitmap>,
+        val big: Bitmap? = null,
+        val nowCover: Bitmap? = null,
+    )
 
     private fun dir(context: Context) = File(context.filesDir, "widget").apply { mkdirs() }
     private fun file(context: Context) = File(dir(context), "snapshot.tsv")
@@ -110,12 +130,13 @@ object WidgetStore {
 
     /** The artwork the snapshot names, as bitmaps. Small, few, and only re-read when they change. */
     private fun decoded(context: Context, snapshot: WidgetSnapshot): Drawn {
-        val old = _drawn.value?.art.orEmpty()
-        val art = snapshot.songs().mapNotNull { song ->
-            val bitmap = old[song.id] ?: decode(song.artPath)
-            bitmap?.let { song.id to it }
-        }.toMap()
-        return Drawn(snapshot, art, snapshot.nowPlaying?.let { decode(bigArtPath(context, it.id)) })
+        val (art, nowCover) = coversFor(snapshot, _drawn.value?.art.orEmpty(), ::decode)
+        return Drawn(
+            snapshot,
+            art,
+            snapshot.nowPlaying?.let { decode(bigArtPath(context, it.id)) },
+            nowCover,
+        )
     }
 
     private fun decode(path: String?): Bitmap? = runCatching {
@@ -142,7 +163,8 @@ object WidgetStore {
 
     /**
      * The song that is playing, and whether it is. Called on every song change and every play or
-     * pause, so it does as little as it can: the artwork is fetched only when the song changed.
+     * pause, so it does as little as it can: the artwork is fetched only when the song changed,
+     * apart from one try per process at a big cover that is missing for the current song.
      *
      * The state is read through [state] under the lock rather than passed in, because these calls
      * arrive from the player a few milliseconds apart and finish in whatever order the disk
@@ -162,7 +184,14 @@ object WidgetStore {
                 // written either way, so a widget added mid-song opens on the right song. Two
                 // sizes, because a widget given over to the artwork wants a real cover while one
                 // with a list beside it wants a thumbnail.
-                if (!same && widgets) artFor(context, song.id, artModel(song, ART_BIG_PX), ART_BIG_PX)
+                // The big cover is also tried when the current song's file is missing, say because
+                // its fetch failed while offline, so a restart brings the real cover back instead of
+                // the thumbnail until the next song. shouldFetchBigArt caps that at once per song
+                // per process; artFor returns at once when the file exists.
+                if (widgets && shouldFetchBigArt(same, File(bigArtPath(context, song.id)).exists(), song.id, lastBigArtAttempt)) {
+                    lastBigArtAttempt = song.id
+                    artFor(context, song.id, artModel(song, ART_BIG_PX), ART_BIG_PX)
+                }
                 val art = if (same) old.nowPlaying?.artPath
                 else if (widgets) artFor(context, song.id, artModel(song, ART_NOW_PX), ART_NOW_PX) else null
                 val now = WidgetSong(
@@ -182,10 +211,17 @@ object WidgetStore {
                 // Recently played is kept here rather than queried: the song that just started is
                 // the newest there is, and the widget should not have to ask the database to know it.
                 // The small picture is for a widget too, and cost a fetch, an encode and a write on
-                // every new song for everyone else.
-                val recent = (listOf(now.copy(artPath = if (widgets) pickArt(context, now) else now.artPath)) + old.recent)
-                    .distinctBy { it.id }
-                    .take(WidgetLayout.MAX_PICKS)
+                // every new song for everyone else. Pause listen history says the app keeps no
+                // record of what plays; the widget's own list is a record too, so it stops as well
+                // while that is on, and so does fetching a picture for a row nextRecent would only
+                // throw away unused.
+                val paused = context.dataStore.get(PauseListenHistoryKey, false)
+                val recent = nextRecent(
+                    old.recent,
+                    now.copy(artPath = if (widgets && !paused) pickArt(context, now) else now.artPath),
+                    paused = paused,
+                    maxPicks = WidgetLayout.MAX_PICKS,
+                )
                 write(context, old.copy(nowPlaying = now, isPlaying = isPlaying, recent = recent, updatedAt = System.currentTimeMillis()))
             }
             prune(context, read(context))
@@ -337,8 +373,7 @@ object WidgetStore {
     private fun prune(context: Context, snapshot: WidgetSnapshot) = runCatching {
         val files = artDir(context).listFiles().orEmpty()
         if (files.size <= MAX_ART_FILES) return@runCatching
-        val inUse = (listOfNotNull(snapshot.nowPlaying) + snapshot.picks + snapshot.forgotten + snapshot.keepListening + snapshot.recent)
-            .mapNotNullTo(HashSet()) { it.artPath }
+        val inUse = snapshot.artPathsInUse { id -> bigArtPath(context, id) }
         files.filter { it.absolutePath !in inUse }
             .sortedBy { it.lastModified() }
             .dropLast(MAX_ART_FILES)
@@ -355,3 +390,51 @@ object WidgetStore {
 interface WidgetEntryPoint {
     fun database(): MusicDatabase
 }
+
+/**
+ * Whether setNowPlaying should (re)fetch the big cover: always for a song that was not already
+ * playing, and otherwise only when its file is missing and this is not the song id already tried
+ * in this process. Kept apart from [WidgetStore.setNowPlaying] so the once per song retry limit is
+ * tested without a real file, a fetch, or the mutex.
+ */
+internal fun shouldFetchBigArt(same: Boolean, fileExists: Boolean, songId: String, lastAttempt: String?): Boolean =
+    !same || (!fileExists && lastAttempt != songId)
+
+/**
+ * The id-keyed art map WidgetStore.decoded() builds, paired with the now playing cover read from
+ * its own path rather than from that map.
+ *
+ * The now playing song usually shares its id with its own entry in Recently played, and a plain
+ * `associate`/`toMap` over [WidgetSnapshot.songs] keeps the last value for a repeated key, which is
+ * recent's smaller copy whenever a widget is on screen since recent comes after now playing there.
+ * The paired cover is read straight from [WidgetSnapshot.nowPlaying] instead, so that collision
+ * never reaches it.
+ */
+internal fun <B> coversFor(snapshot: WidgetSnapshot, old: Map<String, B>, decode: (String?) -> B?): Pair<Map<String, B>, B?> {
+    val art = snapshot.songs().mapNotNull { song ->
+        val value = old[song.id] ?: decode(song.artPath)
+        value?.let { song.id to it }
+    }.toMap()
+    val nowCover = snapshot.nowPlaying?.let { decode(it.artPath) }
+    return art to nowCover
+}
+
+/**
+ * The Recently played list after a song starts, honouring Pause listen history: unchanged while
+ * paused, so the widget keeps no record either, otherwise the song prepended, deduplicated by id
+ * and capped the way it always was.
+ */
+internal fun nextRecent(old: List<WidgetSong>, played: WidgetSong, paused: Boolean, maxPicks: Int): List<WidgetSong> =
+    if (paused) old
+    else (listOf(played) + old).distinctBy { it.id }.take(maxPicks)
+
+/**
+ * Every artwork file this snapshot is still using, so [WidgetStore.prune] never deletes one still
+ * on screen. The now playing song's big cover has no [WidgetSong.artPath] field of its own, since
+ * [bigPath] computes its file from the id instead, so without this it would be eligible for
+ * deletion even while it is on screen.
+ */
+internal fun WidgetSnapshot.artPathsInUse(bigPath: (String) -> String): Set<String> =
+    (listOfNotNull(nowPlaying) + picks + forgotten + keepListening + recent)
+        .mapNotNullTo(HashSet()) { it.artPath }
+        .apply { nowPlaying?.let { add(bigPath(it.id)) } }

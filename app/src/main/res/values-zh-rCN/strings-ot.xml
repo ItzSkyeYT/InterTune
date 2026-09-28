@@ -349,7 +349,6 @@
     <string name="settings_look_and_feel_description">主题与配色、底部的标签页，以及滑动手势。</string>
     <string name="settings_player_description">音质、音频效果，以及播放的行为方式。</string>
     <string name="settings_lyrics_description">歌词从哪里获取，以及如何显示。</string>
-    <string name="settings_storage_description">下载、缓存可以占用多少空间，以及音乐库备份。</string>
     <string name="settings_privacy_description">应用记录了你的哪些信息，以及会发送什么。</string>
     <string name="settings_updates_description">查看新版本并安装。</string>
     <string name="settings_advanced_description">维护与开发者选项。</string>

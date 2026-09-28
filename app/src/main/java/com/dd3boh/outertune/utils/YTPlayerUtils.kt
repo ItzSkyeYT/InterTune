@@ -30,6 +30,7 @@ import com.zionhuang.innertube.models.YouTubeClient.Companion.TVHTML5_SIMPLY_EMB
 import com.zionhuang.innertube.models.YouTubeClient.Companion.VISIONOS
 import com.zionhuang.innertube.models.YouTubeClient.Companion.WEB_REMIX
 import com.zionhuang.innertube.models.response.PlayerResponse
+import com.zionhuang.innertube.utils.runCatchingCancellable
 import okhttp3.OkHttpClient
 
 object YTPlayerUtils {
@@ -253,7 +254,7 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
         notes: ChainNotes,
-    ): Result<PlaybackData> = runCatching {
+    ): Result<PlaybackData> = runCatchingCancellable {
         Log.d(TAG, "Playback info requested: $videoId")
 
         /**
@@ -354,17 +355,22 @@ object YTPlayerUtils {
 
         var streamPlayerResponse: PlayerResponse? = null
         var lastClient: YouTubeClient? = null
-        // The best explanation any client gave, kept because streamPlayerResponse is overwritten
-        // every iteration and the last client is free to fail outright. Five Hours went VISIONOS
-        // "UNPLAYABLE - This video is not available", IOS the same, then ANDROID returned nothing
-        // at all, and the reason two clients had already supplied was dropped on the floor in
-        // favour of "Unknown error".
+        // The best explanation any fallback client gave, kept because streamPlayerResponse is
+        // overwritten every iteration and the last client is free to fail outright. Five Hours went
+        // VISIONOS "UNPLAYABLE - This video is not available", IOS the same, then ANDROID returned
+        // nothing at all, and the reason two clients had already supplied was dropped on the floor
+        // in favour of "Unknown error". The main client is left out: ANDROID_VR gives the bot check
+        // on nearly every song, so its reason says nothing about why this one failed.
         var explained: PlayerResponse.PlayabilityStatus? = null
         // What a fallback client said when it turned the request down outright, and the status the
         // last refused url got. Together they explain a chain that found urls and had every one
         // refused, where the reason is the cause and the status only its symptom.
         var fallbackRefusal: PlayerResponse.PlayabilityStatus? = null
         var refusedStatus: Int? = null
+        // The most recent fallback client's own failure (a dropped connection, a timeout). Thrown
+        // as itself when no fallback client explained anything, so MusicService can map it to no
+        // connection or a timeout.
+        var lastFallbackFailure: Throwable? = null
         val trail = mutableListOf<String>()
         for (clientIndex in (-1 until streamClients.size)) {
             // reset for each client
@@ -389,18 +395,28 @@ object YTPlayerUtils {
                     continue
                 }
 
-                streamPlayerResponse =
-                    YouTube.player(videoId, playlistId, client, signatureTimestampFor(client), webPlayerPot)
+                // hl=en whatever the app's language. Throttle and the error screen know the bot
+                // check and the age gate only by YouTube's English wording, and a fallback client's
+                // reason is what they read. Any other reason is shown on the error screen as
+                // YouTube wrote it, so a song refused for its own sake now reads in English there.
+                // The main client keeps the app's hl: nothing in its answer is shown, and asking it
+                // in English would let its routine bot check (see blockedStatus) reach the throttle
+                // in every language.
+                val fallbackResult =
+                    YouTube.player(videoId, playlistId, client, signatureTimestampFor(client), webPlayerPot, hlOverride = "en")
                         .onFailure { Throttle.noteFailure(it) }
-                        .getOrNull()
+                streamPlayerResponse = fallbackResult.getOrNull()
+                if (streamPlayerResponse == null) {
+                    fallbackResult.exceptionOrNull()?.let { lastFallbackFailure = it }
+                }
                 streamPlayerResponse?.rememberBlock()
             }
 
             lastClient = client
-            streamPlayerResponse?.playabilityStatus
-                ?.takeIf { it.status != null && it.status != "OK" && explained == null }
-                ?.let { explained = it }
             if (clientIndex >= 0) {
+                streamPlayerResponse?.playabilityStatus
+                    ?.takeIf { it.status != null && it.status != "OK" && explained == null }
+                    ?.let { explained = it }
                 streamPlayerResponse?.playabilityStatus
                     ?.takeIf { it.status != null && it.status != "OK" && fallbackRefusal == null }
                     ?.let { fallbackRefusal = it }
@@ -478,17 +494,17 @@ object YTPlayerUtils {
         }
 
         if (streamPlayerResponse == null) {
-            // Prefer whatever an earlier client managed to say. "This video is not available" is
-            // something a person can act on; "Bad stream player response" reaches them as
-            // "Unknown error" and tells them nothing.
-            explained?.let { status ->
-                throw PlaybackException(
-                    status.reason ?: status.status,
+            // A fallback client's reason first, then its own failure, then the generic error: see
+            // StreamCheck.resolveOnceFailure.
+            when (val failure = StreamCheck.resolveOnceFailure(explained, lastFallbackFailure)) {
+                is StreamCheck.ChainFailure.Explained -> throw PlaybackException(
+                    failure.message,
                     null,
                     PlaybackException.ERROR_CODE_REMOTE_ERROR,
                 )
+                is StreamCheck.ChainFailure.LastFailure -> throw failure.cause
+                StreamCheck.ChainFailure.Unknown -> throw Exception("Bad stream player response")
             }
-            throw Exception("Bad stream player response")
         }
         if (streamPlayerResponse.playabilityStatus.status != "OK") {
             throw PlaybackException(
@@ -561,7 +577,9 @@ object YTPlayerUtils {
         videoId: String,
         playlistId: String? = null,
     ): Result<PlayerResponse> =
-        YouTube.player(videoId, playlistId, client = VISIONOS).noteThrottle()
+        // hl=en: noteThrottle hands the reason to Throttle.looksLikeBlock, which knows the bot
+        // check only in English. Nothing here shows the reason.
+        YouTube.player(videoId, playlistId, client = VISIONOS, hlOverride = "en").noteThrottle()
 
     /** Outcome of a loudness lookup. Distinguishes "no value exists" from "the request failed". */
     sealed interface LoudnessResult {
@@ -585,7 +603,9 @@ object YTPlayerUtils {
      * the request. The caller decides what to do about each outcome.
      */
     suspend fun loudnessFor(videoId: String): LoudnessResult {
-        val response = YouTube.player(videoId, client = VISIONOS).noteThrottle()
+        // hl=en for the same reason as playerResponseForMetadata. LoudnessRepair's batch is
+        // exactly the background work the back off exists to stop on a refused network.
+        val response = YouTube.player(videoId, client = VISIONOS, hlOverride = "en").noteThrottle()
             .getOrElse { return LoudnessResult.Failed(it) }
 
         val db = response.playerConfig?.audioConfig?.effectiveLoudnessDb

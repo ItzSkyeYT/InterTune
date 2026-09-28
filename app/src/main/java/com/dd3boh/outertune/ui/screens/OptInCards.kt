@@ -29,8 +29,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -79,6 +83,10 @@ fun UpdateOptInCard() {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val updateChecker = LocalUpdateChecker.current
+    // One installSource() call for the whole card rather than one per recomposition: it is a
+    // PackageManager binder call that also logs each time, the same reasoning UpdatePrompt.kt and
+    // UpdateSettings.kt already use remember for.
+    val fromFdroid = remember { context.installSource() == InstallSource.F_DROID }
 
     // Nullable on purpose. null is "never asked", which is not "said no".
     val choice by rememberNullablePreference(UpdateCheckEnabledKey)
@@ -112,8 +120,7 @@ fun UpdateOptInCard() {
                     // to accept a GitHub updater on that reasoning is asking them to agree to
                     // something false.
                     text = stringResource(
-                        if (LocalContext.current.installSource() == InstallSource.F_DROID)
-                            R.string.oobe_update_check_description_fdroid
+                        if (fromFdroid) R.string.oobe_update_check_description_fdroid
                         else R.string.oobe_update_check_description
                     ),
                     style = MaterialTheme.typography.bodyMedium,
@@ -150,8 +157,11 @@ fun UpdateOptInCard() {
 
             // A dependent row rather than a card of its own, the same shape Settings > Updates
             // uses. Offering to download updates automatically to somebody who has just declined
-            // update checking is incoherent, so it only exists once they have said yes.
-            AnimatedVisibility(visible = answered) {
+            // update checking is incoherent, so it only exists once they have said yes. Hidden on
+            // F-Droid too, the same as Settings > Updates hides it there: F-Droid signs its own
+            // builds, so a GitHub apk downloaded here can never install, and Settings would offer
+            // no switch to turn it off again.
+            AnimatedVisibility(visible = answered && !fromFdroid) {
                 SwitchPreference(
                     title = { Text(stringResource(R.string.update_auto)) },
                     description = stringResource(R.string.oobe_update_auto_description),
@@ -404,10 +414,20 @@ fun LastFmSimilarOptInCard() {
     val stored by rememberNullablePreference(SimilarSourceKey)
     val oldSwitch by rememberNullablePreference(SimilarFromLastFmKey)
 
+    // What turning the switch on writes. The switch has two positions, so it cannot tell Last.fm
+    // only from Both, and writing Both every time it is turned on would change a Last.fm only
+    // choice after an off and on. So this tracks whatever was really stored the last time it was
+    // not YouTube, and turning the switch on writes that back. A first yes, with nothing to
+    // restore yet, still means Both, which is the default here.
+    var restoreTo by rememberSaveable { mutableStateOf(SimilarSource.BOTH) }
+    LaunchedEffect(stored, oldSwitch) {
+        restoreTo = nextRestoreTo(restoreTo, stored, oldSwitch)
+    }
+
     fun answer(useLastFm: Boolean) {
         coroutineScope.launch {
             context.dataStore.edit {
-                it[SimilarSourceKey] = (if (useLastFm) SimilarSource.BOTH else SimilarSource.YOUTUBE).name
+                it[SimilarSourceKey] = similarSourceForSwitch(useLastFm, restoreTo).name
             }
         }
     }
@@ -457,4 +477,27 @@ fun LastFmSimilarOptInCard() {
             )
         }
     }
+}
+
+/**
+ * What the Last.fm switch should write when it is turned on: [restoreTo], whatever was really
+ * stored the last time this was not YouTube, so a stored Last.fm only choice survives being
+ * turned off and back on rather than always landing on Both. Turning it off always writes
+ * YouTube, since off has only ever meant one thing.
+ */
+internal fun similarSourceForSwitch(useLastFm: Boolean, restoreTo: SimilarSource): SimilarSource =
+    if (useLastFm) restoreTo else SimilarSource.YOUTUBE
+
+/**
+ * What [restoreTo] should become after [stored] or [oldSwitch] changes.
+ *
+ * [stored] and [oldSwitch] read as YouTube both when the switch has just been turned off (its own
+ * write) and when neither has ever been set, and neither of those should overwrite whatever
+ * Last.fm only or Both choice is already being tracked as [previous]: that is the whole point of
+ * tracking it apart from the two preferences. Anything else read from them is a real choice and
+ * replaces [previous].
+ */
+internal fun nextRestoreTo(previous: SimilarSource, stored: String?, oldSwitch: Boolean?): SimilarSource {
+    val current = SimilarSources.stored(stored, oldSwitch)
+    return if (current != SimilarSource.YOUTUBE) current else previous
 }

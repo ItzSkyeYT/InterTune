@@ -120,6 +120,22 @@ class LikedSyncTest {
     }
 
     @Test
+    fun `an empty Liked Music read reports synced only when it can be the whole list`() {
+        // An account that has liked nothing: the walk reached the end and the header, if there is
+        // one, says no songs. That sync worked, and reporting it as failed beat every other kind.
+        assertEquals(SyncResult.SYNCED, LikedSync.emptyLikedSyncResult(walkComplete = true, headerCount = null))
+        assertEquals(SyncResult.SYNCED, LikedSync.emptyLikedSyncResult(walkComplete = true, headerCount = 0))
+        // Removed or unavailable videos are counted but never come back as rows, and up to five
+        // are allowed for: an empty read can be the whole list under a count of 5, not of 6.
+        assertEquals(SyncResult.SYNCED, LikedSync.emptyLikedSyncResult(walkComplete = true, headerCount = 5))
+        assertEquals(SyncResult.FAILED, LikedSync.emptyLikedSyncResult(walkComplete = true, headerCount = 6))
+        // Nothing came back, but the header says 250: a page the parser missed, not an empty list.
+        assertEquals(SyncResult.FAILED, LikedSync.emptyLikedSyncResult(walkComplete = true, headerCount = 250))
+        // A continuation that did not answer.
+        assertEquals(SyncResult.FAILED, LikedSync.emptyLikedSyncResult(walkComplete = false, headerCount = null))
+    }
+
+    @Test
     fun `a read a little short of the header count is complete`() {
         // Removed or unavailable videos are counted but never come back as rows.
         assertTrue(LikedSync.readLooksComplete(readCount = 1490, headerCount = 1500))

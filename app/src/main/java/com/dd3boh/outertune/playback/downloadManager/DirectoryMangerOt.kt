@@ -19,6 +19,29 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
 
     var availableFiles: Set<DocumentFile> = mutableSetOf()
 
+    /**
+     * The download dirs the last non-cached getAvailableFiles call could not list at all: a
+     * volume that is not mounted, a grant that is gone, a provider that failed, or (the main dir
+     * itself) doInit having failed outright. Not empty, just not looked at, the same distinction
+     * the library scanner draws (ScanMerge.coveredByUnlistedRoot); a listFiles() failure reads as
+     * an empty folder with nothing to tell it apart from one whose files were really all deleted.
+     */
+    var unlistedDirs: List<Uri> = emptyList()
+        private set
+
+    /** The extra dirs the last doInit was given, whether or not they could be opened. */
+    private var configuredExtraDirs: List<Uri> = emptyList()
+
+    /**
+     * Extra dirs from the last doInit that never became a usable DocumentFile: a volume not
+     * mounted at launch, a grant that is gone. They are simply left out of allDirs, so without
+     * this they never reach the listFilesOrNull check in getAvailableFiles and never get a
+     * chance to report themselves as unlisted the way a folder that fails to list later does;
+     * every song under one would then read as genuinely deleted by the very next scan.
+     */
+    var unreadableExtraDirs: List<Uri> = emptyList()
+        private set
+
     init {
         doInit(context, dir, extraDirs)
     }
@@ -27,6 +50,7 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         Log.i(TAG, "Initializing download manager: $dir")
         this.context = context
         this.dir = dir
+        configuredExtraDirs = extraDirs
         try {
             mainDir = documentFileFromUri(context, dir)
             if (mainDir == null || !mainDir!!.isDirectory) {
@@ -40,12 +64,17 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
 
             val newAllDirs = mutableListOf<DocumentFile>()
             newAllDirs.add(mainDir!!)
-            if (extraDirs.isNotEmpty()) {
-                newAllDirs.addAll(
-                    documentFileFromUri(context, extraDirs.filterNot { it == dir }).filter { it.isDirectory }
-                )
+            val unreadable = mutableListOf<Uri>()
+            for (extraUri in extraDirs.filterNot { it == dir }) {
+                val extraDf = documentFileFromUri(context, extraUri)
+                if (extraDf != null && extraDf.isDirectory) {
+                    newAllDirs.add(extraDf)
+                } else {
+                    unreadable.add(extraUri)
+                }
             }
             allDirs = newAllDirs.toList()
+            unreadableExtraDirs = unreadable
             Log.i(TAG, "Download manager initialized successfully. ${allDirs.size}")
         } catch (e: Exception) {
             if (mainDir == null) {
@@ -58,6 +87,7 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
 
             mainDir = null
             allDirs = mutableListOf()
+            unreadableExtraDirs = emptyList()
 //            reportException(e)
 //            Toast.makeText(context, "Failed to initiate download manager: " + e.message, Toast.LENGTH_LONG).show()
             // TODO: snackbar for failed uri or not set up?
@@ -68,7 +98,10 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
      * Deletes a song's file, from the main download folder only. The list holds the extra import
      * folders' files too, and those folders are promised never to be changed (the storage
      * tooltip), so a song imported from one keeps its file and has to be removed by hand.
+     * Synchronized because deletes run in parallel on dlCoroutine, and the read-modify-write of
+     * availableFiles below would otherwise lose one, leaving the player a deleted file.
      */
+    @Synchronized
     fun deleteFile(mediaId: String): Boolean {
         val file = isExists(mediaId) ?: return false
         if (!isInMainDir(file)) return false
@@ -134,17 +167,27 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         if (useCache) {
             result.addAll(this.availableFiles.toList())
         } else {
-            for (dir in allDirs) {
-                scanDfRecursive(dir, result, true)
+            val unlistable = mutableListOf<Uri>()
+            for (d in allDirs) {
+                if ((d as? TreeDocumentFileOt)?.listFilesOrNull() == null) {
+                    unlistable.add(d.uri)
+                    continue
+                }
+                scanDfRecursive(d, result, true)
             }
+            unlistedDirs = unlistedDownloadDirs(
+                main = dir.toString(),
+                mainOpened = mainDir != null,
+                extras = configuredExtraDirs.map { it.toString() },
+                unopenedExtras = unreadableExtraDirs.map { it.toString() },
+                unlistable = unlistable.map { it.toString() },
+            ).map(Uri::parse)
+            this.availableFiles = result.toSet()
         }
 
         for (file in result) {
             val path = file.name ?: continue
             availableFiles.put(path.substringAfterLast('[').substringBeforeLast(']'), file.uri)
-        }
-        if (!useCache) {
-            this.availableFiles = result.toSet()
         }
         return availableFiles
     }
@@ -175,4 +218,26 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
 
         return result.filter { it.name != null }.sumOf { it.length() }
     }
+}
+
+/**
+ * Which download dirs a full listing has to treat as not looked at, rather than as empty.
+ *
+ * A main folder that is set but could not be opened means nothing was walked, the extra folders
+ * included, since doInit gives up on all of them together, so every one of them counts. A blank
+ * main folder means nothing is set up (the default, or right after Reset), which is not a folder
+ * that failed: counting it would make its unknown path cover every downloaded song, and nothing
+ * downloaded could ever be cleared again. Otherwise the extras that could not be opened and the
+ * folders that opened but could not be listed.
+ */
+fun unlistedDownloadDirs(
+    main: String,
+    mainOpened: Boolean,
+    extras: List<String>,
+    unopenedExtras: List<String>,
+    unlistable: List<String>,
+): List<String> = when {
+    main.isBlank() -> emptyList()
+    !mainOpened -> listOf(main) + extras.filterNot { it == main }
+    else -> unopenedExtras + unlistable
 }

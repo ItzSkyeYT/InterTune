@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
 import com.dd3boh.outertune.viewmodels.CardReason
+import com.dd3boh.outertune.viewmodels.ytRowOnScreenFor
 import com.dd3boh.outertune.constants.ShowReasonsKey
 import com.dd3boh.outertune.utils.seenSlots
 import com.dd3boh.outertune.utils.CardBox
@@ -172,6 +173,28 @@ import kotlin.math.roundToInt
 import kotlin.random.Random
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+
+internal enum class QuickPicksLabelKind { NONE, TRY_BOTH, LIBRARY, YOUTUBE }
+
+/**
+ * Which label belongs over Quick picks, named after what the row actually draws: YouTube's
+ * songs, else the library's, else nothing. engineFallback == 2 alone is not enough, because
+ * YouTube's shelf is not always there when the engine has fallen back that far (the opening load
+ * stays on the phone, and the network or the feed can leave it out), and then the library's
+ * songs, or none, are on screen.
+ */
+internal fun quickPicksLabelKind(
+    source: QuickPicksSource,
+    engineFallback: Int,
+    ytPicksShown: Boolean,
+    localPicksNonEmpty: Boolean,
+): QuickPicksLabelKind = when {
+    source == QuickPicksSource.COMPARE && engineFallback == 0 -> QuickPicksLabelKind.TRY_BOTH
+    source != QuickPicksSource.ENGINE && source != QuickPicksSource.COMPARE -> QuickPicksLabelKind.NONE
+    engineFallback == 2 && ytPicksShown -> QuickPicksLabelKind.YOUTUBE
+    engineFallback >= 1 && localPicksNonEmpty -> QuickPicksLabelKind.LIBRARY
+    else -> QuickPicksLabelKind.NONE
+}
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -426,9 +449,9 @@ fun HomeScreen(
     val engineFallback by viewModel.engineFallback.collectAsState()
     val engineReasons by viewModel.engineReasons.collectAsState()
     val showReasons by rememberPreference(ShowReasonsKey, defaultValue = true)
-    // YouTube's shelf is the row when it is the source, or when it stands in for the engine.
-    val ytShelfShown = ytQuickPicks?.isNotEmpty() == true &&
-        (quickPicksSource == QuickPicksSource.YOUTUBE || (quickPicksSource != QuickPicksSource.YOUTUBE && quickPicksSource != QuickPicksSource.OFF && engineFallback == 2))
+    // YouTube's shelf is the row when it is the source, or when it stands in for the engine. The
+    // view model tidies and logs by the same rule, so the row it tidies is the row drawn here.
+    val ytShelfShown = ytRowOnScreenFor(quickPicksSource, engineFallback, ytQuickPicks?.isNotEmpty() == true)
     val shownPicks: List<MediaMetadata> = remember(ytQuickPicks, quickPicks, quickPicksSource, engineFallback) {
         ytQuickPicks?.takeIf { ytShelfShown }?.map { it.toMediaMetadata() }
             ?: quickPicks.orEmpty().map { it.toMediaMetadata() }
@@ -719,12 +742,11 @@ fun HomeScreen(
                     NavigationTitle(
                         title = stringResource(R.string.quick_picks),
                         onClick = if ((quickPicksSource == QuickPicksSource.ENGINE || quickPicksSource == QuickPicksSource.COMPARE) && engineFallback == 0) ({ showWhyThese = true }) else null,
-                        label = when {
-                            quickPicksSource == QuickPicksSource.COMPARE && engineFallback == 0 -> stringResource(R.string.quick_picks_try_both_label)
-                            quickPicksSource != QuickPicksSource.ENGINE && quickPicksSource != QuickPicksSource.COMPARE -> null
-                            engineFallback == 1 -> stringResource(R.string.quick_picks_showing_library)
-                            engineFallback == 2 -> stringResource(R.string.quick_picks_showing_youtube)
-                            else -> null
+                        label = when (quickPicksLabelKind(quickPicksSource, engineFallback, ytPicksShown = ytPicks != null, localPicksNonEmpty = localPicks.isNotEmpty())) {
+                            QuickPicksLabelKind.TRY_BOTH -> stringResource(R.string.quick_picks_try_both_label)
+                            QuickPicksLabelKind.LIBRARY -> stringResource(R.string.quick_picks_showing_library)
+                            QuickPicksLabelKind.YOUTUBE -> stringResource(R.string.quick_picks_showing_youtube)
+                            QuickPicksLabelKind.NONE -> null
                         },
                         modifier = Modifier.animateItem()
                     )

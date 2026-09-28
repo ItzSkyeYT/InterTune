@@ -51,10 +51,14 @@ data class Announcement(
     val heroUrl: String?,
     /** More pictures, in a row under the words. */
     val gallery: List<String>,
+    /** The language [text] itself is written in, lower case: "en" unless the document says otherwise. */
+    val language: String = "en",
 ) {
     /**
-     * The words for somebody reading in [locales], most preferred first: language and region
-     * together, then the language alone, then the document's own words.
+     * The words for somebody reading in [locales], most preferred first. At each locale: a
+     * translation for its language and region, then one for its language alone, then the main
+     * text if it is written in that language, so a list that starts in the document's own
+     * language never falls through to a later translation. With no match anywhere, the main text.
      */
     fun textFor(locales: List<Locale>): AnnouncementText {
         if (translations.isEmpty()) return text
@@ -63,6 +67,7 @@ data class Announcement(
             val region = locale.country.lowercase(Locale.ROOT)
             if (region.isNotEmpty()) translations["$language-$region"]?.let { return it }
             translations[language]?.let { return it }
+            if (language == this.language) return text
         }
         return text
     }
@@ -142,7 +147,11 @@ object AnnouncementParser {
         val hero = o.text("image")?.let(::webUrl) ?: listed.firstOrNull()
         val gallery = listed.filter { it != hero }.distinct().take(MAX_PICTURES - if (hero != null) 1 else 0)
 
-        return Announcement(id, text, translations, hero, gallery)
+        // Absent, or not a language code, means English. A region ("en-US") is dropped, since
+        // textFor compares this with a locale's bare language.
+        val language = o.text("language")?.let { languageKey(it)?.substringBefore('-') } ?: "en"
+
+        return Announcement(id, text, translations, hero, gallery, language)
     }
 
     /**

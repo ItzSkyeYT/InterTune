@@ -317,12 +317,15 @@ fun RecommendationsSettings(
         )
         val pairs = calibration.map { it.p.toDouble() to it.y.toDouble() }
         val brier = Calibration.brier(pairs)
+        val calibrationBucketLine = stringResource(R.string.recommendations_calibration_bucket)
         ExplainedPreference(
             title = stringResource(R.string.recommendations_brier),
             explanation = stringResource(R.string.recommendations_brier_info),
             description = if (brier.isNaN()) stringResource(R.string.recommendations_nothing_yet)
                 else stringResource(R.string.recommendations_brier_description, brier, pairs.size) + "\n" +
-                    Calibration.reliability(pairs).filter { it.count > 0 }.joinToString("\n") { b -> "%.0f%% to %.0f%%: %d cards, %.0f%% played".format(b.lo * 100, b.hi * 100, b.count, b.playRate * 100) },
+                    Calibration.reliability(pairs).filter { it.count > 0 }.joinToString("\n") { b ->
+                        String.format(calibrationBucketLine, b.lo * 100, b.hi * 100, b.count, b.playRate * 100)
+                    },
         )
         val weightNames = mapOf(
             "x_act" to stringResource(R.string.weight_act), "x_sat" to stringResource(R.string.weight_sat), "x_gap" to stringResource(R.string.weight_gap),

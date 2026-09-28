@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.lyrics
 
 import com.dd3boh.outertune.models.MediaMetadata
+import java.io.IOException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -44,6 +45,25 @@ object LyricsLookup {
     }
 
     /**
+     * What [firstFound] came back with.
+     *
+     * [answered] says whether any provider actually said something about this song, rather than
+     * simply being unreachable. A song looked up while offline gets a failure from every provider,
+     * indistinguishable by shape from "this song has no lyrics" unless something keeps the two
+     * apart, and [lyrics] alone cannot: both are null. Only [answered] lets the caller tell the two
+     * apart and skip remembering "not found" for a song nobody was actually asked about yet.
+     */
+    data class Outcome(val lyrics: String?, val answered: Boolean)
+
+    /**
+     * A provider's failure that means it never actually asked anywhere: a precondition it needs
+     * was not met, such as KuGou with no known length to check its timings against (see
+     * [KuGouLyricsProvider.getLyrics]). Distinct from an ordinary failure exactly so [firstFound]
+     * does not count it as the provider having answered, the same reason an [IOException] does not.
+     */
+    class NotAsked(message: String) : Exception(message)
+
+    /**
      * Asks each provider in turn and returns the first timed lyrics any of them has.
      *
      * Plain words do not end the search, since a later provider may have the same song timed; the
@@ -54,8 +74,9 @@ object LyricsLookup {
         providers: List<LyricsProvider>,
         query: LyricsQuery,
         onFailure: (LyricsProvider, Throwable) -> Unit,
-    ): String? {
+    ): Outcome {
         var plain: String? = null
+        var answered = false
         for (provider in providers) {
             currentCoroutineContext().ensureActive()
             if (plain != null && !provider.offersSynced) continue
@@ -69,14 +90,20 @@ object LyricsLookup {
             // lookup went on to every later provider, each of which failed at once and was logged,
             // and then stored "not found" for a song nobody had finished looking up.
             currentCoroutineContext().ensureActive()
+            val failure = result.exceptionOrNull()
+            // A network failure (no connection, DNS, a timeout: the IOException family) is the
+            // provider never being reached, not it answering "no lyrics". A NotAsked failure is a
+            // provider skipping itself outright because a precondition it needs was not met, which
+            // made no request either. Anything else, success or not, is a real answer.
+            if (failure == null || (failure !is IOException && failure !is NotAsked)) answered = true
             val text = result.getOrNull()
             if (text.isNullOrBlank()) {
-                onFailure(provider, result.exceptionOrNull() ?: IllegalStateException("${provider.name} gave empty lyrics"))
+                onFailure(provider, failure ?: IllegalStateException("${provider.name} gave empty lyrics"))
                 continue
             }
-            if (LyricsMatch.isSynced(text)) return text
+            if (LyricsMatch.isSynced(text)) return Outcome(text, answered)
             if (plain == null) plain = text
         }
-        return plain
+        return Outcome(plain, answered)
     }
 }

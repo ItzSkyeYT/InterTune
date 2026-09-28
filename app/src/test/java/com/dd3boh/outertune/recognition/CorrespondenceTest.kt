@@ -106,6 +106,57 @@ class CorrespondenceTest {
         assertFalse(corresponds(shazam("Blinding Lights", ""), youtube("Blinding Lights", "The Weeknd")))
     }
 
+    /**
+     * A title Shazam and YouTube both give in a non-Latin script still corresponds. The old
+     * normalise() kept only a-z0-9, which turned a wholly Cyrillic (or CJK, Greek, Arabic...)
+     * title into the empty string on both sides, so this never matched at all.
+     */
+    @Test
+    fun aCyrillicTitleCorresponds() {
+        val track = shazam("Группа крови", "Кино")
+        assertTrue(corresponds(track, youtube("Группа крови (Official Video)", "Кино")))
+    }
+
+    /**
+     * A YouTube artist written wholly in a script with no Latin letters must not match every
+     * artist. String.contains("") is always true, so once the old ASCII-only normalise() turned
+     * such a name into "", any Shazam artist passed this check, which exists specifically to
+     * reject a cover under the right title and the wrong name.
+     */
+    @Test
+    fun aNonLatinArtistDoesNotMatchAnyArtist() {
+        assertFalse(corresponds(shazam("Get Lucky", "Daft Punk"), youtube("Get Lucky", "翻唱歌手")))
+    }
+
+    /**
+     * A candidate with no artists at all normalises to "", which String.contains("") would
+     * accept for any Shazam artist.
+     */
+    @Test
+    fun aCandidateWithNoArtistsDoesNotMatchAnyArtist() {
+        assertFalse(corresponds(shazam("Get Lucky", "Daft Punk"), youtube("Get Lucky")))
+    }
+
+    /**
+     * An artist made only of symbols, with no letter or digit, also normalises to "" and must
+     * not match every artist either.
+     */
+    @Test
+    fun aSymbolsOnlyArtistDoesNotMatchAnyArtist() {
+        assertFalse(corresponds(shazam("Get Lucky", "Daft Punk"), youtube("Get Lucky", "★")))
+    }
+
+    /**
+     * Shazam and YouTube do not always agree on accents. The fold keeps an accent that one side
+     * leaves out from failing the artist or the title check.
+     */
+    @Test
+    fun accentedAndPlainSpellingsOfTheSameNameCorrespond() {
+        assertTrue(corresponds(shazam("Halo", "Beyoncé"), youtube("Halo", "Beyonce")))
+        assertTrue(corresponds(shazam("Halo", "Beyonce"), youtube("Halo", "Beyoncé")))
+        assertTrue(corresponds(shazam("Déjà Vu", "Beyoncé"), youtube("Deja Vu", "Beyonce")))
+    }
+
     /** A whole DJ mix filed as one track is not the song; a mix of one song is. */
     @Test
     fun aContinuousMixIsNotASong() {

@@ -81,10 +81,15 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
     @Query("DELETE FROM engine_weight")
     fun clearEngineWeights()
 
+    @Query("DELETE FROM playCount")
+    fun clearPlayCounts()
+
     /**
      * Everything the app has recorded about what was played, in one transaction: the legacy play
-     * log, the listen log and its signals, what Quick picks showed, and what the engine learned
-     * from it (its weights go back to their priors the next time it runs).
+     * log, the listen log and its signals, what Quick picks showed, what the engine learned from
+     * it (its weights go back to their priors the next time it runs), and the play counts Keep
+     * listening and every play-count sort read. Without them, Keep listening would go on picking
+     * artists from plays this erased.
      */
     @Transaction
     fun clearListenHistory() {
@@ -94,6 +99,7 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
         clearImpressions()
         clearRowBuilds()
         clearEngineWeights()
+        clearPlayCounts()
     }
 
     @Query("SELECT * FROM search_history WHERE `query` LIKE :query || '%' ORDER BY id DESC")

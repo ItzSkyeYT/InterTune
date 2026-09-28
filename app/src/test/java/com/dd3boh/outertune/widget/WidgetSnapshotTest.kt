@@ -84,6 +84,59 @@ class WidgetSnapshotTest {
     }
 
     @Test
+    fun `the now playing cover comes from its own file, not recent's smaller copy of the same song`() {
+        val now = song.copy(artPath = "/data/art/abc123_192.png")
+        val recentCopy = now.copy(artPath = "/data/art/abc123_96.png")
+        val snap = WidgetSnapshot(nowPlaying = now, recent = listOf(recentCopy))
+        // decode = identity, so the "bitmaps" are just the paths themselves.
+        val (art, nowCover) = coversFor(snap, old = emptyMap(), decode = { it })
+        // Recent collides on id with now playing and comes after it in songs(), so the id-keyed
+        // map keeps recent's smaller path.
+        assertEquals(recentCopy.artPath, art[now.id])
+        // The now playing cover is read from its own path whatever the map holds for that id.
+        assertEquals(now.artPath, nowCover)
+    }
+
+    @Test
+    fun `recent stays put while listen history is paused, and records again once it is not`() {
+        val played = song.copy(id = "new1", title = "New Song")
+        val old = listOf(song.copy(id = "old1"))
+        assertEquals(old, nextRecent(old, played, paused = true, maxPicks = 6))
+        assertEquals(listOf(played) + old, nextRecent(old, played, paused = false, maxPicks = 6))
+    }
+
+    @Test
+    fun `the now playing song's big cover counts as in use even with no artPath field of its own`() {
+        val now = song.copy(id = "now1", artPath = "/art/now1_192.png")
+        val snap = WidgetSnapshot(nowPlaying = now, recent = listOf(now.copy(artPath = "/art/now1_96.png")))
+        val inUse = snap.artPathsInUse { id -> "/art/${id}_320.png" }
+        assertTrue("/art/now1_320.png" in inUse)
+        assertTrue("/art/now1_192.png" in inUse)
+    }
+
+    @Test
+    fun `nothing playing means no big cover to protect`() {
+        assertTrue(WidgetSnapshot().artPathsInUse { "/never/$it" }.isEmpty())
+    }
+
+    @Test
+    fun `the big cover is retried once per song, and every time the song changes`() {
+        // A new song always gets its first try, file present or not.
+        assertTrue(shouldFetchBigArt(same = false, fileExists = false, songId = "a", lastAttempt = null))
+        assertTrue(shouldFetchBigArt(same = false, fileExists = true, songId = "a", lastAttempt = "z"))
+        // A song played again after its last try failed still gets a try.
+        assertTrue(shouldFetchBigArt(same = false, fileExists = false, songId = "a", lastAttempt = "a"))
+        // The same song, file already there: nothing to do regardless of what was last tried.
+        assertFalse(shouldFetchBigArt(same = true, fileExists = true, songId = "a", lastAttempt = null))
+        // The same song, file missing, not tried yet this process: worth a try.
+        assertTrue(shouldFetchBigArt(same = true, fileExists = false, songId = "a", lastAttempt = null))
+        assertTrue(shouldFetchBigArt(same = true, fileExists = false, songId = "a", lastAttempt = "b"))
+        // The same song, file still missing, already tried for this exact id: do not retry on
+        // every play and pause.
+        assertFalse(shouldFetchBigArt(same = true, fileExists = false, songId = "a", lastAttempt = "a"))
+    }
+
+    @Test
     fun `a flat widget keeps a small cover until it is too flat for one`() {
         assertTrue(WidgetLayout.plan(400, 60, WidgetSettings(), 6).cover > 0)
         assertEquals(0, WidgetLayout.plan(400, 40, WidgetSettings(), 6).cover)

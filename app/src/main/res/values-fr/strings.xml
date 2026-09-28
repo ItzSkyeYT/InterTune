@@ -43,6 +43,7 @@
     <string name="from_your_library">De votre bibliothèque</string>
     <string name="liked_songs">Titres aimés</string>
     <string name="downloaded_songs">Titres téléchargés</string>
+    <string name="favorite_artists">Artistes favoris</string>
     <string name="playlist_is_empty">La playlist est vide</string>
     <string name="retry">Réessayer</string>
     <string name="radio">Radio</string>
@@ -288,4 +289,12 @@
     <string name="use_login_for_browse">Utiliser le compte connecté pour parcourir le contenu</string>
     <string name="use_login_for_browse_desc">Ceci peut influencer le contenu que vous voyez et affiche par exemple les albums Premium si vous êtes connecté avec un compte Premium</string>
     <string name="action_login">Se connecter</string>
+
+    <!-- Crash report, shown on the launch after a crash (CrashLog) -->
+    <string name="crash_report_title">InterTune a planté la dernière fois</string>
+    <string name="crash_report_text">Désolé pour ça. L\'erreur ci-dessous est restée sur ce téléphone et rien n\'a été envoyé nulle part. La signaler aide à la corriger sur votre appareil.</string>
+    <string name="crash_report_github">Signaler sur GitHub</string>
+    <string name="crash_report_copy">Copier</string>
+    <string name="crash_report_dismiss">Ignorer</string>
+    <string name="crash_report_copied">Erreur copiée</string>
 </resources>

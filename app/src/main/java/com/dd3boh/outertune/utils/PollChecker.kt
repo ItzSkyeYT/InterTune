@@ -135,7 +135,9 @@ class PollChecker @Inject constructor(
             _currentAnnouncement.value = null
             return@withContext null
         }
-        if (!context.isInternetConnected()) return@withContext null
+        // Offline means the check could not be made, not that there is nothing to ask: a question
+        // already fetched keeps showing, as it does when the fetch below fails.
+        if (!context.isInternetConnected()) return@withContext restoreFromCache()
 
         val last = store.get(LastPollFetchKey, 0L)
         val now = System.currentTimeMillis()

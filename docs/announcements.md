@@ -49,7 +49,8 @@ Only `id`, `banner` and `title` are needed.
 | `actionLabel`, `actionUrl` | The older single button. Still read, and ignored when `actions` is there. |
 | `startsAt`, `expiresAt` | When to start and stop showing it. `"2026-10-01"` is a day in UTC, and `expiresAt` runs to the end of that day. `"2026-10-01T18:00:00+02:00"` is an exact time. Milliseconds still work, and so does a timestamp in seconds. |
 | `minVersionCode`, `maxVersionCode` | Which builds show it. 0.10.9.5 is 89, 0.10.9.6 is 90, 0.11 is 91. |
-| `translations` | The same words in other languages, keyed by language (`"fr"`) or language and region (`"pt-BR"`). Each can have `banner`, `title`, `body` and `actions`; anything left out comes from the main text. A translated button can leave out its `url`, and takes the address of the button in the same place. The phone's own language picks one, and anyone else gets the main text. |
+| `translations` | The same words in other languages, keyed by language (`"fr"`) or language and region (`"pt-BR"`). Each can have `banner`, `title`, `body` and `actions`; anything left out comes from the main text. A translated button can leave out its `url`, and takes the address of the button in the same place. The first language on the phone's list that has a translation, or that the main text is written in (see `language`), wins; a phone with neither gets the main text. |
+| `language` | The language the main text itself is written in. Absent means English (`"en"`). A phone whose language list reaches this language before any translated one gets the main text, not a later translation further down the list. A translation keyed with this same language, alone or with a region, still wins at that language. Only from 0.11 (versionCode 91): 0.10.9.5 and 0.10.9.6 (89, 90) do not read this field, and simply take the first phone language that has a translation. |
 
 ## Worth knowing
 

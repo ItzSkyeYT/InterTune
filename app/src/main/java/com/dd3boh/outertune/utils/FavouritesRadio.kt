@@ -88,3 +88,30 @@ fun <T, K> interleaveBy(
     }
     return interleaveByArtist(grouped.values.toList(), random)
 }
+
+/**
+ * [items] back in a previously established order, so a mix holds still while it is being looked
+ * at rather than reshuffling in full every time the underlying query re-emits, which a plain
+ * interleaveBy call does: it starts a fresh Random each time and shuffles every artist's queue at
+ * whatever size it currently has, so one song being added anywhere shifts every later draw from
+ * that shared Random and so the whole running order, not just where the new song landed.
+ *
+ * An id in [previousOrder] no longer present in [items] is dropped. Any id in [items] that was
+ * not in [previousOrder] is a newcomer: newcomers are interleaved among themselves by
+ * [interleaveNewcomers] and appended after everything already shown, never inserted into the
+ * order already on screen.
+ *
+ * @return the new stable order
+ */
+fun <T> holdOrderAppendingNewcomers(
+    previousOrder: List<String>,
+    items: List<T>,
+    id: (T) -> String,
+    interleaveNewcomers: (List<T>) -> List<T>,
+): List<T> {
+    val byId = items.associateBy(id)
+    val previousSeen = previousOrder.toSet()
+    val newcomers = items.filterNot { id(it) in previousSeen }
+    val order = previousOrder.filter { it in byId } + interleaveNewcomers(newcomers).map(id)
+    return order.mapNotNull { byId[it] }
+}

@@ -67,24 +67,22 @@ fun UpdatePrompt(
         title = { Text(stringResource(R.string.update_prompt_title, update.versionName)) },
         text = {
             Column {
-                Text(
-                    // Download state decides the line, and the permission wording is only used
-                    // when the apk really is downloaded, because that string says so. Checking
-                    // permission first would have claimed "downloaded and ready" with nothing
-                    // downloaded, which is the usual case: automatic downloading is off by default.
-                    text = stringResource(
-                        when {
-                            ready && needsPermission -> R.string.update_prompt_needs_permission
-                            ready -> R.string.update_prompt_ready
-                            else -> R.string.update_prompt_will_download
-                        }
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                // Download state decides the line, and the permission wording is only used when
+                // the apk really is downloaded, because that string says so. Checking permission
+                // first would have claimed "downloaded and ready" with nothing downloaded, which
+                // is the usual case: automatic downloading is off by default. On F-Droid there is
+                // no line here at all: the button below goes to F-Droid, not to an install, so
+                // none of these would be true, and the F-Droid note underneath says where the
+                // update comes from.
+                updatePromptLine(fromFdroid, ready, needsPermission)?.let { line ->
+                    Text(
+                        text = stringResource(line.stringRes),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
 
                 if (fromFdroid) {
-                    Spacer(Modifier.height(8.dp))
                     Text(
                         // Deliberately does not promise the version is there yet. F-Droid builds
                         // each release itself and usually lands a while after the tag, so telling
@@ -163,6 +161,26 @@ fun UpdatePrompt(
         },
         dismissButton = null,
     )
+}
+
+/**
+ * The prompt's first line: which of the three things it can say, decided from download state, or
+ * null for no line at all. fromFdroid outranks the rest and reads as null, since the button
+ * underneath sends the user to F-Droid rather than downloading or installing anything here, so no
+ * line about either of those would be true, and the dialog already names the version in its title
+ * and, just below, that F-Droid is where it comes from.
+ */
+internal enum class UpdatePromptLine(val stringRes: Int) {
+    NEEDS_PERMISSION(R.string.update_prompt_needs_permission),
+    READY(R.string.update_prompt_ready),
+    WILL_DOWNLOAD(R.string.update_prompt_will_download),
+}
+
+internal fun updatePromptLine(fromFdroid: Boolean, ready: Boolean, needsPermission: Boolean): UpdatePromptLine? = when {
+    fromFdroid -> null
+    ready && needsPermission -> UpdatePromptLine.NEEDS_PERMISSION
+    ready -> UpdatePromptLine.READY
+    else -> UpdatePromptLine.WILL_DOWNLOAD
 }
 
 /**

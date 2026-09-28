@@ -515,7 +515,7 @@ fun DetailsDialog(
                 details.addAll(
                     mutableListOf(
                         stringResource(R.string.mime_type) to currentFormat?.mimeType,
-                        stringResource(R.string.codecs) to currentFormat?.codecs,
+                        stringResource(R.string.codecs) to currentFormat?.codecs?.takeIf { it.isNotBlank() },
                         stringResource(R.string.bitrate) to currentFormat?.bitrate?.let { "${it / 1000} Kbps" },
                         stringResource(R.string.sample_rate) to currentFormat?.sampleRate?.let { "$it Hz" },
                         stringResource(R.string.bits_per_sample) to (currentFormat?.bitsPerSample?.toString()
@@ -535,8 +535,12 @@ fun DetailsDialog(
                                     context,
                                     File(mediaMetadata.localPath).length() * (1024 / 1000)
                                 )
-                            } else {
+                            } else if (it > 0) {
+                                // A stream whose size YouTube never sent is stored as 0
+                                // (contentLengthOrZero): unknown, not 0 B.
                                 Formatter.formatShortFileSize(context, it)
+                            } else {
+                                null
                             }
                         }
                     ))

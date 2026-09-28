@@ -140,6 +140,66 @@ class FavouritesRadioTest {
     }
 
     @Test
+    fun `holdOrderAppendingNewcomers keeps the first order in place`() {
+        val first = interleaveByArtist(listOf(artist("A", 20), artist("B", 20)), Random(9))
+        val out = holdOrderAppendingNewcomers(first, first, { it }, { it })
+        assertEquals("nothing new should leave the order untouched", first, out)
+    }
+
+    @Test
+    fun `a newcomer is appended, never inserted into the order already shown`() {
+        val previous = listOf("A1", "B1", "A2", "B2")
+        val items = previous + "A3" // one song by A newly stored
+        val out = holdOrderAppendingNewcomers(previous, items, { it }, { it })
+
+        assertEquals(listOf("A1", "B1", "A2", "B2", "A3"), out)
+    }
+
+    @Test
+    fun `several newcomers are interleaved among themselves, not shuffled in with the old order`() {
+        val previous = listOf("A1", "B1")
+        val items = previous + listOf("C1", "C2", "D1")
+        val newcomerOrder = mutableListOf<List<String>>()
+        val out = holdOrderAppendingNewcomers(previous, items, { it }, { newcomers ->
+            newcomerOrder += newcomers
+            newcomers.reversed() // a distinctive, checkable interleaving
+        })
+
+        assertEquals(listOf("C1", "C2", "D1"), newcomerOrder.single())
+        assertEquals(listOf("A1", "B1", "D1", "C2", "C1"), out)
+    }
+
+    @Test
+    fun `a song no longer present is dropped, not left as a gap`() {
+        val previous = listOf("A1", "B1", "A2")
+        val items = listOf("A1", "A2") // B1 removed (song deleted, or its artist unbookmarked)
+        val out = holdOrderAppendingNewcomers(previous, items, { it }, { it })
+
+        assertEquals(listOf("A1", "A2"), out)
+    }
+
+    @Test
+    fun `a removal and an addition in the same emission both take effect`() {
+        val previous = listOf("A1", "B1", "A2")
+        val items = listOf("A1", "A2", "C1") // B1 gone, C1 new
+        val out = holdOrderAppendingNewcomers(previous, items, { it }, { it })
+
+        assertEquals(listOf("A1", "A2", "C1"), out)
+    }
+
+    @Test
+    fun `a song stored while the mix is on screen leaves the mix where it was`() {
+        // The interleaver the view model really uses, rather than the identity: reshuffling the
+        // whole set with it moves songs all through the mix, not only where the new one lands.
+        val mix = { s: List<String> -> interleaveBy(s, Random(5)) { artistOf(it) } }
+        val shown = mix(artist("A", 10) + artist("B", 10) + artist("C", 10))
+        val held = holdOrderAppendingNewcomers(shown, artist("A", 11) + artist("B", 10) + artist("C", 10), { it }, mix)
+
+        assertEquals(shown, held.dropLast(1))
+        assertEquals("A11", held.last())
+    }
+
+    @Test
     fun `empty and degenerate inputs do not throw`() {
         assertEquals(emptyList<String>(), interleaveByArtist(emptyList<List<String>>(), Random(1)))
         assertEquals(emptyList<String>(), interleaveByArtist(listOf(emptyList<String>()), Random(1)))

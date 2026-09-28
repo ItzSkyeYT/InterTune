@@ -350,7 +350,6 @@
     <string name="settings_look_and_feel_description">Tema dan warna, tab di bagian bawah, dan gestur usap.</string>
     <string name="settings_player_description">Kualitas suara, efek audio, dan bagaimana pemutaran berjalan.</string>
     <string name="settings_lyrics_description">Dari mana lirik diambil, dan bagaimana ditampilkan.</string>
-    <string name="settings_storage_description">Unduhan, berapa banyak ruang yang boleh dipakai singgahan, dan pencadangan pustaka Anda.</string>
     <string name="settings_privacy_description">Apa yang aplikasi catat tentang Anda, dan apa yang dikirimkannya.</string>
     <string name="settings_updates_description">Periksa versi baru, dan pasang.</string>
     <string name="settings_advanced_description">Pemeliharaan dan opsi pengembang.</string>

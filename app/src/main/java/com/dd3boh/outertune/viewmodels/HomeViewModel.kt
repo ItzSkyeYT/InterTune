@@ -109,6 +109,16 @@ private const val SIMILAR_WAIT_MS = 20_000L
 /** One line under a card: a feature name and, for the seed and artist reasons, what it names. */
 data class CardReason(val key: String, val arg: String?)
 
+/**
+ * Whether YouTube's row is the Quick picks row on screen: on the YouTube source, or when the
+ * engine or Try both has fallen back to YouTube's shelf (engineFallback == 2). HomeScreen draws by
+ * this and the view model tidies and logs by it, so the row that is tidied is the row that is
+ * drawn. Try both shows its own drafted mix at engineFallback 0 and the library's row at 1, so
+ * YouTube's pool is not on screen then, even while one is held.
+ */
+internal fun ytRowOnScreenFor(source: QuickPicksSource, engineFallback: Int, poolNonEmpty: Boolean): Boolean =
+    poolNonEmpty && (source == QuickPicksSource.YOUTUBE || (source != QuickPicksSource.OFF && engineFallback == 2))
+
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     @ApplicationContext val context: Context,
@@ -393,7 +403,7 @@ class HomeViewModel @Inject constructor(
         database.transaction {
             runCatching {
                 discoverBuildId = insert(RowBuild(
-                    builtAt = now, rowKey = DISCOVER_ROW_KEY, sessionId = lastListen()?.sessionId ?: now, bucket = dayPartBucket(now),
+                    builtAt = now, rowKey = DISCOVER_ROW_KEY, sessionId = currentSessionOf(now), bucket = dayPartBucket(now),
                     dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness), contextChip = ContextChip.AUTO,
                     seeds = EngineLoader.seedsJson(row?.seeds.orEmpty()),
                     weights = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS).asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" },
@@ -718,7 +728,7 @@ class HomeViewModel @Inject constructor(
         fun yt(items: List<YTItem>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE) = pass.row(items, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name }, { (it as? SongItem)?.artists?.firstOrNull()?.id }, { false }, maxPerArtist)
         // Whichever Quick picks row is on screen goes first; the other is not shown and must not
         // claim songs from the rows below it.
-        val ytShown = ytShelfWanted() && !ytQuickPicksPool.isNullOrEmpty()
+        val ytShown = ytRowOnScreen(ytQuickPicksPool)
         if (ytShown) {
             ytQuickPicks.value = ytQuickPicksPool?.let { yt(it, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST).filterIsInstance<SongItem>().take(20) }
             Log.d("HomeViewModel", "showing the YouTube row: ${ytQuickPicks.value?.size} of a pool of ${ytQuickPicksPool?.size} after tidy, first ${ytQuickPicks.value?.firstOrNull()?.title}")
@@ -769,7 +779,7 @@ class HomeViewModel @Inject constructor(
                 // The song table is the anchor for everything the engine will ever say about a
                 // song, and YouTube's row arrives from the feed, not from the table.
                 songs.forEach { if (!songExists(it.id)) insert(it) }
-                val sessionId = lastListen()?.sessionId ?: now
+                val sessionId = currentSessionOf(now)
                 val rowKey = when (source) { 1 -> 3; 2 -> 1; 3 -> 5; else -> 2 }
                 val engineRow = lastEngineRow?.takeIf { source == 2 || source == 3 }
                 currentBuildId = insert(RowBuild(
@@ -1235,6 +1245,14 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
+     * [ytRowOnScreenFor] for the current source, fallback step and YouTube pool. Unlike
+     * [ytShelfWanted], which decides whether the shelf is lifted out of the feed, Try both counts
+     * here only at engineFallback == 2.
+     */
+    private fun ytRowOnScreen(pool: List<SongItem>?): Boolean =
+        ytRowOnScreenFor(quickPicksSource(), engineFallback.value, !pool.isNullOrEmpty())
+
+    /**
      * Lifts YouTube's Quick picks shelf out of the feed into the row, and lends the row the songs
      * of the feed's other song shelves, which stay where they are. With [canLift] false, as for a
      * batch scrolled in after the row is on screen, only the lending happens: the row does not
@@ -1306,7 +1324,7 @@ class HomeViewModel @Inject constructor(
     /** What the rows are showing after this load, remembered so the next refresh brings forward what they have not. */
     private fun noteShown() {
         val src = quickPicksSource()
-        val ytShown = ytShelfWanted() && !ytQuickPicksPool.isNullOrEmpty()
+        val ytShown = ytRowOnScreen(ytQuickPicksPool)
         val libraryShown = !ytShown && (src == QuickPicksSource.LIBRARY || src == QuickPicksSource.YOUTUBE || engineFallback.value == 1)
         if (ytShown) recentlyShown.note("yt", ytQuickPicks.value.orEmpty().map { it.id })
         if (libraryShown) recentlyShown.note("lib", quickPicks.value.orEmpty().map { it.id })
@@ -1329,7 +1347,13 @@ class HomeViewModel @Inject constructor(
                 chips = homePagePool?.chips,
                 sections = homePagePool?.sections.orEmpty() + cleaned.sections
             )
-            if (foundQuickPicksThisLoad && ytQuickPicksPool == null) {
+            // Try both clears YouTube's pool once it has drafted its row (see draftCompareRow): the
+            // draft already holds the shelf's songs, and nothing draws YouTube's row at that step.
+            // Building the pool again here would set ytQuickPicks, and HomeScreen scrolls Quick
+            // picks back to its first column whenever that changes, under a listener who has
+            // scrolled down Home.
+            val compareDrafted = quickPicksSource() == QuickPicksSource.COMPARE && engineFallback.value == 0
+            if (foundQuickPicksThisLoad && ytQuickPicksPool == null && !compareDrafted) {
                 ytQuickPicksPool = ytRowPool()
                 rankPools(includeShelf = true)
             }

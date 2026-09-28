@@ -181,39 +181,41 @@ fun StatsScreen(
             )
         }
 
-        item(key = "mostPlayedArtists") {
-            NavigationTitle(
-                title = stringResource(R.string.most_played_artists),
-                modifier = Modifier.animateItem()
-            )
+        if (mostPlayedArtists.isNotEmpty()) {
+            item(key = "mostPlayedArtists") {
+                NavigationTitle(
+                    title = stringResource(R.string.most_played_artists),
+                    modifier = Modifier.animateItem()
+                )
 
-            LazyRow(
-                modifier = Modifier.animateItem()
-            ) {
-                items(
-                    items = mostPlayedArtists,
-                    key = { it.id }
-                ) { artist ->
-                    ArtistGridItem(
-                        artist = artist,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .combinedClickable(
-                                onClick = {
-                                    navController.navigate("artist/${artist.id}")
-                                },
-                                onLongClick = {
-                                    menuState.show {
-                                        ArtistMenu(
-                                            originalArtist = artist,
-                                            coroutineScope = coroutineScope,
-                                            onDismiss = menuState::dismiss
-                                        )
+                LazyRow(
+                    modifier = Modifier.animateItem()
+                ) {
+                    items(
+                        items = mostPlayedArtists,
+                        key = { it.id }
+                    ) { artist ->
+                        ArtistGridItem(
+                            artist = artist,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .combinedClickable(
+                                    onClick = {
+                                        navController.navigate("artist/${artist.id}")
+                                    },
+                                    onLongClick = {
+                                        menuState.show {
+                                            ArtistMenu(
+                                                originalArtist = artist,
+                                                coroutineScope = coroutineScope,
+                                                onDismiss = menuState::dismiss
+                                            )
+                                        }
                                     }
-                                }
-                            )
-                            .animateItem()
-                    )
+                                )
+                                .animateItem()
+                        )
+                    }
                 }
             }
         }

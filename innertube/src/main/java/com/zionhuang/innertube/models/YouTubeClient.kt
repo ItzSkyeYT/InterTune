@@ -20,13 +20,18 @@ data class YouTubeClient(
     // val origin: String? = null,
     // val referer: String? = null,
 ) {
-    fun toContext(locale: YouTubeLocale, visitorData: String?, dataSyncId: String?) = Context(
+    fun toContext(
+        locale: YouTubeLocale,
+        visitorData: String?,
+        dataSyncId: String?,
+        hlOverride: String? = null,
+    ) = Context(
         client = Context.Client(
             clientName = clientName,
             clientVersion = clientVersion,
             osVersion = osVersion,
             gl = locale.gl,
-            hl = locale.hl,
+            hl = hlOverride ?: locale.hl,
             visitorData = visitorData,
             osName = osName,
             deviceMake = deviceMake,

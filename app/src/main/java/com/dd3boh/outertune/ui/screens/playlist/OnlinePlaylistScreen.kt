@@ -276,10 +276,9 @@ fun OnlinePlaylistScreen(
                 TextButton(
                     onClick = {
                         showRemoveDownloadDialog = false
-                        database.transaction {
-                            dbPlaylist?.id?.let { clearPlaylist(it) }
-                        }
-
+                        // Downloads only, as the dialog says. This also emptied the saved copy of
+                        // the playlist, and account sync does not refill a saved playlist that is
+                        // not the account's own.
                         songs.forEach { song ->
                             downloadUtil.removeDownload(song.id)
                         }
@@ -401,11 +400,15 @@ fun OnlinePlaylistScreen(
                                                             }
                                                             // The songs above are only the pages loaded so far,
                                                             // about a hundred, and a saved playlist opens from the
-                                                            // database from then on. Fetch the whole of it; the
-                                                            // transaction above is queued first on the same executor.
-                                                            viewModel.viewModelScope.launch(Dispatchers.IO) {
-                                                                syncUtils.syncPlaylist(playlist.id, playlistEntity.id)
-                                                            }
+                                                            // database from then on. Fetch the whole of it, on
+                                                            // SyncUtils' own scope: viewModelScope goes as soon as
+                                                            // this screen is popped, which used to cut the fetch
+                                                            // short and leave the saved copy at its first page for
+                                                            // good. The transaction above is also queued first on
+                                                            // the same executor, so syncPlaylist's own clear and
+                                                            // insert cannot run before this playlist and its first
+                                                            // page exist to be synced.
+                                                            syncUtils.syncPlaylistDetached(playlist.id, playlistEntity.id)
                                                         } else {
                                                             database.transaction {
                                                                 update(dbPlaylist!!.playlist.toggleLike())

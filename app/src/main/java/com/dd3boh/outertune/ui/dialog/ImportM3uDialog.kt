@@ -311,6 +311,36 @@ fun ImportM3uDialog(
 
 }
 
+/** What one #EXTINF line names: a title, and the artists credited before it, if any. */
+data class ExtInfEntry(val artists: List<String>, val title: String)
+
+/**
+ * VLC, foobar2000 and most other writers put "artist - title" after the comma, but only when an
+ * artist is actually known: a title-only line, `#EXTINF:213,Bohemian Rhapsody`, has no ' - ' in
+ * it at all. substringBefore returns the whole line when the delimiter is absent, so splitting
+ * unconditionally would make the title its own artist, a bogus one that fails every real artist
+ * it is compared against. Such a line gets no artists instead.
+ *
+ * Blank names are dropped too, because InterTune's own export (M3u.playlist) writes
+ * `#EXTINF:200, - Title` for a song with no artists, which is every untagged local file.
+ *
+ * compareArtist matches two empty lists, so at LEVEL_2 such an entry matches a library song
+ * with no artist, or the same file by its path; it is not loosened to a title-only match. M3U
+ * import only ever compares at LEVEL_0, LEVEL_1 or LEVEL_2; compareM3uSong maps anything else to
+ * LEVEL_1.
+ */
+fun parseExtInf(rawLine: String): ExtInfEntry {
+    val remainder = rawLine.substringAfter("#EXTINF:").substringAfter(',')
+    return if (remainder.contains(" - ")) {
+        ExtInfEntry(
+            artists = remainder.substringBefore(" - ").split(';').filter { it.isNotBlank() },
+            title = remainder.substringAfter(" - "),
+        )
+    } else {
+        ExtInfEntry(artists = emptyList(), title = remainder)
+    }
+}
+
 /**
  * Parse m3u file and scans the database for matching songs
  *
@@ -336,10 +366,7 @@ suspend fun loadM3u(
             if (lines.first().startsWith("#EXTM3U")) {
                 lines.forEachIndexed { index, rawLine ->
                     if (rawLine.startsWith("#EXTINF:")) {
-                        // maybe later write this to be more efficient
-                        val artists =
-                            rawLine.substringAfter("#EXTINF:").substringAfter(',').substringBefore(" - ").split(';')
-                        val title = rawLine.substringAfter("#EXTINF:").substringAfter(',').substringAfter(" - ")
+                        val (artists, title) = parseExtInf(rawLine)
                         val source = if (index + 1 < lines.size) lines[index + 1] else null
 
                         val mockSong = Song(

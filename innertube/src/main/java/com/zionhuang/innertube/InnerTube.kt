@@ -140,11 +140,17 @@ class InnerTube {
         webPlayerPot: String?,
         // Null asks as a visitor YouTube has never seen, and the answer carries a new visitorData.
         visitorData: String? = this.visitorData,
+        // Null keeps this.locale.hl. YouTube writes playabilityStatus.reason in whatever hl the
+        // request carried, and the app's own hl follows the user's content language, so a refusal
+        // came back in French or German with nothing in the app able to recognise it as one. The
+        // callers that pass "en" are in YTPlayerUtils: resolveOnce, playerResponseForMetadata and
+        // loudnessFor.
+        hlOverride: String? = null,
     ) = httpClient.post("player") {
         ytClient(client, setLogin = true)
         setBody(
             PlayerBody(
-                context = client.toContext(locale, visitorData, dataSyncId).let {
+                context = client.toContext(locale, visitorData, dataSyncId, hlOverride).let {
                     if (client.isEmbedded) {
                         it.copy(
                             thirdParty = Context.ThirdParty(

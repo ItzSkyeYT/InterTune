@@ -340,12 +340,23 @@ class MediaLibrarySessionCallback @Inject constructor(
 
     /** What a request to play should put in the player, or null when this cannot place it. */
     private suspend fun resolvePlayRequest(request: MediaItem, startPositionMs: Long): MediaItemsWithStartPosition? {
-        // Not before the service has read back its saved queues. A request that brings the
-        // service up, from the car or from an assistant's play-from-search, can arrive first, and
-        // loading them replaces the queue board: the queue added here was dropped, and the board
-        // was left on a saved queue while the player played the request. Bounded, so a load that
-        // failed does not hold the request for ever.
-        withTimeoutOrNull(QUEUES_LOADED_TIMEOUT_MS) { service.qbInit.first { it } }
+        // Not before the service has read back its saved queues at least once. A request that
+        // brings the service up, from the car or from an assistant's play-from-search, can arrive
+        // first, and loading them replaces the queue board: the queue added here was dropped, and
+        // the board was left on a saved queue while the player played the request. Bounded, so a
+        // load that failed does not hold the request for ever.
+        //
+        // queuesLoadedOnce, not qbInit itself: qbInit goes back to false every time the mini
+        // player is swiped away (deInitQueue), while queuesLoadedOnce only ever completes once. A
+        // second request after a swipe would otherwise wait out the same five seconds every time,
+        // for a load that already happened.
+        withTimeoutOrNull(QUEUES_LOADED_TIMEOUT_MS) { service.queuesLoadedOnce.await() }
+        if (!service.qbInit.value) {
+            // Swiped away since that first load: load the board the way playQueue does when it
+            // finds qbInit false, instead of waiting out a timeout for a signal that will not come
+            // again.
+            service.initQueue(onlyIfNeeded = true)
+        }
         val mediaId = request.mediaId
         if (mediaId.isEmpty()) {
             // No id: media3 builds these from a search, "Hey Google, play X" in the car, and from a
@@ -372,7 +383,10 @@ class MediaLibrarySessionCallback @Inject constructor(
 
             is PlayRequest.Search -> searchLibrary(target.query)
         }
-        val index = songs.indexOfFirst { it.id == target.songId }.coerceAtLeast(0)
+        // A stale or removed id (the car's own cache, or a replayed history entry) is a request
+        // this cannot place, the same as the Album-not-found case above: fail it rather than
+        // coercing -1 to 0 and silently starting whatever sorts first.
+        val index = PlayRequestIndex.indexOf(songs.map { it.id }, target.songId) ?: return null
         val position = if (target is PlayRequest.Search) C.TIME_UNSET else startPositionMs
         return startExternalQueue(songs.map { it.toMediaItem() }, index, position)
     }

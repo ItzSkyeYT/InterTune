@@ -362,6 +362,12 @@ val AutoInstallUpdatesKey = booleanPreferencesKey("autoInstallUpdates")
 /** Epoch millis before which the update prompt stays quiet, set by "remind me later". */
 val UpdateSnoozeUntilKey = longPreferencesKey("updateSnoozeUntil")
 
+/** The version code the background check last notified about, so it says so once, not every run. */
+val LastNotifiedUpdateCodeKey = intPreferencesKey("lastNotifiedUpdateCode")
+
+/** The poll id the background check last notified about, for the same reason. */
+val LastNotifiedPollIdKey = stringPreferencesKey("lastNotifiedPollId")
+
 /**
  * Whether to look for newer InterTune releases on GitHub.
  *

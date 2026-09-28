@@ -12,11 +12,8 @@ import com.dd3boh.outertune.db.entities.QueueSong
 import com.dd3boh.outertune.db.entities.QueueSongMap
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.models.toMediaMetadata
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
 @Dao
 interface QueueDao {
@@ -120,14 +117,15 @@ interface QueueDao {
         )
     }
 
+    // Synchronous on purpose: saveQueueToDisk runs this at teardown and must not return before
+    // every row has landed, and @Transaction only covers work done in this body. Both callers are
+    // off the main thread (saveQueueToDisk on IO, QueueBoard's saves on its IO scope).
     @Transaction
     fun updateAllQueues(mqs: List<MultiQueueObject>) {
         val mqs = mqs.toList() // please no more ConcurrentModificationException I beg you
         mqs.forEachIndexed { index, q -> q.index = index }
-        CoroutineScope(Dispatchers.IO).launch {
-            nukeAliens(mqs.map { it.id })
-            mqs.forEach { updateQueue(it) }
-        }
+        nukeAliens(mqs.map { it.id })
+        mqs.forEach { updateQueue(it) }
     }
 
     // endregion

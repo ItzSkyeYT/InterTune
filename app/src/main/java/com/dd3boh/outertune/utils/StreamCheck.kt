@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.utils
 
+import com.zionhuang.innertube.models.response.PlayerResponse
+
 /**
  * What the HEAD check on a stream url decides, kept out of YTPlayerUtils so it can be tested
  * without a network.
@@ -93,4 +95,39 @@ object StreamCheck {
             append(client).append(' ').append(playability ?: "no answer")
             if (checked) append(", HEAD ").append(head?.toString() ?: "failed")
         }
+
+    /** What [resolveOnceFailure] decided to do about a chain that produced no usable stream. */
+    sealed interface ChainFailure {
+        /** A fallback client's own explanation: its reason, or its bare status without one. */
+        data class Explained(val message: String) : ChainFailure
+
+        /** The last fallback client's own failure (dropped connection, timeout): rethrow as is. */
+        data class LastFailure(val cause: Throwable) : ChainFailure
+
+        /** Nothing explained anything and nothing failed either. */
+        data object Unknown : ChainFailure
+    }
+
+    /**
+     * Decides what to throw when no client produced a response the player could use at all (the
+     * separate case of a client answering and its url then being refused is
+     * [refusalMessage]'s).
+     *
+     * Order matters. A fallback client's explanation is what a person can act on, so it wins:
+     * Five Hours (4f963e5f4) had VISIONOS and IOS both say "This video is not available", then
+     * ANDROID's /player call failed, and the reason the first two gave is the one to show. The
+     * last client's own failure is thrown only when nothing explained anything, so a chain whose
+     * fallback calls all failed reaches MusicService's no-connection and timeout mapping instead
+     * of "Bad stream player response".
+     */
+    fun resolveOnceFailure(
+        explained: PlayerResponse.PlayabilityStatus?,
+        lastFallbackFailure: Throwable?,
+    ): ChainFailure = when {
+        // status is a non-null String on the model itself; reason is the friendlier one when a
+        // client gave one, and status is still something rather than nothing when it did not.
+        explained != null -> ChainFailure.Explained(explained.reason ?: explained.status)
+        lastFallbackFailure != null -> ChainFailure.LastFailure(lastFallbackFailure)
+        else -> ChainFailure.Unknown
+    }
 }

@@ -836,7 +836,12 @@ fun BoxScope.QueueContent(
                         }
                     }
                 )
-            } else if (!isSearching) {
+            } else if (!isSearching && !(songsOnly && landscape)) {
+                // The landscape layout with songsOnly (the tablet's queue pane) never draws
+                // searchBar(), so there the button only hid the drag handles, with no field to
+                // type in. The portrait layout draws searchBar() whatever songsOnly says, so a
+                // songsOnly pane that falls back to it (tablet UI forced on in a narrow window)
+                // keeps the button.
                 ResizableIconButton(
                     icon = Icons.Rounded.Search,
                     onClick = {
@@ -1341,6 +1346,7 @@ fun BoxScope.QueueContent(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .align(Alignment.Center),
+                                enabled = !detachedHead,
                                 onClick = {
                                     playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
                                 }
@@ -1380,6 +1386,7 @@ fun BoxScope.QueueContent(
                                 modifier = Modifier
                                     .size(32.dp)
                                     .align(Alignment.Center),
+                                enabled = !detachedHead,
                                 onClick = {
                                     playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
                                 }

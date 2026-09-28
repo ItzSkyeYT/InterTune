@@ -163,7 +163,6 @@
     <string name="settings_look_and_feel_description">Mövzu və rənglər, aşağıdakı bölmələr və sürüşdürmə jestləri.</string>
     <string name="settings_player_description">Səs keyfiyyəti, audio effektlər və oxutmanın davranışı.</string>
     <string name="settings_lyrics_description">Sözlərin haradan gətirildiyi və necə göstərildiyi.</string>
-    <string name="settings_storage_description">Endirmələr, keşin nə qədər yer tuta biləcəyi və kitabxananızın ehtiyat nüsxəsi.</string>
     <string name="settings_privacy_description">Tətbiqin sizin haqqınızda nə qeyd etdiyi və nə göndərdiyi.</string>
     <string name="settings_updates_description">Yeni versiyanı yoxlayın və quraşdırın.</string>
     <string name="settings_advanced_description">Baxım və tərtibatçı seçimləri.</string>

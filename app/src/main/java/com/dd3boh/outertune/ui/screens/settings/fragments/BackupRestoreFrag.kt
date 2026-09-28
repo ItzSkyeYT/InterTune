@@ -175,12 +175,19 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         else withContext(Dispatchers.IO) { folderLabel(context, autoBackupFolder) }
     }
 
+    // Read above the cards so each row can also disable itself while the OTHER operation is
+    // running: backup() and restore() both touch the live database (checkpoint, close, or
+    // BackupWriter's own writableDatabase read), so letting one start mid-way through the other
+    // is the same hazard as letting either run twice over itself. Back up now, further down,
+    // stays off during a restore for the same reason: its worker writes through BackupWriter too.
+    val backingUp by viewModel.backupInProgress.collectAsState()
+    val restoring by viewModel.restoreInProgress.collectAsState()
+
     ElevatedCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         // A spinner while it writes, because on a large library this is several seconds during
         // which the row looked like it had ignored the tap, which is when people tap it again.
-        val backingUp by viewModel.backupInProgress.collectAsState()
         PreferenceEntry(
             title = { Text(stringResource(R.string.action_backup)) },
             description = if (backingUp) stringResource(R.string.backup_in_progress) else null,
@@ -188,7 +195,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             trailingContent = if (!backingUp) null else {
                 { CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) }
             },
-            isEnabled = !backingUp,
+            isEnabled = !backingUp && !restoring,
             onClick = {
                 val formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
                 backupLauncher.launch(
@@ -204,9 +211,16 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth()
     ) {
+        // Same reasoning as the Backup card above: a real-sized restore is seconds of disk I/O
+        // and Room migration work, and the row needs to say so instead of looking ignored.
         PreferenceEntry(
             title = { Text(stringResource(R.string.action_restore)) },
+            description = if (restoring) stringResource(R.string.restore_in_progress) else null,
             icon = { Icon(Icons.Rounded.Restore, null) },
+            trailingContent = if (!restoring) null else {
+                { CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp) }
+            },
+            isEnabled = !restoring && !backingUp,
             onClick = {
                 restoreLauncher.launch(arrayOf("application/octet-stream"))
             }
@@ -310,7 +324,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         PreferenceEntry(
             title = { Text(stringResource(R.string.auto_backup_now)) },
             icon = { Icon(Icons.Rounded.Backup, null) },
-            isEnabled = autoBackupFolder.isNotBlank(),
+            isEnabled = autoBackupFolder.isNotBlank() && !restoring,
             onClick = { AutoBackup.runNow(context) }
         )
 

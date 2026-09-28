@@ -81,6 +81,8 @@ import androidx.compose.ui.graphics.ColorFilter
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
+import com.dd3boh.outertune.constants.SyncMode
+import com.dd3boh.outertune.constants.YtmSyncModeKey
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.withArtistIds
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
@@ -91,6 +93,7 @@ import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.ui.dialog.DetailsDialog
+import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.Dispatchers
@@ -128,7 +131,12 @@ fun PlayerMenu(
     // Which editable playlists this song sits in, so it can be taken out from here. Removing was
     // only ever offered from the song list, so getting a track out of the playlist you were
     // listening to meant leaving the player, finding it again and opening a second menu.
-    val inPlaylists by database.playlistsContaining(mediaMetadata.id).collectAsState(initial = emptyList())
+    val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
+    val playlistsContaining by database.playlistsContaining(mediaMetadata.id).collectAsState(initial = emptyList())
+    // The dao already keeps out playlists the app can never edit. While sync is read only, an
+    // editable synced playlist cannot be written to either, so only local ones stay offered here,
+    // matching LocalPlaylistScreen's own editable rule.
+    val inPlaylists = if (syncMode == SyncMode.RO) playlistsContaining.filter { it.playlist.isLocal } else playlistsContaining
     var showRemoveFromPlaylist by rememberSaveable { mutableStateOf(false) }
 
     val activityResultLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { }

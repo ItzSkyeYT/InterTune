@@ -13,6 +13,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.os.ext.SdkExtensions
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
@@ -741,6 +742,10 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
         }
         selectionBuilder.append(")")
         val selection = selectionBuilder.toString()
+        // Converted to absolute paths, as scanPaths is above. MediaStore hands back absolute
+        // paths, and compared with a tree address's own path ("/tree/...") they never matched, so
+        // this scanner left nothing out.
+        val excludedAbsolutePaths = excludedScanPaths.mapNotNull { absoluteFilePathFromUri(context, it) }
 
         // Query for audio files
         val cursor = contentResolver.query(
@@ -789,7 +794,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                 val rawDateModified = cursor.getString(dateModifiedColumn)
                 val path = cursor.getString(pathColumn)
                 val mime = cursor.getString(mimeColumn)
-                if (excludedScanPaths.any { path.startsWith(it.path ?: "") }) continue
+                if (isPathExcluded(path, excludedAbsolutePaths)) continue
 
                 // extra stream info
                 var bitrate: Int? = null
@@ -1271,9 +1276,14 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
             unlisted: MutableList<Uri>? = null,
         ): List<Uri> {
             val allSongs = ArrayList<Uri>()
+            val excludedIds = excludedScanPaths.mapNotNull {
+                runCatching { DocumentsContract.getTreeDocumentId(it) }.getOrNull()
+            }
             val resultingPaths =
                 scanPaths.filterNot { incl ->
-                    excludedScanPaths.any { excl -> incl.path?.startsWith(excl.path.toString()) == true }
+                    // Compared as tree addresses, not raw text: a plain prefix would also take a
+                    // sibling root such as Music2 for being inside Music.
+                    excludedScanPaths.any { excl -> FolderNesting.isSameOrInside(incl.toString(), excl.toString()) }
                 }
 
             resultingPaths.forEach { path ->
@@ -1301,9 +1311,13 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                         }
 
                         allSongs.addAll(songsHere.fastFilter { incl ->
-                            !excludedScanPaths.any {
-                                incl.uri.path?.startsWith(it.path.toString()) == true
-                            }
+                            // A found file's own address keeps the tree it was found under, so its
+                            // path never starts with an excluded folder's own tree address, and
+                            // the text comparison never matched a real file. Compared by document
+                            // id instead, with the rule FolderNesting uses for two tree addresses.
+                            // A file whose id cannot be read is kept.
+                            val fileDocId = runCatching { DocumentsContract.getDocumentId(incl.uri) }.getOrNull()
+                            fileDocId == null || excludedIds.none { FolderNesting.isSameOrInsideId(fileDocId, it) }
                         }.map { it.uri })
                     }
                 } catch (e: FileNotFoundException) {
@@ -1623,6 +1637,14 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
         }
     }
 }
+
+/**
+ * Whether an absolute media path from MediaStore falls under one of the excluded absolute folder
+ * paths. A plain string comparison with a '/' boundary, so excluding Music does not also catch
+ * Music2. No Android in here, so it is tested without a cursor or a content resolver.
+ */
+fun isPathExcluded(path: String, excludedAbsolutePaths: List<String>): Boolean =
+    excludedAbsolutePaths.any { path == it || path.startsWith("$it/") }
 
 class InvalidAudioFileException(message: String) : Throwable(message)
 class ScannerAbortException(message: String) : Throwable(message)

@@ -291,7 +291,8 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
      */
     private fun applyWidth(degrees: Float) {
         val clamped = degrees.coerceIn(MIN_STAGE_WIDTH, MAX_STAGE_WIDTH)
-        if (clamped == appliedWidth && identityLeft.size == active) return
+        val widthChanged = clamped != appliedWidth
+        if (!widthChanged && identityLeft.size == active) return
         appliedWidth = clamped
         speakerAzimuth = clamped * PI.toFloat() / 180f
         identityLeft = FloatArray(active)
@@ -310,7 +311,16 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         // computeGain then read sixteen channels' worth out of an array holding ten:
         // ArrayIndexOutOfBoundsException on the audio thread. buildFilters computes the gain itself
         // once it has built filters of the right size, so skipping it here loses nothing.
-        if (taps > 0 && filters.size == active * taps) gain = computeGain()
+        if (taps > 0 && filters.size == active * taps) {
+            // The broad tone correction is the inverse of the mono path's response for the width
+            // it was built at, taken from identityLeft/Right above. A width change alone never
+            // touches buildFilters (the sample rate has not changed), so without this the listener
+            // keeps hearing the new width through the old width's inverse until a format change or
+            // a restart happens to rebuild it. Only on an actual change, since this runs on the
+            // audio thread and a DFT over the filter length is not free to repeat every buffer.
+            if (widthChanged) buildCorrection(appliedRate)
+            gain = computeGain()
+        }
     }
 
     /**
@@ -476,8 +486,9 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     /**
      * The inverse of the mono path's broad magnitude response, as a short symmetric filter.
      *
-     * Direct transforms rather than an FFT: this runs once per format change over a hundred and
-     * sixty taps, so the simple version costs nothing and there is no library to pull in.
+     * Direct transforms rather than an FFT. This runs once per format change, and again on the
+     * audio thread whenever Stage width moves, at most once per buffer; over at most a hundred and
+     * sixty taps the simple version is cheap enough for both, and there is no library to pull in.
      */
     private fun buildCorrection(sampleRate: Int) {
         if (taps <= 0 || active == 0) {

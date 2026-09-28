@@ -66,6 +66,17 @@ class UpdateChecker @Inject constructor(
     /** The newer release, if there is one the user has not already dismissed. */
     val available: StateFlow<Update?> = _available.asStateFlow()
 
+    private val _lastCheckFailed = MutableStateFlow(false)
+
+    /**
+     * Whether the last check that asked GitHub got no usable answer: offline, a failed request, or
+     * a non-success status such as the 403 rate limit. Cleared once a check gets an answer, and
+     * left as it was by a check that returns early without asking (switched off, or inside the
+     * rate limit floor). The Updates screen reads it after a null result to choose between its two
+     * messages.
+     */
+    val lastCheckFailed: StateFlow<Boolean> = _lastCheckFailed.asStateFlow()
+
     private val client by lazy {
         OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
@@ -83,7 +94,12 @@ class UpdateChecker @Inject constructor(
     suspend fun check(force: Boolean = false): Update? = withContext(Dispatchers.IO) {
         val store = context.dataStore
         if (!force && !store.get(UpdateCheckEnabledKey, false)) return@withContext null
-        if (!context.isInternetConnected()) return@withContext null
+        // Offline means the check could not be made, not that there is no update: show an update
+        // a previous check already found, and let lastCheckFailed tell the caller.
+        if (!context.isInternetConnected()) {
+            _lastCheckFailed.value = true
+            return@withContext restoreFromDisk()
+        }
 
         val last = store.get(LastUpdateCheckKey, 0L)
         val now = System.currentTimeMillis()
@@ -108,9 +124,15 @@ class UpdateChecker @Inject constructor(
                 response.body?.string()
             }
         }.getOrNull() ?: run {
+            // A network that claims internet access can still fail here: a captive portal, a bad
+            // DNS answer, a timeout, GitHub's rate limit. Treated like offline.
             Log.i(TAG, "Update check failed, leaving the last check time alone so it retries")
-            return@withContext null
+            _lastCheckFailed.value = true
+            return@withContext restoreFromDisk()
         }
+
+        // A request that reached here got a real answer, whatever it turns out to say.
+        _lastCheckFailed.value = false
 
         // Only stamp the clock on a request that actually answered. Stamping on failure would make
         // a single flaky moment suppress checks for the whole interval.

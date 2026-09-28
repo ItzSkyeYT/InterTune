@@ -213,7 +213,6 @@
     <string name="settings_look_and_feel_description">Chủ đề và màu sắc, các thẻ ở dưới cùng, và cử chỉ vuốt.</string>
     <string name="settings_player_description">Chất lượng âm thanh, hiệu ứng âm thanh, và cách phát nhạc hoạt động.</string>
     <string name="settings_lyrics_description">Lời bài hát lấy từ đâu, và hiển thị thế nào.</string>
-    <string name="settings_storage_description">Tải xuống, bộ nhớ đệm được dùng bao nhiêu dung lượng, và sao lưu thư viện.</string>
     <string name="settings_privacy_description">Ứng dụng ghi lại gì về bạn, và gửi đi những gì.</string>
     <string name="settings_updates_description">Kiểm tra phiên bản mới và cài đặt.</string>
     <string name="settings_advanced_description">Bảo trì và tùy chọn nhà phát triển.</string>

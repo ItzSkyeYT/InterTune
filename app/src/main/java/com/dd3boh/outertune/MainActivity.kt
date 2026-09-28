@@ -193,6 +193,8 @@ import com.dd3boh.outertune.ui.theme.extractThemeColor
 import com.dd3boh.outertune.ui.utils.appBarScrollBehavior
 import com.dd3boh.outertune.ui.utils.resetHeightOffset
 import com.dd3boh.outertune.utils.ActivityLauncherHelper
+import com.dd3boh.outertune.utils.InstallSource
+import com.dd3boh.outertune.utils.installSource
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.Scrobbler
@@ -240,6 +242,7 @@ import kotlinx.coroutines.delay
 import android.provider.Settings
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 
 /**
@@ -253,27 +256,65 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 private val NavPopSpec = tween<IntOffset>(300, easing = FastOutSlowInEasing)
 
 /**
+ * Whether this activity was started for the intent it holds.
+ *
+ * False when it was recreated with saved state (a rotation or other configuration change, or a
+ * restore after process death), and when the task was relaunched from recents. Both of those hand
+ * back the task's original intent with its extras.
+ */
+internal fun freshLaunch(hadSavedInstanceState: Boolean, flags: Int): Boolean =
+    !hadSavedInstanceState && (flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
+
+/**
+ * Whether the launch intent's widget song is still owed: true only for a fresh launch whose
+ * action is the widget's ACTION_PLAY_SONG intent. See [freshLaunch].
+ */
+internal fun widgetSongOwed(action: String?, hadSavedInstanceState: Boolean, flags: Int): Boolean =
+    action == WidgetCommands.ACTION_PLAY_SONG && freshLaunch(hadSavedInstanceState, flags)
+
+/**
+ * A widget tap that reached the activity through onNewIntent and is waiting for the player.
+ *
+ * A ViewModel keeps it through a rotation or other recreation, and a new process starts without
+ * it, so a tap cannot start by itself on a later reopen from recents.
+ */
+internal class PendingWidgetTap : ViewModel() {
+    var intent by mutableStateOf<Intent?>(null)
+}
+
+/**
+ * Whether a widget-tapped song plays on its own or keeps the radio.
+ *
+ * A local song's id is not a YouTube video id (SongEntity.generateSongId makes local ids "LS" plus
+ * random characters), so asking YouTube to start a radio from one fails outright: offline always,
+ * and online for want of anything meaningful to return. Home already makes this same choice for
+ * its own local rows; the widget mirrors it here.
+ */
+internal enum class WidgetPlaybackKind { LOCAL, RADIO }
+
+internal fun widgetPlaybackKind(metadata: MediaMetadata): WidgetPlaybackKind =
+    if (metadata.isLocal) WidgetPlaybackKind.LOCAL else WidgetPlaybackKind.RADIO
+
+/**
  * A song tapped on the home screen widget.
  *
  * The widget carries enough of the song in its intent to play it without a lookup, because the
  * song it is offering need not be in the library at all: Quick picks on the YouTube source is a
  * shelf from the feed. The library is still asked first, since a song that is there comes with
  * everything else the app knows about it.
- *
- * Returns whether this intent was a widget tap, so the caller knows to leave it alone.
  */
 private fun playFromWidget(
     intent: Intent?,
     database: MusicDatabase,
     playerConnection: PlayerConnection?,
     scope: CoroutineScope,
-): Boolean {
-    if (intent?.action != WidgetCommands.ACTION_PLAY_SONG) return false
-    val id = intent.getStringExtra(WidgetCommands.EXTRA_SONG_ID) ?: return false
+) {
+    if (intent?.action != WidgetCommands.ACTION_PLAY_SONG) return
+    val id = intent.getStringExtra(WidgetCommands.EXTRA_SONG_ID) ?: return
     // Not until the player is connected. With the app closed, the tap creates the activity and the
     // connection arrives a moment later, so the first call has none: taking the id out before
     // this check threw it away, and the call that came with the connection found nothing to play.
-    val connection = playerConnection ?: return true
+    val connection = playerConnection ?: return
     // Taken out of the intent, or every recomposition and every rotation plays it again.
     intent.removeExtra(WidgetCommands.EXTRA_SONG_ID)
     val title = intent.getStringExtra(WidgetCommands.EXTRA_SONG_TITLE).orEmpty()
@@ -290,13 +331,18 @@ private fun playFromWidget(
             thumbnailUrl = thumbnail,
             genre = null,
         )
-        connection.playQueue(
-            YouTubeQueue.radio(metadata),
-            isRadio = true,
-            origin = PlayOrigin.WIDGET,
-        )
+        when (widgetPlaybackKind(metadata)) {
+            WidgetPlaybackKind.LOCAL -> connection.playQueue(
+                ListQueue(title = metadata.title, items = listOf(metadata)),
+                origin = PlayOrigin.WIDGET,
+            )
+            WidgetPlaybackKind.RADIO -> connection.playQueue(
+                YouTubeQueue.radio(metadata),
+                isRadio = true,
+                origin = PlayOrigin.WIDGET,
+            )
+        }
     }
-    return true
 }
 
 @AndroidEntryPoint
@@ -335,6 +381,8 @@ class MainActivity : ComponentActivity() {
 
     private var playerConnection by mutableStateOf<PlayerConnection?>(null)
 
+    private val pendingWidgetTap: PendingWidgetTap by viewModels()
+
     val controllerViewModel: MediaControllerViewModel by viewModels()
 
     // storage permission helpers
@@ -358,6 +406,10 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleOpenPoll(intent)
+        // Every later widget tap comes through here, sometimes before the first composition (a
+        // tap on a task whose process died), so it is held until the player is connected.
+        // onNewIntent never replays an old intent, so nothing is gated here.
+        if (intent.action == WidgetCommands.ACTION_PLAY_SONG) pendingWidgetTap.intent = intent
         if (intent.action == ACTION_PLAY_LIKED) playLikedWhenReady()
         handlePlayFromSearch(intent)
     }
@@ -454,9 +506,7 @@ class MainActivity : ComponentActivity() {
         // the task is reopened from recents, which starts it again with the shortcut's intent and
         // replayed the liked songs over whatever was playing (Android 11 and older, where Back
         // finishes the activity instead of keeping it).
-        if (savedInstanceState == null && intent?.action == ACTION_PLAY_LIKED &&
-            ((intent?.flags ?: 0) and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0
-        ) {
+        if (intent?.action == ACTION_PLAY_LIKED && freshLaunch(savedInstanceState != null, intent?.flags ?: 0)) {
             playLikedWhenReady()
         }
         lifecycle.addObserver(controllerViewModel)
@@ -466,9 +516,8 @@ class MainActivity : ComponentActivity() {
         // A play-from-search request, once: not after a rotation or a restored process, and not
         // when the task is reopened from recents, which starts it again with the intent it was
         // first started with and would play an old request over whatever is playing now.
-        if (savedInstanceState == null) {
-            intent?.takeIf { (it.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) == 0 }
-                ?.let(::handlePlayFromSearch)
+        if (freshLaunch(savedInstanceState != null, intent?.flags ?: 0)) {
+            intent?.let(::handlePlayFromSearch)
         }
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
@@ -535,7 +584,11 @@ class MainActivity : ComponentActivity() {
                 // Same contract as the update check: nothing happens unless the user opted in, it
                 // rate limits itself, and failure is silent.
                 coroutineScope.launch {
-                    pollChecker.adoptNewsChoice()
+                    // Only when the activity starts afresh. A rotation or a restore recreates it
+                    // while setup or the catch-up screen may be open, and somebody who has just
+                    // said yes to questions there, with news not answered yet, would have news
+                    // switched on before being asked. The switch-over only needs one fresh launch.
+                    if (savedInstanceState == null) pollChecker.adoptNewsChoice()
                     pollChecker.check()
                 }
                 // Re-applied on every launch, cheap because the work is keyed by name and replaced
@@ -556,8 +609,13 @@ class MainActivity : ComponentActivity() {
 
                 // A notification about a question opens the question. handleOpenPoll is called for
                 // the intent that started this, and again from onNewIntent when the app was already
-                // running, since Android delivers that to the existing instance instead.
-                handleOpenPoll(intent)
+                // running, since Android delivers that to the existing instance instead. Not for a
+                // task reopened from recents or an activity restored after process death: both hand
+                // back the original intent with the extra still in it, because handleOpenPoll's
+                // removeExtra only changed the old process's copy.
+                if (freshLaunch(savedInstanceState != null, intent?.flags ?: 0)) {
+                    handleOpenPoll(intent)
+                }
 
                 // Receives the outcome of an in-app install. Registered here rather than in the
                 // manifest because it is only meaningful while the app is alive to show it.
@@ -583,12 +641,12 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(DefaultThemeColor)
             }
 
-            try {
-                connectivityObserver.unregister()
-            } catch (e: UninitializedPropertyAccessException) {
-                // lol
-            }
-            connectivityObserver = NetworkConnectivityObserver(this@MainActivity)
+            // One observer for the activity, not one per recomposition of this scope. This scope
+            // recomposes on every song change (it reads themeColor, and dynamic theme is on by
+            // default), and a new registration replays onAvailable for the network that is
+            // already there, which calls Throttle.onNetworkChanged() and clears whatever back-off
+            // is in effect. onDestroy unregisters it.
+            connectivityObserver = remember { NetworkConnectivityObserver(this@MainActivity) }
             val isNetworkConnected by connectivityObserver.networkStatus.collectAsState(true)
 
             LaunchedEffect(playerConnection, enableDynamicTheme, isSystemInDarkTheme) {
@@ -675,11 +733,20 @@ class MainActivity : ComponentActivity() {
                 val snoozeUntil by rememberPreference(UpdateSnoozeUntilKey, defaultValue = 0L)
                 val installState by updateInstaller.state.collectAsState()
 
-                // Pre-fetch only when asked to, and only once per found update.
+                // Pre-fetch only when asked to, and only once per found update. Never on F-Droid:
+                // the switch that turns autoInstall on is hidden there, but the preference can
+                // still be true from before that install source was checked (an older build, a
+                // restored backup), and a GitHub apk downloaded to an F-Droid install can never be
+                // the one that gets installed.
+                val fromFdroid = remember { installSource() == InstallSource.F_DROID }
                 LaunchedEffect(pendingUpdate, autoInstall) {
                     val u = pendingUpdate
-                    if (u != null && autoInstall && !updateInstaller.isBusy &&
-                        installState is UpdateInstaller.State.Idle
+                    if (u != null && updatePrefetchOwed(
+                            autoInstall = autoInstall,
+                            fromFdroid = fromFdroid,
+                            installerBusy = updateInstaller.isBusy,
+                            installerIdle = installState is UpdateInstaller.State.Idle,
+                        )
                     ) {
                         updateInstaller.download(u.downloadUrl, u.sizeBytes)
                     }
@@ -884,11 +951,24 @@ class MainActivity : ComponentActivity() {
                     }
 
 
-                    // A Quick pick tapped on the home screen widget. Handled for the intent that
-                    // opened the app and, through the listener below, for one that arrives while it
-                    // is already open.
-                    LaunchedEffect(playerConnection) {
-                        playFromWidget(intent, database, playerConnection, coroutineScope)
+                    // A Quick pick tapped on the home screen widget. The song that started the app
+                    // is decided once, on a fresh launch, and kept through a rotation. Any later
+                    // tap comes from onNewIntent through pendingWidgetTap. Each plays once, when
+                    // the player is connected.
+                    var widgetSongPending by rememberSaveable {
+                        mutableStateOf(
+                            widgetSongOwed(intent?.action, savedInstanceState != null, intent?.flags ?: 0)
+                        )
+                    }
+                    LaunchedEffect(playerConnection, widgetSongPending, pendingWidgetTap.intent) {
+                        if (widgetSongPending) {
+                            playFromWidget(intent, database, playerConnection, coroutineScope)
+                            if (playerConnection != null) widgetSongPending = false
+                        }
+                        pendingWidgetTap.intent?.let { pending ->
+                            playFromWidget(pending, database, playerConnection, coroutineScope)
+                            if (playerConnection != null) pendingWidgetTap.intent = null
+                        }
                     }
 
                     // A YouTube link that started the app: shared to it, or tapped with it closed.
@@ -904,8 +984,7 @@ class MainActivity : ComponentActivity() {
                                 action = intent?.action,
                                 data = intent?.dataString,
                                 text = intent?.getStringExtra(Intent.EXTRA_TEXT),
-                                fromRecents = savedInstanceState != null ||
-                                        ((intent?.flags ?: 0) and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0,
+                                fromRecents = !freshLaunch(savedInstanceState != null, intent?.flags ?: 0),
                             )
                         )
                     }
@@ -922,7 +1001,9 @@ class MainActivity : ComponentActivity() {
 
                     DisposableEffect(Unit) {
                         val listener = Consumer<Intent> { intent ->
-                            if (playFromWidget(intent, database, playerConnection, coroutineScope)) return@Consumer
+                            // Widget taps are handled through pendingWidgetTap, and their
+                            // intertune://widget/... data is not a link for youtubeNavigator.
+                            if (intent.action == WidgetCommands.ACTION_PLAY_SONG) return@Consumer
                             val uri =
                                 intent.data ?: intent.extras?.getString(Intent.EXTRA_TEXT)?.toUri()
                                 ?: return@Consumer
@@ -1627,6 +1708,19 @@ internal fun searchToPlay(action: String?, hasData: Boolean, query: String?): St
 internal fun searchPlayRequest(query: String): MediaItem = MediaItem.Builder()
     .setRequestMetadata(MediaItem.RequestMetadata.Builder().setSearchQuery(query).build())
     .build()
+
+/**
+ * Whether a found update should be pre-fetched: only with auto-install on, only when nothing else
+ * is using the installer, and never on F-Droid. A GitHub apk downloaded there can never be the one
+ * that installs, and the preference can still read true from an older build or a restored backup
+ * even though its switch is hidden there.
+ */
+internal fun updatePrefetchOwed(
+    autoInstall: Boolean,
+    fromFdroid: Boolean,
+    installerBusy: Boolean,
+    installerIdle: Boolean,
+): Boolean = autoInstall && !fromFdroid && !installerBusy && installerIdle
 
 
 val LocalDatabase = staticCompositionLocalOf<MusicDatabase> { error("No database provided") }

@@ -23,7 +23,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -72,10 +72,10 @@ fun OptInCatchUp(onDone: () -> Unit) {
     val updateChoice by rememberNullablePreference(UpdateCheckEnabledKey)
     val pollChoice by rememberNullablePreference(PollsEnabledKey)
     val newsChoice by rememberNullablePreference(AnnouncementsEnabledKey)
-    // Decided once, as the screen opens: whoever had already said yes to questions is given news
-    // by the checker, and is not asked. Deciding it live instead made the card vanish from under
-    // somebody the moment they said yes to questions here, and then switched news on unasked.
-    val askNews = remember { pollChoice != true }
+    // Decided once, as the screen opens, and kept through a rotation or a restore: whoever had
+    // already said yes to questions is given news by the checker, and is not asked. Worked out
+    // again on recreation, it would read the yes just given here and hide the news card.
+    val askNews = rememberSaveable { pollChoice != true }
     val usageChoice by rememberNullablePreference(UsageCountEnabledKey)
     val similarStored by rememberNullablePreference(SimilarSourceKey)
     val similarOldSwitch by rememberNullablePreference(SimilarFromLastFmKey)

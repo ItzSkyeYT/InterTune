@@ -49,6 +49,8 @@ import com.zionhuang.innertube.utils.walkItems
 import com.zionhuang.innertube.utils.walkSongs
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.Dispatchers
@@ -81,7 +83,11 @@ class SyncUtils @Inject constructor(
 ) {
     private val TAG = "SyncUtils"
 
-    private val scope =  CoroutineScope(syncCoroutine)
+    // A SupervisorJob: Sync now runs here as an async that nobody may be left to await, and its
+    // failure has to stay with it. On a plain Job it would cancel this scope, and every later like
+    // pushed to YouTube and every later sync started here would silently do nothing until the app
+    // restarts.
+    private val scope = CoroutineScope(SupervisorJob() + syncCoroutine)
 
     private val _isSyncingRemoteLikedSongs = MutableStateFlow(false)
     private val _isSyncingRemoteSongs = MutableStateFlow(false)
@@ -123,6 +129,15 @@ class SyncUtils @Inject constructor(
      */
     suspend fun tryAutoSync(bypassCd: Boolean = false): SyncResult = withContext(Dispatchers.IO) {
         autoSync(bypassCd)
+    }
+
+    /**
+     * Starts a manual "Sync now" on this class's own scope and hands back a [Deferred] of its
+     * result, so the sync itself keeps running to completion whichever screen the caller leaves.
+     * The caller awaits this for as long as it wants to show progress; it does not own the sync.
+     */
+    fun startManualSync(): Deferred<SyncResult> = scope.async {
+        tryAutoSync(true)
     }
 
     private suspend fun autoSync(bypassCd: Boolean): SyncResult {
@@ -239,20 +254,25 @@ class SyncUtils @Inject constructor(
 
                 val remoteSongs = walked.items.reversed()
 
-                // An empty answer is not "you have unliked everything", it is a fetch that did
-                // not work: a throttled request, a session that came back signed out, a bad page.
-                // Acting on it wipes the entire liked library, and the listener has no way to get
-                // it back. If LM says nothing, believe nothing.
-                if (remoteSongs.isEmpty()) {
-                    Log.w(TAG, "LM came back empty, refusing to unlike anything")
-                    downloadUtil.downloadLikedSongs()
-                    return@onSuccess
-                }
-
                 // Complete means every continuation answered, and the count in LM's header agrees
                 // with what came back. A page that went missing makes every older like look
                 // unliked, and a 1,500-song LM would lose everything after it.
                 val headerCount = LikedSync.parseSongCount(page.playlist.songCountText)
+
+                // An empty answer is far more often a fetch that did not work (a throttled
+                // request, a session that came back signed out, a bad page) than someone who
+                // unliked everything, and acting on it would wipe the whole liked library with no
+                // way to get it back. So an empty LM never unlikes anything; what it reports is
+                // decided below.
+                if (remoteSongs.isEmpty()) {
+                    Log.w(TAG, "LM came back empty, refusing to unlike anything")
+                    downloadUtil.downloadLikedSongs()
+                    // An account with no liked songs is a sync that worked. This path left `result`
+                    // at FAILED, and that beat every other kind's SYNCED in SyncResult.combine.
+                    result = LikedSync.emptyLikedSyncResult(walked.complete, headerCount)
+                    return@onSuccess
+                }
+
                 val complete = walked.complete && LikedSync.readLooksComplete(remoteSongs.size, headerCount)
                 if (!complete) {
                     Log.w(TAG, "LM read looks incomplete (${remoteSongs.size} of ${headerCount ?: "?"}, " +
@@ -298,10 +318,14 @@ class SyncUtils @Inject constructor(
                     }
                 }
 
-                // Insert or like songs in the database
-                for (remoteSong in remoteSongs) {
-                    val localSong = database.song(remoteSong.id).firstOrNull()
-                    database.transaction {
+                // Insert or like songs in the database, all as one transaction. This used to queue
+                // one async transaction per song and move straight on; downloadLikedSongs below
+                // reads a snapshot of what is committed so far, and on a big batch of new likes it
+                // could run while some of those per-song transactions were still queued, and missed
+                // the songs they wrote.
+                val toWrite = remoteSongs.map { remoteSong -> remoteSong to database.song(remoteSong.id).firstOrNull() }
+                database.transactionNow {
+                    toWrite.forEach { (remoteSong, localSong) ->
                         if (localSong == null) {
                             insert(remoteSong.toMediaMetadata(), SongEntity::localToggleLike)
                         } else if (!localSong.song.liked) {
@@ -723,6 +747,18 @@ class SyncUtils @Inject constructor(
     }
 
     /**
+     * Fire-and-forget [syncPlaylist], on this class's own scope rather than the caller's, so a
+     * screen popped right after starting it (the caller has no result to act on and does not wait)
+     * does not cut the fetch short. A playlist just saved from its online page is typically only
+     * about a hundred songs in by then; this is what fetches the rest of it.
+     */
+    fun syncPlaylistDetached(browseId: String, playlistId: String) {
+        scope.launch {
+            syncPlaylist(browseId, playlistId)
+        }
+    }
+
+    /**
      * Replaces a playlist's songs with YouTube's copy of it. True when that happened.
      *
      * The local songs are cleared before the remote ones go in, so a read that stopped early used
@@ -749,6 +785,10 @@ class SyncUtils @Inject constructor(
         }
 
         database.transaction {
+            // The playlist can be deleted while its songs are fetched, which takes seconds and goes
+            // on after its page is left. Its map rows would then break the foreign key, and the
+            // exception on Room's transaction thread would close the app.
+            if (!playlistExists(playlistId)) return@transaction
             clearPlaylist(playlistId)
             val songEntities = walked.items
                 .map(SongItem::toMediaMetadata)

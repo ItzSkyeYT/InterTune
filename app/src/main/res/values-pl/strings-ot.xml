@@ -354,7 +354,6 @@
     <string name="settings_look_and_feel_description">Motyw i kolory, karty na dole oraz gesty przesunięcia.</string>
     <string name="settings_player_description">Jakość dźwięku, efekty audio i zachowanie odtwarzania.</string>
     <string name="settings_lyrics_description">Skąd pobierane są teksty i jak są wyświetlane.</string>
-    <string name="settings_storage_description">Pobrane, ile miejsca może zająć pamięć podręczna i kopia zapasowa biblioteki.</string>
     <string name="settings_privacy_description">Co aplikacja zapisuje o Tobie i co wysyła.</string>
     <string name="settings_updates_description">Sprawdź nową wersję i zainstaluj ją.</string>
     <string name="settings_advanced_description">Konserwacja i opcje programisty.</string>

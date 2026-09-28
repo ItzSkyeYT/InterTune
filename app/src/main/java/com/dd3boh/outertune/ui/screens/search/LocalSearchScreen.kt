@@ -244,7 +244,7 @@ fun LocalSearchScreen(
                             modifier = Modifier
                                 .clickable {
                                     onDismiss()
-                                    navController.navigate("local_playlist/${item.id}")
+                                    navController.navigate(item.navigationRoute)
                                 }
                                 .animateItem()
                         )

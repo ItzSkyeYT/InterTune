@@ -1098,24 +1098,34 @@ class RecognitionEngine @Inject constructor(
         Log.i(TAG, "Added '${song.title}'")
 
         scope.launch(Dispatchers.IO) {
-            database.transaction {
-                insert(song.toMediaMetadata())
-                // Not addSongToPlaylist, which takes the position from the Playlist it is handed.
-                // This one is a snapshot taken in start() and held for the whole run, so its count
-                // is however many songs there were when listening began. Every song added over an
-                // evening got that same position, came back in an unspecified order, and removing
-                // one moved all the others to the bottom, because the move matches on position.
-                // Read inside the transaction so the read and the write cannot interleave.
-                insert(
-                    PlaylistSongMap(
-                        songId = song.id,
-                        playlistId = target.id,
-                        position = nextPlaylistPosition(target.id),
+            // The run outlives its sheet, so the playlist can be deleted while it goes on, and then
+            // this insert fails its foreign key. Caught and logged as in writeInto: uncaught, it
+            // would end the process.
+            val added = runCatching {
+                database.transactionNow {
+                    insert(song.toMediaMetadata())
+                    // Not addSongToPlaylist, which takes the position from the Playlist it is
+                    // handed. This one is a snapshot taken in start() and held for the whole run, so
+                    // its count is however many songs there were when listening began. Every song
+                    // added over an evening got that same position, came back in an unspecified
+                    // order, and removing one moved all the others to the bottom, because the move
+                    // matches on position. Read inside the transaction so the read and the write
+                    // cannot interleave.
+                    insert(
+                        PlaylistSongMap(
+                            songId = song.id,
+                            playlistId = target.id,
+                            position = nextPlaylistPosition(target.id),
+                        )
                     )
-                )
-                synchronized(written) { written += song.id to target.id }
+                    synchronized(written) { written += song.id to target.id }
+                }
+                true
+            }.onFailure { Log.w(TAG, "Could not add '${song.title}' to ${target.playlist.name}", it) }
+                .getOrDefault(false)
+            if (added) {
+                target.playlist.browseId?.let { runCatching { YouTube.addToPlaylist(it, song.id) } }
             }
-            target.playlist.browseId?.let { runCatching { YouTube.addToPlaylist(it, song.id) } }
         }
     }
 

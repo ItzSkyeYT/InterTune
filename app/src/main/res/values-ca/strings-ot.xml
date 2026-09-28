@@ -155,7 +155,6 @@
     <string name="settings_look_and_feel_description">Tema i colors, les pestanyes de baix, i els gestos de lliscar.</string>
     <string name="settings_player_description">Qualitat de so, efectes d’àudio, i com es comporta la reproducció.</string>
     <string name="settings_lyrics_description">D’on s’obtenen les lletres, i com es mostren.</string>
-    <string name="settings_storage_description">Baixades, quant espai pot ocupar la memòria cau, i còpia de seguretat de la biblioteca.</string>
     <string name="settings_privacy_description">Què registra l’aplicació sobre tu, i què envia.</string>
     <string name="settings_updates_description">Comprova si hi ha una versió nova i instal·la-la.</string>
     <string name="settings_advanced_description">Manteniment i opcions per a desenvolupadors.</string>

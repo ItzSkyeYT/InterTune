@@ -162,6 +162,8 @@ import com.dd3boh.outertune.utils.similarSourceOf
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.FailureMemo
 import com.dd3boh.outertune.utils.Throttle
+import com.dd3boh.outertune.utils.codecsOrEmpty
+import com.dd3boh.outertune.utils.contentLengthOrZero
 import com.dd3boh.outertune.utils.SongVersions
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.dataStore
@@ -199,6 +201,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.File
@@ -216,9 +219,14 @@ private const val SESSION_GAP_MS = 30L * 60 * 1000
 /** How often an open listen row records how far it got, so a death loses at most this much. */
 private const val CHECKPOINT_MS = 60_000L
 
-/** The two things a checkpoint tick can find instead of a position, kept apart because they differ. */
-private const val FINISHED = -1L
-private const val PAUSED = -2L
+/**
+ * Whether some MusicService instance in this process has already closed the listens an earlier
+ * process left open. A top-level field, not one on the class: the gate has to outlive a single
+ * instance (a newer one can replace one still tearing down), so it is shared by every instance
+ * this process ever creates, for as long as the process lives.
+ */
+private val orphanedListensClosedThisProcess = java.util.concurrent.atomic.AtomicBoolean(false)
+
 /** A resume within this of where a stop left off, inside this window, continues that listen. */
 private const val RESUME_TOLERANCE_MS = 5_000L
 private const val RESUME_WINDOW_MS = 24L * 60 * 60 * 1000
@@ -278,6 +286,34 @@ class MusicService : MediaLibraryService(),
     val qbInit = MutableStateFlow(false)
     var queueBoard = QueueBoard(this, maxQueues = 1)
     var queuePlaylistId: String? = null
+
+    /** Set at the top of onDestroy; see the checks in playQueue's resolve coroutine below. */
+    @Volatile private var destroyed = false
+
+    /**
+     * The save deInitQueue launched instead of waiting for, when it was reached from a swipe of
+     * the mini player rather than teardown. initQueue joins this before it re-reads the saved
+     * queues, or it would read the rows this save is still in the middle of writing. Written on
+     * Main (deInitQueue) and read inside initQueue, which callers reach from IO (PlayerSettings,
+     * a local scan) as well as Main: @Volatile so a write on one thread is visible to a read on
+     * another.
+     */
+    @Volatile private var pendingQueueSave: kotlinx.coroutines.Job? = null
+
+    /**
+     * Held for the whole of initQueue. Two callers must never build boards at once, because each
+     * QueueBoard clears the shared masterQueues it is handed: a second build would drop a queue
+     * the first caller has just added and is about to set current. A caller that only needs a
+     * board waits here for one in flight instead of repeating it.
+     */
+    private val initQueueMutex = kotlinx.coroutines.sync.Mutex()
+
+    /**
+     * Completed by the very first initQueue() of this instance, and unlike qbInit, never reset by
+     * deInitQueue: a session request only needs to know that the saved queues have been read at
+     * least once, not whether the board is initialised right now.
+     */
+    val queuesLoadedOnce = kotlinx.coroutines.CompletableDeferred<Unit>()
 
     @Inject
     @PlayerCache
@@ -796,7 +832,11 @@ class MusicService : MediaLibraryService(),
                 .collectLatest(scope) { want ->
                     proximityWanted = want
                     withContext(Dispatchers.Main) {
-                        if (want && player.isPlaying) proximityVolume.start() else proximityVolume.stop()
+                        if (ProximityVolume.shouldScan(want, player.playWhenReady, player.playbackState)) {
+                            proximityVolume.start()
+                        } else {
+                            proximityVolume.stop()
+                        }
                     }
                 }
 
@@ -921,6 +961,18 @@ class MusicService : MediaLibraryService(),
                 .collectLatest(scope) { share ->
                     withContext(Dispatchers.Main) {
                         player.setAudioAttributes(musicAudioAttributes, !share)
+                    }
+                }
+
+            // Same problem as the switch above: applyOffload() only ran as a side effect of the
+            // spatial audio and fade observers reacting to their own keys, so toggling Audio
+            // offload itself never reached the already running player. It needs its own observer.
+            dataStore.data
+                .map { it[AudioOffloadKey] ?: false }
+                .distinctUntilChanged()
+                .collectLatest(scope) {
+                    withContext(Dispatchers.Main) {
+                        applyOffload()
                     }
                 }
 
@@ -1078,7 +1130,7 @@ class MusicService : MediaLibraryService(),
             // any of it, so its first moments played at full volume with no normalisation, and
             // spatial audio then restarted it to switch the renderer on.
             if (!qbInit.value) {
-                initQueue()
+                initQueue(onlyIfNeeded = true)
                 resumeOnLaunchIfAsked()
             }
         }
@@ -1116,6 +1168,10 @@ class MusicService : MediaLibraryService(),
         /** When and where sound first came out, set when the row is opened, not when the item was loaded. */
         @Volatile var startedAt: Long = 0L
         @Volatile var startPositionMs: Long = 0L
+        /** Running total written at each checkpoint; only ever grows, so a rewind cannot erase it. */
+        @Volatile var accumulatedPlayedMs: Long = 0L
+        /** Where the last checkpoint (or the last seek) left the position, to measure forward progress from. */
+        @Volatile var lastCheckpointPositionMs: Long = 0L
         @Volatile var opened = false
         /** The open listen row for this play: 0 until its insert has run, and completed for whoever waits. */
         @Volatile var rowId: Long = 0L
@@ -1326,11 +1382,6 @@ class MusicService : MediaLibraryService(),
         originSlot: Int = -1,
         tappedAt: Long? = null,
     ) {
-        if (!qbInit.value) {
-            runBlocking(Dispatchers.IO) {
-                initQueue()
-            }
-        }
         // Radio was already a flag; it is also an origin, and the more useful of the two.
         val playOrigin = if (origin == PlayOrigin.UNKNOWN && isRadio) PlayOrigin.RADIO else origin
         // A tap that starts a queue is the listener choosing, and it begins a run: one play of
@@ -1345,8 +1396,20 @@ class MusicService : MediaLibraryService(),
         val preloadItem = queue.preloadItem
         // do not use scope.launch ... it breaks randomly... why is this bug back???
         CoroutineScope(Dispatchers.Main).launch {
+            // This coroutine is not a child of anything onDestroy cancels, so it checks
+            // `destroyed` itself before touching the queue board or the player: here, because the
+            // body runs on a later turn of the main loop than the launch, and after each point
+            // where it suspends.
+            if (destroyed) return@launch
             Log.d(TAG, "playQueue: Resolving additional queue data...")
             try {
+                // Suspends here instead of blocking the caller, usually a click handler on the
+                // main thread; ahead of the preload addQueue so the board exists before anything
+                // is added to it.
+                if (!qbInit.value) initQueue(onlyIfNeeded = true)
+                // initQueue can wait for another caller's load or for a pending queue save, and
+                // the service can be torn down meanwhile.
+                if (destroyed) return@launch
                 if (preloadItem != null) {
                     q = queueBoard.addQueue(
                         queueTitle ?: "Radio\u2060temp",
@@ -1362,6 +1425,9 @@ class MusicService : MediaLibraryService(),
                 }
 
                 val initialStatus = withContext(Dispatchers.IO) { queue.getInitialStatus() }
+                // The same after the network wait. Nothing below suspends, and onDestroy runs on
+                // this same main thread, so it cannot slip in between.
+                if (destroyed) return@launch
                 // do not find a title if an override is provided
                 if ((title == null) && initialStatus.title != null) {
                     queueTitle = initialStatus.title
@@ -1448,19 +1514,39 @@ class MusicService : MediaLibraryService(),
         updateNotification()
     }
 
-    suspend fun initQueue() {
-        closeOrphanedListens()
-        Log.i(TAG, "+initQueue()")
-        val persistQueue = dataStore.get(PersistentQueueKey, true)
-        val maxQueues = dataStore.get(MaxQueuesKey, 19)
-        if (persistQueue) {
-            queueBoard = QueueBoard(this, queueBoard.masterQueues, database.readQueue().toMutableList(), maxQueues)
-        } else {
-            queueBoard = QueueBoard(this, queueBoard.masterQueues, maxQueues = maxQueues)
+    /**
+     * Builds the queue board from the saved queues, one caller at a time.
+     *
+     * @param onlyIfNeeded True for callers that only need a board to exist (onCreate, playQueue, a
+     * session play request): if another caller made one while this one waited for the lock, it is
+     * used as it is. The default rebuilds from the database even over a live board, which is what
+     * a new Max queues value and the reload after a scan rely on.
+     */
+    suspend fun initQueue(onlyIfNeeded: Boolean = false) {
+        initQueueMutex.withLock {
+            if (onlyIfNeeded && qbInit.value) return@withLock
+            // Only a previous process can have left a row OPEN. initQueue() also runs mid-session
+            // (Max queues, a local scan, the queue restarting after the mini player was swiped
+            // away), and closing orphans there would close the row of the song still playing right
+            // now.
+            if (orphanedListensClosedThisProcess.compareAndSet(false, true)) closeOrphanedListens()
+            Log.i(TAG, "+initQueue()")
+            // A swipe-dismiss just before this queued its save on the service scope instead of
+            // waiting for it (see deInitQueue); read after it lands, or this reads the rows it is
+            // still in the middle of writing and treats a genuine save as if it had never happened.
+            pendingQueueSave?.join()
+            val persistQueue = dataStore.get(PersistentQueueKey, true)
+            val maxQueues = dataStore.get(MaxQueuesKey, 19)
+            if (persistQueue) {
+                queueBoard = QueueBoard(this, queueBoard.masterQueues, database.readQueue().toMutableList(), maxQueues)
+            } else {
+                queueBoard = QueueBoard(this, queueBoard.masterQueues, maxQueues = maxQueues)
+            }
+            Log.d(TAG, "Queue with $maxQueues queue limit. Persist queue = $persistQueue. Queues loaded = ${queueBoard.masterQueues.size}")
+            qbInit.value = true
+            queuesLoadedOnce.complete(Unit)
+            Log.i(TAG, "-initQueue()")
         }
-        Log.d(TAG, "Queue with $maxQueues queue limit. Persist queue = $persistQueue. Queues loaded = ${queueBoard.masterQueues.size}")
-        qbInit.value = true
-        Log.i(TAG, "-initQueue()")
     }
 
     /**
@@ -1507,15 +1593,28 @@ class MusicService : MediaLibraryService(),
         }
     }
 
-    fun deInitQueue() {
+    /**
+     * @param waitForSave True for onDestroy, where teardown continues right after and the save
+     * has to have landed before the process can die. False for a swipe of the mini player, which
+     * calls this on the UI thread: blocking it here for the same write would freeze the swipe
+     * gesture, so the save is launched on the service's own scope instead, and initQueue joins it
+     * before its next read.
+     */
+    fun deInitQueue(waitForSave: Boolean = true) {
         Log.i(TAG, "+deInitQueue()")
         val pos = player.currentPosition
         // Null when the player holds nothing, which is most runs that never pressed play.
         val playerSongId = player.currentMediaItem?.mediaId
         queueBoard.shutdown()
         if (dataStore.get(PersistentQueueKey, true)) {
-            runBlocking(Dispatchers.IO) {
-                saveQueueToDisk(pos, playerSongId)
+            if (waitForSave) {
+                runBlocking(Dispatchers.IO) {
+                    saveQueueToDisk(pos, playerSongId)
+                }
+            } else {
+                pendingQueueSave = scope.launch(Dispatchers.IO) {
+                    saveQueueToDisk(pos, playerSongId)
+                }
             }
         }
         // do not replace the object. Can lead to entire queue being deleted even though it is supposed to be saved already
@@ -1550,7 +1649,8 @@ class MusicService : MediaLibraryService(),
 
     /**
      * Audio offload as the developer setting has it, unless spatial audio or Fade between tracks
-     * is on, neither of which works under it. Called on the main thread whenever either changes.
+     * is on, neither of which works under it. Called on the main thread whenever any of the three
+     * changes.
      */
     private fun applyOffload() {
         val needsOffloadOff = spatialUpmixProcessor.enabled || binauralProcessor.enabled || transitionFade.enabled
@@ -1771,10 +1871,10 @@ class MusicService : MediaLibraryService(),
                         id = mediaId,
                         itag = format.itag,
                         mimeType = format.mimeType.split(";")[0],
-                        codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
+                        codecs = format.codecsOrEmpty(),
                         bitrate = format.bitrate,
                         sampleRate = format.audioSampleRate,
-                        contentLength = format.contentLength!!,
+                        contentLength = format.contentLengthOrZero(),
                         loudnessDb = playbackData.audioConfig?.effectiveLoudnessDb,
                         qualityTier = audioQualityNow().name,
                         playbackTrackingUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
@@ -1798,31 +1898,20 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
-     * Where a setting sits relative to the others, for deciding what counts as an upgrade.
-     *
-     * Auto and High share a rank because on an unmetered connection they resolve to the same
-     * stream, so treating a move between them as an upgrade would re-fetch for nothing.
-     */
-    private fun AudioQuality.rank() = when (this) {
-        AudioQuality.LOW -> 0
-        AudioQuality.AUTO -> 1
-        AudioQuality.HIGH -> 1
-        AudioQuality.MAX -> 2
-    }
-
-    /**
      * Whether the cached copy was fetched at a lower setting than the one now in force.
      *
      * Null means it was cached before any of this was recorded, which is treated as no and left
      * alone: re-fetching everybody's entire cache the first time they update is not a reasonable
      * thing to do to someone's data allowance.
+     *
+     * Delegates to isStaleQualityTier (DownloadUtil.kt), the same rank rule a download's own
+     * resolver uses to decide whether to copy a cached file or fetch fresh.
      */
     private fun shouldUpgradeCached(mediaId: String): Boolean {
         val stored = runCatching {
             runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
-        }.getOrNull()?.qualityTier ?: return false
-        val was = runCatching { AudioQuality.valueOf(stored) }.getOrNull() ?: return false
-        return audioQualityNow().rank() > was.rank()
+        }.getOrNull()?.qualityTier
+        return isStaleQualityTier(stored, audioQualityNow())
     }
 
     private fun createRenderersFactory(gaplessOffloadAllowed: Boolean): DefaultRenderersFactory {
@@ -2158,8 +2247,7 @@ class MusicService : MediaLibraryService(),
         } else if (!isPlaying) {
             headTracking.stop(glideHome = true)
         }
-        // Scanning is the cost, so it only runs while there is something to turn down.
-        if (isPlaying && proximityWanted) proximityVolume.start() else if (!isPlaying) proximityVolume.stop()
+        // The proximity scan follows onEvents instead; see ProximityVolume.shouldScan.
         if (isPlaying) {
             player.currentMediaItem?.mediaId?.let { id -> currentStart(id)?.takeIf { !it.opened }?.let { openListen(id, it) } }
         }
@@ -2306,6 +2394,13 @@ class MusicService : MediaLibraryService(),
             } else {
                 closeAudioEffectSession()
             }
+            // The proximity scan is decided here rather than in onIsPlayingChanged, which fires on
+            // every seek and skip and not on a pause while buffering.
+            if (ProximityVolume.shouldScan(proximityWanted, player.playWhenReady, player.playbackState)) {
+                proximityVolume.start()
+            } else {
+                proximityVolume.stop()
+            }
             // The old clear only fired on a pause, which a player error never does, so the wait
             // outlived the fault whichever way it went: a spinner over music that had come back, or
             // a stale flag that could start playback by itself at the next network change.
@@ -2399,15 +2494,19 @@ class MusicService : MediaLibraryService(),
                 // same position once a minute for as long as it sat there, and each write
                 // invalidates every Room flow watching that table, so a paused app was re-running
                 // other people's queries once a minute forever. Now it simply waits.
-                val pos = withContext(Dispatchers.Main) {
+                // The position is read and checkpointListen accumulates it in this one Main
+                // dispatch, because a seek (onPositionDiscontinuity) and the pause checkpoint
+                // (onIsPlayingChanged) change the same two fields on Main. Were the accumulate to
+                // run on this offload thread instead, a seek could land between the read and the
+                // write and have its reference point overwritten with a stale one.
+                val finished = withContext(Dispatchers.Main) {
                     when {
-                        player.currentMediaItem?.mediaId != id -> FINISHED
-                        !player.isPlaying -> PAUSED
-                        else -> player.currentPosition
+                        player.currentMediaItem?.mediaId != id -> true
+                        !player.isPlaying -> false
+                        else -> { checkpointListen(info, player.currentPosition); false }
                     }
                 }
-                if (pos == FINISHED) break
-                if (pos != PAUSED) checkpointListen(info, pos)
+                if (finished) break
             }
         }
     }
@@ -2437,6 +2536,7 @@ class MusicService : MediaLibraryService(),
         info.opened = true
         info.startedAt = System.currentTimeMillis()
         info.startPositionMs = player.currentPosition.coerceAtLeast(0L)
+        info.lastCheckpointPositionMs = info.startPositionMs
         if (listenHistoryPaused) { info.rowReady.complete(0L); return }
         val metadata = player.currentMediaItem?.takeIf { it.mediaId == mediaId }?.metadata
         database.transaction {
@@ -2451,7 +2551,18 @@ class MusicService : MediaLibraryService(),
                         info.startedAt - maxOf(it.endedAt, it.startedAt) <= RESUME_WINDOW_MS
                 }?.id
                 val last = lastListen()
-                val sessionId = if (last == null || info.startedAt - last.endedAt > SESSION_GAP_MS) info.startedAt else last.sessionId
+                // lastListen skips open rows, and the song that just ended can still be one: its
+                // close waits behind other work while this insert runs at once. The newest open
+                // row competes with the last closed one under the same gap rule.
+                val open = openListens().firstOrNull()
+                val sessionId = ListenProgress.sessionIdFor(
+                    startedAt = info.startedAt,
+                    openSessionId = open?.sessionId,
+                    openLastKnownAt = open?.let { it.startedAt + it.playedMs },
+                    lastEndedAt = last?.endedAt,
+                    lastSessionId = last?.sessionId,
+                    sessionGapMs = SESSION_GAP_MS,
+                )
                 val rowId = insert(
                     Listen(
                         songId = mediaId, startedAt = info.startedAt, endedAt = 0L,
@@ -2482,11 +2593,19 @@ class MusicService : MediaLibraryService(),
         }
     }
 
-    /** How far this play got, written to its open row: a death then loses at most a minute. */
+    /**
+     * How far this play got, written to its open row: a death then loses at most a minute. An
+     * accumulator, not a snapshot against the play's start: only the forward distance since the
+     * last checkpoint (or the last seek) is added, so rewinding to relisten to an earlier part
+     * cannot erase progress already made.
+     */
     private fun checkpointListen(info: StartInfo, positionMs: Long) {
         val rowId = info.rowId.takeIf { it > 0 } ?: return
+        val playedMs = ListenProgress.accumulate(info.accumulatedPlayedMs, info.lastCheckpointPositionMs, positionMs)
+        info.accumulatedPlayedMs = playedMs
+        info.lastCheckpointPositionMs = positionMs
         database.query {
-            runCatching { checkpoint(rowId, (positionMs - info.startPositionMs).coerceAtLeast(0L), positionMs) }
+            runCatching { checkpoint(rowId, playedMs, positionMs) }
                 .onFailure { Log.w(TAG, "Could not checkpoint listen", it) }
         }
     }
@@ -2559,6 +2678,13 @@ class MusicService : MediaLibraryService(),
         }
         if (reason != Player.DISCONTINUITY_REASON_SEEK) return
         val id = newPosition.mediaItem?.mediaId ?: return
+        // Credit what was played since the last checkpoint, up to where the seek left from, then
+        // measure from where it landed. The jump is not played time. A play not yet started
+        // credits nothing; openListen sets its reference point.
+        currentStart(id)?.let {
+            it.accumulatedPlayedMs = ListenProgress.creditBeforeSeek(it.opened, it.accumulatedPlayedMs, it.lastCheckpointPositionMs, oldPosition.positionMs)
+            it.lastCheckpointPositionMs = newPosition.positionMs
+        }
         val delta = newPosition.positionMs - oldPosition.positionMs
         if (kotlin.math.abs(delta) < 3_000) return
         noteSignal(id, if (delta < 0) SignalKind.SEEK_BACK else SignalKind.SEEK_FORWARD, newPosition.positionMs, delta / 1000f)
@@ -2822,6 +2948,10 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onDestroy() {
+        // Checked by playQueue's resolve coroutine each time it resumes: that coroutine belongs to
+        // no scope this method cancels (see the comment at its launch site), so this is the only
+        // way it can find out the service is gone before touching the queue board or the player.
+        destroyed = true
         headTracking.stop(glideHome = false)
         proximityVolume.stop()
         isRunning = false

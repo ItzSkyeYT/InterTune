@@ -106,7 +106,6 @@
     <string name="settings_look_and_feel_description">Tema at mga kulay, ang mga tab sa ibaba, at mga swipe gesture.</string>
     <string name="settings_player_description">Kalidad ng tunog, mga audio effect, at kung paano kumikilos ang pag-play.</string>
     <string name="settings_lyrics_description">Kung saan kinukuha ang lyrics, at paano ito ipinapakita.</string>
-    <string name="settings_storage_description">Mga download, gaano kalaking espasyo ang puwedeng gamitin ng cache, at pag-back up ng aklatan mo.</string>
     <string name="settings_privacy_description">Kung ano ang itinatala ng app tungkol sa iyo, at kung ano ang ipinapadala nito.</string>
     <string name="settings_updates_description">Tumingin ng bagong bersyon, at i-install ito.</string>
     <string name="settings_advanced_description">Pagpapanatili, at mga opsyon para sa developer.</string>

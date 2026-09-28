@@ -42,12 +42,16 @@ import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_INVALID
 import com.dd3boh.outertune.playback.downloadManager.DownloadDirectoryManagerOt
 import com.dd3boh.outertune.playback.downloadManager.DownloadManagerOt
 import com.dd3boh.outertune.utils.YTPlayerUtils
+import com.dd3boh.outertune.utils.codecsOrEmpty
+import com.dd3boh.outertune.utils.contentLengthOrZero
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.dlCoroutine
 import com.dd3boh.outertune.utils.enumPreference
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.scanners.InvalidAudioFileException
+import com.dd3boh.outertune.utils.scanners.ScanMerge
+import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
 import com.dd3boh.outertune.utils.scanners.fileFromUri
 import com.dd3boh.outertune.utils.scanners.uriListFromString
 import com.dd3boh.outertune.utils.Throttle
@@ -120,13 +124,26 @@ class DownloadUtil @Inject constructor(
     ) { dataSpec ->
         val mediaId = dataSpec.key ?: error("No media id")
         val length = if (dataSpec.length >= 0) dataSpec.length else 1
+        var staleCopy = false
         if (dataSpec.position == 0L) {
             // From the start, the player's copy is read through only when it holds the whole
             // song. A part of one used to be read through as soon as its first byte was there,
             // and the rest came from whatever stream was resolved below, so a song cached on
             // mobile data and downloaded on Wi-Fi joined two formats in one file. The part goes,
             // and the download takes the whole song from the new stream.
-            if (playerCache.holdsWhole(mediaId)) return@Factory dataSpec
+            if (playerCache.holdsWhole(mediaId)) {
+                // Checked before the shortcut takes it, or a download made after raising the
+                // audio quality would copy the old cached bytes straight in and stay at the old
+                // bitrate for good. A copy fetched at a lower setting is replaced, but only once
+                // the new stream is in hand, as MusicService does for playback: if the fetch fails
+                // or the stream is not checked, the download takes the old copy as before rather
+                // than losing the one copy that plays offline.
+                val storedTier = runCatching {
+                    runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
+                }.getOrNull()?.qualityTier
+                if (!isStaleQualityTier(storedTier, audioQuality)) return@Factory dataSpec
+                staleCopy = true
+            }
             if (playerCache.holdsPartFromStart(mediaId)) {
                 runCatching { playerCache.removeResource(mediaId) }
                     .onFailure { Log.w(TAG, "Could not drop the partial copy of $mediaId", it) }
@@ -135,7 +152,9 @@ class DownloadUtil @Inject constructor(
             return@Factory dataSpec
         }
 
-        songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
+        // Not for a stale copy: the cache serves by the song's id whatever address comes back, so
+        // a remembered url would still read the old bytes.
+        songUrlCache[mediaId]?.takeIf { !staleCopy && it.second > System.currentTimeMillis() }?.let {
             return@Factory dataSpec.withUri(it.first.toUri())
         }
 
@@ -162,8 +181,20 @@ class DownloadUtil @Inject constructor(
                 audioQuality = audioQuality,
                 connectivityManager = connectivityManager,
             )
-        }.getOrThrow()
+        }.getOrElse {
+            if (staleCopy) return@Factory dataSpec
+            throw it
+        }
         val format = playbackData.format
+        // The lower-quality copy goes now that the new stream is in hand, and only for a stream
+        // that answered its status check: the last fallback client's is taken unchecked, and one
+        // of those failing partway would cost the copy. Either early return leaves the format row
+        // at the old tier, so the next download tries again.
+        if (staleCopy) {
+            if (!playbackData.validated) return@Factory dataSpec
+            runCatching { playerCache.removeResource(mediaId) }
+                .onFailure { Log.w(TAG, "Could not drop the lower-quality copy of $mediaId", it) }
+        }
 
         database.query {
             upsertFormatKeepingLoudness(
@@ -171,11 +202,12 @@ class DownloadUtil @Inject constructor(
                     id = mediaId,
                     itag = format.itag,
                     mimeType = format.mimeType.split(";")[0],
-                    codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
+                    codecs = format.codecsOrEmpty(),
                     bitrate = format.bitrate,
                     sampleRate = format.audioSampleRate,
-                    contentLength = format.contentLength!!,
+                    contentLength = format.contentLengthOrZero(),
                     loudnessDb = playbackData.audioConfig?.effectiveLoudnessDb,
+                    qualityTier = audioQuality.name,
                     playbackTrackingUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
                 )
             )
@@ -203,6 +235,14 @@ class DownloadUtil @Inject constructor(
             )
         }
     val downloads = MutableStateFlow<Map<String, LocalDateTime>>(emptyMap())
+
+    /**
+     * ids whose entry in [downloads] the download listener or deleteSong has changed since a
+     * rescan last merged them. A rescan keeps the live value for these instead of its snapshot's.
+     * Concurrent, because media3 calls the listener on its own threads and deleteSong runs on
+     * dlCoroutine.
+     */
+    private val scanTouchedIds = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     var localMgr = DownloadDirectoryManagerOt(
         context,
@@ -616,20 +656,29 @@ class DownloadUtil @Inject constructor(
 
     fun delete(song: MediaMetadata) = deleteSong(song.id)
 
-    private fun deleteSong(id: String): Boolean {
-        val deleted = localMgr.deleteFile(id)
-        if (!deleted) return false
-        downloads.update { map ->
-            map.toMutableMap().apply {
-                remove(id)
+    // The delete itself is a storage-provider binder call (DocumentsContract.deleteDocument), one
+    // per file. It used to run straight on the caller's thread, which for every bulk Remove
+    // download menu is a Compose onClick handler: a few hundred songs kept in a download folder
+    // froze the UI for the whole loop and could show an ANR. Fired on dlCoroutine instead, so the
+    // caller returns at once.
+    private fun deleteSong(id: String) {
+        CoroutineScope(dlCoroutine).launch {
+            val deleted = localMgr.deleteFile(id)
+            if (!deleted) return@launch
+            // Recorded before the map update, so a rescan walking the folder concurrently (which
+            // may still list the file this just deleted, or may already have missed it) keeps
+            // this removal instead of the merge putting the song back from its snapshot.
+            scanTouchedIds.add(id)
+            downloads.update { map ->
+                map.toMutableMap().apply {
+                    remove(id)
+                }
             }
-        }
 
-        // Both columns. This used to build a copy of the song without its path and throw it away,
-        // so the row went on pointing at the deleted file. Off the calling thread, which is a
-        // menu's click handler and may not touch the database.
-        database.query { removeDownloadSong(id) }
-        return true
+            // Both columns. This used to build a copy of the song without its path and throw it
+            // away, so the row went on pointing at the deleted file.
+            database.query { removeDownloadSong(id) }
+        }
     }
 
     /**
@@ -762,6 +811,16 @@ class DownloadUtil @Inject constructor(
      */
     suspend fun rescanDownloads() = scanLock.withLock { rescanDownloadsLocked() }
 
+    /**
+     * The paths of the download folders the last full listing could not read, for
+     * idsCoveredByUnlistedRoot. absoluteFilePathFromUri, not fileFromUri: these are tree addresses
+     * with no document part, which fileFromUri throws on from API 30. A saved address that is not
+     * a tree makes even this throw; such a root reads as unknown (null), which spares every song:
+     * the safe side.
+     */
+    private fun unlistedDownloadRoots(): List<String?> =
+        localMgr.unlistedDirs.map { runCatching { absoluteFilePathFromUri(context, it) }.getOrNull() }
+
     private suspend fun rescanDownloadsLocked() {
         Log.i(TAG, "+rescanDownloads()")
         isProcessingDownloads.value = true
@@ -773,6 +832,14 @@ class DownloadUtil @Inject constructor(
         // get missing files not in custom downloads or in internal downloads, remove them
         val missingFiles =
             localMgr.getMissingFiles(dbDownloads.filterNot { it.song.dateDownload == null }).toMutableList()
+        // A folder that could not be listed at all (an SD card not mounted, a grant that is gone)
+        // reads as empty, and every song under it would otherwise look deleted here. Left alone
+        // instead, by the rule the library scanner applies to its own folders.
+        val spared = idsCoveredByUnlistedRoot(
+            dbDownloads.associate { it.song.id to it.song.localPath },
+            unlistedDownloadRoots()
+        )
+        missingFiles.removeIf { it.song.id in spared }
         Log.d(TAG, "Found ${missingFiles.size}/${dbDownloads.size} songs not in custom download directories")
         // Downloads media3 still has queued or running show as downloading. The database records
         // only finished downloads, so these come from the index, as the scan's sentinel used to
@@ -806,7 +873,13 @@ class DownloadUtil @Inject constructor(
         }
         inFlight.forEach { (id, state) -> result.putIfAbsent(id, state) }
 
-        downloads.value = result
+        // The walk above takes a few seconds on a folder with enough files, and the listener goes
+        // on writing to `downloads` the whole time (a download finishing or being removed). A
+        // plain `downloads.value = result` used to throw all of that away with this stale
+        // snapshot, so a song finishing mid-walk dropped out until the next launch, and one
+        // removed mid-walk (Clear all downloads included) came back with its old date. Every id
+        // the listener or deleteSong touched keeps its live value instead of the snapshot's.
+        applyRescanResult(downloads, result, scanTouchedIds)
         isProcessingDownloads.value = false
         Log.i(TAG, "-rescanDownloads()")
     }
@@ -825,13 +898,34 @@ class DownloadUtil @Inject constructor(
         isProcessingDownloads.value = true
 
 //            val scanner = LocalMediaScanner.getScanner(context, ScannerImpl.TAGLIB, SCANNER_OWNER_DL)
-        database.removeAllDownloadedSongs()
+        // Read before clearing anything, so a folder that could not be listed is known before the
+        // decision below is made, instead of after.
+        val availableFiles = localMgr.getAvailableFiles(false)
+        val unlistedRoots = unlistedDownloadRoots()
+        if (unlistedRoots.isEmpty()) {
+            database.removeAllDownloadedSongs()
+        } else {
+            // A folder that could not be listed reads as empty, and clearing every downloaded song
+            // first would forget every one of its songs (and, for a liked one, queue it for
+            // internal re-download) until a scan can read the folder again. Left alone instead.
+            val dbDownloads = database.downloadedOrQueuedSongs().first()
+            val spared = idsCoveredByUnlistedRoot(
+                dbDownloads.associate { it.song.id to it.song.localPath },
+                unlistedRoots
+            )
+            // transactionNow, not transaction: it runs synchronously, so the re-registration right
+            // below is guaranteed to see these gone first. transaction queues on its own executor
+            // and could still be pending when that reads the table. Batched in one transaction
+            // rather than one write per song, same as the re-registration below.
+            database.transactionNow {
+                dbDownloads.filterNot { it.song.id in spared }.forEach { removeDownloadSong(it.song.id) }
+            }
+        }
         val timeNow = LocalDateTime.now()
 
         // add custom downloads. Written before going on, here and below: queued on the database's
         // executor, the writes could still be pending when the map is rebuilt from the database at
         // the end, and the songs then read as not downloaded until the next rebuild.
-        val availableFiles = localMgr.getAvailableFiles(false)
         database.transactionNow {
             availableFiles.forEach { f ->
                 try {
@@ -913,6 +1007,9 @@ class DownloadUtil @Inject constructor(
                         LikedCatchUp.afterUpdate(it, batch, download.request.id, download.state)
                     }
 
+                    // Before the map changes, so a rescan merging at the same moment keeps this
+                    // value. See scanTouchedIds.
+                    scanTouchedIds.add(download.request.id)
                     downloads.update { map ->
                         map.toMutableMap().apply {
                             val state = stateToLocalDateTime(download)
@@ -960,4 +1057,88 @@ fun stateToLocalDateTime(state: Int, updateTimeMs: Long): LocalDateTime {
         Download.STATE_DOWNLOADING, Download.STATE_QUEUED -> STATE_DOWNLOADING
         else -> STATE_INVALID
     }
+}
+
+/**
+ * Where a setting sits relative to the others, for deciding what counts as an upgrade. The one
+ * rank table: the download resolver and MusicService.shouldUpgradeCached both go through it, via
+ * isStaleQualityTier.
+ *
+ * Auto and High share a rank because on an unmetered connection they resolve to the same stream,
+ * so treating a move between them as an upgrade would re-fetch for nothing.
+ */
+private fun AudioQuality.upgradeRank() = when (this) {
+    AudioQuality.LOW -> 0
+    AudioQuality.AUTO -> 1
+    AudioQuality.HIGH -> 1
+    AudioQuality.MAX -> 2
+}
+
+/**
+ * Whether a copy recorded at [storedTier] ranks below [current], the quality setting now in
+ * force. A plain function of two values, with no cache or database in it, so the rank rule is
+ * tested without either.
+ *
+ * Null, or a tier the enum no longer has a case for, means the copy predates this field, or came
+ * from before quality tiers were recorded at all; treated as no upgrade, for playback and
+ * downloads alike, rather than re-fetching someone's whole cache the first time they open the app
+ * after an update.
+ */
+fun isStaleQualityTier(storedTier: String?, current: AudioQuality): Boolean {
+    val stored = storedTier?.let { runCatching { AudioQuality.valueOf(it) }.getOrNull() } ?: return false
+    return current.upgradeRank() > stored.upgradeRank()
+}
+
+/**
+ * The ids, out of [idToLocalPath], whose recorded folder was not among the ones the last scan
+ * could list: not missing, just not looked at, so a rescan or a full scan must leave them alone
+ * rather than clearing their download registration. A plain function of two maps/lists, so it is
+ * tested without a database, a DocumentFile or a Uri.
+ *
+ * An id with no recorded local path (an internal, non-folder download) is never covered: there is
+ * nothing to compare it against.
+ */
+fun idsCoveredByUnlistedRoot(idToLocalPath: Map<String, String?>, unlistedRoots: List<String?>): Set<String> {
+    if (unlistedRoots.isEmpty()) return emptySet()
+    return idToLocalPath.filterValues { it != null && ScanMerge.coveredByUnlistedRoot(it, unlistedRoots) }.keys
+}
+
+/**
+ * What a rescan writes to the live downloads map: [snapshot], the result of the folder walk and
+ * database read, except for [touchedIds], which keep whatever [live] (the map as the download
+ * listener and deleteSong have been updating it in the meantime) has for them right now, gone
+ * entirely if they removed them. A plain function of three maps, so the merge is tested without a walk,
+ * a listener or a StateFlow.
+ */
+fun mergeRescanResult(
+    snapshot: Map<String, LocalDateTime>,
+    live: Map<String, LocalDateTime>,
+    touchedIds: Set<String>
+): Map<String, LocalDateTime> {
+    val merged = snapshot.toMutableMap()
+    for (id in touchedIds) {
+        val liveValue = live[id]
+        if (liveValue != null) merged[id] = liveValue else merged.remove(id)
+    }
+    return merged
+}
+
+/**
+ * Writes a rescan's [snapshot] to [downloads] through mergeRescanResult, reading [touched] inside
+ * the update. The listener and deleteSong add an id before they change the map, so a change racing
+ * this merge either makes the update retry, and the retry reads the id, or lands on the merged
+ * map. Only the ids the winning attempt merged are retired; one added later waits for the next
+ * rescan.
+ */
+fun applyRescanResult(
+    downloads: MutableStateFlow<Map<String, LocalDateTime>>,
+    snapshot: Map<String, LocalDateTime>,
+    touched: MutableSet<String>
+) {
+    var used = emptySet<String>()
+    downloads.update { live ->
+        used = touched.toSet()
+        mergeRescanResult(snapshot, live, used)
+    }
+    touched.removeAll(used)
 }

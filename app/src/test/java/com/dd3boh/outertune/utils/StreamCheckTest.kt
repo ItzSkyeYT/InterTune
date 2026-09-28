@@ -6,11 +6,14 @@
 
 package com.dd3boh.outertune.utils
 
+import com.zionhuang.innertube.models.response.PlayerResponse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 class StreamCheckTest {
     @Test
@@ -101,5 +104,35 @@ class StreamCheckTest {
         assertEquals("IOS OK, HEAD 403", StreamCheck.trailStep("IOS", "OK", 403, checked = true))
         assertEquals("IOS OK, HEAD failed", StreamCheck.trailStep("IOS", "OK", null, checked = true))
         assertEquals("ANDROID (account) no answer", StreamCheck.trailStep("ANDROID (account)", null, null, checked = false))
+    }
+
+    @Test
+    fun `a fallback client's explanation wins over the last client's dropped connection`() {
+        // Five Hours (4f963e5f4): VISIONOS and IOS both answered UNPLAYABLE, then ANDROID's /player
+        // call failed.
+        val explained = PlayerResponse.PlayabilityStatus(status = "UNPLAYABLE", reason = "This video is not available")
+        val dropped = IOException("Software caused connection abort")
+        val failure = StreamCheck.resolveOnceFailure(explained, dropped)
+        assertEquals(StreamCheck.ChainFailure.Explained("This video is not available"), failure)
+    }
+
+    @Test
+    fun `a dropped connection with nothing explained still reaches MusicService as itself`() {
+        val dropped = IOException("Software caused connection abort")
+        val failure = StreamCheck.resolveOnceFailure(null, dropped)
+        assertTrue(failure is StreamCheck.ChainFailure.LastFailure)
+        assertSame(dropped, (failure as StreamCheck.ChainFailure.LastFailure).cause)
+    }
+
+    @Test
+    fun `nothing explained and nothing failed is the generic unknown response`() {
+        assertEquals(StreamCheck.ChainFailure.Unknown, StreamCheck.resolveOnceFailure(null, null))
+    }
+
+    @Test
+    fun `a status without a reason is still explained by its bare status`() {
+        val explained = PlayerResponse.PlayabilityStatus(status = "ERROR", reason = null)
+        val failure = StreamCheck.resolveOnceFailure(explained, IOException("dropped"))
+        assertEquals(StreamCheck.ChainFailure.Explained("ERROR"), failure)
     }
 }

@@ -240,6 +240,67 @@ class AnnouncementParserTest {
     }
 
     @Test
+    fun `an English-first phone gets the main text, not a later translation`() {
+        val a = one(
+            """{$minimal, "translations": {"fr": {"title": "fr"}}}"""
+        )
+        // English is the document's own language by default: it must win over a later
+        // preference that happens to have a translation, not fall through to it.
+        assertEquals("T", a.textFor(listOf(Locale.UK, Locale.FRANCE)).title)
+        assertEquals("T", a.textFor(listOf(Locale.US)).title)
+        // A later English locale still counts, same as any other language.
+        assertEquals("T", a.textFor(listOf(Locale.JAPAN, Locale.UK, Locale.FRANCE)).title)
+    }
+
+    @Test
+    fun `a document written in another language names it, and that becomes the match`() {
+        val a = one(
+            """{"id": "a", "banner": "B", "title": "T", "language": "fr",
+               "translations": {"en": {"title": "en"}}}"""
+        )
+        assertEquals("T", a.textFor(listOf(Locale.FRANCE)).title)
+        assertEquals("en", a.textFor(listOf(Locale.US)).title)
+        // German first matches neither the document's own language nor a translation, so the
+        // search moves on to French, which is the document's own language and wins there.
+        assertEquals("T", a.textFor(listOf(Locale.GERMANY, Locale.FRANCE)).title)
+        // French first, ahead of an English locale that has a translation of its own: the
+        // document's own language must win there rather than falling through to it.
+        assertEquals("T", a.textFor(listOf(Locale.FRANCE, Locale.US)).title)
+    }
+
+    @Test
+    fun `a region's own translation wins even when its plain language is the document's own`() {
+        val a = one("""{$minimal, "translations": {"en-GB": {"title": "engb"}}}""")
+        // English is the document's own language by default, but en-GB has its own words: the
+        // more specific regional match must be checked before the plain same-language shortcut.
+        assertEquals("engb", a.textFor(listOf(Locale.UK)).title)
+
+        val b = one(
+            """{"id": "b", "banner": "B", "title": "T", "language": "pt",
+               "translations": {"pt-BR": {"title": "ptbr"}}}"""
+        )
+        assertEquals("ptbr", b.textFor(listOf(Locale.forLanguageTag("pt-BR"))).title)
+    }
+
+    @Test
+    fun `the language field's own region is dropped before it is matched`() {
+        val a = one(
+            """{"id": "a", "banner": "B", "title": "T", "language": "en-US",
+               "translations": {"fr": {"title": "fr"}}}"""
+        )
+        // en-US is still English: an English phone must get the main text, not fall through to
+        // a French translation further down the list.
+        assertEquals("T", a.textFor(listOf(Locale.UK, Locale.FRANCE)).title)
+    }
+
+    @Test
+    fun `a translation in the document's own language still wins there`() {
+        val a = one("""{$minimal, "translations": {"en": {"title": "en"}}}""")
+        assertEquals("en", a.textFor(listOf(Locale.US, Locale.FRANCE)).title)
+        assertEquals("en", a.textFor(listOf(Locale.US)).title)
+    }
+
+    @Test
     fun `language keys are normalised`() {
         assertEquals("pt-br", AnnouncementParser.languageKey("pt_BR"))
         assertEquals("fr", AnnouncementParser.languageKey(" FR "))

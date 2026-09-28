@@ -174,3 +174,50 @@ After the update, a few quick questions come up once, for what needs your say-so
 - In Android Auto, search results are songs to play rather than folders.
 - After a resume, the shuffle button showed the wrong state for a shuffled queue.
 - While a song played, the app told the whole system its position every three seconds, for nobody.
+- Swiping the mini player away, and the first play after the app started, held up the screen while the saved queues were written or read.
+- If Android closed the app just after the player shut down, the saved queues could lose their place in the song.
+- A queue still loading when the player shut down could change the saved queues afterwards.
+- In Android Auto, tapping a song that had since left its list, such as one you unliked, played the first song in the list instead.
+- A song playing while **Maximum number of queues** changed or local files were scanned was recorded as stopped partway, as if you had not finished it.
+- If Android closed the app during a song you had rewound, the play could be recorded as not heard at all.
+- A song played straight after a track longer than 30 minutes started a new listening session, though playback never stopped.
+- Turning **Enable offload** on or off did nothing until the app restarted.
+- Skipping a song while it was still loading could be taken for YouTube refusing the connection, which paused downloads and sync for a few minutes.
+- In languages other than English, YouTube's bot check and age limit went unrecognised, so InterTune neither retried with a new visitor id nor backed off. YouTube's own reason for a single song that will not play now shows in English.
+- While YouTube was refusing requests, changing songs could lift the pause on downloads and sync.
+- A song whose stream details from YouTube were incomplete could close the app just after it started playing or while it downloaded.
+- **Next** in the full player did nothing when tapped straight after the app opened, before anything had played.
+- After opening the app, dragging the seekbar before pressing play was ignored: the song still started from its saved place, or from the beginning.
+- With a **Seek increment** set, fast forward and rewind in the queue stayed usable while its other buttons were greyed out, and straight after the app opened they did nothing.
+- With swiping between songs on, a song that failed to play showed its error over the covers either side of it as well.
+- On a tablet in landscape, the queue beside the player had a Search button that opened no search field and hid the drag handles.
+- With lyrics on, the screen never turned off while InterTune was open, even with the player closed. It now stays on only while the full player is open with lyrics on.
+- Loading all of a YouTube playlist kept retrying in the background after a page failed to load, and carried on after you left the playlist.
+- Scrolling a long YouTube playlist could list a page of its songs twice.
+- Removing a saved playlist's downloads from its YouTube page emptied the playlist in your library.
+- With **Automatically download your liked songs** on, some of the songs a sync had just liked waited for a later sync to be downloaded.
+- **Sync now** stopped part way, without saying so, if you left the settings page.
+- **Add to playlist** in the menu of a playlist in your library waited on two requests to YouTube that always failed before adding anything.
+- **Remove from playlist** in the player menu also listed playlists you follow and, with **Read only** sync, your synced ones, where the song could come back at the next sync. It now lists only playlists InterTune can change.
+- **Add to playlist** with more than 999 songs at once, from a big queue, folder or playlist, closed the app on Android 11 and older.
+- **Download**, **Like all** and **Add all to library** on selected songs did not stick for songs InterTune had not stored yet, such as ones picked on a YouTube playlist or an artist's page. Their downloads looked not downloaded after a restart.
+- Removing the downloads of many songs at once from a download folder froze the app.
+- A song already cached at a lower audio quality than the one set was downloaded from that copy. It is now fetched again at the current quality, and the cached copy is still used if that fails.
+- A download that finished or was removed while InterTune was checking the download folders, as it does just after launch, could show the wrong state until the next launch.
+- Songs in a download folder that could not be read at the time, such as one on an SD card that was not mounted, were marked as not downloaded.
+- Folders excluded inside a scan folder were scanned anyway, with either scanner, and excluding a folder such as Music also skipped a scan folder named Music2. Songs already imported from an excluded folder are hidden at the next scan.
+- Extra import locations refused a folder whose name only began like a scan folder's, such as MusicVideos beside Music, and accepted a folder holding a scan folder.
+- The scan folders dialog refused a folder whose name only began like the download folder's, such as MusicVideos with the download folder at Music.
+- Restoring a backup froze the app while it worked, and a backup it could not use, such as one from a newer version, restarted the app with only the backup's settings applied. The button now shows the restore's progress, and such a backup leaves your library and settings as they were.
+- **Most played songs** in Stats was in no particular order. The song you played most now comes first.
+- **Most played artists** in Stats could come up short, or as a heading over nothing, when you mostly played local files. It now fills up with your most played artists that have a YouTube page, and is left out when there are none.
+- **Clear listen history** kept play counts, so sorting by play count and the artists in Home's Keep listening row still followed your old plays. It clears them too now.
+- Importing an M3U playlist with **Match title and artists** turned down a line naming no artist, even when your library had that song with no artist either, such as an untagged local file in a playlist InterTune exported. Those lines match now.
+- A sleep timer length typed in by hand could be 0 or negative, which paused playback at once. It is now kept between 1 minute and 24 hours.
+- A question opened from its notification could open again by itself when InterTune was reopened from recent apps.
+- Turning the phone during the setup or catch-up questions, after saying yes to questions, switched news on before you were asked.
+- On F-Droid installs, setup and the catch-up questions offered to download updates from GitHub automatically, which can never install there and could not be turned off again. The F-Droid update notice no longer says it will download.
+- Background checks notified about the same new version or question every time they ran, and ignored **Remind me later**.
+- Checking for updates without a working connection said "No updates available" and hid an update or question found earlier. It now says it could not check.
+- An announcement could show in a language further down your phone's list: with English first and French second, you got the French text.
+- Lyrics looked up with no connection were saved as not found, so the song never showed lyrics again without **Refetch**. It now looks again the next time the song plays. Songs already saved as not found still need **Refetch**.
