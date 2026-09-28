@@ -74,6 +74,8 @@ import com.dd3boh.outertune.recognition.AudioRoute
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.db.entities.Playlist
+import com.dd3boh.outertune.ui.player.KeepScreenOnController
+import com.dd3boh.outertune.ui.player.KeepScreenOnReason
 import com.dd3boh.outertune.recognition.RecognitionEngine
 import com.dd3boh.outertune.recognition.RecognitionViewModel
 import com.dd3boh.outertune.recognition.SheetRun
@@ -133,13 +135,14 @@ fun RecognitionSheet(
     val (pauseOnSpeaker) = rememberPreference(RecognisePauseOnSpeakerKey, defaultValue = true)
     val (keepAwake) = rememberPreference(RecogniseKeepAwakeKey, defaultValue = false)
     val view = LocalView.current
-    DisposableEffect(listening, keepAwake) {
+    // Contributed to the shared holder rather than written to view.keepScreenOn directly: the
+    // player writes the same flag for lyrics/immersive landscape, and a plain pause or resume
+    // during a listen used to silently clear this sheet's request (or the reverse), whichever
+    // disposed last. See KeepScreenOnController.
+    DisposableEffect(view, listening, keepAwake) {
         val on = listening && keepAwake
-        // Put back what was there rather than off: the player keeps the screen on for lyrics
-        // through the same flag, and switching it off here took that away too.
-        val before = view.keepScreenOn
-        if (on) view.keepScreenOn = true
-        onDispose { if (on) view.keepScreenOn = before }
+        KeepScreenOnController.set(view, KeepScreenOnReason.RECOGNITION, on)
+        onDispose { KeepScreenOnController.set(view, KeepScreenOnReason.RECOGNITION, false) }
     }
     // And music started on the speaker mid-run stops it, as on the screen.
     LaunchedEffect(playerConnection, listening, pauseOnSpeaker) {

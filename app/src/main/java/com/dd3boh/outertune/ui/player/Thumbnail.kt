@@ -100,8 +100,9 @@ fun Thumbnail(
     val ownsError = customMediaMetadata == null || customMediaMetadata.id == playerMediaMetadata?.id
 
     // keepScreenOn is deliberately NOT set here. It is a single boolean on a single View, and
-    // BottomSheetPlayer now owns it so the lyrics request and the immersive-landscape request can
-    // be OR'd rather than clobbering one another. See the DisposableEffect in Player.kt.
+    // KeepScreenOnController now owns it so every reason that wants the screen held awake (lyrics,
+    // immersive landscape, recognition) can be OR'd rather than clobbering one another. See
+    // KeepScreenOnController.
 
     Box(modifier = modifier) {
         AnimatedVisibility(

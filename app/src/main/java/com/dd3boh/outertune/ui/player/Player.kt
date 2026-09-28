@@ -573,21 +573,31 @@ fun BottomSheetPlayer(
     }
 
     /**
-     * Single owner of View.keepScreenOn.
+     * This composable's two reasons to keep the screen on, contributed to [KeepScreenOnController]
+     * rather than written to View.keepScreenOn directly. It is one boolean on one View, so two
+     * independent writers race: whichever disposes last wins and silently clears the other's
+     * request, which is exactly how a recognition listen elsewhere used to get its keep-awake
+     * cleared by an unrelated play/pause here. The holder ORs every owner's reasons together
+     * instead, and each owner only ever adds or removes its own.
      *
-     * It is one boolean on one View, so it cannot be written from two places: whichever effect
-     * disposes last wins and silently clears the other's request. [Thumbnail] used to own it for
-     * the lyrics view; that ownership moved here so lyrics and immersive landscape can be OR'd
-     * together instead of clobbering each other.
+     * The lyrics reason counts only while this player sheet is actually open (not collapsed or
+     * dismissed): showLyrics is a persisted preference that outlives the sheet, and without this
+     * gate it kept the screen on everywhere in the app, forever, once lyrics had ever been shown.
      *
-     * [isPlaying] is part of the condition on purpose. "Landscape holds the screen awake" is about
-     * watching playback, and a player left paused overnight in landscape would otherwise hold the
-     * screen on until the battery died. Lyrics keep it awake regardless, matching the old
-     * behaviour.
+     * [isPlaying] is part of the landscape condition on purpose. "Landscape holds the screen awake"
+     * is about watching playback, and a player left paused overnight in landscape would otherwise
+     * hold the screen on until the battery died. Lyrics keep it awake whether or not anything is
+     * playing.
      */
-    DisposableEffect(showLyrics, immersiveLandscape, isPlaying) {
-        currentView.keepScreenOn = showLyrics || (immersiveLandscape && isPlaying)
-        onDispose { currentView.keepScreenOn = false }
+    val lyricsKeepAwake = showLyrics && !state.isCollapsed && !state.isDismissed
+    val landscapeKeepAwake = immersiveLandscape && isPlaying
+    DisposableEffect(currentView, lyricsKeepAwake, landscapeKeepAwake) {
+        KeepScreenOnController.set(currentView, KeepScreenOnReason.LYRICS, lyricsKeepAwake)
+        KeepScreenOnController.set(currentView, KeepScreenOnReason.IMMERSIVE_LANDSCAPE, landscapeKeepAwake)
+        onDispose {
+            KeepScreenOnController.set(currentView, KeepScreenOnReason.LYRICS, false)
+            KeepScreenOnController.set(currentView, KeepScreenOnReason.IMMERSIVE_LANDSCAPE, false)
+        }
     }
 
 
