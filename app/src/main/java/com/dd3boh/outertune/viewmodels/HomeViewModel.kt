@@ -393,7 +393,7 @@ class HomeViewModel @Inject constructor(
         database.transaction {
             runCatching {
                 discoverBuildId = insert(RowBuild(
-                    builtAt = now, rowKey = DISCOVER_ROW_KEY, sessionId = lastListen()?.sessionId ?: now, bucket = dayPartBucket(now),
+                    builtAt = now, rowKey = DISCOVER_ROW_KEY, sessionId = currentSessionOf(now), bucket = dayPartBucket(now),
                     dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness), contextChip = ContextChip.AUTO,
                     seeds = EngineLoader.seedsJson(row?.seeds.orEmpty()),
                     weights = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS).asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" },
@@ -761,7 +761,7 @@ class HomeViewModel @Inject constructor(
                 // The song table is the anchor for everything the engine will ever say about a
                 // song, and YouTube's row arrives from the feed, not from the table.
                 songs.forEach { if (!songExists(it.id)) insert(it) }
-                val sessionId = lastListen()?.sessionId ?: now
+                val sessionId = currentSessionOf(now)
                 val rowKey = when (source) { 1 -> 3; 2 -> 1; 3 -> 5; else -> 2 }
                 val engineRow = lastEngineRow?.takeIf { source == 2 || source == 3 }
                 currentBuildId = insert(RowBuild(
