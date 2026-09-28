@@ -50,6 +50,8 @@ import com.dd3boh.outertune.utils.enumPreference
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.scanners.InvalidAudioFileException
+import com.dd3boh.outertune.utils.scanners.ScanMerge
+import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
 import com.dd3boh.outertune.utils.scanners.fileFromUri
 import com.dd3boh.outertune.utils.scanners.uriListFromString
 import com.dd3boh.outertune.utils.Throttle
@@ -809,6 +811,16 @@ class DownloadUtil @Inject constructor(
      */
     suspend fun rescanDownloads() = scanLock.withLock { rescanDownloadsLocked() }
 
+    /**
+     * The paths of the download folders the last full listing could not read, for
+     * idsCoveredByUnlistedRoot. absoluteFilePathFromUri, not fileFromUri: these are tree addresses
+     * with no document part, which fileFromUri throws on from API 30. A saved address that is not
+     * a tree makes even this throw; such a root reads as unknown (null), which spares every song:
+     * the safe side.
+     */
+    private fun unlistedDownloadRoots(): List<String?> =
+        localMgr.unlistedDirs.map { runCatching { absoluteFilePathFromUri(context, it) }.getOrNull() }
+
     private suspend fun rescanDownloadsLocked() {
         Log.i(TAG, "+rescanDownloads()")
         isProcessingDownloads.value = true
@@ -820,6 +832,14 @@ class DownloadUtil @Inject constructor(
         // get missing files not in custom downloads or in internal downloads, remove them
         val missingFiles =
             localMgr.getMissingFiles(dbDownloads.filterNot { it.song.dateDownload == null }).toMutableList()
+        // A folder that could not be listed at all (an SD card not mounted, a grant that is gone)
+        // reads as empty, and every song under it would otherwise look deleted here. Left alone
+        // instead, by the rule the library scanner applies to its own folders.
+        val spared = idsCoveredByUnlistedRoot(
+            dbDownloads.associate { it.song.id to it.song.localPath },
+            unlistedDownloadRoots()
+        )
+        missingFiles.removeIf { it.song.id in spared }
         Log.d(TAG, "Found ${missingFiles.size}/${dbDownloads.size} songs not in custom download directories")
         // Downloads media3 still has queued or running show as downloading. The database records
         // only finished downloads, so these come from the index, as the scan's sentinel used to
@@ -878,13 +898,34 @@ class DownloadUtil @Inject constructor(
         isProcessingDownloads.value = true
 
 //            val scanner = LocalMediaScanner.getScanner(context, ScannerImpl.TAGLIB, SCANNER_OWNER_DL)
-        database.removeAllDownloadedSongs()
+        // Read before clearing anything, so a folder that could not be listed is known before the
+        // decision below is made, instead of after.
+        val availableFiles = localMgr.getAvailableFiles(false)
+        val unlistedRoots = unlistedDownloadRoots()
+        if (unlistedRoots.isEmpty()) {
+            database.removeAllDownloadedSongs()
+        } else {
+            // A folder that could not be listed reads as empty, and clearing every downloaded song
+            // first would forget every one of its songs (and, for a liked one, queue it for
+            // internal re-download) until a scan can read the folder again. Left alone instead.
+            val dbDownloads = database.downloadedOrQueuedSongs().first()
+            val spared = idsCoveredByUnlistedRoot(
+                dbDownloads.associate { it.song.id to it.song.localPath },
+                unlistedRoots
+            )
+            // transactionNow, not transaction: it runs synchronously, so the re-registration right
+            // below is guaranteed to see these gone first. transaction queues on its own executor
+            // and could still be pending when that reads the table. Batched in one transaction
+            // rather than one write per song, same as the re-registration below.
+            database.transactionNow {
+                dbDownloads.filterNot { it.song.id in spared }.forEach { removeDownloadSong(it.song.id) }
+            }
+        }
         val timeNow = LocalDateTime.now()
 
         // add custom downloads. Written before going on, here and below: queued on the database's
         // executor, the writes could still be pending when the map is rebuilt from the database at
         // the end, and the songs then read as not downloaded until the next rebuild.
-        val availableFiles = localMgr.getAvailableFiles(false)
         database.transactionNow {
             availableFiles.forEach { f ->
                 try {
@@ -1046,6 +1087,20 @@ private fun AudioQuality.upgradeRank() = when (this) {
 fun isStaleQualityTier(storedTier: String?, current: AudioQuality): Boolean {
     val stored = storedTier?.let { runCatching { AudioQuality.valueOf(it) }.getOrNull() } ?: return false
     return current.upgradeRank() > stored.upgradeRank()
+}
+
+/**
+ * The ids, out of [idToLocalPath], whose recorded folder was not among the ones the last scan
+ * could list: not missing, just not looked at, so a rescan or a full scan must leave them alone
+ * rather than clearing their download registration. A plain function of two maps/lists, so it is
+ * tested without a database, a DocumentFile or a Uri.
+ *
+ * An id with no recorded local path (an internal, non-folder download) is never covered: there is
+ * nothing to compare it against.
+ */
+fun idsCoveredByUnlistedRoot(idToLocalPath: Map<String, String?>, unlistedRoots: List<String?>): Set<String> {
+    if (unlistedRoots.isEmpty()) return emptySet()
+    return idToLocalPath.filterValues { it != null && ScanMerge.coveredByUnlistedRoot(it, unlistedRoots) }.keys
 }
 
 /**
