@@ -123,6 +123,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Long-pressing an album, artist or playlist in search results opened an empty menu.
 - **Shuffle** on a local artist played three songs.
 - In a shuffled queue, moving or removing a song and then adding one to the queue jumped to a different song.
+- A two-song queue on shuffle and repeat all could cut the second song off and start the first one again.
 - Lyrics without timings started every line after the first with a comma, and lost the blank lines between verses.
 - Removing a song from a playlist while searching it could send a different song to the bottom.
 - A drag in a playlist synced with YouTube Music could move a different song on YouTube.
@@ -156,11 +157,12 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Last.fm scrobbles named every artist of a song as one, and songs started from search were never scrobbled. Nothing is sent as now playing while listening history is paused, and a Last.fm connection revoked on the website now shows as disconnected.
 - **Sync now** often did nothing and said the sync was complete.
 - Opening the app and leaving without pressing play reset the saved place in the song to the start, so the next resume, from headphones or the notification, began at 0:00.
+- Play next before pressing play after reopening the app put the songs in the wrong place, lost where the restored song had stopped, and with a shuffled queue could close the app.
 - Pressing play on headphones with the app closed and nothing to resume closed the app about ten seconds later.
 - In Android Auto, a list you started was not treated as the current queue: shuffle swapped back to the phone's old queue, radio songs could land in it, and the app could close. "Hey Google, play" a song or artist emptied the player; it now plays what you asked for from your library, and a request it cannot match leaves playback alone. A search for a name with a slash in it, such as AC/DC, played the wrong song.
 - A song started by resuming could play briefly at full volume before normalisation and spatial audio took over.
 - Dragging songs with the add panel open moved the wrong rows.
-- The app could crash while saving the queue if the queue changed at the same moment, for example when starting a new playlist.
+- The app could crash while saving the queue if the queue changed at the same moment: when starting a new playlist, turning shuffle on or off, or when a shuffled queue on repeat all reached its last song.
 - **Download all liked songs** stayed stuck one short when a download failed. It now finishes, says how many failed, and stopping it keeps the songs that had already arrived.
 - Deleting a synced playlist that someone else made came back with the next sync. It is now unsaved on YouTube as well. **Delete** in an online playlist's menu did nothing at all; it now shows only for a playlist in your library, and removes it.
 - An album's songs are listed in the album's order. One you had already heard came first.
@@ -177,6 +179,8 @@ After the update, a few quick questions come up once, for what needs your say-so
 - After a resume, the shuffle button showed the wrong state for a shuffled queue.
 - While a song played, the app told the whole system its position every three seconds, for nobody.
 - Swiping the mini player away, and the first play after the app started, held up the screen while the saved queues were written or read.
+- Swiping the player away during a radio started it again a moment later from its first song, and the queue lost its place.
+- After swiping the player away, Add to queue brought back the old queue from its first song, and played it out of sight if music had been playing. It now plays the songs you chose, like Play next.
 - If Android closed the app just after the player shut down, the saved queues could lose their place in the song.
 - A queue still loading when the player shut down could change the saved queues afterwards.
 - In Android Auto, tapping a song that had since left its list, such as one you unliked, played the first song in the list instead.
