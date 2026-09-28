@@ -162,6 +162,8 @@ import com.dd3boh.outertune.utils.similarSourceOf
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.FailureMemo
 import com.dd3boh.outertune.utils.Throttle
+import com.dd3boh.outertune.utils.codecsOrEmpty
+import com.dd3boh.outertune.utils.contentLengthOrZero
 import com.dd3boh.outertune.utils.SongVersions
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.dataStore
@@ -1852,10 +1854,10 @@ class MusicService : MediaLibraryService(),
                         id = mediaId,
                         itag = format.itag,
                         mimeType = format.mimeType.split(";")[0],
-                        codecs = format.mimeType.split("codecs=")[1].removeSurrounding("\""),
+                        codecs = format.codecsOrEmpty(),
                         bitrate = format.bitrate,
                         sampleRate = format.audioSampleRate,
-                        contentLength = format.contentLength!!,
+                        contentLength = format.contentLengthOrZero(),
                         loudnessDb = playbackData.audioConfig?.effectiveLoudnessDb,
                         qualityTier = audioQualityNow().name,
                         playbackTrackingUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
