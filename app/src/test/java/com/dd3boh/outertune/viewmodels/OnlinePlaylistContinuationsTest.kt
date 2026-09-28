@@ -19,7 +19,11 @@ import org.junit.Test
  * the shared `continuation` var on success, so a page that failed (offline, or the coroutine
  * cancelled by leaving the screen, since YouTube.playlistContinuation's runCatching also swallows
  * CancellationException) left the same token in place and the while loop retried it at once,
- * printing a stack trace every time for as long as the process lived.
+ * printing a stack trace every time for as long as the process lived. loadMoreSongs raced it the
+ * other way: it could fire again for the same page before the first fetch had run.
+ *
+ * That race is guarded in OnlinePlaylistViewModel by a shared loadJob, not by anything here; it is
+ * ViewModel wiring rather than logic followContinuations owns, so it has no test in this file.
  */
 class OnlinePlaylistContinuationsTest {
 
@@ -81,7 +85,8 @@ class OnlinePlaylistContinuationsTest {
                         Result.success(listOf(1) to "c2")
                     }
                     // Loops back to a token already followed. This is a defensive guard against
-                    // that shape of page in general, whatever produces it.
+                    // that shape of page in general, whatever produces it, not a reproduction of
+                    // the loadJob race above.
                     "c2" -> Result.success(listOf(2) to "c1")
                     else -> error("unexpected token $token")
                 }
@@ -90,6 +95,25 @@ class OnlinePlaylistContinuationsTest {
         )
         assertNull(result)
         assertEquals(1, c1Calls)
+        assertEquals(listOf(1, 2), seen)
+    }
+
+    @Test
+    fun `maxPages stops after that many pages and returns the token to resume from`() = runBlocking {
+        var calls = 0
+        val pages = mapOf(
+            "c1" to (listOf(1, 2) to "c2"),
+            "c2" to (listOf(3) to "c3"),
+        )
+        val seen = mutableListOf<Int>()
+        val result = followContinuations(
+            start = "c1",
+            fetch = { token -> calls++; Result.success(pages.getValue(token)) },
+            maxPages = 1,
+            onPage = { seen += it },
+        )
+        assertEquals("c2", result)
+        assertEquals(1, calls)
         assertEquals(listOf(1, 2), seen)
     }
 }
