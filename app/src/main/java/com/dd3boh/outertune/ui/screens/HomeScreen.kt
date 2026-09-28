@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
 import com.dd3boh.outertune.viewmodels.CardReason
+import com.dd3boh.outertune.viewmodels.ytRowOnScreenFor
 import com.dd3boh.outertune.constants.ShowReasonsKey
 import com.dd3boh.outertune.utils.seenSlots
 import com.dd3boh.outertune.utils.CardBox
@@ -448,9 +449,9 @@ fun HomeScreen(
     val engineFallback by viewModel.engineFallback.collectAsState()
     val engineReasons by viewModel.engineReasons.collectAsState()
     val showReasons by rememberPreference(ShowReasonsKey, defaultValue = true)
-    // YouTube's shelf is the row when it is the source, or when it stands in for the engine.
-    val ytShelfShown = ytQuickPicks?.isNotEmpty() == true &&
-        (quickPicksSource == QuickPicksSource.YOUTUBE || (quickPicksSource != QuickPicksSource.YOUTUBE && quickPicksSource != QuickPicksSource.OFF && engineFallback == 2))
+    // YouTube's shelf is the row when it is the source, or when it stands in for the engine. The
+    // view model tidies and logs by the same rule, so the row it tidies is the row drawn here.
+    val ytShelfShown = ytRowOnScreenFor(quickPicksSource, engineFallback, ytQuickPicks?.isNotEmpty() == true)
     val shownPicks: List<MediaMetadata> = remember(ytQuickPicks, quickPicks, quickPicksSource, engineFallback) {
         ytQuickPicks?.takeIf { ytShelfShown }?.map { it.toMediaMetadata() }
             ?: quickPicks.orEmpty().map { it.toMediaMetadata() }
