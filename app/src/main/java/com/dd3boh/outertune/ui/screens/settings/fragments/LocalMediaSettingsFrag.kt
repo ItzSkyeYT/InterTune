@@ -469,11 +469,39 @@ fun ColumnScope.LocalScannerFrag() {
 
     if (showAddFolderDialog != null) {
         var tempScanPaths = remember { mutableStateListOf<Uri>() }
+        // Only a folder picked in this run of the dialog is checked against the rules below. An
+        // install with a download folder already inside an existing scan folder (allowed by older
+        // versions, which only refused the identical folder) used to fail the check for every
+        // saved scan path every time the dialog opened, so OK stayed disabled whatever else was
+        // changed, with no row highlighted and no message explaining why.
+        val sessionAddedPaths = remember { mutableStateListOf<Uri>() }
         LaunchedEffect(showAddFolderDialog, scanPaths, excludedScanPaths) {
             tempScanPaths.clear()
+            sessionAddedPaths.clear()
             tempScanPaths.addAll(
                 uriListFromString(if (showAddFolderDialog == true) scanPaths else excludedScanPaths)
             )
+        }
+
+        // Whether [candidate] itself sits at or inside the download folder or an extra download
+        // folder: scanning it in would import the download folder's own files as local songs too.
+        // Excluding such a folder is harmless, so this is only checked for folders to scan.
+        // FolderNesting, not string .contains(), which took a folder like MusicVideos for one
+        // inside Music.
+        fun sitsInsideADownloadDir(candidate: Uri): Boolean {
+            if (showAddFolderDialog != true) return false
+            return (uriListFromString(downloadPath) + uriListFromString(dlPathExtra)).any { dl ->
+                FolderNesting.isSameOrInside(candidate.toString(), dl.toString())
+            }
+        }
+
+        // The download folder or extra download folder [candidate] itself holds, if any. Named,
+        // not just a flag, so the row can say which one.
+        fun holdingADownloadDir(candidate: Uri): Uri? {
+            if (showAddFolderDialog != true) return null
+            return (uriListFromString(downloadPath) + uriListFromString(dlPathExtra)).firstOrNull { dl ->
+                FolderNesting.isSameOrInside(dl.toString(), candidate.toString())
+            }
         }
 
         ActionPromptDialog(
@@ -526,15 +554,12 @@ fun ColumnScope.LocalScannerFrag() {
                 tempScanPaths.clear()
             },
             isInputValid = tempScanPaths.toList().all {
-                // scan path cannot be the download directory or subdir of download directory
-                !it.toString().contains(uriListFromString(downloadPath).firstOrNull().toString())
-                        && uriListFromString(dlPathExtra).none { f -> it.toString().contains(f.toString()) }
-                        // nor hold one, or every download there is scanned in as a local song as
-                        // well. Only for folders to scan: excluding such a folder is harmless.
-                        && (showAddFolderDialog != true ||
-                        (uriListFromString(downloadPath) + uriListFromString(dlPathExtra)).none { dl ->
-                            FolderNesting.isSameOrInside(dl.toString(), it.toString())
-                        })
+                // A path already saved from before this dialog opened is kept as it is: only one
+                // picked just now is held to the rules, or a folder allowed under an older,
+                // narrower rule could never be got past again, on a screen with nothing on it
+                // saying why. A saved row that does overlap is still shown below, in a neutral
+                // tone rather than as a blocking error.
+                it !in sessionAddedPaths || (!sitsInsideADownloadDir(it) && holdingADownloadDir(it) == null)
             } || tempScanPaths.isEmpty()
         ) {
             val dirPickerLauncher = rememberLauncherForActivityResult(
@@ -547,6 +572,7 @@ fun ColumnScope.LocalScannerFrag() {
                 val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 contentResolver.takePersistableUriPermission(uri, takeFlags)
                 tempScanPaths.add(uri)
+                sessionAddedPaths.add(uri)
             }
 
             Text(
@@ -567,25 +593,56 @@ fun ColumnScope.LocalScannerFrag() {
                     )
             ) {
                 tempScanPaths.forEach {
-                    !it.toString().contains(uriListFromString(downloadPath).firstOrNull().toString())
-                            && uriListFromString(dlPathExtra).none { f -> it.toString().contains(f.toString()) }
-                    val valid = !it.toString().contains(uriListFromString(downloadPath).firstOrNull().toString())
-                            && uriListFromString(dlPathExtra).none { f -> it.toString().contains(f.toString()) }
+                    val holdsDownloadDir = holdingADownloadDir(it)
+                    val insideDownloadDir = sitsInsideADownloadDir(it)
+                    val overlapsDownloadDir = holdsDownloadDir != null || insideDownloadDir
+                    // Only a row picked in this run of the dialog can block OK; a saved row that
+                    // overlaps is shown, not enforced.
+                    val blocking = overlapsDownloadDir && it in sessionAddedPaths
+                    val rowColor = when {
+                        blocking -> MaterialTheme.colorScheme.errorContainer
+                        overlapsDownloadDir -> MaterialTheme.colorScheme.surfaceVariant
+                        else -> Color.Transparent
+                    }
+                    val textColor =
+                        if (blocking) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                     Row(
                         modifier = Modifier
                             .padding(horizontal = 8.dp)
-                            .background(if (valid) Color.Transparent else MaterialTheme.colorScheme.errorContainer)
+                            .background(rowColor)
                             .clickable { }) {
-                        Text(
-                            text = absoluteFilePathFromUri(context, it) ?: it.toString(),
-                            style = MaterialTheme.typography.bodySmall,
+                        Column(
                             modifier = Modifier
                                 .weight(1f)
                                 .align(Alignment.CenterVertically)
-                        )
+                        ) {
+                            Text(
+                                text = absoluteFilePathFromUri(context, it) ?: it.toString(),
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            if (holdsDownloadDir != null) {
+                                Text(
+                                    text = if (blocking) stringResource(
+                                        R.string.scanner_holds_download_dir,
+                                        absoluteFilePathFromUri(context, holdsDownloadDir) ?: holdsDownloadDir.toString()
+                                    ) else stringResource(R.string.scanner_overlap_kept),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = textColor,
+                                )
+                            } else if (insideDownloadDir) {
+                                Text(
+                                    text = stringResource(
+                                        if (blocking) R.string.scanner_rejected_dir else R.string.scanner_overlap_kept
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = textColor,
+                                )
+                            }
+                        }
                         IconButton(
                             onClick = {
                                 tempScanPaths.remove(it)
+                                sessionAddedPaths.remove(it)
                             },
                         ) {
                             Icon(
@@ -609,7 +666,7 @@ fun ColumnScope.LocalScannerFrag() {
                 )
 
                 if (tempScanPaths.toList().any {
-                        it.toString() == uriListFromString(downloadPath).firstOrNull().toString()
+                        it in sessionAddedPaths && (sitsInsideADownloadDir(it) || holdingADownloadDir(it) != null)
                     }) {
                     InfoLabel(
                         text = stringResource(R.string.scanner_rejected_dir),

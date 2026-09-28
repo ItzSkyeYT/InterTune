@@ -187,6 +187,8 @@
     <string name="scan_paths_description">Sélectionnez les dossiers sur votre stockage local pour rechercher des titres</string>
     <string name="oobe_interface_subtitle">Personnalisez l\'apparence d\'InterTune et le contenu qu\'il vous montre.</string>
     <string name="scanner_rejected_dir">Sélection non valide. Un dossier d\'analyse ne peut pas être un sous-répertoire du dossier de téléchargement, ni le dossier de téléchargement lui-même.</string>
+    <string name="scanner_holds_download_dir">Ce dossier contient votre dossier de téléchargement (%s), il ne peut donc pas être un dossier d\'analyse</string>
+    <string name="scanner_overlap_kept">Chevauche votre dossier de téléchargement ; conservé tel quel car il était déjà enregistré</string>
     <string name="dl_extra_path_overlap_kept">Chevauche un dossier d\'analyse ; conservé tel quel car il était déjà enregistré</string>
     <string name="oobe_ad_free_exp_description">Profitez d\'une lecture de musique ininterrompue</string>
     <string name="dl_oobe_tooltip">Les titres sont téléchargés sur le stockage interne privé de l\'application. Pour télécharger des titres sur le stockage externe, vous devez d\'abord choisir un dossier. Vous pouvez ajouter, modifier ou supprimer des dossiers, ou migrer les téléchargements internes vers les téléchargements externes ultérieurement dans les Paramètres.</string>
