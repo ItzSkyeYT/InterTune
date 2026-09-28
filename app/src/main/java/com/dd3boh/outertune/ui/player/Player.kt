@@ -507,8 +507,17 @@ fun BottomSheetPlayer(
 
     // Nothing may move while the queue is on screen. The service does the re-planning on a
     // background thread and has no idea what is visible, so the screen tells it.
-    LaunchedEffect(queueSheetState.isExpanded) {
-        playerConnection.service.queueSheetOpen = queueSheetState.isExpanded
+    //
+    // queueSheetState stays expanded when the player sheet collapses or is dismissed over it, so
+    // the player's own state is part of the answer. The tablet's queue pane shows the same rows
+    // without ever expanding this sheet, so tabletTwoPane counts as the queue being on screen.
+    LaunchedEffect(queueSheetState.isExpanded, tabletTwoPane, state.isCollapsed, state.isDismissed) {
+        playerConnection.service.queueSheetOpen = computeQueueSheetOpen(
+            queueSheetExpanded = queueSheetState.isExpanded,
+            tabletTwoPane = tabletTwoPane,
+            playerCollapsed = state.isCollapsed,
+            playerDismissed = state.isDismissed,
+        )
     }
 
     DisposableEffect(Unit) {
@@ -1579,6 +1588,22 @@ internal fun landscapeControlsWidth(available: Dp, playButton: Dp, slots: Int, g
     val needed = LandscapeTransportSlot * slots + playButton + PlayButtonGap * 2 + gutter * 2
     return (available / 2).coerceAtLeast(needed).coerceAtMost(available * 0.62f)
 }
+
+/**
+ * Whether some queue list is genuinely on screen right now, i.e. whether the adaptive queue must
+ * hold what it has shown rather than replan it out from under somebody looking at it.
+ *
+ * True while the queue sheet is expanded, or while the tablet's permanent queue pane is showing
+ * (it has no sheet to expand), but never while the player itself is collapsed or dismissed: the
+ * queue sheet's own expanded state does not reset when the player sheet collapses under it, so
+ * without this the flag could get stuck true after the player closes.
+ */
+internal fun computeQueueSheetOpen(
+    queueSheetExpanded: Boolean,
+    tabletTwoPane: Boolean,
+    playerCollapsed: Boolean,
+    playerDismissed: Boolean,
+): Boolean = (queueSheetExpanded || tabletTwoPane) && !playerCollapsed && !playerDismissed
 
 /**
  * Lays the content out at its natural height, and when that is more than there is room for,
