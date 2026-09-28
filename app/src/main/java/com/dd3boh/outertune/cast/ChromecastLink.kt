@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.cast
 
+import android.os.Looper
 import android.util.Log
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -345,21 +346,29 @@ class ChromecastLink(
             reader?.cancel()
             return
         }
-        // Said on a thread of its own: close may be called from the main thread, which must not
-        // touch the network, and it does not wait, since a device that is gone would hold it up.
+        // Off the main thread the goodbye is said before close returns, so a cast straight back
+        // to the same device, which waits for this one to close, cannot join the player just
+        // before our STOP for it lands. The main thread must not touch the network, so from
+        // there it is said on the thread that closes the socket.
+        val onMain = runCatching { Looper.getMainLooper()?.isCurrentThread == true }.getOrDefault(false)
+        if (!onMain) sayGoodbye(goodbye)
         thread(isDaemon = true, name = "ChromecastLink close") {
-            try {
-                goodbye.forEach(::write)
-                // A socket closed with the device's answer still unread goes out as a reset rather
-                // than a close, and a reset can make the device throw away what it has not read
-                // yet: the stops just sent. So the reading thread goes on reading until the
-                // device hangs up, or for a second at most.
-                readerDone.await(GOODBYE_WAIT_MS, TimeUnit.MILLISECONDS)
-            } catch (e: IOException) {
-                Log.d(TAG, "Could not say goodbye to ${device.name}: ${e.message}")
-            }
+            if (onMain) sayGoodbye(goodbye)
+            // A socket closed with the device's answer still unread goes out as a reset rather
+            // than a close, and a reset can make the device throw away what it has not read yet:
+            // the stops just sent. So the reading thread goes on reading until the device hangs
+            // up, or for a second at most.
+            readerDone.await(GOODBYE_WAIT_MS, TimeUnit.MILLISECONDS)
             runCatching { connection.close() }
             reader?.cancel()
+        }
+    }
+
+    private fun sayGoodbye(goodbye: List<Outgoing>) {
+        try {
+            goodbye.forEach(::write)
+        } catch (e: IOException) {
+            Log.d(TAG, "Could not say goodbye to ${device.name}: ${e.message}")
         }
     }
 

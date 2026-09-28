@@ -29,7 +29,11 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
@@ -806,6 +810,57 @@ class ChromecastLinkTest {
         assertEquals("web-1", receiver.next(Chromecast.NS_CONNECTION, "CLOSE").message.destinationId)
         assertEquals(Chromecast.PLATFORM_RECEIVER, receiver.next(Chromecast.NS_CONNECTION, "CLOSE").message.destinationId)
         link.close()
+    }
+
+    /** A connected socket whose every written byte is kept, for what was said before a call returned. */
+    private class Recording(private val inner: Socket) : Socket() {
+        private val kept = ByteArrayOutputStream()
+
+        val written: ByteArray get() = synchronized(kept) { kept.toByteArray() }
+
+        override fun getInputStream(): InputStream = inner.getInputStream()
+
+        override fun getOutputStream(): OutputStream = object : OutputStream() {
+            private val out = inner.getOutputStream()
+
+            override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
+
+            override fun write(b: ByteArray, off: Int, len: Int) {
+                synchronized(kept) { kept.write(b, off, len) }
+                out.write(b, off, len)
+            }
+
+            override fun flush() = out.flush()
+        }
+
+        override fun setSoTimeout(timeout: Int) {
+            inner.soTimeout = timeout
+        }
+
+        override fun close() = inner.close()
+    }
+
+    @Test
+    fun `closing off the main thread has said its goodbye by the time it returns`() {
+        val receiver = FakeChromecast(listOf(App("E8C28D3C", "backdrop", "web-0", idleScreen = true)))
+        var socket: Recording? = null
+        val link = ChromecastLink(receiver.device, scope, secure = { plain, _, _ -> Recording(plain).also { socket = it } }, timing = quiet)
+            .also { links += it }
+        runBlocking { link.connect() }
+        playing(receiver, link)
+        link.close()
+        val said = ByteArrayInputStream(socket!!.written).let { input ->
+            generateSequence { CastChannel.read(input) }.map { it.namespace to Chromecast.parse(it.payloadUtf8)!!.type }.toList()
+        }
+        assertEquals(
+            listOf(
+                Chromecast.NS_MEDIA to "STOP",
+                Chromecast.NS_RECEIVER to "STOP",
+                Chromecast.NS_CONNECTION to "CLOSE",
+                Chromecast.NS_CONNECTION to "CLOSE",
+            ),
+            said.takeLast(4),
+        )
     }
 
     @Test
