@@ -109,6 +109,20 @@ fun rememberSleepTimerState(playerConnection: PlayerConnection): Pair<Boolean, L
 }
 
 /**
+ * Keeps a typed sleep timer length between 1 minute and 24 hours. There is no 120 minute cap
+ * like the slider's, because this field exists to go past the slider's 2 hours.
+ *
+ * 0 and -1 are the dangerous values: SleepTimer.start(0) pauses playback at once, and -1 is its
+ * "stop at the end of the song" value. A hardware keyboard can also type "NaN" or "Infinity",
+ * which toFloatOrNull() accepts; NaN would pass coerceIn unchanged and make roundToInt() throw,
+ * so non-finite values become 1. The 1440 minute cap keeps minutes * 60 * 1000 inside an Int.
+ */
+fun coerceSleepTimerMinutes(value: Float): Float {
+    if (!value.isFinite()) return 1f
+    return value.coerceIn(1f, 1440f)
+}
+
+/**
  * Picks a length and starts the sleep timer, or stops at the end of the song. Moved unchanged from
  * PlayerMenu so the player screen can open it too.
  */
@@ -221,9 +235,8 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
                         ),
                         keyboardActions = KeyboardActions(
                             onDone = {
-                                val text = textFieldValue.text.toFloatOrNull()
-                                if (text != null) {
-                                    sleepTimerValue = textFieldValue.text.toFloatOrNull() ?: sleepTimerValue
+                                textFieldValue.text.toFloatOrNull()?.let {
+                                    sleepTimerValue = coerceSleepTimerMinutes(it)
                                 }
                             }
                         ),
