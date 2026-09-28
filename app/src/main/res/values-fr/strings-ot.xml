@@ -743,6 +743,7 @@
     <string name="auto_backup_choose_folder">Choisir un dossier</string>
     <string name="auto_backup_interval">Fréquence</string>
     <string name="backup_in_progress">Écriture de la sauvegarde…</string>
+    <string name="restore_in_progress">Restauration de la sauvegarde…</string>
     <string name="auto_backup_every_6h">Toutes les 6 heures</string>
     <string name="auto_backup_every_month">Tous les mois</string>
     <string name="auto_backup_every_6mo">Tous les 6 mois</string>

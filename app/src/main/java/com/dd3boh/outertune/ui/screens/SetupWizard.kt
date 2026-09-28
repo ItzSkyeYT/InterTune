@@ -71,6 +71,7 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -86,6 +87,7 @@ import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -190,6 +192,10 @@ fun SetupWizard(
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) backupRestoreViewModel.restore(uri)
     }
+    // Restoring runs in the background (BackupRestoreViewModel.restore) and takes a while on a
+    // real library, and this button is setup's only way in to it. So it shows its own spinner and
+    // stays disabled until the restore is over, instead of looking idle next to Skip.
+    val restoringFromSetup by backupRestoreViewModel.restoreInProgress.collectAsState()
     val layoutDirection = LocalLayoutDirection.current
     val uriHandler = LocalUriHandler.current
 
@@ -624,8 +630,16 @@ fun SetupWizard(
                                     TextButton(
                                         onClick = {
                                             restoreLauncher.launch(arrayOf("application/octet-stream"))
-                                        }
+                                        },
+                                        enabled = !restoringFromSetup
                                     ) {
+                                        if (restoringFromSetup) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                            Spacer(Modifier.width(8.dp))
+                                        }
                                         Text(
                                             text = stringResource(R.string.oobe_use_backup),
                                             style = MaterialTheme.typography.bodyMedium
