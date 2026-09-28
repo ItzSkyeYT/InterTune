@@ -189,7 +189,9 @@ private fun Body(drawn: WidgetStore.Drawn) {
         context.resources.configuration.fontScale,
     )
     val song = snapshot.nowPlaying
-    val cover = drawn.art[song?.id]
+    // The now playing song's own 192px file, not the list-row entry the id-keyed art map would
+    // otherwise resolve to whenever this same song sits at the head of Recently played.
+    val cover = drawn.nowCover ?: drawn.art[song?.id]
 
     var frame = GlanceModifier.fillMaxSize().appWidgetBackground()
     paint.background?.let { frame = frame.background(it) }

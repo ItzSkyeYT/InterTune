@@ -84,6 +84,20 @@ class WidgetSnapshotTest {
     }
 
     @Test
+    fun `the now playing cover comes from its own file, not recent's smaller copy of the same song`() {
+        val now = song.copy(artPath = "/data/art/abc123_192.png")
+        val recentCopy = now.copy(artPath = "/data/art/abc123_96.png")
+        val snap = WidgetSnapshot(nowPlaying = now, recent = listOf(recentCopy))
+        // decode = identity, so the "bitmaps" are just the paths themselves.
+        val (art, nowCover) = coversFor(snap, old = emptyMap(), decode = { it })
+        // Recent collides on id with now playing and comes after it in songs(), so the id-keyed
+        // map keeps recent's smaller path.
+        assertEquals(recentCopy.artPath, art[now.id])
+        // The now playing cover is read from its own path whatever the map holds for that id.
+        assertEquals(now.artPath, nowCover)
+    }
+
+    @Test
     fun `a flat widget keeps a small cover until it is too flat for one`() {
         assertTrue(WidgetLayout.plan(400, 60, WidgetSettings(), 6).cover > 0)
         assertEquals(0, WidgetLayout.plan(400, 40, WidgetSettings(), 6).cover)

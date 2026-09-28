@@ -84,8 +84,16 @@ object WidgetStore {
      * A snapshot and the artwork it names, decoded once per change rather than once per draw.
      * [big] is the one large cover, for a widget whose whole face is the artwork; sending that one
      * everywhere would spend the launcher's whole megabyte on a picture nobody can see.
+     * [nowCover] is the now playing song's own 192 px cover. It is kept apart from [art] because
+     * [art] is keyed by id and the song usually also sits in Recently played (or another list),
+     * whose 96 px copy is the one the map keeps.
      */
-    data class Drawn(val snapshot: WidgetSnapshot, val art: Map<String, Bitmap>, val big: Bitmap? = null)
+    data class Drawn(
+        val snapshot: WidgetSnapshot,
+        val art: Map<String, Bitmap>,
+        val big: Bitmap? = null,
+        val nowCover: Bitmap? = null,
+    )
 
     private fun dir(context: Context) = File(context.filesDir, "widget").apply { mkdirs() }
     private fun file(context: Context) = File(dir(context), "snapshot.tsv")
@@ -110,12 +118,13 @@ object WidgetStore {
 
     /** The artwork the snapshot names, as bitmaps. Small, few, and only re-read when they change. */
     private fun decoded(context: Context, snapshot: WidgetSnapshot): Drawn {
-        val old = _drawn.value?.art.orEmpty()
-        val art = snapshot.songs().mapNotNull { song ->
-            val bitmap = old[song.id] ?: decode(song.artPath)
-            bitmap?.let { song.id to it }
-        }.toMap()
-        return Drawn(snapshot, art, snapshot.nowPlaying?.let { decode(bigArtPath(context, it.id)) })
+        val (art, nowCover) = coversFor(snapshot, _drawn.value?.art.orEmpty(), ::decode)
+        return Drawn(
+            snapshot,
+            art,
+            snapshot.nowPlaying?.let { decode(bigArtPath(context, it.id)) },
+            nowCover,
+        )
     }
 
     private fun decode(path: String?): Bitmap? = runCatching {
@@ -354,4 +363,23 @@ object WidgetStore {
 @InstallIn(SingletonComponent::class)
 interface WidgetEntryPoint {
     fun database(): MusicDatabase
+}
+
+/**
+ * The id-keyed art map WidgetStore.decoded() builds, paired with the now playing cover read from
+ * its own path rather than from that map.
+ *
+ * The now playing song usually shares its id with its own entry in Recently played, and a plain
+ * `associate`/`toMap` over [WidgetSnapshot.songs] keeps the last value for a repeated key, which is
+ * recent's smaller copy whenever a widget is on screen since recent comes after now playing there.
+ * The paired cover is read straight from [WidgetSnapshot.nowPlaying] instead, so that collision
+ * never reaches it.
+ */
+internal fun <B> coversFor(snapshot: WidgetSnapshot, old: Map<String, B>, decode: (String?) -> B?): Pair<Map<String, B>, B?> {
+    val art = snapshot.songs().mapNotNull { song ->
+        val value = old[song.id] ?: decode(song.artPath)
+        value?.let { song.id to it }
+    }.toMap()
+    val nowCover = snapshot.nowPlaying?.let { decode(it.artPath) }
+    return art to nowCover
 }
