@@ -32,9 +32,19 @@ object FolderNesting {
     fun isSameOrInside(child: String, parent: String): Boolean {
         val c = treeDocumentId(child) ?: return child == parent
         val p = treeDocumentId(parent) ?: return false
-        if (c == p) return true
+        return isSameOrInsideId(c, p)
+    }
+
+    /**
+     * The same check as [isSameOrInside], taking the two folders' document ids directly (such as
+     * "primary:Music/InterTune") instead of tree addresses. For comparing a found file's own
+     * document id, which DocumentsContract.getDocumentId reads correctly from its full uri; a tree
+     * address only carries the address it was picked at, never a file found under it.
+     */
+    fun isSameOrInsideId(childId: String, parentId: String): Boolean {
+        if (childId == parentId) return true
         // The root of a volume is "primary:", and its folders are "primary:Music", with no slash.
-        val prefix = if (p.endsWith(":")) p else p.trimEnd('/') + "/"
-        return c.startsWith(prefix)
+        val prefix = if (parentId.endsWith(":")) parentId else parentId.trimEnd('/') + "/"
+        return childId.startsWith(prefix)
     }
 }

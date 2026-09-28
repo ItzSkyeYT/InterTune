@@ -53,4 +53,20 @@ class FolderNestingTest {
         assertFalse(FolderNesting.isSameOrInside(tree("1234-5678:Music"), tree("primary:")))
         assertFalse(FolderNesting.isSameOrInside(tree("1234-5678:Music"), tree("primary:Music")))
     }
+
+    // isSameOrInsideId: the same rule taking document ids directly, for comparing a found file's
+    // own id (read with DocumentsContract.getDocumentId) against a folder's tree id (read with
+    // DocumentsContract.getTreeDocumentId), which is what a raw tree address cannot do for a file.
+
+    @Test
+    fun `a file's document id inside an excluded folder's id is caught`() {
+        assertTrue(FolderNesting.isSameOrInsideId("primary:Music/WhatsApp Audio/x.opus", "primary:Music/WhatsApp Audio"))
+        assertTrue(FolderNesting.isSameOrInsideId("primary:Music/WhatsApp Audio", "primary:Music/WhatsApp Audio"))
+    }
+
+    @Test
+    fun `a sibling folder's id is not caught by a prefix that only looks similar`() {
+        assertFalse(FolderNesting.isSameOrInsideId("primary:Music2/x.opus", "primary:Music"))
+        assertFalse(FolderNesting.isSameOrInsideId("primary:MusicVideos/x.opus", "primary:Music"))
+    }
 }
