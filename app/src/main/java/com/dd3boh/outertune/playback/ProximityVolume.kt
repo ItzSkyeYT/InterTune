@@ -117,9 +117,8 @@ class ProximityVolume(private val context: Context) {
         val outputs = runCatching {
             audio.getDevices(android.media.AudioManager.GET_DEVICES_OUTPUTS)
         }.getOrNull() ?: return null
-        return outputs.firstOrNull {
-            it.type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
-        }?.productName?.toString()?.takeIf { it.isNotBlank() }
+        return outputs.firstOrNull { isHeadphoneOutputType(it.type) }
+            ?.productName?.toString()?.takeIf { it.isNotBlank() }
     }
 
     @SuppressLint("MissingPermission")
@@ -261,5 +260,19 @@ class ProximityVolume(private val context: Context) {
 
         /** How long a filtered scan may hear nothing before it is widened. */
         const val WIDEN_AFTER_MS = 15_000L
+
+        /**
+         * Whether an AudioManager output device type counts as the Bluetooth headphones this
+         * feature watches. LE Audio routes report under their own distinct type, not
+         * TYPE_BLUETOOTH_A2DP, so it needs its own branch; mirrors AudioRoute.playbackIsPrivate,
+         * which treats the two the same way under the same SDK gate hasPermission() already
+         * requires for BLUETOOTH_SCAN.
+         */
+        // TYPE_BLE_HEADSET is a compile-time constant that is only compared, so reading it below S
+        // does no harm.
+        @SuppressLint("InlinedApi")
+        fun isHeadphoneOutputType(type: Int, sdkInt: Int = Build.VERSION.SDK_INT): Boolean =
+            type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                (sdkInt >= Build.VERSION_CODES.S && type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET)
     }
 }
