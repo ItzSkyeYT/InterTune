@@ -144,6 +144,8 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Offline, a local file that had been moved or deleted waited for the network forever instead of being skipped.
 - **View artist** on an album by Various Artists closed the app.
 - A saved album could show and play only the one or two songs you had heard from it. Songs heard from an album you had not saved could land in a saved album with the same name by someone else.
+- Albums that showed no artist, would not open, or mixed songs from different albums with the same name are sorted out when you update: each song goes back into its own album.
+- An album from YouTube that shows no artist gets its artist, year and cover the first time you open it or Stats lists it among your most played, and until then Keep listening on Home leaves it out.
 - Liked songs sorted by play count listed every song the app had ever seen.
 - Searching for a word such as "watch" or "playlist" did nothing, and searching the library missed synced playlists and saved albums.
 - **Add to playlist** from a YouTube playlist's menu added nothing, a local artist's albums stopped at six, and the album menu queued an album out of order.
