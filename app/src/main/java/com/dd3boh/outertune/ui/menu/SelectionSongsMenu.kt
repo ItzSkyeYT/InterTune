@@ -184,6 +184,10 @@ fun SelectionMediaMetadataMenu(
                     database.transaction {
                         selection.forEach { song ->
                             if (!song.isLocal) {
+                                // A song InterTune has not stored yet (picked on an online
+                                // playlist or an artist's page) has no row, and toggleInLibrary is
+                                // an update. insert ignores a row that already exists.
+                                insert(song)
                                 toggleInLibrary(song.id, LocalDateTime.now())
                             }
                         }
@@ -198,6 +202,9 @@ fun SelectionMediaMetadataMenu(
             title = if (allLiked) R.string.action_remove_like_all else R.string.action_like_all,
         ) {
             database.query {
+                // A song not stored yet has no row, so the update below would land on nothing and
+                // the like would reach YouTube only. insert ignores rows that already exist.
+                selection.filterNot { it.isLocal }.forEach { insert(it) }
                 // The stored rows, toggled, and not ones rebuilt from the selection's metadata.
                 // Those have no download date and, for a YouTube song, no library date, so
                 // writing them back took every song liked this way out of the library and made
@@ -229,6 +236,11 @@ fun SelectionMediaMetadataMenu(
             state = downloadState,
             onDownload = {
                 val songs = selection.filterNot { it.isLocal }
+                // A finished download is recorded by an update on the song's row, so a song not
+                // stored yet needs one first, as YouTubePlaylistMenu's Download does.
+                database.transaction {
+                    songs.forEach(::insert)
+                }
                 downloadUtil.download(songs)
             },
             onRemoveDownload = {
