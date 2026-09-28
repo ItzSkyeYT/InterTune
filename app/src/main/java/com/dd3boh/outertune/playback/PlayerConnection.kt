@@ -258,6 +258,10 @@ class PlayerConnection(
 
     fun softKillPlayer() {
         Log.i(TAG, "Stopping player and uninitializing queue")
+        // Paused first, so the queue keeps the point its song had reached: the service saves it
+        // on a pause while the song is still loaded. Cleared while playing, the player reports
+        // the stop only once the song has gone, too late to read where it was.
+        player.pause()
         player.clearMediaItems()
         // Called straight from the player sheet's swipe-to-dismiss gesture, on the UI thread: the
         // queue save must not block it, so it runs on the service's own scope instead of here.
