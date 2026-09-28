@@ -14,15 +14,15 @@ import org.junit.Test
 /**
  * Lyrics with no timestamps at all fall through to the "recover only text information" branch of
  * [parseLrc]. It used to drop every blank line along with the rest of the structure, which
- * flattened multi-verse lyrics into one run with no gap. The join that turns a line back into
- * text (see Lyrics.kt) already had its own bug, joining with ", " instead of "\n"; that one is
- * fixed separately, but this suite also checks the parser's own output joins back into plain text
- * cleanly, so the two fixes are not accidentally masking one another.
+ * flattened multi-verse lyrics into one run with no gap. The join that turns the parsed lines back
+ * into the text Lyrics.kt displays, [SemanticLyrics.joinedUnsyncedText], is the same function used
+ * here, not a copy, so a regression in either the parser or the join shows up in this suite.
+ *
+ * multiLineEnabled is exercised at both its values: false here throughout, and true (the app's own
+ * default, see LyricsHelper.kt) on the main gap case, since that flag runs an extra merge pass over
+ * the tokens before this code ever sees them.
  */
 class SemanticLyricsPlainTextTest {
-
-    /** What Lyrics.kt does with [SemanticLyrics.unsyncedText] to build the line it displays. */
-    private fun UnsyncedLyrics.rendered() = unsyncedText.joinToString("\n") { it.first }
 
     @Test
     fun `a blank line between verses survives as a gap`() {
@@ -35,7 +35,37 @@ class SemanticLyricsPlainTextTest {
         assertTrue(lyrics is UnsyncedLyrics)
         assertEquals(
             "Line one\nLine two\n\nLine three\nLine four",
-            (lyrics as UnsyncedLyrics).rendered()
+            (lyrics as UnsyncedLyrics).joinedUnsyncedText()
+        )
+    }
+
+    @Test
+    fun `the gap still survives with multiline lrc merging on`() {
+        val lyrics = parseLrc(
+            "Line one\nLine two\n\nLine three\nLine four",
+            trimEnabled = false,
+            multiLineEnabled = true
+        )
+
+        assertTrue(lyrics is UnsyncedLyrics)
+        assertEquals(
+            "Line one\nLine two\n\nLine three\nLine four",
+            (lyrics as UnsyncedLyrics).joinedUnsyncedText()
+        )
+    }
+
+    @Test
+    fun `a CRLF blank line between verses also survives as a gap`() {
+        val lyrics = parseLrc(
+            "Line one\r\nLine two\r\n\r\nLine three\r\nLine four",
+            trimEnabled = false,
+            multiLineEnabled = false
+        )
+
+        assertTrue(lyrics is UnsyncedLyrics)
+        assertEquals(
+            "Line one\nLine two\n\nLine three\nLine four",
+            (lyrics as UnsyncedLyrics).joinedUnsyncedText()
         )
     }
 
@@ -48,19 +78,22 @@ class SemanticLyricsPlainTextTest {
         )
 
         assertTrue(lyrics is UnsyncedLyrics)
-        assertEquals("Line one\nLine two\nLine three", (lyrics as UnsyncedLyrics).rendered())
+        assertEquals("Line one\nLine two\nLine three", (lyrics as UnsyncedLyrics).joinedUnsyncedText())
     }
 
     @Test
     fun `a leading blank line is dropped rather than shown before the first line`() {
+        // Two leading newlines, a genuine blank line before the first one, not one: with only one
+        // newline there is nothing before it to pair up with, so the marker this fix adds is never
+        // created in the first place and the case says nothing about the fix.
         val lyrics = parseLrc(
-            "\nLine one\nLine two",
+            "\n\nLine one\nLine two",
             trimEnabled = false,
             multiLineEnabled = false
         )
 
         assertTrue(lyrics is UnsyncedLyrics)
-        assertEquals("Line one\nLine two", (lyrics as UnsyncedLyrics).rendered())
+        assertEquals("Line one\nLine two", (lyrics as UnsyncedLyrics).joinedUnsyncedText())
     }
 
     @Test
@@ -71,7 +104,7 @@ class SemanticLyricsPlainTextTest {
             multiLineEnabled = false
         ) as UnsyncedLyrics
 
-        lyrics.rendered().split("\n").drop(1).forEach { line ->
+        lyrics.joinedUnsyncedText().split("\n").drop(1).forEach { line ->
             assertTrue("line started with a comma: $line", !line.startsWith(", "))
         }
     }

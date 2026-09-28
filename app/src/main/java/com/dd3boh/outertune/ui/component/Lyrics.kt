@@ -177,10 +177,7 @@ fun Lyrics(
             } else {
                 lines.add(
                     LyricLine(
-                        // Newlines between the lines and nothing else. joinToString's default
-                        // separator is ", ", which put a comma at the start of every line after
-                        // the first.
-                        model.unsyncedText.joinToString("\n") { it.first }, 0L.toULong(), 0L.toULong(),
+                        model.joinedUnsyncedText(), 0L.toULong(), 0L.toULong(),
                         null, null, false
                     )
                 )

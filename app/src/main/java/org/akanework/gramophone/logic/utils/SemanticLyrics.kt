@@ -467,6 +467,18 @@ fun findBidirectionalBarriers(text: CharSequence): List<Pair<Int, Boolean>> {
 sealed class SemanticLyrics {
     abstract val unsyncedText: List<Pair<String, SpeakerEntity?>>
 
+    /**
+     * [unsyncedText]'s lines joined back into one block of text, one "\n" between each line and
+     * nothing else. joinToString's default separator is ", ", which would put a comma at the
+     * start of every line after the first.
+     *
+     * A blank entry (see [parseLrc]'s handling of blank source lines) joins in as an empty line,
+     * which is the point: it is what turns back into the gap between verses. Text that ends in a
+     * blank line therefore now ends with a trailing empty line too, rather than that line being
+     * silently absorbed.
+     */
+    fun joinedUnsyncedText(): String = unsyncedText.joinToString("\n") { it.first }
+
     data class UnsyncedLyrics(override val unsyncedText: List<Pair<String, SpeakerEntity?>>) : SemanticLyrics()
 
     data class SyncedLyrics(val text: List<LyricLine>) : SemanticLyrics() {
