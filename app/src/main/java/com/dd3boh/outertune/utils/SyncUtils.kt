@@ -723,6 +723,18 @@ class SyncUtils @Inject constructor(
     }
 
     /**
+     * Fire-and-forget [syncPlaylist], on this class's own scope rather than the caller's, so a
+     * screen popped right after starting it (the caller has no result to act on and does not wait)
+     * does not cut the fetch short. A playlist just saved from its online page is typically only
+     * about a hundred songs in by then; this is what fetches the rest of it.
+     */
+    fun syncPlaylistDetached(browseId: String, playlistId: String) {
+        scope.launch {
+            syncPlaylist(browseId, playlistId)
+        }
+    }
+
+    /**
      * Replaces a playlist's songs with YouTube's copy of it. True when that happened.
      *
      * The local songs are cleared before the remote ones go in, so a read that stopped early used
@@ -749,6 +761,10 @@ class SyncUtils @Inject constructor(
         }
 
         database.transaction {
+            // The playlist can be deleted while its songs are fetched, which takes seconds and goes
+            // on after its page is left. Its map rows would then break the foreign key, and the
+            // exception on Room's transaction thread would close the app.
+            if (!playlistExists(playlistId)) return@transaction
             clearPlaylist(playlistId)
             val songEntities = walked.items
                 .map(SongItem::toMediaMetadata)

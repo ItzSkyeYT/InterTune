@@ -8,9 +8,13 @@ package com.dd3boh.outertune.db
 
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.sql.Connection
+import java.sql.SQLException
 
 /**
  * Taking songs out of a playlist, run against the exported schema as on the device.
@@ -65,6 +69,23 @@ class PlaylistSqlTest {
     private fun playlist(): List<Pair<String, Int>> = db.createStatement().use { st ->
         st.executeQuery("SELECT songId, position FROM playlist_song_map WHERE playlistId = 'P' ORDER BY position").use { rs ->
             buildList { while (rs.next()) add(rs.getString(1) to rs.getInt(2)) }
+        }
+    }
+
+    /** What syncPlaylist asks inside its transaction before it writes a playlist's songs. */
+    private fun exists(id: String): Boolean = db.createStatement().use { st ->
+        st.executeQuery(PlaylistSql.EXISTS.replace(":playlistId", "'$id'")).use { rs -> rs.next() && rs.getInt(1) == 1 }
+    }
+
+    @Test
+    fun `a playlist deleted during a sync is seen as gone before its songs are written`() {
+        assertTrue(exists("P"))
+        exec("DELETE FROM playlist WHERE id = 'P'")
+        assertFalse(exists("P"))
+        // Writing its map rows anyway is refused even with OR IGNORE, which Room's insert uses. On
+        // Room's transaction thread that refusal was an uncaught exception, and it closed the app.
+        assertThrows(SQLException::class.java) {
+            exec("INSERT OR IGNORE INTO playlist_song_map(playlistId, songId, position) VALUES ('P', 'X', 0)")
         }
     }
 

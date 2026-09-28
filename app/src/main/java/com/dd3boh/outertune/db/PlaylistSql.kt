@@ -13,6 +13,9 @@ package com.dd3boh.outertune.db
  */
 object PlaylistSql {
 
+    /** Whether a playlist row is still there, for a write queued before it could be deleted. */
+    const val EXISTS = "SELECT EXISTS(SELECT 1 FROM playlist WHERE id = :playlistId)"
+
     /**
      * Puts the song at one position at another and shifts the songs between them by one to close
      * up. It matches on the position alone, so a caller holding a position that is out of date

@@ -110,6 +110,9 @@ interface PlaylistsDao {
     @Query("SELECT * FROM playlist_song_map WHERE playlistId = :playlistId AND position >= :from ORDER BY position")
     fun songMapsToPlaylist(playlistId: String, from: Int): List<PlaylistSongMap>
 
+    @Query(PlaylistSql.EXISTS)
+    fun playlistExists(playlistId: String): Boolean
+
     @Query("""
         SELECT DISTINCT playlistId
         FROM playlist_song_map
