@@ -635,12 +635,12 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(DefaultThemeColor)
             }
 
-            try {
-                connectivityObserver.unregister()
-            } catch (e: UninitializedPropertyAccessException) {
-                // lol
-            }
-            connectivityObserver = NetworkConnectivityObserver(this@MainActivity)
+            // One observer for the activity, not one per recomposition of this scope. This scope
+            // recomposes on every song change (it reads themeColor, and dynamic theme is on by
+            // default), and a new registration replays onAvailable for the network that is
+            // already there, which calls Throttle.onNetworkChanged() and clears whatever back-off
+            // is in effect. onDestroy unregisters it.
+            connectivityObserver = remember { NetworkConnectivityObserver(this@MainActivity) }
             val isNetworkConnected by connectivityObserver.networkStatus.collectAsState(true)
 
             LaunchedEffect(playerConnection, enableDynamicTheme, isSystemInDarkTheme) {
