@@ -29,8 +29,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -404,10 +407,20 @@ fun LastFmSimilarOptInCard() {
     val stored by rememberNullablePreference(SimilarSourceKey)
     val oldSwitch by rememberNullablePreference(SimilarFromLastFmKey)
 
+    // What turning the switch on writes. The switch has two positions, so it cannot tell Last.fm
+    // only from Both, and writing Both every time it is turned on would change a Last.fm only
+    // choice after an off and on. So this tracks whatever was really stored the last time it was
+    // not YouTube, and turning the switch on writes that back. A first yes, with nothing to
+    // restore yet, still means Both, which is the default here.
+    var restoreTo by rememberSaveable { mutableStateOf(SimilarSource.BOTH) }
+    LaunchedEffect(stored, oldSwitch) {
+        restoreTo = nextRestoreTo(restoreTo, stored, oldSwitch)
+    }
+
     fun answer(useLastFm: Boolean) {
         coroutineScope.launch {
             context.dataStore.edit {
-                it[SimilarSourceKey] = (if (useLastFm) SimilarSource.BOTH else SimilarSource.YOUTUBE).name
+                it[SimilarSourceKey] = similarSourceForSwitch(useLastFm, restoreTo).name
             }
         }
     }
@@ -457,4 +470,27 @@ fun LastFmSimilarOptInCard() {
             )
         }
     }
+}
+
+/**
+ * What the Last.fm switch should write when it is turned on: [restoreTo], whatever was really
+ * stored the last time this was not YouTube, so a stored Last.fm only choice survives being
+ * turned off and back on rather than always landing on Both. Turning it off always writes
+ * YouTube, since off has only ever meant one thing.
+ */
+internal fun similarSourceForSwitch(useLastFm: Boolean, restoreTo: SimilarSource): SimilarSource =
+    if (useLastFm) restoreTo else SimilarSource.YOUTUBE
+
+/**
+ * What [restoreTo] should become after [stored] or [oldSwitch] changes.
+ *
+ * [stored] and [oldSwitch] read as YouTube both when the switch has just been turned off (its own
+ * write) and when neither has ever been set, and neither of those should overwrite whatever
+ * Last.fm only or Both choice is already being tracked as [previous]: that is the whole point of
+ * tracking it apart from the two preferences. Anything else read from them is a real choice and
+ * replaces [previous].
+ */
+internal fun nextRestoreTo(previous: SimilarSource, stored: String?, oldSwitch: Boolean?): SimilarSource {
+    val current = SimilarSources.stored(stored, oldSwitch)
+    return if (current != SimilarSource.YOUTUBE) current else previous
 }
