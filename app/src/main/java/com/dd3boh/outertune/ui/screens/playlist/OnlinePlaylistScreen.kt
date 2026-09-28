@@ -276,10 +276,9 @@ fun OnlinePlaylistScreen(
                 TextButton(
                     onClick = {
                         showRemoveDownloadDialog = false
-                        database.transaction {
-                            dbPlaylist?.id?.let { clearPlaylist(it) }
-                        }
-
+                        // Downloads only, as the dialog says. This also emptied the saved copy of
+                        // the playlist, and account sync does not refill a saved playlist that is
+                        // not the account's own.
                         songs.forEach { song ->
                             downloadUtil.removeDownload(song.id)
                         }
