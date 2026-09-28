@@ -582,7 +582,11 @@ class MainActivity : ComponentActivity() {
                 // Same contract as the update check: nothing happens unless the user opted in, it
                 // rate limits itself, and failure is silent.
                 coroutineScope.launch {
-                    pollChecker.adoptNewsChoice()
+                    // Only when the activity starts afresh. A rotation or a restore recreates it
+                    // while setup or the catch-up screen may be open, and somebody who has just
+                    // said yes to questions there, with news not answered yet, would have news
+                    // switched on before being asked. The switch-over only needs one fresh launch.
+                    if (savedInstanceState == null) pollChecker.adoptNewsChoice()
                     pollChecker.check()
                 }
                 // Re-applied on every launch, cheap because the work is keyed by name and replaced
