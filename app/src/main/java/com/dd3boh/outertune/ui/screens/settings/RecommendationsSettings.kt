@@ -322,7 +322,7 @@ fun RecommendationsSettings(
             title = stringResource(R.string.recommendations_brier),
             explanation = stringResource(R.string.recommendations_brier_info),
             description = if (brier.isNaN()) stringResource(R.string.recommendations_nothing_yet)
-                else stringResource(R.string.recommendations_brier_description, brier, pairs.size) + "\n" +
+                else pluralStringResource(R.plurals.recommendations_brier_description, pairs.size, brier, pairs.size) + "\n" +
                     Calibration.reliability(pairs).filter { it.count > 0 }.joinToString("\n") { b ->
                         String.format(calibrationBucketLine, b.lo * 100, b.hi * 100, b.count, b.playRate * 100)
                     },

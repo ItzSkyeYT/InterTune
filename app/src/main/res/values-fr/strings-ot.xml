@@ -933,7 +933,11 @@
     <string name="recommendations_held_line">%1$s : %2$d lectures sur %3$d, %4$.0f%%, en %5$d rangées</string>
     <string name="recommendations_row_shadow">Meilleures recommandations, non affichées</string>
     <string name="recommendations_brier">Qualité de ses prédictions</string>
-    <string name="recommendations_brier_description">Score de Brier %1$.3f sur %2$d cartes (0 est parfait, 0,25 revient au hasard). Par probabilité prédite :</string>
+    <plurals name="recommendations_brier_description">
+        <item quantity="one">Score de Brier %1$.3f sur %2$d carte (0 est parfait, 0,25 revient au hasard). Par probabilité prédite :</item>
+        <item quantity="many">Score de Brier %1$.3f sur %2$d cartes (0 est parfait, 0,25 revient au hasard). Par probabilité prédite :</item>
+        <item quantity="other">Score de Brier %1$.3f sur %2$d cartes (0 est parfait, 0,25 revient au hasard). Par probabilité prédite :</item>
+    </plurals>
     <string name="recommendations_calibration_bucket">%1$.0f%% à %2$.0f%% : %3$d cartes, %4$.0f%% écoutées</string>
     <plurals name="recommendations_weights">
         <item quantity="one">Ce qu\'il a appris, après %1$d mise à jour</item>
