@@ -14,6 +14,7 @@ import android.os.PowerManager
 import android.util.Log
 import android.widget.Toast
 import androidx.core.content.getSystemService
+import androidx.media3.common.Player
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.cast.CastDevice
@@ -22,6 +23,7 @@ import com.dd3boh.outertune.cast.CastLinks
 import com.dd3boh.outertune.cast.CastNetwork
 import com.dd3boh.outertune.cast.CastServer
 import com.dd3boh.outertune.cast.FCastLink
+import com.dd3boh.outertune.cast.IdleCountdown
 import com.dd3boh.outertune.cast.LinkProblem
 import com.dd3boh.outertune.cast.ReceiverLink
 import com.dd3boh.outertune.cast.ReceiverStatus
@@ -102,6 +104,23 @@ class CastSession(
     private var remote: RemotePlayer? = null
     private val locks = StayAwake(service)
 
+    private val idle = IdleCountdown(
+        IdleCountdown.TIMEOUT_MS,
+        schedule = { delayMs, action ->
+            val job = scope.launch {
+                delay(delayMs)
+                action()
+            }
+            ({ job.cancel() })
+        },
+        onTimeout = ::idledOut,
+    )
+    private val idleWatch = object : Player.Listener {
+        override fun onEvents(player: Player, events: Player.Events) {
+            idle.update(player.playWhenReady, player.playbackState)
+        }
+    }
+
     /** Connects to [device] and plays the queue there. Casting to another receiver first comes back to the phone. */
     fun castTo(device: CastDevice) {
         check(Unreleased.CASTING) { "Casting is off" }
@@ -153,6 +172,9 @@ class CastSession(
             this@CastSession.link = link
             this@CastSession.server = server
             this@CastSession.remote = remote
+            remote.addListener(idleWatch)
+            // A cast started while paused loads paused, and is counted from now.
+            idle.update(remote.playWhenReady, remote.playbackState)
             connecting = null
             // A receiver typed in by address is listed from now on as it named itself on
             // connecting; a DLNA renderer also changes its id to its own, which discovery uses too.
@@ -183,6 +205,15 @@ class CastSession(
     fun release() {
         end(playHere = false)
         scope.cancel()
+    }
+
+    /** Nothing played for [IdleCountdown.TIMEOUT_MS]: back to the phone, paused, and the phone may sleep again. */
+    private fun idledOut() {
+        val remote = remote ?: return
+        val minutes = IdleCountdown.TIMEOUT_MS / 60_000
+        Log.i(TAG, "Nothing played on ${remote.device.name} for $minutes min, ending the cast")
+        end(playHere = false)
+        Toast.makeText(service, service.getString(R.string.cast_ended_idle, minutes), Toast.LENGTH_LONG).show()
     }
 
     private fun lost(status: ReceiverStatus) {
@@ -219,6 +250,9 @@ class CastSession(
         val remote = remote
         val link = link
         val server = server
+        // Before the hand back, whose changes to the receiver's player are not a pause to count.
+        remote?.removeListener(idleWatch)
+        idle.stop()
         this.remote = null
         this.link = null
         this.server = null

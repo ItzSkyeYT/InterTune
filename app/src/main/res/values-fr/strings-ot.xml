@@ -1254,4 +1254,5 @@
     <string name="cast_stopped_answering">%1$s ne répond plus</string>
     <string name="cast_lost_connection">Connexion perdue avec %1$s</string>
     <string name="cast_lost">Cast arrêté. %1$s. En pause sur ce téléphone.</string>
+    <string name="cast_ended_idle">Cast arrêté après %1$d minutes sans lecture.</string>
 </resources>
