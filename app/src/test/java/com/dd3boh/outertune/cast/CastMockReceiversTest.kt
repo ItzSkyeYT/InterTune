@@ -35,9 +35,10 @@ import java.util.concurrent.TimeUnit
  * driving Python mock receivers, and each mock fetching the songs from the server as a receiver
  * would, with its log read back to see what it got.
  *
- * The mocks (mock_fcast.py, mock_dlna.py and the receiver_common.py they share) are not part of
- * the app. With python3 and ffmpeg on the machine, this runs when CAST_MOCKS_DIR names the folder
- * that holds them, and is skipped otherwise (CAST_MOCKS_KEEP=1 as well keeps their logs):
+ * The mocks (mock_fcast.py, mock_dlna.py, mock_cast.py and the receiver_common.py they share) are
+ * not part of the app. With python3 and ffmpeg on the machine, this runs when CAST_MOCKS_DIR names
+ * the folder that holds them, and is skipped otherwise (CAST_MOCKS_KEEP=1 as well keeps their
+ * logs). The Chromecast cases also need openssl, with which mock_cast.py makes its certificate:
  *
  *     CAST_MOCKS_DIR=<the mocks' folder> \
  *         ./gradlew :app:testCoreDebugUnitTest --tests '*CastMockReceiversTest*' --rerun
@@ -226,6 +227,89 @@ class CastMockReceiversTest {
         val link = FCastLink(CastDevice(CastProtocol.FCAST, "mock", "Mock", "127.0.0.1", port), scope, FCastLink.Sender("Test", "InterTune", "test"))
             .also { links += it }
         runBlocking { link.connect() }
+        link.await(5_000) { it.link == LinkState.LOST }
+    }
+
+    // Chromecast
+
+    /** mock_cast.py started, over its own TLS, and a link connected to it. */
+    private fun chromecast(vararg args: String): Pair<File, ChromecastLink> {
+        assumeTrue("mock_cast.py is not there", File(mocksDir, "mock_cast.py").isFile)
+        assumeTrue("openssl is not installed", runs("openssl", "version"))
+        val port = freePort()
+        val log = mock("mock_cast.py", "--host", "127.0.0.1", "--port", "$port", *args)
+        val link = ChromecastLink(CastDevice(CastProtocol.CHROMECAST, "mock", "Mock", "127.0.0.1", port), scope).also { links += it }
+        runBlocking { link.connect() }
+        return log to link
+    }
+
+    @Test
+    fun `a Chromecast over TLS opens its player, fetches whole songs, follows the controls and reports each end`() {
+        val (log, link) = chromecast("--speed", "4", "--ffprobe")
+        assertTrue(waitFor(log, "connected").text("tls")!!.startsWith("TLS"))
+        waitFor(log, "launched")
+
+        runBlocking { link.load(item("opus1", "Opus tone"), 0, play = true) }
+        val song = waitFor(log, "song") { it.text("url")!!.contains("/s/opus1.webm") }
+        assertEquals("true", song.text("ok"))
+        assertEquals(webm.length().toString(), song.text("bytes"))
+        assertEquals("opus", song.text("codec"))
+        assertEquals("audio/webm", song.text("content_type"))
+        link.await { it.state == ReceiverState.PLAYING }
+
+        runBlocking { link.pause() }
+        link.await { it.state == ReceiverState.PAUSED }
+        runBlocking {
+            link.seek(4_000)
+            link.play()
+            link.setVolume(0.3f)
+        }
+        waitFor(log, "get") { it.text("range")!!.startsWith("bytes=") && it.text("range") != "bytes=0-" }
+        waitFor(log, "volume") { it.text("level") == "0.3" }
+        assertEquals(0.3f, link.await { it.volume == 0.3f }.volume)
+        assertEquals(1, link.await { it.state == ReceiverState.ENDED }.load)
+
+        runBlocking { link.load(item("aac1", "AAC tone"), 0, play = true) }
+        val aac = waitFor(log, "song") { it.text("url")!!.contains("/s/aac1.m4a") }
+        assertEquals("true", aac.text("ok"))
+        assertEquals("aac", aac.text("codec"))
+        assertEquals(2, link.await { it.state == ReceiverState.ENDED && it.load == 2 }.load)
+        assertEquals(1, events(log, "connected").size)
+
+        // The player this link launched is stopped when it closes.
+        link.close()
+        waitFor(log, "app_stopped")
+    }
+
+    @Test
+    fun `a Chromecast that refuses Opus fails the song, and the retry as AAC plays`() {
+        val (log, link) = chromecast("--speed", "6", "--no-opus")
+        runBlocking { link.load(item("opus1", "Opus tone"), 0, play = true) }
+        link.await { it.state == ReceiverState.FAILED }
+        assertTrue(CastFormats.retryAsAac(link.caps.formats, FormatChoice.AsIs, "audio/webm", canFetchAac = true))
+        runBlocking { link.load(item("opus1", "Opus tone", aac = true), 0, play = true) }
+        link.await { it.state == ReceiverState.ENDED && it.load == 2 }
+        val retried = waitFor(log, "song") { it.text("url")!!.contains("/aac/opus1.m4a") }
+        assertEquals("true", retried.text("ok"))
+        assertEquals("mp4", retried.text("container"))
+    }
+
+    @Test
+    fun `another app taking the Chromecast over leaves the song idle, and the player is not stopped`() {
+        val (log, link) = chromecast("--takeover-after", "2")
+        runBlocking { link.load(item("opus1", "Opus tone"), 0, play = true) }
+        link.await { it.state == ReceiverState.PLAYING }
+        val taken = link.await(10_000) { it.state == ReceiverState.IDLE }
+        assertEquals("Something else is playing on Mock", taken.error)
+        waitFor(log, "takeover")
+        link.close()
+        Thread.sleep(1_500)
+        assertTrue(events(log, "received").none { it.text("namespace") == Chromecast.NS_RECEIVER && it.text("type") == "STOP" })
+    }
+
+    @Test
+    fun `a Chromecast that hangs up is a lost link`() {
+        val (_, link) = chromecast("--drop-after", "1.5")
         link.await(5_000) { it.link == LinkState.LOST }
     }
 
