@@ -45,8 +45,12 @@ interface ListenDao {
     @Update
     fun update(listen: Listen)
 
-    /** Rows opened at play start that were never closed: the app died with them playing. */
-    @Query("SELECT * FROM listen WHERE endReason = 6")
+    /**
+     * Rows opened at play start that were never closed: the app died with them playing, or a close
+     * is still queued behind other work. Newest first, so a caller that takes one gets the play in
+     * progress rather than a row a failed close left behind.
+     */
+    @Query("SELECT * FROM listen WHERE endReason = 6 ORDER BY startedAt DESC")
     fun openListens(): List<Listen>
 
     @Query("UPDATE listen SET playedMs = :playedMs, endPositionMs = :positionMs WHERE id = :id AND endReason = 6")

@@ -2468,7 +2468,18 @@ class MusicService : MediaLibraryService(),
                         info.startedAt - maxOf(it.endedAt, it.startedAt) <= RESUME_WINDOW_MS
                 }?.id
                 val last = lastListen()
-                val sessionId = if (last == null || info.startedAt - last.endedAt > SESSION_GAP_MS) info.startedAt else last.sessionId
+                // lastListen skips open rows, and the song that just ended can still be one: its
+                // close waits behind other work while this insert runs at once. The newest open
+                // row competes with the last closed one under the same gap rule.
+                val open = openListens().firstOrNull()
+                val sessionId = ListenProgress.sessionIdFor(
+                    startedAt = info.startedAt,
+                    openSessionId = open?.sessionId,
+                    openLastKnownAt = open?.let { it.startedAt + it.playedMs },
+                    lastEndedAt = last?.endedAt,
+                    lastSessionId = last?.sessionId,
+                    sessionGapMs = SESSION_GAP_MS,
+                )
                 val rowId = insert(
                     Listen(
                         songId = mediaId, startedAt = info.startedAt, endedAt = 0L,

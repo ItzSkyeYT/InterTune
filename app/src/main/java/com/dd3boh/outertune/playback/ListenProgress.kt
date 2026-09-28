@@ -7,8 +7,8 @@
 package com.dd3boh.outertune.playback
 
 /**
- * How a checkpoint's playedMs is kept, apart from the service so the arithmetic can be tested
- * without a player or a database.
+ * Rules for the listen log's progress and sessions, kept apart from the service so they can be
+ * tested without a player or a database.
  */
 object ListenProgress {
 
@@ -28,4 +28,34 @@ object ListenProgress {
      */
     fun creditBeforeSeek(opened: Boolean, playedMsSoFar: Long, lastCheckpointPositionMs: Long, oldPositionMs: Long): Long =
         if (opened) accumulate(playedMsSoFar, lastCheckpointPositionMs, oldPositionMs) else playedMsSoFar
+
+    /**
+     * Which session a new listen row continues. A row still OPEN is a candidate for "the song that
+     * just ended, whose close is queued behind an IO coroutine and has not landed yet", but it is
+     * not trusted on its own: nothing closes a leaked row (one a crashed close, a discarded
+     * zero-length play, or a slow transaction queue left behind) until the next process starts, so
+     * an old open row could otherwise capture every later listen into one unbounded session. It is
+     * held to the same [sessionGapMs] rule as the last closed play, using its own last known
+     * progress ([openLastKnownAt], its startedAt plus the checkpointed playedMs) as the moment it
+     * was last known to be running. Whichever of the open row and the last closed row reaches
+     * closer to [startedAt] decides the session; a gap past [sessionGapMs] from both starts a new
+     * one.
+     */
+    fun sessionIdFor(
+        startedAt: Long,
+        openSessionId: Long?,
+        openLastKnownAt: Long?,
+        lastEndedAt: Long?,
+        lastSessionId: Long?,
+        sessionGapMs: Long,
+    ): Long {
+        val useOpen = openSessionId != null && openLastKnownAt != null &&
+            (lastEndedAt == null || openLastKnownAt >= lastEndedAt)
+        val candidateEndedAt = if (useOpen) openLastKnownAt else lastEndedAt
+        val candidateSessionId = if (useOpen) openSessionId else lastSessionId
+        if (candidateEndedAt == null || candidateSessionId == null || startedAt - candidateEndedAt > sessionGapMs) {
+            return startedAt
+        }
+        return candidateSessionId
+    }
 }

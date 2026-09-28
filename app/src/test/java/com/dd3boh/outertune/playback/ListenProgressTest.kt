@@ -56,4 +56,84 @@ class ListenProgressTest {
         val afterSeek = ListenProgress.creditBeforeSeek(opened = false, playedMsSoFar = 0L, lastCheckpointPositionMs = 0L, oldPositionMs = 180_000L)
         assertEquals(0L, afterSeek)
     }
+
+    @Test
+    fun `a still-open row within the gap continues its own session`() {
+        val sessionId = ListenProgress.sessionIdFor(
+            startedAt = 1_000_000L,
+            openSessionId = 42L,
+            openLastKnownAt = 999_500L, // half a second of silence: well within the gap
+            lastEndedAt = 0L, // an ancient closed session, which must not win over the fresher open row
+            lastSessionId = 7L,
+            sessionGapMs = 1_800_000L,
+        )
+        assertEquals(42L, sessionId)
+    }
+
+    // A row can be left OPEN until the next process starts (a leaked row, or one whose close
+    // failed); it must not capture every later listen.
+    @Test
+    fun `a stale open row from days ago does not capture a new session`() {
+        val sessionId = ListenProgress.sessionIdFor(
+            startedAt = 1_000_000_000L,
+            openSessionId = 1L,
+            openLastKnownAt = 1_000L, // last known to be running long, long ago
+            lastEndedAt = null,
+            lastSessionId = null,
+            sessionGapMs = 1_800_000L,
+        )
+        assertEquals(1_000_000_000L, sessionId)
+    }
+
+    @Test
+    fun `an open row older than the last closed play loses to it`() {
+        val sessionId = ListenProgress.sessionIdFor(
+            startedAt = 1_000_000L,
+            openSessionId = 1L,
+            openLastKnownAt = 100_000L, // left open long before the last closed play ended
+            lastEndedAt = 990_000L,
+            lastSessionId = 7L,
+            sessionGapMs = 1_800_000L,
+        )
+        assertEquals(7L, sessionId)
+    }
+
+    @Test
+    fun `no open row and a short gap continues the last closed session`() {
+        val sessionId = ListenProgress.sessionIdFor(
+            startedAt = 1_000_000L,
+            openSessionId = null,
+            openLastKnownAt = null,
+            lastEndedAt = 999_000L,
+            lastSessionId = 7L,
+            sessionGapMs = 1_800_000L,
+        )
+        assertEquals(7L, sessionId)
+    }
+
+    @Test
+    fun `no open row and a long gap starts a new session`() {
+        val sessionId = ListenProgress.sessionIdFor(
+            startedAt = 3_000_000L,
+            openSessionId = null,
+            openLastKnownAt = null,
+            lastEndedAt = 0L,
+            lastSessionId = 7L,
+            sessionGapMs = 1_800_000L,
+        )
+        assertEquals(3_000_000L, sessionId)
+    }
+
+    @Test
+    fun `nothing played before continues nothing`() {
+        val sessionId = ListenProgress.sessionIdFor(
+            startedAt = 5_000L,
+            openSessionId = null,
+            openLastKnownAt = null,
+            lastEndedAt = null,
+            lastSessionId = null,
+            sessionGapMs = 1_800_000L,
+        )
+        assertEquals(5_000L, sessionId)
+    }
 }
