@@ -8,6 +8,7 @@ package com.dd3boh.outertune.cast
 
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -20,7 +21,7 @@ import java.net.Socket
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.concurrent.thread
 
-/** Receivers typed in by address, and the list both searches make. */
+/** Receivers typed in by address, those NSD finds, and the list the searches make. */
 class CastDiscoveryTest {
     @Test
     fun `fcast receivers typed in by address`() {
@@ -49,7 +50,31 @@ class CastDiscoveryTest {
     }
 
     @Test
+    fun `chromecasts typed in by address`() {
+        val plain = CastAddress.parse("chromecast 192.168.1.21")!!
+        assertEquals(CastProtocol.CHROMECAST, plain.protocol)
+        assertEquals("192.168.1.21", plain.host)
+        assertEquals(8009, plain.port)
+        assertEquals("192.168.1.21", plain.name)
+        assertEquals("chromecast:192.168.1.21:8009", plain.id)
+        // A speaker group listens on a port of its own.
+        assertEquals(32187, CastAddress.parse("Chromecast 192.168.1.21:32187")!!.port)
+        assertEquals(32187, CastAddress.parse("chromecast://192.168.1.21:32187/")!!.port)
+        assertEquals(CastProtocol.CHROMECAST, CastAddress.parse("chromecast://tv.local")!!.protocol)
+        val v6 = CastAddress.parse("chromecast [fd00::7]")!!
+        assertEquals("fd00::7", v6.host)
+        assertEquals(8009, v6.port)
+        // An address alone on the Cast port can only be a Chromecast; FCast never listens there.
+        assertEquals(CastProtocol.CHROMECAST, CastAddress.parse("10.0.2.2:8009")!!.protocol)
+        assertEquals(CastProtocol.FCAST, CastAddress.parse("fcast 10.0.2.2:8009")!!.protocol)
+        assertEquals(CastProtocol.FCAST, CastAddress.parse("10.0.2.2")!!.protocol)
+    }
+
+    @Test
     fun `what cannot be a receiver's address is refused`() {
+        assertNull(CastAddress.parse("chromecast"))
+        assertNull(CastAddress.parse("chromecast http://10.0.2.2/desc.xml"))
+        assertNull(CastAddress.parse("chromecast 10.0.2.2:0"))
         assertNull(CastAddress.parse(""))
         assertNull(CastAddress.parse("   "))
         assertNull(CastAddress.parse("dlna 10.0.2.2"))
@@ -66,6 +91,45 @@ class CastDiscoveryTest {
         val speaker = CastDevice(CastProtocol.DLNA, "uuid:spk", "bedroom speaker", "192.168.1.31", 1400, "http://192.168.1.31:1400/d.xml")
         val merged = CastDevices.merge(listOf(fcastTv), listOf(dlnaTv, speaker, speaker))
         assertEquals(listOf(speaker, fcastTv), merged)
+    }
+
+    @Test
+    fun `a Chromecast found by NSD goes by the name people gave it, and its own id`() {
+        val txt = mapOf(
+            "id" to "5d1f0c7e8b2a4c1d".toByteArray(),
+            "fn" to "Living room TV".toByteArray(),
+            "md" to "Chromecast".toByteArray(),
+            "ca" to "4101".toByteArray(),
+            "rs" to null,
+        )
+        val tv = CastDevices.chromecast("Chromecast-5d1f0c7e8b2a4c1d", InetAddress.getByName("192.168.1.40"), 8009, txt)
+        assertEquals(CastDevice(CastProtocol.CHROMECAST, "chromecast:5d1f0c7e8b2a4c1d", "Living room TV", "192.168.1.40", 8009, model = "Chromecast"), tv)
+        assertFalse(tv.audioOnly)
+
+        // A group: no screen (ca 2084 lacks the video bit), a port of its own, and the leader's address.
+        val group = CastDevices.chromecast(
+            "Google-Cast-Group-8a1b", InetAddress.getByName("192.168.1.40"), 32187,
+            mapOf("id" to "8a1b".toByteArray(), "fn" to "Downstairs".toByteArray(), "md" to "Google Cast Group".toByteArray(), "ca" to "2084".toByteArray()),
+        )
+        assertTrue(group.audioOnly)
+        assertEquals(32187, group.port)
+
+        // Without fn the model names it, and without either the service name does.
+        assertEquals("Google Nest Mini", CastDevices.chromecast("Google-Nest-Mini-1", InetAddress.getByName("192.168.1.41"), 8009, mapOf("md" to "Google Nest Mini".toByteArray())).name)
+        val bare = CastDevices.chromecast("Chromecast-77", InetAddress.getByName("192.168.1.42"), 8009, emptyMap())
+        assertEquals("Chromecast-77", bare.name)
+        assertEquals("chromecast:Chromecast-77", bare.id)
+        assertFalse(bare.audioOnly)
+    }
+
+    @Test
+    fun `a TV with Chromecast is shown once as that, not as DLNA, and a group beside its leader both show`() {
+        val tv = CastDevice(CastProtocol.CHROMECAST, "chromecast:a", "Bedroom TV", "192.168.1.40", 8009)
+        val group = CastDevice(CastProtocol.CHROMECAST, "chromecast:g", "Downstairs", "192.168.1.40", 32187, audioOnly = true)
+        val dlnaTv = CastDevice(CastProtocol.DLNA, "uuid:tv", "Bedroom TV (DLNA)", "192.168.1.40", 9197, "http://192.168.1.40:9197/d.xml")
+        val fcastTv = CastDevice(CastProtocol.FCAST, "fcast:TV", "Bedroom TV", "192.168.1.40", 46899)
+        assertEquals(listOf(tv, group), CastDevices.merge(emptyList(), listOf(dlnaTv), listOf(tv, group)))
+        assertEquals(listOf(fcastTv, tv, group), CastDevices.merge(listOf(fcastTv), listOf(dlnaTv), listOf(tv, group, tv)))
     }
 
     @Test

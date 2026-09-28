@@ -277,8 +277,9 @@ private fun describe(device: CastDevice): String {
     return "$kind, ${device.host}"
 }
 
-/** A screen for FCast receivers and Chromecasts, a speaker for DLNA renderers. */
+/** A screen for FCast receivers and Chromecasts that have one, a speaker for DLNA and Cast speakers. */
 private fun iconOf(device: CastDevice): ImageVector = when (device.protocol) {
-    CastProtocol.FCAST, CastProtocol.CHROMECAST -> Icons.Rounded.Tv
+    CastProtocol.FCAST -> Icons.Rounded.Tv
     CastProtocol.DLNA -> Icons.Rounded.Speaker
+    CastProtocol.CHROMECAST -> if (device.audioOnly) Icons.Rounded.Speaker else Icons.Rounded.Tv
 }

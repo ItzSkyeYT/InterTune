@@ -51,7 +51,7 @@ import kotlinx.coroutines.withContext
  * - `serve [id] [aac]` starts the server and logs where a song is served, the current one unless
  *   an id in the queue is given, as it is or as AAC;
  * - `cast <address>` connects to a receiver, written as Add by address takes it (`fcast host:port`,
- *   or a DLNA description url), and sends it the current song;
+ *   `chromecast host`, or a DLNA description url), and sends it the current song;
  * - `load [id]` sends another song from the queue;
  * - `play`, `pause`, `stop`, `seek <ms>` and `volume <0 to 1>` pass on to the receiver;
  * - `end` hangs up and stops the server;

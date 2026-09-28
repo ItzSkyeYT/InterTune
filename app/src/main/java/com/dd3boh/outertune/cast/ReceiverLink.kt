@@ -19,7 +19,7 @@ enum class CastProtocol { FCAST, DLNA, CHROMECAST }
  * not jump about: the FCast service name, a DLNA device's UDN, or a Chromecast's own id. [host] and
  * [port] are where the link connects: an FCast receiver's TCP port, a Chromecast's TLS port (8009,
  * or another for a speaker group), or for DLNA the host of [location], the device description that
- * says where its services are.
+ * says where its services are. [audioOnly] is a speaker, or a group of them, with no screen.
  */
 data class CastDevice(
     val protocol: CastProtocol,
@@ -29,6 +29,7 @@ data class CastDevice(
     val port: Int,
     val location: String? = null,
     val model: String? = null,
+    val audioOnly: Boolean = false,
 )
 
 /**
