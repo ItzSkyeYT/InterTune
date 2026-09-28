@@ -303,10 +303,14 @@ class SyncUtils @Inject constructor(
                     }
                 }
 
-                // Insert or like songs in the database
-                for (remoteSong in remoteSongs) {
-                    val localSong = database.song(remoteSong.id).firstOrNull()
-                    database.transaction {
+                // Insert or like songs in the database, all as one transaction. This used to queue
+                // one async transaction per song and move straight on; downloadLikedSongs below
+                // reads a snapshot of what is committed so far, and on a big batch of new likes it
+                // could run while some of those per-song transactions were still queued, and missed
+                // the songs they wrote.
+                val toWrite = remoteSongs.map { remoteSong -> remoteSong to database.song(remoteSong.id).firstOrNull() }
+                database.transactionNow {
+                    toWrite.forEach { (remoteSong, localSong) ->
                         if (localSong == null) {
                             insert(remoteSong.toMediaMetadata(), SongEntity::localToggleLike)
                         } else if (!localSong.song.liked) {
