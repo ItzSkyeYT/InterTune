@@ -383,7 +383,10 @@ class MediaLibrarySessionCallback @Inject constructor(
 
             is PlayRequest.Search -> searchLibrary(target.query)
         }
-        val index = songs.indexOfFirst { it.id == target.songId }.coerceAtLeast(0)
+        // A stale or removed id (the car's own cache, or a replayed history entry) is a request
+        // this cannot place, the same as the Album-not-found case above: fail it rather than
+        // coercing -1 to 0 and silently starting whatever sorts first.
+        val index = PlayRequestIndex.indexOf(songs.map { it.id }, target.songId) ?: return null
         val position = if (target is PlayRequest.Search) C.TIME_UNSET else startPositionMs
         return startExternalQueue(songs.map { it.toMediaItem() }, index, position)
     }

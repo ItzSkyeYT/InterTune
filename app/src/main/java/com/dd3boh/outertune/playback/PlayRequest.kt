@@ -45,3 +45,17 @@ sealed interface PlayRequest {
         }
     }
 }
+
+/**
+ * Where a requested song sits in a freshly resolved list, kept apart from
+ * MediaLibrarySessionCallback so the not-found case can be tested without a database.
+ */
+object PlayRequestIndex {
+    /**
+     * The requested song's position in [ids], or null when it is no longer there: the car's own
+     * cache (or a replayed history entry) named a song that was removed, unliked or deleted since
+     * the browse tree was painted. Null, not 0, so the caller fails the request instead of
+     * silently starting whatever sorts first.
+     */
+    fun indexOf(ids: List<String>, target: String): Int? = ids.indexOf(target).takeIf { it >= 0 }
+}
