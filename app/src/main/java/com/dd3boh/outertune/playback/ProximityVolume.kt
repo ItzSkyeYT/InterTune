@@ -20,6 +20,7 @@ import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.media3.common.Player
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlin.math.pow
 
@@ -145,10 +146,10 @@ class ProximityVolume(private val context: Context) {
         // but what is actually playing the music.
         val target = connectedHeadphoneName() ?: return false
 
-        // Starts and stops with playing, which a buffering blip or a quick pause toggles. Starting
-        // from nothing each time took the first reading after a resume as "near", so pausing on
-        // the far side of a room and resuming there played at full volume. The same headphones
-        // back within two minutes keep the readings and the reference.
+        // Starts and stops with play and pause (see shouldScan). Starting from nothing each time
+        // took the first reading after a resume as "near", so pausing on the far side of a room
+        // and resuming there played at full volume. The same headphones back within two minutes
+        // keep the readings and the reference.
         val now = SystemClock.elapsedRealtime()
         if (target != targetName || now - stoppedAt > RESUME_WINDOW_MS) {
             times.clear()
@@ -274,5 +275,18 @@ class ProximityVolume(private val context: Context) {
         fun isHeadphoneOutputType(type: Int, sdkInt: Int = Build.VERSION.SDK_INT): Boolean =
             type == android.media.AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
                 (sdkInt >= Build.VERSION_CODES.S && type == android.media.AudioDeviceInfo.TYPE_BLE_HEADSET)
+
+        /**
+         * Whether the scan should run: the setting is on and the player means to play.
+         *
+         * Keyed on playWhenReady and the state rather than on isPlaying. A seek or a skip masks
+         * READY to BUFFERING, and a rebuffer drops isPlaying, although nobody stopped the music. A
+         * transient focus loss (a call, a navigation prompt) only suppresses playback and leaves
+         * playWhenReady set. So the scan carries on through all of them, and a pause (buffering or
+         * not), the end of the queue and an error that leaves the player idle stop it.
+         */
+        fun shouldScan(enabled: Boolean, playWhenReady: Boolean, playbackState: Int): Boolean =
+            enabled && playWhenReady &&
+                (playbackState == Player.STATE_BUFFERING || playbackState == Player.STATE_READY)
     }
 }

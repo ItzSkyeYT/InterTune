@@ -832,7 +832,11 @@ class MusicService : MediaLibraryService(),
                 .collectLatest(scope) { want ->
                     proximityWanted = want
                     withContext(Dispatchers.Main) {
-                        if (want && player.isPlaying) proximityVolume.start() else proximityVolume.stop()
+                        if (ProximityVolume.shouldScan(want, player.playWhenReady, player.playbackState)) {
+                            proximityVolume.start()
+                        } else {
+                            proximityVolume.stop()
+                        }
                     }
                 }
 
@@ -2243,8 +2247,7 @@ class MusicService : MediaLibraryService(),
         } else if (!isPlaying) {
             headTracking.stop(glideHome = true)
         }
-        // Scanning is the cost, so it only runs while there is something to turn down.
-        if (isPlaying && proximityWanted) proximityVolume.start() else if (!isPlaying) proximityVolume.stop()
+        // The proximity scan follows onEvents instead; see ProximityVolume.shouldScan.
         if (isPlaying) {
             player.currentMediaItem?.mediaId?.let { id -> currentStart(id)?.takeIf { !it.opened }?.let { openListen(id, it) } }
         }
@@ -2390,6 +2393,13 @@ class MusicService : MediaLibraryService(),
                 openAudioEffectSession()
             } else {
                 closeAudioEffectSession()
+            }
+            // The proximity scan is decided here rather than in onIsPlayingChanged, which fires on
+            // every seek and skip and not on a pause while buffering.
+            if (ProximityVolume.shouldScan(proximityWanted, player.playWhenReady, player.playbackState)) {
+                proximityVolume.start()
+            } else {
+                proximityVolume.stop()
             }
             // The old clear only fired on a pause, which a player error never does, so the wait
             // outlived the fault whichever way it went: a spinner over music that had come back, or
