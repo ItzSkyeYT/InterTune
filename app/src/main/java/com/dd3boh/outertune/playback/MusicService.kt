@@ -199,6 +199,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.File
@@ -283,6 +284,24 @@ class MusicService : MediaLibraryService(),
     val qbInit = MutableStateFlow(false)
     var queueBoard = QueueBoard(this, maxQueues = 1)
     var queuePlaylistId: String? = null
+
+    /**
+     * The save deInitQueue launched instead of waiting for, when it was reached from a swipe of
+     * the mini player rather than teardown. initQueue joins this before it re-reads the saved
+     * queues, or it would read the rows this save is still in the middle of writing. Written on
+     * Main (deInitQueue) and read inside initQueue, which callers reach from IO (PlayerSettings,
+     * a local scan) as well as Main: @Volatile so a write on one thread is visible to a read on
+     * another.
+     */
+    @Volatile private var pendingQueueSave: kotlinx.coroutines.Job? = null
+
+    /**
+     * Held for the whole of initQueue. Two callers must never build boards at once, because each
+     * QueueBoard clears the shared masterQueues it is handed: a second build would drop a queue
+     * the first caller has just added and is about to set current. A caller that only needs a
+     * board waits here for one in flight instead of repeating it.
+     */
+    private val initQueueMutex = kotlinx.coroutines.sync.Mutex()
 
     @Inject
     @PlayerCache
@@ -1083,7 +1102,7 @@ class MusicService : MediaLibraryService(),
             // any of it, so its first moments played at full volume with no normalisation, and
             // spatial audio then restarted it to switch the renderer on.
             if (!qbInit.value) {
-                initQueue()
+                initQueue(onlyIfNeeded = true)
                 resumeOnLaunchIfAsked()
             }
         }
@@ -1335,11 +1354,6 @@ class MusicService : MediaLibraryService(),
         originSlot: Int = -1,
         tappedAt: Long? = null,
     ) {
-        if (!qbInit.value) {
-            runBlocking(Dispatchers.IO) {
-                initQueue()
-            }
-        }
         // Radio was already a flag; it is also an origin, and the more useful of the two.
         val playOrigin = if (origin == PlayOrigin.UNKNOWN && isRadio) PlayOrigin.RADIO else origin
         // A tap that starts a queue is the listener choosing, and it begins a run: one play of
@@ -1356,6 +1370,10 @@ class MusicService : MediaLibraryService(),
         CoroutineScope(Dispatchers.Main).launch {
             Log.d(TAG, "playQueue: Resolving additional queue data...")
             try {
+                // Suspends here instead of blocking the caller, usually a click handler on the
+                // main thread; ahead of the preload addQueue so the board exists before anything
+                // is added to it.
+                if (!qbInit.value) initQueue(onlyIfNeeded = true)
                 if (preloadItem != null) {
                     q = queueBoard.addQueue(
                         queueTitle ?: "Radio\u2060temp",
@@ -1457,22 +1475,38 @@ class MusicService : MediaLibraryService(),
         updateNotification()
     }
 
-    suspend fun initQueue() {
-        // Only a previous process can have left a row OPEN. initQueue() also runs mid-session
-        // (Max queues, a local scan, the queue restarting after the mini player was swiped away),
-        // and closing orphans there would close the row of the song still playing right now.
-        if (orphanedListensClosedThisProcess.compareAndSet(false, true)) closeOrphanedListens()
-        Log.i(TAG, "+initQueue()")
-        val persistQueue = dataStore.get(PersistentQueueKey, true)
-        val maxQueues = dataStore.get(MaxQueuesKey, 19)
-        if (persistQueue) {
-            queueBoard = QueueBoard(this, queueBoard.masterQueues, database.readQueue().toMutableList(), maxQueues)
-        } else {
-            queueBoard = QueueBoard(this, queueBoard.masterQueues, maxQueues = maxQueues)
+    /**
+     * Builds the queue board from the saved queues, one caller at a time.
+     *
+     * @param onlyIfNeeded True for callers that only need a board to exist (onCreate, playQueue, a
+     * session play request): if another caller made one while this one waited for the lock, it is
+     * used as it is. The default rebuilds from the database even over a live board, which is what
+     * a new Max queues value and the reload after a scan rely on.
+     */
+    suspend fun initQueue(onlyIfNeeded: Boolean = false) {
+        initQueueMutex.withLock {
+            if (onlyIfNeeded && qbInit.value) return@withLock
+            // Only a previous process can have left a row OPEN. initQueue() also runs mid-session
+            // (Max queues, a local scan, the queue restarting after the mini player was swiped
+            // away), and closing orphans there would close the row of the song still playing right
+            // now.
+            if (orphanedListensClosedThisProcess.compareAndSet(false, true)) closeOrphanedListens()
+            Log.i(TAG, "+initQueue()")
+            // A swipe-dismiss just before this queued its save on the service scope instead of
+            // waiting for it (see deInitQueue); read after it lands, or this reads the rows it is
+            // still in the middle of writing and treats a genuine save as if it had never happened.
+            pendingQueueSave?.join()
+            val persistQueue = dataStore.get(PersistentQueueKey, true)
+            val maxQueues = dataStore.get(MaxQueuesKey, 19)
+            if (persistQueue) {
+                queueBoard = QueueBoard(this, queueBoard.masterQueues, database.readQueue().toMutableList(), maxQueues)
+            } else {
+                queueBoard = QueueBoard(this, queueBoard.masterQueues, maxQueues = maxQueues)
+            }
+            Log.d(TAG, "Queue with $maxQueues queue limit. Persist queue = $persistQueue. Queues loaded = ${queueBoard.masterQueues.size}")
+            qbInit.value = true
+            Log.i(TAG, "-initQueue()")
         }
-        Log.d(TAG, "Queue with $maxQueues queue limit. Persist queue = $persistQueue. Queues loaded = ${queueBoard.masterQueues.size}")
-        qbInit.value = true
-        Log.i(TAG, "-initQueue()")
     }
 
     /**
@@ -1519,15 +1553,28 @@ class MusicService : MediaLibraryService(),
         }
     }
 
-    fun deInitQueue() {
+    /**
+     * @param waitForSave True for onDestroy, where teardown continues right after and the save
+     * has to have landed before the process can die. False for a swipe of the mini player, which
+     * calls this on the UI thread: blocking it here for the same write would freeze the swipe
+     * gesture, so the save is launched on the service's own scope instead, and initQueue joins it
+     * before its next read.
+     */
+    fun deInitQueue(waitForSave: Boolean = true) {
         Log.i(TAG, "+deInitQueue()")
         val pos = player.currentPosition
         // Null when the player holds nothing, which is most runs that never pressed play.
         val playerSongId = player.currentMediaItem?.mediaId
         queueBoard.shutdown()
         if (dataStore.get(PersistentQueueKey, true)) {
-            runBlocking(Dispatchers.IO) {
-                saveQueueToDisk(pos, playerSongId)
+            if (waitForSave) {
+                runBlocking(Dispatchers.IO) {
+                    saveQueueToDisk(pos, playerSongId)
+                }
+            } else {
+                pendingQueueSave = scope.launch(Dispatchers.IO) {
+                    saveQueueToDisk(pos, playerSongId)
+                }
             }
         }
         // do not replace the object. Can lead to entire queue being deleted even though it is supposed to be saved already

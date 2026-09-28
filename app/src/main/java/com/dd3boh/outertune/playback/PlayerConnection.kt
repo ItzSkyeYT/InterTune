@@ -259,6 +259,8 @@ class PlayerConnection(
     fun softKillPlayer() {
         Log.i(TAG, "Stopping player and uninitializing queue")
         player.clearMediaItems()
-        service.deInitQueue()
+        // Called straight from the player sheet's swipe-to-dismiss gesture, on the UI thread: the
+        // queue save must not block it, so it runs on the service's own scope instead of here.
+        service.deInitQueue(waitForSave = false)
     }
 }
