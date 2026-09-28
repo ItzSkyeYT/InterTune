@@ -1342,7 +1342,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="cast_connecting_to">Connecting to %1$s</string>
     <string name="cast_stop">Stop casting</string>
     <string name="cast_searching">Looking for receivers on this Wi-Fi</string>
-    <string name="cast_about">Casts to FCast receivers and to DLNA TVs and speakers on the same Wi-Fi. FCast needs the FCast Receiver app on the TV or computer. Chromecast is not supported. The phone stays awake and sends the music while it casts.</string>
+    <string name="cast_about">Casts to FCast receivers, to Chromecast and Google TV devices, and to DLNA TVs and speakers on the same Wi-Fi. FCast needs the FCast Receiver app on the TV or computer. The phone stays awake and sends the music while it casts.</string>
     <string name="cast_add_by_address">Add by address</string>
     <string name="cast_address_hint">192.168.1.20 for FCast, chromecast 192.168.1.21, or a DLNA description URL</string>
     <string name="cast_address_invalid">Not an address this can use</string>

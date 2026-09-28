@@ -1243,7 +1243,7 @@
     <string name="cast_connecting_to">Connexion à %1$s</string>
     <string name="cast_stop">Arrêter de caster</string>
     <string name="cast_searching">Recherche de récepteurs sur ce Wi-Fi</string>
-    <string name="cast_about">Caste vers les récepteurs FCast et les téléviseurs et enceintes DLNA du même Wi-Fi. FCast demande l\'application FCast Receiver sur le téléviseur ou l\'ordinateur. Chromecast n\'est pas pris en charge. Le téléphone reste allumé et envoie la musique pendant le cast.</string>
+    <string name="cast_about">Caste vers les récepteurs FCast, les appareils Chromecast et Google TV, et les téléviseurs et enceintes DLNA du même Wi-Fi. FCast demande l\'application FCast Receiver sur le téléviseur ou l\'ordinateur. Le téléphone reste allumé et envoie la musique pendant le cast.</string>
     <string name="cast_add_by_address">Ajouter par adresse</string>
     <string name="cast_address_hint">192.168.1.20 pour FCast, chromecast 192.168.1.21, ou l\'URL de description DLNA</string>
     <string name="cast_address_invalid">Adresse inutilisable</string>
