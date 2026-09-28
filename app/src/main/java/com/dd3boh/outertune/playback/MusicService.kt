@@ -219,6 +219,15 @@ private const val CHECKPOINT_MS = 60_000L
 /** The two things a checkpoint tick can find instead of a position, kept apart because they differ. */
 private const val FINISHED = -1L
 private const val PAUSED = -2L
+
+/**
+ * Whether some MusicService instance in this process has already closed the listens an earlier
+ * process left open. A top-level field, not one on the class: the gate has to outlive a single
+ * instance (a newer one can replace one still tearing down), so it is shared by every instance
+ * this process ever creates, for as long as the process lives.
+ */
+private val orphanedListensClosedThisProcess = java.util.concurrent.atomic.AtomicBoolean(false)
+
 /** A resume within this of where a stop left off, inside this window, continues that listen. */
 private const val RESUME_TOLERANCE_MS = 5_000L
 private const val RESUME_WINDOW_MS = 24L * 60 * 60 * 1000
@@ -1449,7 +1458,10 @@ class MusicService : MediaLibraryService(),
     }
 
     suspend fun initQueue() {
-        closeOrphanedListens()
+        // Only a previous process can have left a row OPEN. initQueue() also runs mid-session
+        // (Max queues, a local scan, the queue restarting after the mini player was swiped away),
+        // and closing orphans there would close the row of the song still playing right now.
+        if (orphanedListensClosedThisProcess.compareAndSet(false, true)) closeOrphanedListens()
         Log.i(TAG, "+initQueue()")
         val persistQueue = dataStore.get(PersistentQueueKey, true)
         val maxQueues = dataStore.get(MaxQueuesKey, 19)
