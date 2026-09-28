@@ -111,6 +111,14 @@ class ChromecastLinkTest {
         @Volatile
         var answerLaunches = true
 
+        /** Hangs up once the link closes its connection to the device itself, as a device does. */
+        @Volatile
+        var hangUpOnClose = true
+
+        /** Ends an app when told to STOP it, and says so, or has not got round to it yet. */
+        @Volatile
+        var answerAppStops = true
+
         @Volatile
         var level = 0.5
 
@@ -147,7 +155,7 @@ class ChromecastLinkTest {
                         // A link that hung up meanwhile is not the end of reading what it sent.
                         if (!silent) runCatching { answer(sent) }
                         // As a device does once its own connection is closed.
-                        if (sent.type == "CLOSE" && message.destinationId == Chromecast.PLATFORM_RECEIVER) break
+                        if (hangUpOnClose && sent.type == "CLOSE" && message.destinationId == Chromecast.PLATFORM_RECEIVER) break
                     }
                 } catch (e: IOException) {
                     // The link hung up.
@@ -181,7 +189,7 @@ class ChromecastLinkTest {
                             deviceStatus(sent.requestId)
                         }
                     }
-                    "STOP" -> {
+                    "STOP" -> if (answerAppStops) {
                         apps.removeAll { it.sessionId == sent.body["sessionId"]?.jsonPrimitive?.content }
                         deviceStatus(sent.requestId)
                     }
@@ -980,6 +988,88 @@ class ChromecastLinkTest {
         receiver.next(Chromecast.NS_CONNECTION, "CLOSE")
         receiver.next(Chromecast.NS_CONNECTION, "CLOSE")
         assertTrue(receiver.everything.none { it.message.namespace == Chromecast.NS_RECEIVER && it.type == "STOP" })
+    }
+
+    @Test
+    fun `closing a joined player before the device answered our load waits for the answer and stops the song first`() {
+        val (receiver, link) = connected(
+            apps = listOf(App(Chromecast.DEFAULT_MEDIA_RECEIVER, "session-9", "web-9")),
+            timing = quiet.copy(goodbyeWaitMs = 5_000),
+        )
+        receiver.answerLoads = false
+        runBlocking { link.load(song, 0, play = true) }
+        val load = receiver.next(Chromecast.NS_MEDIA, "LOAD")
+        // As CastSession ends a cast: the song stopped, then the link closed.
+        runBlocking { link.stop() }
+        val closing = thread { link.close() }
+        link.await { it.link == LinkState.CLOSED }
+        assertFalse(receiver.sends(Chromecast.NS_CONNECTION, "CLOSE", 300))
+
+        receiver.mediaStatus(5, "BUFFERING", 0.0, contentId = song.url + "?load=1", requestId = load.requestId)
+        assertEquals(5L, receiver.next(Chromecast.NS_MEDIA, "STOP").body.getValue("mediaSessionId").jsonPrimitive.long)
+        assertEquals("web-9", receiver.next(Chromecast.NS_CONNECTION, "CLOSE").message.destinationId)
+        assertEquals(Chromecast.PLATFORM_RECEIVER, receiver.next(Chromecast.NS_CONNECTION, "CLOSE").message.destinationId)
+        closing.join(5_000)
+        assertFalse(closing.isAlive)
+        // Our song is stopped, and the player was running before, so it is left running.
+        assertTrue(receiver.everything.none { it.message.namespace == Chromecast.NS_RECEIVER && it.type == "STOP" })
+    }
+
+    @Test
+    fun `closing a joined player whose device never answers our load ends the player`() {
+        val (receiver, link) = connected(
+            apps = listOf(App(Chromecast.DEFAULT_MEDIA_RECEIVER, "session-9", "web-9")),
+            timing = quiet.copy(goodbyeWaitMs = 300),
+        )
+        receiver.answerLoads = false
+        runBlocking { link.load(song, 0, play = true) }
+        receiver.next(Chromecast.NS_MEDIA, "LOAD")
+        link.close()
+        // Our LOAD has taken the player over and could still start the song, so the player goes.
+        assertEquals("session-9", receiver.next(Chromecast.NS_RECEIVER, "STOP").body.getValue("sessionId").jsonPrimitive.content)
+        assertEquals("web-9", receiver.next(Chromecast.NS_CONNECTION, "CLOSE").message.destinationId)
+        assertEquals(Chromecast.PLATFORM_RECEIVER, receiver.next(Chromecast.NS_CONNECTION, "CLOSE").message.destinationId)
+        assertTrue(receiver.everything.none { it.message.namespace == Chromecast.NS_MEDIA && it.type == "STOP" })
+    }
+
+    @Test
+    fun `nothing is said after the goodbye, not even about a song answered only then`() {
+        val (receiver, link) = connected(timing = quiet.copy(goodbyeWaitMs = 3_000))
+        receiver.hangUpOnClose = false
+        receiver.answerLoads = false
+        runBlocking { link.load(song, 0, play = true) }
+        val load = receiver.next(Chromecast.NS_MEDIA, "LOAD")
+        runBlocking { link.stop() }
+        // The player was launched here, so it goes, and the song with it.
+        receiver.answerAppStops = false
+        link.close()
+        assertEquals("session-1", receiver.next(Chromecast.NS_RECEIVER, "STOP").body.getValue("sessionId").jsonPrimitive.content)
+        receiver.next(Chromecast.NS_CONNECTION, "CLOSE")
+        receiver.next(Chromecast.NS_CONNECTION, "CLOSE")
+
+        // The link reads on for a while, for the device to hang up, and hears the answer to the
+        // LOAD before the device says the player has gone.
+        receiver.mediaStatus(2, "PLAYING", 0.0, contentId = song.url + "?load=1", requestId = load.requestId)
+        assertFalse(receiver.sends(Chromecast.NS_MEDIA, "STOP", 300))
+    }
+
+    @Test
+    fun `a song stopped before the device answered is stopped even when it answers that it has not started`() {
+        val (receiver, link) = connected()
+        receiver.answerLoads = false
+        runBlocking { link.load(song, 0, play = true) }
+        val load = receiver.next(Chromecast.NS_MEDIA, "LOAD")
+        runBlocking { link.stop() }
+        // Idle with no reason: the session is there and has not opened the song yet.
+        receiver.mediaStatus(3, "IDLE", contentId = song.url + "?load=1", requestId = load.requestId)
+        assertEquals(3L, receiver.next(Chromecast.NS_MEDIA, "STOP").body.getValue("mediaSessionId").jsonPrimitive.long)
+
+        // Idle with a reason is over already, and needs no stop.
+        runBlocking { link.load(song, 0, play = true) }
+        val again = receiver.next(Chromecast.NS_MEDIA, "LOAD")
+        runBlocking { link.stop() }
+        receiver.mediaStatus(4, "IDLE", idleReason = "ERROR", contentId = song.url + "?load=2", requestId = again.requestId)
+        assertFalse(receiver.sends(Chromecast.NS_MEDIA, "STOP", 300))
     }
 
     @Test

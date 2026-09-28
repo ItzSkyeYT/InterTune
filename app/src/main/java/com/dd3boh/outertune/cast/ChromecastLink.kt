@@ -64,7 +64,9 @@ import kotlin.random.Random
  *
  * Closing stops our song and, when this link launched the player and nobody took it over, the
  * player too, so the TV goes back to what it showed before; a player that was already running, or
- * that somebody else is now using, is left alone.
+ * that somebody else is now using, is left alone. A song whose LOAD the device has not answered
+ * yet is stopped once it does. On a player that was already running, closing waits a moment for
+ * that answer, and without one ends the player after all, since our LOAD has taken it over.
  */
 class ChromecastLink(
     override val device: CastDevice,
@@ -87,6 +89,11 @@ class ChromecastLink(
         val deadAfterMs: Long = 15_000,
         val statusEveryMs: Long = 5_000,
         val tickMs: Long = 500,
+        /**
+         * For a closing link: how long it waits for the answer to a LOAD it has to stop, and then
+         * for the device to hang up after the goodbye.
+         */
+        val goodbyeWaitMs: Long = 1_000,
     )
 
     @Volatile
@@ -121,6 +128,10 @@ class ChromecastLink(
 
     /** Opened when the reading thread ends: the device hung up, or the socket was closed. */
     private val readerDone = CountDownLatch(1)
+
+    /** Set as a closing link says its goodbye, after which the reading thread says nothing more. */
+    @Volatile
+    private var saidGoodbye = false
 
     /** The media player songs go to: its session on the device, and the address of its connection. */
     private class Player(val sessionId: String, val transportId: String, val launchedHere: Boolean) {
@@ -172,7 +183,7 @@ class ChromecastLink(
     /** The requestId of the last GET_STATUS sent to the player. */
     private var lastPlayerAsk = 0
 
-    /** Answers somebody is waiting for while connecting or launching. */
+    /** Answers somebody is waiting for while connecting, launching or closing. */
     private class Expectation(val matches: (Chromecast.Payload, CastChannel.Message) -> Boolean) {
         val answer = CompletableDeferred<Chromecast.Payload>()
     }
@@ -322,7 +333,10 @@ class ChromecastLink(
     }
 
     override fun close() {
-        val goodbye = mutableListOf<Outgoing>()
+        val songStop: Outgoing?
+        val unanswered: Loaded?
+        val waitFor: Loaded?
+        val speaking: Boolean
         val connection: Socket?
         synchronized(stateLock) {
             if (closed) return
@@ -330,46 +344,97 @@ class ChromecastLink(
             val loaded = current
             val state = _status.value.state
             current = null
-            val player = player
-            if (lostWith == null && output != null) {
-                if (player != null) {
-                    val id = loaded?.session
-                    val playing = state == ReceiverState.LOADING || state == ReceiverState.PLAYING || state == ReceiverState.PAUSED
-                    if (id != null && playing && !takenOver) {
-                        goodbye += toPlayer(player, Chromecast.mediaCommand(Chromecast.STOP, requestIds.incrementAndGet(), id))
-                    }
-                    if (player.launchedHere && !takenOver) {
-                        goodbye += toDevice(Chromecast.stopApp(requestIds.incrementAndGet(), player.sessionId))
-                    }
-                    goodbye += Outgoing(clientId, player.transportId, Chromecast.NS_CONNECTION, Chromecast.close())
-                }
-                goodbye += Outgoing(Chromecast.PLATFORM_SENDER, Chromecast.PLATFORM_RECEIVER, Chromecast.NS_CONNECTION, Chromecast.close())
-            }
             connection = socket
+            speaking = connection != null && lostWith == null && output != null
+            // Nothing is stopped on a player somebody else has taken over.
+            val player = player?.takeIf { speaking && !takenOver }
+            val id = loaded?.session
+            val playing = state == ReceiverState.LOADING || state == ReceiverState.PLAYING || state == ReceiverState.PAUSED
+            songStop = if (player != null && id != null && playing) {
+                toPlayer(player, Chromecast.mediaCommand(Chromecast.STOP, requestIds.incrementAndGet(), id))
+            } else null
+            // Our last LOAD, if the device has not answered it yet, can still start its song once
+            // it does, after the cast has ended. So that song is stopped as soon as its session is
+            // known (onMediaStatus), which on a player this link joined is waited for below.
+            unanswered = if (player != null) awaitedLoad()?.also { it.stopWhenKnown = true } else null
+            waitFor = unanswered?.takeIf { player?.launchedHere == false }
             _status.update { it.copy(link = LinkState.CLOSED) }
         }
         keepAlive?.cancel()
         failWaiting(CastLinkException("Closed"))
-        if (goodbye.isEmpty() || connection == null) {
+        if (connection == null || !speaking) {
             runCatching { connection?.close() }
             reader?.cancel()
             return
+        }
+        val farewell = {
+            // A player this link joined is left running, so our unanswered song on it is stopped
+            // on its own, once the device answers. Until then the connections stay open, for a
+            // moment at most; without an answer by then, the player goes too (goodbye).
+            if (waitFor != null) awaitAnswer(waitFor)
+            val goodbye = listOfNotNull(songStop) + synchronized(stateLock) { goodbye(unanswered) }
+            // From here the reading thread says nothing more. It would go onto connections already
+            // closed, and a song whose LOAD is answered only now goes with its player (goodbye).
+            saidGoodbye = true
+            sayGoodbye(goodbye)
         }
         // Off the main thread the goodbye is said before close returns, so a cast straight back
         // to the same device, which waits for this one to close, cannot join the player just
         // before our STOP for it lands. The main thread must not touch the network, so from
         // there it is said on the thread that closes the socket.
         val onMain = runCatching { Looper.getMainLooper()?.isCurrentThread == true }.getOrDefault(false)
-        if (!onMain) sayGoodbye(goodbye)
+        if (!onMain) farewell()
         thread(isDaemon = true, name = "ChromecastLink close") {
-            if (onMain) sayGoodbye(goodbye)
+            if (onMain) farewell()
             // A socket closed with the device's answer still unread goes out as a reset rather
             // than a close, and a reset can make the device throw away what it has not read yet:
             // the stops just sent. So the reading thread goes on reading until the device hangs
-            // up, or for a second at most.
-            readerDone.await(GOODBYE_WAIT_MS, TimeUnit.MILLISECONDS)
+            // up, or for [Timing.goodbyeWaitMs] at most.
+            readerDone.await(timing.goodbyeWaitMs, TimeUnit.MILLISECONDS)
             runCatching { connection.close() }
             reader?.cancel()
+        }
+    }
+
+    /**
+     * What a closing link says after its song's STOP, holding [stateLock]: the player's STOP when
+     * it is ours to end, then the CLOSE of both connections. [unanswered] is our last LOAD, if the
+     * device had not answered it when the link closed.
+     */
+    private fun goodbye(unanswered: Loaded?): List<Outgoing> {
+        val goodbye = mutableListOf<Outgoing>()
+        val player = player
+        if (player != null) {
+            // A player this link launched goes, so the TV goes back to what it showed before. So
+            // does one it joined while our LOAD there is still unanswered: that LOAD has taken the
+            // player over, and could start the song on it after the cast has ended. Neither goes
+            // when somebody else has taken it since.
+            if (!takenOver && (player.launchedHere || unanswered?.awaited == true)) {
+                goodbye += toDevice(Chromecast.stopApp(requestIds.incrementAndGet(), player.sessionId))
+            }
+            goodbye += Outgoing(clientId, player.transportId, Chromecast.NS_CONNECTION, Chromecast.close())
+        }
+        goodbye += Outgoing(Chromecast.PLATFORM_SENDER, Chromecast.PLATFORM_RECEIVER, Chromecast.NS_CONNECTION, Chromecast.close())
+        return goodbye
+    }
+
+    /**
+     * Waits for the device to answer [loaded]'s LOAD, for [Timing.goodbyeWaitMs] at most, for a
+     * closing link. By the time it has, the reading thread has stopped the song: it looks at what
+     * is waited for only after sending what a message called for.
+     */
+    private fun awaitAnswer(loaded: Loaded) {
+        val answered = Expectation { _, _ -> synchronized(stateLock) { !loaded.awaited } }
+        val done = CountDownLatch(1)
+        answered.answer.invokeOnCompletion { done.countDown() }
+        expectations += answered
+        try {
+            // Not when it has been answered already, or when nothing more can be heard.
+            if (synchronized(stateLock) { loaded.awaited } && readerDone.count > 0) {
+                done.await(timing.goodbyeWaitMs, TimeUnit.MILLISECONDS)
+            }
+        } finally {
+            expectations -= answered
         }
     }
 
@@ -572,6 +637,9 @@ class ChromecastLink(
             if (!closed) Log.i(TAG, "Reading from ${device.name} failed: ${e.message}")
             lose("Lost ${device.name}", LinkProblem.LOST)
         } finally {
+            // Nothing more will be heard. lose() tells whoever waits on an answer, but does
+            // nothing once the link is closed, and a closing link may be waiting too.
+            failWaiting(lostWith ?: CastLinkException("Closed"))
             readerDone.countDown()
         }
     }
@@ -589,7 +657,7 @@ class ChromecastLink(
             Chromecast.NS_MEDIA -> onMedia(payload)
             else -> emptyList()
         }
-        sendQuietly(outgoing)
+        if (!saidGoodbye) sendQuietly(outgoing)
         expectations.forEach { if (!it.answer.isCompleted && it.matches(payload, message)) it.answer.complete(payload) }
     }
 
@@ -669,8 +737,11 @@ class ChromecastLink(
         }
         val player = player
         if (loaded !== current) {
-            // A song stopped before the device said which session it made plays until told to stop.
-            if (learned && loaded.stopWhenKnown && media.playerState != Chromecast.PLAYER_IDLE && player != null) {
+            // A song stopped before the device said which session it made plays until told to
+            // stop. Only a session idle with a reason is over already: idle with none has not
+            // opened the song yet, and would still start it.
+            val over = media.playerState == Chromecast.PLAYER_IDLE && media.idleReason != null
+            if (learned && loaded.stopWhenKnown && !over && player != null) {
                 outgoing += toPlayer(player, Chromecast.mediaCommand(Chromecast.STOP, requestIds.incrementAndGet(), media.mediaSessionId))
             }
             return false
@@ -872,8 +943,5 @@ class ChromecastLink(
 
         /** A song's session number once it turned out to belong to another song: it names nothing. */
         const val NO_SESSION = -1L
-
-        /** How long a closing link reads on after its goodbye, waiting for the device to hang up. */
-        const val GOODBYE_WAIT_MS = 1_000L
     }
 }
