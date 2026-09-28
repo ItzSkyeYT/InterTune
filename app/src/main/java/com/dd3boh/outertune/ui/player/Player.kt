@@ -1057,9 +1057,12 @@ fun BottomSheetPlayer(
                     },
                     onValueChangeFinished = {
                         sliderPosition?.let {
-                            if (restoredPosition != null && playerConnection.player.currentMediaItem == null) {
+                            if (playerConnection.player.currentMediaItem == null) {
                                 // Nothing is loaded yet, so there is nothing to seek: move where
-                                // the restored song will start instead.
+                                // the restored song will start instead, whether or not it already
+                                // had a saved point (restoredPosition is null when the process died
+                                // before ever pausing, since ResumePoint.afterTransition leaves the
+                                // saved position at TIME_UNSET for an ordinary song change).
                                 playerConnection.service.queueBoard.getCurrentQueue()?.lastSongPos = it
                                 playerConnection.restoredPosition.value = it
                             } else {
