@@ -200,15 +200,19 @@ class ChromecastLinkTest {
                         deviceStatus(sent.requestId)
                     }
                 }
-                Chromecast.NS_MEDIA -> if (sent.type == "LOAD" && answerLoads) {
-                    val media = sent.body.getValue("media").jsonObject
-                    val state = if (sent.body.getValue("autoplay").jsonPrimitive.boolean) "PLAYING" else "PAUSED"
-                    mediaStatus(
-                        ++sessions, state, sent.body.getValue("currentTime").jsonPrimitive.double,
-                        contentId = media.getValue("contentId").jsonPrimitive.content,
-                        duration = media["duration"]?.jsonPrimitive?.double,
-                        requestId = sent.requestId,
-                    )
+                Chromecast.NS_MEDIA -> if (sent.type == "LOAD") {
+                    // Every LOAD makes the next media session, answered or not, as on a device.
+                    val session = ++sessions
+                    if (answerLoads) {
+                        val media = sent.body.getValue("media").jsonObject
+                        val state = if (sent.body.getValue("autoplay").jsonPrimitive.boolean) "PLAYING" else "PAUSED"
+                        mediaStatus(
+                            session, state, sent.body.getValue("currentTime").jsonPrimitive.double,
+                            contentId = media.getValue("contentId").jsonPrimitive.content,
+                            duration = media["duration"]?.jsonPrimitive?.double,
+                            requestId = sent.requestId,
+                        )
+                    }
                 }
             }
         }
@@ -623,6 +627,64 @@ class ChromecastLinkTest {
 
         receiver.mediaStatus(2, "PLAYING", 0.2, contentId = song.url + "?load=2", requestId = second.requestId)
         assertEquals(200L, link.await { it.state == ReceiverState.PLAYING }.positionMs)
+    }
+
+    @Test
+    fun `the answer to a load that names the song before's session is about the song before`() {
+        val (receiver, link) = connected()
+        playing(receiver, link)
+        receiver.answerLoads = false
+        runBlocking { link.load(song, 0, play = true) }
+        val second = receiver.next(Chromecast.NS_MEDIA, "LOAD")
+        receiver.mediaStatus(1, "IDLE", idleReason = "INTERRUPTED", requestId = second.requestId)
+        receiver.pingPong()
+        assertEquals(ReceiverState.LOADING, link.status.value.state)
+        assertEquals(2, link.status.value.load)
+        assertNull(link.status.value.error)
+
+        receiver.mediaStatus(2, "PLAYING", 0.2, requestId = second.requestId)
+        assertEquals(200L, link.await { it.state == ReceiverState.PLAYING }.positionMs)
+        runBlocking { link.pause() }
+        assertEquals(2L, receiver.next(Chromecast.NS_MEDIA, "PAUSE").body.getValue("mediaSessionId").jsonPrimitive.long)
+    }
+
+    @Test
+    fun `one status naming both sessions gives each its own song`() {
+        val (receiver, link) = connected()
+        playing(receiver, link)
+        receiver.answerLoads = false
+        runBlocking { link.load(song, 0, play = true) }
+        val second = receiver.next(Chromecast.NS_MEDIA, "LOAD")
+        receiver.sendMedia(
+            """{"type":"MEDIA_STATUS","requestId":${second.requestId},"status":[""" +
+                """{"mediaSessionId":1,"playerState":"IDLE","idleReason":"INTERRUPTED"},""" +
+                """{"mediaSessionId":2,"playerState":"PLAYING","currentTime":0.2}]}""",
+        )
+        assertEquals(200L, link.await { it.state == ReceiverState.PLAYING }.positionMs)
+        assertEquals(2, link.status.value.load)
+        runBlocking { link.pause() }
+        assertEquals(2L, receiver.next(Chromecast.NS_MEDIA, "PAUSE").body.getValue("mediaSessionId").jsonPrimitive.long)
+    }
+
+    @Test
+    fun `a session nobody holds goes by its own url before the requestId of the message`() {
+        val (receiver, link) = connected()
+        receiver.answerLoads = false
+        runBlocking { link.load(song, 0, play = true) }
+        receiver.next(Chromecast.NS_MEDIA, "LOAD")
+        // Skipped before the device answered.
+        runBlocking { link.load(song, 0, play = true) }
+        val second = receiver.next(Chromecast.NS_MEDIA, "LOAD")
+        // The answer to the second LOAD names the first song's session too, with its url.
+        receiver.sendMedia(
+            """{"type":"MEDIA_STATUS","requestId":${second.requestId},"status":[""" +
+                """{"mediaSessionId":1,"playerState":"IDLE","idleReason":"INTERRUPTED","media":{"contentId":"${song.url}?load=1"}},""" +
+                """{"mediaSessionId":2,"playerState":"PLAYING","currentTime":0.2,"media":{"contentId":"${song.url}?load=2"}}]}""",
+        )
+        assertEquals(200L, link.await { it.state == ReceiverState.PLAYING }.positionMs)
+        assertEquals(2, link.status.value.load)
+        runBlocking { link.pause() }
+        assertEquals(2L, receiver.next(Chromecast.NS_MEDIA, "PAUSE").body.getValue("mediaSessionId").jsonPrimitive.long)
     }
 
     @Test

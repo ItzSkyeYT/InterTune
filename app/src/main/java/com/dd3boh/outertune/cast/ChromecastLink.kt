@@ -143,10 +143,9 @@ class ChromecastLink(
     private class Loaded(val number: Int, val url: String, val autoplay: Boolean) {
         /** The LOAD's requestId, 0 until it has gone. */
         var requestId = 0
-        var mediaSessionId: Long? = null
 
-        /** The media session to name in a command, once known. */
-        val session: Long? get() = mediaSessionId?.takeIf { it >= 0 }
+        /** The media session the device made for it, which a command names, once known. */
+        var mediaSessionId: Long? = null
 
         /** Whether the listener wants it playing, as last asked, sent or not. */
         var wantPlay = autoplay
@@ -280,7 +279,7 @@ class ChromecastLink(
             val loaded = current ?: return
             loaded.wantPlay = play
             val finished = _status.value.state.let { it == ReceiverState.ENDED || it == ReceiverState.FAILED }
-            val id = loaded.session ?: return
+            val id = loaded.mediaSessionId ?: return
             val player = player ?: return
             if (finished) return
             toPlayer(player, Chromecast.mediaCommand(if (play) Chromecast.PLAY else Chromecast.PAUSE, requestIds.incrementAndGet(), id))
@@ -294,7 +293,7 @@ class ChromecastLink(
         val outgoing = synchronized(stateLock) {
             val loaded = current ?: return
             _status.update { it.copy(positionMs = position, reportedAt = now()) }
-            val id = loaded.session
+            val id = loaded.mediaSessionId
             if (id == null) {
                 loaded.pendingSeekMs = position
                 return
@@ -311,7 +310,7 @@ class ChromecastLink(
             current = null
             _status.update { it.copy(state = ReceiverState.IDLE, positionMs = 0, reportedAt = now()) }
             if (loaded == null) return@synchronized null
-            val id = loaded.session
+            val id = loaded.mediaSessionId
             if (id == null) {
                 loaded.stopWhenKnown = true
                 return@synchronized null
@@ -348,7 +347,7 @@ class ChromecastLink(
             speaking = connection != null && lostWith == null && output != null
             // Nothing is stopped on a player somebody else has taken over.
             val player = player?.takeIf { speaking && !takenOver }
-            val id = loaded?.session
+            val id = loaded?.mediaSessionId
             val playing = state == ReceiverState.LOADING || state == ReceiverState.PLAYING || state == ReceiverState.PAUSED
             songStop = if (player != null && id != null && playing) {
                 toPlayer(player, Chromecast.mediaCommand(Chromecast.STOP, requestIds.incrementAndGet(), id))
@@ -723,17 +722,19 @@ class ChromecastLink(
      * when the song's status should be asked for again, to know what this one was about.
      */
     private fun onMediaStatus(media: Chromecast.Media, requestId: Int, outgoing: MutableList<Outgoing>): Boolean {
-        // The answer to a LOAD says for certain which song it is about, so it comes first.
-        val loaded = recent.lastOrNull { requestId != 0 && it.requestId == requestId }
-            ?: recent.firstOrNull { it.mediaSessionId == media.mediaSessionId }
+        // A session one of our songs already holds is that song's, whatever the message: the
+        // answer to a new LOAD can still be about the song before it. A session nobody holds yet
+        // is the song's whose url it plays, or without a url, the song's whose LOAD the message
+        // answers. The url goes first because it is this session's own, while the requestId is
+        // the whole message's, and one message can name more than one session.
+        val loaded = recent.firstOrNull { it.mediaSessionId == media.mediaSessionId }
             ?: recent.lastOrNull { it.mediaSessionId == null && media.contentId != null && media.contentId == it.url }
+            ?: recent.lastOrNull { it.mediaSessionId == null && requestId != 0 && it.requestId == requestId }
         if (loaded == null) return onOtherMedia(media, requestId)
         val learned = loaded.mediaSessionId == null
         if (learned) {
             loaded.mediaSessionId = media.mediaSessionId
             newestSession = maxOf(newestSession, media.mediaSessionId)
-            // A session number is one song's. Another of ours that seemed to have it did not.
-            recent.forEach { if (it !== loaded && it.mediaSessionId == media.mediaSessionId) it.mediaSessionId = NO_SESSION }
         }
         val player = player
         if (loaded !== current) {
@@ -831,7 +832,7 @@ class ChromecastLink(
      */
     private fun noMedia() {
         val loaded = current ?: return
-        if (loaded.session == null) return
+        if (loaded.mediaSessionId == null) return
         val status = _status.value
         val playing = status.state == ReceiverState.PLAYING || status.state == ReceiverState.PAUSED || status.state == ReceiverState.LOADING
         if (!playing) return
@@ -940,8 +941,5 @@ class ChromecastLink(
 
         /** How near the end a song whose session vanished must have got to count as ended. */
         const val END_SLACK_MS = 5_000L
-
-        /** A song's session number once it turned out to belong to another song: it names nothing. */
-        const val NO_SESSION = -1L
     }
 }
