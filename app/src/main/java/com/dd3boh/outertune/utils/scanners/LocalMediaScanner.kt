@@ -184,7 +184,11 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
 
         val unlisted = ArrayList<Uri>()
         val found = getScanFiles(scanPaths, excludedScanPaths, context, unlisted)
-        unlistedRoots = unlisted.map { fileFromUri(context, it)?.absolutePath }
+        // absoluteFilePathFromUri, not fileFromUri: unlisted holds the scan paths as the picker
+        // returned them, tree addresses with no document part, which fileFromUri throws on from
+        // API 30 (and reads as an unknown root before it). getScanFiles already built each one's
+        // document address, so this conversion cannot throw either.
+        unlistedRoots = unlisted.map { absoluteFilePathFromUri(context, it) }
         if (unlisted.isNotEmpty()) {
             Log.w(TAG, "Could not list ${unlisted.size} scan folder(s), their songs are kept as they are: $unlisted")
         }
