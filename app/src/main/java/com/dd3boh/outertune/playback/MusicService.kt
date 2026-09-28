@@ -303,6 +303,13 @@ class MusicService : MediaLibraryService(),
      */
     private val initQueueMutex = kotlinx.coroutines.sync.Mutex()
 
+    /**
+     * Completed by the very first initQueue() of this instance, and unlike qbInit, never reset by
+     * deInitQueue: a session request only needs to know that the saved queues have been read at
+     * least once, not whether the board is initialised right now.
+     */
+    val queuesLoadedOnce = kotlinx.coroutines.CompletableDeferred<Unit>()
+
     @Inject
     @PlayerCache
     lateinit var playerCache: SimpleCache
@@ -1505,6 +1512,7 @@ class MusicService : MediaLibraryService(),
             }
             Log.d(TAG, "Queue with $maxQueues queue limit. Persist queue = $persistQueue. Queues loaded = ${queueBoard.masterQueues.size}")
             qbInit.value = true
+            queuesLoadedOnce.complete(Unit)
             Log.i(TAG, "-initQueue()")
         }
     }
