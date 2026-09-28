@@ -30,6 +30,7 @@ import com.zionhuang.innertube.models.YouTubeClient.Companion.TVHTML5_SIMPLY_EMB
 import com.zionhuang.innertube.models.YouTubeClient.Companion.VISIONOS
 import com.zionhuang.innertube.models.YouTubeClient.Companion.WEB_REMIX
 import com.zionhuang.innertube.models.response.PlayerResponse
+import com.zionhuang.innertube.utils.runCatchingCancellable
 import okhttp3.OkHttpClient
 
 object YTPlayerUtils {
@@ -253,7 +254,7 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
         notes: ChainNotes,
-    ): Result<PlaybackData> = runCatching {
+    ): Result<PlaybackData> = runCatchingCancellable {
         Log.d(TAG, "Playback info requested: $videoId")
 
         /**

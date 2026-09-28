@@ -53,6 +53,7 @@ import com.zionhuang.innertube.pages.SearchResult
 import com.zionhuang.innertube.pages.SearchSuggestionPage
 import com.zionhuang.innertube.pages.SearchSummary
 import com.zionhuang.innertube.pages.SearchSummaryPage
+import com.zionhuang.innertube.utils.runCatchingCancellable
 import io.ktor.client.call.body
 import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
@@ -755,7 +756,7 @@ object YouTube {
         signatureTimestamp: Int? = null,
         webPlayerPot: String? = null,
         visitorData: String? = this.visitorData,
-    ): Result<PlayerResponse> = runCatching {
+    ): Result<PlayerResponse> = runCatchingCancellable {
         innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData).body<PlayerResponse>()
     }
 
