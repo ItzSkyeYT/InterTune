@@ -281,6 +281,19 @@ internal class PendingWidgetTap : ViewModel() {
 }
 
 /**
+ * Whether a widget-tapped song plays on its own or keeps the radio.
+ *
+ * A local song's id is not a YouTube video id (SongEntity.generateSongId makes local ids "LS" plus
+ * random characters), so asking YouTube to start a radio from one fails outright: offline always,
+ * and online for want of anything meaningful to return. Home already makes this same choice for
+ * its own local rows; the widget mirrors it here.
+ */
+internal enum class WidgetPlaybackKind { LOCAL, RADIO }
+
+internal fun widgetPlaybackKind(metadata: MediaMetadata): WidgetPlaybackKind =
+    if (metadata.isLocal) WidgetPlaybackKind.LOCAL else WidgetPlaybackKind.RADIO
+
+/**
  * A song tapped on the home screen widget.
  *
  * The widget carries enough of the song in its intent to play it without a lookup, because the
@@ -316,11 +329,17 @@ private fun playFromWidget(
             thumbnailUrl = thumbnail,
             genre = null,
         )
-        connection.playQueue(
-            YouTubeQueue.radio(metadata),
-            isRadio = true,
-            origin = PlayOrigin.WIDGET,
-        )
+        when (widgetPlaybackKind(metadata)) {
+            WidgetPlaybackKind.LOCAL -> connection.playQueue(
+                ListQueue(title = metadata.title, items = listOf(metadata)),
+                origin = PlayOrigin.WIDGET,
+            )
+            WidgetPlaybackKind.RADIO -> connection.playQueue(
+                YouTubeQueue.radio(metadata),
+                isRadio = true,
+                origin = PlayOrigin.WIDGET,
+            )
+        }
     }
 }
 
