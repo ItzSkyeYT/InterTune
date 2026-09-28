@@ -107,6 +107,10 @@ class ChromecastLinkTest {
         @Volatile
         var refuseLaunch: String? = null
 
+        /** Opens the player when asked to, or leaves LAUNCH unanswered, as a device that is stuck. */
+        @Volatile
+        var answerLaunches = true
+
         @Volatile
         var level = 0.5
 
@@ -169,7 +173,7 @@ class ChromecastLinkTest {
                         val refusal = refuseLaunch
                         if (refusal != null) {
                             send(Chromecast.PLATFORM_RECEIVER, message.sourceId, Chromecast.NS_RECEIVER, """{"type":"LAUNCH_ERROR","requestId":${sent.requestId},"reason":"$refusal"}""")
-                        } else {
+                        } else if (answerLaunches) {
                             launches++
                             apps.removeAll { true }
                             apps += App(Chromecast.DEFAULT_MEDIA_RECEIVER, "session-$launches", "web-$launches")
@@ -730,6 +734,39 @@ class ChromecastLinkTest {
         receiver.next(Chromecast.NS_RECEIVER, "LAUNCH")
         assertEquals("web-2", receiver.next(Chromecast.NS_MEDIA, "LOAD").message.destinationId)
         assertEquals(2, link.await { it.state == ReceiverState.PLAYING }.load)
+    }
+
+    @Test
+    fun `a player that will not open again fails the load, and leaves the song's status alone`() {
+        val (receiver, link) = connected(timing = quiet.copy(launchTimeoutMs = 300))
+        playing(receiver, link)
+        receiver.apps.removeAll { true }
+        receiver.apps += App("233637DE", "youtube-1", "web-77")
+        receiver.deviceStatus()
+        link.await { it.state == ReceiverState.IDLE }
+
+        // The song was never sent, so it has not failed, which would earn it a retry as AAC, and it
+        // has not gone idle, which would read as a stop: the load throws, and that is all.
+        receiver.refuseLaunch = "NOT_ALLOWED"
+        assertEquals("Test TV would not open its media player (NOT_ALLOWED)", expectFailure { link.load(song, 0, play = true) }.message)
+        assertEquals(ReceiverState.LOADING, link.status.value.state)
+        assertEquals(2, link.status.value.load)
+        assertNull(link.status.value.error)
+
+        // The same when the device does not answer in the time it is given to open the player.
+        receiver.refuseLaunch = null
+        receiver.answerLaunches = false
+        assertEquals("Test TV did not open its media player", expectFailure { link.load(song, 0, play = true) }.message)
+        assertEquals(ReceiverState.LOADING, link.status.value.state)
+        assertEquals(3, link.status.value.load)
+        assertNull(link.status.value.error)
+        assertEquals(1, receiver.everything.count { it.type == "LOAD" })
+
+        // The link is still up, and the next song opens the player.
+        receiver.answerLaunches = true
+        assertEquals(LinkState.CONNECTED, link.status.value.link)
+        runBlocking { link.load(song, 0, play = true) }
+        assertEquals(4, link.await { it.state == ReceiverState.PLAYING }.load)
     }
 
     @Test

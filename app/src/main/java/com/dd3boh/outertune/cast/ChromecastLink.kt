@@ -234,9 +234,12 @@ class ChromecastLink(
             val player = try {
                 ensurePlayer()
             } catch (e: IOException) {
-                synchronized(stateLock) {
-                    if (current === loaded) _status.update { it.copy(state = ReceiverState.FAILED, error = e.message, reportedAt = now()) }
-                }
+                // A player that would not open says nothing about the song. Reported as failed, the
+                // song would pass for one the device refuses as it is: tried again as AAC, and its
+                // type sent as AAC for the rest of the cast once that played. Reported as idle, it
+                // would read as a stop. So the status is left as it is, and the throw fails the
+                // load, once, where it was asked for.
+                synchronized(stateLock) { if (current === loaded) current = null }
                 throw e as? CastLinkException ?: CastLinkException("Lost ${device.name}", e)
             }
             val requestId = requestIds.incrementAndGet()
