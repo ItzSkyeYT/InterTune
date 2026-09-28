@@ -266,6 +266,48 @@ fun ColumnScope.SpatialAudioModeFrag() {
 }
 
 /**
+ * The dynamic head tracker sensor, if the platform is publishing one right now.
+ *
+ * Dynamic sensors come and go with the headphones, so a value read once and cached for the life
+ * of the composition goes stale the moment they connect or disconnect while this screen is
+ * already open. A SensorManager.DynamicSensorCallback is the only way to be told when that
+ * happens; the initial value still comes from getDynamicSensorList so a tracker already connected
+ * before the screen opened is not missed. HeadTrackingFrag and SpatialAudioFrag's summary both use
+ * it, so neither keeps an answer of its own.
+ */
+@Composable
+private fun rememberHeadTrackerSensor(): androidx.compose.runtime.State<android.hardware.Sensor?> {
+    val context = LocalContext.current
+    val sensorManager = remember(context) {
+        context.getSystemService(android.hardware.SensorManager::class.java)
+    }
+    val tracker = remember {
+        mutableStateOf(
+            runCatching {
+                sensorManager
+                    ?.getDynamicSensorList(android.hardware.Sensor.TYPE_HEAD_TRACKER)
+                    ?.firstOrNull()
+            }.getOrNull()
+        )
+    }
+    DisposableEffect(sensorManager) {
+        if (sensorManager == null) return@DisposableEffect onDispose {}
+        val callback = object : android.hardware.SensorManager.DynamicSensorCallback() {
+            override fun onDynamicSensorConnected(sensor: android.hardware.Sensor) {
+                if (sensor.type == android.hardware.Sensor.TYPE_HEAD_TRACKER) tracker.value = sensor
+            }
+
+            override fun onDynamicSensorDisconnected(sensor: android.hardware.Sensor) {
+                if (sensor.type == android.hardware.Sensor.TYPE_HEAD_TRACKER) tracker.value = null
+            }
+        }
+        sensorManager.registerDynamicSensorCallback(callback)
+        onDispose { sensorManager.unregisterDynamicSensorCallback(callback) }
+    }
+    return tracker
+}
+
+/**
  * Whether the soundstage stays put when the listener turns their head.
  *
  * Hidden outright unless a tracker is published right now, rather than shown greyed out: on nearly
@@ -274,19 +316,11 @@ fun ColumnScope.SpatialAudioModeFrag() {
  */
 @Composable
 fun ColumnScope.HeadTrackingFrag() {
-    val context = LocalContext.current
     val (spatial) = rememberEnumPreference(key = SpatialAudioKey, defaultValue = SpatialAudioMode.OFF)
     val (enabled, onEnabledChange) = rememberPreference(HeadTrackingKey, defaultValue = false)
 
-    // Dynamic sensors come and go with the headphones, so this is asked on each recomposition of
-    // the screen rather than cached for the life of the process.
-    val available = remember(spatial) {
-        runCatching {
-            context.getSystemService(android.hardware.SensorManager::class.java)
-                ?.getDynamicSensorList(android.hardware.Sensor.TYPE_HEAD_TRACKER)
-                ?.isNotEmpty() == true
-        }.getOrDefault(false)
-    }
+    val tracker by rememberHeadTrackerSensor()
+    val available = tracker != null
 
     if (spatial != SpatialAudioMode.HEADPHONES) return
 
@@ -783,11 +817,11 @@ fun ColumnScope.PlaybackBehaviourFrag() {
 @Composable
 fun ColumnScope.SpatialAudioFrag() {
     val context = LocalContext.current
-    val summary = remember {
+    val tracker = rememberHeadTrackerSensor().value
+    val summary = remember(tracker) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return@remember null
         runCatching {
             val sensors = context.getSystemService(android.hardware.SensorManager::class.java)
-            val tracker = sensors?.getDynamicSensorList(android.hardware.Sensor.TYPE_HEAD_TRACKER)?.firstOrNull()
             // Whether the phone has the machinery for external sensors at all. This is the line
             // most devices fail, and it fails silently: without it the headphones stream
             // orientation into the kernel and nothing ever reads it.
