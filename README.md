@@ -137,7 +137,7 @@ InterTune is pinned to upstream `v0.10.1` and does not follow upstream forward; 
 
 InterTune has translations for 48 locales, but only French covers nearly everything. In 27 others about a sixth of what this fork added is translated and the rest is still English, and 20 have only the strings InnerTune started with. What is there was mostly not written by native speakers, so some of it will read oddly and some of it will simply be wrong. **If anything sounds off in your language, please [say so](https://github.com/ItzSkyeYT/InterTune/issues/new?template=translation_report.yml).** A one line report is enough, a suggested wording is a bonus, and you do not need to open a pull request. Corrections are welcome and nobody minds being told.
 
-**Translations are managed with [Weblate](https://hosted.weblate.org/projects/intertune/).** No account juggling and no XML: pick your language, type, and the changes arrive here. There is plenty to do.
+**Translations are managed with [Weblate](https://hosted.weblate.org/engage/intertune/).** No account juggling and no XML: pick your language, type, and the changes arrive here. There is plenty to do.
 
 The oldest strings, the ones InnerTune started with, are not on InterTune's Weblate. If one of those is wrong in your language, [say so](https://github.com/ItzSkyeYT/InterTune/issues/new?template=translation_report.yml) the same way.
 

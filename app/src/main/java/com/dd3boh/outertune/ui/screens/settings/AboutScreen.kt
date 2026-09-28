@@ -219,6 +219,12 @@ fun AboutScreen(
                     }
                 )
                 PreferenceEntry(
+                    title = { Text(stringResource(R.string.help_translate)) },
+                    onClick = {
+                        uriHandler.openUri(Links.TRANSLATE)
+                    }
+                )
+                PreferenceEntry(
                     title = { Text(stringResource(R.string.help_contact_email_inquiries)) },
                     onClick = {
                         val clipData = ClipData.newPlainText(

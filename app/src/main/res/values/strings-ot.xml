@@ -189,6 +189,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="help_contact_email_inquiries">Other inquiries (Tap to copy email)</string>
     <string name="help_support_forum">Help and support (Via GitHub)</string>
     <string name="help_discord">Community chat (Via Discord)</string>
+    <string name="help_translate">Help translate InterTune (Via Weblate)</string>
     <string name="no_updates_available">No updates available</string>
     <string name="oss_licenses_title">Open source licenses</string>
     <string name="wiki">Wiki</string>

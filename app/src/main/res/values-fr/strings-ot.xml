@@ -508,6 +508,7 @@
 
     <!-- About settings -->
     <string name="help_discord">Discussion de la communauté (via Discord)</string>
+    <string name="help_translate">Aider à traduire InterTune (via Weblate)</string>
 
     <!-- Player settings -->
     <string name="player_buttons_style">Boutons du lecteur</string>

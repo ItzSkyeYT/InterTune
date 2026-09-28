@@ -22,4 +22,7 @@ object Links {
 
     /** The community server. Support, bug reports from people without a GitHub account, and releases. */
     const val DISCORD = "https://discord.gg/68jmqhMjXk"
+
+    /** Weblate's page for newcomers to the project: pick a language and start. */
+    const val TRANSLATE = "https://hosted.weblate.org/engage/intertune/"
 }
