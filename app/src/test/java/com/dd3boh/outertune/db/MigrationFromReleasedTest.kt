@@ -14,7 +14,7 @@ import java.sql.Connection
 
 /**
  * The database of the last release, taken through every migration since, comes out as the schema
- * this build expects. 0.10.9 shipped schema 21; anybody updating to 0.11 goes through 22 and 23.
+ * this build expects. 0.10.9 shipped schema 21; anybody updating to 0.11 goes through 22 to 25.
  *
  * Room checks a migrated database against the schema's identity hash when it opens it, and a
  * mismatch is a crash on launch, for everyone who updates. This runs Room's own generated
@@ -73,21 +73,48 @@ class MigrationFromReleasedTest {
         }
     }
 
-    @Test
-    fun `the last release's database migrates to exactly the current schema`() {
-        val old = SchemaDb.open(version = released)
-        val migrations = listOf(InternalDatabase_AutoMigration_21_22_Impl(), InternalDatabase_AutoMigration_22_23_Impl(), InternalDatabase_AutoMigration_23_24_Impl())
+    /** Every step from the release to now, over [db], each starting where the last one ended. */
+    private fun migrateFromReleased(db: Connection) {
+        val migrations = listOf(
+            InternalDatabase_AutoMigration_21_22_Impl(),
+            InternalDatabase_AutoMigration_22_23_Impl(),
+            InternalDatabase_AutoMigration_23_24_Impl(),
+            InternalDatabase_AutoMigration_24_25_Impl(),
+        )
         assertEquals("a migration for every step from the release to now", MusicDatabase.MUSIC_DATABASE_VERSION - released, migrations.size)
         var at = released
         for (m in migrations) {
             assertEquals(at, m.startVersion)
-            m.migrate(Jdbc(old))
+            m.migrate(Jdbc(db))
             at = m.endVersion
         }
+    }
+
+    private fun Connection.exec(sql: String) {
+        createStatement().use { it.execute(sql) }
+    }
+
+    @Test
+    fun `the last release's database migrates to exactly the current schema`() {
+        val old = SchemaDb.open(version = released)
+        migrateFromReleased(old)
         val fresh = SchemaDb.open()
         val expected = shape(fresh)
         val migrated = shape(old)
         assertEquals(expected.keys, migrated.keys)
         for (key in expected.keys) assertEquals(key, expected[key], migrated[key])
+    }
+
+    @Test
+    fun `an album the release stored under a made-up id comes out under its real one`() {
+        // What 0.10.9.6 recorded for a song whose album was not stored yet: see LgAlbumRepair.
+        val old = SchemaDb.open(version = released)
+        old.exec("INSERT INTO song(id, title, duration, liked, albumId, albumName) VALUES ('song', 'Song', 200, 0, 'MPREb_real', 'Album')")
+        old.exec("INSERT INTO album(id, title, songCount, duration, lastUpdateTime) VALUES ('LGabcdefgh', 'Album', 1, 200, 0)")
+        old.exec("INSERT INTO song_album_map(songId, albumId, `index`) VALUES ('song', 'LGabcdefgh', 0)")
+        migrateFromReleased(old)
+
+        assertEquals(listOf(listOf("MPREb_real", "Album", "1")), old.rows("SELECT id, title, songCount FROM album"))
+        assertEquals(listOf(listOf("song", "MPREb_real")), old.rows("SELECT songId, albumId FROM song_album_map"))
     }
 }
