@@ -842,4 +842,19 @@ class MixWatchTest {
         assertEquals("Linkin Park", MixSearch.primaryArtist("Linkin Park & Jay-Z"))
         assertEquals("No Love", MixSearch.bareTitle("No Love (feat. Lil Wayne)"))
     }
+
+    @Test
+    fun `an answer searched for one song is asked again when a second song turns up`() {
+        val searchedFaint = setOf(MixSearch.songId(sighting(faint, 0)))
+        val heard = listOf(sighting(faint, 157), sighting(noLove, 133))
+        assertTrue(MixSearch.widens(settled = true, searchedSongs = searchedFaint, heard = heard))
+        // Searched for both already, still open, or answered in an earlier mashup: nothing to widen.
+        val searchedBoth = searchedFaint + MixSearch.songId(sighting(noLove, 0))
+        assertFalse(MixSearch.widens(settled = true, searchedSongs = searchedBoth, heard = heard))
+        assertFalse(MixSearch.widens(settled = false, searchedSongs = searchedFaint, heard = heard))
+        assertFalse(MixSearch.widens(settled = true, searchedSongs = emptySet(), heard = heard))
+        // Another version of the same song is not a new song.
+        val faintRemix = "faint2" to ("Faint (Euphoric Hardstyle Remix)" to "Linkin Park")
+        assertFalse(MixSearch.widens(settled = true, searchedSongs = searchedFaint, heard = listOf(sighting(faintRemix, 200))))
+    }
 }

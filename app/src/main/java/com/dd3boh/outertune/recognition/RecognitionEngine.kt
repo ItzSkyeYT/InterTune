@@ -301,6 +301,8 @@ class RecognitionEngine @Inject constructor(
         var settled: Boolean = false,
         /** A search went through. A failed one is tried again the next time a piece comes back. */
         var searched: Boolean = false,
+        /** The songs, as [MixSearch.songId], that [candidates] were searched for: see [MixSearch.widens]. */
+        var searchedSongs: Set<String> = emptySet(),
         /** When the first of its pieces was heard, since the last mashup ended. */
         var startedMs: Long = 0,
         /** When it has to be over, once it is known which upload it is and so how long it runs. */
@@ -1165,7 +1167,9 @@ class RecognitionEngine @Inject constructor(
         }
 
         val active = mix
-        if (active != null && (active.settled || (active.searched && active.keys.containsAll(keys) &&
+        // Answered from a search for fewer songs than have now been heard: asked again with them all.
+        val widens = active != null && MixSearch.widens(active.settled, active.searchedSongs, songs)
+        if (active != null && !widens && (active.settled || (active.searched && active.keys.containsAll(keys) &&
                     (active.strong || !found.strong) && (active.sure || !found.sure)))) {
             active.keys += keys
             active.lastHeardMs = now
@@ -1191,7 +1195,16 @@ class RecognitionEngine @Inject constructor(
         // Nothing on YouTube names two of the pieces, so there is no mashup to point at, and the
         // songs heard stay as they are. One odd window with only a toss-up is left alone too.
         // A failed search changes nothing either; the next time a piece comes back it runs again.
-        if (ranked.isNullOrEmpty() || (winner == null && !found.strong)) return
+        if (ranked.isNullOrEmpty() || (winner == null && !found.strong && !widens)) {
+            // Nothing names the new song with the others: it stays a piece of what was answered.
+            if (widens) active?.let {
+                it.keys += keys
+                it.lastHeardMs = now
+                it.lastCutMs = now
+                retract(found.pieces)
+            }
+            return
+        }
 
         val current = (active ?: ActiveMix().also { mix = it }).apply {
             this.keys += keys
@@ -1201,8 +1214,11 @@ class RecognitionEngine @Inject constructor(
             sure = sure || found.sure
             pieces = (found.pieces + pieces).distinctBy { it.key }
             searched = true
+            searchedSongs = searchedSongs + songs.map { MixSearch.songId(it) }
             startedMs = started
             candidates = ranked.take(MAX_CANDIDATES).map { it.first }
+            // The earlier answer was about fewer songs: this one is asked, never added by itself.
+            if (widens) settled = false
         }
         // Only when sure. Suspicious is somebody skipping about a playlist as easily as a mashup,
         // and asking costs nothing; taking three right songs out of the list does.
@@ -1210,7 +1226,7 @@ class RecognitionEngine @Inject constructor(
         val autoAdd = playlist == null || (context.dataStore.data.first()[RecogniseAutoAddKey] ?: true)
         if (current.settled) return
         when {
-            winner != null && autoAdd && current.sure -> {
+            winner != null && autoAdd && current.sure && !widens -> {
                 current.settled = true
                 answered += current.keys
                 current.found = winner
@@ -1301,6 +1317,7 @@ class RecognitionEngine @Inject constructor(
         current.candidates = found.take(MAX_CANDIDATES)
         // Searched once: every new version key of an unknown remix came back here and searched again.
         current.searched = !failed
+        if (!failed) current.searchedSongs = current.searchedSongs + MixSearch.songId(piece)
         val choices = found.take(CHOICES)
         Log.i(TAG, "Remixes and mashups of '${piece.title}': ${found.take(MAX_CANDIDATES).joinToString { "'${it.title}' ${it.duration}s" }}")
         when {

@@ -721,6 +721,19 @@ internal object MixSearch {
     fun distinctSongs(pieces: List<MixWatch.Sighting>): List<MixWatch.Sighting> =
         pieces.distinctBy { words(bareTitle(it.title)).ifEmpty { it.key } }
 
+    /** How a song is told apart from others in a mashup: its title as words, or its key if it has none. */
+    fun songId(piece: MixWatch.Sighting): String = titleOf(piece).ifEmpty { piece.key }
+
+    /**
+     * Whether an answered mashup is searched again because a song has turned up that its answer
+     * never looked for. An answer drawn from the search for one song alone (uploads of Faint,
+     * picked from or turned down while only Faint had been heard) says nothing about an upload of
+     * Faint with No Love, so the second song asks again with both names rather than being quietly
+     * taken out as one more piece. His S25U, 29 Sep: the Faint x No Love mashup was never searched.
+     */
+    fun widens(settled: Boolean, searchedSongs: Set<String>, heard: List<MixWatch.Sighting>): Boolean =
+        settled && searchedSongs.isNotEmpty() && heard.any { songId(it) !in searchedSongs }
+
     /** A piece's bare title as words: what its versions have in common. */
     fun titleOf(piece: MixWatch.Sighting): String = words(bareTitle(piece.title))
 
