@@ -9,6 +9,8 @@ Banner: 0.11 is here: Quick picks that learn how you listen
 - Long-press a card for Not this song, Less of this artist or Never this artist.
 - Dials for Adventurousness and Familiarity, and chips for Discover, Favourites, Focus, Chill and Party.
 
+Songs you have never heard was the top answer to the question about Quick picks, so there is now a **Discover something new** row, and the Discover chip gives them half of Quick picks.
+
 It is experimental and finds its feet over the first week. **Try both** mixes it with your old row, card for card, so you can see which wins.
 
 If you updated, you are still on the source you had. Switch under Settings > Library and content > Quick picks source.
