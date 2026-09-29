@@ -29,6 +29,8 @@
 
 **[Download the latest APK](https://github.com/ItzSkyeYT/InterTune/releases/latest)**
 
+[<img src="assets/badge_github.png" alt="Get it on GitHub" height="60">](https://github.com/ItzSkyeYT/InterTune/releases/latest) [<img src="assets/badge_obtainium.png" alt="Get it on Obtainium" height="60">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.skye.intertune%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FItzSkyeYT%2FInterTune%22%2C%22author%22%3A%22ItzSkyeYT%22%2C%22name%22%3A%22InterTune%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%20%5C%22core-release%5C%22%7D%22%7D)
+
 One signed APK per release. Requires Android 7.0 or later. Sideload it, or point [Obtainium](https://github.com/ImranR98/Obtainium) at this repo.
 
 From 0.10.4 onward you only need this page once. Turn update checking on and InterTune finds new releases itself, shows you what changed, and installs them with your confirmation.
