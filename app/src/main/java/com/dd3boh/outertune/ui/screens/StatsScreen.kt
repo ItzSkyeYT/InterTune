@@ -140,11 +140,15 @@ fun StatsScreen(
             )
         }
 
-        item(key = "mostPlayedSongs") {
-            NavigationTitle(
-                title = stringResource(R.string.most_played_songs),
-                modifier = Modifier.animateItem()
-            )
+        // Left out when the period has no plays, as Most played artists already is: a heading over
+        // nothing read as a list that failed to load.
+        if (mostPlayedSongs.isNotEmpty()) {
+            item(key = "mostPlayedSongs") {
+                NavigationTitle(
+                    title = stringResource(R.string.most_played_songs),
+                    modifier = Modifier.animateItem()
+                )
+            }
         }
 
         val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
