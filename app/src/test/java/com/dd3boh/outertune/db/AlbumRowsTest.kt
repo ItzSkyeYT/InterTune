@@ -86,4 +86,19 @@ class AlbumRowsTest {
     fun `a page naming no artist is not written for one, or every opening would write it`() {
         assertFalse(AlbumRows.pageAddsArtist(emptyList(), emptyList()))
     }
+
+    @Test
+    fun `a page with songs gives the album its count and length`() {
+        assertEquals(3 to 600, AlbumRows.countAfterPage(savedQueen, listOf(200, 150, 250)))
+        // An unknown length counts as nothing, as it always did.
+        assertEquals(2 to 200, AlbumRows.countAfterPage(savedQueen, listOf(200, null)))
+    }
+
+    @Test
+    fun `a page whose songs could not be read leaves the stored count and length`() {
+        // YouTube.album returns such an album with no songs now, where it used to fail and leave
+        // the row alone. Refetching a stored album that way wrote 0 over its 17.
+        assertEquals(17 to 3600, AlbumRows.countAfterPage(savedQueen, emptyList()))
+        assertEquals(0 to 0, AlbumRows.countAfterPage(savedQueen.copy(songCount = 0, duration = 0), emptyList()))
+    }
 }
