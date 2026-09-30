@@ -864,14 +864,25 @@ internal object MixSearch {
     private fun named(heard: List<MixWatch.Sighting>, item: SongItem, byArtist: Boolean): Int {
         val songs = distinctSongs(heard)
         val text = textOf(item)
-        val artists = songs.map { song -> song.artist?.let { words(primaryArtist(it)) }.orEmpty() }
-        return songs.indices.count { i ->
-            val title = titleOf(songs[i])
-            val artist = artists[i]
-            (title.length >= 3 && " $title " in text) ||
-                    (byArtist && artist.length >= 3 && artists.count { it == artist } == 1 && " $artist " in text)
-        }
+        return songs.count { namedIn(songs, it, text, byArtist) }
     }
+
+    /**
+     * Whether [item] names [song], one of the songs [heard]: by its title, or by its artist when no
+     * other song heard is by the same artist, as [songsNamed] counts them. An upload of Faint
+     * credited to Linkin Park does not name Numb as well.
+     */
+    fun namesSong(heard: List<MixWatch.Sighting>, song: MixWatch.Sighting, item: SongItem): Boolean =
+        namedIn(distinctSongs(listOf(song) + heard), song, textOf(item), byArtist = true)
+
+    private fun namedIn(songs: List<MixWatch.Sighting>, song: MixWatch.Sighting, text: String, byArtist: Boolean): Boolean {
+        val title = titleOf(song)
+        val artist = artistOf(song)
+        return (title.length >= 3 && " $title " in text) ||
+                (byArtist && artist.length >= 3 && songs.count { artistOf(it) == artist } == 1 && " $artist " in text)
+    }
+
+    private fun artistOf(song: MixWatch.Sighting): String = song.artist?.let { words(primaryArtist(it)) }.orEmpty()
 
     /**
      * [candidates] with those naming more of the songs [heard] first, and otherwise as they were:
@@ -978,14 +989,114 @@ internal object MixSearch {
     fun songId(piece: MixWatch.Sighting): String = titleOf(piece).ifEmpty { piece.key }
 
     /**
-     * Whether an answered mashup is searched again because a song has turned up that its answer
-     * never looked for. An answer drawn from the search for one song alone (uploads of Faint,
-     * picked from or turned down while only Faint had been heard) says nothing about an upload of
-     * Faint with No Love, so the second song asks again with both names rather than being quietly
-     * taken out as one more piece. His S25U, 29 Sep: the Faint x No Love mashup was never searched.
+     * The songs among [songs] that a mashup's answer does not cover, and so the mashup is searched
+     * for again with: none unless it is [settled], and none when no search of its own went into
+     * the answer ([searchedSongs] empty: it was answered in an earlier mashup).
+     *
+     * A song is covered when a search that went through looked for it ([searchedSongs], as
+     * [songId]), or when the upload [chosen], taken or picked, names it ([namesSong], among the
+     * songs [heard] in the mashup). With nothing chosen, as after None of these, only the searches
+     * cover anything.
+     *
+     * His S25U, 29 Sep: the one-song choice for Faint was answered from uploads of Faint alone,
+     * and No Love, heard a minute later, only came out as one more piece, so the search with both
+     * names never ran. But the same choice can offer a Faint x No Love upload, and once that is
+     * picked No Love is what it said: searching again for it asked the question just answered.
      */
-    fun widens(settled: Boolean, searchedSongs: Set<String>, heard: List<MixWatch.Sighting>): Boolean =
-        settled && searchedSongs.isNotEmpty() && heard.any { songId(it) !in searchedSongs }
+    fun uncovered(
+        settled: Boolean,
+        chosen: SongItem?,
+        searchedSongs: Set<String>,
+        songs: List<MixWatch.Sighting>,
+        heard: List<MixWatch.Sighting>,
+    ): List<MixWatch.Sighting> {
+        if (!settled || searchedSongs.isEmpty()) return emptyList()
+        return distinctSongs(songs).filter { song ->
+            songId(song) !in searchedSongs && (chosen == null || !namesSong(heard + songs, song, chosen))
+        }
+    }
+
+    /** [searchedSongs] with [songs] added, once a search for them has gone through. See [uncovered]. */
+    fun noted(searchedSongs: Set<String>, songs: List<MixWatch.Sighting>): Set<String> =
+        searchedSongs + distinctSongs(songs).map(::songId)
+
+    /**
+     * What becomes of a mashup once the search for its songs is back: see [outcome].
+     *
+     * @param goesOn worked out from what the search found: its uploads become the choice, and it is
+     * taken or asked about.
+     * @param mayTake taken without asking, when it is a clear winner and the songs have taken turns.
+     * @param reopens the answer given is set aside, and the question asked again.
+     * @param stands the answer given stands, and the piece that came back comes out of the list as
+     * one more of it.
+     * @param notes the songs searched for are noted ([noted]), so the same songs are not searched
+     * for again while it lasts.
+     */
+    enum class Outcome(val goesOn: Boolean, val mayTake: Boolean, val reopens: Boolean, val stands: Boolean, val notes: Boolean) {
+        /**
+         * Nothing happens: the search failed, nothing names two of the songs, or one odd window has
+         * only a toss-up.
+         */
+        LEAVE(goesOn = false, mayTake = false, reopens = false, stands = false, notes = false),
+
+        /** Nothing found names an uncovered song with the others: the answer stands. */
+        STAND(goesOn = false, mayTake = false, reopens = false, stands = true, notes = true),
+
+        /** The answer stands for now, and the next piece that comes back searches again. */
+        STAND_FOR_NOW(goesOn = false, mayTake = false, reopens = false, stands = true, notes = false),
+
+        /**
+         * An upload names an uncovered song with the others: the answer is set aside and the
+         * question asked again.
+         */
+        REOPEN(goesOn = true, mayTake = false, reopens = true, stands = false, notes = true),
+
+        /** A question asked again and not answered yet: asked, never answered by itself. */
+        ASK(goesOn = true, mayTake = false, reopens = false, stands = false, notes = true),
+
+        /** A mashup never answered: taken when clear and sure, otherwise asked. */
+        ANSWER(goesOn = true, mayTake = true, reopens = false, stands = false, notes = true),
+    }
+
+    /**
+     * What becomes of a mashup, given the songs its answer did not cover ([uncovered], empty when it
+     * has none), whether it was answered once and is being asked again ([reopened]), what the search
+     * for its songs found ([ranked], null when it failed), its [winner], whether the return was
+     * [strong], and every song [heard] in it, which tells which of them an upload names
+     * ([namesSong]).
+     *
+     * With nothing uncovered it goes on as it always has: left alone when the search failed, when
+     * nothing names two of the songs, or after one odd window with only a toss-up, and otherwise
+     * taken or asked. Once answered and asked again it is only asked, however clear the upload: the
+     * person answered it once already.
+     *
+     * With songs uncovered, the answer is set aside only for an upload naming one of them along
+     * with the others. When nothing found does, that settles it, and the songs are noted, so the
+     * pieces coming back later in the mashup do not search YouTube for them again, inline on the
+     * listening loop. A failed search, or one odd window with only a toss-up, leaves the answer
+     * standing without noting them: a later return that says more can still ask.
+     */
+    fun outcome(
+        uncovered: List<MixWatch.Sighting>,
+        reopened: Boolean,
+        ranked: List<Pair<SongItem, Int>>?,
+        winner: SongItem?,
+        strong: Boolean,
+        heard: List<MixWatch.Sighting>,
+    ): Outcome {
+        val oddWindow = winner == null && !strong
+        if (uncovered.isEmpty()) return when {
+            ranked.isNullOrEmpty() || oddWindow -> Outcome.LEAVE
+            reopened -> Outcome.ASK
+            else -> Outcome.ANSWER
+        }
+        return when {
+            ranked == null -> Outcome.STAND_FOR_NOW
+            ranked.none { (item, _) -> uncovered.any { namesSong(heard, it, item) } } -> Outcome.STAND
+            oddWindow -> Outcome.STAND_FOR_NOW
+            else -> Outcome.REOPEN
+        }
+    }
 
     /** A piece's bare title as words: what its versions have in common. */
     fun titleOf(piece: MixWatch.Sighting): String = words(bareTitle(piece.title))

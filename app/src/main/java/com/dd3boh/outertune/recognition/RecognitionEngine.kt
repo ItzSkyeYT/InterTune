@@ -306,13 +306,19 @@ class RecognitionEngine @Inject constructor(
          * read: see [MixSearch.roomSpeed]. Its uploads are searched for and fitted to it.
          */
         var speed: Double = 1.0,
+        /** The upload it was answered with, taken or picked. None while open, or after None of these. */
         var found: SongItem? = null,
         /** Answered: a clear winner was taken, or the person picked one or said none of these. */
         var settled: Boolean = false,
         /** A search went through. A failed one is tried again the next time a piece comes back. */
         var searched: Boolean = false,
-        /** The songs, as [MixSearch.songId], that [candidates] were searched for: see [MixSearch.widens]. */
+        /**
+         * The songs, as [MixSearch.songId], that searches which went through looked for, whether or
+         * not they found anything: see [MixSearch.uncovered].
+         */
         var searchedSongs: Set<String> = emptySet(),
+        /** Answered once and asked again, so never answered by itself: see [MixSearch.outcome]. */
+        var reopened: Boolean = false,
         /** When the first of its pieces was heard, since the last mashup ended. */
         var startedMs: Long = 0,
         /** When it has to be over, once it is known which upload it is and so how long it runs. */
@@ -1177,9 +1183,12 @@ class RecognitionEngine @Inject constructor(
         }
 
         val active = mix
-        // Answered from a search for fewer songs than have now been heard: asked again with them all.
-        val widens = active != null && MixSearch.widens(active.settled, active.searchedSongs, songs)
-        if (active != null && !widens && (active.settled || (active.searched && active.keys.containsAll(keys) &&
+        // Every song heard in it so far, for telling which of them an upload names.
+        val around = active?.let { it.pieces + it.heard }.orEmpty() + songs
+        // Songs its answer does not cover, neither searched for nor named by the upload chosen: the
+        // mashup is searched again with them all.
+        val uncovered = active?.let { MixSearch.uncovered(it.settled, it.found, it.searchedSongs, songs, around) }.orEmpty()
+        if (active != null && uncovered.isEmpty() && (active.settled || (active.searched && active.keys.containsAll(keys) &&
                     (active.strong || !found.strong) && (active.sure || !found.sure)))) {
             active.keys += keys
             active.lastHeardMs = now
@@ -1205,24 +1214,28 @@ class RecognitionEngine @Inject constructor(
         // What came of it, and why: which upload was taken or put first, or why none was.
         fun picked(what: String) = Log.i(TAG, "Mashup of ${titles.joinToString(" + ")}: $what")
         // Nothing on YouTube names two of the pieces, so there is no mashup to point at, and the
-        // songs heard stay as they are. One odd window with only a toss-up is left alone too.
-        // A failed search changes nothing either; the next time a piece comes back it runs again.
-        if (ranked.isNullOrEmpty() || (winner == null && !found.strong && !widens)) {
+        // songs heard stay as they are. One odd window with only a toss-up is left alone too, and
+        // so is an answer already given, unless an upload names a song it does not cover along
+        // with the others. A failed search changes nothing; the next piece to come back runs it again.
+        val outcome = MixSearch.outcome(uncovered, active?.reopened == true, ranked, winner, found.strong, around)
+        if (!outcome.goesOn || ranked == null) {
             picked(
                 when {
                     ranked == null -> "nothing picked, the search failed"
-                    ranked.isEmpty() && widens -> "nothing names them together, the earlier answer stands"
                     ranked.isEmpty() -> "nothing picked, nothing names two of them"
+                    outcome == MixSearch.Outcome.STAND -> "nothing names ${uncovered.joinToString(" or ") { "'${it.title}'" }} with the others"
                     else -> "nothing picked after one odd window: ${MixSearch.notClear(ranked, songs)}; ${MixSearch.standing(ranked, songs, speed)}"
-                }
+                } + if (outcome.stands) ", the earlier answer stands" else ""
             )
-            // Nothing names the new song with the others: it stays a piece of what was answered.
-            if (widens) active?.let {
-                it.keys += keys
-                it.lastHeardMs = now
-                it.lastCutMs = now
+            // It stays a piece of what was answered, and comes out of the list as one.
+            if (outcome.stands && active != null) {
+                active.keys += keys
+                active.lastHeardMs = now
+                active.lastCutMs = now
                 // Still heard with them: its uploads that name the new song come first at the end.
-                it.heard = (it.heard + songs).distinctBy { song -> song.key }
+                active.heard = (active.heard + songs).distinctBy { song -> song.key }
+                // Searched for with the others and found nowhere with them: not searched for again.
+                if (outcome.notes) active.searchedSongs = MixSearch.noted(active.searchedSongs, songs)
                 retract(found.pieces)
             }
             return
@@ -1238,11 +1251,18 @@ class RecognitionEngine @Inject constructor(
             heard = (heard + songs).distinctBy { it.key }
             this.speed = speed
             searched = true
-            searchedSongs = searchedSongs + songs.map { MixSearch.songId(it) }
+            searchedSongs = MixSearch.noted(searchedSongs, songs)
             startedMs = started
             candidates = ranked.take(MAX_CANDIDATES).map { it.first }
-            // The earlier answer was about fewer songs: this one is asked, never added by itself.
-            if (widens) settled = false
+            // The earlier answer did not name a song now heard with the others, and an upload does:
+            // asked again, never answered by itself, and no longer known to be the upload it was,
+            // or how long it runs.
+            if (outcome.reopens) {
+                settled = false
+                reopened = true
+                this.found = null
+                endsAtMs = null
+            }
         }
         // Only when sure. Suspicious is somebody skipping about a playlist as easily as a mashup,
         // and asking costs nothing; taking three right songs out of the list does.
@@ -1253,7 +1273,8 @@ class RecognitionEngine @Inject constructor(
         val notTaken = when {
             winner == null -> MixSearch.notClear(ranked, songs)
             !current.sure -> "the songs have taken turns only once"
-            widens -> "answered before from fewer songs, so asked again"
+            outcome.reopens -> "the answer given did not name ${uncovered.joinToString(" or ") { "'${it.title}'" }}, so asked again"
+            !outcome.mayTake -> "answered once and asked again, so never taken without asking"
             !autoAdd -> "adding without asking is off"
             else -> null
         }
@@ -1265,7 +1286,7 @@ class RecognitionEngine @Inject constructor(
             }
         )
         when {
-            winner != null && autoAdd && current.sure && !widens -> {
+            winner != null && autoAdd && current.sure && outcome.mayTake -> {
                 current.settled = true
                 answered += current.keys
                 current.found = winner
@@ -1366,7 +1387,7 @@ class RecognitionEngine @Inject constructor(
         current.candidates = found.take(MAX_CANDIDATES)
         // Searched once: every new version key of an unknown remix came back here and searched again.
         current.searched = !failed
-        if (!failed) current.searchedSongs = current.searchedSongs + MixSearch.songId(piece)
+        if (!failed) current.searchedSongs = MixSearch.noted(current.searchedSongs, listOf(piece))
         val choices = found.take(CHOICES)
         Log.i(TAG, "Remixes and mashups of '${piece.title}': ${found.take(MAX_CANDIDATES).joinToString { "'${it.title}' ${it.duration}s" }}")
         // Which of them is offered first, and why. Never taken without asking: see singleQueries.
