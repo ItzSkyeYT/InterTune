@@ -744,6 +744,63 @@ internal object MixSearch {
     }
 
     /**
+     * Where [ranked]'s first upload stands, for the log: how many of the songs [heard] it names and
+     * how many by title, its score, how far ahead of the best of the rest, and the room's [speed]
+     * when that is off. The runs of 24 and 29 Sep could only be read back from the scores of the
+     * first three, which never said why the first was first or why it was not taken.
+     */
+    fun standing(ranked: List<Pair<SongItem, Int>>, heard: List<MixWatch.Sighting>, speed: Double): String {
+        val (top, score) = ranked.firstOrNull() ?: return "nothing names two of the songs"
+        val rival = ranked.drop(1).maxByOrNull { it.second }
+        val against = rival?.let { (item, s) -> if (score > s) "${score - s} ahead of '${item.title}'" else "'${item.title}' scores $s" }
+        return listOfNotNull(
+            "${shown(top)} names ${songsNamed(heard, top)} of ${distinctSongs(heard).size} songs, ${titlesNamed(heard, top)} by title",
+            "score $score",
+            against ?: "the only one",
+            speedNote(speed),
+        ).joinToString(", ")
+    }
+
+    /** Why [ranked]'s first upload is not [clearWinner], or null when it is. */
+    fun notClear(ranked: List<Pair<SongItem, Int>>, heard: List<MixWatch.Sighting>): String? {
+        val (top, score) = ranked.firstOrNull() ?: return "nothing names two of the songs"
+        val rival = ranked.drop(1).maxByOrNull { it.second }
+        return when {
+            songsNamed(heard, top) < 2 -> "it names only ${songsNamed(heard, top)} of the songs"
+            score < CLEAR_SCORE -> "a score of $score, under $CLEAR_SCORE"
+            rival != null && score - rival.second < CLEAR_LEAD ->
+                "'${rival.first.title}' scores ${rival.second}, " + if (rival.second >= score) "as much or more" else "too close"
+            else -> null
+        }
+    }
+
+    /**
+     * Why the one-song choice [offered] puts its first upload first, for the log: it names more of
+     * the songs [heard], or says it runs at the room's [speed], or is a remix while Shazam kept
+     * naming versions ([remixFirst]), or none of these and it is YouTube's order.
+     */
+    fun firstBecause(offered: List<SongItem>, heard: List<MixWatch.Sighting>, speed: Double, remixFirst: Boolean): String {
+        val first = offered.firstOrNull() ?: return "nothing to offer"
+        val next = offered.getOrNull(1)
+        val songs = distinctSongs(heard).size
+        val named = songsNamed(heard, first)
+        val because = when {
+            next == null -> "the only one"
+            named > songsNamed(heard, next) -> "it names $named of the $songs songs heard, the next ${songsNamed(heard, next)}"
+            speedFit(first, speed) > speedFit(next, speed) -> "its title says it runs as fast as the room"
+            remixFirst && !namesSeveral(first) && namesSeveral(next) -> "a remix before mashups, Shazam having named several versions"
+            songs > 1 -> "YouTube's order, none naming more of the $songs songs heard"
+            else -> "YouTube's order"
+        }
+        return listOfNotNull(shown(first), because, speedNote(speed)).joinToString(", ")
+    }
+
+    /** An upload as the log names it: its title, and its length when known. */
+    private fun shown(item: SongItem): String = "'${item.title}'" + item.duration?.let { " ${it}s" }.orEmpty()
+
+    private fun speedNote(speed: Double): String? = if (speed == 1.0) null else "the room at x${"%.2f".format(java.util.Locale.ROOT, speed)}"
+
+    /**
      * How many of the songs [heard] [item] names: by the song's title, or by its artist when no
      * other song heard is by the same artist. An upload named after one of them cannot then come
      * before one that names them all. On his S25U on 29 Sep a Faint x No Love mashup was offered

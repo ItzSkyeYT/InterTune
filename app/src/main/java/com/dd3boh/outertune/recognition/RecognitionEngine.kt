@@ -1199,14 +1199,23 @@ class RecognitionEngine @Inject constructor(
         val titles = songs.map { it.title }
         Log.i(
             TAG,
-            "Mashup of ${titles.joinToString(" + ")}? strong=${found.strong}, " +
-                    (ranked?.take(3)?.joinToString { "'${it.first.title}' ${it.second}" } ?: "search failed") +
-                    ", taking ${winner?.title?.let { "'$it'" } ?: "nothing"}",
+            "Mashup of ${titles.joinToString(" + ")}? strong=${found.strong}, sure=${found.sure}, " +
+                    (ranked?.take(3)?.joinToString { "'${it.first.title}' ${it.second}" } ?: "search failed"),
         )
+        // What came of it, and why: which upload was taken or put first, or why none was.
+        fun picked(what: String) = Log.i(TAG, "Mashup of ${titles.joinToString(" + ")}: $what")
         // Nothing on YouTube names two of the pieces, so there is no mashup to point at, and the
         // songs heard stay as they are. One odd window with only a toss-up is left alone too.
         // A failed search changes nothing either; the next time a piece comes back it runs again.
         if (ranked.isNullOrEmpty() || (winner == null && !found.strong && !widens)) {
+            picked(
+                when {
+                    ranked == null -> "nothing picked, the search failed"
+                    ranked.isEmpty() && widens -> "nothing names them together, the earlier answer stands"
+                    ranked.isEmpty() -> "nothing picked, nothing names two of them"
+                    else -> "nothing picked after one odd window: ${MixSearch.notClear(ranked, songs)}; ${MixSearch.standing(ranked, songs, speed)}"
+                }
+            )
             // Nothing names the new song with the others: it stays a piece of what was answered.
             if (widens) active?.let {
                 it.keys += keys
@@ -1240,6 +1249,21 @@ class RecognitionEngine @Inject constructor(
         if (current.sure) retract(found.pieces)
         val autoAdd = playlist == null || (context.dataStore.data.first()[RecogniseAutoAddKey] ?: true)
         if (current.settled) return
+        val standing = MixSearch.standing(ranked, songs, speed)
+        val notTaken = when {
+            winner == null -> MixSearch.notClear(ranked, songs)
+            !current.sure -> "the songs have taken turns only once"
+            widens -> "answered before from fewer songs, so asked again"
+            !autoAdd -> "adding without asking is off"
+            else -> null
+        }
+        picked(
+            when {
+                notTaken == null -> "took it, $standing"
+                playlist == null -> "asking, $standing; not taken: $notTaken"
+                else -> "noted for the sheet, $standing; not taken: $notTaken"
+            }
+        )
         when {
             winner != null && autoAdd && current.sure && !widens -> {
                 current.settled = true
@@ -1342,6 +1366,15 @@ class RecognitionEngine @Inject constructor(
         if (!failed) current.searchedSongs = current.searchedSongs + MixSearch.songId(piece)
         val choices = found.take(CHOICES)
         Log.i(TAG, "Remixes and mashups of '${piece.title}': ${found.take(MAX_CANDIDATES).joinToString { "'${it.title}' ${it.duration}s" }}")
+        // Which of them is offered first, and why. Never taken without asking: see singleQueries.
+        Log.i(
+            TAG,
+            "One song, '${piece.title}': " + when {
+                found.isEmpty() -> if (failed) "nothing to offer, a search failed" else "nothing to offer"
+                playlist == null -> "offering ${MixSearch.firstBecause(found, current.heard + piece, current.speed, current.unknownVersion)}"
+                else -> "noted for the sheet, first ${MixSearch.firstBecause(found, current.heard + piece, current.speed, current.unknownVersion)}"
+            },
+        )
         when {
             choices.isNotEmpty() && playlist == null -> offerChoice(current, listOf(piece.title))
             choices.isNotEmpty() || !failed -> {

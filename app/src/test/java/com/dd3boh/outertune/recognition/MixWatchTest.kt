@@ -1038,4 +1038,44 @@ class MixWatchTest {
             MixSearch.rankSingle(piece, results, remixFirst = false, heard = emptyList(), speed = 1.25).map { it.id })
         assertEquals(listOf("euphoric"), MixSearch.rankSingle(piece, results, remixFirst = false, heard = emptyList(), speed = 1.0).map { it.id })
     }
+
+    @Test
+    fun `the log says why the first mashup was or was not taken`() {
+        // The Damage run: two uploads name both songs and score the same.
+        val pieces = MixWatch().observeAll(damage2)[16]!!.pieces
+        val tie = MixSearch.rank(pieces, listOf(listOf(damage, damageLyrics, otherMashup, psychofaint), listOf(damage, breakingTheHabit)), 1.0)
+        val standing = MixSearch.standing(tie, pieces, 1.0)
+        assertTrue(standing, standing.startsWith("'${damageLyrics.title}' names 2 of 2 songs, 2 by title, score 7, '"))
+        assertTrue(standing, standing.endsWith("' scores 7"))
+        assertEquals("'${otherMashup.title}' scores 7, as much or more", MixSearch.notClear(tie, pieces))
+        // Well ahead, it is taken, and the line says by how much.
+        val clear = MixSearch.rank(pieces, listOf(listOf(damageLyrics, breakingTheHabit)), 1.0)
+        assertNull(MixSearch.notClear(clear, pieces))
+        assertTrue(MixSearch.standing(clear, pieces, 1.0).endsWith("score 7, 4 ahead of '${breakingTheHabit.title}'"))
+        // One point ahead is still too close: 7 against 6, found by both queries.
+        val other = upload("close", "Faint x No Love (Mashup)", 200)
+        val close = MixSearch.rank(pieces, listOf(listOf(damageLyrics, other), listOf(other)), 1.0)
+        assertEquals("'Faint x No Love (Mashup)' scores 6, too close", MixSearch.notClear(close, pieces))
+        // A remix of one of two songs by one artist, however it scores.
+        val numb = listOf(sighting(faint, 0), sighting("numb" to ("Numb" to "Linkin Park"), 30))
+        val numbRemix = MixSearch.rank(numb, listOf(listOf(upload("r", "Linkin Park - Numb (Remix)", 200))), 1.0)
+        assertEquals("it names only 1 of the songs", MixSearch.notClear(numbRemix, numb))
+        assertTrue(MixSearch.standing(numbRemix, numb, 1.25).endsWith("the only one, the room at x1.25"))
+    }
+
+    @Test
+    fun `the log says why the one-song choice starts where it does`() {
+        val piece = sighting(faint, 0).copy(artist = "LINKIN PARK")
+        val results = listOf(faintAlone.take(7) + faintNoLove, faintAlone.drop(7))
+        val alone = MixSearch.rankSingle(piece, results, remixFirst = false, heard = emptyList(), speed = 1.0)
+        assertEquals("'${faintAlone[0].title}' 165s, YouTube's order", MixSearch.firstBecause(alone, listOf(piece), 1.0, remixFirst = false))
+        val heard = listOf(piece, sighting(noLove, 144, 191.9, 0.0418))
+        val withNoLove = MixSearch.rankSingle(piece, results, remixFirst = false, heard = heard, speed = 1.0)
+        assertEquals("'${faintNoLove.title}' 230s, it names 2 of the 2 songs heard, the next 1",
+            MixSearch.firstBecause(withNoLove, heard, 1.0, remixFirst = false))
+        val sped = listOf(upload("s", "Linkin Park - Faint (sped up)", 130), faintAlone[1])
+        assertEquals("'Linkin Park - Faint (sped up)' 130s, its title says it runs as fast as the room, the room at x1.25",
+            MixSearch.firstBecause(sped, listOf(piece), 1.25, remixFirst = false))
+        assertEquals("nothing to offer", MixSearch.firstBecause(emptyList(), listOf(piece), 1.0, remixFirst = false))
+    }
 }
