@@ -296,6 +296,11 @@ class RecognitionEngine @Inject constructor(
         var sure: Boolean = false,
         /** Its pieces as last seen, for taking out the ones a picked upload names. */
         var pieces: List<MixWatch.Sighting> = emptyList(),
+        /**
+         * Every song heard while it was being worked out, pieces or not, which the uploads that
+         * name more of come first for: see [MixSearch.songsNamed].
+         */
+        var heard: List<MixWatch.Sighting> = emptyList(),
         var found: SongItem? = null,
         /** Answered: a clear winner was taken, or the person picked one or said none of these. */
         var settled: Boolean = false,
@@ -1184,7 +1189,7 @@ class RecognitionEngine @Inject constructor(
         // Stopped or cleared while the search ran: YouTube.search catches the cancellation, so
         // without this the rest would carry on against a run that no longer exists.
         currentCoroutineContext().ensureActive()
-        val winner = ranked?.let { MixSearch.clearWinner(it) }
+        val winner = ranked?.let { MixSearch.clearWinner(it, songs) }
         val titles = songs.map { it.title }
         Log.i(
             TAG,
@@ -1201,6 +1206,8 @@ class RecognitionEngine @Inject constructor(
                 it.keys += keys
                 it.lastHeardMs = now
                 it.lastCutMs = now
+                // Still heard with them: its uploads that name the new song come first at the end.
+                it.heard = (it.heard + songs).distinctBy { song -> song.key }
                 retract(found.pieces)
             }
             return
@@ -1213,6 +1220,7 @@ class RecognitionEngine @Inject constructor(
             strong = strong || found.strong
             sure = sure || found.sure
             pieces = (found.pieces + pieces).distinctBy { it.key }
+            heard = (heard + songs).distinctBy { it.key }
             searched = true
             searchedSongs = searchedSongs + songs.map { MixSearch.songId(it) }
             startedMs = started
@@ -1313,7 +1321,10 @@ class RecognitionEngine @Inject constructor(
         // Answered while the search ran, or replaced by another: what the person said stands.
         if (current.settled || mix !== current) return
         val heard = heardSeconds(current.startedMs, now)
-        val found = MixSearch.rankSingle(piece, results, remixFirst = current.unknownVersion).filter { MixSearch.couldBe(it, heard) }
+        // What else has been heard since it began: an upload naming that too is more likely it.
+        current.heard = (current.heard + current.pieces + mixWatch.heardSince(current.startedMs)).distinctBy { it.key }
+        val found = MixSearch.rankSingle(piece, results, remixFirst = current.unknownVersion, heard = current.heard)
+            .filter { MixSearch.couldBe(it, heard) }
         current.candidates = found.take(MAX_CANDIDATES)
         // Searched once: every new version key of an unknown remix came back here and searched again.
         current.searched = !failed
@@ -1352,9 +1363,10 @@ class RecognitionEngine @Inject constructor(
         over.keys.forEach { firstHeard.remove(it) }
         if (!over.settled && over.candidates.isNotEmpty()) {
             val heard = heardSeconds(over.startedMs, over.lastHeardMs)
-            // A version Shazam does not know: its remixes still before mashups of it with others.
+            // Those naming more of the songs heard still first, whatever their length, and for a
+            // version Shazam does not know, its remixes still before mashups of it with others.
             val reordered = MixSearch.byLength(over.candidates, heard).ifEmpty { over.candidates }
-                .let { if (over.unknownVersion) it.sortedBy(MixSearch::namesSeveral) else it }
+                .let { MixSearch.byNamed(it, over.pieces + over.heard, over.unknownVersion) }
             Log.i(TAG, "Heard it for ${"%.0f".format(heard)} s: ${reordered.take(CHOICES).joinToString { "'${it.title}' ${it.duration}s" }}")
             updateChoice(over.id) { it.copy(candidates = reordered.take(CHOICES)) }
         }

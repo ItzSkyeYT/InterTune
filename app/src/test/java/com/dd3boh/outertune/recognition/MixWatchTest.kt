@@ -214,14 +214,14 @@ class MixWatchTest {
         // The upload that was playing is among the choices...
         assertTrue(damage.id in ids.take(3))
         // ...but tied at the top with a different mashup of the same two songs, so nothing is taken.
-        assertNull(MixSearch.clearWinner(ranked))
+        assertNull(MixSearch.clearWinner(ranked, pieces))
     }
 
     @Test
     fun oneMashupWellAheadIsTaken() {
         val pieces = listOf(sighting(faint, 0), sighting(noLove, 12))
         val ranked = MixSearch.rank(pieces, listOf(listOf(damageLyrics, breakingTheHabit)))
-        assertEquals(damageLyrics.id, MixSearch.clearWinner(ranked)?.id)
+        assertEquals(damageLyrics.id, MixSearch.clearWinner(ranked, pieces)?.id)
     }
 
     @Test
@@ -235,7 +235,7 @@ class MixWatchTest {
         val giant = video("giant", "Kiesza vs. Clean Bandit ft. Jess Glynne - Rather Be A Giant", "someone")
         assertTrue(MixSearch.namesUnheard(pieces, ratherBe))
         assertFalse("a mashup's own name is not a song", MixSearch.namesUnheard(pieces, giant))
-        assertNull(MixSearch.clearWinner(MixSearch.rank(pieces, listOf(listOf(ratherBe, giant), listOf(ratherBe)))))
+        assertNull(MixSearch.clearWinner(MixSearch.rank(pieces, listOf(listOf(ratherBe, giant), listOf(ratherBe))), pieces))
         // The Damage uploads list only artists and pieces that were heard.
         val damagePieces = listOf(sighting(faint, 0), sighting(noLove, 12))
         listOf(damage, damageLyrics, otherMashup).forEach { assertFalse(it.title, MixSearch.namesUnheard(damagePieces, it)) }
@@ -328,7 +328,7 @@ class MixWatchTest {
             MixSearch.singleQueries(piece.copy(artist = "LINKIN PARK")).map { it.lowercase() })
         val plain = video("2mXNRsyTitA", "Faint", "Linkin Park")
         val skillet = video("2rE9qdUKAGM", "Skillet X Linkin Park - Monster/Faint [MASHUP]", "BlueDragonCody Productions")
-        val choices = MixSearch.rankSingle(piece, listOf(listOf(damage, skillet, plain), listOf(damage)))
+        val choices = MixSearch.rankSingle(piece, listOf(listOf(damage, skillet, plain), listOf(damage)), remixFirst = false, heard = emptyList())
         // The plain song is not a remix of itself; the rest keep YouTube's order, each once.
         assertEquals(listOf(damage.id, skillet.id), choices.map { it.id })
     }
@@ -822,9 +822,9 @@ class MixWatchTest {
             listOf(item("a", "LEAN ON X LUSH LIFE (Zara Larsson, Major Lazer) [Jr Stit Mashup]"), item("b", "Lean On x Sorry (Mashup)")),
             listOf(item("c", "Major Lazer & DJ Snake - Lean On (Averez Remix)"), item("d", "Lean On vs Lose Yourself - Gustav Krantz Mashup"), item("e", "Lean On (Tiesto Remix)")),
         )
-        assertEquals(listOf("c", "e", "a", "b", "d"), MixSearch.rankSingle(piece, results, remixFirst = true).map { it.id })
+        assertEquals(listOf("c", "e", "a", "b", "d"), MixSearch.rankSingle(piece, results, remixFirst = true, heard = emptyList()).map { it.id })
         // Cut up rather than heard as several versions: as found, since that is as often a mashup.
-        assertEquals(listOf("a", "b", "c", "d", "e"), MixSearch.rankSingle(piece, results).map { it.id })
+        assertEquals(listOf("a", "b", "c", "d", "e"), MixSearch.rankSingle(piece, results, remixFirst = false, heard = emptyList()).map { it.id })
         assertTrue(MixSearch.namesSeveral(item("x", "Oliver Heldens vs Major Lazer - Lean On Gecko (Sergio Rilo Mashup)")))
         assertFalse(MixSearch.namesSeveral(item("y", "Lean On (Charli XCX Remix)")))
     }
@@ -856,5 +856,88 @@ class MixWatchTest {
         // Another version of the same song is not a new song.
         val faintRemix = "faint2" to ("Faint (Euphoric Hardstyle Remix)" to "Linkin Park")
         assertFalse(MixSearch.widens(settled = true, searchedSongs = searchedFaint, heard = listOf(sighting(faintRemix, 200))))
+    }
+
+    private fun upload(id: String, title: String, seconds: Int, channel: String = "someone") =
+        SongItem(id = id, title = title, artists = listOf(Artist(name = channel, id = null)), thumbnail = "", duration = seconds)
+
+    /**
+     * What the one-song search for Faint found on his S25U on 29 Sep, in the order it offered them
+     * (the log keeps titles and lengths, not channels). The Faint x No Love upload is made up: the
+     * log does not say which upload was playing, and the search for Faint alone did not find one.
+     */
+    private val faintAlone = listOf(
+        upload("vaint", "LINKIN PARK x СМЕШАРИКИ \u2014 VAINT [MASHUP]", 165),
+        upload("euphoric", "Faint - Linkin Park (Euphoric Hardstyle Remix)", 130),
+        upload("ultimate", "Ultimate Faint Mashup", 165),
+        upload("justdance", "Faint by Linkin Park | Just Dance Fanmade Mashup", 174),
+        upload("kaaze", "Linkin Park \u2013 Faint (Original vs KAAZE Rework) (NOID Edited Mashup)", 186),
+        upload("djorphix", "Linkin Park: Faint Demo DJOrphix Edition [Mashup]", 177),
+        upload("cryforme", "Faint x Cry For Me (Full Mashup)", 168),
+        upload("extratainment", "The Linkin Park - Faint Remix with lyrics | extratainment remix", 178),
+    )
+    private val faintNoLove = upload("faintnolove", "Faint x No Love (Mashup)", 230)
+
+    @Test
+    fun `the one-song choice puts an upload naming a song heard with it first`() {
+        val piece = sighting(faint, 0).copy(artist = "LINKIN PARK")
+        val results = listOf(faintAlone.take(7) + faintNoLove, faintAlone.drop(7))
+        // Nothing else heard: YouTube's order, as before.
+        assertEquals(faintAlone.take(7).map { it.id } + faintNoLove.id + faintAlone[7].id,
+            MixSearch.rankSingle(piece, results, remixFirst = false, heard = emptyList()).map { it.id })
+        // No Love heard as well: the upload naming both comes first, the rest keep their order.
+        val withNoLove = MixSearch.rankSingle(piece, results, remixFirst = false, heard = listOf(sighting(noLove, 133, 191.9, 0.0418)))
+        assertEquals(listOf(faintNoLove.id) + faintAlone.map { it.id }, withNoLove.map { it.id })
+    }
+
+    @Test
+    fun `length does not put an upload of Faint alone before one of Faint and No Love`() {
+        val heard = listOf(sighting(faint, 0), sighting(noLove, 133))
+        val candidates = listOf(faintNoLove) + faintAlone
+        // Heard for 180 s: the NOID edit, 186 s, fits the length best.
+        assertEquals("kaaze", MixSearch.byLength(candidates, 180.0).first().id)
+        // Still after the one that names both songs.
+        val ordered = MixSearch.byNamed(MixSearch.byLength(candidates, 180.0), heard, remixFirst = false)
+        assertEquals(listOf(faintNoLove.id, "kaaze"), ordered.take(2).map { it.id })
+    }
+
+    @Test
+    fun `an upload naming the songs by title comes before one naming a song and the artists`() {
+        val pieces = listOf(sighting(faint, 0), sighting(noLove, 133))
+        val credits = upload("credits", "Linkin Park & Eminem - Faint (Mashup)", 200)
+        // Found by both queries, the credits one scores more: 6 to 5.
+        val ranked = MixSearch.rank(pieces, listOf(listOf(credits, faintNoLove), listOf(credits)))
+        assertEquals(listOf(6, 5), listOf(credits, faintNoLove).map { c -> ranked.first { it.first.id == c.id }.second })
+        assertEquals(faintNoLove.id, ranked.first().first.id)
+        // And it is no winner while the one below it scores more.
+        assertNull(MixSearch.clearWinner(ranked, pieces))
+    }
+
+    @Test
+    fun `two songs by one artist are not both named by that artist`() {
+        val numb = "numb" to ("Numb" to "Linkin Park")
+        val pieces = listOf(sighting(faint, 0), sighting(numb, 30))
+        val numbRemix = upload("numbremix", "Linkin Park - Numb (Remix)", 200)
+        val faintNumb = upload("faintnumb", "Faint x Numb (Mashup)", 200)
+        assertEquals(1, MixSearch.songsNamed(pieces, numbRemix))
+        assertEquals(2, MixSearch.songsNamed(pieces, faintNumb))
+        // A remix of Numb alone is never taken for a mashup of Numb and Faint...
+        assertNull(MixSearch.clearWinner(MixSearch.rank(pieces, listOf(listOf(numbRemix))), pieces))
+        // ...and comes after one that names both, though they score the same.
+        val ranked = MixSearch.rank(pieces, listOf(listOf(numbRemix, faintNumb)))
+        assertEquals(listOf(faintNumb.id, numbRemix.id), ranked.map { it.first.id })
+    }
+
+    @Test
+    fun `an upload naming more of three songs heard comes first`() {
+        val nero = "nero" to ("Nero Forte" to "Slipknot")
+        val pieces = listOf(sighting(faint, 0), sighting(noLove, 133), sighting(nero, 150))
+        val three = upload("three", "Faint / No Love / Nero Forte", 250)
+        // The other mashup names two of them, with both their artists, and both queries found it:
+        // 8 points to 6. The upload naming all three is still the likelier.
+        val ranked = MixSearch.rank(pieces, listOf(listOf(otherMashup, three), listOf(otherMashup)))
+        assertEquals(listOf(6, 8), listOf(three, otherMashup).map { c -> ranked.first { it.first.id == c.id }.second })
+        assertEquals(listOf(three.id, otherMashup.id), ranked.map { it.first.id })
+        assertEquals(3, MixSearch.songsNamed(pieces, damageLyrics))
     }
 }

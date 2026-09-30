@@ -183,6 +183,10 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
     /** When [key] was last heard, if it is still in view. */
     fun lastHeard(key: String): Long? = seen.lastOrNull { it.key == key }?.atMs
 
+    /** Every song still in view that was heard at or after [sinceMs], each once, as last heard. */
+    fun heardSince(sinceMs: Long): List<Sighting> =
+        seen.filter { it.atMs >= sinceMs }.asReversed().distinctBy { it.key }.asReversed()
+
     /** Every song playing straight through the last [HOST_SPAN_MS]; see [steadyHost]. */
     private fun steadyKeys(atMs: Long): Set<String> = seen
         .filter { atMs - it.atMs <= HOST_SPAN_MS }
@@ -625,7 +629,12 @@ internal object MixSearch {
         )
     }
 
-    /** What came back, scored and ranked, best first, each once. Only results naming two pieces. */
+    /**
+     * What came back, scored and ranked, best first, each once. Only results naming two pieces.
+     * Those naming more of the songs heard come first, whatever their score: see [songsNamed].
+     * Then those naming more of them by title: "Faint x No Love" names both songs, and "Linkin
+     * Park & Eminem - Faint" one song and two artists, however many points the credits add.
+     */
     fun rank(pieces: List<MixWatch.Sighting>, results: List<List<SongItem>>): List<Pair<SongItem, Int>> {
         val scored = mutableMapOf<String, Pair<SongItem, Int>>()
         val hits = mutableMapOf<String, Int>()
@@ -638,19 +647,63 @@ internal object MixSearch {
         // Found by both queries is worth a point: the two ask different questions of the same songs.
         return scored.values
             .map { (item, score) -> item to score + if ((hits[item.id] ?: 0) > 1) 1 else 0 }
-            .sortedByDescending { it.second }
+            .sortedWith(
+                compareByDescending<Pair<SongItem, Int>> { songsNamed(pieces, it.first) }
+                    .thenByDescending { titlesNamed(pieces, it.first) }
+                    .thenByDescending { it.second }
+            )
     }
 
     /**
      * The mashup to take without asking, or null when there is none or it is a toss-up. Clear means
-     * well ahead of the next one: a tie between two uploads is exactly the Damage case, where one
-     * of them was a different mashup of the same songs.
+     * well ahead of every other one: a tie between two uploads is exactly the Damage case, where one
+     * of them was a different mashup of the same songs. And naming two of the songs [heard], as
+     * [songsNamed] counts them: two songs by one artist are not both named by that artist's name.
+     *
+     * Ahead of every other, not only of the next: [rank] puts an upload naming more of the songs
+     * first, and one naming fewer can still score more, from both artists and a mix word. That one
+     * is no winner, and neither is the one above it while it scores as much.
      */
-    fun clearWinner(ranked: List<Pair<SongItem, Int>>): SongItem? {
+    fun clearWinner(ranked: List<Pair<SongItem, Int>>, heard: List<MixWatch.Sighting>): SongItem? {
         val (top, score) = ranked.firstOrNull() ?: return null
-        val next = ranked.getOrNull(1)?.second ?: 0
-        return top.takeIf { score >= CLEAR_SCORE && score - next >= CLEAR_LEAD }
+        val rival = ranked.drop(1).maxOfOrNull { it.second } ?: 0
+        return top.takeIf { score >= CLEAR_SCORE && score - rival >= CLEAR_LEAD && songsNamed(heard, it) >= 2 }
     }
+
+    /**
+     * How many of the songs [heard] [item] names: by the song's title, or by its artist when no
+     * other song heard is by the same artist. An upload named after one of them cannot then come
+     * before one that names them all. On his S25U on 29 Sep a Faint x No Love mashup was offered
+     * uploads of Faint alone, in YouTube's order, since the search had only Faint to go on; No Love
+     * came a minute later. And an upload of Numb credited to Linkin Park names Numb, not a mashup of
+     * Numb with Faint.
+     */
+    fun songsNamed(heard: List<MixWatch.Sighting>, item: SongItem): Int = named(heard, item, byArtist = true)
+
+    /** How many of the songs [heard] [item] names by their own titles, which says more than an artist does. */
+    fun titlesNamed(heard: List<MixWatch.Sighting>, item: SongItem): Int = named(heard, item, byArtist = false)
+
+    private fun named(heard: List<MixWatch.Sighting>, item: SongItem, byArtist: Boolean): Int {
+        val songs = distinctSongs(heard)
+        val text = textOf(item)
+        val artists = songs.map { song -> song.artist?.let { words(primaryArtist(it)) }.orEmpty() }
+        return songs.indices.count { i ->
+            val title = titleOf(songs[i])
+            val artist = artists[i]
+            (title.length >= 3 && " $title " in text) ||
+                    (byArtist && artist.length >= 3 && artists.count { it == artist } == 1 && " $artist " in text)
+        }
+    }
+
+    /**
+     * [candidates] with those naming more of the songs [heard] first, and otherwise as they were:
+     * see [songsNamed]. With [remixFirst], remixes and edits before uploads of several songs, as
+     * [rankSingle] explains.
+     */
+    fun byNamed(candidates: List<SongItem>, heard: List<MixWatch.Sighting>, remixFirst: Boolean): List<SongItem> =
+        candidates.sortedWith(
+            compareByDescending<SongItem> { songsNamed(heard, it) }.thenBy { remixFirst && namesSeveral(it) }
+        )
 
     /**
      * For one song that turned out to be cut up: remixes and mashups that name it, in YouTube's own
@@ -670,15 +723,20 @@ internal object MixSearch {
      * of Lean On was offered three mashups of Lean On with Lush Life, I Took A Pill In Ibiza and
      * Sorry, none of them heard. Not when the song was cut up or went back to its top, which is as
      * often a mashup whose other half Shazam never names: I'm Beggin' For DNA was only ever DNA.
+     *
+     * Before either, the uploads that also name other songs [heard] meanwhile, as they name more of
+     * them: see [songsNamed]. A song heard along with this one says which mashup of it this is.
      */
-    fun rankSingle(piece: MixWatch.Sighting, results: List<List<SongItem>>, remixFirst: Boolean = false): List<SongItem> {
-        val title = words(bareTitle(piece.title))
-        val artist = piece.artist?.let { words(primaryArtist(it)) }.orEmpty()
-        return results.flatten().distinctBy { it.id }.filter { item ->
-            val text = " " + words(item.title + " " + item.artists.joinToString(" ") { it.name }) + " "
-            val named = (title.length >= 3 && " $title " in text) || (artist.length >= 3 && " $artist " in text)
-            named && MIX_WORDS.containsMatchIn(item.title)
-        }.let { found -> if (remixFirst) found.sortedBy { namesSeveral(it) } else found }
+    fun rankSingle(
+        piece: MixWatch.Sighting,
+        results: List<List<SongItem>>,
+        remixFirst: Boolean,
+        heard: List<MixWatch.Sighting>,
+    ): List<SongItem> {
+        val found = results.flatten().distinctBy { it.id }.filter { item ->
+            names(piece, item) && MIX_WORDS.containsMatchIn(item.title)
+        }
+        return byNamed(found, listOf(piece) + heard, remixFirst)
     }
 
     /** Whether an upload is of several songs, a mashup or a medley, rather than a remix or edit of one. */
@@ -742,7 +800,7 @@ internal object MixSearch {
 
     /** Whether [item] names [piece], by its title or its artist. */
     fun names(piece: MixWatch.Sighting, item: SongItem): Boolean {
-        val text = " " + words(item.title + " " + item.artists.joinToString(" ") { it.name }) + " "
+        val text = textOf(item)
         val title = words(bareTitle(piece.title))
         val artist = piece.artist?.let { words(primaryArtist(it)) }.orEmpty()
         return (title.length >= 3 && " $title " in text) || (artist.length >= 3 && " $artist " in text)
@@ -750,7 +808,7 @@ internal object MixSearch {
 
     /** Two points a title named, one an artist, one for a word saying it is a mix. Null under two pieces. */
     internal fun score(pieces: List<MixWatch.Sighting>, item: SongItem): Int? {
-        val text = " " + words(item.title + " " + item.artists.joinToString(" ") { it.name }) + " "
+        val text = textOf(item)
         var named = 0
         var score = 0
         for (piece in distinctSongs(pieces)) {
@@ -806,6 +864,9 @@ internal object MixSearch {
         artist.split(Regex("\\s*(,|&| feat\\.? | ft\\.? | featuring | x | with )\\s*", RegexOption.IGNORE_CASE))
             .first()
             .trim()
+
+    /** An upload's title and channel as words, padded with a space, for whole-word lookups. */
+    private fun textOf(item: SongItem): String = " " + words(item.title + " " + item.artists.joinToString(" ") { it.name }) + " "
 
     private fun words(text: String): String = text
         .lowercase()
