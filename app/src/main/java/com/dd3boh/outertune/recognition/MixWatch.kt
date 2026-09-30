@@ -637,8 +637,8 @@ internal object MixSearch {
 
     /**
      * The queries to run, most specific first. Empty when there is not enough to search with. At a
-     * [speed] clearly off, the titles once more with what uploads that fast or slow call themselves:
-     * see [speedWords].
+     * [speed] clearly off, or with [pieces] Shazam knows as sped up or slowed, the titles once more
+     * with what uploads that fast or slow call themselves: see [speedWords].
      */
     fun queries(pieces: List<MixWatch.Sighting>, speed: Double): List<String> {
         // The two most heard of each. More only narrows the search onto nothing.
@@ -649,7 +649,7 @@ internal object MixSearch {
         return listOfNotNull(
             "$both mashup",
             artists.takeIf { it.size >= 2 }?.joinToString(" ", postfix = " mashup"),
-        ) + speedWords(speed).map { "$both $it" }
+        ) + speedWords(speed, pieces).map { "$both $it" }
     }
 
     /**
@@ -672,11 +672,28 @@ internal object MixSearch {
      * more than a DJ plays a track ([SPED_UP_SPEED], [SLOWED_SPEED]). Past a fifth faster,
      * nightcore as well as sped up, which is how uploads that fast are as often named.
      */
-    fun speedWords(speed: Double): List<String> = when {
-        speed >= NIGHTCORE_SPEED -> listOf("sped up", "nightcore")
-        speed >= SPED_UP_SPEED -> listOf("sped up")
-        speed <= SLOWED_SPEED -> listOf("slowed")
-        else -> emptyList()
+    fun speedWords(speed: Double, heard: List<MixWatch.Sighting> = emptyList()): List<String> = wordSpeed(speed, heard).let { at ->
+        when {
+            at >= NIGHTCORE_SPEED -> listOf("sped up", "nightcore")
+            at >= SPED_UP_SPEED -> listOf("sped up")
+            at <= SLOWED_SPEED -> listOf("slowed")
+            else -> emptyList()
+        }
+    }
+
+    /**
+     * The speed that words in titles are judged against: [speed], unless the room plays at speed
+     * and every song [heard] is itself a sped-up or slowed recording by the title Shazam knows it
+     * under. Shazam knows official sped-up releases, "Faint (Sped Up)", and matches them at their own
+     * speed, so a room playing one reads as at speed, and it is uploads saying they are sped up that
+     * fit, not those at the original's speed. Lengths still go by [speed], which is what Shazam
+     * measured against those recordings.
+     */
+    private fun wordSpeed(speed: Double, heard: List<MixWatch.Sighting>): Double = when {
+        heard.isEmpty() || kotlin.math.abs(speed - 1) >= PlaybackVariant.TOLERANCE -> speed
+        heard.all { SPED.containsMatchIn(it.title) } -> SPED_UP_SPEED
+        heard.all { SLOWED.containsMatchIn(it.title) } -> SLOWED_SPEED
+        else -> speed
     }
 
     /**
@@ -689,15 +706,19 @@ internal object MixSearch {
      * Well fast is past [SPED_UP_SPEED]. A room only a few percent off is playing a DJ edit or a
      * track pitched to the next, which a sped-up upload, running a fifth to a third fast, is not
      * either: its words then count neither for it nor against it.
+     *
+     * With the songs [heard], a room at speed playing recordings Shazam knows as sped up or slowed
+     * counts as playing that fast or slow: see [wordSpeed].
      */
-    fun speedFit(item: SongItem, speed: Double): Int {
+    fun speedFit(item: SongItem, speed: Double, heard: List<MixWatch.Sighting> = emptyList()): Int {
         val sped = SPED.containsMatchIn(item.title)
         val slowed = SLOWED.containsMatchIn(item.title)
+        val at = wordSpeed(speed, heard)
         return when {
-            speed >= SPED_UP_SPEED -> if (sped) 1 else if (slowed) -1 else 0
-            speed <= SLOWED_SPEED -> if (slowed) 1 else if (sped) -1 else 0
-            speed >= 1 + PlaybackVariant.TOLERANCE -> if (slowed) -1 else 0
-            speed <= 1 - PlaybackVariant.TOLERANCE -> if (sped) -1 else 0
+            at >= SPED_UP_SPEED -> if (sped) 1 else if (slowed) -1 else 0
+            at <= SLOWED_SPEED -> if (slowed) 1 else if (sped) -1 else 0
+            at >= 1 + PlaybackVariant.TOLERANCE -> if (slowed) -1 else 0
+            at <= 1 - PlaybackVariant.TOLERANCE -> if (sped) -1 else 0
             else -> if (sped || slowed) -1 else 0
         }
     }
@@ -728,13 +749,14 @@ internal object MixSearch {
      * many points the other scores, and at speed a sped-up or slowed upload is not what plays.
      * Then those naming more of the songs by title: "Faint x No Love" names both songs, and
      * "Linkin Park & Eminem - Faint" one song and two artists, however many points the credits
-     * add. The score counts a point more for agreeing with the speed and one less for not.
+     * add. The score counts a point more for agreeing with the speed and one less for not; with the
+     * [pieces] as Shazam knows them, a mashup of sped-up releases is sped up too.
      */
     fun rank(pieces: List<MixWatch.Sighting>, results: List<List<SongItem>>, speed: Double): List<Pair<SongItem, Int>> {
         val scored = mutableMapOf<String, Pair<SongItem, Int>>()
         val hits = mutableMapOf<String, Int>()
         for (list in results) for (item in list) {
-            val score = (score(pieces, item) ?: continue) + speedFit(item, speed)
+            val score = (score(pieces, item) ?: continue) + speedFit(item, speed, pieces)
             hits[item.id] = (hits[item.id] ?: 0) + 1
             val best = scored[item.id]
             if (best == null || best.second < score) scored[item.id] = item to score
@@ -744,7 +766,7 @@ internal object MixSearch {
             .map { (item, score) -> item to score + if ((hits[item.id] ?: 0) > 1) 1 else 0 }
             .sortedWith(
                 compareByDescending<Pair<SongItem, Int>> { songsNamed(pieces, it.first) }
-                    .thenByDescending { speedFit(it.first, speed) }
+                    .thenByDescending { speedFit(it.first, speed, pieces) }
                     .thenByDescending { titlesNamed(pieces, it.first) }
                     .thenByDescending { it.second }
             )
@@ -810,7 +832,7 @@ internal object MixSearch {
         val because = when {
             next == null -> "the only one"
             named > songsNamed(heard, next) -> "it names $named of the $songs songs heard, the next ${songsNamed(heard, next)}"
-            speedFit(first, speed) > speedFit(next, speed) -> "its title says it runs as fast as the room"
+            speedFit(first, speed, heard) > speedFit(next, speed, heard) -> "its title says it runs as fast as the room"
             remixFirst && !namesSeveral(first) && namesSeveral(next) -> "a remix before mashups, Shazam having named several versions"
             songs > 1 -> "YouTube's order, none naming more of the $songs songs heard"
             else -> "YouTube's order"
@@ -850,26 +872,28 @@ internal object MixSearch {
 
     /**
      * [candidates] with those naming more of the songs [heard] first, and otherwise as they were:
-     * see [songsNamed]. Then those whose titles agree with the room's [speed] ([speedFit]), and
+     * see [songsNamed]. Then those whose titles agree with the room's [speed], or with the songs
+     * [heard] when Shazam knows them as sped up or slowed ([speedFit]), and
      * with [remixFirst], remixes and edits before uploads of several songs, as [rankSingle] explains.
      */
     fun byNamed(candidates: List<SongItem>, heard: List<MixWatch.Sighting>, remixFirst: Boolean, speed: Double): List<SongItem> =
         candidates.sortedWith(
             compareByDescending<SongItem> { songsNamed(heard, it) }
-                .thenByDescending { speedFit(it, speed) }
+                .thenByDescending { speedFit(it, speed, heard) }
                 .thenBy { remixFirst && namesSeveral(it) }
         )
 
     /**
      * For one song that turned out to be cut up: remixes and mashups that name it, in YouTube's own
      * order, which for "Faint Linkin Park mashup" put the Damage upload first. Never taken without
-     * asking, since one song has many of them. At a [speed] clearly off, the song once more with
-     * what uploads that fast or slow call themselves: see [speedWords].
+     * asking, since one song has many of them. At a [speed] clearly off, or for a [piece] Shazam
+     * knows as sped up or slowed, the song once more with what uploads that fast or slow call
+     * themselves: see [speedWords].
      */
     fun singleQueries(piece: MixWatch.Sighting, speed: Double): List<String> {
         val base = listOfNotNull(bareTitle(piece.title), piece.artist?.let(::primaryArtist))
             .filter { it.isNotBlank() }.joinToString(" ")
-        return if (base.isBlank()) emptyList() else listOf("$base mashup", "$base remix") + speedWords(speed).map { "$base $it" }
+        return if (base.isBlank()) emptyList() else listOf("$base mashup", "$base remix") + speedWords(speed, listOf(piece)).map { "$base $it" }
     }
 
     /**
@@ -883,7 +907,10 @@ internal object MixSearch {
      * Before either, the uploads that also name other songs [heard] meanwhile, as they name more of
      * them: see [songsNamed]. A song heard along with this one says which mashup of it this is.
      * Then those that say they are as fast or as slow as the room's [speed]: an upload of the song
-     * sped up is a version of it too, and taken as one when the room plays that fast.
+     * sped up is a version of it too, and taken as one when the room plays that fast. Only as
+     * Shazam measured it, not as the title it knows the song under says: when that is the song's
+     * own sped-up release, matched at speed, the release is the recording found cut up, not what
+     * plays, though sped-up mashups of it still come first ([speedFit]).
      */
     fun rankSingle(
         piece: MixWatch.Sighting,

@@ -1138,6 +1138,42 @@ class MixWatchTest {
         assertEquals(listOf("Faint Linkin Park mashup", "Faint Linkin Park remix"), MixSearch.singleQueries(piece, 1.07))
     }
 
+    @Test
+    fun `songs Shazam knows as sped up make sped-up uploads fit at speed`() {
+        // Shazam knows official sped-up releases and matches them at their own speed, so a room
+        // playing a mashup of them reads as at speed.
+        val spedFaint = "spedfaint" to ("Faint (Sped Up)" to "Linkin Park")
+        val spedNoLove = "spednolove" to ("No Love (Sped Up)" to "Eminem")
+        val pieces = listOf(sighting(spedFaint, 0), sighting(spedNoLove, 133))
+        val sped = upload("sped", "Faint x No Love (sped up)", 200)
+        val plain = upload("plain", "Faint x No Love (Mashup)", 220)
+        val slowed = upload("slowed", "Faint x No Love (slowed + reverb)", 250)
+        assertEquals(listOf(1, 0, -1), listOf(sped, plain, slowed).map { MixSearch.speedFit(it, 1.0, pieces) })
+        // Songs heard as themselves, or only one of them sped up: a sped-up upload is not what plays.
+        val asThemselves = listOf(sighting(faint, 0), sighting(noLove, 133))
+        assertEquals(listOf(-1, 0, -1), listOf(sped, plain, slowed).map { MixSearch.speedFit(it, 1.0, asThemselves) })
+        val oneOfThem = listOf(sighting(spedFaint, 0), sighting(noLove, 133))
+        assertEquals(listOf(-1, 0, -1), listOf(sped, plain, slowed).map { MixSearch.speedFit(it, 1.0, oneOfThem) })
+        // Slowed ones the same way.
+        val slowedPieces = listOf(sighting("slowedfaint" to ("Faint (Slowed + Reverb)" to "Linkin Park"), 0))
+        assertEquals(listOf(-1, 0, 1), listOf(sped, plain, slowed).map { MixSearch.speedFit(it, 1.0, slowedPieces) })
+        // Ranked, searched for, and put first in the log's words accordingly.
+        assertEquals(listOf("sped", "plain"), MixSearch.rank(pieces, listOf(listOf(plain, sped)), 1.0).map { it.first.id })
+        assertEquals(listOf("Faint No Love mashup", "Linkin Park Eminem mashup", "Faint No Love sped up"), MixSearch.queries(pieces, 1.0))
+        assertEquals("'Faint x No Love (sped up)' 200s, its title says it runs as fast as the room",
+            MixSearch.firstBecause(listOf(sped, plain), pieces, 1.0, remixFirst = false))
+
+        // One song cut up: its sped-up mashups first. The sped-up release itself, with no word saying
+        // it is a mix, is the recording Shazam matched and found cut up, so it is not offered.
+        val piece = sighting(spedFaint, 0)
+        val results = listOf(listOf(
+            upload("mash", "Faint Mashup", 180), upload("spedmash", "Faint Mashup (sped up)", 150),
+            upload("release", "Linkin Park - Faint (Sped Up)", 130),
+        ))
+        assertEquals(listOf("spedmash", "mash"), MixSearch.rankSingle(piece, results, remixFirst = false, heard = emptyList(), speed = 1.0).map { it.id })
+        assertEquals(listOf("Faint Linkin Park mashup", "Faint Linkin Park remix", "Faint Linkin Park sped up"), MixSearch.singleQueries(piece, 1.0))
+    }
+
     /**
      * An edit of DNA. that goes back to its top and stops short, as I'm Beggin' For DNA does, and
      * then HUMBLE. from its own top. The engine settles DNA. as an edit only once HUMBLE. has played
