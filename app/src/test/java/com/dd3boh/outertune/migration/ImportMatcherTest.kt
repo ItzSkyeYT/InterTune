@@ -79,6 +79,22 @@ class ImportMatcherTest {
     }
 
     @Test
+    fun `a version written after a dash finds the same version in brackets`() = runBlocking {
+        // The 29 Sep import test: ranked first, and still sent to review at 0.70.
+        val fake = FakeSearch(
+            mapOf(
+                "Hide - CS01 Version Dorian Concept" to listOf(
+                    song("Hide (CS01 Version)", "Dorian Concept", 182, id = "cs01"),
+                    song("Hide", "Dorian Concept", 181, id = "plain"),
+                )
+            )
+        )
+        val outcome = matcher(fake).resolve(track("Hide - CS01 Version", "Dorian Concept", seconds = 181))
+        assertTrue("got $outcome", outcome is Outcome.Matched)
+        assertEquals("cs01", (outcome as Outcome.Matched).best.candidate.id)
+    }
+
+    @Test
     fun `nothing for the title and artist falls back to the title, then gives up`() = runBlocking {
         val fake = FakeSearch(emptyMap())
         val outcome = matcher(fake).resolve(track("Obscure B-side", "Nobody Knows", seconds = 180))

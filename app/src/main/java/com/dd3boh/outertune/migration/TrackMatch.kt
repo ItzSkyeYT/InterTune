@@ -60,6 +60,15 @@ data class Scored(
          *
          * The practical reading: the review screen is not a fallback for this feature, it is part
          * of it. See MatchRateProbe, which prints the sweep this came from.
+         *
+         * Read again on 30 Sep 2026, after a version after a dash and one in brackets were made to
+         * clean alike, over 300 played songs of the same library with the searches replayed so that
+         * both runs scored the same candidates. The verbatim pass did not move: 78 percent imported
+         * and one wrong. The rewritten pass went from 65 to 64 percent with the same six wrong, five
+         * of them from the rewrite that drops the duration, where a perfect name alone scores 0.875.
+         * A pass with versions written after a dash, as Spotify does, went from 75 to 81 percent
+         * with none wrong. On the first 60, 0.84 is now the lowest threshold with nothing wrong in
+         * the rewritten pass, where before it had one step to spare.
          */
         const val CONFIDENT = 0.84
     }
@@ -150,30 +159,93 @@ private fun similarity(a: String, b: String): Double {
 }
 
 /**
- * Everything one catalogue adds and another does not.
+ * Featured-artist forms, bracketed or bare, which one catalogue puts in the title and another in
+ * the artist list.
  *
- * The list is the decoration actually seen on exports and on YouTube: remaster years, single and
- * album version tags, featured-artist forms, and the upload furniture YouTube carries that no
- * service's export ever does.
+ * Taken out before the version tags, because the bare form runs until the next dash or bracket and
+ * needs them still there to know where to stop. It stops at a closing bracket too: YouTube writes
+ * "Get Lucky (Radio Edit - feat. Pharrell Williams and Nile Rodgers)", and eating the bracket's end
+ * would leave "Radio Edit" outside any tag.
  */
-private val NOISE = Regex(
+private val FEATURED = Regex(
     "\\((?:feat|ft|with|featuring)[^)]*\\)" +
             "|\\[(?:feat|ft|with|featuring)[^\\]]*\\]" +
-            "|\\b(?:feat|ft|featuring)\\.?\\s+[^-\\[(]*" +
-            "|\\((?:[^)]*\\b(?:remaster|remastered|single|album|radio|mono|stereo|deluxe|bonus|version|edit|mix)\\b[^)]*)\\)" +
-            "|\\[[^\\]]*\\b(?:remaster|remastered|single|album|radio|version|edit|mix)\\b[^\\]]*\\]" +
-            "|\\b(?:official\\s+(?:music\\s+)?video|official\\s+audio|lyrics?\\s+video|lyrics?|audio|hd|hq|4k|mv)\\b" +
+            "|\\b(?:feat|ft|featuring)\\.?\\s+[^-\u2013\u2014\\[\\]()]*",
+    RegexOption.IGNORE_CASE,
+)
+
+/**
+ * A dash with a space each side and outside any bracket, which is how Spotify and Apple Music set a
+ * version apart from the title. Not the hyphen in "Jay-Z", and not the one in "(Sped Up - Remix)".
+ */
+private val DASH = Regex("\\s+[-\u2013\u2014]\\s+(?![^()\\[\\]]*[)\\]])")
+
+/** One bracket with no bracket inside it. */
+private val BRACKET = Regex("\\([^()]*\\)|\\[[^\\[\\]]*\\]")
+
+/**
+ * The words in a version tag that say nothing about which recording it is.
+ *
+ * A remaster, the single or album version, the original mix and a radio edit are the track under
+ * another label. A radio edit is shorter, but that is duration's job to notice, not the title's.
+ */
+private val GENERIC = Regex(
+    "\\b(?:version|edit|mix|remaster(?:ed)?|digital|single|album|radio|mono|stereo|deluxe|bonus|track|edition|original|(?:19|20)\\d{2})\\b",
+    RegexOption.IGNORE_CASE,
+)
+private val WORD = Regex("[\\p{L}\\p{N}]+")
+private val YEAR = Regex("(?:19|20)\\d{2}")
+
+/**
+ * The version tags in [text], bracketed or after a dash, all cleaned by [versionTag].
+ *
+ * The two forms used to go through different rules. A bracket holding "version", "edit", "mix" or
+ * "remaster" was deleted whole, while a dash suffix lost only "- Single Version" and a few like it.
+ * Spotify writes the version after a dash and YouTube in brackets, so the same recording came out
+ * two ways: Spotify's "Hide - CS01 Version" stayed "hide cs01 version" while YouTube's "Hide (CS01
+ * Version)" became plain "hide", and the right answer, ranked first, went to review. Deleting the
+ * bracket whole also threw away the part that tells versions apart, so "(Slowed Version)" and
+ * "(Live Version)" read as the song itself.
+ *
+ * Only what follows a dash is a tag. What comes before the first one is left alone, since an
+ * upload titled "Artist - Title" has the title there.
+ */
+private fun versionTags(text: String): String =
+    text.split(DASH).mapIndexed { i, part ->
+        val inner = BRACKET.replace(part) { versionTag(it.value) }
+        if (i == 0) inner else versionTag(inner)
+    }.joinToString(" ")
+
+/**
+ * [tag] without its generic words, if it is a version tag at all, and untouched if it is not.
+ *
+ * It is one when its last word, years aside, is generic: "CS01 Version", "Extended Mix", "Radio
+ * Edit", "Remastered 2011". What else it holds is what tells the versions apart and stays: "cs01",
+ * "extended", "slowed", "live", a remixer's name. A tag that does not end that way is kept whole,
+ * which leaves "(Sittin' On)", "(Slowed)" and "- Skrillex Remix" as they were, and keeps a title
+ * after a dash, like "Radio Ga Ga", from losing a word.
+ */
+private fun versionTag(tag: String): String {
+    val last = WORD.findAll(tag).map { it.value }.lastOrNull { !YEAR.matches(it) } ?: return tag
+    return if (GENERIC.matches(last)) tag.replace(GENERIC, " ") else tag
+}
+
+/**
+ * The upload furniture YouTube carries that no service's export ever does, and remaster notes
+ * written into the title itself rather than set off as a tag.
+ */
+private val NOISE = Regex(
+    "\\b(?:official\\s+(?:music\\s+)?video|official\\s+audio|lyrics?\\s+video|lyrics?|audio|hd|hq|4k|mv)\\b" +
             "|\\b(?:remaster(?:ed)?)\\s*\\d{0,4}" +
             // Spotify writes the year first as often as last: "- 2013 Remaster" beside
             // "- Remastered 2011". Only the second form was stripped, which left "2013" in the
             // title and cost the import probe's Hotel California a fifth of its title score.
-            "|\\b\\d{4}\\s+(?:digital\\s+)?remaster(?:ed)?\\b" +
-            "|\\s+-\\s+(?:single|album|radio|mono|stereo)\\s+version\\b",
+            "|\\b\\d{4}\\s+(?:digital\\s+)?remaster(?:ed)?\\b",
     RegexOption.IGNORE_CASE,
 )
 
 /** Latin letters keep their identity when an export strips or adds accents; everything else goes. */
-internal fun normalise(text: String): String = text
+internal fun normalise(text: String): String = versionTags(text.replace(FEATURED, " "))
     .replace(NOISE, " ")
     .lowercase()
     .let { stripAccents(it) }
