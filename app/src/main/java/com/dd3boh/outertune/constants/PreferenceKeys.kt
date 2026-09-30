@@ -291,6 +291,13 @@ val PlayerButtonsStyleKey = stringPreferencesKey("playerButtonsStyle")
  */
 val QueueButtonKey = booleanPreferencesKey("queueButton")
 
+/**
+ * The two buttons the phone's media controls show beside previous, play and next, in order, as
+ * names joined by a comma. Missing means shuffle then repeat, which is what they always showed.
+ * See [com.dd3boh.outertune.playback.MediaControlButtons].
+ */
+val MediaControlButtonsKey = stringPreferencesKey("mediaControlButtons")
+
 
 /**
  * Non-settings UI preferences
