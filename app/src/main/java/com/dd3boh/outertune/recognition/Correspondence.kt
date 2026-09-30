@@ -130,7 +130,7 @@ enum class PlaybackVariant { ORIGINAL, FASTER, SLOWER;
 
     companion object {
         /** Below this a difference is jitter, not an edit. Shazam's own timeskew sits near 0.004. */
-        private const val TOLERANCE = 0.06
+        internal const val TOLERANCE = 0.06
 
         fun between(first: Recognised, second: Recognised, secondsApart: Double): PlaybackVariant {
             if (secondsApart <= 0.0) return ORIGINAL
@@ -192,8 +192,10 @@ internal fun isSecondListen(
             Timeline.continues(first.offsetSeconds, firstAtMs, second.offsetSeconds, secondAtMs, second.timeSkew)
 }
 
-private val SLOWED = Regex("slowed|slow(ed)? ?\\+ ?reverb|daycore|screwed", RegexOption.IGNORE_CASE)
-private val SPED = Regex("sped ?up|speed ?up|nightcore|fast(er)? version", RegexOption.IGNORE_CASE)
+/** What a slowed upload says it is. MixSearch reads the same words. */
+internal val SLOWED = Regex("slowed|slow(ed)? ?\\+ ?reverb|daycore|screwed", RegexOption.IGNORE_CASE)
+/** What a sped-up upload says it is. */
+internal val SPED = Regex("sped ?up|speed ?up|nightcore|fast(er)? version", RegexOption.IGNORE_CASE)
 
 /**
  * Chooses which YouTube result to add, given how the room's copy is actually playing.

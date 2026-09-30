@@ -301,6 +301,11 @@ class RecognitionEngine @Inject constructor(
          * name more of come first for: see [MixSearch.songsNamed].
          */
         var heard: List<MixWatch.Sighting> = emptyList(),
+        /**
+         * How fast the room plays it, 1 being as its songs were recorded, from the speeds Shazam
+         * read: see [MixSearch.roomSpeed]. Its uploads are searched for and fitted to it.
+         */
+        var speed: Double = 1.0,
         var found: SongItem? = null,
         /** Answered: a clear winner was taken, or the person picked one or said none of these. */
         var settled: Boolean = false,
@@ -1185,7 +1190,8 @@ class RecognitionEngine @Inject constructor(
         }
 
         val started = active?.startedMs?.takeIf { it > 0 } ?: startOf(keys, now)
-        val ranked = searchMix(songs)?.filter { MixSearch.couldBe(it.first, heardSeconds(started, now)) }
+        val speed = MixSearch.roomSpeed(songs.map { mixWatch.speedOf(it.key) ?: (1.0 + it.skew) })
+        val ranked = searchMix(songs, speed)?.filter { MixSearch.couldBe(it.first, heardSeconds(started, now), speed) }
         // Stopped or cleared while the search ran: YouTube.search catches the cancellation, so
         // without this the rest would carry on against a run that no longer exists.
         currentCoroutineContext().ensureActive()
@@ -1221,6 +1227,7 @@ class RecognitionEngine @Inject constructor(
             sure = sure || found.sure
             pieces = (found.pieces + pieces).distinctBy { it.key }
             heard = (heard + songs).distinctBy { it.key }
+            this.speed = speed
             searched = true
             searchedSongs = searchedSongs + songs.map { MixSearch.songId(it) }
             startedMs = started
@@ -1238,7 +1245,7 @@ class RecognitionEngine @Inject constructor(
                 current.settled = true
                 answered += current.keys
                 current.found = winner
-                current.endsAtMs = endOf(current.startedMs, winner)
+                current.endsAtMs = endOf(current.startedMs, winner, current.speed)
                 dropChoice(current.id)
                 // The sheet's stand-in for the choice goes the same way, from every run of this
                 // mashup, and so does a note naming this very upload. Left, it listed the mashup as
@@ -1308,8 +1315,12 @@ class RecognitionEngine @Inject constructor(
         updateChoice(current.id) { it.copy(keys = it.keys + allKeys) }
         if (current.settled || current.searched) return
 
+        // Speeds read off several versions Shazam knows, each against its own recording, say
+        // nothing about the one playing.
+        current.speed = if (current.unknownVersion) 1.0
+        else MixSearch.roomSpeed(MixSearch.distinctSongs(current.pieces).map { mixWatch.speedOf(it.key) ?: (1.0 + it.skew) })
         var failed = false
-        val results = MixSearch.singleQueries(piece).map { query ->
+        val results = MixSearch.singleQueries(piece, current.speed).map { query ->
             YouTube.search(query, YouTube.SearchFilter.FILTER_VIDEO)
                 .onFailure {
                     failed = true
@@ -1323,8 +1334,8 @@ class RecognitionEngine @Inject constructor(
         val heard = heardSeconds(current.startedMs, now)
         // What else has been heard since it began: an upload naming that too is more likely it.
         current.heard = (current.heard + current.pieces + mixWatch.heardSince(current.startedMs)).distinctBy { it.key }
-        val found = MixSearch.rankSingle(piece, results, remixFirst = current.unknownVersion, heard = current.heard)
-            .filter { MixSearch.couldBe(it, heard) }
+        val found = MixSearch.rankSingle(piece, results, remixFirst = current.unknownVersion, heard = current.heard, speed = current.speed)
+            .filter { MixSearch.couldBe(it, heard, current.speed) }
         current.candidates = found.take(MAX_CANDIDATES)
         // Searched once: every new version key of an unknown remix came back here and searched again.
         current.searched = !failed
@@ -1365,8 +1376,8 @@ class RecognitionEngine @Inject constructor(
             val heard = heardSeconds(over.startedMs, over.lastHeardMs)
             // Those naming more of the songs heard still first, whatever their length, and for a
             // version Shazam does not know, its remixes still before mashups of it with others.
-            val reordered = MixSearch.byLength(over.candidates, heard).ifEmpty { over.candidates }
-                .let { MixSearch.byNamed(it, over.pieces + over.heard, over.unknownVersion) }
+            val reordered = MixSearch.byLength(over.candidates, heard, over.speed).ifEmpty { over.candidates }
+                .let { MixSearch.byNamed(it, over.pieces + over.heard, over.unknownVersion, over.speed) }
             Log.i(TAG, "Heard it for ${"%.0f".format(heard)} s: ${reordered.take(CHOICES).joinToString { "'${it.title}' ${it.duration}s" }}")
             updateChoice(over.id) { it.copy(candidates = reordered.take(CHOICES)) }
         }
@@ -1379,7 +1390,7 @@ class RecognitionEngine @Inject constructor(
     private fun refreshChoice(active: ActiveMix) {
         if (active.settled || active.candidates.isEmpty()) return
         val heard = heardSeconds(active.startedMs, active.lastHeardMs)
-        val still = active.candidates.filter { MixSearch.couldBe(it, heard) }
+        val still = active.candidates.filter { MixSearch.couldBe(it, heard, active.speed) }
         if (still.size == active.candidates.size || still.isEmpty()) return
         active.candidates = still
         updateChoice(active.id) { it.copy(candidates = still.take(CHOICES)) }
@@ -1433,15 +1444,19 @@ class RecognitionEngine @Inject constructor(
 
     /**
      * When a mashup that started being heard at [startedMs] has to be over, given which upload it
-     * is. Late rather than early, since what played before its first recognised window is unknown.
+     * is and how fast the room plays it ([MixSearch.roomLength]). Late rather than early, since what
+     * played before its first recognised window is unknown.
      */
-    private fun endOf(startedMs: Long, song: SongItem): Long? =
-        song.duration?.let { startedMs + it * 1000L + MIX_END_MARGIN_MS }
+    private fun endOf(startedMs: Long, song: SongItem, speed: Double): Long? =
+        MixSearch.roomLength(song, speed)?.let { startedMs + (it * 1000).toLong() + MIX_END_MARGIN_MS }
 
-    /** Ranked mashups naming two of [songs], or null when a search failed and found nothing. */
-    private suspend fun searchMix(songs: List<MixWatch.Sighting>): List<Pair<SongItem, Int>>? {
+    /**
+     * Ranked mashups naming two of [songs], heard at [speed], or null when a search failed and
+     * found nothing.
+     */
+    private suspend fun searchMix(songs: List<MixWatch.Sighting>, speed: Double): List<Pair<SongItem, Int>>? {
         var failed = false
-        val results = MixSearch.queries(songs).map { query ->
+        val results = MixSearch.queries(songs, speed).map { query ->
             YouTube.search(query, YouTube.SearchFilter.FILTER_VIDEO)
                 .onFailure {
                     failed = true
@@ -1449,7 +1464,7 @@ class RecognitionEngine @Inject constructor(
                 }
                 .getOrNull()?.items?.filterIsInstance<SongItem>()?.take(10).orEmpty()
         }
-        return MixSearch.rank(songs, results).takeUnless { failed && it.isEmpty() }
+        return MixSearch.rank(songs, results, speed).takeUnless { failed && it.isEmpty() }
     }
 
     /**
@@ -1513,7 +1528,7 @@ class RecognitionEngine @Inject constructor(
                 answered += keys
                 found = song
                 settled = true
-                endsAtMs = endOf(startedMs, song)
+                endsAtMs = endOf(startedMs, song, speed)
                 // Picked, so it was a mashup: the songs it names come out, and only those.
                 retract(pieces.filter { MixSearch.names(it, song) })
             }
