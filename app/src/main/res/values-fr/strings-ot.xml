@@ -1273,4 +1273,23 @@
         <item quantity="many">%1$d encore à vérifier. Ils sont écartés sauf si vous en choisissez un.</item>
         <item quantity="other">%1$d encore à vérifier. Ils sont écartés sauf si vous en choisissez un.</item>
     </plurals>
+    <!-- Casting, behind Unreleased.CASTING -->
+    <string name="cast">Caster</string>
+    <string name="cast_to">Caster vers</string>
+    <string name="cast_playing_on">Lecture sur %1$s</string>
+    <string name="cast_connecting_to">Connexion à %1$s</string>
+    <string name="cast_stop">Arrêter de caster</string>
+    <string name="cast_searching">Recherche de récepteurs sur ce Wi-Fi</string>
+    <string name="cast_about">Caste vers les récepteurs FCast, les appareils Chromecast et Google TV, et les téléviseurs et enceintes DLNA du même Wi-Fi. FCast demande l\'application FCast Receiver sur le téléviseur ou l\'ordinateur. Le téléphone reste allumé et envoie la musique pendant le cast.</string>
+    <string name="cast_add_by_address">Ajouter par adresse</string>
+    <string name="cast_address_hint">192.168.1.20 pour FCast, chromecast 192.168.1.21, ou l\'URL de description DLNA</string>
+    <string name="cast_address_invalid">Adresse inutilisable</string>
+    <string name="cast_needs_wifi">Le cast nécessite le Wi-Fi</string>
+    <string name="cast_could_not_reach">Impossible de joindre %1$s</string>
+    <string name="cast_not_a_receiver">%1$s n\'est pas un récepteur utilisable</string>
+    <string name="cast_hung_up">%1$s a coupé la connexion</string>
+    <string name="cast_stopped_answering">%1$s ne répond plus</string>
+    <string name="cast_lost_connection">Connexion perdue avec %1$s</string>
+    <string name="cast_lost">Cast arrêté. %1$s. En pause sur ce téléphone.</string>
+    <string name="cast_ended_idle">Cast arrêté après %1$d minutes sans lecture.</string>
 </resources>

@@ -50,4 +50,14 @@ object Unreleased {
      * two checks that read it, in BackupSettings and the nav graph.
      */
     val LIBRARY_IMPORT = BuildConfig.DEBUG
+
+    /**
+     * Casting to FCast receivers and DLNA renderers, with the phone serving the audio over a local
+     * HTTP server (the cast package, and CastSession and RemotePlayer in playback).
+     *
+     * A prototype. With this off nothing about casting exists at runtime: no server is started,
+     * no socket is opened and no button is shown. If it holds up it becomes a setting marked
+     * experimental, off by default, and this goes.
+     */
+    val CASTING = BuildConfig.DEBUG
 }
