@@ -659,13 +659,16 @@ internal object MixSearch {
      * with its pitch where it was, and Faint at speed. Only when every song is off the same way, by
      * more than [PlaybackVariant] takes for jitter, is the whole of it sped up or slowed down, and
      * then by as much as the least off of them, which is the one the others were fitted to.
+     *
+     * Held between half and twice the speed, which is more than any upload plays at: lengths are
+     * divided by it.
      */
     fun roomSpeed(speeds: List<Double>): Double = when {
         speeds.isEmpty() -> 1.0
         speeds.all { it >= 1 + PlaybackVariant.TOLERANCE } -> speeds.min()
         speeds.all { it <= 1 - PlaybackVariant.TOLERANCE } -> speeds.max()
         else -> 1.0
-    }
+    }.coerceIn(MIN_ROOM_SPEED, MAX_ROOM_SPEED)
 
     /**
      * What uploads playing at [speed] call themselves, for searching: none at speed, or off by no
@@ -1092,6 +1095,10 @@ internal object MixSearch {
 
     /** From this slow, an upload saying it is slowed can be what plays. Slowed uploads run a sixth or so slow. */
     private const val SLOWED_SPEED = 0.9
+
+    /** The slowest and fastest a room is taken to play: see [roomSpeed]. */
+    private const val MIN_ROOM_SPEED = 0.5
+    private const val MAX_ROOM_SPEED = 2.0
 
     /** Longer than this is a compilation or a DJ set, not a mashup. */
     private const val MAX_LENGTH_S = 600

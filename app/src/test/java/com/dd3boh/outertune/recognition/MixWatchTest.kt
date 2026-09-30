@@ -993,6 +993,16 @@ class MixWatchTest {
     }
 
     @Test
+    fun `a room speed nothing could play at is held to one that could`() {
+        // Shazam's skew never comes near -1, but a speed of nothing or less would make every upload
+        // last forever or for less than nothing.
+        assertEquals(0.5, MixSearch.roomSpeed(listOf(0.0, -0.2)), 0.0)
+        assertEquals(2.0, MixSearch.roomSpeed(listOf(3.5, 2.6)), 0.0)
+        val upload = upload("u", "Faint x No Love (Mashup)", 200)
+        assertEquals(400.0, MixSearch.roomLength(upload, MixSearch.roomSpeed(listOf(-1.0)))!!, 0.01)
+    }
+
+    @Test
     fun `a mashup heard sped up or slowed is searched for as such too`() {
         val pieces = listOf(sighting(faint, 0), sighting(noLove, 133))
         val plain = listOf("Faint No Love mashup", "Linkin Park Eminem mashup")
