@@ -1107,6 +1107,37 @@ class MixWatchTest {
         assertEquals("nothing to offer", MixSearch.firstBecause(emptyList(), listOf(piece), 1.0, remixFirst = false))
     }
 
+    @Test
+    fun `speed words count only once the room is further off than a DJ plays`() {
+        val sped = upload("sped", "Faint x No Love (sped up)", 200)
+        val nightcore = upload("nightcore", "Faint x No Love (nightcore)", 200)
+        val slowed = upload("slowed", "Faint x No Love (slowed + reverb)", 250)
+        val plain = upload("plain", "Faint x No Love (Mashup)", 220)
+        // 7 % fast is a DJ edit's tempo; a sped-up upload runs a fifth or more fast. Neither for nor
+        // against it, while a slowed one is plainly not it.
+        assertEquals(listOf(0, 0, -1, 0), listOf(sped, nightcore, slowed, plain).map { MixSearch.speedFit(it, 1.07) })
+        assertEquals(listOf(-1, -1, 0, 0), listOf(sped, nightcore, slowed, plain).map { MixSearch.speedFit(it, 0.93) })
+        // Further off, they fit.
+        assertEquals(listOf(1, 1, -1, 0), listOf(sped, nightcore, slowed, plain).map { MixSearch.speedFit(it, 1.25) })
+        assertEquals(listOf(-1, -1, 1, 0), listOf(sped, nightcore, slowed, plain).map { MixSearch.speedFit(it, 0.85) })
+
+        // So at 7 % fast a nightcore upload no longer comes before a mashup saying it is one...
+        val pieces = listOf(sighting(faint, 0), sighting(noLove, 133))
+        assertEquals(listOf("plain", "nightcore"), MixSearch.rank(pieces, listOf(listOf(nightcore, plain)), 1.07).map { it.first.id })
+        assertEquals(listOf("nightcore", "plain"), MixSearch.rank(pieces, listOf(listOf(plain, nightcore)), 1.25).map { it.first.id })
+        // ...and is not searched for.
+        val both = listOf("Faint No Love mashup", "Linkin Park Eminem mashup")
+        assertEquals(both, MixSearch.queries(pieces, 1.07))
+        assertEquals(both, MixSearch.queries(pieces, 0.93))
+        assertEquals(both + "Faint No Love slowed", MixSearch.queries(pieces, 0.9))
+        // One song cut up at 7 % fast: its sped-up upload, with no word saying it is a mix, is the
+        // song and not a version of it.
+        val piece = sighting(faint, 0)
+        val results = listOf(listOf(faintAlone[1], upload("spedfaint", "Linkin Park - Faint (sped up)", 130)))
+        assertEquals(listOf("euphoric"), MixSearch.rankSingle(piece, results, remixFirst = false, heard = emptyList(), speed = 1.07).map { it.id })
+        assertEquals(listOf("Faint Linkin Park mashup", "Faint Linkin Park remix"), MixSearch.singleQueries(piece, 1.07))
+    }
+
     /**
      * An edit of DNA. that goes back to its top and stops short, as I'm Beggin' For DNA does, and
      * then HUMBLE. from its own top. The engine settles DNA. as an edit only once HUMBLE. has played

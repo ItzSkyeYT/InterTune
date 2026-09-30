@@ -668,28 +668,36 @@ internal object MixSearch {
     }
 
     /**
-     * What uploads playing at [speed] call themselves, for searching: none at speed. Past a fifth
-     * faster, nightcore as well as sped up, which is how uploads that fast are as often named.
+     * What uploads playing at [speed] call themselves, for searching: none at speed, or off by no
+     * more than a DJ plays a track ([SPED_UP_SPEED], [SLOWED_SPEED]). Past a fifth faster,
+     * nightcore as well as sped up, which is how uploads that fast are as often named.
      */
     fun speedWords(speed: Double): List<String> = when {
         speed >= NIGHTCORE_SPEED -> listOf("sped up", "nightcore")
-        speed >= 1 + PlaybackVariant.TOLERANCE -> listOf("sped up")
-        speed <= 1 - PlaybackVariant.TOLERANCE -> listOf("slowed")
+        speed >= SPED_UP_SPEED -> listOf("sped up")
+        speed <= SLOWED_SPEED -> listOf("slowed")
         else -> emptyList()
     }
 
     /**
      * Whether [item]'s title agrees with [speed]: 1 when it says it is sped up and the room plays
-     * fast, or slowed and the room plays slow; -1 when it says the opposite, or says either while the
-     * room plays at speed; 0 when it says neither while the room is off, since an upload at its own
-     * speed can still be played faster or slower. The words are the ones [pickBest] goes by.
+     * well fast, or slowed and the room plays well slow; -1 when it says the opposite, or says
+     * either while the room plays at speed; 0 when it says neither while the room is off, since an
+     * upload at its own speed can still be played faster or slower. The words are the ones
+     * [pickBest] goes by.
+     *
+     * Well fast is past [SPED_UP_SPEED]. A room only a few percent off is playing a DJ edit or a
+     * track pitched to the next, which a sped-up upload, running a fifth to a third fast, is not
+     * either: its words then count neither for it nor against it.
      */
     fun speedFit(item: SongItem, speed: Double): Int {
         val sped = SPED.containsMatchIn(item.title)
         val slowed = SLOWED.containsMatchIn(item.title)
         return when {
-            speed >= 1 + PlaybackVariant.TOLERANCE -> if (sped) 1 else if (slowed) -1 else 0
-            speed <= 1 - PlaybackVariant.TOLERANCE -> if (slowed) 1 else if (sped) -1 else 0
+            speed >= SPED_UP_SPEED -> if (sped) 1 else if (slowed) -1 else 0
+            speed <= SLOWED_SPEED -> if (slowed) 1 else if (sped) -1 else 0
+            speed >= 1 + PlaybackVariant.TOLERANCE -> if (slowed) -1 else 0
+            speed <= 1 - PlaybackVariant.TOLERANCE -> if (sped) -1 else 0
             else -> if (sped || slowed) -1 else 0
         }
     }
@@ -1048,6 +1056,15 @@ internal object MixSearch {
 
     /** Faster than this, uploads are as often called nightcore as sped up. */
     private const val NIGHTCORE_SPEED = 1.2
+
+    /**
+     * From this fast, an upload saying it is sped up can be what plays. A DJ moves a track by up
+     * to 8 %; sped-up uploads run a fifth to a third fast.
+     */
+    private const val SPED_UP_SPEED = 1.1
+
+    /** From this slow, an upload saying it is slowed can be what plays. Slowed uploads run a sixth or so slow. */
+    private const val SLOWED_SPEED = 0.9
 
     /** Longer than this is a compilation or a DJ set, not a mashup. */
     private const val MAX_LENGTH_S = 600
