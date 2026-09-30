@@ -1014,8 +1014,36 @@ class MixWatchTest {
         // sped-up upload already runs that fast, and lasts its own 150.
         assertEquals(160.0, MixSearch.roomLength(long, 1.25)!!, 0.01)
         assertEquals(150.0, MixSearch.roomLength(sped, 1.25)!!, 0.01)
-        assertFalse(MixSearch.couldBe(short, 150.0, 1.25))
-        assertEquals(listOf("long", "sped"), MixSearch.byLength(listOf(long, short, sped), 150.0, 1.25).map { it.id })
+        // The 165 s one could be sped up already without saying so, and last its own 165: kept, but
+        // after the ones that fit as the room plays them.
+        assertEquals(165.0, MixSearch.longestInRoom(short, 1.25)!!, 0.01)
+        assertTrue(MixSearch.couldBe(short, 150.0, 1.25))
+        assertEquals(listOf("long", "sped", "short"), MixSearch.byLength(listOf(long, short, sped), 150.0, 1.25).map { it.id })
+        // Not once more has been heard than even that.
+        assertFalse(MixSearch.couldBe(short, 180.0, 1.25))
+    }
+
+    @Test
+    fun `an upload that could be sped up already is not dropped or ended early`() {
+        // The other mashup of Faint and No Love, 250 s, in a room playing a quarter fast: 200 s if
+        // it is being sped up there, 250 if the upload is the sped-up one and does not say so. Heard
+        // for 220 s, it is still a candidate, and a mashup taken as it ends no sooner than 250 s on.
+        val other = upload("other", "Eminem & LINKIN PARK - No Love / Faint (No Love x Faint Mashup)", 250)
+        assertEquals(200.0, MixSearch.roomLength(other, 1.25)!!, 0.01)
+        assertEquals(250.0, MixSearch.longestInRoom(other, 1.25)!!, 0.01)
+        assertTrue(MixSearch.couldBe(other, 220.0, 1.25))
+        // Slowed, the room length is the longer, as before.
+        assertEquals(312.5, MixSearch.longestInRoom(other, 0.8)!!, 0.01)
+        // An upload saying how fast it runs lasts what it says: its own length when that agrees
+        // with the room, the room's when it does not.
+        val sped = upload("sped", "Faint x No Love (sped up)", 200)
+        assertEquals(200.0, MixSearch.longestInRoom(sped, 1.25)!!, 0.01)
+        val slowed = upload("slowed", "Faint x No Love (slowed + reverb)", 250)
+        assertEquals(200.0, MixSearch.longestInRoom(slowed, 1.25)!!, 0.01)
+        assertFalse(MixSearch.couldBe(slowed, 220.0, 1.25))
+        // At speed, its own length.
+        assertEquals(250.0, MixSearch.longestInRoom(other, 1.0)!!, 0.01)
+        assertNull(MixSearch.longestInRoom(SongItem(id = "x", title = "x", artists = emptyList(), thumbnail = ""), 1.25))
     }
 
     @Test

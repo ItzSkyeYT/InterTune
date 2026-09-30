@@ -703,6 +703,16 @@ internal object MixSearch {
         item.duration?.let { if (speedFit(item, speed) > 0) it.toDouble() else it / speed }
 
     /**
+     * The longest [item] can last in the room at [speed]: its [roomLength], or its own length when
+     * that is longer and its title says nothing about how fast it runs. A room playing a quarter
+     * fast is likelier playing a sped-up upload than one sped up on the spot, and not every sped-up
+     * upload says so in its title. So whether it could still be playing, and when a mashup taken
+     * has to be over, go by the longer; which fits the time heard best goes by [roomLength].
+     */
+    fun longestInRoom(item: SongItem, speed: Double): Double? =
+        roomLength(item, speed)?.let { room -> if (speedFit(item, speed) == 0) maxOf(room, item.duration!!.toDouble()) else room }
+
+    /**
      * What came back, scored and ranked, best first, each once. Only results naming two pieces.
      * Those naming more of the songs heard come first, whatever their score: see [songsNamed].
      * Then those whose titles agree with how fast the room plays ([speedFit]): a room playing a
@@ -886,11 +896,12 @@ internal object MixSearch {
     /**
      * Whether [item] could be what has been playing for [heardS] seconds at [speed]: not an
      * hour-long compilation, which a search for two artists and "mashup" turns up plenty of, and
-     * not over sooner than what has already been heard of it: see [roomLength].
+     * not over sooner than what has already been heard of it, however long it lasts in the room:
+     * see [longestInRoom].
      */
     fun couldBe(item: SongItem, heardS: Double, speed: Double): Boolean {
         val length = item.duration ?: return true
-        return length <= MAX_LENGTH_S && roomLength(item, speed)!! >= heardS - 10
+        return length <= MAX_LENGTH_S && longestInRoom(item, speed)!! >= heardS - 10
     }
 
     /**
@@ -902,7 +913,9 @@ internal object MixSearch {
      * songs at 140, 342, 350 and 515, and I'm Beggin' For DNA (199 s) over three others.
      *
      * Each as long as it lasts in the room at [speed], which Shazam measures: a mashup sped up a
-     * quarter lasts four fifths of its upload's length, unless the upload is the sped-up one.
+     * quarter lasts four fifths of its upload's length, unless the upload is the sped-up one
+     * ([roomLength]). Only the order goes by that: an upload that could be sped up already without
+     * saying so is kept ([couldBe]).
      */
     fun byLength(candidates: List<SongItem>, heardS: Double, speed: Double): List<SongItem> {
         val target = heardS + LEAD_GUESS_S

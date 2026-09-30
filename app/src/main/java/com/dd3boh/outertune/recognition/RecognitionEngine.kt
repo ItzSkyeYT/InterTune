@@ -1480,11 +1480,12 @@ class RecognitionEngine @Inject constructor(
 
     /**
      * When a mashup that started being heard at [startedMs] has to be over, given which upload it
-     * is and how fast the room plays it ([MixSearch.roomLength]). Late rather than early, since what
-     * played before its first recognised window is unknown.
+     * is and how fast the room plays it. Late rather than early, since what played before its first
+     * recognised window is unknown, and an upload may be sped up already without saying so: the
+     * longest it can last there ([MixSearch.longestInRoom]).
      */
     private fun endOf(startedMs: Long, song: SongItem, speed: Double): Long? =
-        MixSearch.roomLength(song, speed)?.let { startedMs + (it * 1000).toLong() + MIX_END_MARGIN_MS }
+        MixSearch.longestInRoom(song, speed)?.let { startedMs + (it * 1000).toLong() + MIX_END_MARGIN_MS }
 
     /**
      * Ranked mashups naming two of [songs], heard at [speed], or null when a search failed and
