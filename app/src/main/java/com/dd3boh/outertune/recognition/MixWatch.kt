@@ -183,9 +183,14 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
     /** When [key] was last heard, if it is still in view. */
     fun lastHeard(key: String): Long? = seen.lastOrNull { it.key == key }?.atMs
 
-    /** Every song still in view that was heard at or after [sinceMs], each once, as last heard. */
-    fun heardSince(sinceMs: Long): List<Sighting> =
-        seen.filter { it.atMs >= sinceMs }.asReversed().distinctBy { it.key }.asReversed()
+    /**
+     * Every song still in view that was heard from [sinceMs] to [untilMs], each once, as last heard
+     * in that time. Bounded at both ends, since what is in view can run on past what is asked
+     * about: a song that went back to its top is only settled as an edit once the next song has
+     * played for two windows, and that song was not heard with it.
+     */
+    fun heardBetween(sinceMs: Long, untilMs: Long): List<Sighting> =
+        seen.filter { it.atMs in sinceMs..untilMs }.asReversed().distinctBy { it.key }.asReversed()
 
     /**
      * How fast [key] has been playing, 1 being as Shazam knows it: the middle of the speeds Shazam

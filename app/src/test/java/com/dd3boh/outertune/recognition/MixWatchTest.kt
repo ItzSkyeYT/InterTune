@@ -1078,4 +1078,40 @@ class MixWatchTest {
             MixSearch.firstBecause(sped, listOf(piece), 1.25, remixFirst = false))
         assertEquals("nothing to offer", MixSearch.firstBecause(emptyList(), listOf(piece), 1.0, remixFirst = false))
     }
+
+    /**
+     * An edit of DNA. that goes back to its top and stops short, as I'm Beggin' For DNA does, and
+     * then HUMBLE. from its own top. The engine settles DNA. as an edit only once HUMBLE. has played
+     * for two windows, and asks what else was heard with it up to DNA.'s last window.
+     */
+    @Test
+    fun `a song that stopped short is not heard with the one after it`() {
+        val dna = "dna" to ("DNA." to "Kendrick Lamar")
+        val humble = "humble" to ("HUMBLE." to "Kendrick Lamar")
+        val watch = MixWatch()
+        val dnaOffsets = listOf(5.0, 17.0, 29.0, 41.0, 53.0, 65.0, 77.0, 89.0, 2.0, 14.0, 26.0, 38.0, 50.0, 62.0)
+        dnaOffsets.forEachIndexed { i, offset -> watch.observe(sighting(dna, i * 12, offset)) }
+        val dnaLastMs = dnaOffsets.lastIndex * 12_000L
+        listOf(5.0, 17.0).forEachIndexed { i, offset -> watch.observe(sighting(humble, (dnaOffsets.size + i) * 12, offset)) }
+
+        assertEquals(listOf("dna", "humble"), watch.heardBetween(0, Long.MAX_VALUE).map { it.key })
+        val withIt = watch.heardBetween(0, dnaLastMs)
+        assertEquals(listOf("dna"), withIt.map { it.key })
+        // As last heard up to then: 62 s in.
+        assertEquals(62.0, withIt.single().offsetSeconds, 0.0)
+        // From partway in, too.
+        assertEquals(listOf("humble"), watch.heardBetween(dnaLastMs + 1, Long.MAX_VALUE).map { it.key })
+
+        // Which keeps the choice in YouTube's order, the edit that was playing first, where HUMBLE.
+        // counted as heard would put a mashup of the two ahead of it.
+        val beggin = upload("beggin", "I'm Beggin' For DNA [Mashup]", 199, "dasonrz")
+        val remix = upload("remix", "Kendrick Lamar - DNA. (Remix)", 240)
+        val withHumble = upload("dnahumble", "DNA. x HUMBLE. mashup", 200)
+        val piece = sighting(dna, 96, 2.0)
+        val results = listOf(listOf(beggin, remix, withHumble))
+        assertEquals(listOf("beggin", "remix", "dnahumble"),
+            MixSearch.rankSingle(piece, results, remixFirst = false, heard = withIt, speed = 1.0).map { it.id })
+        assertEquals("dnahumble",
+            MixSearch.rankSingle(piece, results, remixFirst = false, heard = watch.heardBetween(0, Long.MAX_VALUE), speed = 1.0).first().id)
+    }
 }

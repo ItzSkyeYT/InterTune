@@ -1356,8 +1356,11 @@ class RecognitionEngine @Inject constructor(
         // Answered while the search ran, or replaced by another: what the person said stands.
         if (current.settled || mix !== current) return
         val heard = heardSeconds(current.startedMs, now)
-        // What else has been heard since it began: an upload naming that too is more likely it.
-        current.heard = (current.heard + current.pieces + mixWatch.heardSince(current.startedMs)).distinctBy { it.key }
+        // What else has been heard since it began: an upload naming that too is more likely it. Up
+        // to [now], the piece's own last window: a song that went back to its top and stopped
+        // short is settled here only after the next song has played for two windows (see
+        // checkRestarts), and that song came after it, not with it.
+        current.heard = (current.heard + current.pieces + mixWatch.heardBetween(current.startedMs, now)).distinctBy { it.key }
         val found = MixSearch.rankSingle(piece, results, remixFirst = current.unknownVersion, heard = current.heard, speed = current.speed)
             .filter { MixSearch.couldBe(it, heard, current.speed) }
         current.candidates = found.take(MAX_CANDIDATES)
