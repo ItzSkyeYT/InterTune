@@ -366,6 +366,18 @@ class HistorySqlTest {
     }
 
     @Test
+    fun `a counted play that stopped is never taken for a copy`() {
+        // The copy the service leaves when it writes a play twice has no event. A counted play
+        // that stopped, with its event, and that the same song followed within a second (a skip
+        // started 500 ms after it here), is a play, and so is the resume that continues it.
+        val stopped = countedPlay("a", t, playedMs = minute, endReason = 4)
+        listen("a", t + 500, playedMs = 2 * second, endReason = 2)
+        val resume = listen("a", t + 30 * minute, playedMs = 2 * minute, continues = stopped, endPosition = 3 * minute)
+        assertEquals(listOf(stopped to 3 * minute), plays().map { it.listenId to it.playedMs })
+        assertEquals(listOf(stopped, resume), history.chain(stopped).map { it.id })
+    }
+
+    @Test
     fun `the same song twice in a row is two plays`() {
         // A repeat as the service records it: the second row starts a few milliseconds after the first.
         val once = countedPlay("a", t, playedMs = 3 * minute)

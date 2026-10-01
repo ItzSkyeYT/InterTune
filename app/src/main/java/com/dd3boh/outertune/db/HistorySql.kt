@@ -36,8 +36,9 @@ object HistorySql {
     /**
      * A play the service wrote twice. When MusicService.logListen loses track of the row it opened
      * for a play, it writes the whole play again as a new row, and the open one is closed as
-     * stopped at the next launch, from its last checkpoint, with no event. The two start within a
-     * few milliseconds of each other (16 and 29 ms on his phone); the later row is the play.
+     * stopped at the next launch, from its last checkpoint, with no event, so a row with one is
+     * never the copy. The two start within a few milliseconds of each other (16 and 29 ms in one
+     * real library); the later row is the play.
      * Otherwise a later row of the same song starts after the stopped piece ends, so within a
      * second of its start only when the piece lasted under a second, too short for History anyway.
      * A song repeated back to back also leaves two rows that start milliseconds apart, but the
