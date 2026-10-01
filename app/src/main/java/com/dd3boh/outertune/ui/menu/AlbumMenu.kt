@@ -42,6 +42,7 @@ import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalNetworkConnected
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toMediaItem
@@ -270,7 +271,7 @@ fun AlbumMenu(
             onAdd = { queueName ->
                 val q = playerConnection.service.queueBoard.addQueue(
                     queueName, songs.map { it.toMediaMetadata() },
-                    forceInsert = true, delta = false
+                    forceInsert = true, delta = false, origin = PlayOrigin.QUEUE
                 )
                 q?.let {
                     playerConnection.service.queueBoard.setCurrQueue(it)

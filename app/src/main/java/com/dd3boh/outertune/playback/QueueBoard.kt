@@ -14,6 +14,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastForEachIndexed
 import androidx.media3.common.C
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.QUEUE_DEBUG
 import com.dd3boh.outertune.db.entities.QueueEntity
 import com.dd3boh.outertune.extensions.currentMetadata
@@ -139,6 +140,9 @@ class QueueBoard(
      *      continuation, else null
      * @param startIndex Index/position to instantiate the new queue with. This value takes no effect
      * if the queue already exists
+     * @param origin Where the queue began, for a queue made by hand outside playQueue: a new one,
+     * or one that says nothing yet, takes it, with a run of its own. A queue that already says
+     * where it began keeps that. Null for the callers that set it on the queue themselves.
      *
      * @return Boolean whether a full reload of player items should be done. In some cases it may be possible to enqueue
      *      without interrupting playback. Currently this is only supported when adding to extension queues
@@ -151,7 +155,8 @@ class QueueBoard(
         replace: Boolean = false,
         delta: Boolean = true,
         continuationEndpoint: String? = null,
-        startIndex: Int = 0
+        startIndex: Int = 0,
+        origin: PlayOrigin? = null,
     ): MultiQueueObject? {
         if (QUEUE_DEBUG)
             Log.d(
@@ -165,6 +170,8 @@ class QueueBoard(
 
         val match = masterQueues.firstOrNull { it.title == title } // look for matching queue. Title is uid
         if (match != null) { // found an existing queue
+            // Before any branch saves it, so the saved queue says it too.
+            match.startedByHand(origin, System.currentTimeMillis())
             // Titles ending in "+​" (u200B) signify a extension queue
             val anyExts = masterQueues.firstOrNull { it.title == match.title + " +\u200B" }
             if (replace) { // force replace
@@ -307,6 +314,7 @@ class QueueBoard(
                 masterQueues.size,
                 continuationEndpoint
             )
+            newQueue.startedByHand(origin, System.currentTimeMillis())
             masterQueues.add(newQueue)
             if (shuffled) {
                 shuffle(masterQueues.size - 1, false, true)

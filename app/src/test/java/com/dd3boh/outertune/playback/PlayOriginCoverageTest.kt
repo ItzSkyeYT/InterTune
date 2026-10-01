@@ -42,6 +42,30 @@ class PlayOriginCoverageTest {
         assertEquals("playQueue calls with no origin:\n" + untagged.joinToString("\n"), emptyList<String>(), untagged)
     }
 
+    /**
+     * A queue made by hand says where it began too. Add to queue, then Create queue or a queue in
+     * the list, in every song, album, playlist, folder, queue and player menu, builds the queue with
+     * QueueBoard.addQueue and loads it into the player without going through playQueue, so the
+     * test above never saw it, and its listens read "not recorded". Every addQueue call has to name
+     * an origin, except the two that set one on the queue themselves straight after: playQueue in
+     * MusicService, and a list handed over by a car or another app in MediaLibrarySessionCallback.
+     */
+    @Test
+    fun `every queue made outside playQueue carries an origin`() {
+        val setByCaller = setOf("MusicService.kt", "MediaLibrarySessionCallback.kt")
+        val untagged = mutableListOf<String>()
+        sources.walkTopDown().filter { it.extension == "kt" && it.name !in setByCaller }.forEach { file ->
+            val text = file.readText()
+            Regex("""(?<!fun )\baddQueue\(""").findAll(text).forEach { m ->
+                val args = argumentsOf(text, m.range.last + 1)
+                if ("origin =" !in args && !isComment(text, m.range.first)) {
+                    untagged += "${file.relativeTo(sources)}:${text.substring(0, m.range.first).count { it == '\n' } + 1}"
+                }
+            }
+        }
+        assertEquals("addQueue calls with no origin:\n" + untagged.joinToString("\n"), emptyList<String>(), untagged)
+    }
+
     /** Whether the match sits in a // comment, where "handled by playQueue()" is prose, not a call. */
     private fun isComment(text: String, at: Int): Boolean =
         "//" in text.substring(text.lastIndexOf('\n', at) + 1, at)

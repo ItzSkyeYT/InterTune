@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.ui.component.items.QueueListItem
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
@@ -116,7 +117,8 @@ fun QueueMenu(
                     queueName,
                     songs,
                     forceInsert = true,
-                    delta = false
+                    delta = false,
+                    origin = PlayOrigin.QUEUE
                 )
                 q?.let {
                     playerConnection.service.queueBoard.setCurrQueue(it)

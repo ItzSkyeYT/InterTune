@@ -2,6 +2,7 @@ package com.dd3boh.outertune.ui.menu
 
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import com.dd3boh.outertune.ui.component.SleepTimerDialog
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.utils.ActivityLog
 import android.content.Intent
@@ -399,7 +400,8 @@ fun PlayerMenu(
                     queueName,
                     listOf(mediaMetadata),
                     forceInsert = true,
-                    delta = false
+                    delta = false,
+                    origin = PlayOrigin.QUEUE
                 )
                 q?.let {
                     playerConnection.service.queueBoard.setCurrQueue(it)
