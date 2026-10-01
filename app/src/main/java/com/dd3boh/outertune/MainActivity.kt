@@ -129,7 +129,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import androidx.core.net.toUri
-import androidx.core.util.Consumer
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
@@ -283,6 +282,14 @@ internal class PendingWidgetTap : ViewModel() {
 }
 
 /**
+ * A link that reached the activity through onNewIntent and is waiting for the player and for
+ * setup to be done. Kept the way [PendingWidgetTap] keeps a tap, and for the same reasons.
+ */
+internal class PendingLink : ViewModel() {
+    var link by mutableStateOf<String?>(null)
+}
+
+/**
  * Whether a widget-tapped song plays on its own or keeps the radio.
  *
  * A local song's id is not a YouTube video id (SongEntity.generateSongId makes local ids "LS" plus
@@ -383,6 +390,8 @@ class MainActivity : ComponentActivity() {
 
     private val pendingWidgetTap: PendingWidgetTap by viewModels()
 
+    private val pendingLink: PendingLink by viewModels()
+
     val controllerViewModel: MediaControllerViewModel by viewModels()
 
     // storage permission helpers
@@ -410,6 +419,11 @@ class MainActivity : ComponentActivity() {
         // tap on a task whose process died), so it is held until the player is connected.
         // onNewIntent never replays an old intent, so nothing is gated here.
         if (intent.action == WidgetCommands.ACTION_PLAY_SONG) pendingWidgetTap.intent = intent
+        // A link tapped or shared later, held the same way and opened by the effect that opens
+        // the launch intent's link. On a task whose process died it arrives here too, before the
+        // first composition.
+        newIntentLink(intent.action, intent.dataString, intent.getStringExtra(Intent.EXTRA_TEXT))
+            ?.let { pendingLink.link = it }
         if (intent.action == ACTION_PLAY_LIKED) playLikedWhenReady()
         handlePlayFromSearch(intent)
     }
@@ -971,13 +985,14 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // A YouTube link that started the app: shared to it, or tapped with it closed.
-                    // The listener below only hears links that arrive while it is open, and the
-                    // effect that handled this one went with upstream's MainActivity refactor
-                    // (25d504fe1), so a song link opened InterTune on Home and did nothing else.
-                    // Held until the player is connected, which on a cold start comes a moment
-                    // later, and until setup is finished, then cleared, so a rotation does not
-                    // open it again.
+                    // A YouTube link, shared to the app or tapped. The one that started the app is
+                    // decided once, on a fresh launch; the effect that handled it went with
+                    // upstream's MainActivity refactor (25d504fe1), so a song link opened
+                    // InterTune on Home and did nothing else. Any later link comes from
+                    // onNewIntent through pendingLink, including one on a task whose process died,
+                    // which arrives before this composition runs. Each is held until the player is
+                    // connected, which on a cold start comes a moment later, and until setup is
+                    // finished, then cleared, so a rotation does not open it again.
                     var pendingLaunchLink by rememberSaveable {
                         mutableStateOf(
                             launchLink(
@@ -988,37 +1003,15 @@ class MainActivity : ComponentActivity() {
                             )
                         )
                     }
-                    LaunchedEffect(pendingLaunchLink, playerConnection, oobeStatus) {
-                        val link = pendingLaunchLink ?: return@LaunchedEffect
+                    LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
+                        val link = pendingLaunchLink ?: pendingLink.link ?: return@LaunchedEffect
                         val connection = playerConnection ?: return@LaunchedEffect
                         if (oobeStatus < OOBE_VERSION) return@LaunchedEffect
                         snapshotFlow { navBackStackEntry }.first { it != null }
-                        pendingLaunchLink = null
+                        if (pendingLaunchLink != null) pendingLaunchLink = null else pendingLink.link = null
                         youtubeNavigator(
                             this@MainActivity, navController, coroutineScope, connection, snackbarHostState, link.toUri()
                         )
-                    }
-
-                    DisposableEffect(Unit) {
-                        val listener = Consumer<Intent> { intent ->
-                            // Widget taps are handled through pendingWidgetTap, and their
-                            // intertune://widget/... data is not a link for youtubeNavigator.
-                            if (intent.action == WidgetCommands.ACTION_PLAY_SONG) return@Consumer
-                            val uri =
-                                intent.data ?: intent.extras?.getString(Intent.EXTRA_TEXT)?.toUri()
-                                ?: return@Consumer
-                            youtubeNavigator(
-                                this@MainActivity,
-                                navController,
-                                coroutineScope,
-                                playerConnection,
-                                snackbarHostState,
-                                uri
-                            )
-                        }
-
-                        addOnNewIntentListener(listener)
-                        onDispose { removeOnNewIntentListener(listener) }
                     }
 
                     CompositionLocalProvider(
@@ -1691,6 +1684,13 @@ internal fun libraryShortcut(action: String?, navigationItems: List<Screens>): L
  */
 internal fun launchLink(action: String?, data: String?, text: String?, fromRecents: Boolean): String? =
     if (fromRecents || action == WidgetCommands.ACTION_PLAY_SONG) null else data ?: text
+
+/**
+ * What to open for an intent handed to onNewIntent: taken the way [launchLink] takes it, with no
+ * recents check, because onNewIntent is only ever handed an intent that is arriving now.
+ */
+internal fun newIntentLink(action: String?, data: String?, text: String?): String? =
+    launchLink(action, data, text, fromRecents = false)
 
 /**
  * The words of a play-from-search intent, empty when it names nothing ("play some music"), or
