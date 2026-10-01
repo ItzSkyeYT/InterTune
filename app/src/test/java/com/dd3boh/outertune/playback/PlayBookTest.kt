@@ -107,6 +107,16 @@ class PlayBookTest {
     }
 
     @Test
+    fun `a play that failed closes without waiting for its transition`() {
+        play(newQueue, "x")
+        book.playerError("x", "x")
+        var waited = false
+        val closed = runBlocking { book.close("x", endedByPlayer = false) { waited = true } }
+        assertEquals(EndReason.ERROR, closed.endReason)
+        assertFalse(waited)
+    }
+
+    @Test
     fun `a play with no record closes as a stop without waiting`() {
         var waited = false
         val closed = runBlocking { book.close("never", endedByPlayer = false) { waited = true } }
@@ -191,6 +201,20 @@ class PlayBookTest {
         // A repeat is let finish too.
         play(repeat, "y")
         assertTrue(book.leftAtItsEnd("y"))
+    }
+
+    @Test
+    fun `the anchor's record keeps only the songs left most recently`() {
+        val small = PlayBook<PlayEnd>(remembered = 2)
+        fun next(id: String) = small.transition(auto, id, PlayEnd())
+        next("x")
+        next("y")                                // x left at its end
+        next("x")                                // y left at its end
+        next("w")                                // x left again, so it is the newest
+        next("v")                                // w left, and the oldest, y, goes
+        assertFalse(small.leftAtItsEnd("y"))
+        assertTrue(small.leftAtItsEnd("x"))
+        assertTrue(small.leftAtItsEnd("w"))
     }
 
     @Test

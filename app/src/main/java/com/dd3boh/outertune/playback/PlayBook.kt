@@ -57,7 +57,7 @@ open class PlayEnd {
  * before the stats of the one that ended arrive, so the stats take the oldest play of the song and
  * everything about the current play uses the newest.
  */
-class PlayBook<P : PlayEnd> {
+class PlayBook<P : PlayEnd>(private val remembered: Int = REMEMBERED_SONGS) {
     private val plays = ConcurrentHashMap<String, ConcurrentLinkedDeque<P>>()
 
     /** The play the player holds now, and its song: what the next transition moves on from. */
@@ -65,10 +65,15 @@ class PlayBook<P : PlayEnd> {
     @Volatile private var playingId: String? = null
 
     /**
-     * How the transition out of each song's latest play described it, for the radio's anchor. Not
-     * read by any listen: a reason a play takes for its row is only ever its own.
+     * How the transition out of each song's latest play described it, for the radio's anchor, kept
+     * for the [remembered] songs left most recently. Not read by any listen: a reason a play takes
+     * for its row is only ever its own. The anchor looks a few songs back from where playback is, so
+     * a song left long ago says nothing it needs, and kept by song with no bound this grew by every
+     * song ever left for as long as the service ran.
      */
-    private val lastLeft = ConcurrentHashMap<String, Int>()
+    private val lastLeft = object : LinkedHashMap<String, Int>() {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Int>?): Boolean = size > remembered
+    }
 
     /** The newest play of [id]: the one in progress, when [id] is the current item. */
     fun current(id: String): P? = plays[id]?.peekLast()
@@ -115,7 +120,7 @@ class PlayBook<P : PlayEnd> {
     fun transition(reason: Int, id: String?, play: P?) {
         val left = endReasonOf(reason)
         playing?.leave(left)
-        playingId?.let { lastLeft[it] = left }
+        playingId?.let { noteLeft(it, left) }
         if (id == null || play == null) {
             playing = null
             playingId = null
@@ -129,7 +134,15 @@ class PlayBook<P : PlayEnd> {
     }
 
     /** Whether the latest play of [id] that was moved on from was let finish: a natural end, or a repeat. */
-    fun leftAtItsEnd(id: String): Boolean = lastLeft[id] == EndReason.ENDED
+    fun leftAtItsEnd(id: String): Boolean = synchronized(lastLeft) { lastLeft[id] } == EndReason.ENDED
+
+    /** [id] was left as [endReason] says, and is now the song left most recently. */
+    private fun noteLeft(id: String, endReason: Int) {
+        synchronized(lastLeft) {
+            lastLeft.remove(id)
+            lastLeft[id] = endReason
+        }
+    }
 
     /**
      * The player reported an error. [errorId] is the item the error names (see [itemOf]), or null
@@ -171,12 +184,13 @@ class PlayBook<P : PlayEnd> {
     /**
      * How the oldest open play of [id] ended, taking it out of the book. [endedByPlayer] is the
      * stats' own end. The transition that moved on from the play and its stats race, so a play with
-     * no reason yet is given [wait] for one to arrive before it is called a stop. See
+     * no reason yet is given [wait] for one to arrive before it is called a stop. A play that failed
+     * ended in its error whatever moved on from it, so it does not wait. See
      * [ListenProgress.endReason].
      */
     suspend fun close(id: String, endedByPlayer: Boolean, wait: suspend () -> Unit): Closed<P> {
         val play = takeOldest(id)
-        val transition = if (endedByPlayer || play == null) null else play.transition ?: run {
+        val transition = if (endedByPlayer || play == null || play.failed) null else play.transition ?: run {
             wait()
             play.transition
         }
@@ -187,6 +201,9 @@ class PlayBook<P : PlayEnd> {
     class Closed<P>(val play: P?, val endReason: Int)
 
     companion object {
+        /** How many songs the radio anchor's record keeps, well past the ten it looks back over. */
+        const val REMEMBERED_SONGS = 100
+
         /**
          * The item a player error names: the media item of the period in its mediaPeriodId, found
          * in [timeline]. Null when the error names no period, or one [timeline] does not hold.

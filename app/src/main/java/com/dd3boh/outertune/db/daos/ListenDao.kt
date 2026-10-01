@@ -7,10 +7,10 @@
 package com.dd3boh.outertune.db.daos
 
 import com.dd3boh.outertune.db.entities.EngineWeight
-import com.dd3boh.outertune.engine.EngineSql
 import com.dd3boh.outertune.db.ListenSql
 import com.dd3boh.outertune.db.RelatedSql
 import com.dd3boh.outertune.db.StatsSql
+import com.dd3boh.outertune.engine.EngineSql
 import com.dd3boh.outertune.stats.StatsBounds
 import com.dd3boh.outertune.stats.StatsListen
 import com.dd3boh.outertune.stats.StatsSongArtist
