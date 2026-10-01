@@ -244,6 +244,16 @@ object AutoBackupPolicy {
     }
 
     /**
+     * The interval in hours to schedule automatic backups at, or null for no schedule: the switch
+     * is off, or there is no folder to write to. [on], [folder] and [hours] are what the settings
+     * hold, null where nothing has been saved.
+     */
+    fun scheduledHours(on: Boolean?, folder: String?, hours: Int?): Int? {
+        if (on != true || folder.isNullOrBlank()) return null
+        return (hours ?: AutoBackup.DEFAULT_INTERVAL_HOURS).coerceAtLeast(1)
+    }
+
+    /**
      * The tag the periodic schedule carries, saying which interval it was made for. WorkManager
      * 2.8.1 has no other way to ask (WorkInfo only gained the period in 2.9). It is stored with the
      * schedule in WorkManager's database, so changing its format replaces every schedule once.
