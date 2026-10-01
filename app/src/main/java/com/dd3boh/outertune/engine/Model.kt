@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.engine
 
+import com.dd3boh.outertune.constants.EndReason
+
 /**
  * The engine's view of the world: plain rows, no Android and no Room, so the JVM tests run the
  * same code the phone runs. The loader on the Android side fills these from the database.
@@ -34,6 +36,47 @@ data class ListenRow(
     /** The listen's own row id, so a grade can record which play it came from. */
     val id: Long = 0,
 )
+
+/**
+ * Which listens the engine reads, in one place, so the loader, the learning loop and the JVM
+ * trials all leave out the same rows.
+ *
+ * A play that failed (it stopped on a playback error and was left that way: a stream that died, an
+ * expired url, a file that was gone) teaches the recommendations nothing. It is not the listener
+ * turning the song down, so it is never counted against the song or a card, and it is not the
+ * listener choosing it either, however much of it played before it died. History, Last.fm and
+ * YouTube history are not the engine and keep their own rule, the share heard.
+ */
+object EngineListens {
+    fun failed(l: ListenRow): Boolean = l.endReason == EndReason.ERROR
+
+    /**
+     * The log as a build reads it at [now]: failed plays left out, and a row still open, the song
+     * playing now, ending now.
+     */
+    fun forBuild(rows: List<ListenRow>, now: Long): List<ListenRow> = rows.mapNotNull { l ->
+        when {
+            failed(l) -> null
+            l.endReason == EndReason.OPEN -> l.copy(endedAt = now)
+            else -> l
+        }
+    }
+
+    /**
+     * The log as grading reads it at [now]: every row, a row still open ending now. Failed plays
+     * stay, because a card whose play failed has to be settled (at no weight, see [Grading]) rather
+     * than graded as a card nobody played.
+     */
+    fun forGrading(rows: List<ListenRow>, now: Long): List<ListenRow> =
+        rows.map { if (it.endReason == EndReason.OPEN) it.copy(endedAt = now) else it }
+
+    /**
+     * The listener's own picks a built row is scored against: chosen rather than autoplayed, meant
+     * to teach, closed, and not failed.
+     */
+    fun picks(rows: List<ListenRow>): List<ListenRow> =
+        rows.filter { it.learn && it.autoplayDepth == 0 && it.endReason != EndReason.OPEN && !failed(it) }
+}
 
 data class SongRow(
     val id: String,

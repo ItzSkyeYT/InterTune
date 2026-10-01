@@ -6,7 +6,6 @@
 
 package com.dd3boh.outertune.engine
 
-import com.dd3boh.outertune.constants.EndReason
 import com.dd3boh.outertune.constants.SimilarSource
 import com.dd3boh.outertune.db.MusicDatabase
 import java.io.File
@@ -53,10 +52,9 @@ object EngineLoader {
             val playable = !r.isLocal || r.localPath.isNullOrEmpty() || File(r.localPath).exists()
             songs[r.id] = SongRow(r.id, r.title, r.artistId, r.artistName, r.liked, likedAt?.takeIf { r.liked }, r.inLibrary != null, r.isLocal, playable)
         }
-        val listens = database.engineListens().map { l ->
-            // A row still open is the song playing now: it ends, for the engine's purposes, now.
-            if (l.endReason == EndReason.OPEN) l.copy(endedAt = now) else l
-        }
+        // A row still open is the song playing now: it ends, for the engine's purposes, now. A play
+        // that failed is left out.
+        val listens = EngineListens.forBuild(database.engineListens(), now)
         val day = 86_400_000L
         return EngineInput(
             now = now,

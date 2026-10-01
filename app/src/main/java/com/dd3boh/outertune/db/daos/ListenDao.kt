@@ -110,15 +110,8 @@ interface ListenDao {
     @Query("SELECT COUNT(*) FROM impression WHERE tappedAt IS NOT NULL")
     fun tapCount(): Flow<Int>
 
-    /**
-     * What the listener has just had: heard at engagement 0.5 or more (45% of a known length, or
-     * two minutes of an unknown one) in the last day, or started at all in the given session.
-     */
-    @Query("""SELECT DISTINCT s.id AS id, s.title AS title,
-        (SELECT a.name FROM song_artist_map m JOIN artist a ON a.id = m.artistId WHERE m.songId = s.id ORDER BY m.position LIMIT 1) AS artist
-        FROM listen l JOIN song s ON s.id = l.songId
-        WHERE (l.startedAt >= :dayAgo AND l.playedMs >= 30000 AND ((l.durationMs > 0 AND l.playedMs * 20 >= l.durationMs * 9) OR (l.durationMs <= 0 AND l.playedMs >= 120000)))
-           OR l.sessionId = :sessionId""")
+    /** What the listener has just had, failed plays aside; see [ListenSql.JUST_PLAYED]. */
+    @Query(ListenSql.JUST_PLAYED)
     fun justPlayed(dayAgo: Long, sessionId: Long): List<PlayedSong>
 
     /** When a seed's YouTube related list was fetched (its oldest edge), null with no edges, 0 for a legacy list of unknown age. */

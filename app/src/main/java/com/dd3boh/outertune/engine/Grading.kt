@@ -26,7 +26,10 @@ object Outcome {
     const val PLAYED = 1
     const val ELSEWHERE = 2
     const val IGNORED = 3
-    /** The listen it produced asked not to teach; graded so it is never looked at again, weighing nothing. */
+    /**
+     * The listen it produced asked not to teach, or failed; graded so it is never looked at again,
+     * weighing nothing.
+     */
     const val DROPPED = 6
     /**
      * Tapped, but no listen of it was ever found. Settled a day after the tap, weighing nothing:
@@ -45,6 +48,10 @@ data class Graded(val impressionId: Long, val outcome: Int, val y: Double, val u
  * the weight, so a coincidence is not a win; a card seen and not played within a day is an ignored
  * card at weight 0.3. A card that was tapped is never graded ignored, even when no listen arrives,
  * so a service killed mid-song cannot turn a win into a loss.
+ *
+ * A play that failed decides nothing (see [EngineListens]): a card whose play died is settled at no
+ * weight, like one whose play asked not to teach, and a failed play elsewhere neither wins the card
+ * nor lets it be graded ignored.
  */
 object Grading {
     fun grade(
@@ -78,7 +85,7 @@ object Grading {
                     continue
                 }
                 if (listen.endReason == EndReason.OPEN) continue
-                if (!listen.learn) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
+                if (!listen.learn || EngineListens.failed(listen)) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
                 val liked = songs[listen.songId]?.likedAt
                 out += Graded(imp.id, Outcome.PLAYED, Signals.engagement(listen, liked, p), 1.0, listen.id.takeIf { it > 0 })
                 continue
@@ -88,8 +95,9 @@ object Grading {
                 l.autoplayDepth == 0 && l.startedAt > imp.visibleAt && l.startedAt <= imp.visibleAt + window && l.endReason != EndReason.OPEN
             }
             if (elsewhere.isNotEmpty()) {
-                if (elsewhere.none { it.learn }) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
-                val g = elsewhere.filter { it.learn }.maxOf { Signals.engagement(it, songs[it.songId]?.likedAt, p) }
+                val teaching = elsewhere.filter { it.learn && !EngineListens.failed(it) }
+                if (teaching.isEmpty()) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
+                val g = teaching.maxOf { Signals.engagement(it, songs[it.songId]?.likedAt, p) }
                 out += Graded(imp.id, Outcome.ELSEWHERE, 0.5 * g, 0.5)
             } else {
                 out += Graded(imp.id, Outcome.IGNORED, 0.0, 0.3)

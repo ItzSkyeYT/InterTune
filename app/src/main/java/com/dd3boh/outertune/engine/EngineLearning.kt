@@ -10,7 +10,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import com.dd3boh.outertune.db.Converters
-import com.dd3boh.outertune.constants.EndReason
 import android.content.Context
 import android.util.Log
 import androidx.datastore.preferences.core.edit
@@ -55,7 +54,7 @@ class EngineLearning(private val context: Context, private val database: MusicDa
     private suspend fun scoreBuilds(now: Long) {
         val builds = database.buildsToScore(now - 86_400_000L)
         if (builds.isEmpty()) return
-        val listens = database.engineListens().filter { it.learn && it.autoplayDepth == 0 && it.endReason != EndReason.OPEN }
+        val listens = EngineListens.picks(database.engineListens())
         // Once for all the builds, not once per build: the table is read whole, and every shown
         // row is scored now, which made it tens of full reads a day inside the load's wait.
         val versionLinks = database.engineVersionLinks().map { VersionLink(it.songId, it.versionId) }
@@ -112,7 +111,7 @@ class EngineLearning(private val context: Context, private val database: MusicDa
         val rows = pending.map { i ->
             ImpressionRow(i.id, i.songId, i.slot, Lane.ofCode(i.lane), Grading.parseFeatures(i.features), i.p?.toDouble(), i.visibleAt ?: 0L, i.tappedAt)
         }
-        val listens = database.engineListens().map { if (it.endReason == EndReason.OPEN) it.copy(endedAt = now) else it }
+        val listens = EngineListens.forGrading(database.engineListens(), now)
         val oldest = pending.minOf { it.visibleAt ?: now }
         val recent = listens.filter { it.startedAt >= oldest - 86_400_000L }
         val ids = (pending.map { it.songId } + recent.map { it.songId }).toSet().toList()

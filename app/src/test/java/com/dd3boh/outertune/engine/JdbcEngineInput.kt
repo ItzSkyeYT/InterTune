@@ -6,7 +6,6 @@
 
 package com.dd3boh.outertune.engine
 
-import com.dd3boh.outertune.constants.EndReason
 import java.sql.Connection
 import java.time.ZoneId
 
@@ -28,14 +27,17 @@ object JdbcEngineInput {
                 likedDate?.takeIf { liked }?.let { storedLocalToInstant(it, zone) }, r["inLibrary"] != null, (r["isLocal"] as Number).toInt() != 0)
         }
 
-    fun listens(db: Connection, now: Long): List<ListenRow> =
+    /** As the app's loader reads them: open rows ending [now], failed plays left out (EngineListens.forBuild). */
+    fun listens(db: Connection, now: Long): List<ListenRow> = EngineListens.forBuild(
         db.rows("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId, impressionId, contextChip FROM listen").map {
             val endReason = (it["endReason"] as Number).toInt()
-            ListenRow(it["songId"] as String, (it["startedAt"] as Number).toLong(), if (endReason == EndReason.OPEN) now else (it["endedAt"] as Number).toLong(),
+            ListenRow(it["songId"] as String, (it["startedAt"] as Number).toLong(), (it["endedAt"] as Number).toLong(),
                 (it["playedMs"] as Number).toLong(), (it["durationMs"] as Number).toLong(), endReason, (it["origin"] as Number).toInt(),
                 (it["autoplayDepth"] as Number).toInt(), (it["sessionId"] as Number).toLong(), (it["tzOffsetMin"] as Number).toInt(), (it["learn"] as Number).toInt() != 0,
                 (it["runId"] as Number).toLong(), (it["queueId"] as Number).toLong(), (it["impressionId"] as Number?)?.toLong(), (it["contextChip"] as Number).toInt())
-        }
+        },
+        now,
+    )
 
     /** YouTube's edges through the app's query, so a copy holding Last.fm's too reads the same as the app on YouTube. */
     fun edges(db: Connection, source: Int = 0): List<Edge> =

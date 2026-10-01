@@ -57,6 +57,12 @@ class ListenSqlTest {
         }
     }
 
+    private fun justPlayed(dayAgo: Long, sessionId: Long): Set<String> = db.createStatement().use { st ->
+        st.executeQuery(ListenSql.JUST_PLAYED.replace(":dayAgo", "$dayAgo").replace(":sessionId", "$sessionId")).use { rs ->
+            buildSet { while (rs.next()) add(rs.getString("id")) }
+        }
+    }
+
     // Linking a resume
 
     @Test
@@ -83,5 +89,24 @@ class ListenSqlTest {
         listen("s", EndReason.REPLACED)
         listen("s", EndReason.UNKNOWN)
         assertNull(lastResumable("s"))
+    }
+
+    // Just played, for the Tidy pass
+
+    @Test
+    fun `a failed play is not just played, whatever share of it played`() {
+        listen("s", EndReason.ERROR, startedAt = t, playedMs = 190_000, sessionId = 7)
+        assertEquals(emptySet<String>(), justPlayed(dayAgo = t - 1, sessionId = 7))
+        assertEquals(emptySet<String>(), justPlayed(dayAgo = t - 1, sessionId = 8))
+    }
+
+    @Test
+    fun `a play heard well in the day, or anything started this session, still is`() {
+        listen("s", EndReason.SKIPPED, startedAt = t, playedMs = 100_000, sessionId = 7)    // half of 200 s
+        listen("other", EndReason.SKIPPED, startedAt = t, playedMs = 5_000, sessionId = 8)  // a glance, this session
+        assertEquals(setOf("s"), justPlayed(dayAgo = t - 1, sessionId = 1))
+        assertEquals(setOf("s", "other"), justPlayed(dayAgo = t - 1, sessionId = 8))
+        // Too long ago, and in no session that is going on.
+        assertEquals(emptySet<String>(), justPlayed(dayAgo = t + 1, sessionId = 1))
     }
 }
