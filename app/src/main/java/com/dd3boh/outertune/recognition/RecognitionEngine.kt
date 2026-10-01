@@ -1242,10 +1242,11 @@ class RecognitionEngine @Inject constructor(
         // songs heard stay as they are. One odd window with only a toss-up is left alone too, and
         // so is an answer already given, unless an upload names a song it does not cover along
         // with another, and the search does not still put the answer first or above every such
-        // upload (MixSearch.stillGiven). A failed search changes nothing; the next piece to come
-        // back runs it again.
+        // upload, each weighed against every song heard in the mashup rather than only the ones
+        // this return carried (MixSearch.stillGiven). A failed search changes nothing; the next
+        // piece to come back runs it again.
         val given = active?.found
-        val outcome = MixSearch.outcome(uncovered, given, active?.reopened == true, ranked, search.complete, winner, found.strong, around)
+        val outcome = MixSearch.outcome(uncovered, given, active?.reopened == true, ranked, search.complete, winner, found.strong, around, speed)
         // What the search looked for, noted as searched for when it settles something.
         val lookedFor = MixSearch.queried(order)
         val new = uncovered.joinToString(" or ") { "'${it.title}'" }
@@ -1256,10 +1257,11 @@ class RecognitionEngine @Inject constructor(
                 when {
                     ranked == null -> "nothing picked, the search failed"
                     uncovered.isNotEmpty() && naming.isEmpty() -> "nothing names $new with another song heard$failedPart"
-                    uncovered.isNotEmpty() && given != null && MixSearch.stillGiven(ranked, naming, given, around) ->
-                        (if (ranked.first().first.id == given.id) "the search puts '${given.title}', the answer given, first"
-                        else "nothing naming $new names more of the songs or scores more than '${given.title}', the answer given") +
-                                "$failedPart: ${MixSearch.standing(ranked, around, speed)}"
+                    uncovered.isNotEmpty() && given != null && MixSearch.stillGiven(ranked, naming, given, around, speed) ->
+                        "against every song heard, " +
+                                (if (MixSearch.givenFirst(ranked, given, around, speed)) "'${given.title}', the answer given, comes first"
+                                else "nothing naming $new names more of the songs or scores more than '${given.title}', the answer given") +
+                                " at ${MixSearch.heardScore(around, given, speed)}$failedPart; this search: ${MixSearch.standing(ranked, around, speed)}"
                     uncovered.isNotEmpty() ->
                         "one odd window, and no upload naming $new with another song is clear: " +
                                 MixSearch.standing(naming + ranked.filterNot { it in naming }, around, speed)

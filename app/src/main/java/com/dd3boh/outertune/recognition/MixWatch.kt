@@ -799,13 +799,24 @@ internal object MixSearch {
         // Found by both queries is worth a point: the two ask different questions of the same songs.
         return scored.values
             .map { (item, score) -> item to score + if ((hits[item.id] ?: 0) > 1) 1 else 0 }
-            .sortedWith(
-                compareByDescending<Pair<SongItem, Int>> { songsNamed(pieces, it.first) }
-                    .thenByDescending { speedFit(it.first, speed, pieces) }
-                    .thenByDescending { titlesNamed(pieces, it.first) }
-                    .thenByDescending { it.second }
-            )
+            .sortedWith(ranking(pieces, speed))
     }
+
+    /** The order [rank] puts uploads and their scores in, for the songs [pieces] heard at [speed]. */
+    private fun ranking(pieces: List<MixWatch.Sighting>, speed: Double): Comparator<Pair<SongItem, Int>> =
+        compareByDescending<Pair<SongItem, Int>> { songsNamed(pieces, it.first) }
+            .thenByDescending { speedFit(it.first, speed, pieces) }
+            .thenByDescending { titlesNamed(pieces, it.first) }
+            .thenByDescending { it.second }
+
+    /**
+     * What [item] scores against every song [heard] in a mashup, at the room's [speed]: its [score]
+     * and [speedFit], as [rank] counts them for the songs a search was made with. Without the point
+     * for being found by both queries, which goes by what one search asked. Null when it names
+     * fewer than two of them.
+     */
+    fun heardScore(heard: List<MixWatch.Sighting>, item: SongItem, speed: Double): Int? =
+        score(heard, item)?.plus(speedFit(item, speed, heard))
 
     /**
      * The mashup to take without asking, or null when there is none or it is a toss-up. Clear means
@@ -1147,7 +1158,8 @@ internal object MixSearch {
      * answered once and is being asked again ([reopened]), what the search for its songs found
      * ([ranked], null when it failed), whether every one of its queries went through ([complete]),
      * its [winner], whether the return was [strong], and every song [heard] in it, which tells which
-     * of them an upload names ([namesSong]).
+     * of them an upload names ([namesSong]) and, with the room's [speed], how an upload naming a
+     * song uncovered weighs against the answer given ([stillGiven]).
      *
      * With nothing uncovered it goes on as it always has: left alone when the search failed, when
      * nothing names two of the songs, or after one odd window with only a toss-up, and otherwise
@@ -1171,6 +1183,7 @@ internal object MixSearch {
         winner: SongItem?,
         strong: Boolean,
         heard: List<MixWatch.Sighting>,
+        speed: Double = 1.0,
     ): Outcome {
         if (uncovered.isEmpty()) return when {
             ranked.isNullOrEmpty() || (winner == null && !strong) -> Outcome.LEAVE
@@ -1180,7 +1193,7 @@ internal object MixSearch {
         if (ranked == null) return Outcome.STAND_FOR_NOW
         val naming = reopening(ranked, uncovered, heard)
         return when {
-            naming.isEmpty() || stillGiven(ranked, naming, given, heard) -> if (complete) Outcome.STAND else Outcome.STAND_FOR_NOW
+            naming.isEmpty() || stillGiven(ranked, naming, given, heard, speed) -> if (complete) Outcome.STAND else Outcome.STAND_FOR_NOW
             // Clear over everything found, not only over the others naming the new song: on a weak
             // return, an upload of the two songs answered for well ahead of one naming the third
             // says that one is only a toss-up.
@@ -1206,20 +1219,27 @@ internal object MixSearch {
 
     /**
      * Whether the search, for all it found, still says the mashup is [given], the upload it was
-     * answered with: [ranked] puts that very upload first, or none of the uploads [naming] a song
-     * it did not cover ([reopening]) names more of the songs [heard] than it does ([songsNamed]),
-     * or scores more than it does in this search. Asking again then only offers the answer already
-     * given first, or something the search thinks less of in its place. The other mashup of Faint
-     * and No Love, taken without asking at 7, came first again at 8 when Numb came back, and
-     * "Numb / Faint" at 4 asked the question all over again, with the answer given at the top of
-     * the choice; in a playlist's run that very upload was then listed as heard and not added,
-     * though it was in the playlist.
+     * answered with: that very upload comes first of all it found ([givenFirst]), or none of the
+     * uploads [naming] a song it did not cover ([reopening]) names more of the songs [heard] than
+     * it does ([songsNamed]), or scores more than it does ([heardScore]). Asking again then only
+     * offers the answer already given first, or something the search thinks less of in its place.
+     * The other mashup of Faint and No Love, taken without asking at 7, came first again at 8 when
+     * Numb came back, and "Numb / Faint" at 4 asked the question all over again, with the answer
+     * given at the top of the choice; in a playlist's run that very upload was then listed as heard
+     * and not added, though it was in the playlist.
      *
      * An upload naming more of the songs reopens it whatever the scores. The answer's score counts
      * an artist's name for every song heard by that artist, which [songsNamed] does not: with Numb
      * heard, that same answer scored 8, a point of it for Numb's Linkin Park credit, and "Faint x
      * No Love x Numb (Mashup)", first at 7, was outvoted. The answer stood, Numb was noted, and the
      * mashup of all three was never asked about.
+     *
+     * Each of them is ranked and scored against every song [heard] in the mashup, at the room's
+     * [speed], and not as [ranked] has them: [rank] goes by the songs this return carried, the
+     * ones the search was made with, so whether an answer stood depended on which of its songs came
+     * back. Numb back with Faint alone put "Numb / Faint" at 4 above the answer at 3, which lost
+     * two for listing No Love, a song that return did not carry, and a strong return asked again;
+     * with No Love in the return the same two scored 4 and 8, and the answer stood.
      *
      * Not when the search did not find [given] at all: how it would score is not known, and an
      * upload naming the new song is then asked about as before.
@@ -1229,12 +1249,25 @@ internal object MixSearch {
         naming: List<Pair<SongItem, Int>>,
         given: SongItem?,
         heard: List<MixWatch.Sighting>,
+        speed: Double = 1.0,
     ): Boolean {
-        if (given == null) return false
-        if (ranked.firstOrNull()?.first?.id == given.id) return true
-        val own = ranked.firstOrNull { it.first.id == given.id }?.second ?: return false
+        if (given == null || ranked.none { it.first.id == given.id }) return false
+        if (givenFirst(ranked, given, heard, speed)) return true
         val named = songsNamed(heard, given)
-        return naming.none { (item, score) -> songsNamed(heard, item) > named || score > own }
+        val own = heardScore(heard, given, speed) ?: 0
+        return naming.none { (item, _) -> songsNamed(heard, item) > named || (heardScore(heard, item, speed) ?: 0) > own }
+    }
+
+    /**
+     * Whether nothing in [ranked] comes before [given] once each is ranked as [rank] does, against
+     * every song [heard] in the mashup at the room's [speed] and scored by [heardScore]: see
+     * [stillGiven]. An upload level with it does not come before it.
+     */
+    fun givenFirst(ranked: List<Pair<SongItem, Int>>, given: SongItem, heard: List<MixWatch.Sighting>, speed: Double): Boolean {
+        val order = ranking(heard, speed)
+        fun scored(item: SongItem) = item to (heardScore(heard, item, speed) ?: 0)
+        val own = scored(given)
+        return ranked.none { (item, _) -> item.id != given.id && order.compare(scored(item), own) < 0 }
     }
 
     /**

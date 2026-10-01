@@ -1585,6 +1585,88 @@ class MixWatchTest {
     }
 
     /**
+     * The other mashup of Faint and No Love taken without asking at 7, and then Numb coming back,
+     * once with Faint alone and once with No Love as well. The search for the first ranks only
+     * against Numb and Faint, and puts "Numb / Faint" at 4 above the answer at 3, which loses two
+     * for listing No Love, a song that return did not carry. With No Love in the return the same
+     * two score 4 and 8. Against every song heard in the mashup, both returns give the same answer.
+     */
+    @Test
+    fun `whether an answer stands does not depend on which songs the return carried`() {
+        val numb = "numb" to ("Numb" to "Linkin Park")
+        val two = listOf(sighting(faint, 0), sighting(noLove, 12))
+        val first = MixSearch.rank(two, listOf(listOf(otherMashup)), 1.0)
+        assertEquals(7, first.single().second)
+        val taken = MixSearch.clearWinner(first, two)
+        assertEquals(otherMashup.id, taken?.id)
+        val searched = MixSearch.noted(emptySet(), MixSearch.queried(two))
+        val slash = upload("numbslash", "Numb / Faint", 205)
+        val three = upload("three", "Faint x No Love x Numb (Mashup)", 260)
+
+        val withFaint = listOf(sighting(numb, 276), sighting(faint, 288))
+        val withBoth = listOf(sighting(numb, 276), sighting(faint, 288), sighting(noLove, 300))
+        // What each return makes of the search finding [results]: its outcome, strong and weak.
+        fun outcomes(back: List<MixWatch.Sighting>, results: List<List<SongItem>>): List<MixSearch.Outcome> {
+            val around = two + back
+            val uncovered = MixSearch.uncovered(true, taken, searched, back, around)
+            assertEquals(listOf("numb"), uncovered.map { it.key })
+            val ranked = MixSearch.rank(MixSearch.searchOrder(back, uncovered), results, 1.0)
+            val winner = MixSearch.clearWinner(ranked, back)
+            return listOf(true, false).map { strong -> MixSearch.outcome(uncovered, taken, false, ranked, true, winner, strong, around, 1.0) }
+        }
+        val found = listOf(listOf(otherMashup, slash))
+        // Ranked against the return alone, the two returns put them the other way round.
+        assertEquals(listOf(slash.id to 4, otherMashup.id to 3), MixSearch.rank(withFaint, found, 1.0).map { it.first.id to it.second })
+        assertEquals(listOf(otherMashup.id to 8, slash.id to 4), MixSearch.rank(withBoth, found, 1.0).map { it.first.id to it.second })
+        // Before, Numb back with Faint alone asked again on a strong return, and stood only for now
+        // on a weak one, while with No Love as well the answer stood.
+        val stands = listOf(MixSearch.Outcome.STAND, MixSearch.Outcome.STAND)
+        assertEquals(stands, outcomes(withFaint, found))
+        assertEquals(stands, outcomes(withBoth, found))
+        val around = two + withFaint
+        val ranked = MixSearch.rank(withFaint, found, 1.0)
+        assertTrue(MixSearch.stillGiven(ranked, MixSearch.reopening(ranked, listOf(sighting(numb, 276)), around), taken, around, 1.0))
+        assertEquals(8, MixSearch.heardScore(around, otherMashup, 1.0))
+        assertEquals(4, MixSearch.heardScore(around, slash, 1.0))
+
+        // Nor does the order a return's search put them in. Against all three songs, Faint x No
+        // Love comes before "Linkin Park & Eminem - Numb (Mashup)", naming two of them by title to
+        // its one, though it scores 5 to 6, and so stands. Ranked the other way round, as a return
+        // could have them, it stands all the same.
+        val all = two + sighting(numb, 276)
+        val credits = upload("credits", "Linkin Park & Eminem - Numb (Mashup)", 200)
+        assertEquals(listOf(5, 6), listOf(faintNoLove, credits).map { MixSearch.heardScore(all, it, 1.0) })
+        for (order in listOf(listOf(faintNoLove to 5, credits to 6), listOf(credits to 6, faintNoLove to 5))) {
+            assertTrue(MixSearch.givenFirst(order, faintNoLove, all, 1.0))
+            assertTrue(MixSearch.stillGiven(order, order.filter { it.first == credits }, faintNoLove, all, 1.0))
+        }
+        // Nor do the scores a return's search gave them. "Numb / Faint" comes before "Linkin Park &
+        // Eminem - Faint (Mashup)", naming both its songs by title where that names No Love by its
+        // artist, but scores 4 to its 6 against every song heard: the answer stands, though a
+        // return's search scored "Numb / Faint" higher.
+        val faintCredits = upload("faintcredits", "Linkin Park & Eminem - Faint (Mashup)", 200)
+        assertEquals(listOf(6, 4), listOf(faintCredits, slash).map { MixSearch.heardScore(all, it, 1.0) })
+        for (scores in listOf(4 to 6, 4 to 3)) {
+            val order = listOf(slash to scores.first, faintCredits to scores.second)
+            assertFalse(MixSearch.givenFirst(order, faintCredits, all, 1.0))
+            assertTrue("$scores", MixSearch.stillGiven(order, order.take(1), faintCredits, all, 1.0))
+        }
+        // One naming Numb and Faint by title, at 7, comes first and asks again, in either order.
+        val numbFaintLp = upload("numbfaintlp", "Linkin Park - Numb x Faint (Mashup)", 205)
+        for (order in listOf(listOf(faintNoLove to 5, numbFaintLp to 7), listOf(numbFaintLp to 7, faintNoLove to 5))) {
+            assertFalse(MixSearch.givenFirst(order, faintNoLove, all, 1.0))
+            assertFalse(MixSearch.stillGiven(order, order.filter { it.first == numbFaintLp }, faintNoLove, all, 1.0))
+        }
+
+        // An upload naming all three asks again after either: on a strong return, and for now not
+        // on a weak one, where nothing is clear.
+        val withThree = listOf(listOf(otherMashup, slash, three))
+        val asks = listOf(MixSearch.Outcome.REOPEN, MixSearch.Outcome.STAND_FOR_NOW)
+        assertEquals(asks, outcomes(withFaint, withThree))
+        assertEquals(asks, outcomes(withBoth, withThree))
+    }
+
+    /**
      * The other mashup of Faint and No Love taken without asking at 7, and then Numb coming back.
      * The search finds "Faint x No Love x Numb (Mashup)", which names all three, first, and the
      * answer given a point or so above it, which it owes to Numb's Linkin Park credit: no song is
