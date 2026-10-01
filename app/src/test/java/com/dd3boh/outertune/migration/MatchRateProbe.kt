@@ -7,11 +7,24 @@
 package com.dd3boh.outertune.migration
 
 import com.zionhuang.innertube.YouTube
+import com.zionhuang.innertube.models.Artist
 import com.zionhuang.innertube.models.SongItem
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assume.assumeTrue
 import org.junit.Test
+import java.io.File
 import java.sql.DriverManager
 
 /**
@@ -35,6 +48,9 @@ import java.sql.DriverManager
  *  - **perturbed** rewrites each track the way a real export differs: a remaster tag appended,
  *    accents stripped, the featured artist moved out of the title or into it, "Artist - Title"
  *    order. That is the number the decision should be made on.
+ *  - **dashed** takes only the tracks whose title ends in a bracketed tag and writes the tag after
+ *    a dash, the way Spotify and Apple Music do: "Hide (CS01 Version)" becomes "Hide - CS01
+ *    Version". Nothing else is changed, so this pass isolates how the two forms are cleaned.
  *
  * The counts that matter are not one rate. A silent wrong import is far worse than a review, so
  * they are reported apart: confident-and-right can be imported, unconfident goes to a screen and
@@ -44,6 +60,12 @@ import java.sql.DriverManager
  *
  *     MATCH_DB=/path/to/song.db MATCH_PROBE=1 MATCH_SAMPLE=40 \
  *       ./gradlew :app:testCoreDebugUnitTest --tests "*MatchRateProbe*" -i
+ *
+ * MATCH_CACHE=/path/to/file.json keeps every search result the probe sees and answers from it on
+ * the next run. Searches differ from one day to the next, so two live runs either side of a
+ * matcher change measure the change and the search drift together; with the cache, the second
+ * run scores exactly the candidates the first one did. MATCH_TRACE=1 prints one line per track,
+ * which is what to diff between those two runs.
  */
 class MatchRateProbe {
 
@@ -85,6 +107,78 @@ class MatchRateProbe {
         else -> WantedTrack(track.title, track.artist.substringBefore(",").trim(), null)
     }
 
+    /**
+     * The track as Spotify writes a version, or null when its title ends in no tag to move.
+     *
+     * A featured artist stays in brackets, where Spotify keeps it too, and goes before the dash:
+     * "Song (Remix) (feat. X)" becomes "Song (feat. X) - Remix".
+     */
+    private fun dashed(track: Known): WantedTrack? {
+        val featured = Regex("(\\s*\\((?:feat|ft|with|featuring)\\b[^()]*\\))+$", RegexOption.IGNORE_CASE)
+        val feat = featured.find(track.title)?.value.orEmpty()
+        val rest = track.title.removeSuffix(feat)
+        val tag = Regex("^(.*\\S)\\s*\\(([^()]+)\\)$").find(rest) ?: return null
+        val (head, version) = tag.destructured
+        return WantedTrack("$head$feat - $version", track.artist, track.seconds)
+    }
+
+    /** Search results by query, read from and written back to MATCH_CACHE when it is set. */
+    private class SearchCache(private val file: File?) {
+        private val known = HashMap<String, List<SongItem>>()
+        private var added = false
+
+        init {
+            if (file != null && file.exists()) {
+                Json.parseToJsonElement(file.readText()).jsonObject.forEach { (query, items) ->
+                    known[query] = items.jsonArray.map { item ->
+                        val o = item.jsonObject
+                        SongItem(
+                            id = o.getValue("id").jsonPrimitive.content,
+                            title = o.getValue("title").jsonPrimitive.content,
+                            artists = o.getValue("artists").jsonArray.map { Artist(name = it.jsonPrimitive.content, id = null) },
+                            album = null,
+                            duration = o["duration"]?.jsonPrimitive?.intOrNull,
+                            thumbnail = "",
+                        )
+                    }
+                }
+            }
+        }
+
+        val size get() = known.size
+
+        /** Null when the search itself failed, which is neither cached nor a finding about matching. */
+        suspend fun search(query: String): List<SongItem>? {
+            known[query]?.let { return it }
+            val found = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
+            // Politeness, and it keeps a long run from looking like scraping. Only live searches
+            // wait; a replay has nobody to be polite to.
+            delay(350)
+            if (found == null) return null
+            return found.items.filterIsInstance<SongItem>().take(8).also {
+                known[query] = it
+                added = true
+            }
+        }
+
+        fun save() {
+            if (file == null || !added) return
+            val json = JsonObject(known.mapValues { (_, items) ->
+                buildJsonArray {
+                    items.forEach { song ->
+                        add(buildJsonObject {
+                            put("id", JsonPrimitive(song.id))
+                            put("title", JsonPrimitive(song.title))
+                            put("artists", JsonArray(song.artists.map { JsonPrimitive(it.name) }))
+                            put("duration", song.duration?.let { JsonPrimitive(it) } ?: JsonNull)
+                        })
+                    }
+                }
+            })
+            file.writeText(json.toString())
+        }
+    }
+
     private fun stripAccentsFor(s: String) =
         java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
             .replace(Regex("\\p{InCombiningDiacriticalMarks}+"), "")
@@ -107,6 +201,18 @@ class MatchRateProbe {
         val length = got.duration ?: return false
         val seconds = wanted.seconds ?: return false
         return normalise(got.title) == normalise(wanted.title) && kotlin.math.abs(length - seconds) <= 3
+    }
+
+    /** The pick, its score, where it went, and whether it was the id, another upload of it, or neither. */
+    private fun traced(track: Known, best: Scored?): String {
+        if (best == null) return "nothing"
+        val verdict = when {
+            best.candidate.id == track.id -> "id"
+            sameRecording(track, best.candidate) -> "same"
+            else -> "other"
+        }
+        val where = if (best.confident) "auto" else "review"
+        return "'${best.candidate.title}' (${best.candidate.duration}s) ${"%.2f".format(best.total)} $where $verdict"
     }
 
     private class Tally(val label: String) {
@@ -170,21 +276,24 @@ class MatchRateProbe {
 
         val corpus = library(path, sample)
         println("MATCH corpus: ${corpus.size} played songs from $path")
+        val cache = SearchCache(System.getenv("MATCH_CACHE")?.let(::File))
+        println("MATCH cache: ${cache.size} searches known before this run")
+        val trace = System.getenv("MATCH_TRACE") == "1"
 
-        for (mode in listOf("verbatim", "perturbed")) {
+        for (mode in listOf("verbatim", "perturbed", "dashed")) {
             val tally = Tally(mode)
             val scores = mutableListOf<Pair<Double, Boolean>>()
             corpus.forEachIndexed { i, track ->
-                val wanted =
-                    if (mode == "verbatim") WantedTrack(track.title, track.artist, track.seconds)
-                    else perturb(track, i)
+                val wanted = when (mode) {
+                    "verbatim" -> WantedTrack(track.title, track.artist, track.seconds)
+                    "perturbed" -> perturb(track, i)
+                    else -> dashed(track) ?: return@forEachIndexed
+                }
 
-                val found = YouTube.search(
-                    listOfNotNull(wanted.title, wanted.artist.ifBlank { null }).joinToString(" "),
-                    YouTube.SearchFilter.FILTER_SONG,
-                )
-                val candidates = found.getOrNull()?.items?.filterIsInstance<SongItem>()?.take(8).orEmpty()
+                val query = listOfNotNull(wanted.title, wanted.artist.ifBlank { null }).joinToString(" ")
+                val candidates = cache.search(query).orEmpty()
                 val best = match(wanted, candidates)
+                if (trace) println("MATCH   trace $mode #$i '${wanted.title}' (${wanted.durationSeconds}s) -> ${traced(track, best)}")
 
                 if (best != null) scores += best.total to sameRecording(track, best.candidate)
                 when {
@@ -205,13 +314,12 @@ class MatchRateProbe {
                     }
                     else -> tally.reviewWrong++
                 }
-                // Politeness, and it keeps a long run from looking like scraping.
-                delay(350)
             }
             println("")
             tally.report()
             sweep(mode, scores)
             println("")
         }
+        cache.save()
     }
 }

@@ -9,6 +9,8 @@ package com.dd3boh.outertune.migration
 import com.zionhuang.innertube.models.Artist
 import com.zionhuang.innertube.models.SongItem
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -92,6 +94,106 @@ class TrackMatchTest {
         assertEquals(normalise("Bohemian Rhapsody"), normalise("Bohemian Rhapsody - Remastered 2011"))
         // A year that is the title stays.
         assertEquals("1979", normalise("1979"))
+    }
+
+    @Test
+    fun `a dash suffix is cleaned the way the same words in brackets are`() {
+        // His import on 29 Sep. Spotify writes a version after a dash and YouTube in brackets, and
+        // the two were cleaned by different rules: the bracket went whole, the dash stayed.
+        assertEquals("hide cs01", normalise("Hide - CS01 Version"))
+        assertEquals("hide cs01", normalise("Hide (CS01 Version)"))
+
+        assertEquals(normalise("Song (Remastered 2011)"), normalise("Song - Remastered 2011"))
+        assertEquals(normalise("Song"), normalise("Song - Remastered 2011"))
+        assertEquals(normalise("Song (Radio Edit)"), normalise("Song - Radio Edit"))
+        assertEquals(normalise("Song (Extended Mix)"), normalise("Song - Extended Mix"))
+        assertEquals(normalise("Song (Skrillex Remix)"), normalise("Song - Skrillex Remix"))
+        assertEquals(normalise("Song (Slowed)"), normalise("Song - Slowed"))
+        assertEquals(normalise("Song [Live]"), normalise("Song - Live"))
+        // An en dash, which some uploads use instead.
+        assertEquals(normalise("Song (Slowed Version)"), normalise("Song \u2013 Slowed Version"))
+    }
+
+    @Test
+    fun `his CS01 pair imports without review`() {
+        val wanted = WantedTrack("Hide - CS01 Version", "Dorian Concept", 181)
+        val best = match(wanted, listOf(song("Hide (CS01 Version)", "Dorian Concept", 182)))!!
+
+        assertTrue("the same version written two ways, scored ${best.total}", best.confident)
+    }
+
+    @Test
+    fun `inside a version tag only the generic words go`() {
+        // Deleting "(Slowed Version)" whole turned a slowed edit into the plain song.
+        assertEquals("song slowed", normalise("Song (Slowed Version)"))
+        assertEquals("song sped up", normalise("Song - Sped Up Version"))
+        assertEquals("song slowed reverb", normalise("Song (Slowed + Reverb Mix)"))
+        assertEquals("song instrumental", normalise("Song (Instrumental Version)"))
+        assertEquals("song live", normalise("Song (Live Version)"))
+        assertEquals("song acoustic", normalise("Song - Acoustic Version"))
+        assertEquals("song extended", normalise("Song (Extended Mix)"))
+        assertEquals("love story taylors", normalise("Love Story (Taylor's Version)"))
+
+        // What says nothing about which recording it is still goes.
+        assertEquals("song", normalise("Song (Radio Edit)"))
+        assertEquals("song", normalise("Song (2009 Remaster)"))
+        assertEquals("song", normalise("Song [Remastered 2011]"))
+        assertEquals("song", normalise("Song - Single Version"))
+        assertEquals("song", normalise("Song - Original Mix"))
+        assertEquals("song", normalise("Song - Mono"))
+        assertEquals("song", normalise("Song (Album Version) [Bonus Track]"))
+    }
+
+    @Test
+    fun `a slowed or live edit is not the song`() {
+        assertNotEquals(normalise("Song"), normalise("Song - Slowed"))
+        assertNotEquals(normalise("Song"), normalise("Song (Slowed Version)"))
+        assertNotEquals(normalise("Song - Slowed"), normalise("Song - Super Slowed"))
+        assertNotEquals(normalise("Song"), normalise("Song - Live Version"))
+        assertNotEquals(normalise("Song"), normalise("Song (Instrumental Version)"))
+    }
+
+    @Test
+    fun `a version in brackets still counts against a plain title of the same length`() {
+        // Before, the bracket was deleted, the names were identical and this imported silently.
+        val best = match(
+            WantedTrack("Hide", "Dorian Concept", 181),
+            listOf(song("Hide (CS01 Version)", "Dorian Concept", 182)),
+        )!!
+        assertFalse("another version should go to review, scored ${best.total}", best.confident)
+
+        // And given both, the tag is what picks the right one.
+        val picked = match(
+            WantedTrack("Hide - CS01 Version", "Dorian Concept", 181),
+            listOf(
+                song("Hide", "Dorian Concept", 181, id = "plain"),
+                song("Hide (CS01 Version)", "Dorian Concept", 182, id = "cs01"),
+            ),
+        )!!
+        assertEquals("cs01", picked.candidate.id)
+    }
+
+    @Test
+    fun `featured artists still go around a version tag`() {
+        assertEquals(normalise("Stay"), normalise("Stay (feat. Justin Bieber) - Remastered 2011"))
+        assertEquals(normalise("Stay"), normalise("Stay feat. Justin Bieber - Radio Edit"))
+        assertEquals(normalise("Stay (Slowed)"), normalise("Stay (feat. Justin Bieber) [Slowed Version]"))
+        // A bare "feat." inside a tag stops at the bracket, so the tag is still cleaned whole.
+        assertEquals(
+            normalise("Get Lucky (Radio Edit) [feat. Pharrell Williams and Nile Rodgers]"),
+            normalise("Get Lucky (Radio Edit - feat. Pharrell Williams and Nile Rodgers)"),
+        )
+    }
+
+    @Test
+    fun `brackets that are part of the title are left alone`() {
+        assertEquals(
+            "sittin on the dock of the bay",
+            normalise("(Sittin' On) The Dock of the Bay - 2002 Remaster"),
+        )
+        assertEquals("i cant get no satisfaction", normalise("(I Can't Get No) Satisfaction"))
+        // A dash that is part of an artist or a word is not a suffix.
+        assertEquals("jay z song", normalise("Jay-Z Song"))
     }
 
     @Test
