@@ -102,6 +102,7 @@ class RecommendationsViewModel @Inject constructor(
      * say at once that there is nothing to do. Saving a copy does not come here; it changes nothing.
      */
     fun ask(action: DataAction) = viewModelScope.launch(Dispatchers.IO) {
+        _dataResults.update { clearedFor(it, action) }
         val step = runCatching {
             when (action) {
                 DataAction.FORGET_SESSION -> {

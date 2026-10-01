@@ -60,6 +60,13 @@ class YourDataTest {
     }
 
     @Test
+    fun `a new tap clears that button's last line and leaves the others`() {
+        val before = mapOf(DataAction.FORGET_TODAY to DataResult.Forgot(0), DataAction.REBUILD to DataResult.Rebuilt(193))
+        assertEquals(mapOf(DataAction.REBUILD to DataResult.Rebuilt(193)), clearedFor(before, DataAction.FORGET_TODAY))
+        assertEquals(before, clearedFor(before, DataAction.RESET))
+    }
+
+    @Test
     fun `a failed forget says it failed, and one that found nothing says nothing to forget`() {
         assertEquals(DataResult.Failed, forgotResult(null))
         assertEquals(DataResult.Forgot(0), forgotResult(0))

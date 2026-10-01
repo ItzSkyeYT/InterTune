@@ -93,6 +93,12 @@ fun rebuildStep(cards: Int): DataStep = DataStep.Ask(DataAsk.Rebuild(cards))
 
 fun loadStep(): DataStep = DataStep.Ask(DataAsk.Load)
 
+/**
+ * A new tap clears what the button said last time, and only that: "Nothing to forget." from an
+ * hour ago stood under the button while its new dialog asked to forget 14 listens.
+ */
+fun clearedFor(results: Map<DataAction, DataResult>, action: DataAction): Map<DataAction, DataResult> = results - action
+
 /** Null when forgetting failed. */
 fun forgotResult(listens: Int?): DataResult = listens?.let { DataResult.Forgot(it) } ?: DataResult.Failed
 
