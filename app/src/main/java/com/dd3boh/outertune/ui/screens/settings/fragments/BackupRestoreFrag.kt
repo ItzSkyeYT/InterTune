@@ -315,27 +315,30 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         // without a number, because the next backup that reaches it will still delete down to the
         // new Keep. A lower Keep that deletes nothing is saved at once.
         val keepScope = rememberCoroutineScope()
-        var keepCount by remember { mutableStateOf<Job?>(null) }
+        val keepCount = remember { KeepCount(keepScope) }
         var keepToConfirm by remember { mutableStateOf<Pair<Int, AutoBackupPolicy.KeepChange>?>(null) }
         val keepInteraction = remember { MutableInteractionSource() }
         Slider(
             value = keepShown.toFloat(),
-            onValueChange = { keepShown = it.roundToInt() },
+            onValueChange = {
+                // A drag or a tap: a count still running for where the thumb was let go before is
+                // stopped here, not only at the next release, so its dialog cannot open during
+                // this drag or after it.
+                keepCount.moved()
+                keepShown = it.roundToInt()
+            },
             // Nothing to reschedule, but once agreed the folder is brought down to the new number
             // now. Left to the next backup, which can be a week or a year away, lowering Keep looked
             // broken. Handed the number rather than left to read the preference, which has not
             // landed yet.
             onValueChangeFinished = {
-                val old = autoBackupKeep
-                val keep = keepShown
-                // A count for where the thumb was before is no longer the question.
-                keepCount?.cancel()
-                keepCount = if (keep == old) null else keepScope.launch {
-                    when (val change = AutoBackupPolicy.keepChange(old, keep) { AutoBackup.wouldDelete(context, keep) }) {
-                        AutoBackupPolicy.KeepChange.Save -> onAutoBackupKeepChange(keep)
-                        else -> keepToConfirm = keep to change
-                    }
-                }
+                keepCount.released(
+                    old = autoBackupKeep,
+                    new = keepShown,
+                    count = { AutoBackup.wouldDelete(context, it) },
+                    save = onAutoBackupKeepChange,
+                    ask = { keep, change -> keepToConfirm = keep to change },
+                )
             },
             valueRange = AutoBackup.KEEP_MIN.toFloat()..AutoBackup.KEEP_MAX.toFloat(),
             steps = AutoBackup.KEEP_MAX - AutoBackup.KEEP_MIN - 1,
@@ -448,6 +451,48 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             icon = { Icon(Icons.Rounded.Output, null) },
             onClick = { exportPlaylistsLauncher.launch(null) }
         )
+    }
+}
+
+/**
+ * The count the Keep slider starts when it is let go, one at a time, on the screen's scope.
+ *
+ * The thumb moving again, by a drag or a tap, cancels a count still running for where it was let
+ * go before. Cancelling only at the next release was not enough: a count that finished during a
+ * newer drag opened its dialog for the old value, the newer release could then save behind it,
+ * and Cancel on that dialog put the slider on a value the user had not kept. Every call comes from
+ * the main thread, so a count is either cancelled before it asks or has already asked, and once
+ * its dialog is open, the dialog is in front of the slider.
+ */
+internal class KeepCount(private val scope: CoroutineScope) {
+    private var job: Job? = null
+
+    /** The thumb moved: a count for where it was let go before is no longer the question. */
+    fun moved() {
+        job?.cancel()
+        job = null
+    }
+
+    /**
+     * Let go at [new] with [old] stored. What happens is AutoBackupPolicy.keepChange, which calls
+     * [count] (AutoBackup.wouldDelete) only when the answer depends on the folder, then [save] or
+     * [ask]. Returns the count's job, null when the value did not change.
+     */
+    fun released(
+        old: Int,
+        new: Int,
+        count: suspend (keep: Int) -> List<String>?,
+        save: (keep: Int) -> Unit,
+        ask: (keep: Int, change: AutoBackupPolicy.KeepChange) -> Unit,
+    ): Job? {
+        moved()
+        if (new == old) return null
+        return scope.launch {
+            when (val change = AutoBackupPolicy.keepChange(old, new) { count(new) }) {
+                AutoBackupPolicy.KeepChange.Save -> save(new)
+                else -> ask(new, change)
+            }
+        }.also { job = it }
     }
 }
 
