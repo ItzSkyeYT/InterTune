@@ -157,8 +157,12 @@ interface ListenDao {
     fun unappliedExamples(): List<Impression>
 
     /** Everything applied so far, in the order it was applied: a rebuild replays exactly this. */
-    @Query("SELECT * FROM impression WHERE appliedAt IS NOT NULL AND features IS NOT NULL AND u > 0 ORDER BY appliedAt, id")
+    @Query(EngineSql.APPLIED_EXAMPLES)
     fun appliedExamples(): List<Impression>
+
+    /** The cards among [appliedExamples], pool picks left out. */
+    @Query(EngineSql.APPLIED_CARDS)
+    fun appliedCardCount(): Int
 
     @Query("UPDATE impression SET appliedAt = :at WHERE id = :id")
     fun markApplied(id: Long, at: Long)
@@ -246,6 +250,10 @@ interface ListenDao {
     /** How many listens [forgetBetween] would mark now. */
     @Query(EngineSql.FORGETTABLE_BETWEEN)
     fun forgettableBetween(from: Long, to: Long): Int
+
+    /** When a session began: its first listen's start. */
+    @Query("SELECT MIN(startedAt) FROM listen WHERE sessionId = :sessionId")
+    fun sessionStart(sessionId: Long): Long?
 
     // Also by the play a grade recorded: a tap whose link was lost is graded by its song's play just
     // after it (Grading), and only the impression knows which play that was.

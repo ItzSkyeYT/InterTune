@@ -6,11 +6,14 @@
 
 package com.dd3boh.outertune.viewmodels
 
-import kotlinx.coroutines.withContext
 import com.dd3boh.outertune.engine.EngineLearning
 import com.dd3boh.outertune.engine.SourceMix
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import android.net.Uri
 import com.dd3boh.outertune.db.entities.EngineWeight
@@ -58,48 +61,102 @@ class RecommendationsViewModel @Inject constructor(
     val cardTrend = TrendWindows.at(System.currentTimeMillis()).let { database.engineCardTrend(it.from, it.mid, it.to) }
     private val learning by lazy { EngineLearning(context, database) }
 
+    /** The change on Your data waiting for a yes. Here, not on the page, so a rotation keeps the dialog. */
+    private val _asking = MutableStateFlow<DataAsk?>(null)
+    val asking: StateFlow<DataAsk?> = _asking.asStateFlow()
+
     /**
-     * Runs [work] past the page that asked for it, and hands its result to [onDone] on the main
-     * thread, or null if it failed. Forgetting marks the listens and then rebuilds, and the rebuild
-     * can wait on the engine's lock while Home's learning run holds it: in the page's own scope,
-     * backing out at that moment cancelled the rebuild after the listens were already marked.
+     * What each button on Your data did, in place of its description. Held here rather than in the
+     * page, so a rotation does not lose it, and a result that lands while the page is being rebuilt
+     * still shows.
+     */
+    private val _dataResults = MutableStateFlow<Map<DataAction, DataResult>>(emptyMap())
+    val dataResults: StateFlow<Map<DataAction, DataResult>> = _dataResults.asStateFlow()
+
+    private fun tell(action: DataAction, result: DataResult) = _dataResults.update { it + (action to result) }
+
+    /**
+     * Runs [work] past the page that asked for it, and hands its result to [onDone], or null if it
+     * failed. Forgetting marks the listens and then rebuilds, and the rebuild can wait on the
+     * engine's lock while Home's learning run holds it: in the page's own scope, backing out at that
+     * moment cancelled the rebuild after the listens were already marked.
+     *
+     * GlobalScope, because the app has no application scope of its own to inject: the other work
+     * that has to outlive a screen (App, the widget's setup, the login page) does the same.
      */
     @OptIn(DelicateCoroutinesApi::class)
     private fun <T> pastThePage(work: suspend () -> T, onDone: (T?) -> Unit) = GlobalScope.launch(Dispatchers.IO) {
-        val result = runCatching { work() }.getOrNull()
-        withContext(Dispatchers.Main) { onDone(result) }
+        onDone(runCatching { work() }.getOrNull())
     }
 
-    /** [onDone] gets whether it worked. */
-    fun resetWeights(onDone: (Boolean) -> Unit) = pastThePage({ learning.reset() }) { onDone(it != null) }
+    /** The session Forget the last session takes: the one playing now, or the latest. */
+    private fun lastSessionId(): Long? = database.openListens().firstOrNull()?.sessionId ?: database.lastListen()?.sessionId
+
+    private fun todayNow(): LongRange {
+        val now = System.currentTimeMillis()
+        return today(now, java.util.TimeZone.getDefault().getOffset(now))
+    }
 
     /**
-     * The latest session stops teaching: its listens are marked, its examples skipped, the weights
-     * rebuilt without them. [onDone] gets how many listens it marked, 0 with no session at all.
+     * A tap on a button that changes what it has learned: count what it would change, then ask, or
+     * say at once that there is nothing to do. Saving a copy does not come here; it changes nothing.
      */
-    fun forgetLastSession(onDone: (Int?) -> Unit) = pastThePage<Int>({
-        val session = database.openListens().firstOrNull()?.sessionId ?: database.lastListen()?.sessionId
-        if (session == null) 0 else {
-            val marked = database.transactionNow<Int> { forgetSession(session).also { dropForgottenExamples() } }
-            learning.rebuild()
-            marked
+    fun ask(action: DataAction) = viewModelScope.launch(Dispatchers.IO) {
+        val step = runCatching {
+            when (action) {
+                DataAction.FORGET_SESSION -> {
+                    val session = lastSessionId()
+                    forgetSessionStep(
+                        session,
+                        session?.let { database.forgettableInSession(it) } ?: 0,
+                        session?.let { database.sessionStart(it) } ?: 0L,
+                    )
+                }
+                DataAction.FORGET_TODAY -> todayNow().let { forgetTodayStep(database.forgettableBetween(it.first, it.last + 1)) }
+                DataAction.RESET -> resetStep(database.engineWeights().isNotEmpty(), database.appliedCardCount())
+                DataAction.REBUILD -> rebuildStep(database.appliedCardCount())
+                DataAction.LOAD -> loadStep()
+                DataAction.SAVE -> error("Saving a copy does not ask")
+            }
+        }.getOrElse { DataStep.Tell(DataResult.Failed) }
+        when (step) {
+            is DataStep.Ask -> _asking.value = step.ask
+            is DataStep.Tell -> tell(action, step.result)
         }
-    }, onDone)
+    }
 
-    /** Everything since local midnight stops teaching. [onDone] gets how many listens it marked. */
-    fun forgetToday(onDone: (Int?) -> Unit) = pastThePage<Int>({
-        val now = System.currentTimeMillis()
-        val off = java.util.TimeZone.getDefault().getOffset(now)
-        val midnight = Math.floorDiv(now + off, 86_400_000L) * 86_400_000L - off
-        val marked = database.transactionNow<Int> { forgetBetween(midnight, now + 1).also { dropForgottenExamples() } }
-        learning.rebuild()
-        marked
-    }, onDone)
+    /** No, or Back, or a tap outside the dialog: nothing changes. */
+    fun dismissAsk() {
+        _asking.value = null
+    }
 
-    /** Everything the engine has learned, as JSON, built off the main thread and handed back on it for the share sheet. */
-    fun export(onReady: (String) -> Unit) = viewModelScope.launch(Dispatchers.IO) {
-        val json = runCatching { exportJson() }.getOrNull() ?: return@launch
-        withContext(Dispatchers.Main) { onReady(json) }
+    /** Yes. Loading only opens the file picker from here, which the page does; the rest runs now. */
+    fun confirm(ask: DataAsk) {
+        _asking.value = null
+        if (ask is DataAsk.Load) return
+        tell(ask.action, DataResult.Working)
+        when (ask) {
+            is DataAsk.ForgetSession -> pastThePage({
+                val marked = database.transactionNow<Int> { forgetSession(ask.sessionId).also { dropForgottenExamples() } }
+                learning.rebuild()
+                marked
+            }) { tell(DataAction.FORGET_SESSION, forgotResult(it)) }
+            is DataAsk.ForgetToday -> pastThePage({
+                val day = todayNow()
+                val marked = database.transactionNow<Int> { forgetBetween(day.first, day.last + 1).also { dropForgottenExamples() } }
+                learning.rebuild()
+                marked
+            }) { tell(DataAction.FORGET_TODAY, forgotResult(it)) }
+            is DataAsk.Reset -> pastThePage({ learning.reset() }) {
+                tell(DataAction.RESET, if (it != null) DataResult.ResetDone else DataResult.Failed)
+            }
+            // Counted as cards, as the dialog was: the learner's own count takes in pool picks too.
+            is DataAsk.Rebuild -> pastThePage({
+                learning.rebuild()
+                database.appliedCardCount()
+            }) { tell(DataAction.REBUILD, it?.let { n -> DataResult.Rebuilt(n) } ?: DataResult.Failed) }
+            DataAsk.Load -> Unit
+        }
     }
 
     private fun exportJson(): String {
@@ -116,13 +173,13 @@ class RecommendationsViewModel @Inject constructor(
      * to another device or keeping it before a reset, and neither is served by pasting several
      * kilobytes of JSON into a chat.
      */
-    fun exportTo(uri: Uri, onDone: (Boolean) -> Unit) = viewModelScope.launch(Dispatchers.IO) {
+    fun exportTo(uri: Uri) = viewModelScope.launch(Dispatchers.IO) {
         val ok = runCatching {
             val json = exportJson()
             context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
                 ?: error("no stream")
         }.isSuccess
-        withContext(Dispatchers.Main) { onDone(ok) }
+        tell(DataAction.SAVE, if (ok) DataResult.Saved else DataResult.FileFailed)
     }
 
     /**
@@ -136,7 +193,8 @@ class RecommendationsViewModel @Inject constructor(
      * every feature this one has, and the sensible reading of that is "use what you recognise"
      * rather than refusing the lot.
      */
-    fun importFrom(uri: Uri, onDone: (Int) -> Unit) = viewModelScope.launch(Dispatchers.IO) {
+    fun importFrom(uri: Uri) = viewModelScope.launch(Dispatchers.IO) {
+        tell(DataAction.LOAD, DataResult.Working)
         val count = runCatching {
             val text = context.contentResolver.openInputStream(uri)?.use {
                 it.readBytes().decodeToString()
@@ -163,13 +221,8 @@ class RecommendationsViewModel @Inject constructor(
             if (rows.isNotEmpty()) database.upsertEngineWeights(rows)
             rows.size
         }.getOrDefault(0)
-        withContext(Dispatchers.Main) { onDone(count) }
+        tell(DataAction.LOAD, if (count > 0) DataResult.Loaded else DataResult.FileFailed)
     }
 
-    /** [onDone] gets how many cards the weights were rebuilt from: the update count the rebuild stored. */
-    fun rebuildWeights(onDone: (Int?) -> Unit) = pastThePage<Int>({
-        learning.rebuild()
-        database.engineWeights().maxOfOrNull { it.updates } ?: 0
-    }, onDone)
     val recent = database.recentListenRows(30)
 }

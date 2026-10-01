@@ -15,15 +15,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -33,19 +33,20 @@ import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
+import com.dd3boh.outertune.ui.dialog.DefaultDialog
+import com.dd3boh.outertune.viewmodels.DataAction
+import com.dd3boh.outertune.viewmodels.DataAsk
+import com.dd3boh.outertune.viewmodels.DataResult
 import com.dd3boh.outertune.viewmodels.RecommendationsViewModel
-
-private const val FORGET_SESSION = 0
-private const val FORGET_TODAY = 1
-private const val RESET = 2
-private const val REBUILD = 3
-private const val EXPORT = 4
-private const val IMPORT = 5
+import com.dd3boh.outertune.viewmodels.asksFirst
+import java.text.DateFormat
+import java.util.Date
 
 /**
  * The buttons that change what the engine keeps: take a session or a day back, reset or rebuild
- * the weights, and write them to a file or read them back. Each does exactly what it did on the
- * Recommendations page before it moved here, and then says what it did in place of its description.
+ * what it learned, and write it to a file or read it back. Every one that changes what it has
+ * learned asks first, saying what will happen and how much; then each says what it did in place
+ * of its description. Saving a copy changes nothing, so it does not ask.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,38 +55,28 @@ fun RecommendationsDataSettings(
     scrollBehavior: TopAppBarScrollBehavior,
     viewModel: RecommendationsViewModel = hiltViewModel(),
 ) {
-    val context = LocalContext.current
-    // What each button did, in place of its description: none of them shows anything else, and
-    // someone looking around should not be left wondering whether a tap changed something. The
-    // work goes on if the page is left; only the line is lost.
-    var results by remember { mutableStateOf(mapOf<Int, String>()) }
-    val working = stringResource(R.string.recommendations_data_working)
-    fun forgotText(n: Int?): String = when {
-        n == null -> context.getString(R.string.recommendations_data_failed)
-        n == 0 -> context.getString(R.string.recommendations_nothing_to_forget)
-        else -> context.resources.getQuantityString(R.plurals.recommendations_forgot, n, n)
-    }
+    // Both live in the view model, so a rotation keeps the open dialog and the lines, and a result
+    // that lands from the work running past the page still shows.
+    val results by viewModel.dataResults.collectAsState()
+    val asking by viewModel.asking.collectAsState()
+
     // A file, not a share sheet full of text. The reason anyone wants this is to move it to
     // another device or keep it before a reset, and neither is served by several kilobytes of
     // JSON pasted into a chat.
     val exportEngineLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
-    ) { uri ->
-        if (uri != null) viewModel.exportTo(uri) { ok ->
-            results = results + (EXPORT to context.getString(
-                if (ok) R.string.engine_data_export_done else R.string.engine_data_failed
-            ))
-        }
-    }
+    ) { uri -> if (uri != null) viewModel.exportTo(uri) }
     val importEngineLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) viewModel.importFrom(uri) { count ->
-            results = results + (IMPORT to if (count > 0) {
-                context.resources.getQuantityString(R.plurals.engine_data_import_done, count, count)
-            } else {
-                context.getString(R.string.engine_data_failed)
-            })
+    ) { uri -> if (uri != null) viewModel.importFrom(uri) }
+
+    fun tap(action: DataAction) {
+        if (asksFirst(action)) {
+            viewModel.ask(action)
+        } else {
+            val stamp = java.time.LocalDateTime.now()
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+            exportEngineLauncher.launch("InterTune_engine_$stamp.json")
         }
     }
 
@@ -103,20 +94,14 @@ fun RecommendationsDataSettings(
         ExplainedPreference(
             title = stringResource(R.string.forget_last_session),
             explanation = stringResource(R.string.forget_last_session_info),
-            description = results[FORGET_SESSION] ?: stringResource(R.string.forget_last_session_description),
-            onClick = {
-                results = results + (FORGET_SESSION to working)
-                viewModel.forgetLastSession { n -> results = results + (FORGET_SESSION to forgotText(n)) }
-            },
+            description = results[DataAction.FORGET_SESSION]?.let { resultText(it) } ?: stringResource(R.string.forget_last_session_description),
+            onClick = { tap(DataAction.FORGET_SESSION) },
         )
         ExplainedPreference(
             title = stringResource(R.string.forget_today),
             explanation = stringResource(R.string.forget_today_info),
-            description = results[FORGET_TODAY] ?: stringResource(R.string.forget_today_description),
-            onClick = {
-                results = results + (FORGET_TODAY to working)
-                viewModel.forgetToday { n -> results = results + (FORGET_TODAY to forgotText(n)) }
-            },
+            description = results[DataAction.FORGET_TODAY]?.let { resultText(it) } ?: stringResource(R.string.forget_today_description),
+            onClick = { tap(DataAction.FORGET_TODAY) },
         )
         Spacer(Modifier.height(16.dp))
 
@@ -124,27 +109,14 @@ fun RecommendationsDataSettings(
         ExplainedPreference(
             title = stringResource(R.string.recommendations_reset_weights),
             explanation = stringResource(R.string.recommendations_reset_weights_info),
-            description = results[RESET] ?: stringResource(R.string.recommendations_reset_weights_description),
-            onClick = {
-                results = results + (RESET to working)
-                viewModel.resetWeights { ok ->
-                    results = results + (RESET to context.getString(if (ok) R.string.recommendations_reset_done else R.string.recommendations_data_failed))
-                }
-            },
+            description = results[DataAction.RESET]?.let { resultText(it) } ?: stringResource(R.string.recommendations_reset_weights_description),
+            onClick = { tap(DataAction.RESET) },
         )
         ExplainedPreference(
             title = stringResource(R.string.recommendations_rebuild_weights),
             explanation = stringResource(R.string.recommendations_rebuild_weights_info),
-            description = results[REBUILD] ?: stringResource(R.string.recommendations_rebuild_weights_description),
-            onClick = {
-                results = results + (REBUILD to working)
-                viewModel.rebuildWeights { n ->
-                    results = results + (REBUILD to (
-                        if (n == null) context.getString(R.string.recommendations_data_failed)
-                        else context.resources.getQuantityString(R.plurals.recommendations_rebuilt, n, n)
-                    ))
-                }
-            },
+            description = results[DataAction.REBUILD]?.let { resultText(it) } ?: stringResource(R.string.recommendations_rebuild_weights_description),
+            onClick = { tap(DataAction.REBUILD) },
         )
         Spacer(Modifier.height(16.dp))
 
@@ -152,20 +124,28 @@ fun RecommendationsDataSettings(
         ExplainedPreference(
             title = stringResource(R.string.export_engine_data),
             explanation = stringResource(R.string.export_engine_data_info),
-            description = results[EXPORT] ?: stringResource(R.string.export_engine_data_description),
-            onClick = {
-                val stamp = java.time.LocalDateTime.now()
-                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
-                exportEngineLauncher.launch("InterTune_engine_$stamp.json")
-            },
+            description = results[DataAction.SAVE]?.let { resultText(it) } ?: stringResource(R.string.export_engine_data_description),
+            onClick = { tap(DataAction.SAVE) },
         )
         ExplainedPreference(
             title = stringResource(R.string.import_engine_data),
             explanation = stringResource(R.string.import_engine_data_info),
-            description = results[IMPORT] ?: stringResource(R.string.import_engine_data_description),
-            onClick = { importEngineLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
+            description = results[DataAction.LOAD]?.let { resultText(it) } ?: stringResource(R.string.import_engine_data_description),
+            onClick = { tap(DataAction.LOAD) },
         )
         Spacer(Modifier.height(24.dp))
+    }
+
+    asking?.let { ask ->
+        AskFirstDialog(
+            ask = ask,
+            onDismiss = viewModel::dismissAsk,
+            onConfirm = {
+                viewModel.confirm(ask)
+                // The yes to loading is a yes to choosing the file that replaces what it learned.
+                if (ask is DataAsk.Load) importEngineLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+            },
+        )
     }
 
     FloatingTopBar(
@@ -173,4 +153,88 @@ fun RecommendationsDataSettings(
         navController = navController,
         windowInsets = TopAppBarDefaults.windowInsets,
     )
+}
+
+/** What a button did, in its own words: resolved here, from resources, not in the callback. */
+@Composable
+private fun resultText(result: DataResult): String = when (result) {
+    DataResult.Working -> stringResource(R.string.recommendations_data_working)
+    is DataResult.Forgot ->
+        if (result.listens == 0) stringResource(R.string.recommendations_nothing_to_forget)
+        else pluralStringResource(R.plurals.recommendations_forgot, result.listens, result.listens)
+    DataResult.ResetDone -> stringResource(R.string.recommendations_reset_done)
+    DataResult.AlreadyAtStart -> stringResource(R.string.recommendations_already_at_start)
+    is DataResult.Rebuilt -> pluralStringResource(R.plurals.recommendations_rebuilt, result.cards, result.cards)
+    DataResult.Saved -> stringResource(R.string.engine_data_export_done)
+    DataResult.Loaded -> stringResource(R.string.engine_data_import_done)
+    DataResult.Failed -> stringResource(R.string.recommendations_data_failed)
+    DataResult.FileFailed -> stringResource(R.string.engine_data_failed)
+}
+
+/**
+ * Before anything that changes what it has learned: what happens, how much, and whether it can be
+ * undone. Laid out as the Keep dialog under Backup is, with a button that repeats the verb of the
+ * title. Cancel, Back and a tap outside all leave everything as it was.
+ */
+@Composable
+private fun AskFirstDialog(ask: DataAsk, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    val title: String
+    val text: String
+    val confirm: String
+    when (ask) {
+        is DataAsk.ForgetSession -> {
+            val began = Date(ask.began)
+            title = pluralStringResource(R.plurals.recommendations_forget_title, ask.listens, ask.listens)
+            text = stringResource(
+                R.string.recommendations_forget_session_text,
+                DateFormat.getDateInstance(DateFormat.MEDIUM).format(began),
+                DateFormat.getTimeInstance(DateFormat.SHORT).format(began),
+            )
+            confirm = stringResource(R.string.recommendations_forget_confirm)
+        }
+        is DataAsk.ForgetToday -> {
+            title = pluralStringResource(R.plurals.recommendations_forget_title, ask.listens, ask.listens)
+            text = stringResource(R.string.recommendations_forget_today_text)
+            confirm = stringResource(R.string.recommendations_forget_confirm)
+        }
+        is DataAsk.Reset -> {
+            title = stringResource(R.string.recommendations_reset_title)
+            text = if (ask.cards == 0) stringResource(R.string.recommendations_reset_text_nothing)
+                else pluralStringResource(R.plurals.recommendations_reset_text, ask.cards, ask.cards)
+            confirm = stringResource(R.string.recommendations_reset_confirm)
+        }
+        is DataAsk.Rebuild -> {
+            title = stringResource(R.string.recommendations_rebuild_title)
+            text = if (ask.cards == 0) stringResource(R.string.recommendations_rebuild_text_nothing)
+                else pluralStringResource(R.plurals.recommendations_rebuild_text, ask.cards, ask.cards)
+            confirm = stringResource(R.string.recommendations_rebuild_confirm)
+        }
+        DataAsk.Load -> {
+            title = stringResource(R.string.recommendations_load_title)
+            text = stringResource(R.string.recommendations_load_text)
+            confirm = stringResource(R.string.recommendations_load_confirm)
+        }
+    }
+    DefaultDialog(
+        onDismiss = onDismiss,
+        horizontalAlignment = Alignment.Start,
+        // Padded to line up with the text below, as ExplainDialog does.
+        title = {
+            Text(title, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp))
+        },
+        buttons = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+            TextButton(onClick = onConfirm) {
+                Text(confirm)
+            }
+        },
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
 }

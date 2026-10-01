@@ -83,12 +83,22 @@ object EngineSql {
     /**
      * Listens by how they ended, with a song that reached its end after less than [ENDED_EARLY_BELOW]
      * of it was heard counted apart, as Recent listens shows it. The share is written out here
-     * because Room needs the text whole; EndLabelSqlTest holds the two to the same line.
+     * because Room needs the text whole; DoingCountsSqlTest holds the two to the same line.
      */
     const val LISTENS_BY_END = """
         SELECT endReason AS code, (endReason = 1 AND ratio >= 0 AND ratio < 0.8) AS early, COUNT(*) AS n
         FROM listen GROUP BY code, early
     """
+
+    /** Everything applied so far, in the order it was applied: a rebuild replays exactly this. */
+    const val APPLIED_EXAMPLES = "SELECT * FROM impression WHERE appliedAt IS NOT NULL AND features IS NOT NULL AND u > 0 ORDER BY appliedAt, id"
+
+    /**
+     * The cards among [APPLIED_EXAMPLES]: what Your data says it has learned from, and rebuilt from.
+     * A pool pick is an example too, a song you played from the spare pool behind the row, but it
+     * was never on screen, so it is not counted as a card, as nowhere on How it's doing counts it.
+     */
+    const val APPLIED_CARDS = "SELECT COUNT(*) FROM impression WHERE appliedAt IS NOT NULL AND features IS NOT NULL AND u > 0 AND slot >= 0"
 
     /*
      * Forget the last session, and forget today's listening: the listens stop teaching. Only rows
