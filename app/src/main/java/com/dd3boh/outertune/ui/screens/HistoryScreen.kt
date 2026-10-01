@@ -457,10 +457,11 @@ fun HistoryScreen(
                 onRemoveFromHistory = {
                     val sel = selection.mapNotNull { key -> filteredIndex[key]?.play }
                     val at = System.currentTimeMillis()
-                    // One transaction, so a play is never half removed, and caught outside it, so
-                    // a failure rolls back rather than ending the app from Room's executor.
+                    // Short transactions, each play whole in one, so a play is never half removed
+                    // and the song playing can still write its listen; caught outside them, so a
+                    // failure rolls back rather than ending the app from Room's executor.
                     database.query {
-                        runCatching { transactionNow { HistoryRemoval.remove(DatabaseHistoryIo(this), sel, at) } }
+                        runCatching { HistoryRemoval.remove(DatabaseHistoryIo(this), sel, at, transaction = { block -> transactionNow { block() } }) }
                             .onFailure { Log.w("HistoryScreen", "Could not remove from history", it) }
                     }
                 },

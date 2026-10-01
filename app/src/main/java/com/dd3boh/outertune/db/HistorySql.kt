@@ -61,6 +61,9 @@ object HistorySql {
     /**
      * Whether up.cur resumes p, the piece it says it continues.
      *
+     * Only a piece of the same song does. The service only ever links a song to itself; asking it
+     * here as well keeps this walk the mirror of CHAIN's, which finds a resume by its song.
+     *
      * Only the first piece that continues p does. The service links a play to the newest stopped
      * piece of its song that ended where the play starts, even when the song has been played
      * through since, so a piece stopped near the start can be continued by every play of the song
@@ -69,42 +72,58 @@ object HistorySql {
      *
      * And only if it heard no more than what was left of the song, from up to five seconds before
      * where p stopped (the service's own tolerance for a resume). A play linked to a stopped piece
-     * that then went on to hear the whole song, back from the top, is a play of its own: on his
-     * phone, a play four hours later that heard 201 seconds of a song stopped at 2:44 of 3:20.
-     * A song of unknown length is not judged.
+     * that then went on to hear the whole song, back from the top, is a play of its own: in one
+     * real library, a play four hours later that heard 201 seconds of a song stopped at 2:44 of
+     * 3:20. A song of unknown length is not judged.
      */
-    private const val CUR_RESUMES_P = """NOT EXISTS (SELECT 1 FROM listen x WHERE x.id > p.id AND x.id < up.cur AND x.continuesListenId = p.id)
+    private const val CUR_RESUMES_P = """p.songId = up.songId
+        AND NOT EXISTS (SELECT 1 FROM listen x WHERE x.id > p.id AND x.id < up.cur AND x.continuesListenId = p.id)
         AND NOT EXISTS (SELECT 1 FROM listen c WHERE c.id = up.cur
             AND c.durationMs > 0 AND c.playedMs > c.durationMs - p.endPositionMs + $RESUME_EARLY_MS)"""
 
-    /** The same as [CUR_RESUMES_P] for CHAIN's walk the other way: whether l resumes d. */
+    /**
+     * The same as [CUR_RESUMES_P] for CHAIN's walk the other way: whether l resumes d. CHAIN's join
+     * has already asked for the same song, which is what lets it find l by the songId index.
+     */
     private const val L_RESUMES_D = """NOT EXISTS (SELECT 1 FROM listen x WHERE x.id > d.id AND x.id < l.id AND x.continuesListenId = d.id)
         AND NOT (l.durationMs > 0 AND l.playedMs > l.durationMs - d.endPositionMs + $RESUME_EARLY_MS)"""
+
+    /**
+     * Each visible piece (id) walked back to every piece it continues, one row a step: cur is the
+     * piece reached, prev the one cur says it continues, songId the song of them all. The rows
+     * where cur can go no further ([UP_AT_HEAD]) give each piece the first piece of its play.
+     * `p.id < up.cur` holds because a resume always points back at an older row, and it means the
+     * walk ends even on a database that says otherwise.
+     */
+    internal const val UP = """
+        WITH RECURSIVE up(id, cur, prev, songId) AS (
+            SELECT l.id, l.id, l.continuesListenId, l.songId FROM listen l
+            WHERE $L_VISIBLE
+            UNION ALL
+            SELECT up.id, p.id, p.continuesListenId, p.songId FROM up JOIN listen p ON p.id = up.prev
+            WHERE p.id < up.cur AND $P_VISIBLE AND $CUR_RESUMES_P
+        )
+    """
+
+    /** An [UP] row whose cur is the first piece of the play: the piece it continues, if any, does not take it. */
+    internal const val UP_AT_HEAD = """NOT EXISTS (SELECT 1 FROM listen p WHERE p.id = up.prev AND p.id < up.cur AND $P_VISIBLE AND $CUR_RESUMES_P)"""
 
     /**
      * Every play History shows, newest first.
      *
      * A song paused, left and resumed where it stopped is one play in several pieces, each
      * pointing at the one before by continuesListenId. Each visible piece walks back to the first
-     * visible piece of its chain (a primary key lookup per step, as the column has no index), and
-     * the chain is one row: dated by its first piece (sortAt is HistoryRule.listenAt), heard for
-     * all of them together. A piece
-     * taken out of History breaks the chain there, so a later resume of a removed play is a play
-     * of its own. `p.id < up.cur` holds because a resume always points back at an older row, and
-     * it means the walk ends even on a database that says otherwise.
+     * visible piece of its chain ([UP], a primary key lookup per step), and the chain is one row:
+     * dated by its first piece (sortAt is HistoryRule.listenAt), heard for all of them together.
+     * A piece taken out of History breaks the chain there, so a later resume of a removed play is
+     * a play of its own.
      *
      * An event no listen points at is a counted play the backfill has not reached yet (it runs on
      * the first start after an update from before the listen log); it is shown from the event, so
      * History is never empty while that runs.
      */
     const val PLAYS = """
-        WITH RECURSIVE up(id, cur, prev) AS (
-            SELECT l.id, l.id, l.continuesListenId FROM listen l
-            WHERE $L_VISIBLE
-            UNION ALL
-            SELECT up.id, p.id, p.continuesListenId FROM up JOIN listen p ON p.id = up.prev
-            WHERE p.id < up.cur AND $P_VISIBLE AND $CUR_RESUMES_P
-        )
+        $UP
         SELECT h.id AS listenId, NULL AS eventId, h.songId AS songId, h.startedAt AS startedAt, h.endedAt AS endedAt,
             h.tzOffsetMin AS tzOffsetMin, NULL AS timestamp, SUM(l.playedMs) AS playedMs, MAX(l.counted) AS counted,
             h.playedMs AS headPlayedMs,
@@ -113,7 +132,7 @@ object HistorySql {
         FROM up
             JOIN listen l ON l.id = up.id
             JOIN listen h ON h.id = up.cur
-        WHERE NOT EXISTS (SELECT 1 FROM listen p WHERE p.id = up.prev AND p.id < up.cur AND $P_VISIBLE AND $CUR_RESUMES_P)
+        WHERE $UP_AT_HEAD
         GROUP BY up.cur
         HAVING SUM(l.playedMs) >= ${HistoryRule.MIN_HEARD_MS} OR MAX(l.counted) = 1
         UNION ALL
@@ -129,12 +148,18 @@ object HistorySql {
      * out exactly what the row showed. A resume still playing is not one of them: it is not on the
      * row yet, and once it ends it is listed as a play of its own, since the piece it continues is
      * out of History.
+     *
+     * A resume is looked for among the later rows of the same song, by the songId index.
+     * continuesListenId has none, and joining on it alone had SQLite build a temporary index on
+     * every call: about 7 ms a play, a minute for Select all on a library of 8,600 plays, all in
+     * one write transaction. By song it reads that song's later rows, 89 at most there.
      */
     const val CHAIN = """
         WITH RECURSIVE down(id) AS (
             SELECT :head
             UNION ALL
-            SELECT l.id FROM down JOIN listen d ON d.id = down.id JOIN listen l ON l.continuesListenId = d.id
+            SELECT l.id FROM down JOIN listen d ON d.id = down.id
+                JOIN listen l ON l.songId = d.songId AND l.continuesListenId = d.id
             WHERE l.id > d.id AND $L_VISIBLE AND $L_RESUMES_D
         )
         SELECT l.id AS id, l.songId AS songId, l.sourceEventId AS sourceEventId

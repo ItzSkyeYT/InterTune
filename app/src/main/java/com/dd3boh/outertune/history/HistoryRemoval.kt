@@ -33,17 +33,47 @@ interface HistoryRemovalIo {
  * Forget the last session and Forget today's listening, under Recommendations, are for.
  */
 object HistoryRemoval {
-    fun remove(io: HistoryRemovalIo, plays: List<HistoryPlay>, at: Long) {
-        for (play in plays) {
-            val head = play.listenId
-            if (head != null) {
-                for (piece in io.chain(head)) {
-                    io.markRemoved(piece, at)
-                    piece.sourceEventId?.let(io::deleteEvent)
-                }
-            } else {
-                play.eventId?.let(io::deleteEvent)
+    /**
+     * How long one transaction may run before the next play waits for a new one. While it runs no
+     * other write gets in, the listen log's among them: when a song stops, MusicService waits two
+     * seconds for the row it opened at the start, and writes the play again whole if it is not there.
+     */
+    const val TRANSACTION_BUDGET_MS = 100L
+
+    /**
+     * Removes [plays] in short transactions, as many plays in each as fit in [budgetMs] and at
+     * least one, so a play is never half removed and Select all on a large history never holds up
+     * the writes of the song playing. [transaction] runs its block in one transaction. A failure
+     * rolls back the transaction it happens in and ends the removal there, with the plays before
+     * it removed.
+     */
+    fun remove(
+        io: HistoryRemovalIo,
+        plays: List<HistoryPlay>,
+        at: Long,
+        transaction: (block: () -> Unit) -> Unit,
+        budgetMs: Long = TRANSACTION_BUDGET_MS,
+        nowMs: () -> Long = { System.nanoTime() / 1_000_000 },
+    ) {
+        var next = 0
+        while (next < plays.size) {
+            transaction {
+                val started = nowMs()
+                do removePlay(io, plays[next++], at) while (next < plays.size && nowMs() - started < budgetMs)
             }
+        }
+    }
+
+    /** One play: a mark on each piece and its event deleted, or the event of a row that is one. */
+    private fun removePlay(io: HistoryRemovalIo, play: HistoryPlay, at: Long) {
+        val head = play.listenId
+        if (head != null) {
+            for (piece in io.chain(head)) {
+                io.markRemoved(piece, at)
+                piece.sourceEventId?.let(io::deleteEvent)
+            }
+        } else {
+            play.eventId?.let(io::deleteEvent)
         }
     }
 }

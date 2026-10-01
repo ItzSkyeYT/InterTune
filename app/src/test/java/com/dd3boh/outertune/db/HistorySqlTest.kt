@@ -8,8 +8,8 @@ package com.dd3boh.outertune.db
 
 import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.db.daos.SongsDao
-import com.dd3boh.outertune.db.entities.HistoryPiece
 import com.dd3boh.outertune.db.entities.HistoryPlay
+import com.dd3boh.outertune.db.entities.HistoryPiece
 import com.dd3boh.outertune.history.HistoryRemoval
 import com.dd3boh.outertune.history.HistoryRemovalIo
 import com.dd3boh.outertune.history.HistoryRule
@@ -19,7 +19,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.sql.Connection
-import java.sql.ResultSet
+import java.sql.SQLException
+import kotlin.random.Random
 
 /**
  * What History lists and what Remove from history does, run on the JVM against the schema Room
@@ -91,60 +92,18 @@ class HistorySqlTest {
         return listen(song, startedAt, playedMs, counted = true, continues = continues, sourceEventId = eventId, endReason = endReason, endPosition = endPosition)
     }
 
-    private fun ResultSet.longOrNull(column: String): Long? = getLong(column).takeUnless { wasNull() }
-    private fun ResultSet.intOrNull(column: String): Int? = getInt(column).takeUnless { wasNull() }
+    private val history by lazy { JdbcHistory(db) }
 
-    private fun plays(): List<HistoryPlay> = db.prepareStatement(HistorySql.PLAYS).use { ps ->
-        ps.executeQuery().use { rs ->
-            buildList {
-                while (rs.next()) add(
-                    HistoryPlay(
-                        listenId = rs.longOrNull("listenId"),
-                        eventId = rs.longOrNull("eventId"),
-                        songId = rs.getString("songId"),
-                        startedAt = rs.longOrNull("startedAt"),
-                        endedAt = rs.longOrNull("endedAt"),
-                        tzOffsetMin = rs.intOrNull("tzOffsetMin"),
-                        timestamp = rs.longOrNull("timestamp"),
-                        playedMs = rs.getLong("playedMs"),
-                        counted = rs.getBoolean("counted"),
-                        headPlayedMs = rs.getLong("headPlayedMs"),
-                        sortAt = rs.getLong("sortAt"),
-                    )
-                )
-            }
-        }
-    }
+    private fun plays(): List<HistoryPlay> = history.plays()
 
     private fun songsInHistory() = plays().map { it.songId }
 
-    /** The same steps the DAO runs, through the same SQL. */
-    private val io = object : HistoryRemovalIo {
-        override fun chain(head: Long): List<HistoryPiece> = db.prepareStatement(HistorySql.CHAIN).use { ps ->
-            ps.setLong(1, head)
-            ps.executeQuery().use { rs ->
-                buildList { while (rs.next()) add(HistoryPiece(rs.getLong("id"), rs.getString("songId"), rs.longOrNull("sourceEventId"))) }
-            }
-        }
-
-        override fun markRemoved(piece: HistoryPiece, at: Long) {
-            db.prepareStatement(HistorySql.MARK_REMOVED).use { ps ->
-                ps.setLong(1, piece.id)
-                ps.setString(2, piece.songId)
-                ps.setLong(3, at)
-                ps.executeUpdate()
-            }
-        }
-
-        override fun deleteEvent(id: Long) {
-            db.prepareStatement(HistorySql.DELETE_EVENT).use { ps ->
-                ps.setLong(1, id)
-                ps.executeUpdate()
-            }
-        }
-    }
-
-    private fun remove(vararg plays: HistoryPlay) = HistoryRemoval.remove(io, plays.toList(), t + 100 * minute)
+    /**
+     * The steps the screen runs, through the same SQL, one play to a transaction so that every
+     * test also removes across transactions.
+     */
+    private fun remove(vararg plays: HistoryPlay) =
+        HistoryRemoval.remove(history, plays.toList(), t + 100 * minute, history::transaction, budgetMs = 0)
 
     private fun mostPlayed(): List<String> = db.prepareStatement(SongsDao.MOST_PLAYED_SONGS).use { ps ->
         ps.setLong(1, -1L)
@@ -299,7 +258,7 @@ class HistorySqlTest {
 
     @Test
     fun `two plays that continue the same stopped piece are its resume and a play of its own`() {
-        // As on his phone (listen 8823): stopped near the start, then started from the top twice
+        // As in one real library (listen 8823): stopped near the start, then started from the top twice
         // within a day, and the service linked both to the stopped piece.
         val stopped = listen("a", t, playedMs = 14 * second, endReason = 4, endPosition = 0)
         val resume = countedPlay("a", t + 5 * minute, continues = stopped)
@@ -323,7 +282,7 @@ class HistorySqlTest {
 
     @Test
     fun `a play linked to a stopped piece that heard the song from the top is a play of its own`() {
-        // As on his phone (listens 8714 and 8715): stopped at 2:44 of 3:20, then four hours later
+        // As in one real library (listens 8714 and 8715): stopped at 2:44 of 3:20, then four hours later
         // a play the service linked to it heard the whole song. A resume from 2:44 hears 36 seconds.
         val stopped = countedPlay("a", t, playedMs = 164 * second, endReason = 4)
         val whole = countedPlay("a", t + 4 * 60 * minute, playedMs = 201 * second, continues = stopped, endPosition = 200 * second)
@@ -425,5 +384,128 @@ class HistorySqlTest {
         exec("DELETE FROM listen_signal")
         exec("DELETE FROM listen")
         assertEquals(emptyList<String>(), songsInHistory())
+    }
+
+    @Test
+    fun `a link to another song's piece is no resume`() {
+        // The service only links a song to itself; were a row to say otherwise, both are plays.
+        val stopped = listen("a", t, playedMs = 20 * second, endReason = 4)
+        val other = listen("b", t + minute, playedMs = minute, continues = stopped)
+        assertEquals(listOf(other to minute, stopped to 20 * second), plays().map { it.listenId to it.playedMs })
+        assertEquals(listOf(stopped), history.chain(stopped).map { it.id })
+    }
+
+    /**
+     * A listen log as the service can leave it, and worse: 120 pieces of three songs, one of
+     * unknown length, each linked or not to a recent piece of its song and now and then to another
+     * song's, some continued twice, some hearing far more than was left, some still open, some
+     * starting within a second of the last, some counted with their event, some with the event
+     * gone, and some taken out of History.
+     */
+    private fun randomLog(random: Random) {
+        val pieces = mutableListOf<Pair<Long, String>>()
+        var at = t
+        repeat(120) {
+            val song = listOf("a", "b", "c").random(random)
+            val duration = when (song) { "a" -> 200_000L; "b" -> 150_000L; else -> -1L }
+            at += if (random.nextInt(8) == 0) random.nextLong(1, 900) else random.nextLong(1, 30) * minute
+            val played = when (random.nextInt(4)) {
+                0 -> random.nextLong(0, 8 * second)
+                1 -> random.nextLong(0, 60 * second)
+                else -> random.nextLong(0, 230 * second)
+            }
+            val sameSong = pieces.filter { it.second == song }
+            val continues = when {
+                pieces.isNotEmpty() && random.nextInt(25) == 0 -> pieces.random(random).first
+                sameSong.isNotEmpty() && random.nextInt(2) == 0 -> sameSong.takeLast(4).random(random).first
+                else -> null
+            }
+            val counted = random.nextInt(3) == 0
+            val eventId = if (counted && random.nextBoolean()) event(song, at, played) else null
+            val endReason = listOf(1, 2, 3, 4, 4, 4, 6).random(random)
+            pieces += listen(song, at, played, counted, endReason, continues, eventId, duration, random.nextLong(0, 200 * second)) to song
+        }
+        exec("DELETE FROM event WHERE id % 7 = 0")
+        for ((id, song) in pieces) if (random.nextInt(15) == 0) {
+            exec("INSERT INTO listen_signal (listenId, songId, kind, positionMs, value, at) VALUES ($id, '$song', ${SignalKind.REMOVED_FROM_HISTORY}, -1, 0, $t)")
+        }
+    }
+
+    @Test
+    fun `CHAIN takes out exactly the pieces PLAYS puts on each row`() {
+        var resumed = 0
+        for (seed in 1..40) {
+            exec("DELETE FROM listen_signal")
+            exec("DELETE FROM listen")
+            exec("DELETE FROM event")
+            randomLog(Random(seed))
+            repeat(2) { round ->
+                val groups = history.groups()
+                for (play in plays()) {
+                    val head = play.listenId ?: continue
+                    val chain = history.chain(head).map { it.id }
+                    assertEquals("seed $seed, round $round, play $head", groups.getValue(head), chain.toSet())
+                    assertEquals("first piece first", chain.sorted(), chain)
+                    if (chain.size > 1) resumed++
+                }
+                // Again with a third of the plays out, whose later resumes are plays of their own.
+                remove(*plays().filterIndexed { i, _ -> i % 3 == 0 }.toTypedArray())
+            }
+        }
+        // Enough chains that the comparison means something.
+        assertTrue("$resumed plays of more than one piece", resumed > 500)
+    }
+
+    @Test
+    fun `a large removal runs in short transactions, each play whole in one`() {
+        // Ten plays, each a stopped piece and its resume.
+        repeat(10) {
+            val first = listen("a", t + it * 60 * minute, playedMs = 20 * second, endReason = 4)
+            countedPlay("a", t + it * 60 * minute + 10 * minute, continues = first)
+        }
+        var transactions = 0
+        val markedIn = mutableMapOf<Long, Int>()
+        val recording = object : HistoryRemovalIo by history {
+            override fun markRemoved(piece: HistoryPiece, at: Long) {
+                markedIn[piece.id] = transactions
+                history.markRemoved(piece, at)
+            }
+        }
+        // Each play takes 40 ms on this clock, so three fit in 100.
+        var clock = 0L
+        HistoryRemoval.remove(
+            recording, plays(), t + 100 * minute,
+            transaction = { block -> transactions++; history.transaction(block) },
+            budgetMs = 100, nowMs = { clock.also { clock += 40 } },
+        )
+        assertEquals(4, transactions)
+        assertEquals(20, markedIn.size)
+        // A piece and its resume went in the same transaction.
+        for (resume in markedIn.keys.filter { it % 2 == 0L }) assertEquals(markedIn[resume - 1], markedIn[resume])
+        assertEquals(listOf(3, 3, 3, 1), markedIn.values.groupingBy { it }.eachCount().toSortedMap().values.map { it / 2 })
+        assertEquals(emptyList<String>(), songsInHistory())
+        assertEquals(0L, count("SELECT COUNT(*) FROM event"))
+    }
+
+    @Test
+    fun `a failure rolls back the transaction it happens in and ends the removal there`() {
+        val ids = (0 until 6).map { countedPlay("a", t + it * 10 * minute) }
+        val failOn = count("SELECT sourceEventId FROM listen WHERE id = ${ids[1]}")
+        val failing = object : HistoryRemovalIo by history {
+            override fun deleteEvent(id: Long) {
+                if (id == failOn) throw SQLException("disk I/O error")
+                history.deleteEvent(id)
+            }
+        }
+        var clock = 0L
+        val error = runCatching {
+            HistoryRemoval.remove(failing, plays(), t + 100 * minute, history::transaction, budgetMs = 100, nowMs = { clock.also { clock += 40 } })
+        }.exceptionOrNull()
+        assertTrue(error is SQLException)
+        // Newest first, three to a transaction: the first went through, the second rolled back
+        // whole, and the last play was never reached.
+        assertEquals(listOf(ids[2], ids[1], ids[0]), plays().map { it.listenId })
+        assertEquals(3L, count("SELECT COUNT(*) FROM event"))
+        assertEquals(3L, count("SELECT COUNT(*) FROM listen_signal"))
     }
 }
