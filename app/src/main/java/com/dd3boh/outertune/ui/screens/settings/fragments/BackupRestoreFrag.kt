@@ -41,6 +41,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -326,7 +327,12 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         // the drag and waiting for it to come back would leave the number trailing the thumb, and
         // would write twenty times for one drag. The preference is set when the finger lifts, and
         // re-seeds this when it changes from anywhere else.
-        var keepShown by remember(autoBackupKeep) { mutableIntStateOf(autoBackupKeep) }
+        // The dialog's question, kept across a rotation (KeepQuestionSaver), and the thumb with it:
+        // back on the value the dialog asks about, not on the stored one.
+        var keepToConfirm by rememberSaveable(stateSaver = KeepQuestionSaver) {
+            mutableStateOf<Pair<Int, AutoBackupPolicy.KeepChange>?>(null)
+        }
+        var keepShown by remember(autoBackupKeep) { mutableIntStateOf(keepToConfirm?.first ?: autoBackupKeep) }
         PreferenceEntry(
             title = { Text(stringResource(R.string.auto_backup_keep)) },
             description = pluralStringResource(R.plurals.auto_backup_keep_count, keepShown, keepShown),
@@ -337,11 +343,10 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         // it asks first when it would delete backups, since that cannot be undone. They are counted
         // on the folder as it is, off the main thread, by the same rule pruning follows, the dialog
         // says how many, and only those are deleted. A folder that could not be read is asked about
-        // without a number, because the next backup that reaches it will still delete down to the
+        // without a count, because the next backup that reaches it will still delete down to the
         // new Keep. A lower Keep that deletes nothing is saved at once.
         val keepScope = rememberCoroutineScope()
         val keepCount = remember { KeepCount(keepScope) }
-        var keepToConfirm by remember { mutableStateOf<Pair<Int, AutoBackupPolicy.KeepChange>?>(null) }
         val keepInteraction = remember { MutableInteractionSource() }
         Slider(
             value = keepShown.toFloat(),
@@ -595,6 +600,31 @@ internal class KeepCount(private val scope: CoroutineScope) {
         }.also { job = it }
     }
 }
+
+/**
+ * Keeps the Keep dialog's question when the activity is recreated, as on a rotation: the new Keep,
+ * and for a counted question the names it would delete. Without it a rotation closed the dialog
+ * and put the thumb back on the stored Keep, which looked like Cancel. Saved as what a Bundle
+ * holds: the Keep and then the names as a list, or the Keep alone for a folder that could not be
+ * read. A count running when the activity goes is not kept: the thumb comes back on the stored
+ * Keep and nothing was decided.
+ */
+internal val KeepQuestionSaver = Saver<Pair<Int, AutoBackupPolicy.KeepChange>?, ArrayList<Any>>(
+    save = { question ->
+        if (question == null) null
+        else when (val change = question.second) {
+            is AutoBackupPolicy.KeepChange.AskCount -> arrayListOf<Any>(question.first, ArrayList(change.doomed))
+            AutoBackupPolicy.KeepChange.AskUnknown -> arrayListOf<Any>(question.first)
+            // Never asked about.
+            AutoBackupPolicy.KeepChange.Save -> null
+        }
+    },
+    restore = { saved ->
+        val keep = saved[0] as Int
+        val doomed = (saved.getOrNull(1) as? List<*>)?.map { it as String }
+        keep to (if (doomed == null) AutoBackupPolicy.KeepChange.AskUnknown else AutoBackupPolicy.KeepChange.AskCount(doomed))
+    },
+)
 
 /**
  * Writes one .m3u per library playlist into the folder at [treeUri] and returns how many were

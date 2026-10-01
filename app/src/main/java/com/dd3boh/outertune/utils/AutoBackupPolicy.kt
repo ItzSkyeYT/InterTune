@@ -141,7 +141,7 @@ object AutoBackupPolicy {
         /** Ask before deleting [doomed], which is what the new value deletes from the folder as it is. */
         data class AskCount(val doomed: List<String>) : KeepChange
 
-        /** Ask without a number: the folder could not be read, so nothing was counted. */
+        /** Ask without a count: the folder could not be read, so nothing was counted. */
         data object AskUnknown : KeepChange
     }
 
