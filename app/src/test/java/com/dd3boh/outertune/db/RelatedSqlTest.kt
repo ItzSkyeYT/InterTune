@@ -163,6 +163,22 @@ class RelatedSqlTest {
     }
 
     @Test
+    fun `marking a card that is already waiting changes no row`() {
+        exec("""INSERT INTO row_build(id, builtAt, rowKey, sessionId, bucket, contextChip, dial, engineVersion, seeds, weights, shownIds)
+            VALUES (1, 1000, 1, 1, 0, 0, 15, 0, '[]', '{}', '')""")
+        exec("""INSERT INTO impression(id, buildId, songId, slot, lane, team, outcome, visibleAt, tappedAt, sources)
+            VALUES (1, 1, 'a', 0, 1, 1, 0, 5000, 5000, 5)""")
+        val markWaiting = com.dd3boh.outertune.engine.EngineSql.MARK_WAITING.replace(":id", "1")
+        fun changed() = db.createStatement().use { it.executeUpdate(markWaiting) }
+        assertEquals(1, changed())
+        // Marked again, it is not matched. A row matched counts as changed, same values or not, and
+        // fires the table's update triggers.
+        assertEquals(0, changed())
+        assertEquals(8L, long("SELECT outcome FROM impression WHERE id = 1"))
+        assertNull(long("SELECT gradedAt FROM impression WHERE id = 1"))
+    }
+
+    @Test
     fun `a Last-fm edge to a song that is gone is skipped, not thrown`() {
         fun insert(to: String) = exec(RelatedSql.INSERT_LASTFM_EDGE
             .replace(":songId", "'seed'").replace(":relatedSongId", "'$to'").replace(":fetchedAt", "9"))

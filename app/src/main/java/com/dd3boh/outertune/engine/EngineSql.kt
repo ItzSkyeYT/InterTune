@@ -36,8 +36,12 @@ object EngineSql {
           AND outcome IN (0, 1, 2, 3) AND visibleAt >= :since
     """
 
-    /** Marks a card [Outcome.WAITING], leaving it pending: no grade, so the next run reads it again. */
+    /**
+     * Marks a card [Outcome.WAITING], leaving it pending: no grade, so the next run reads it again.
+     * A card already waiting is not matched, so marking it again changes no row and tells no
+     * observer of the table that anything changed.
+     */
     const val MARK_WAITING = """
-        UPDATE impression SET outcome = 8 WHERE id = :id AND gradedAt IS NULL
+        UPDATE impression SET outcome = 8 WHERE id = :id AND gradedAt IS NULL AND outcome != 8
     """
 }
