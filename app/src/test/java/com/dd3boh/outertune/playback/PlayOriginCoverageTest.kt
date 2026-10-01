@@ -11,35 +11,40 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Every screen that starts playback says where from.
+ * Everything in the app that starts playback says where from.
  *
  * playQueue takes an origin that defaults to UNKNOWN, which is the right default for a call site
- * nobody has looked at yet and the wrong final state for any screen. This reads the source, because
+ * nobody has looked at yet and the wrong final state for any of them. This reads the source, because
  * there is no other way to make a default argument fail to compile. Radio calls are exempt: the
  * isRadio flag is mapped to the RADIO origin inside playQueue.
+ *
+ * It used to read only ui/screens, and only "playerConnection.playQueue(": the album cards' play
+ * buttons (ui/component), playing a recognised song ("playerConnection?.playQueue("), opening a
+ * song link, and Play next or Add to queue with nothing playing (inside MusicService) all slipped
+ * past it, and their listens read "not recorded" on How it's doing.
  */
 class PlayOriginCoverageTest {
 
-    private val screens = File("src/main/java/com/dd3boh/outertune/ui/screens")
+    private val sources = File("src/main/java")
 
     @Test
-    fun `every playQueue call in a screen carries an origin`() {
+    fun `every playQueue call carries an origin`() {
         val untagged = mutableListOf<String>()
-        screens.walkTopDown().filter { it.extension == "kt" }.forEach { file ->
+        sources.walkTopDown().filter { it.extension == "kt" }.forEach { file ->
             val text = file.readText()
-            var from = 0
-            while (true) {
-                val at = text.indexOf("playerConnection.playQueue(", from)
-                if (at < 0) break
-                val args = argumentsOf(text, at + "playerConnection.playQueue(".length)
-                if ("origin =" !in args && "isRadio = true" !in args) {
-                    untagged += "${file.relativeTo(screens)}:${text.substring(0, at).count { it == '\n' } + 1}"
+            Regex("""(?<!fun )\bplayQueue\(""").findAll(text).forEach { m ->
+                val args = argumentsOf(text, m.range.last + 1)
+                if ("origin =" !in args && "isRadio = true" !in args && !isComment(text, m.range.first)) {
+                    untagged += "${file.relativeTo(sources)}:${text.substring(0, m.range.first).count { it == '\n' } + 1}"
                 }
-                from = at + 1
             }
         }
         assertEquals("playQueue calls with no origin:\n" + untagged.joinToString("\n"), emptyList<String>(), untagged)
     }
+
+    /** Whether the match sits in a // comment, where "handled by playQueue()" is prose, not a call. */
+    private fun isComment(text: String, at: Int): Boolean =
+        "//" in text.substring(text.lastIndexOf('\n', at) + 1, at)
 
     /** The text between the opening parenthesis and its match. */
     private fun argumentsOf(text: String, start: Int): String {

@@ -471,7 +471,7 @@ fun RecognitionScreen(
                     song = song,
                     onPlay = {
                         scope.launch {
-                            playerConnection?.playQueue(YouTubeQueue(WatchEndpoint(videoId = song.id)))
+                            playerConnection?.playQueue(YouTubeQueue(WatchEndpoint(videoId = song.id)), origin = PlayOrigin.RECOGNISED)
                         }
                     },
                     onAddToPlaylist = { addToPlaylistFor = song },

@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
@@ -92,7 +93,8 @@ fun RecognitionHistoryScreen(
                         if (id != null) {
                             scope.launch {
                                 playerConnection?.playQueue(
-                                    YouTubeQueue(WatchEndpoint(videoId = id))
+                                    YouTubeQueue(WatchEndpoint(videoId = id)),
+                                    origin = PlayOrigin.RECOGNISED,
                                 )
                             }
                         } else {

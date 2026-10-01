@@ -78,6 +78,7 @@ import androidx.media3.exoplayer.offline.Download.STATE_DOWNLOADING
 import androidx.media3.exoplayer.offline.Download.STATE_QUEUED
 import coil3.compose.AsyncImage
 import coil3.imageLoader
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
@@ -541,7 +542,9 @@ fun YouTubeGridItem(
                                 ListQueue(
                                     title = item.title,
                                     items = it
-                                )
+                                ),
+                                // The button only shows on an album.
+                                origin = PlayOrigin.ALBUM,
                             )
                         }
                     }
