@@ -91,7 +91,7 @@ class GradingTest {
 
     @Test
     fun `a card whose play failed is settled at no weight, however much of it played`() {
-        val tap = now - 2 * hour
+        val tap = now - 30 * hour
         for (playedMs in listOf(10_000L, 120_000L, 200_000L)) {
             val died = listen("a", tap + 1000, playedMs = playedMs, impressionId = 1, endReason = EndReason.ERROR)
             val g = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(died), songs, groups, now).single()
@@ -116,6 +116,71 @@ class GradingTest {
         val glance = listen("a", tap + 1000, playedMs = 20_000, impressionId = 1, endReason = EndReason.SKIPPED)
         val k = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(glance), songs, groups, now).single()
         assertEquals(Outcome.PLAYED, k.outcome); assertEquals(0.0, k.y, 0.0); assertEquals(1.0, k.u, 0.0)
+    }
+
+    // A play carried on after it stopped or failed
+
+    @Test
+    fun `a card whose play failed and was resumed is graded by the whole play`() {
+        val tap = now - 3 * hour
+        val died = listen("a", tap + 1000, playedMs = 60_000, impressionId = 1, endReason = EndReason.ERROR).copy(id = 10)
+        val finished = listen("a", tap + 20 * 60_000, playedMs = 140_000).copy(id = 11, continuesListenId = 10)
+        val g = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(died, finished), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, g.outcome); assertEquals(1.0, g.y, 1e-9); assertEquals(1.0, g.u, 0.0)
+        assertEquals(10L, g.listenId)                      // the card's own row
+        // Resumed and then skipped: 60 s and 30 s heard, one play of 90 s.
+        val skipped = finished.copy(playedMs = 30_000, endedAt = finished.startedAt + 30_000, endReason = EndReason.SKIPPED)
+        val k = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(died, skipped), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, k.outcome); assertEquals(0.5, k.y, 1e-9); assertEquals(1.0, k.u, 0.0)
+        // Resumed and still playing: the card waits for the whole play.
+        val playing = finished.copy(endReason = EndReason.OPEN)
+        assertTrue(Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(died, playing), songs, groups, now).isEmpty())
+        // Followed further: failed, resumed and stopped, resumed again and finished.
+        val stopped = listen("a", tap + 20 * 60_000, playedMs = 40_000, endReason = EndReason.STOPPED).copy(id = 11, continuesListenId = 10)
+        val rest = listen("a", tap + 40 * 60_000, playedMs = 100_000).copy(id = 12, continuesListenId = 11)
+        val chain = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(rest, died, stopped), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, chain.outcome); assertEquals(1.0, chain.y, 1e-9)
+    }
+
+    @Test
+    fun `a card whose play failed waits for a resume, and is dropped once none came`() {
+        val died = listen("a", now - 3 * hour, playedMs = 120_000, impressionId = 1, endReason = EndReason.ERROR).copy(id = 10)
+        assertTrue(Grading.grade(listOf(imp(1, "a", now - 3 * hour, tappedAt = now - 3 * hour)), listOf(died), songs, groups, now).isEmpty())
+        val tap = now - 30 * hour
+        val longAgo = died.copy(startedAt = tap + 1000, endedAt = tap + 121_000)
+        val g = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(longAgo), songs, groups, now).single()
+        assertEquals(Outcome.DROPPED, g.outcome); assertEquals(0.0, g.y, 0.0); assertEquals(0.0, g.u, 0.0)
+        // Resumed and failed again: the whole play ended in an error, so the same.
+        val again = listen("a", tap + 3 * hour, playedMs = 50_000, endReason = EndReason.ERROR).copy(id = 11, continuesListenId = 10)
+        val twice = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(longAgo, again), songs, groups, now).single()
+        assertEquals(Outcome.DROPPED, twice.outcome); assertEquals(0.0, twice.u, 0.0)
+        val recently = again.copy(startedAt = now - 2 * hour, endedAt = now - 2 * hour + 50_000)
+        assertTrue(Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(longAgo, recently), songs, groups, now).isEmpty())
+    }
+
+    @Test
+    fun `a card whose play was stopped and resumed is graded by the whole play too`() {
+        val tap = now - 3 * hour
+        val stopped = listen("a", tap + 1000, playedMs = 60_000, impressionId = 1, endReason = EndReason.STOPPED).copy(id = 10)
+        // Not carried on: what was heard, as before.
+        val alone = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(stopped), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, alone.outcome); assertEquals(0.2 / 0.7, alone.y, 1e-9)
+        val finished = listen("a", tap + 20 * 60_000, playedMs = 140_000).copy(id = 11, continuesListenId = 10)
+        val g = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(stopped, finished), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, g.outcome); assertEquals(1.0, g.y, 1e-9); assertEquals(1.0, g.u, 0.0)
+    }
+
+    @Test
+    fun `a skip, a finish and a glance are graded as before beside plays that were carried on`() {
+        val tap = now - 2 * hour
+        // Another play of the song, stopped and carried on, touches none of them.
+        val other = listen("a", tap - 5 * hour, playedMs = 60_000, endReason = EndReason.STOPPED).copy(id = 20)
+        val otherRest = listen("a", tap - 4 * hour, playedMs = 140_000).copy(id = 21, continuesListenId = 20)
+        for ((played, reason, y) in listOf(Triple(90_000L, EndReason.SKIPPED, 0.5), Triple(200_000L, EndReason.ENDED, 1.0), Triple(20_000L, EndReason.SKIPPED, 0.0))) {
+            val own = listen("a", tap + 1000, playedMs = played, impressionId = 1, endReason = reason).copy(id = 30)
+            val g = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(other, otherRest, own), songs, groups, now).single()
+            assertEquals(Outcome.PLAYED, g.outcome); assertEquals(y, g.y, 1e-9); assertEquals(1.0, g.u, 0.0); assertEquals(30L, g.listenId)
+        }
     }
 
     @Test

@@ -35,6 +35,8 @@ data class ListenRow(
     val contextChip: Int = 0,
     /** The listen's own row id, so a grade can record which play it came from. */
     val id: Long = 0,
+    /** The row this one carries on: the same play, stopped or failed and picked up where it stood. */
+    val continuesListenId: Long? = null,
 )
 
 /**

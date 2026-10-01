@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.engine
 
 import com.dd3boh.outertune.constants.EndReason
+import com.dd3boh.outertune.playback.ListenProgress
 
 /** An impression as the grader sees it. Features are null for cards the engine did not place. */
 data class ImpressionRow(
@@ -52,6 +53,12 @@ data class Graded(val impressionId: Long, val outcome: Int, val y: Double, val u
  * A play that failed decides nothing (see [EngineListens]): a card whose play died is settled at no
  * weight, like one whose play asked not to teach, and a failed play elsewhere neither wins the card
  * nor lets it be graded ignored.
+ *
+ * A card's play is followed through the rows that carry it on (continuesListenId, see
+ * [ListenProgress.continues]): a play stopped or failed and picked up again where it stood is one
+ * play, graded once by all of it. So a card whose play failed and was resumed is graded by the whole
+ * play and how it ended. One that failed waits out the time a resume can still come in, and is
+ * settled at no weight only once none did.
  */
 object Grading {
     fun grade(
@@ -65,6 +72,12 @@ object Grading {
         val byImpression = listens.filter { it.impressionId != null }.associateBy { it.impressionId!! }
         val byGroup = HashMap<String, MutableList<ListenRow>>()
         for (l in listens) byGroup.getOrPut(groups.groupOf(l.songId)) { ArrayList() }.add(l)
+        // Each row that was carried on, and the earliest row carrying it on.
+        val resumedBy = HashMap<Long, ListenRow>()
+        for (l in listens) {
+            val from = l.continuesListenId ?: continue
+            if (resumedBy[from].let { it == null || l.startedAt < it.startedAt }) resumedBy[from] = l
+        }
         val window = p.justPlayedHours * 3_600_000L
         val out = ArrayList<Graded>()
         for (imp in impressions) {
@@ -84,10 +97,17 @@ object Grading {
                     if (now - tapped >= window) out += Graded(imp.id, Outcome.LOST, 0.0, 0.0)
                     continue
                 }
-                if (listen.endReason == EndReason.OPEN) continue
-                if (!listen.learn || EngineListens.failed(listen)) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
-                val liked = songs[listen.songId]?.likedAt
-                out += Graded(imp.id, Outcome.PLAYED, Signals.engagement(listen, liked, p), 1.0, listen.id.takeIf { it > 0 })
+                val play = asOnePlay(listen, resumedBy)
+                if (play.endReason == EndReason.OPEN) continue
+                if (!play.learn) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
+                if (EngineListens.failed(play)) {
+                    // Until a resume can no longer come in, the play may yet be carried on.
+                    if (now - play.endedAt <= ListenProgress.RESUME_WINDOW_MS) continue
+                    out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0)
+                    continue
+                }
+                val liked = songs[play.songId]?.likedAt
+                out += Graded(imp.id, Outcome.PLAYED, Signals.engagement(play, liked, p), 1.0, listen.id.takeIf { it > 0 })
                 continue
             }
             if (now - imp.visibleAt < window) continue                 // the day is not over
@@ -104,6 +124,28 @@ object Grading {
             }
         }
         return out
+    }
+
+    /**
+     * [first] followed through the rows that carried it on, as one play: started when it did,
+     * heard for all their time together, ended when and how the last of them ended, and meant to
+     * teach only if every part was. [first] itself when nothing carried it on.
+     */
+    internal fun asOnePlay(first: ListenRow, resumedBy: Map<Long, ListenRow>): ListenRow {
+        var last = first
+        var playedMs = first.playedMs
+        var durationMs = first.durationMs
+        var learn = first.learn
+        val seen = HashSet<Long>()
+        while (last.id > 0 && seen.add(last.id)) {
+            val next = resumedBy[last.id] ?: break
+            playedMs += next.playedMs
+            if (next.durationMs > 0) durationMs = next.durationMs
+            learn = learn && next.learn
+            last = next
+        }
+        if (last === first) return first
+        return first.copy(endedAt = last.endedAt, playedMs = playedMs, durationMs = durationMs, endReason = last.endReason, learn = learn)
     }
 
     /** How far before and after a tap its song's play may start and still be that tap's. */
