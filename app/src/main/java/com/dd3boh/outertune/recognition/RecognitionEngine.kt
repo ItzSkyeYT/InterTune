@@ -1217,18 +1217,24 @@ class RecognitionEngine @Inject constructor(
         // Nothing on YouTube names two of the pieces, so there is no mashup to point at, and the
         // songs heard stay as they are. One odd window with only a toss-up is left alone too, and
         // so is an answer already given, unless an upload names a song it does not cover along
-        // with another. A failed search changes nothing; the next piece to come back runs it again.
-        val outcome = MixSearch.outcome(uncovered, active?.reopened == true, ranked, search.complete, winner, found.strong, around)
+        // with another, and the search does not still put the answer first or above it. A failed
+        // search changes nothing; the next piece to come back runs it again.
+        val given = active?.found
+        val outcome = MixSearch.outcome(uncovered, given, active?.reopened == true, ranked, search.complete, winner, found.strong, around)
         // What the search looked for, noted as searched for when it settles something.
         val lookedFor = MixSearch.queried(order)
         val new = uncovered.joinToString(" or ") { "'${it.title}'" }
         if (!outcome.goesOn || ranked == null) {
             val naming = ranked?.let { MixSearch.reopening(it, uncovered, around) }.orEmpty()
+            val failedPart = if (search.complete) "" else ", though a query failed"
             picked(
                 when {
                     ranked == null -> "nothing picked, the search failed"
-                    uncovered.isNotEmpty() && naming.isEmpty() ->
-                        "nothing names $new with another song heard" + if (search.complete) "" else ", though a query failed"
+                    uncovered.isNotEmpty() && naming.isEmpty() -> "nothing names $new with another song heard$failedPart"
+                    uncovered.isNotEmpty() && given != null && MixSearch.stillGiven(ranked, naming, given) ->
+                        (if (ranked.first().first.id == given.id) "the search puts '${given.title}', the answer given, first"
+                        else "nothing naming $new scores more than '${given.title}', the answer given") +
+                                "$failedPart: ${MixSearch.standing(ranked, around, speed)}"
                     uncovered.isNotEmpty() ->
                         "one odd window, and no upload naming $new with another song is clear: " +
                                 MixSearch.standing(naming + ranked.filterNot { it in naming }, around, speed)
@@ -1243,7 +1249,8 @@ class RecognitionEngine @Inject constructor(
                 active.lastCutMs = now
                 // Still heard with them: its uploads that name the new song come first at the end.
                 active.heard = (active.heard + songs).distinctBy { song -> song.key }
-                // Searched for with another song and found nowhere with one: not searched for again.
+                // Searched for with another song, and found nowhere with one that the search thinks
+                // more of than the answer given: not searched for again.
                 MixSearch.follow(outcome, active, lookedFor)
                 retract(found.pieces)
             }
