@@ -7,9 +7,9 @@
 package com.dd3boh.outertune.history
 
 import android.text.format.DateFormat
+import com.dd3boh.outertune.utils.LocaleDateFormat
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** The heading History puts over one day of plays. */
@@ -51,35 +51,44 @@ object HistoryDays {
 /**
  * Day headings and play times in the phone's locale and its 12 or 24 hour setting: "Monday 28
  * September" (with the year when it is not this one) and "14:05" or "2:05 PM". The same skeletons
- * the Stats page uses, so a date reads the same on both. [pattern] turns a skeleton into a pattern
- * for the locale; tests give it fixed ones.
+ * the Stats page uses, so a date reads the same on both, through [LocaleDateFormat], so no locale's
+ * pattern can break the screen. [pattern] turns a skeleton into a pattern for the locale; tests
+ * give it fixed ones.
  */
 class HistoryFormat(
     private val locale: Locale,
     private val is24Hour: Boolean,
     private val today: String,
     private val yesterday: String,
-    private val pattern: (Locale, String) -> String = { l, skeleton -> DateFormat.getBestDateTimePattern(l, skeleton) },
+    private val pattern: (Locale, String) -> String? = { l, skeleton -> DateFormat.getBestDateTimePattern(l, skeleton) },
 ) {
-    private val formatters = HashMap<String, DateTimeFormatter>()
+    private val formats = HashMap<String, LocaleDateFormat>()
 
-    private fun formatter(skeleton: String): DateTimeFormatter =
-        formatters.getOrPut(skeleton) { DateTimeFormatter.ofPattern(pattern(locale, skeleton), locale) }
+    private fun format(skeleton: String): LocaleDateFormat =
+        formats.getOrPut(skeleton) { LocaleDateFormat(locale, skeleton, fallback(skeleton), pattern) }
 
     /** The day as the locale writes it inside a sentence: "lundi 28 septembre" in French, as in the queue's title. */
     fun day(day: HistoryDay): String = when (day) {
         HistoryDay.Today -> today
         HistoryDay.Yesterday -> yesterday
-        is HistoryDay.On -> formatter(daySkeleton(day.withYear)).format(day.date)
+        is HistoryDay.On -> format(daySkeleton(day.withYear)).format(day.date)
     }
 
     /** The day over its plays, which starts with a capital in every language: "Lundi 28 septembre". */
     fun heading(day: HistoryDay): String = day(day).replaceFirstChar { it.titlecase(locale) }
 
-    fun time(start: LocalDateTime): String = formatter(timeSkeleton(is24Hour)).format(start)
+    fun time(start: LocalDateTime): String = format(timeSkeleton(is24Hour)).format(start)
 
     companion object {
         fun daySkeleton(withYear: Boolean) = "EEEEdMMMM" + if (withYear) "y" else ""
         fun timeSkeleton(is24Hour: Boolean) = if (is24Hour) "Hm" else "hm"
+
+        /** What a skeleton is written as when the locale's own pattern cannot be read. */
+        fun fallback(skeleton: String) = when (skeleton) {
+            "Hm" -> "HH:mm"
+            "hm" -> "h:mm a"
+            "EEEEdMMMMy" -> "EEEE d MMMM y"
+            else -> "EEEE d MMMM"
+        }
     }
 }

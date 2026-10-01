@@ -421,7 +421,8 @@ fun HistoryScreen(
                                 }
                             },
                             // When it started, on the clock where it was played. The song's length
-                            // leaves the subtitle, so the row has one time on it and that is this one.
+                            // leaves the subtitle, so the row has one time on it and that is this one;
+                            // without the caption line the length is back, as on every other list.
                             caption = "",
                             trailingText = format.time(entry.start),
                             modifier = Modifier
