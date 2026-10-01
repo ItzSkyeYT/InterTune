@@ -67,6 +67,18 @@ class EngineSignalsTest {
     }
 
     @Test
+    fun `how a play ended never stands in for how much of it was heard`() {
+        // Seeked to the last second and let finish, or a stream that ended early: the end reason
+        // says ended, the share says 9%, and the share is what counts.
+        assertEquals(0.0, Signals.engagement(listen(22_451, 245_000, endReason = EndReason.ENDED), null), 0.0)
+        assertTrue(Signals.engagement(listen(31_742, 155_000, endReason = EndReason.ENDED), null) < EngineParams.DEFAULT.justPlayedEngagement)
+        // A stream that died halfway is credited for the half and is not a skip.
+        val died = listen(100_000, endReason = EndReason.ERROR)
+        assertEquals(0.0, Signals.skip(died), 0.0)
+        assertEquals(Signals.engagement(died, null), Signals.value(died, null), 1e-9)
+    }
+
+    @Test
     fun `value combines the three and is nothing when the listener opted out`() {
         val l = listen(100_000, endReason = EndReason.SKIPPED, origin = PlayOrigin.SEARCH.code)   // g 0.571, k 0.5, m 1
         assertEquals((0.5 - 0.10) / 0.70 - 0.25, Signals.value(l, null), 1e-9)

@@ -1180,6 +1180,8 @@ class MusicService : MediaLibraryService(),
         /** Where the last checkpoint (or the last seek) left the position, to measure forward progress from. */
         @Volatile var lastCheckpointPositionMs: Long = 0L
         @Volatile var opened = false
+        /** Stopped on a playback error and not played since, so however it is left now, it ended in that error. */
+        @Volatile var failed = false
         /** The open listen row for this play: 0 until its insert has run, and completed for whoever waits. */
         @Volatile var rowId: Long = 0L
         val rowReady = kotlinx.coroutines.CompletableDeferred<Long>()
@@ -2234,6 +2236,9 @@ class MusicService : MediaLibraryService(),
 
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
+        // However this play is left from here (skip on error seeking past it, the listener moving
+        // on, the service going), it ended in this error, unless it plays again first.
+        player.currentMediaItem?.mediaId?.let(::currentStart)?.failed = true
 
         // Wait for reconnection, but only where a network could help. See waitsForNetwork: a
         // local file that has gone missing used to wait here for good whenever the phone was
@@ -2435,7 +2440,10 @@ class MusicService : MediaLibraryService(),
             val isBufferingOrReady =
                 player.playbackState == Player.STATE_BUFFERING || player.playbackState == Player.STATE_READY
             // Music is coming out of the speaker again, so whatever stopped it is history.
-            if (player.playbackState == Player.STATE_READY) stoppedByError = false
+            if (player.playbackState == Player.STATE_READY) {
+                stoppedByError = false
+                player.currentMediaItem?.mediaId?.let(::currentStart)?.failed = false
+            }
             if (isBufferingOrReady && player.playWhenReady) {
                 openAudioEffectSession()
             } else {
@@ -2740,9 +2748,10 @@ class MusicService : MediaLibraryService(),
     /**
      * Writes the complete record of a stop, whatever fraction was heard.
      *
-     * Natural end is read off the stats themselves (endedCount), which is exact. Anything else was
-     * cut short, and the transition that cut it says how; its callback and this one race, so a
-     * missing reason is given a moment to arrive before being called a stop.
+     * Natural end is read off the stats themselves (endedCount). A play that stopped on a playback
+     * error and was left that way ended in the error. Anything else was cut short, and the
+     * transition that cut it says how; its callback and this one race, so a missing reason is
+     * given a moment to arrive before being called a stop. See [ListenProgress.endReason].
      */
     private suspend fun logListen(
         mediaId: String,
@@ -2753,13 +2762,15 @@ class MusicService : MediaLibraryService(),
     ): Long {
         val endedAt = System.currentTimeMillis()
         val info = takeOldestStart(mediaId)
-        val endReason = when {
-            playbackStats.endedCount > 0 -> EndReason.ENDED
-            else -> pendingEndReasons.remove(mediaId) ?: run {
-                delay(300)
-                pendingEndReasons.remove(mediaId)
-            } ?: EndReason.STOPPED
+        val ended = playbackStats.endedCount > 0
+        // An ENDED waiting here without the stats' own end is an earlier play's, so it is passed
+        // over like a missing reason rather than ending the wait.
+        fun takeTransition() = pendingEndReasons.remove(mediaId)?.takeIf { it != EndReason.ENDED }
+        val transition = if (ended) null else takeTransition() ?: run {
+            delay(300)
+            takeTransition()
         }
+        val endReason = ListenProgress.endReason(ended, info?.failed == true, transition)
         pendingEndReasonsSeen[mediaId] = endReason
         // Zero is "never opened", not a time: the start info exists before its listen is opened,
         // and one that closed without opening wrote its whole row dated 1970 (one on his phone, a

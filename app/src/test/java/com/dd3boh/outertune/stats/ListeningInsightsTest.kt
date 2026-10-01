@@ -405,6 +405,14 @@ class ListeningInsightsTest {
     }
 
     @Test
+    fun `a play that failed is in the live log and is neither a skip nor a finish`() {
+        val failed = (0 until 10).map { listen("fail $it", time(5) + it * minute, 30_000, endReason = EndReason.ERROR, counted = false) }
+        val skips = ListeningInsights.compute(input(liveWeek(skipped = 20, ended = 15, stopped = 5) + failed)).find<Insight.Skips>()!!
+        assertEquals(20.0 / 50, skips.skipped, 1e-9)
+        assertEquals(15.0 / 50, skips.finished, 1e-9)
+    }
+
+    @Test
     fun `a live log older than the period needs no since`() {
         val skips = ListeningInsights.compute(input(liveWeek(20, 15), firstAt = covered)).find<Insight.Skips>()!!
         assertNull(skips.sinceDay)

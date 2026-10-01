@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.constants.EndReason
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -135,5 +136,42 @@ class ListenProgressTest {
             sessionGapMs = 1_800_000L,
         )
         assertEquals(5_000L, sessionId)
+    }
+
+    // How a play ended
+
+    @Test
+    fun `the player's own end is an end, whatever else happened`() {
+        assertEquals(EndReason.ENDED, ListenProgress.endReason(endedByPlayer = true, failed = false, transition = EndReason.ENDED))
+        // An error the play got over (the network came back, the retry played on) changes nothing.
+        assertEquals(EndReason.ENDED, ListenProgress.endReason(endedByPlayer = true, failed = true, transition = null))
+    }
+
+    @Test
+    fun `a stream that died and was skipped past is an error, not a skip`() {
+        // Skip on error moves on by seeking, the same transition as the listener pressing next.
+        assertEquals(EndReason.ERROR, ListenProgress.endReason(endedByPlayer = false, failed = true, transition = EndReason.SKIPPED))
+        // And a new queue chosen to get away from a song that stopped on its error.
+        assertEquals(EndReason.ERROR, ListenProgress.endReason(endedByPlayer = false, failed = true, transition = EndReason.REPLACED))
+    }
+
+    @Test
+    fun `a dead song still dead when the service goes is an error`() {
+        assertEquals(EndReason.ERROR, ListenProgress.endReason(endedByPlayer = false, failed = true, transition = null))
+    }
+
+    @Test
+    fun `a repeat paused and then closed was stopped, not played to the end`() {
+        // On repeat one the repeat before it left ENDED for the same song, and nothing moved on
+        // from this one: the service was released while it sat paused.
+        assertEquals(EndReason.STOPPED, ListenProgress.endReason(endedByPlayer = false, failed = false, transition = EndReason.ENDED))
+    }
+
+    @Test
+    fun `otherwise the transition says how it ended, and none means stopped`() {
+        assertEquals(EndReason.SKIPPED, ListenProgress.endReason(endedByPlayer = false, failed = false, transition = EndReason.SKIPPED))
+        assertEquals(EndReason.REPLACED, ListenProgress.endReason(endedByPlayer = false, failed = false, transition = EndReason.REPLACED))
+        assertEquals(EndReason.UNKNOWN, ListenProgress.endReason(endedByPlayer = false, failed = false, transition = EndReason.UNKNOWN))
+        assertEquals(EndReason.STOPPED, ListenProgress.endReason(endedByPlayer = false, failed = false, transition = null))
     }
 }

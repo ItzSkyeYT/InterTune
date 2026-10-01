@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.constants.EndReason
+
 /**
  * Rules for the listen log's progress and sessions, kept apart from the service so they can be
  * tested without a player or a database.
@@ -57,5 +59,31 @@ object ListenProgress {
             return startedAt
         }
         return candidateSessionId
+    }
+
+    /**
+     * How a play ended, for its listen row.
+     *
+     * [endedByPlayer] is the player's own count of plays that reached their end, a repeat
+     * included. [failed] is a playback error the play never got past: it stopped on the error and
+     * did not play again before it was left. [transition] is what the transition that moved on
+     * from it left behind, or null when nothing moved on, as when the service is released.
+     *
+     * A play that died is an error, whatever moved on from it. Skip on error moves on by seeking,
+     * which is the same transition as the listener pressing next, so a stream that died was
+     * written as a skip: the engine took it as the listener rejecting the song, and Rest songs I
+     * skip could rest a liked song for a week over a 403.
+     *
+     * A transition only leaves ENDED for a natural end or a repeat, and the player counts both of
+     * those itself. One found without that count belongs to an earlier play of the same song (it
+     * is kept for the radio's anchor), so it is not how this one ended. On repeat one every repeat
+     * leaves one, and a repeat paused and then closed with the service was written as played to
+     * the end: 14 rows on his phone on 28 Sep, every one straight after a repeat of the same song.
+     */
+    fun endReason(endedByPlayer: Boolean, failed: Boolean, transition: Int?): Int = when {
+        endedByPlayer -> EndReason.ENDED
+        failed -> EndReason.ERROR
+        transition == null || transition == EndReason.ENDED -> EndReason.STOPPED
+        else -> transition
     }
 }

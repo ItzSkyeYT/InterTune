@@ -328,7 +328,7 @@ object ListeningInsights {
         return ListeningStats(summary, hours, interleave(listOf(repeat, habit, time, artist, new)))
     }
 
-    private val LIVE_ENDINGS = setOf(EndReason.ENDED, EndReason.SKIPPED, EndReason.REPLACED, EndReason.STOPPED)
+    private val LIVE_ENDINGS = setOf(EndReason.ENDED, EndReason.SKIPPED, EndReason.REPLACED, EndReason.STOPPED, EndReason.ERROR)
 
     /** First of each kind, then the second of each, and so on. */
     private fun interleave(kinds: List<List<Insight>>): List<Insight> = buildList {
