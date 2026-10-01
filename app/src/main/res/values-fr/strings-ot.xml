@@ -803,6 +803,11 @@
     <string name="recommendations_impressions_description">Les cartes de la Sélection Rapide et de Découvrir du nouveau restées à l\'écran assez longtemps pour être vues. Celles que vous laissez passer lui apprennent aussi quelque chose, pas seulement celles que vous écoutez.</string>
     <string name="recommendations_cards_seen">Cartes vues</string>
     <string name="recommendations_cards_seen_line">%1$s : %2$d</string>
+    <plurals name="recommendations_cards_seen_waiting">
+        <item quantity="one">%1$s : %2$d pas encore jugée</item>
+        <item quantity="many">%1$s : %2$d pas encore jugées</item>
+        <item quantity="other">%1$s : %2$d pas encore jugées</item>
+    </plurals>
     <plurals name="recommendations_cards_waiting">
         <item quantity="one">, %1$d autre pas encore jugée</item>
         <item quantity="many">, %1$d autres pas encore jugées</item>

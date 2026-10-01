@@ -61,6 +61,7 @@ import com.dd3boh.outertune.engine.endCounts
 import com.dd3boh.outertune.engine.endLabel
 import com.dd3boh.outertune.engine.engineShowing
 import com.dd3boh.outertune.engine.hasNumbers
+import com.dd3boh.outertune.engine.onlyWaiting
 import com.dd3boh.outertune.engine.originCounts
 import com.dd3boh.outertune.engine.per100Text
 import com.dd3boh.outertune.engine.per100Texts
@@ -309,9 +310,13 @@ fun RecommendationsDoingSettings(
                 title = stringResource(R.string.recommendations_cards_seen),
                 explanation = stringResource(R.string.recommendations_impressions_info),
                 numbers = (seen.map { r ->
-                    stringResource(R.string.recommendations_cards_seen_line, teamNames[r.team] ?: r.team.toString(), r.judged) +
-                        (if (r.waiting > 0) pluralStringResource(R.plurals.recommendations_cards_waiting, r.waiting, r.waiting) else "") +
-                        (if (r.leftOut > 0) pluralStringResource(R.plurals.recommendations_cards_left_out, r.leftOut, r.leftOut) else "")
+                    val name = teamNames[r.team] ?: r.team.toString()
+                    (if (onlyWaiting(r)) {
+                        pluralStringResource(R.plurals.recommendations_cards_seen_waiting, r.waiting, name, r.waiting)
+                    } else {
+                        stringResource(R.string.recommendations_cards_seen_line, name, r.judged) +
+                            (if (r.waiting > 0) pluralStringResource(R.plurals.recommendations_cards_waiting, r.waiting, r.waiting) else "")
+                    }) + (if (r.leftOut > 0) pluralStringResource(R.plurals.recommendations_cards_left_out, r.leftOut, r.leftOut) else "")
                 } + listOfNotNull(
                     if (tapped > 0) pluralStringResource(R.plurals.recommendations_cards_tapped, tapped, tapped) else null
                 )).joinToString("\n").ifBlank { stringResource(R.string.recommendations_nothing_yet) },

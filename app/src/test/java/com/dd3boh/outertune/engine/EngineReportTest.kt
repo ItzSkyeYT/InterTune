@@ -237,6 +237,13 @@ class EngineReportTest {
         assertEquals(listOf(1, 2, 4), cardsSeen(rows).map { it.team })
     }
 
+    @Test
+    fun `a source with nothing judged yet gives only its cards waiting, not a nought`() {
+        assertTrue(onlyWaiting(CardsSeenRow(team = 3, judged = 0, waiting = 4, leftOut = 0, tapped = 0)))
+        assertFalse(onlyWaiting(CardsSeenRow(team = 1, judged = 103, waiting = 20, leftOut = 0, tapped = 0)))
+        assertFalse(onlyWaiting(CardsSeenRow(team = 1, judged = 0, waiting = 0, leftOut = 2, tapped = 0)))
+    }
+
     // How a listen ended
 
     @Test

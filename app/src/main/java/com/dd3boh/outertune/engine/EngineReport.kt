@@ -140,6 +140,12 @@ fun doingSummary(engineShowing: Boolean, teams: List<TeamCards>, trend: CardTren
 fun cardsSeen(rows: List<CardsSeenRow>): List<CardsSeenRow> =
     rows.filter { it.judged + it.waiting + it.leftOut > 0 }.sortedBy { it.team }
 
+/**
+ * A source with cards seen but none judged yet reads "YouTube Music: 4 not judged yet", not
+ * "YouTube Music: 0, 4 more not judged yet".
+ */
+fun onlyWaiting(row: CardsSeenRow): Boolean = row.judged == 0 && row.waiting > 0
+
 /** How Recent listens and How they ended name the way a listen ended. */
 enum class EndLabel { REACHED_END, ENDED_EARLY, SKIPPED, REPLACED, STOPPED, IN_PROGRESS, NOT_RECORDED }
 
