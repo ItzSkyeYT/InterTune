@@ -306,7 +306,7 @@ interface ListenDao {
 
     @Query("""
         SELECT listen.id, song.title, listen.endReason, listen.origin, listen.originSlot, listen.ratio,
-               listen.playedMs, listen.endedAt, listen.counted, listen.autoplayDepth
+               listen.playedMs, listen.endedAt, listen.counted, listen.autoplayDepth, listen.learn
         FROM listen JOIN song ON song.id = listen.songId
         ORDER BY listen.endedAt DESC LIMIT :limit
     """)
@@ -371,6 +371,8 @@ interface ListenDao {
     data class ListenRow(
         val id: Long, val title: String, val endReason: Int, val origin: Int, val originSlot: Int,
         val ratio: Float, val playedMs: Long, val endedAt: Long, val counted: Boolean, val autoplayDepth: Int,
+        /** False once forgotten, or when its queue was set not to teach: it no longer teaches. */
+        val learn: Boolean = true,
     )
 }
 

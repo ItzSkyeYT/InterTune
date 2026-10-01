@@ -18,6 +18,8 @@ import com.dd3boh.outertune.db.daos.ListenDao.EndCount
 import com.dd3boh.outertune.db.daos.TeamOutcome
 import java.math.RoundingMode
 import java.text.NumberFormat
+import java.time.Instant
+import java.time.ZoneId
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -204,6 +206,24 @@ fun clockLength(ms: Long): String? {
     val m = total % 3600 / 60
     val s = total % 60
     return if (h > 0) "%d:%02d:%02d".format(Locale.ROOT, h, m, s) else "%d:%02d".format(Locale.ROOT, m, s)
+}
+
+/** Which day a listen in Recent listens ended on, as the list names it beside the time. */
+enum class ListenDay { TODAY, YESTERDAY, EARLIER }
+
+/**
+ * Today, yesterday or earlier, by the calendar in [zone]. The list gave the time alone, so a
+ * listen at 10:37 AM today sat above one at 10:12 PM yesterday and the newest-first order looked
+ * wrong. A listen stamped later than [now], from a clock set back, is today.
+ */
+fun listenDay(endedAt: Long, now: Long, zone: ZoneId): ListenDay {
+    val day = Instant.ofEpochMilli(endedAt).atZone(zone).toLocalDate()
+    val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+    return when {
+        !day.isBefore(today) -> ListenDay.TODAY
+        day == today.minusDays(1) -> ListenDay.YESTERDAY
+        else -> ListenDay.EARLIER
+    }
 }
 
 /**

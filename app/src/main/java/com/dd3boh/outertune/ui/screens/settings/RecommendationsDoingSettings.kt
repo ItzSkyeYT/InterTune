@@ -52,6 +52,7 @@ import com.dd3boh.outertune.engine.Calibration
 import com.dd3boh.outertune.engine.DoingSummary
 import com.dd3boh.outertune.engine.ENGINE_TEAM
 import com.dd3boh.outertune.engine.EndLabel
+import com.dd3boh.outertune.engine.ListenDay
 import com.dd3boh.outertune.engine.Features
 import com.dd3boh.outertune.engine.Trend
 import com.dd3boh.outertune.engine.brierReference
@@ -64,6 +65,7 @@ import com.dd3boh.outertune.engine.endCounts
 import com.dd3boh.outertune.engine.endLabel
 import com.dd3boh.outertune.engine.engineShowing
 import com.dd3boh.outertune.engine.hasNumbers
+import com.dd3boh.outertune.engine.listenDay
 import com.dd3boh.outertune.engine.onlyWaiting
 import com.dd3boh.outertune.engine.originCounts
 import com.dd3boh.outertune.engine.per100Text
@@ -84,6 +86,8 @@ import com.dd3boh.outertune.viewmodels.DISCOVER_ROW_KEY
 import com.dd3boh.outertune.viewmodels.DISCOVER_TEAM
 import com.dd3boh.outertune.viewmodels.RecommendationsViewModel
 import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
 
@@ -353,6 +357,11 @@ fun RecommendationsDoingSettings(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
         )
+        // The day goes beside the time when it was not today, so the list reads newest first.
+        val now = System.currentTimeMillis()
+        val zone = ZoneId.systemDefault()
+        val dayFormat = SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "MMMd"), locale)
+        val timeFormat = DateFormat.getTimeInstance(DateFormat.SHORT)
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             if (recent.isEmpty()) {
                 Text(
@@ -381,11 +390,20 @@ fun RecommendationsDoingSettings(
                 val afterPick = if (row.autoplayDepth > 0) {
                     pluralStringResource(R.plurals.recommendations_recent_after_pick, row.autoplayDepth, row.autoplayDepth)
                 } else ""
+                val time = timeFormat.format(Date(row.endedAt))
+                val ended = when (listenDay(row.endedAt, now, zone)) {
+                    ListenDay.TODAY -> time
+                    ListenDay.YESTERDAY -> stringResource(R.string.recommendations_recent_yesterday, time)
+                    ListenDay.EARLIER -> stringResource(R.string.recommendations_recent_day_time, dayFormat.format(Date(row.endedAt)), time)
+                }
                 PreferenceEntry(
                     title = { Text(row.title) },
+                    // Not learned from: after Forget, a listen still in this list and unmarked
+                    // read as if the forget had not worked.
                     description = heard + origin + afterPick +
                             (if (row.counted) "" else stringResource(R.string.recommendations_recent_not_counted)) +
-                            " · " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(row.endedAt)),
+                            (if (row.learn) "" else stringResource(R.string.recommendations_recent_not_learned)) +
+                            " · " + ended,
                     onClick = null,
                 )
             }

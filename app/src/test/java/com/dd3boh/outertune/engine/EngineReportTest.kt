@@ -20,6 +20,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.ZoneId
 import java.util.Locale
 
 /** What How it's doing says at the top, and the arithmetic under its rows. */
@@ -336,6 +337,24 @@ class EngineReportTest {
         assertEquals(BrierVerdict.BETTER, brierVerdict(0.15, 0.1875))
         assertEquals(BrierVerdict.SAME, brierVerdict(0.18751, 0.1875))
         assertEquals(BrierVerdict.WORSE, brierVerdict(0.1880, 0.1875))
+    }
+
+    @Test
+    fun `a listen says yesterday or its day when it did not end today, by the local calendar`() {
+        val paris = ZoneId.of("Europe/Paris")
+        // 1 Oct 2026, 11:53 in Paris (09:53 UTC).
+        val now = java.time.ZonedDateTime.of(2026, 10, 1, 11, 53, 0, 0, paris).toInstant().toEpochMilli()
+        fun at(day: Int, hour: Int, minute: Int) = java.time.ZonedDateTime.of(2026, 10, day, hour, minute, 0, 0, paris).toInstant().toEpochMilli()
+        fun sep(day: Int, hour: Int) = java.time.ZonedDateTime.of(2026, 9, day, hour, 0, 0, 0, paris).toInstant().toEpochMilli()
+        assertEquals(ListenDay.TODAY, listenDay(at(1, 10, 37), now, paris))
+        assertEquals(ListenDay.TODAY, listenDay(at(1, 0, 5), now, paris))
+        // 10:12 PM the night before, which sat under 10:37 AM with no day and looked out of order.
+        assertEquals(ListenDay.YESTERDAY, listenDay(sep(30, 22) + 12 * 60_000L, now, paris))
+        // 23:30 UTC on 30 Sep is already 1 Oct in Paris: the phone's calendar decides.
+        assertEquals(ListenDay.TODAY, listenDay(java.time.Instant.parse("2026-09-30T23:30:00Z").toEpochMilli(), now, paris))
+        assertEquals(ListenDay.EARLIER, listenDay(sep(28, 20), now, paris))
+        // A clock set back can stamp a listen after now; it is still today, not an error.
+        assertEquals(ListenDay.TODAY, listenDay(now + 60_000L, now, paris))
     }
 
     @Test
