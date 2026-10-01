@@ -119,6 +119,59 @@ class PlayBookTest {
         assertNull(book.current("x"))
     }
 
+    // Stats with no play time
+
+    @Test
+    fun `the stats of a next track loaded ahead take nothing from the new queue's play of it`() {
+        // The last stretch of an album track: Media3 starts loading the next track, which gives it
+        // a session of its own, though no play in the book is that track.
+        val x = play(newQueue, "x").apply { opened = true }
+        // The listener taps that next track in the album screen, which builds a new queue. Its play
+        // begins, and then the session of the track loaded ahead finishes with no play time.
+        val y = play(newQueue, "y")
+        assertNull(book.takeUnplayed("y"))
+        assertSame(y, book.current("y"))         // so sound opens this play's row
+        y.opened = true
+        assertSame(x, runBlocking { book.close("x", endedByPlayer = false) {} }.play)
+        // Its own stats close it, with the record it started with and its own reason: a skip...
+        play(seek, "z")
+        val skipped = runBlocking { book.close("y", endedByPlayer = false) {} }
+        assertSame(y, skipped.play)
+        assertEquals(EndReason.SKIPPED, skipped.endReason)
+        // ...or an error, when the same happens and its stream then dies.
+        val again = play(newQueue, "y")
+        assertNull(book.takeUnplayed("y"))
+        again.opened = true
+        book.playerError("y")
+        play(seek, "w")
+        val failed = runBlocking { book.close("y", endedByPlayer = false) {} }
+        assertSame(again, failed.play)
+        assertEquals(EndReason.ERROR, failed.endReason)
+    }
+
+    @Test
+    fun `stats with no play time take nothing that sounded, even once it was left`() {
+        // The stats of the track loaded ahead can be read late, after the new play sounded and the
+        // listener moved on: that play's own stats are still to come.
+        val y = play(newQueue, "y").apply { opened = true }
+        play(seek, "z")
+        assertNull(book.takeUnplayed("y"))
+        assertSame(y, book.takeOldest("y"))
+    }
+
+    @Test
+    fun `stats with no play time take the oldest play that never sounded`() {
+        val sounded = play(newQueue, "y").apply { opened = true }   // played, its stats not in yet
+        val loaded = play(newQueue, "y")                            // a new queue, left before it started
+        play(seek, "x")
+        val current = play(seek, "y")                               // y again, in progress, not sounded yet
+        assertSame(loaded, book.takeUnplayed("y"))
+        // The one that sounded and the one in progress stay, for their own stats.
+        assertNull(book.takeUnplayed("y"))
+        assertSame(sounded, book.takeOldest("y"))
+        assertSame(current, book.takeOldest("y"))
+    }
+
     // The radio anchor
 
     @Test

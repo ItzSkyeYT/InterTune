@@ -57,9 +57,6 @@ interface ListenDao {
     @Query("UPDATE listen SET playedMs = :playedMs, endPositionMs = :positionMs WHERE id = :id AND endReason = 6")
     fun checkpoint(id: Long, playedMs: Long, positionMs: Long)
 
-    @Query("DELETE FROM listen WHERE id = :id AND endReason = 6")
-    fun discardOpenListen(id: Long)
-
     /** The latest stopped, failed or still-open play of this song, for linking a resume to it. */
     @Query(ListenSql.LAST_RESUMABLE)
     fun lastStoppedListen(songId: String): Listen?

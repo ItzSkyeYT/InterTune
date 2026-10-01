@@ -1158,8 +1158,8 @@ class MusicService : MediaLibraryService(),
     /**
      * What each play knew about itself when it started: where its queue came from, how many songs
      * had autoplayed before it, and the wall clock. Read back when its stats arrive, because by then
-     * the queue may already be a different one. How it is being left (an error it stopped on, the
-     * transition that moved on from it) is kept on it too, see [PlayEnd].
+     * the queue may already be a different one. Whether it sounded and how it is being left (an
+     * error it stopped on, the transition that moved on from it) are kept on it too, see [PlayEnd].
      */
     private class StartInfo(
         val origin: Int,
@@ -1177,7 +1177,6 @@ class MusicService : MediaLibraryService(),
         @Volatile var accumulatedPlayedMs: Long = 0L
         /** Where the last checkpoint (or the last seek) left the position, to measure forward progress from. */
         @Volatile var lastCheckpointPositionMs: Long = 0L
-        @Volatile var opened = false
         /** The open listen row for this play: 0 until its insert has run, and completed for whoever waits. */
         @Volatile var rowId: Long = 0L
         val rowReady = kotlinx.coroutines.CompletableDeferred<Long>()
@@ -2609,14 +2608,6 @@ class MusicService : MediaLibraryService(),
         }
     }
 
-    /** A play too short to be a listen: its open row goes, as if it had never been written. */
-    private fun discardListen(info: StartInfo) {
-        val rowId = info.rowId.takeIf { it > 0 } ?: return
-        database.query {
-            runCatching { discardOpenListen(rowId) }.onFailure { Log.w(TAG, "Could not discard listen", it) }
-        }
-    }
-
     /**
      * How far this play got, written to its open row: a death then loses at most a minute. An
      * accumulator, not a snapshot against the play's start: only the forward distance since the
@@ -2819,15 +2810,19 @@ class MusicService : MediaLibraryService(),
             // the engine and the play count can tell a glance from a listen. Only a song that
             // never produced any audio at all is left out, because that is the player settling
             // rather than anything the user did.
-            if (!historyPaused && playbackStats.totalPlayTimeMs > 0) {
+            if (playbackStats.totalPlayTimeMs <= 0L) {
+                // A play that never sounded, which has no row, or a session Media3 opened for an
+                // item it only loaded ahead, which is no play at all: see PlayBook.takeUnplayed.
+                plays.takeUnplayed(mediaItem.mediaId)?.let { lastKnownPosition.remove(mediaItem.mediaId) }
+            } else if (historyPaused) {
+                plays.takeOldest(mediaItem.mediaId)
+                lastKnownPosition.remove(mediaItem.mediaId)
+            } else {
                 listenId = runCatching {
                     val closed = plays.close(mediaItem.mediaId, endedByPlayer = playbackStats.endedCount > 0) { delay(300) }
                     endReason = closed.endReason
                     logListen(mediaItem.mediaId, closed, playbackStats, durationSec, playRatio, counted)
                 }.onFailure { Log.w(TAG, "Could not log listen", it) }.getOrDefault(0L)
-            } else {
-                plays.takeOldest(mediaItem.mediaId)?.let(::discardListen)
-                lastKnownPosition.remove(mediaItem.mediaId)
             }
             // Rest songs I skip: a skip before the middle of a liked or often-played song rests it
             // from the engine row for a week, so a mood does not become a verdict.

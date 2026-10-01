@@ -34,8 +34,8 @@ object ListenProgress {
     /**
      * Which session a new listen row continues. A row still OPEN is a candidate for "the song that
      * just ended, whose close is queued behind an IO coroutine and has not landed yet", but it is
-     * not trusted on its own: nothing closes a leaked row (one a crashed close, a discarded
-     * zero-length play, or a slow transaction queue left behind) until the next process starts, so
+     * not trusted on its own: nothing closes a leaked row (one a crashed close or a slow
+     * transaction queue left behind) until the next process starts, so
      * an old open row could otherwise capture every later listen into one unbounded session. It is
      * held to the same [sessionGapMs] rule as the last closed play, using its own last known
      * progress ([openLastKnownAt], its startedAt plus the checkpointed playedMs) as the moment it

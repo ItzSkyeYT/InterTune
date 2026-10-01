@@ -12,9 +12,9 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 
 /**
- * What one play has been told about how it is being left: whether it stopped on a playback error,
- * and what the transition that moved on from it said. Both live on the play itself, so nothing one
- * play is told can be read by another play of the same song.
+ * What the book knows about one play: whether sound ever came out of it, whether it stopped on a
+ * playback error, and what the transition that moved on from it said. All of it lives on the play
+ * itself, so nothing one play is told can be read by another play of the same song.
  *
  * The transition's reason used to be kept by song id, taken when the song's stats arrived, and
  * left in place when the stats said ended, for the radio's anchor. A song that reached the end of
@@ -24,6 +24,13 @@ import java.util.concurrent.ConcurrentLinkedDeque
  * song and which Rest songs I skip could rest it for.
  */
 open class PlayEnd {
+    /**
+     * Sound has come out of this play, and its listen row was opened then. A play the player only
+     * loaded (the queue restored at launch, a song moved past before it started) never sounded.
+     */
+    @Volatile var opened = false
+        internal set
+
     /** Stopped on a playback error and not played since: however it is left now, it ended in that error. */
     @Volatile var failed = false
         private set
@@ -70,6 +77,31 @@ class PlayBook<P : PlayEnd> {
     }
 
     /**
+     * What stats with no play time for [id] close: the oldest play of [id] that never sounded and
+     * is not the one in progress, taken out of the book. Null when there is none, and then nothing
+     * is taken.
+     *
+     * Such stats come from a play the player loaded and never started, and also from a session
+     * Media3 opened for an item it only loaded ahead. PlaybackStatsListener starts a session for
+     * any period that starts loading (DefaultPlaybackSessionManager.updateSessions), so near the end
+     * of a song the next one has a session of its own, and when that item goes without playing its
+     * session finishes with no play time. That session is no play in the book. When the listener
+     * taps that next track in the album screen, which builds a new queue, the new queue's play of
+     * the song begins first, and taking the oldest play of the song took that one: it never opened
+     * a row, and its own stats then found no play and wrote it with no origin and no card, as a stop
+     * however it was left. A play that sounded is closed by its own stats, and the one in progress
+     * has not been left yet, so this never takes either.
+     */
+    fun takeUnplayed(id: String): P? {
+        var taken: P? = null
+        plays.computeIfPresent(id) { _, queue ->
+            taken = queue.firstOrNull { !it.opened && it !== playing }?.also { queue.removeFirstOccurrence(it) }
+            queue.takeIf { it.isNotEmpty() }
+        }
+        return taken
+    }
+
+    /**
      * A media item transition, with the player's reason for it: the play in progress was left that
      * way, and [play] of [id] begins, or nothing does, when the player was emptied.
      *
@@ -85,9 +117,11 @@ class PlayBook<P : PlayEnd> {
             playingId = null
             return
         }
-        plays.compute(id) { _, queue -> (queue ?: ConcurrentLinkedDeque()).apply { addLast(play) } }
+        // In progress before it is in the book, so that stats read on another thread never find it
+        // there without seeing that it is the play in progress (see [takeUnplayed]).
         playing = play
         playingId = id
+        plays.compute(id) { _, queue -> (queue ?: ConcurrentLinkedDeque()).apply { addLast(play) } }
     }
 
     /** Whether the latest play of [id] that was moved on from was let finish: a natural end, or a repeat. */
