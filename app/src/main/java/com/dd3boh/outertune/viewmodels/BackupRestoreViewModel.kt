@@ -214,6 +214,8 @@ class BackupRestoreViewModel @Inject constructor(
             }
         }
 
+        // The automatic backup schedule is left as it is. The launch after the restart compares it
+        // with these settings and replaces it if the interval differs (AutoBackup.schedule).
         settingsBytes?.let { bytes ->
             (context.filesDir / "datastore" / SETTINGS_FILENAME).outputStream().use { outputStream ->
                 outputStream.write(bytes)

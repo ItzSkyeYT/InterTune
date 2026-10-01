@@ -6,8 +6,11 @@
 
 package com.dd3boh.outertune.utils
 
+import androidx.work.ExistingPeriodicWorkPolicy.KEEP
+import androidx.work.ExistingPeriodicWorkPolicy.UPDATE
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDateTime
@@ -404,5 +407,66 @@ class AutoBackupPolicyTest {
         val pressed = now - 4_000L
         assertTrue(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = pressed, lastBackupAt = pressed + 200L, now = now, intervalHours = 24))
         assertTrue(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = pressed, lastBackupAt = pressed, now = now, intervalHours = 24))
+    }
+
+    // Whether a launch keeps the schedule or replaces it.
+
+    /** The tag WorkManager adds to every request by itself: the worker's class name. */
+    private val workerTag = "com.dd3boh.outertune.utils.AutoBackupWorker"
+
+    private fun scheduled(hours: Int) = setOf(workerTag, AutoBackupPolicy.intervalTag(hours))
+
+    @Test
+    fun `the tag is stored with the schedule, so its format stays put`() {
+        assertEquals("auto_backup_interval_hours=24", AutoBackupPolicy.intervalTag(24))
+        assertEquals(24, AutoBackupPolicy.taggedInterval(scheduled(24)))
+        assertEquals(8760, AutoBackupPolicy.taggedInterval(scheduled(8760)))
+    }
+
+    @Test
+    fun `a schedule with no tag, or a garbled one, has no interval`() {
+        assertNull(AutoBackupPolicy.taggedInterval(setOf(workerTag)))
+        assertNull(AutoBackupPolicy.taggedInterval(emptySet()))
+        assertNull(AutoBackupPolicy.taggedInterval(setOf("auto_backup_interval_hours=")))
+        assertNull(AutoBackupPolicy.taggedInterval(setOf("auto_backup_interval_hours=daily")))
+        assertNull(AutoBackupPolicy.taggedInterval(setOf("24")))
+    }
+
+    @Test
+    fun `with nothing scheduled the schedule is enqueued, not replaced`() {
+        assertEquals(KEEP, AutoBackupPolicy.schedulePolicy(null, 24))
+    }
+
+    @Test
+    fun `a launch keeps a schedule made for the interval in the settings`() {
+        // Almost every launch. Replacing here was the backup at every launch.
+        for (hours in listOf(6, 24, 168, 720, 4380, 8760)) {
+            assertEquals("every $hours h", KEEP, AutoBackupPolicy.schedulePolicy(scheduled(hours), hours))
+        }
+    }
+
+    @Test
+    fun `after a Restore with another interval the launch replaces the schedule`() {
+        // Weekly before the restore, daily in the backup's settings, and the other way round.
+        assertEquals(UPDATE, AutoBackupPolicy.schedulePolicy(scheduled(168), 24))
+        assertEquals(UPDATE, AutoBackupPolicy.schedulePolicy(scheduled(24), 168))
+        // A Restore with the same interval leaves it alone, when it last ran included.
+        assertEquals(KEEP, AutoBackupPolicy.schedulePolicy(scheduled(24), 24))
+    }
+
+    @Test
+    fun `a new interval picked in Settings replaces the schedule, the same one does not`() {
+        assertEquals(UPDATE, AutoBackupPolicy.schedulePolicy(scheduled(168), 6))
+        assertEquals(KEEP, AutoBackupPolicy.schedulePolicy(scheduled(6), 6))
+    }
+
+    @Test
+    fun `a schedule from before the tag is replaced once, and kept from then on`() {
+        // 0.10.8 to 0.11 scheduled with no tag, so its interval is unknown.
+        assertEquals(UPDATE, AutoBackupPolicy.schedulePolicy(setOf(workerTag), 24))
+        assertEquals(UPDATE, AutoBackupPolicy.schedulePolicy(emptySet(), 24))
+        assertEquals(UPDATE, AutoBackupPolicy.schedulePolicy(setOf(workerTag, "auto_backup_interval_hours=x"), 24))
+        // The replacement carries the tag.
+        assertEquals(KEEP, AutoBackupPolicy.schedulePolicy(scheduled(24), 24))
     }
 }

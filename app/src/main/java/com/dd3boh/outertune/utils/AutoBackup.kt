@@ -40,9 +40,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -259,9 +261,27 @@ object AutoBackup {
     const val KEEP_MAX = 20
 
     /**
+     * schedule() calls, applied one at a time in the order they were made. Off the main thread,
+     * where every caller is, because finding out what is scheduled is a query of WorkManager's
+     * database. In order, so that a switch turned on and straight off again ends up off.
+     */
+    private val scheduleCalls = Channel<suspend () -> Unit>(Channel.UNLIMITED).also { calls ->
+        scope.launch {
+            for (call in calls) {
+                try {
+                    call()
+                } catch (e: Exception) {
+                    // Nobody to hand it to, and one failed call must not stop the ones after it.
+                    Log.w(TAG, "Could not apply the automatic backup schedule", e)
+                }
+            }
+        }
+    }
+
+    /**
      * Applies the current settings: schedules the backups if they are not scheduled, cancels them
-     * if they are off or have nowhere to go, and replaces the schedule only when [hours] is given,
-     * which means the interval has just been changed.
+     * if they are off or have nowhere to go, and replaces the schedule only when it was made for
+     * another interval than the settings say (AutoBackupPolicy.schedulePolicy).
      *
      * Every launch calls this, and it used to replace the schedule every time. In WorkManager 2.8.1
      * replacing (ExistingPeriodicWorkPolicy.UPDATE) keeps the time of the last run but resets the
@@ -270,6 +290,8 @@ object AutoBackup {
      * KEEP leaves a schedule that exists alone, when it last ran included. A new interval still
      * has to replace it, and that still runs at once in 2.8.1; the worker's own check is what keeps
      * that from being a second backup within the interval.
+     *
+     * Returns at once and applies shortly after, in order with the other calls.
      *
      * The overrides exist for the same reason BackgroundCheckWorker has one: the preference setter
      * is fire and forget, so a call straight after it would read the old value and the change would
@@ -281,17 +303,29 @@ object AutoBackup {
         folder: String? = null,
         hours: Int? = null,
     ) {
-        val on = enabled ?: context.dataStore.get(AutoBackupEnabledKey, false)
-        val where = folder ?: context.dataStore.get(AutoBackupFolderKey, "")
+        val appContext = context.applicationContext
+        scheduleCalls.trySend { applySchedule(appContext, enabled, folder, hours) }
+    }
+
+    private suspend fun applySchedule(context: Context, enabled: Boolean?, folder: String?, hours: Int?) {
+        val prefs = context.dataStore.data.first()
+        val manager = WorkManager.getInstance(context)
+        val on = enabled ?: prefs[AutoBackupEnabledKey] ?: false
+        val where = folder ?: prefs[AutoBackupFolderKey] ?: ""
         if (!on || where.isBlank()) {
-            cancel(context)
+            manager.cancelUniqueWork(WORK_NAME)
+            Log.i(TAG, "Automatic backup off")
             return
         }
 
-        val every = (hours ?: context.dataStore.get(AutoBackupIntervalHoursKey, DEFAULT_INTERVAL_HOURS))
-            .coerceAtLeast(1)
+        val every = (hours ?: prefs[AutoBackupIntervalHoursKey] ?: DEFAULT_INTERVAL_HOURS).coerceAtLeast(1)
+        // A cancelled schedule stays listed until WorkManager clears it out, and is not one:
+        // enqueueing over it starts afresh whatever the policy.
+        val current = manager.getWorkInfosForUniqueWork(WORK_NAME).await().firstOrNull { !it.state.isFinished }
+        val policy = AutoBackupPolicy.schedulePolicy(current?.tags, every)
         val request = PeriodicWorkRequestBuilder<AutoBackupWorker>(every.toLong(), TimeUnit.HOURS)
             .setInputData(workDataOf(INPUT_INTERVAL_HOURS to every))
+            .addTag(AutoBackupPolicy.intervalTag(every))
             .setConstraints(
                 // A backup is a copy of the whole database; not worth a nearly flat battery, and
                 // pointless on a nearly full disk.
@@ -301,18 +335,16 @@ object AutoBackup {
                     .build()
             )
             .build()
-        val replace = hours != null
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-            WORK_NAME,
-            if (replace) ExistingPeriodicWorkPolicy.UPDATE else ExistingPeriodicWorkPolicy.KEEP,
-            request,
+        manager.enqueueUniquePeriodicWork(WORK_NAME, policy, request)
+        Log.i(
+            TAG,
+            "Automatic backup every ${every}h, " + when {
+                current == null -> "scheduled"
+                policy == ExistingPeriodicWorkPolicy.KEEP -> "already scheduled"
+                else -> "replacing the schedule for " +
+                    (AutoBackupPolicy.taggedInterval(current.tags)?.let { "every ${it}h" } ?: "an unknown interval")
+            }
         )
-        Log.i(TAG, "Automatic backup every ${every}h" + if (replace) ", schedule replaced" else "")
-    }
-
-    fun cancel(context: Context) {
-        WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
-        Log.i(TAG, "Automatic backup off")
     }
 
     /**

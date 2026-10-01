@@ -273,12 +273,11 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                 }
             },
             onValueSelected = {
-                // Replacing the schedule starts a run at once (AutoBackup.schedule says why), so
-                // picking the interval that is already set leaves it alone.
-                if (it != autoBackupHours) {
-                    onAutoBackupHoursChange(it)
-                    AutoBackup.schedule(context, hours = it)
-                }
+                // Replaced only when the schedule was made for another interval, since replacing
+                // starts a run at once (AutoBackup.schedule says why). So picking the interval
+                // already set does nothing, unless the schedule disagrees with it.
+                onAutoBackupHoursChange(it)
+                AutoBackup.schedule(context, hours = it)
             }
         )
 

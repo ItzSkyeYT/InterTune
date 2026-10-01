@@ -6,13 +6,15 @@
 
 package com.dd3boh.outertune.utils
 
+import androidx.work.ExistingPeriodicWorkPolicy
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
 /**
  * Names backup files and the temporary files they are written as, decides which old ones to
- * remove, and whether a run should write at all. No Android in here, so it is tested.
+ * remove, whether a run should write at all, and whether the schedule is kept or replaced.
+ * Nothing in here needs a device, so it is tested.
  *
  * The name is the same one the manual Backup entry has produced since the beginning, which is what
  * lets the single Restore path accept a scheduled file without knowing where it came from. The
@@ -23,6 +25,7 @@ import java.util.concurrent.TimeUnit
 object AutoBackupPolicy {
     private val stamp: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
     private const val PARTIAL = ".partial"
+    private const val INTERVAL_TAG = "auto_backup_interval_hours="
 
     /**
      * App name, database version, fourteen digit timestamp. The name is anchored to the app doing
@@ -121,4 +124,37 @@ object AutoBackupPolicy {
         val interval = TimeUnit.HOURS.toMillis(intervalHours.coerceAtLeast(1).toLong())
         return age < interval / 4 * 3
     }
+
+    /**
+     * The tag the periodic schedule carries, saying which interval it was made for. WorkManager
+     * 2.8.1 has no other way to ask (WorkInfo only gained the period in 2.9). It is stored with the
+     * schedule in WorkManager's database, so changing its format replaces every schedule once.
+     */
+    fun intervalTag(hours: Int): String = "$INTERVAL_TAG$hours"
+
+    /** The interval [intervalTag] put among [tags], or null when it is not there. */
+    fun taggedInterval(tags: Collection<String>): Int? =
+        tags.firstNotNullOfOrNull { tag ->
+            if (tag.startsWith(INTERVAL_TAG)) tag.removePrefix(INTERVAL_TAG).toIntOrNull() else null
+        }
+
+    /**
+     * How AutoBackup.schedule enqueues the schedule for an interval of [hours], given the tags of
+     * the one there now ([scheduledTags], null when there is none).
+     *
+     * KEEP when the one there was made for [hours], which on almost every launch it was. Replacing
+     * it (UPDATE) makes a run due at once in WorkManager 2.8.1, whatever the interval, and doing
+     * that on every launch was a backup at every launch. KEEP also when there is none, where it
+     * simply enqueues.
+     *
+     * UPDATE when it was made for another interval, or does not say (scheduled before the tag), so
+     * that the schedule follows the settings, which are what the user sees. Restore is why: it
+     * writes the backup's settings and restarts the app, and the schedule from before goes on at
+     * the old interval while Settings shows the restored one. The launch after the restart puts
+     * that right, as it would any other way the two came apart. The run a replace starts at once
+     * still goes through shouldSkip.
+     */
+    fun schedulePolicy(scheduledTags: Collection<String>?, hours: Int): ExistingPeriodicWorkPolicy =
+        if (scheduledTags == null || taggedInterval(scheduledTags) == hours) ExistingPeriodicWorkPolicy.KEEP
+        else ExistingPeriodicWorkPolicy.UPDATE
 }
