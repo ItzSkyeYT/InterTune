@@ -1334,7 +1334,8 @@ class RecognitionEngine @Inject constructor(
             // unsure list instead, so a playlist's run notes the mashup there.
             playlist == null -> offerChoice(current, songs)
             else -> {
-                val name = winner?.title ?: titles.joinToString(" + ")
+                // Never after the upload it was answered with before, which is in the playlist.
+                val name = MixSearch.sheetName(winner, current.replaced, titles)
                 if (_skipped.value.none { it.title == name }) {
                     _skipped.value += Added(name, context.getString(R.string.recognise_mashup), auto = false, heardAtMs = now, keys = current.keys.toSet())
                 }

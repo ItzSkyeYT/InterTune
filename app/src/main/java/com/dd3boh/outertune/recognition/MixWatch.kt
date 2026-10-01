@@ -1296,6 +1296,18 @@ internal object MixSearch {
      */
     fun replacedBy(replaced: SongItem?, picked: SongItem): SongItem? = replaced?.takeIf { it.id != picked.id }
 
+    /**
+     * What a playlist's run calls a mashup it notes in the sheet as heard and not added: its
+     * [winner], unless there is none or it is [replaced], the upload the mashup was answered with
+     * before it was asked again, which is in the playlist already; then the [titles] of its songs.
+     * While a question asked again waits, nothing is uncovered, so its next search takes the songs
+     * in their usual order, which puts first the two the earlier answer names, and can find that
+     * very upload the clear winner. A note named after it listed it as heard and not added, though
+     * it was in the playlist.
+     */
+    fun sheetName(winner: SongItem?, replaced: SongItem?, titles: List<String>): String =
+        winner?.takeIf { it.id != replaced?.id }?.title ?: titles.joinToString(" + ")
+
     /** A piece's bare title as words: what its versions have in common. */
     fun titleOf(piece: MixWatch.Sighting): String = words(bareTitle(piece.title))
 
