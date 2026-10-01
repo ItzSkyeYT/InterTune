@@ -119,13 +119,17 @@ class EngineLearning(private val context: Context, private val database: MusicDa
             .associate { it.id to SongRow(it.id, it.song.title, it.artists.firstOrNull()?.id, it.artists.firstOrNull()?.name, it.song.liked, it.song.likedDate?.let { d -> storedLocalToInstant(Converters().dateToTimestamp(d)!!) }?.takeIf { _ -> it.song.liked }) }
         val groups = VersionGroups(songs.values, database.engineVersionLinks().map { VersionLink(it.songId, it.versionId) })
         val graded = Grading.grade(rows, recent, songs, groups, now)
-        if (graded.isEmpty()) return
+        // A card waiting on a resume stays pending, to be graded again on the next run; the mark
+        // keeps it out of the source share meanwhile. Nothing to write, no transaction: a run that
+        // finds only cards already waiting leaves the database alone.
+        val writes = Grading.writes(graded, pending.associate { it.id to it.outcome })
+        if (writes.isEmpty()) return
         database.transactionNow {
-            graded.forEach {
-                // A card waiting on a resume stays pending, to be graded again on the next run; the
-                // mark keeps it out of the source share meanwhile.
-                if (it.outcome == Outcome.WAITING) markWaiting(it.impressionId)
-                else markGraded(it.impressionId, it.outcome, it.y.toFloat(), it.u.toFloat(), now, it.listenId)
+            writes.forEach {
+                when (it) {
+                    is CardWrite.Wait -> markWaiting(it.impressionId)
+                    is CardWrite.Grade -> it.graded.let { g -> markGraded(g.impressionId, g.outcome, g.y.toFloat(), g.u.toFloat(), now, g.listenId) }
+                }
             }
         }
         Log.d(TAG, "graded ${graded.count { it.outcome != Outcome.WAITING }} of ${pending.size} pending impressions")

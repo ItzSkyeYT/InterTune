@@ -51,6 +51,15 @@ object Outcome {
 /** What became of a card, or with [Outcome.WAITING], that it is not graded yet. */
 data class Graded(val impressionId: Long, val outcome: Int, val y: Double, val u: Double, val listenId: Long? = null)
 
+/** What a grading run writes for one card. */
+sealed interface CardWrite {
+    /** Marked [Outcome.WAITING] and left ungraded, so the next run reads it again. */
+    data class Wait(val impressionId: Long) : CardWrite
+
+    /** Graded for good. */
+    data class Grade(val graded: Graded) : CardWrite
+}
+
 /**
  * Wins are graded by engagement, never by the tap: a tap abandoned after twenty seconds grades 0,
  * a finished song 1. A card played from the row takes its listen's engagement at full weight; the
@@ -153,6 +162,20 @@ object Grading {
             }
         }
         return out
+    }
+
+    /**
+     * What to write for what [grade] found, given each pending card's outcome as stored. A card
+     * waiting on a resume is only marked waiting, never graded: graded, it would leave the pending
+     * cards for good, and the resume it waits for could no longer reach it. One already marked
+     * waiting is left as it is, so a run that finds only waiting cards writes nothing.
+     */
+    fun writes(graded: List<Graded>, storedOutcome: Map<Long, Int>): List<CardWrite> = graded.mapNotNull { g ->
+        when {
+            g.outcome != Outcome.WAITING -> CardWrite.Grade(g)
+            storedOutcome[g.impressionId] == Outcome.WAITING -> null
+            else -> CardWrite.Wait(g.impressionId)
+        }
     }
 
     /**

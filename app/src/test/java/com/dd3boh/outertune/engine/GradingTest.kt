@@ -219,6 +219,24 @@ class GradingTest {
         }
     }
 
+    // What a run writes
+
+    @Test
+    fun `a waiting card is marked waiting, never graded, and only once`() {
+        val died = listen("a", now - 3 * hour, playedMs = 120_000, impressionId = 1, endReason = EndReason.ERROR).copy(id = 10)
+        val waiting = Grading.grade(listOf(imp(1, "a", now - 3 * hour, tappedAt = now - 3 * hour)), listOf(died), songs, groups, now)
+        assertEquals(listOf(CardWrite.Wait(1)), Grading.writes(waiting, mapOf(1L to Outcome.PENDING)))
+        // Already marked: a run that finds only cards waiting writes nothing.
+        assertEquals(emptyList<CardWrite>(), Grading.writes(waiting, mapOf(1L to Outcome.WAITING)))
+        // Every other outcome is a grade, a waiting card's included once it is settled.
+        val settled = listOf(
+            Graded(2, Outcome.PLAYED, 1.0, 1.0, listenId = 20), Graded(3, Outcome.DROPPED, 0.0, 0.0),
+            Graded(4, Outcome.LOST, 0.0, 0.0), Graded(5, Outcome.IGNORED, 0.0, 0.3), Graded(6, Outcome.ELSEWHERE, 0.25, 0.5),
+        )
+        assertEquals(settled.map { CardWrite.Grade(it) }, Grading.writes(settled, settled.associate { it.impressionId to Outcome.WAITING }))
+        assertEquals(settled.map { CardWrite.Grade(it) }, Grading.writes(settled, emptyMap()))
+    }
+
     @Test
     fun `a card whose play was stopped and resumed is graded by the whole play too`() {
         val tap = now - 3 * hour
