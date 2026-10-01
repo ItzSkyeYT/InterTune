@@ -61,4 +61,15 @@ object EngineSql {
         WHERE team = 1 AND slot >= 0 AND gradedAt IS NOT NULL AND outcome IN (1, 2, 3)
           AND visibleAt >= :from AND visibleAt < :to
     """
+
+    /*
+     * Forget the last session, and forget today's listening: the listens stop teaching. Only rows
+     * that still teach are changed, so the count Room hands back is what this tap forgot. Without
+     * that, a second tap marked the same rows again and said it had forgotten them all over again.
+     * The two counts are what Your data asks about before it forgets, on the same rows.
+     */
+    const val FORGET_SESSION = "UPDATE listen SET learn = 0 WHERE sessionId = :sessionId AND learn = 1"
+    const val FORGET_BETWEEN = "UPDATE listen SET learn = 0 WHERE startedAt >= :from AND startedAt < :to AND learn = 1"
+    const val FORGETTABLE_IN_SESSION = "SELECT COUNT(*) FROM listen WHERE sessionId = :sessionId AND learn = 1"
+    const val FORGETTABLE_BETWEEN = "SELECT COUNT(*) FROM listen WHERE startedAt >= :from AND startedAt < :to AND learn = 1"
 }
