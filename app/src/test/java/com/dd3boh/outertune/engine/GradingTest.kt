@@ -198,6 +198,28 @@ class GradingTest {
     }
 
     @Test
+    fun `a later play linked to a failed play another card's already carried on is not the first card's`() {
+        // The second card's play of the song ended, and a resume is only ever linked to the latest
+        // play left stopped or failed, so a later play of it from the top is linked to the first
+        // card's failed row again. The second card's play came first and is what carried the failed
+        // play on: the first card ended there, whatever links to its row later.
+        val tap = now - 3 * hour
+        val second = tap + 2 * 60_000
+        val died = listen("a", tap + 1000, playedMs = 3_000, impressionId = 1, endReason = EndReason.ERROR).copy(id = 10)
+        val tapped = listen("a", second + 800, playedMs = 200_000, impressionId = 2).copy(id = 11, continuesListenId = 10)
+        val later = listen("a", tap + 30 * 60_000, playedMs = 200_000).copy(id = 12, continuesListenId = 10)
+        val first = imp(1, "a", tap - 5_000, tappedAt = tap)
+        val other = imp(2, "a", tap + 60_000, tappedAt = second)
+        // In either order, so neither the first nor the last row read can stand for the earliest.
+        for (listens in listOf(listOf(died, tapped, later), listOf(died, later, tapped))) {
+            val g = Grading.grade(listOf(first, other), listens, songs, groups, now).associateBy { it.impressionId }
+            assertEquals(Outcome.DROPPED, g[1]!!.outcome); assertEquals(0.0, g[1]!!.u, 0.0)
+            assertEquals(Outcome.PLAYED, g[2]!!.outcome); assertEquals(11L, g[2]!!.listenId)
+            assertEquals(Outcome.DROPPED, Grading.grade(listOf(first), listens, songs, groups, now).single().outcome)
+        }
+    }
+
+    @Test
     fun `a card whose play was stopped and resumed is graded by the whole play too`() {
         val tap = now - 3 * hour
         val stopped = listen("a", tap + 1000, playedMs = 60_000, impressionId = 1, endReason = EndReason.STOPPED).copy(id = 10)
