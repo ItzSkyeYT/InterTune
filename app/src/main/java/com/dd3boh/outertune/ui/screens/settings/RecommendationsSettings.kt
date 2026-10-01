@@ -49,6 +49,7 @@ import com.dd3boh.outertune.constants.TidyHomeRowsKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.engine.EngineParams
 import com.dd3boh.outertune.engine.Lane
+import com.dd3boh.outertune.engine.percentText
 import com.dd3boh.outertune.engine.SimilarSources
 import com.dd3boh.outertune.engine.quotas
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
@@ -64,6 +65,7 @@ import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.RecommendationsViewModel
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
@@ -209,7 +211,7 @@ fun RecommendationsSettings(
                         } else {
                             val lastFm = (mix.share * 100).roundToInt()
                             listOf(
-                                stringResource(R.string.similar_mix_share, lastFm, 100 - lastFm),
+                                stringResource(R.string.similar_mix_share, percentText(lastFm, Locale.getDefault()), percentText(100 - lastFm, Locale.getDefault())),
                                 stringResource(R.string.similar_mix_lastfm_line, mix.lastFm.per100, mix.lastFm.cards.roundToInt()),
                                 stringResource(R.string.similar_mix_youtube_line, mix.youTube.per100, mix.youTube.cards.roundToInt()),
                                 pluralStringResource(R.plurals.similar_mix_days, mix.days, mix.days),

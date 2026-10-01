@@ -945,7 +945,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="similar_source_youtube">YouTube only</string>
     <string name="similar_source_lastfm">Last.fm only</string>
     <string name="similar_mix">How similar songs are split</string>
-    <string name="similar_mix_share">Last.fm %1$d%%, YouTube %2$d%%</string>
+    <string name="similar_mix_share">Last.fm %1$s, YouTube %2$s</string>
     <string name="similar_mix_lastfm_line">Last.fm: %1$.1f heard per 100 of %2$d cards</string>
     <string name="similar_mix_youtube_line">YouTube: %1$.1f heard per 100 of %2$d cards</string>
     <plurals name="similar_mix_days">

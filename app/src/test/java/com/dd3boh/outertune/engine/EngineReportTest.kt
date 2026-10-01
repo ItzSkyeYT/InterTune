@@ -260,6 +260,15 @@ class EngineReportTest {
     }
 
     @Test
+    fun `a percentage is written the way the language writes it`() {
+        assertEquals("11%", percentText(11, Locale.ENGLISH))
+        assertEquals("170%", percentText(170, Locale.ENGLISH))
+        // French puts a no-break space before the sign: "11 %", never "11%".
+        assertTrue(percentText(11, Locale.FRENCH), Regex("11[\u00A0\u202F]%").matches(percentText(11, Locale.FRENCH)))
+        assertTrue(Regex("0[\u00A0\u202F]%").matches(percentText(0, Locale.FRENCH)))
+    }
+
+    @Test
     fun `two different rates that round alike get a decimal each`() {
         assertEquals("4.2" to "4.4", per100Texts(4.2, 4.4, Locale.ENGLISH))
         assertEquals("6" to "4", per100Texts(6.1, 4.0, Locale.ENGLISH))

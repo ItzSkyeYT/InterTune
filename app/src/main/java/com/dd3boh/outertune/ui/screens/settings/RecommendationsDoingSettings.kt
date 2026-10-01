@@ -71,6 +71,7 @@ import com.dd3boh.outertune.engine.oneInWords
 import com.dd3boh.outertune.engine.onlyWaiting
 import com.dd3boh.outertune.engine.originCounts
 import com.dd3boh.outertune.engine.per100Text
+import com.dd3boh.outertune.engine.percentText
 import com.dd3boh.outertune.engine.per100Texts
 import com.dd3boh.outertune.engine.predictionBands
 import com.dd3boh.outertune.engine.predictionOf
@@ -385,7 +386,7 @@ fun RecommendationsDoingSettings(
                 val end = endLabels[endLabel(row.endReason, row.ratio)] ?: notRecorded
                 val length = clockLength(row.playedMs) ?: stringResource(R.string.recommendations_seconds, (row.playedMs / 1000).toInt())
                 val heard = if (row.ratio >= 0f) {
-                    stringResource(R.string.recommendations_recent_line, end, "${(row.ratio * 100).toInt()}%", length)
+                    stringResource(R.string.recommendations_recent_line, end, percentText((row.ratio * 100).toInt(), locale), length)
                 } else {
                     stringResource(R.string.recommendations_recent_line_no_share, end, length)
                 }

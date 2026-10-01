@@ -332,6 +332,12 @@ fun per100Text(value: Double, locale: Locale, decimals: Int = if (value > 0 && v
     }.format(shown)
 }
 
+/**
+ * A whole percentage as the language writes it: "11%" in English, "11 %" in French, with the
+ * narrow no-break space French puts before the sign. Written as "%d%%" by hand, French read "11%".
+ */
+fun percentText(percent: Int, locale: Locale): String = NumberFormat.getPercentInstance(locale).format(percent / 100.0)
+
 /** Two rates side by side, with a decimal when rounding would make different ones look equal. */
 fun per100Texts(a: Double, b: Double, locale: Locale): Pair<String, String> {
     val whole = per100Text(a, locale) to per100Text(b, locale)
