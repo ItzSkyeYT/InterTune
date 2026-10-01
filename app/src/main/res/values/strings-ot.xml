@@ -1141,7 +1141,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_summary_played_single">You played the one card Best recommendations showed you.</string>
     <string name="recommendations_summary_not_played_single">You did not play the one card Best recommendations showed you.</string>
     <plurals name="recommendations_summary_waiting_more">
-        <item quantity="one">%1$d more card it showed you is not judged yet. A card you did not tap is judged a day after you saw it.</item>
+        <item quantity="one">It showed you %1$d more card that is not judged yet. A card you did not tap is judged a day after you saw it.</item>
         <item quantity="other">%1$d more cards it showed you are not judged yet. A card you did not tap is judged a day after you saw it.</item>
     </plurals>
     <string name="recommendations_summary_waiting_more_single">One more card it showed you is not judged yet. A card you did not tap is judged a day after you saw it.</string>
