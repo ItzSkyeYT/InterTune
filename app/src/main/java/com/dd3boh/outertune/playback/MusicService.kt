@@ -2722,8 +2722,8 @@ class MusicService : MediaLibraryService(),
         val info = closed.play
         val endReason = closed.endReason
         // Zero is "never opened", not a time: the start info exists before its listen is opened,
-        // and one that closed without opening wrote its whole row dated 1970 (one on his phone, a
-        // radio play on 19 Sep). The fallback covers it the same as a missing info.
+        // and one that closed without opening wrote its whole row dated 1970 (one in a real
+        // library, a radio play on 19 Sep). The fallback covers it the same as a missing info.
         val startedAt = info?.startedAt?.takeIf { it > 0L }
             ?: (endedAt - playbackStats.totalPlayTimeMs - playbackStats.totalPausedTimeMs)
         val offsetMin = java.util.TimeZone.getDefault().getOffset(endedAt) / 60_000

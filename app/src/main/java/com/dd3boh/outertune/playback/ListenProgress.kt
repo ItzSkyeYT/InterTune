@@ -77,9 +77,9 @@ object ListenProgress {
      * A transition only leaves ENDED for a natural end or a repeat, and the player counts both of
      * those itself, so ENDED is never taken from a transition alone: without the player's count it
      * is a stop. When reasons were kept by song, a repeat paused and then closed with the service
-     * took the ENDED its own repeat had left and was written as played to the end: 14 rows on his
-     * phone on 28 Sep, every one straight after a repeat of the same song. [PlayBook] now keeps each
-     * reason on its play, and this rule stays as the second guard.
+     * took the ENDED its own repeat had left and was written as played to the end: 14 rows in one
+     * real library on 28 Sep, every one straight after a repeat of the same song. [PlayBook] now
+     * keeps each reason on its play, and this rule stays as the second guard.
      */
     fun endReason(endedByPlayer: Boolean, failed: Boolean, transition: Int?): Int = when {
         endedByPlayer -> EndReason.ENDED
