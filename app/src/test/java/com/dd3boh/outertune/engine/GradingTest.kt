@@ -161,6 +161,16 @@ class GradingTest {
     }
 
     @Test
+    fun `a failed play resumed by a row that asked not to teach drops the card`() {
+        // A chain teaches only if every row of it does.
+        val tap = now - 3 * hour
+        val died = listen("a", tap + 1000, playedMs = 60_000, impressionId = 1, endReason = EndReason.ERROR).copy(id = 10)
+        val quiet = listen("a", tap + 20 * 60_000, playedMs = 140_000, learn = false).copy(id = 11, continuesListenId = 10)
+        val g = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(died, quiet), songs, groups, now).single()
+        assertEquals(Outcome.DROPPED, g.outcome); assertEquals(0.0, g.y, 0.0); assertEquals(0.0, g.u, 0.0)
+    }
+
+    @Test
     fun `a failed play carried on by another card's tap is that card's play alone`() {
         // The first card's play failed three seconds in. The same song tapped on a second card two
         // minutes later starts from the top, close enough to where the first stopped to be linked
