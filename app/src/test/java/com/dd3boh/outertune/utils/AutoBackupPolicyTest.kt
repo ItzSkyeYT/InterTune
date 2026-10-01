@@ -383,6 +383,19 @@ class AutoBackupPolicyTest {
         assertEquals(emptyList<String>(), AutoBackupPolicy.confirmedToDelete("InterTune Preview", previewFolder, 1, emptySet()))
     }
 
+    @Test
+    fun `an agreed delete still leaves Keep backups when the newest went meanwhile`() {
+        // Counted at Keep 2: the oldest twelve. Then the newest three went (deleted by hand, or
+        // the folder synced from somewhere else), so eight of the counted ones are now among the
+        // newest. Taking every counted file still there would leave none.
+        val counted = AutoBackupPolicy.toDelete("InterTune Preview", previewFolder, 2).toSet()
+        val folder = previewFolder.dropLast(3)
+        assertTrue(folder.all { it in counted })
+        val doomed = AutoBackupPolicy.confirmedToDelete("InterTune Preview", folder, 2, counted)
+        assertEquals(folder.take(9), doomed)
+        assertEquals(folder.takeLast(2), folder - doomed.toSet())
+    }
+
     // Whether a run writes at all.
 
     private val hour = 3_600_000L
