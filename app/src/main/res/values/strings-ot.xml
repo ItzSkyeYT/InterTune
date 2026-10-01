@@ -1132,7 +1132,7 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="recommendations_summary_not_source_waiting_single">Best recommendations is no longer your Quick picks source. The card it showed you before is judged a day after you saw it, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</string>
     <string name="recommendations_summary_waiting">Nothing to show yet. Best recommendations\' cards are judged a day after you see them, so this fills in as you listen.</string>
-    <string name="recommendations_summary_not_learning">Learn from listening is off, so Best recommendations is not learning now: none of its cards are noted or judged. You can turn it back on in Settings, under Recommendations.</string>
+    <string name="recommendations_summary_not_learning">Learn from listening is off, so Best recommendations is not learning now: none of its cards are judged, and no new ones are noted. You can turn it back on in Settings, under Recommendations.</string>
     <string name="recommendations_summary_learning_off">Learn from listening is off, so it is not learning now and no new cards are judged. You can turn it back on in Settings, under Recommendations.</string>
     <plurals name="recommendations_summary_played">
         <item quantity="one">You played %1$d of the %2$d card Best recommendations showed you, about %3$s in 100.</item>

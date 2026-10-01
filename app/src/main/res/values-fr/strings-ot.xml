@@ -1078,7 +1078,7 @@
     </plurals>
     <string name="recommendations_summary_not_source_waiting_single">Meilleures recommandations n\'est plus la source de votre Sélection Rapide. La carte qu\'il vous a montrée avant est jugée un jour après que vous l\'avez vue, puis comptée ici. Vous pouvez la choisir de nouveau dans Paramètres, sous Bibliothèque et Contenu, Source de la Sélection Rapide.</string>
     <string name="recommendations_summary_waiting">Rien à montrer pour l\'instant. Les cartes de Meilleures recommandations sont jugées un jour après que vous les avez vues, donc cela se remplit au fil de l\'écoute.</string>
-    <string name="recommendations_summary_not_learning">Apprendre de l\'écoute est désactivé, donc Meilleures recommandations n\'apprend rien en ce moment : aucune de ses cartes n\'est notée ni jugée. Vous pouvez le réactiver dans Paramètres, sous Recommandations.</string>
+    <string name="recommendations_summary_not_learning">Apprendre de l\'écoute est désactivé, donc Meilleures recommandations n\'apprend rien en ce moment : aucune de ses cartes n\'est jugée, et aucune nouvelle n\'est notée. Vous pouvez le réactiver dans Paramètres, sous Recommandations.</string>
     <string name="recommendations_summary_learning_off">Apprendre de l\'écoute est désactivé, donc il n\'apprend rien en ce moment et aucune nouvelle carte n\'est jugée. Vous pouvez le réactiver dans Paramètres, sous Recommandations.</string>
     <plurals name="recommendations_summary_played">
         <item quantity="one">Vous avez écouté %1$d carte sur %2$d montrée par Meilleures recommandations, soit environ %3$s sur 100.</item>
