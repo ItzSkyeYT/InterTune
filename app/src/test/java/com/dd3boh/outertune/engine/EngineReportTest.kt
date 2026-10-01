@@ -250,6 +250,16 @@ class EngineReportTest {
     }
 
     @Test
+    fun `exactly one is said in words, and every other count as a number`() {
+        // "The card it showed you before", not "The 1 card"; French "La carte qui", which the
+        // plural's one form cannot say, since it covers nought there too.
+        assertTrue(oneInWords(1))
+        assertFalse(oneInWords(0))
+        assertFalse(oneInWords(2))
+        assertFalse(oneInWords(21))
+    }
+
+    @Test
     fun `two different rates that round alike get a decimal each`() {
         assertEquals("4.2" to "4.4", per100Texts(4.2, 4.4, Locale.ENGLISH))
         assertEquals("6" to "4", per100Texts(6.1, 4.0, Locale.ENGLISH))

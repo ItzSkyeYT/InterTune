@@ -166,6 +166,15 @@ fun doingSummary(engineShowing: Boolean, teams: List<TeamCards>, trend: CardTren
 }
 
 /**
+ * Whether a count is said in words rather than as a number. Exactly one card is "the card it
+ * learned from", not "the 1 card", and no sentence opens on a bare 1. The plural's own one form
+ * cannot say that in French, where it covers nought as well, and Android's lint holds a one form
+ * there to carrying the number, so exactly one has strings of its own; nought has its own wording
+ * wherever it can come up.
+ */
+fun oneInWords(n: Int): Boolean = n == 1
+
+/**
  * The sources with cards to show under Cards you saw, in team order. Judged is the count every
  * other figure on the page uses; the cards still to be judged and those left out are named
  * beside it rather than added in, so no number here differs from the same thing counted above.

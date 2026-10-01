@@ -67,6 +67,7 @@ import com.dd3boh.outertune.engine.endLabel
 import com.dd3boh.outertune.engine.engineShowing
 import com.dd3boh.outertune.engine.hasNumbers
 import com.dd3boh.outertune.engine.listenDay
+import com.dd3boh.outertune.engine.oneInWords
 import com.dd3boh.outertune.engine.onlyWaiting
 import com.dd3boh.outertune.engine.originCounts
 import com.dd3boh.outertune.engine.per100Text
@@ -266,7 +267,8 @@ fun RecommendationsDoingSettings(
                             ),
                     numbers = if (brier.isNaN()) stringResource(R.string.recommendations_nothing_yet)
                         else (listOf(
-                            pluralStringResource(R.plurals.recommendations_predicted_of, prediction.cards, prediction.cards, expected, played),
+                            if (oneInWords(prediction.cards)) stringResource(R.string.recommendations_predicted_of_single, expected, played)
+                            else pluralStringResource(R.plurals.recommendations_predicted_of, prediction.cards, prediction.cards, expected, played),
                         ) +
                             // map, not the joinToString below it directly: map is inline and can
                             // call a composable function, joinToString's own lambda cannot.
@@ -460,7 +462,9 @@ private fun SummaryCard(summary: DoingSummary, locale: Locale) {
                     // since Cards you saw below lists them.
                     is DoingSummary.NotSource -> {
                         Text(
-                            text = if (summary.waiting > 0) {
+                            text = if (oneInWords(summary.waiting)) {
+                                stringResource(R.string.recommendations_summary_not_source_waiting_single)
+                            } else if (summary.waiting > 0) {
                                 pluralStringResource(R.plurals.recommendations_summary_not_source_waiting, summary.waiting, summary.waiting)
                             } else {
                                 stringResource(R.string.recommendations_summary_not_source)
@@ -478,11 +482,16 @@ private fun SummaryCard(summary: DoingSummary, locale: Locale) {
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     is DoingSummary.Numbers -> {
+                        // One card reads "You played the one card", not "0 of the 1 card, about 0 in 100".
                         Text(
-                            text = pluralStringResource(
-                                R.plurals.recommendations_summary_played, summary.cards.seen,
-                                summary.cards.played, summary.cards.seen, per100Text(summary.cards.per100, locale),
-                            ),
+                            text = when {
+                                !oneInWords(summary.cards.seen) -> pluralStringResource(
+                                    R.plurals.recommendations_summary_played, summary.cards.seen,
+                                    summary.cards.played, summary.cards.seen, per100Text(summary.cards.per100, locale),
+                                )
+                                summary.cards.played > 0 -> stringResource(R.string.recommendations_summary_played_single)
+                                else -> stringResource(R.string.recommendations_summary_not_played_single)
+                            },
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                         )
@@ -492,7 +501,8 @@ private fun SummaryCard(summary: DoingSummary, locale: Locale) {
                         if (summary.waiting > 0) {
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = pluralStringResource(R.plurals.recommendations_summary_waiting_more, summary.waiting, summary.waiting),
+                                text = if (oneInWords(summary.waiting)) stringResource(R.string.recommendations_summary_waiting_more_single)
+                                    else pluralStringResource(R.plurals.recommendations_summary_waiting_more, summary.waiting, summary.waiting),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }

@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.engine.oneInWords
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.FloatingTopBar
@@ -205,14 +206,20 @@ private fun AskFirstDialog(ask: DataAsk, onDismiss: () -> Unit, onConfirm: () ->
         }
         is DataAsk.Reset -> {
             title = stringResource(R.string.recommendations_reset_title)
-            what = if (ask.cards == 0) stringResource(R.string.recommendations_reset_text_nothing)
-                else pluralStringResource(R.plurals.recommendations_reset_text, ask.cards, ask.cards)
+            what = when {
+                ask.cards == 0 -> stringResource(R.string.recommendations_reset_text_nothing)
+                oneInWords(ask.cards) -> stringResource(R.string.recommendations_reset_text_single)
+                else -> pluralStringResource(R.plurals.recommendations_reset_text, ask.cards, ask.cards)
+            }
             confirm = stringResource(R.string.recommendations_reset_confirm)
         }
         is DataAsk.Rebuild -> {
             title = stringResource(R.string.recommendations_rebuild_title)
-            what = if (ask.cards == 0) stringResource(R.string.recommendations_rebuild_text_nothing)
-                else pluralStringResource(R.plurals.recommendations_rebuild_text, ask.cards, ask.cards)
+            what = when {
+                ask.cards == 0 -> stringResource(R.string.recommendations_rebuild_text_nothing)
+                oneInWords(ask.cards) -> stringResource(R.string.recommendations_rebuild_text_single)
+                else -> pluralStringResource(R.plurals.recommendations_rebuild_text, ask.cards, ask.cards)
+            }
             confirm = stringResource(R.string.recommendations_rebuild_confirm)
         }
         DataAsk.Load -> {

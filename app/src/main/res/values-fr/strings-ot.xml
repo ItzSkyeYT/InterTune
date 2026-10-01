@@ -1024,8 +1024,8 @@
     <string name="recommendations_already_at_start">Rien à réinitialiser : il est déjà à son point de départ.</string>
     <plurals name="recommendations_rebuilt">
         <item quantity="one">Reconstruit à partir de %1$d carte.</item>
-        <item quantity="many">Reconstruit à partir de %1$d cartes.</item>
-        <item quantity="other">Reconstruit à partir de %1$d cartes.</item>
+        <item quantity="many">Reconstruit à partir de %1$d cartes, en comptant celles de Meilleures recommandations et de Découvrir du nouveau.</item>
+        <item quantity="other">Reconstruit à partir de %1$d cartes, en comptant celles de Meilleures recommandations et de Découvrir du nouveau.</item>
     </plurals>
     <string name="recommendations_data_failed">Cela n\'a pas fonctionné. Réessayez.</string>
     <plurals name="recommendations_forget_title">
@@ -1038,18 +1038,20 @@
     <string name="recommendations_forget_confirm">Oublier</string>
     <string name="recommendations_reset_title">Réinitialiser l\'apprentissage ?</string>
     <plurals name="recommendations_reset_text">
-        <item quantity="one">Meilleures recommandations revient à son point de départ, comme s\'il n\'avait rien appris. %1$d carte qui lui a servi à apprendre est gardée, donc Reconstruire l\'apprentissage peut rétablir ce qu\'il en a appris.</item>
-        <item quantity="many">Meilleures recommandations revient à son point de départ, comme s\'il n\'avait rien appris. Les %1$d cartes qui lui ont servi à apprendre sont gardées, donc Reconstruire l\'apprentissage peut rétablir ce qu\'il en a appris.</item>
-        <item quantity="other">Meilleures recommandations revient à son point de départ, comme s\'il n\'avait rien appris. Les %1$d cartes qui lui ont servi à apprendre sont gardées, donc Reconstruire l\'apprentissage peut rétablir ce qu\'il en a appris.</item>
+        <item quantity="one">Meilleures recommandations revient à son point de départ, comme s\'il n\'avait rien appris. Il garde %1$d carte qui lui a servi à apprendre, donc Reconstruire l\'apprentissage peut rétablir ce qu\'il en a appris.</item>
+        <item quantity="many">Meilleures recommandations revient à son point de départ, comme s\'il n\'avait rien appris. Il garde les %1$d cartes qui lui ont servi à apprendre, en comptant celles de Meilleures recommandations et de Découvrir du nouveau, donc Reconstruire l\'apprentissage peut rétablir ce qu\'il en a appris.</item>
+        <item quantity="other">Meilleures recommandations revient à son point de départ, comme s\'il n\'avait rien appris. Il garde les %1$d cartes qui lui ont servi à apprendre, en comptant celles de Meilleures recommandations et de Découvrir du nouveau, donc Reconstruire l\'apprentissage peut rétablir ce qu\'il en a appris.</item>
     </plurals>
+    <string name="recommendations_reset_text_single">Meilleures recommandations revient à son point de départ, comme s\'il n\'avait rien appris. La carte qui lui a servi à apprendre est gardée, donc Reconstruire l\'apprentissage peut rétablir ce qu\'il en a appris.</string>
     <string name="recommendations_reset_text_nothing">Meilleures recommandations revient à son point de départ, comme s\'il n\'avait rien appris.</string>
     <string name="recommendations_reset_confirm">Réinitialiser</string>
     <string name="recommendations_rebuild_title">Reconstruire l\'apprentissage ?</string>
     <plurals name="recommendations_rebuild_text">
         <item quantity="one">Meilleures recommandations repart du début et reprend %1$d carte qui lui a servi à apprendre.</item>
-        <item quantity="many">Meilleures recommandations repart du début et reprend dans l\'ordre les %1$d cartes qui lui ont servi à apprendre.</item>
-        <item quantity="other">Meilleures recommandations repart du début et reprend dans l\'ordre les %1$d cartes qui lui ont servi à apprendre.</item>
+        <item quantity="many">Meilleures recommandations repart du début et reprend dans l\'ordre les %1$d cartes qui lui ont servi à apprendre, en comptant celles de Meilleures recommandations et de Découvrir du nouveau.</item>
+        <item quantity="other">Meilleures recommandations repart du début et reprend dans l\'ordre les %1$d cartes qui lui ont servi à apprendre, en comptant celles de Meilleures recommandations et de Découvrir du nouveau.</item>
     </plurals>
+    <string name="recommendations_rebuild_text_single">Meilleures recommandations repart du début et reprend la carte qui lui a servi à apprendre.</string>
     <string name="recommendations_rebuild_text_nothing">Meilleures recommandations n\'a encore appris d\'aucune carte, donc il revient à son point de départ.</string>
     <string name="recommendations_rebuild_confirm">Reconstruire</string>
     <string name="recommendations_load_title">Charger une copie ?</string>
@@ -1064,6 +1066,7 @@
         <item quantity="many">Meilleures recommandations n\'est plus la source de votre Sélection Rapide. Les %1$d cartes qu\'il vous a montrées avant sont jugées un jour après que vous les avez vues, puis comptées ici. Vous pouvez la choisir de nouveau dans Paramètres, sous Bibliothèque et Contenu, Source de la Sélection Rapide.</item>
         <item quantity="other">Meilleures recommandations n\'est plus la source de votre Sélection Rapide. Les %1$d cartes qu\'il vous a montrées avant sont jugées un jour après que vous les avez vues, puis comptées ici. Vous pouvez la choisir de nouveau dans Paramètres, sous Bibliothèque et Contenu, Source de la Sélection Rapide.</item>
     </plurals>
+    <string name="recommendations_summary_not_source_waiting_single">Meilleures recommandations n\'est plus la source de votre Sélection Rapide. La carte qu\'il vous a montrée avant est jugée un jour après que vous l\'avez vue, puis comptée ici. Vous pouvez la choisir de nouveau dans Paramètres, sous Bibliothèque et Contenu, Source de la Sélection Rapide.</string>
     <string name="recommendations_summary_waiting">Rien à montrer pour l\'instant. Les cartes de Meilleures recommandations sont jugées un jour après que vous les avez vues, donc cela se remplit au fil de l\'écoute.</string>
     <string name="recommendations_summary_not_learning">Apprendre de l\'écoute est désactivé, donc Meilleures recommandations n\'apprend rien en ce moment : aucune de ses cartes n\'est notée ni jugée. Vous pouvez le réactiver dans Paramètres, sous Recommandations.</string>
     <string name="recommendations_summary_learning_off">Apprendre de l\'écoute est désactivé, donc il n\'apprend rien en ce moment et aucune nouvelle carte n\'est jugée. Vous pouvez le réactiver dans Paramètres, sous Recommandations.</string>
@@ -1072,11 +1075,14 @@
         <item quantity="many">Vous avez écouté %1$d des %2$d cartes montrées par Meilleures recommandations, soit environ %3$s sur 100.</item>
         <item quantity="other">Vous avez écouté %1$d des %2$d cartes montrées par Meilleures recommandations, soit environ %3$s sur 100.</item>
     </plurals>
+    <string name="recommendations_summary_played_single">Vous avez écouté la seule carte montrée par Meilleures recommandations.</string>
+    <string name="recommendations_summary_not_played_single">Vous n\'avez pas écouté la seule carte montrée par Meilleures recommandations.</string>
     <plurals name="recommendations_summary_waiting_more">
         <item quantity="one">%1$d autre carte montrée n\'est pas encore jugée. Une carte que vous n\'avez pas touchée est jugée un jour après que vous l\'avez vue.</item>
         <item quantity="many">%1$d autres cartes montrées ne sont pas encore jugées. Une carte que vous n\'avez pas touchée est jugée un jour après que vous l\'avez vue.</item>
         <item quantity="other">%1$d autres cartes montrées ne sont pas encore jugées. Une carte que vous n\'avez pas touchée est jugée un jour après que vous l\'avez vue.</item>
     </plurals>
+    <string name="recommendations_summary_waiting_more_single">Une autre carte montrée n\'est pas encore jugée. Une carte que vous n\'avez pas touchée est jugée un jour après que vous l\'avez vue.</string>
     <string name="recommendations_summary_scale">Plus c\'est haut, mieux c\'est. La plupart des cartes sont passées sans être écoutées, donc de petits chiffres sont normaux.</string>
     <string name="recommendations_summary_up">En hausse : %1$s sur 100 ces deux dernières semaines, contre %2$s sur 100 les deux semaines d\'avant.</string>
     <string name="recommendations_summary_down">En baisse : %1$s sur 100 ces deux dernières semaines, contre %2$s sur 100 les deux semaines d\'avant.</string>
@@ -1091,6 +1097,7 @@
         <item quantity="many">Sur les %1$d cartes pour lesquelles il a fait une prévision, il pensait que %2$s sur 100 seraient écoutées, et %3$s sur 100 l\'ont été.</item>
         <item quantity="other">Sur les %1$d cartes pour lesquelles il a fait une prévision, il pensait que %2$s sur 100 seraient écoutées, et %3$s sur 100 l\'ont été.</item>
     </plurals>
+    <string name="recommendations_predicted_of_single">Pour la seule carte pour laquelle il a fait une prévision, il pensait que %1$s sur 100 seraient écoutées, et %2$s sur 100 l\'ont été.</string>
     <string name="recommendations_band_under">Cartes auxquelles il donnait moins de %1$d chances sur 100 : %2$d, %3$s</string>
     <string name="recommendations_band">Cartes auxquelles il donnait de %1$d à %2$d chances sur 100 : %3$d, %4$s</string>
     <string name="recommendations_band_none_played">aucune écoutée</string>

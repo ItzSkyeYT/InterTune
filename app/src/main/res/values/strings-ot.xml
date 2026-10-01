@@ -1084,7 +1084,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_already_at_start">Nothing to reset: it is already where it started.</string>
     <plurals name="recommendations_rebuilt">
         <item quantity="one">Rebuilt from %1$d card.</item>
-        <item quantity="other">Rebuilt from %1$d cards.</item>
+        <item quantity="other">Rebuilt from %1$d cards, counting those of Best recommendations and Discover something new.</item>
     </plurals>
     <string name="recommendations_data_failed">That did not work. Try again.</string>
     <plurals name="recommendations_forget_title">
@@ -1096,16 +1096,18 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_forget_confirm">Forget</string>
     <string name="recommendations_reset_title">Reset what it learned?</string>
     <plurals name="recommendations_reset_text">
-        <item quantity="one">Best recommendations goes back to where it started, as if it had learned nothing. The %1$d card it learned from is kept, so Rebuild what it learned can bring back what it learned from it.</item>
-        <item quantity="other">Best recommendations goes back to where it started, as if it had learned nothing. The %1$d cards it learned from are kept, so Rebuild what it learned can bring back what it learned from them.</item>
+        <item quantity="one">Best recommendations goes back to where it started, as if it had learned nothing. It keeps the %1$d card it learned from, so Rebuild what it learned can bring back what it learned from it.</item>
+        <item quantity="other">Best recommendations goes back to where it started, as if it had learned nothing. It keeps the %1$d cards it learned from, counting those of Best recommendations and Discover something new, so Rebuild what it learned can bring back what it learned from them.</item>
     </plurals>
+    <string name="recommendations_reset_text_single">Best recommendations goes back to where it started, as if it had learned nothing. It keeps the card it learned from, so Rebuild what it learned can bring back what it learned from it.</string>
     <string name="recommendations_reset_text_nothing">Best recommendations goes back to where it started, as if it had learned nothing.</string>
     <string name="recommendations_reset_confirm">Reset</string>
     <string name="recommendations_rebuild_title">Rebuild what it learned?</string>
     <plurals name="recommendations_rebuild_text">
         <item quantity="one">Best recommendations starts again from the beginning and goes back over the %1$d card it learned from.</item>
-        <item quantity="other">Best recommendations starts again from the beginning and goes back over the %1$d cards it learned from, in order.</item>
+        <item quantity="other">Best recommendations starts again from the beginning and goes back over the %1$d cards it learned from, in order, counting those of Best recommendations and Discover something new.</item>
     </plurals>
+    <string name="recommendations_rebuild_text_single">Best recommendations starts again from the beginning and goes back over the card it learned from.</string>
     <string name="recommendations_rebuild_text_nothing">Best recommendations has not learned from any cards yet, so it goes back to where it started.</string>
     <string name="recommendations_rebuild_confirm">Rebuild</string>
     <string name="recommendations_load_title">Load a copy?</string>
@@ -1119,6 +1121,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">Best recommendations is no longer your Quick picks source. The %1$d card it showed you before is judged a day after you saw it, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</item>
         <item quantity="other">Best recommendations is no longer your Quick picks source. The %1$d cards it showed you before are judged a day after you saw them, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</item>
     </plurals>
+    <string name="recommendations_summary_not_source_waiting_single">Best recommendations is no longer your Quick picks source. The card it showed you before is judged a day after you saw it, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</string>
     <string name="recommendations_summary_waiting">Nothing to show yet. Best recommendations\' cards are judged a day after you see them, so this fills in as you listen.</string>
     <string name="recommendations_summary_not_learning">Learn from listening is off, so Best recommendations is not learning now: none of its cards are noted or judged. You can turn it back on in Settings, under Recommendations.</string>
     <string name="recommendations_summary_learning_off">Learn from listening is off, so it is not learning now and no new cards are judged. You can turn it back on in Settings, under Recommendations.</string>
@@ -1126,10 +1129,13 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">You played %1$d of the %2$d card Best recommendations showed you, about %3$s in 100.</item>
         <item quantity="other">You played %1$d of the %2$d cards Best recommendations showed you, about %3$s in 100.</item>
     </plurals>
+    <string name="recommendations_summary_played_single">You played the one card Best recommendations showed you.</string>
+    <string name="recommendations_summary_not_played_single">You did not play the one card Best recommendations showed you.</string>
     <plurals name="recommendations_summary_waiting_more">
         <item quantity="one">%1$d more card it showed you is not judged yet. A card you did not tap is judged a day after you saw it.</item>
         <item quantity="other">%1$d more cards it showed you are not judged yet. A card you did not tap is judged a day after you saw it.</item>
     </plurals>
+    <string name="recommendations_summary_waiting_more_single">One more card it showed you is not judged yet. A card you did not tap is judged a day after you saw it.</string>
     <string name="recommendations_summary_scale">Higher is better. Most cards get passed over, so small numbers are normal.</string>
     <string name="recommendations_summary_up">Going up: %1$s in 100 over the last two weeks, from %2$s in 100 the two weeks before.</string>
     <string name="recommendations_summary_down">Going down: %1$s in 100 over the last two weeks, from %2$s in 100 the two weeks before.</string>
@@ -1143,6 +1149,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">Of the %1$d card it made a guess for, it expected %2$s in 100 to be played, and %3$s in 100 were.</item>
         <item quantity="other">Of the %1$d cards it made a guess for, it expected %2$s in 100 to be played, and %3$s in 100 were.</item>
     </plurals>
+    <string name="recommendations_predicted_of_single">For the one card it made a guess for, it expected %1$s in 100 to be played, and %2$s in 100 were.</string>
     <string name="recommendations_band_under">Cards it gave under a %1$d in 100 chance: %2$d, %3$s</string>
     <string name="recommendations_band">Cards it gave a %1$d to %2$d in 100 chance: %3$d, %4$s</string>
     <string name="recommendations_band_none_played">none played</string>
