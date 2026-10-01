@@ -34,10 +34,12 @@ import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
+import com.dd3boh.outertune.viewmodels.AskNote
 import com.dd3boh.outertune.viewmodels.DataAction
 import com.dd3boh.outertune.viewmodels.DataAsk
 import com.dd3boh.outertune.viewmodels.DataResult
 import com.dd3boh.outertune.viewmodels.RecommendationsViewModel
+import com.dd3boh.outertune.viewmodels.askNotes
 import com.dd3boh.outertune.viewmodels.asksFirst
 import java.text.DateFormat
 import java.util.Date
@@ -174,18 +176,20 @@ private fun resultText(result: DataResult): String = when (result) {
 /**
  * Before anything that changes what it has learned: what happens, how much, and whether it can be
  * undone. Laid out as the Keep dialog under Backup is, with a button that repeats the verb of the
- * title. Cancel, Back and a tap outside all leave everything as it was.
+ * title. Cancel, Back and a tap outside all leave everything as it was. Each names Best
+ * recommendations once, so "it" has something to stand for, and says a loaded copy goes only when
+ * there is one (see askNotes).
  */
 @Composable
 private fun AskFirstDialog(ask: DataAsk, onDismiss: () -> Unit, onConfirm: () -> Unit) {
     val title: String
-    val text: String
+    val what: String
     val confirm: String
     when (ask) {
         is DataAsk.ForgetSession -> {
             val began = Date(ask.began)
             title = pluralStringResource(R.plurals.recommendations_forget_title, ask.listens, ask.listens)
-            text = stringResource(
+            what = stringResource(
                 R.string.recommendations_forget_session_text,
                 DateFormat.getDateInstance(DateFormat.MEDIUM).format(began),
                 DateFormat.getTimeInstance(DateFormat.SHORT).format(began),
@@ -194,27 +198,34 @@ private fun AskFirstDialog(ask: DataAsk, onDismiss: () -> Unit, onConfirm: () ->
         }
         is DataAsk.ForgetToday -> {
             title = pluralStringResource(R.plurals.recommendations_forget_title, ask.listens, ask.listens)
-            text = stringResource(R.string.recommendations_forget_today_text)
+            what = stringResource(R.string.recommendations_forget_today_text)
             confirm = stringResource(R.string.recommendations_forget_confirm)
         }
         is DataAsk.Reset -> {
             title = stringResource(R.string.recommendations_reset_title)
-            text = if (ask.cards == 0) stringResource(R.string.recommendations_reset_text_nothing)
+            what = if (ask.cards == 0) stringResource(R.string.recommendations_reset_text_nothing)
                 else pluralStringResource(R.plurals.recommendations_reset_text, ask.cards, ask.cards)
             confirm = stringResource(R.string.recommendations_reset_confirm)
         }
         is DataAsk.Rebuild -> {
             title = stringResource(R.string.recommendations_rebuild_title)
-            text = if (ask.cards == 0) stringResource(R.string.recommendations_rebuild_text_nothing)
+            what = if (ask.cards == 0) stringResource(R.string.recommendations_rebuild_text_nothing)
                 else pluralStringResource(R.plurals.recommendations_rebuild_text, ask.cards, ask.cards)
             confirm = stringResource(R.string.recommendations_rebuild_confirm)
         }
         DataAsk.Load -> {
             title = stringResource(R.string.recommendations_load_title)
-            text = stringResource(R.string.recommendations_load_text)
+            what = stringResource(R.string.recommendations_load_text)
             confirm = stringResource(R.string.recommendations_load_confirm)
         }
     }
+    val text = (listOf(what) + askNotes(ask).map { note ->
+        when (note) {
+            AskNote.COPY_REPLACED -> stringResource(R.string.recommendations_ask_copy_replaced)
+            AskNote.COPY_GOES -> stringResource(R.string.recommendations_ask_copy_goes)
+            AskNote.CANNOT_UNDO -> stringResource(R.string.recommendations_ask_cannot_undo)
+        }
+    }).joinToString(" ")
     DefaultDialog(
         onDismiss = onDismiss,
         horizontalAlignment = Alignment.Start,

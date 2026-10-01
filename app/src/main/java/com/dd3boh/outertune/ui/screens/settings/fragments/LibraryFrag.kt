@@ -22,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.EngineCopyLoadedKey
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
@@ -61,6 +62,8 @@ fun ColumnScope.ListenHistoryFrag() {
     }
 
     val (minPlaybackDur, onMinPlaybackDurChange) = rememberPreference(minPlaybackDurKey, defaultValue = 30)
+    // Clearing the history clears what the engine learned, a loaded copy included.
+    val (_, onCopyLoadedChange) = rememberPreference(EngineCopyLoadedKey, defaultValue = false)
 
     var showClearListenHistoryDialog by remember {
         mutableStateOf(false)
@@ -147,6 +150,7 @@ fun ColumnScope.ListenHistoryFrag() {
                         database.query {
                             clearListenHistory()
                         }
+                        onCopyLoadedChange(false)
                     }
                 ) {
                     Text(text = stringResource(android.R.string.ok))

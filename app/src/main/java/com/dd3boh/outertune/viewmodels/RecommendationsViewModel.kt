@@ -31,6 +31,10 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.engine.TrendWindows
+import com.dd3boh.outertune.constants.EngineCopyLoadedKey
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
+import androidx.datastore.preferences.core.edit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -104,6 +108,8 @@ class RecommendationsViewModel @Inject constructor(
     fun ask(action: DataAction) = viewModelScope.launch(Dispatchers.IO) {
         _dataResults.update { clearedFor(it, action) }
         val step = runCatching {
+            val stored = database.engineWeights().isNotEmpty()
+            val copy = copyLoaded(context.dataStore.get(EngineCopyLoadedKey, false), stored)
             when (action) {
                 DataAction.FORGET_SESSION -> {
                     val session = lastSessionId()
@@ -111,11 +117,12 @@ class RecommendationsViewModel @Inject constructor(
                         session,
                         session?.let { database.forgettableInSession(it) } ?: 0,
                         session?.let { database.sessionStart(it) } ?: 0L,
+                        copy,
                     )
                 }
-                DataAction.FORGET_TODAY -> todayNow().let { forgetTodayStep(database.forgettableBetween(it.first, it.last + 1)) }
-                DataAction.RESET -> resetStep(database.engineWeights().isNotEmpty(), database.appliedCardCount())
-                DataAction.REBUILD -> rebuildStep(database.appliedCardCount())
+                DataAction.FORGET_TODAY -> todayNow().let { forgetTodayStep(database.forgettableBetween(it.first, it.last + 1), copy) }
+                DataAction.RESET -> resetStep(stored, database.appliedCardCount(), copy)
+                DataAction.REBUILD -> rebuildStep(database.appliedCardCount(), copy)
                 DataAction.LOAD -> loadStep()
                 DataAction.SAVE -> error("Saving a copy does not ask")
             }
@@ -219,7 +226,11 @@ class RecommendationsViewModel @Inject constructor(
                     updates = known[name]?.updates ?: 0,
                 )
             }
-            if (rows.isNotEmpty()) database.upsertEngineWeights(rows)
+            if (rows.isNotEmpty()) {
+                database.upsertEngineWeights(rows)
+                // So a forget, reset or rebuild after this says the copy goes.
+                context.dataStore.edit { it[EngineCopyLoadedKey] = true }
+            }
             rows.size
         }.getOrDefault(0)
         tell(DataAction.LOAD, if (count > 0) DataResult.Loaded else DataResult.FileFailed)

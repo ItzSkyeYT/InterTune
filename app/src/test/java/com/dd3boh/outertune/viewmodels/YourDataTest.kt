@@ -60,6 +60,42 @@ class YourDataTest {
     }
 
     @Test
+    fun `each step carries whether what it has now came from a loaded copy`() {
+        assertEquals(DataStep.Ask(DataAsk.ForgetSession(7, 14, 1_000, copyLoaded = true)), forgetSessionStep(7, 14, 1_000, copyLoaded = true))
+        assertEquals(DataStep.Ask(DataAsk.ForgetToday(3, copyLoaded = true)), forgetTodayStep(3, copyLoaded = true))
+        assertEquals(DataStep.Ask(DataAsk.Reset(0, copyLoaded = true)), resetStep(learnedAnything = true, cards = 0, copyLoaded = true))
+        assertEquals(DataStep.Ask(DataAsk.Rebuild(0, copyLoaded = true)), rebuildStep(0, copyLoaded = true))
+    }
+
+    @Test
+    fun `a dialog says a loaded copy goes only when there is one`() {
+        // "What it has now is replaced, a copy you loaded included." stood in every Rebuild dialog,
+        // and read as if you had loaded one.
+        assertEquals(emptyList<AskNote>(), askNotes(DataAsk.Rebuild(193)))
+        assertEquals(listOf(AskNote.COPY_REPLACED), askNotes(DataAsk.Rebuild(193, copyLoaded = true)))
+        assertEquals(emptyList<AskNote>(), askNotes(DataAsk.Reset(193)))
+        assertEquals(listOf(AskNote.COPY_GOES), askNotes(DataAsk.Reset(193, copyLoaded = true)))
+        assertEquals(emptyList<AskNote>(), askNotes(DataAsk.Load))
+    }
+
+    @Test
+    fun `forgetting cannot be undone, and replaces a loaded copy as a rebuild does`() {
+        // Forgetting rebuilds what it learned from this phone's cards, and the Forget dialogs used
+        // to leave that out while the Rebuild dialog warned of it.
+        assertEquals(listOf(AskNote.CANNOT_UNDO), askNotes(DataAsk.ForgetToday(3)))
+        assertEquals(listOf(AskNote.COPY_REPLACED, AskNote.CANNOT_UNDO), askNotes(DataAsk.ForgetToday(3, copyLoaded = true)))
+        assertEquals(listOf(AskNote.CANNOT_UNDO), askNotes(DataAsk.ForgetSession(7, 14, 1_000)))
+        assertEquals(listOf(AskNote.COPY_REPLACED, AskNote.CANNOT_UNDO), askNotes(DataAsk.ForgetSession(7, 14, 1_000, copyLoaded = true)))
+    }
+
+    @Test
+    fun `with nothing stored there is no loaded copy, whatever the mark says`() {
+        assertTrue(copyLoaded(marked = true, weightsStored = true))
+        assertFalse(copyLoaded(marked = true, weightsStored = false))
+        assertFalse(copyLoaded(marked = false, weightsStored = true))
+    }
+
+    @Test
     fun `a new tap clears that button's last line and leaves the others`() {
         val before = mapOf(DataAction.FORGET_TODAY to DataResult.Forgot(0), DataAction.REBUILD to DataResult.Rebuilt(193))
         assertEquals(mapOf(DataAction.REBUILD to DataResult.Rebuilt(193)), clearedFor(before, DataAction.FORGET_TODAY))

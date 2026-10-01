@@ -20,33 +20,70 @@ enum class DataAction { FORGET_SESSION, FORGET_TODAY, RESET, REBUILD, SAVE, LOAD
  */
 fun asksFirst(action: DataAction): Boolean = action != DataAction.SAVE
 
-/** A change waiting for a yes, with what the dialog names: how much, and for a session, when it began. */
+/**
+ * A change waiting for a yes, with what the dialog names: how much, for a session when it began,
+ * and [copyLoaded] when what it has now came from a copy you loaded, which the change throws away.
+ */
 sealed interface DataAsk {
     val action: DataAction
+    val copyLoaded: Boolean
 
-    data class ForgetSession(val sessionId: Long, val listens: Int, val began: Long) : DataAsk {
+    data class ForgetSession(val sessionId: Long, val listens: Int, val began: Long, override val copyLoaded: Boolean = false) : DataAsk {
         override val action get() = DataAction.FORGET_SESSION
     }
 
-    data class ForgetToday(val listens: Int) : DataAsk {
+    data class ForgetToday(val listens: Int, override val copyLoaded: Boolean = false) : DataAsk {
         override val action get() = DataAction.FORGET_TODAY
     }
 
     /** [cards]: the cards it has learned from, which stay, so Rebuild can bring the learning back. */
-    data class Reset(val cards: Int) : DataAsk {
+    data class Reset(val cards: Int, override val copyLoaded: Boolean = false) : DataAsk {
         override val action get() = DataAction.RESET
     }
 
     /** [cards]: the cards it will learn from again. */
-    data class Rebuild(val cards: Int) : DataAsk {
+    data class Rebuild(val cards: Int, override val copyLoaded: Boolean = false) : DataAsk {
         override val action get() = DataAction.REBUILD
     }
 
     /** Asked before the file picker opens: the copy chosen there replaces what it has learned. */
     data object Load : DataAsk {
         override val action get() = DataAction.LOAD
+        override val copyLoaded get() = false
     }
 }
+
+/** The sentences a dialog adds after saying what happens. */
+enum class AskNote {
+    /** What it learned is worked out again from this phone's cards, so a loaded copy is replaced. */
+    COPY_REPLACED,
+
+    /** It goes back to where it started, and a loaded copy with it. */
+    COPY_GOES,
+
+    /** A forgotten listen never teaches again. */
+    CANNOT_UNDO,
+}
+
+/**
+ * What a dialog says beyond what happens. Forgetting rebuilds, so it replaces a loaded copy as a
+ * rebuild does; a reset drops it. Only when there is one: "a copy you loaded included" stood in
+ * every Rebuild dialog and read as if you had loaded one. A forget cannot be undone; a reset can,
+ * by Rebuild, and a rebuild or a load changes nothing that cannot be had back.
+ */
+fun askNotes(ask: DataAsk): List<AskNote> = when (ask) {
+    is DataAsk.ForgetSession, is DataAsk.ForgetToday -> listOfNotNull(AskNote.COPY_REPLACED.takeIf { ask.copyLoaded }, AskNote.CANNOT_UNDO)
+    is DataAsk.Reset -> listOfNotNull(AskNote.COPY_GOES.takeIf { ask.copyLoaded })
+    is DataAsk.Rebuild -> listOfNotNull(AskNote.COPY_REPLACED.takeIf { ask.copyLoaded })
+    DataAsk.Load -> emptyList()
+}
+
+/**
+ * Whether what it has learned now came from a loaded copy: marked when a copy loads, cleared by a
+ * reset or a rebuild, forgetting included, and by Clear listen history. With nothing stored there
+ * is no copy, whatever the mark says.
+ */
+fun copyLoaded(marked: Boolean, weightsStored: Boolean): Boolean = marked && weightsStored
 
 /** What a button did, shown in place of its description until the page is left. */
 sealed interface DataResult {
@@ -77,19 +114,19 @@ sealed interface DataStep {
  * The last session: the one playing now, or the latest one. With no listens that still teach in
  * it, there is nothing to ask about, and the line says so at once rather than after a dialog.
  */
-fun forgetSessionStep(sessionId: Long?, listens: Int, began: Long): DataStep =
+fun forgetSessionStep(sessionId: Long?, listens: Int, began: Long, copyLoaded: Boolean = false): DataStep =
     if (sessionId == null || listens <= 0) DataStep.Tell(DataResult.Forgot(0))
-    else DataStep.Ask(DataAsk.ForgetSession(sessionId, listens, began))
+    else DataStep.Ask(DataAsk.ForgetSession(sessionId, listens, began, copyLoaded))
 
-fun forgetTodayStep(listens: Int): DataStep =
-    if (listens <= 0) DataStep.Tell(DataResult.Forgot(0)) else DataStep.Ask(DataAsk.ForgetToday(listens))
+fun forgetTodayStep(listens: Int, copyLoaded: Boolean = false): DataStep =
+    if (listens <= 0) DataStep.Tell(DataResult.Forgot(0)) else DataStep.Ask(DataAsk.ForgetToday(listens, copyLoaded))
 
 /** With nothing learned it is already where a reset would put it, so there is nothing to ask. */
-fun resetStep(learnedAnything: Boolean, cards: Int): DataStep =
-    if (!learnedAnything) DataStep.Tell(DataResult.AlreadyAtStart) else DataStep.Ask(DataAsk.Reset(cards))
+fun resetStep(learnedAnything: Boolean, cards: Int, copyLoaded: Boolean = false): DataStep =
+    if (!learnedAnything) DataStep.Tell(DataResult.AlreadyAtStart) else DataStep.Ask(DataAsk.Reset(cards, copyLoaded))
 
 /** A rebuild always asks: even from no cards it replaces what is there, a loaded copy included. */
-fun rebuildStep(cards: Int): DataStep = DataStep.Ask(DataAsk.Rebuild(cards))
+fun rebuildStep(cards: Int, copyLoaded: Boolean = false): DataStep = DataStep.Ask(DataAsk.Rebuild(cards, copyLoaded))
 
 fun loadStep(): DataStep = DataStep.Ask(DataAsk.Load)
 

@@ -999,7 +999,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="rests_everywhere">Rests apply to every row</string>
     <string name="rests_everywhere_description">Also keep rested songs out of the YouTube Music and Your library rows.</string>
     <string name="forget_last_session">Forget the last session</string>
-    <string name="forget_last_session_description">Nothing played in it teaches the engine, and what it already taught is taken back.</string>
+    <string name="forget_last_session_description">Nothing you played in it teaches Best recommendations any more, and what it taught is taken back.</string>
     <string name="forget_today">Forget today\'s listening</string>
     <string name="forget_today_description">The same, for everything since midnight. History and Stats are untouched.</string>
     <string name="engine_developer">Developer tuning</string>
@@ -1053,7 +1053,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_reset_weights">Reset what it learned</string>
     <string name="recommendations_reset_weights_description">Back to where it started. Nothing you played is forgotten; Rebuild brings the learning back.</string>
     <string name="recommendations_rebuild_weights">Rebuild what it learned</string>
-    <string name="recommendations_rebuild_weights_description">Starts over and replays everything it learned from, in order.</string>
+    <string name="recommendations_rebuild_weights_description">Starts over and goes back over every card it learned from, in order.</string>
     <string name="tidy_home_rows">Tidy Home rows</string>
     <string name="tidy_home_rows_description">No song twice on Home, no live or remixed version beside its original, and nothing you have just heard in Quick picks.</string>
     <plurals name="recommendations_signals">
@@ -1088,25 +1088,28 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">Forget %1$d listen?</item>
         <item quantity="other">Forget %1$d listens?</item>
     </plurals>
-    <string name="recommendations_forget_session_text">Everything you played in your last session, which began on %1$s at %2$s, stops teaching it, and what it taught is taken back. Your History and Stats stay as they are. This cannot be undone.</string>
-    <string name="recommendations_forget_today_text">Everything you played since midnight stops teaching it, and what it taught is taken back. Your History and Stats stay as they are. This cannot be undone.</string>
+    <string name="recommendations_forget_session_text">Everything you played in your last session, which began on %1$s at %2$s, stops teaching Best recommendations, and what those plays taught it is taken back. Your History and Stats stay as they are.</string>
+    <string name="recommendations_forget_today_text">Everything you played since midnight stops teaching Best recommendations, and what those plays taught it is taken back. Your History and Stats stay as they are.</string>
     <string name="recommendations_forget_confirm">Forget</string>
     <string name="recommendations_reset_title">Reset what it learned?</string>
     <plurals name="recommendations_reset_text">
-        <item quantity="one">It goes back to where it started, as if it had learned nothing. The %1$d card it learned from is kept, so Rebuild what it learned can bring it all back.</item>
-        <item quantity="other">It goes back to where it started, as if it had learned nothing. The %1$d cards it learned from are kept, so Rebuild what it learned can bring it all back.</item>
+        <item quantity="one">Best recommendations goes back to where it started, as if it had learned nothing. The %1$d card it learned from is kept, so Rebuild what it learned can bring back what it learned from it.</item>
+        <item quantity="other">Best recommendations goes back to where it started, as if it had learned nothing. The %1$d cards it learned from are kept, so Rebuild what it learned can bring back what it learned from them.</item>
     </plurals>
-    <string name="recommendations_reset_text_nothing">It goes back to where it started, as if it had learned nothing.</string>
+    <string name="recommendations_reset_text_nothing">Best recommendations goes back to where it started, as if it had learned nothing.</string>
     <string name="recommendations_reset_confirm">Reset</string>
     <string name="recommendations_rebuild_title">Rebuild what it learned?</string>
     <plurals name="recommendations_rebuild_text">
-        <item quantity="one">It starts again from the beginning and goes back over the %1$d card it has learned from, in order. What it has now is replaced, a copy you loaded included.</item>
-        <item quantity="other">It starts again from the beginning and goes back over the %1$d cards it has learned from, in order. What it has now is replaced, a copy you loaded included.</item>
+        <item quantity="one">Best recommendations starts again from the beginning and goes back over the %1$d card it learned from.</item>
+        <item quantity="other">Best recommendations starts again from the beginning and goes back over the %1$d cards it learned from, in order.</item>
     </plurals>
-    <string name="recommendations_rebuild_text_nothing">It has not learned from any cards yet, so it goes back to where it started. What it has now is replaced, a copy you loaded included.</string>
+    <string name="recommendations_rebuild_text_nothing">Best recommendations has not learned from any cards yet, so it goes back to where it started.</string>
     <string name="recommendations_rebuild_confirm">Rebuild</string>
     <string name="recommendations_load_title">Load a copy?</string>
-    <string name="recommendations_load_text">The copy you choose next replaces what it has learned. What it learned on this phone is kept, so Rebuild what it learned can bring it back.</string>
+    <string name="recommendations_load_text">The copy you choose next replaces what Best recommendations has learned. The cards it learned from on this phone are kept, so Rebuild what it learned can bring back what it learned from them.</string>
+    <string name="recommendations_ask_copy_replaced">The copy you loaded is replaced by what it learned on this phone.</string>
+    <string name="recommendations_ask_copy_goes">The copy you loaded goes too.</string>
+    <string name="recommendations_ask_cannot_undo">This cannot be undone.</string>
     <string name="recommendations_load_confirm">Choose a file</string>
     <string name="recommendations_summary_not_source">Best recommendations is not your Quick picks source, so it has nothing to show. You can choose it in Settings, under Library and content, Quick picks source.</string>
     <string name="recommendations_summary_waiting">Nothing to show yet. Best recommendations\' cards are judged a day after you see them, so this fills in as you listen.</string>
