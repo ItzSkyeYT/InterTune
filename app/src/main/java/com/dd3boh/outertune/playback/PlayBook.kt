@@ -6,7 +6,11 @@
 
 package com.dd3boh.outertune.playback
 
+import androidx.media3.common.C
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
+import androidx.media3.exoplayer.ExoPlaybackException
 import com.dd3boh.outertune.constants.EndReason
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
@@ -128,21 +132,31 @@ class PlayBook<P : PlayEnd> {
     fun leftAtItsEnd(id: String): Boolean = lastLeft[id] == EndReason.ENDED
 
     /**
-     * The player reported an error while [currentId] was its current item: that item's play in
-     * progress stopped on it.
+     * The player reported an error. [errorId] is the item the error names (see [itemOf]), or null
+     * when it names none, and [currentId] is the current item. The newest play of the item the
+     * error names stopped on it; an error that names no item is put on the current item's play, the
+     * one in progress. An item with no play in the book marks nothing.
      *
-     * The current item is the one that failed. Checked in Media3 1.8.0, both in the media/ checkout
-     * and with javap on the AAR the app builds against: an IO error is raised only for the playing
-     * period, and ExoPlayerImplInternal.handleIoException tags it with that period; an error in the
-     * next item's preparation or loading only stops loading it (isLoadingPossible, hasLoadingError)
-     * until playback reaches it. A renderer error met while reading ahead moves the playing period
-     * on to the failing item, as an automatic transition, before the error is set, and
-     * ExoPlayerImpl.updatePlaybackInfo sends onMediaItemTransition before onPlayerError. So the
-     * play that was current when the next item failed ends as a natural end, and the next item's
-     * play takes the error.
+     * Which item an error names is Media3's own attribution, and the player stops on any error it
+     * reports. In 1.8.0, read in the media/ checkout and checked with javap on the AAR the app builds
+     * against, an IO error is raised only for the playing period and handleIoException names that
+     * one. A renderer error names the period of the stream the renderer holds
+     * (BaseRenderer.createRendererException), or the reading period when it names none
+     * (ExoPlayerImplInternal.handleMessage). When the reading period is ahead of the playing one,
+     * the player first moves playback on to it, as an automatic transition that
+     * ExoPlayerImpl.updatePlaybackInfo reports before the error, and a renderer still holding the
+     * old stream names the item just left.
+     *
+     * The current item is not always the one that failed. Track selection for the item being
+     * loaded ahead runs while the current item plays, and an error there (DECODER_QUERY_FAILED
+     * from MediaCodecRenderer.supportsFormat, say) is reported with the current item still
+     * current. It names the current item as well: the renderer that raised it holds the current
+     * item's stream, or holds none and the reading period is named, which is the current item's
+     * until the end of it has been read. So the current play is marked, and rightly: the player
+     * stopped it there, and it was not the listener who left it.
      */
-    fun playerError(currentId: String?) {
-        currentId?.let(::current)?.fail()
+    fun playerError(errorId: String?, currentId: String?) {
+        (errorId ?: currentId)?.let(::current)?.fail()
     }
 
     /**
@@ -173,6 +187,18 @@ class PlayBook<P : PlayEnd> {
     class Closed<P>(val play: P?, val endReason: Int)
 
     companion object {
+        /**
+         * The item a player error names: the media item of the period in its mediaPeriodId, found
+         * in [timeline]. Null when the error names no period, or one [timeline] does not hold.
+         */
+        fun itemOf(error: PlaybackException, timeline: Timeline): String? {
+            val period = (error as? ExoPlaybackException)?.mediaPeriodId ?: return null
+            val index = timeline.getIndexOfPeriod(period.periodUid)
+            if (index == C.INDEX_UNSET) return null
+            val window = timeline.getPeriod(index, Timeline.Period()).windowIndex
+            return timeline.getWindow(window, Timeline.Window()).mediaItem.mediaId.takeIf { it.isNotEmpty() }
+        }
+
         /** What a transition says about the play it moved on from, by the player's reason for it. */
         fun endReasonOf(transitionReason: Int): Int = when (transitionReason) {
             Player.MEDIA_ITEM_TRANSITION_REASON_AUTO, Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT -> EndReason.ENDED

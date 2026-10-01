@@ -6,7 +6,13 @@
 
 package com.dd3boh.outertune.playback
 
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
+import androidx.media3.exoplayer.ExoPlaybackException
+import androidx.media3.exoplayer.source.MediaSource
 import com.dd3boh.outertune.constants.EndReason
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -15,6 +21,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 /**
  * The service's bookkeeping of plays, driven the way the player drives it: transitions, errors,
@@ -142,7 +149,7 @@ class PlayBookTest {
         val again = play(newQueue, "y")
         assertNull(book.takeUnplayed("y"))
         again.opened = true
-        book.playerError("y")
+        book.playerError("y", "y")
         play(seek, "w")
         val failed = runBlocking { book.close("y", endedByPlayer = false) {} }
         assertSame(again, failed.play)
@@ -208,19 +215,19 @@ class PlayBookTest {
     @Test
     fun `a play that stopped on an error ended in it, however it was left`() {
         play(newQueue, "x")
-        book.playerError("x")
+        book.playerError("x", "x")
         play(seek, "y")                          // skip on error, or the listener pressing next
         assertEquals(EndReason.ERROR, close("x"))
 
         play(newQueue, "z")
-        book.playerError("z")
+        book.playerError("z", "z")
         assertEquals(EndReason.ERROR, close("z"))   // still on its error when the service went
     }
 
     @Test
     fun `an error the play got over is forgotten once it plays again`() {
         play(newQueue, "x")
-        book.playerError("x")
+        book.playerError("x", "x")
         // Retrying is not playing: buffering after an error can fail the same way, and idle is
         // where the error left it.
         book.playbackState("x", Player.STATE_BUFFERING)
@@ -236,7 +243,7 @@ class PlayBookTest {
     @Test
     fun `an error the play got over and then played to the end is an end`() {
         play(newQueue, "x")
-        book.playerError("x")
+        book.playerError("x", "x")
         book.playbackState("x", Player.STATE_READY)
         play(auto, "y")
         assertEquals(EndReason.ENDED, close("x", ended = true))
@@ -246,7 +253,7 @@ class PlayBookTest {
     fun `the error lands on the play in progress, not an earlier play of the same song`() {
         play(newQueue, "x")
         play(repeat, "x")
-        book.playerError("x")
+        book.playerError("x", "x")
         play(seek, "y")
         assertEquals(EndReason.ENDED, close("x", ended = true))
         assertEquals(EndReason.ERROR, close("x"))
@@ -255,7 +262,7 @@ class PlayBookTest {
     @Test
     fun `sound from another song clears nothing on the one that failed`() {
         play(newQueue, "x")
-        book.playerError("x")
+        book.playerError("x", "x")
         play(seek, "y")
         book.playbackState("y", Player.STATE_READY)
         assertEquals(EndReason.ERROR, close("x"))
@@ -263,13 +270,13 @@ class PlayBookTest {
     }
 
     @Test
-    fun `the next song failing to load fails its own play, not the one that was playing`() {
-        // Media3 1.8.0 reports an error preparing or loading the next item only once that item is
-        // current: after its transition, which for one met while reading ahead the player makes
-        // itself, as an automatic one. So the play before it ended, and the error is the next one's.
+    fun `the next song failing to render fails its own play, not the one that was playing`() {
+        // A renderer error met while reading ahead: the player first moves playback on to the item
+        // being read, as an automatic transition, and the renderer holding its stream names it. So
+        // the play before it ended, and the error is the next one's.
         play(newQueue, "x")
         play(auto, "y")
-        book.playerError("y")
+        book.playerError("y", "y")
         play(seek, "z")                          // skip on error
         assertEquals(EndReason.ENDED, close("x", ended = true))
         assertEquals(EndReason.ERROR, close("y"))
@@ -277,11 +284,100 @@ class PlayBookTest {
     }
 
     @Test
-    fun `an error with no song current marks nothing`() {
-        book.playerError(null)
+    fun `an error with no song current, and naming none, marks nothing`() {
+        book.playerError(null, null)
         book.playbackState(null, Player.STATE_READY)
         play(newQueue, "x")
         assertEquals(EndReason.STOPPED, close("x"))
+    }
+
+    // Which play an error is put on
+
+    @Test
+    fun `an error that names no item is put on the play in progress`() {
+        play(newQueue, "x")
+        play(repeat, "x")
+        book.playerError(null, "x")
+        play(seek, "y")
+        assertEquals(EndReason.ENDED, close("x", ended = true))
+        assertEquals(EndReason.ERROR, close("x"))
+        assertEquals(EndReason.STOPPED, close("y"))
+    }
+
+    @Test
+    fun `an error in the next track's track selection names the current item, and stops its play`() {
+        // DECODER_QUERY_FAILED from MediaCodecRenderer.supportsFormat while the next track is being
+        // loaded ahead: reported with the current item still current, and naming it, because the
+        // renderer holds its stream. The player stops there, so the current play ended in the error.
+        play(newQueue, "x")
+        book.playerError("x", "x")
+        play(seek, "y")                          // skip on error
+        assertEquals(EndReason.ERROR, close("x"))
+    }
+
+    @Test
+    fun `an error naming the item just left is put on that play, not the current one`() {
+        // A renderer still holding the old stream when the player moved playback on to the item it
+        // was reading ahead names the item just left.
+        val x = play(newQueue, "x")
+        val y = play(auto, "y")
+        book.playerError("x", "y")
+        assertTrue(x.failed)
+        assertFalse(y.failed)
+        play(seek, "z")
+        assertEquals(EndReason.ENDED, close("x", ended = true))  // its own stats say it ended
+        assertEquals(EndReason.SKIPPED, close("y"))
+    }
+
+    @Test
+    fun `an error naming an item with no play in the book marks no play`() {
+        val x = play(newQueue, "x")
+        book.playerError("y", "x")
+        assertFalse(x.failed)
+        val y = play(auto, "y")
+        assertFalse(y.failed)
+    }
+
+    @Test
+    fun `the item an error names is the media item of its period in the timeline`() {
+        val timeline = ListTimeline(listOf("x", "y", "z"))
+        fun named(period: Any?): String? = PlayBook.itemOf(
+            ExoPlaybackException.createForRenderer(
+                IllegalStateException(), "audio", 1, null, C.FORMAT_HANDLED,
+                period?.let { MediaSource.MediaPeriodId(it) }, false, PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED,
+            ),
+            timeline,
+        )
+        assertEquals("y", named(1))
+        assertEquals("x", named(0))
+        // Not given, or not in the timeline: the error names no item, and the current one takes it.
+        assertNull(named(null))
+        assertNull(named(7))
+        assertNull(PlayBook.itemOf(ExoPlaybackException.createForSource(IOException(), PlaybackException.ERROR_CODE_IO_UNSPECIFIED), timeline))
+        assertNull(PlayBook.itemOf(PlaybackException("remote", null, PlaybackException.ERROR_CODE_REMOTE_ERROR), timeline))
+    }
+
+    /** One window and one period per item, the period's uid its index. */
+    private class ListTimeline(private val ids: List<String>) : Timeline() {
+        override fun getWindowCount(): Int = ids.size
+
+        override fun getWindow(windowIndex: Int, window: Timeline.Window, defaultPositionProjectionUs: Long): Timeline.Window {
+            window.mediaItem = MediaItem.Builder().setMediaId(ids[windowIndex]).build()
+            window.firstPeriodIndex = windowIndex
+            window.lastPeriodIndex = windowIndex
+            return window
+        }
+
+        override fun getPeriodCount(): Int = ids.size
+
+        override fun getPeriod(periodIndex: Int, period: Timeline.Period, setIds: Boolean): Timeline.Period {
+            period.windowIndex = periodIndex
+            return period
+        }
+
+        override fun getIndexOfPeriod(uid: Any): Int = (uid as? Int)?.takeIf { it in ids.indices } ?: C.INDEX_UNSET
+
+        override fun getUidOfPeriod(periodIndex: Int): Any = periodIndex
     }
 
     @Test

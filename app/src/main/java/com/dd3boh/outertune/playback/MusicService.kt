@@ -2216,9 +2216,10 @@ class MusicService : MediaLibraryService(),
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
         // However this play is left from here (skip on error seeking past it, the listener moving
-        // on, the service going), it ended in this error, unless it plays again first. Before
+        // on, the service going), it ended in this error, unless it plays again first. The play is
+        // the one of the item the error names, the current one when it names none. Before
         // skipOnError below, which makes the next song current.
-        plays.playerError(player.currentMediaItem?.mediaId)
+        plays.playerError(PlayBook.itemOf(error, player.currentTimeline), player.currentMediaItem?.mediaId)
 
         // Wait for reconnection, but only where a network could help. See waitsForNetwork: a
         // local file that has gone missing used to wait here for good whenever the phone was
