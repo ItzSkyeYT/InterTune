@@ -58,10 +58,17 @@ object AutoBackupPolicy {
         Regex("^" + Regex.escape(appName) + """_(\d+)_(\d{14})\.backup(?: \(\d+\))?""" + Regex.escape(PARTIAL) + "$")
 
     /**
-     * Half-written backups under [appName] that nothing is still writing: what a run killed
-     * mid-write leaves behind. Only those started over an hour before [now] by the time in their
-     * name, since a write takes seconds; that keeps this from ever touching one in progress, even
-     * from another device writing into a synced folder. Nobody else's are ever returned.
+     * Half-written backups under [appName] taken to be left over: what a run killed mid-write
+     * leaves behind. Nobody else's are ever returned.
+     *
+     * In this process pruning never meets a write in progress, whatever its age, because the two
+     * both hold AutoBackup.folderLock. The hour is for anything else writing under this app's
+     * name, such as the app on another device syncing the same folder: only those started over an
+     * hour before [now] by the time in their name are returned, since a write takes seconds. That
+     * only holds within one time zone and away from a clock change. The name carries local
+     * wall-clock time, so a write from a device in a zone behind this one, or one started just
+     * before the clocks went forward, looks older than it is and can be taken for a leftover while
+     * it is still being written.
      */
     fun leftoverPartials(appName: String, names: List<String>, now: LocalDateTime): List<String> {
         val ours = partialPattern(appName)
