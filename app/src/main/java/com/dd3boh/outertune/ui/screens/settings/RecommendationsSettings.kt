@@ -128,6 +128,7 @@ fun RecommendationsSettings(
         EndReason.SKIPPED to stringResource(R.string.recommendations_skipped),
         EndReason.REPLACED to stringResource(R.string.recommendations_replaced),
         EndReason.STOPPED to stringResource(R.string.recommendations_stopped),
+        EndReason.ERROR to stringResource(R.string.recommendations_error),
     )
     val unknown = stringResource(R.string.unknown)
     fun endReasonLabel(code: Int) = endReasonLabels[code] ?: unknown

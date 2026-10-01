@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.engine
 
 import com.dd3boh.outertune.constants.EndReason
+import com.dd3boh.outertune.playback.ListenProgress
 
 /** An impression as the grader sees it. Features are null for cards the engine did not place. */
 data class ImpressionRow(
@@ -26,7 +27,10 @@ object Outcome {
     const val PLAYED = 1
     const val ELSEWHERE = 2
     const val IGNORED = 3
-    /** The listen it produced asked not to teach; graded so it is never looked at again, weighing nothing. */
+    /**
+     * The listen it produced asked not to teach, or failed; graded so it is never looked at again,
+     * weighing nothing.
+     */
     const val DROPPED = 6
     /**
      * Tapped, but no listen of it was ever found. Settled a day after the tap, weighing nothing:
@@ -34,9 +38,27 @@ object Outcome {
      * again on every run for good.
      */
     const val LOST = 7
+    /**
+     * Tapped, and its play failed: waiting, until a resume could no longer link to the play, for
+     * one that carries it on. Not graded, so it is read again on every run, but it decides nothing
+     * meanwhile. A plain pending card counts as seen and not heard in the share of each similar
+     * songs source ([SourceMix]); this one is left out of it, as it is left out of the learning
+     * until it is graded.
+     */
+    const val WAITING = 8
 }
 
+/** What became of a card, or with [Outcome.WAITING], that it is not graded yet. */
 data class Graded(val impressionId: Long, val outcome: Int, val y: Double, val u: Double, val listenId: Long? = null)
+
+/** What a grading run writes for one card. */
+sealed interface CardWrite {
+    /** Marked [Outcome.WAITING] and left ungraded, so the next run reads it again. */
+    data class Wait(val impressionId: Long) : CardWrite
+
+    /** Graded for good. */
+    data class Grade(val graded: Graded) : CardWrite
+}
 
 /**
  * Wins are graded by engagement, never by the tap: a tap abandoned after twenty seconds grades 0,
@@ -45,6 +67,22 @@ data class Graded(val impressionId: Long, val outcome: Int, val y: Double, val u
  * the weight, so a coincidence is not a win; a card seen and not played within a day is an ignored
  * card at weight 0.3. A card that was tapped is never graded ignored, even when no listen arrives,
  * so a service killed mid-song cannot turn a win into a loss.
+ *
+ * A play that failed decides nothing (see [EngineListens]): a card whose play died is settled at no
+ * weight, like one whose play asked not to teach, and a failed play elsewhere neither wins the card
+ * nor lets it be graded ignored.
+ *
+ * A card's play is followed through the rows that carry it on (continuesListenId, see
+ * [ListenProgress.continues]): a play stopped or failed and picked up again where it stood is one
+ * play, graded once by all of it. So a card whose play failed and was resumed is graded by the whole
+ * play and how it ended. One that failed waits out the time a resume can still come in
+ * ([Outcome.WAITING]), and is settled at no weight only once none did.
+ *
+ * The rows followed stop at a play that is another card's: one linked to another card, or standing
+ * in for another card's tap. A play that failed in its first seconds and the same song tapped again
+ * from another card a moment later look like a stop and its resume, but the second play is the
+ * other card's, graded for that card alone. The first card's play ends where the other card's
+ * began, and since no later play can carry it on after that, it is settled then.
  */
 object Grading {
     fun grade(
@@ -58,29 +96,56 @@ object Grading {
         val byImpression = listens.filter { it.impressionId != null }.associateBy { it.impressionId!! }
         val byGroup = HashMap<String, MutableList<ListenRow>>()
         for (l in listens) byGroup.getOrPut(groups.groupOf(l.songId)) { ArrayList() }.add(l)
+        // Each row that was carried on, and the earliest row carrying it on.
+        val resumedBy = HashMap<Long, ListenRow>()
+        for (l in listens) {
+            val from = l.continuesListenId ?: continue
+            if (resumedBy[from].let { it == null || l.startedAt < it.startedAt }) resumedBy[from] = l
+        }
+        // Each tapped card's own play. The link is made when the listen opens, from the tap's
+        // moment carried through the player, and some ways of starting a song lose that moment. In
+        // one real library on 25 Sep, 73 tapped cards more than two days old had no listen linked,
+        // 19 of them with the same song starting within a minute of the tap. So that song's own
+        // play, started just after the tap from a queue and not linked to another card, stands in.
+        val playOf = HashMap<Long, ListenRow>()
+        for (imp in impressions) {
+            val tapped = imp.tappedAt ?: continue
+            val listen = byImpression[imp.id]
+                ?: byGroup[groups.groupOf(imp.songId)].orEmpty()
+                    .filter { it.impressionId == null && it.autoplayDepth == 0 && it.startedAt in (tapped - TAP_BEFORE_MS)..(tapped + TAP_AFTER_MS) }
+                    .minByOrNull { kotlin.math.abs(it.startedAt - tapped) }
+            if (listen != null) playOf[imp.id] = listen
+        }
+        // The card a standing-in play is taken for, as a linked play is its own card's.
+        val standingInFor = HashMap<Long, Long>()
+        for ((card, l) in playOf) if (l.impressionId == null && l.id > 0) standingInFor[l.id] = card
         val window = p.justPlayedHours * 3_600_000L
         val out = ArrayList<Graded>()
         for (imp in impressions) {
             val tapped = imp.tappedAt
             if (tapped != null) {
-                // The link is made when the listen opens, from the tap's moment carried through the
-                // player, and some ways of starting a song lose that moment. On his phone on 25 Sep,
-                // 73 tapped cards more than two days old had no listen linked, 19 of them with the
-                // same song starting within a minute of the tap. So that song's own play, started
-                // just after the tap from a queue and not claimed by another card, stands in.
-                val listen = byImpression[imp.id]
-                    ?: byGroup[groups.groupOf(imp.songId)].orEmpty()
-                        .filter { it.impressionId == null && it.autoplayDepth == 0 && it.startedAt in (tapped - TAP_BEFORE_MS)..(tapped + TAP_AFTER_MS) }
-                        .minByOrNull { kotlin.math.abs(it.startedAt - tapped) }
+                val listen = playOf[imp.id]
                 if (listen == null) {
                     // Still starting, or lost: never an ignored card. Settled once the day is over.
                     if (now - tapped >= window) out += Graded(imp.id, Outcome.LOST, 0.0, 0.0)
                     continue
                 }
-                if (listen.endReason == EndReason.OPEN) continue
-                if (!listen.learn) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
-                val liked = songs[listen.songId]?.likedAt
-                out += Graded(imp.id, Outcome.PLAYED, Signals.engagement(listen, liked, p), 1.0, listen.id.takeIf { it > 0 })
+                val chain = asOnePlay(listen, resumedBy) { (it.impressionId ?: standingInFor[it.id] ?: imp.id) != imp.id }
+                val play = chain.play
+                if (play.endReason == EndReason.OPEN) continue
+                if (!play.learn) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
+                if (EngineListens.failed(play)) {
+                    // Until a resume can no longer come in, the play may yet be carried on, and the
+                    // card waits. Once another card's play has carried it on, none can.
+                    if (!chain.takenOver && now - play.endedAt <= ListenProgress.RESUME_WINDOW_MS) {
+                        out += Graded(imp.id, Outcome.WAITING, 0.0, 0.0)
+                        continue
+                    }
+                    out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0)
+                    continue
+                }
+                val liked = songs[play.songId]?.likedAt
+                out += Graded(imp.id, Outcome.PLAYED, Signals.engagement(play, liked, p), 1.0, listen.id.takeIf { it > 0 })
                 continue
             }
             if (now - imp.visibleAt < window) continue                 // the day is not over
@@ -88,14 +153,63 @@ object Grading {
                 l.autoplayDepth == 0 && l.startedAt > imp.visibleAt && l.startedAt <= imp.visibleAt + window && l.endReason != EndReason.OPEN
             }
             if (elsewhere.isNotEmpty()) {
-                if (elsewhere.none { it.learn }) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
-                val g = elsewhere.filter { it.learn }.maxOf { Signals.engagement(it, songs[it.songId]?.likedAt, p) }
+                val teaching = elsewhere.filter { it.learn && !EngineListens.failed(it) }
+                if (teaching.isEmpty()) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
+                val g = teaching.maxOf { Signals.engagement(it, songs[it.songId]?.likedAt, p) }
                 out += Graded(imp.id, Outcome.ELSEWHERE, 0.5 * g, 0.5)
             } else {
                 out += Graded(imp.id, Outcome.IGNORED, 0.0, 0.3)
             }
         }
         return out
+    }
+
+    /**
+     * What to write for what [grade] found, given each pending card's outcome as stored. A card
+     * waiting on a resume is only marked waiting, never graded: graded, it would leave the pending
+     * cards for good, and the resume it waits for could no longer reach it. One already marked
+     * waiting is left as it is, so a run that finds only waiting cards writes nothing.
+     */
+    fun writes(graded: List<Graded>, storedOutcome: Map<Long, Int>): List<CardWrite> = graded.mapNotNull { g ->
+        when {
+            g.outcome != Outcome.WAITING -> CardWrite.Grade(g)
+            storedOutcome[g.impressionId] == Outcome.WAITING -> null
+            else -> CardWrite.Wait(g.impressionId)
+        }
+    }
+
+    /**
+     * A card's play as one, and whether it was [takenOver]: carried on by a play that is another
+     * card's, which leaves nothing able to carry it on any more.
+     */
+    internal class Chain(val play: ListenRow, val takenOver: Boolean)
+
+    /**
+     * [first] followed through the rows that carried it on, as one play: started when it did,
+     * heard for all their time together, ended when and how the last of them ended, and meant to
+     * teach only if every part was. [first] itself when nothing carried it on.
+     *
+     * A row that is [othersPlay] is not followed, nor anything after it: it is a play of its own.
+     * Only the earliest row carrying a row on is followed, so once that is another card's play, no
+     * later one can carry this play on.
+     */
+    internal fun asOnePlay(first: ListenRow, resumedBy: Map<Long, ListenRow>, othersPlay: (ListenRow) -> Boolean = { false }): Chain {
+        var last = first
+        var playedMs = first.playedMs
+        var durationMs = first.durationMs
+        var learn = first.learn
+        var takenOver = false
+        val seen = HashSet<Long>()
+        while (last.id > 0 && seen.add(last.id)) {
+            val next = resumedBy[last.id] ?: break
+            if (othersPlay(next)) { takenOver = true; break }
+            playedMs += next.playedMs
+            if (next.durationMs > 0) durationMs = next.durationMs
+            learn = learn && next.learn
+            last = next
+        }
+        if (last === first) return Chain(first, takenOver)
+        return Chain(first.copy(endedAt = last.endedAt, playedMs = playedMs, durationMs = durationMs, endReason = last.endReason, learn = learn), takenOver)
     }
 
     /** How far before and after a tap its song's play may start and still be that tap's. */

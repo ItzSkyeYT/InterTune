@@ -87,6 +87,197 @@ class GradingTest {
         assertEquals(Outcome.DROPPED, g.outcome); assertEquals(0.0, g.u, 0.0)
     }
 
+    // A play that failed decides nothing
+
+    @Test
+    fun `a card whose play failed is settled at no weight, however much of it played`() {
+        val tap = now - 30 * hour
+        for (playedMs in listOf(10_000L, 120_000L, 200_000L)) {
+            val died = listen("a", tap + 1000, playedMs = playedMs, impressionId = 1, endReason = EndReason.ERROR)
+            val g = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(died), songs, groups, now).single()
+            assertEquals(Outcome.DROPPED, g.outcome); assertEquals(0.0, g.y, 0.0); assertEquals(0.0, g.u, 0.0)
+        }
+        // Also when the tap's link was lost and the song's play just after it stands in.
+        val unlinked = listen("a", tap + 1000, playedMs = 150_000, endReason = EndReason.ERROR)
+        val g = Grading.grade(listOf(imp(1, "a", tap - 2000, tappedAt = tap)), listOf(unlinked), songs, groups, now).single()
+        assertEquals(Outcome.DROPPED, g.outcome); assertEquals(0.0, g.u, 0.0)
+    }
+
+    @Test
+    fun `a real skip and a real finish of a tapped card are graded as before`() {
+        val tap = now - 2 * hour
+        val skipped = listen("a", tap + 1000, playedMs = 90_000, impressionId = 1, endReason = EndReason.SKIPPED)
+        val s = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(skipped), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, s.outcome); assertEquals(0.5, s.y, 1e-9); assertEquals(1.0, s.u, 0.0)
+        val finished = listen("a", tap + 1000, playedMs = 200_000, impressionId = 1, endReason = EndReason.ENDED)
+        val f = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(finished), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, f.outcome); assertEquals(1.0, f.y, 1e-9); assertEquals(1.0, f.u, 0.0)
+        // A skip too early to say anything is a loss at full weight, as it always was.
+        val glance = listen("a", tap + 1000, playedMs = 20_000, impressionId = 1, endReason = EndReason.SKIPPED)
+        val k = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(glance), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, k.outcome); assertEquals(0.0, k.y, 0.0); assertEquals(1.0, k.u, 0.0)
+    }
+
+    // A play carried on after it stopped or failed
+
+    @Test
+    fun `a card whose play failed and was resumed is graded by the whole play`() {
+        val tap = now - 3 * hour
+        val died = listen("a", tap + 1000, playedMs = 60_000, impressionId = 1, endReason = EndReason.ERROR).copy(id = 10)
+        val finished = listen("a", tap + 20 * 60_000, playedMs = 140_000).copy(id = 11, continuesListenId = 10)
+        val g = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(died, finished), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, g.outcome); assertEquals(1.0, g.y, 1e-9); assertEquals(1.0, g.u, 0.0)
+        assertEquals(10L, g.listenId)                      // the card's own row
+        // Resumed and then skipped: 60 s and 30 s heard, one play of 90 s.
+        val skipped = finished.copy(playedMs = 30_000, endedAt = finished.startedAt + 30_000, endReason = EndReason.SKIPPED)
+        val k = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(died, skipped), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, k.outcome); assertEquals(0.5, k.y, 1e-9); assertEquals(1.0, k.u, 0.0)
+        // Resumed and still playing: the card waits for the whole play.
+        val playing = finished.copy(endReason = EndReason.OPEN)
+        assertTrue(Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(died, playing), songs, groups, now).isEmpty())
+        // Followed further: failed, resumed and stopped, resumed again and finished.
+        val stopped = listen("a", tap + 20 * 60_000, playedMs = 40_000, endReason = EndReason.STOPPED).copy(id = 11, continuesListenId = 10)
+        val rest = listen("a", tap + 40 * 60_000, playedMs = 100_000).copy(id = 12, continuesListenId = 11)
+        val chain = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(rest, died, stopped), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, chain.outcome); assertEquals(1.0, chain.y, 1e-9)
+    }
+
+    @Test
+    fun `a card whose play failed waits for a resume, and is dropped once none came`() {
+        val died = listen("a", now - 3 * hour, playedMs = 120_000, impressionId = 1, endReason = EndReason.ERROR).copy(id = 10)
+        // Waiting is said outright, so the card can be kept out of what is learned meanwhile.
+        val waiting = Grading.grade(listOf(imp(1, "a", now - 3 * hour, tappedAt = now - 3 * hour)), listOf(died), songs, groups, now).single()
+        assertEquals(Outcome.WAITING, waiting.outcome); assertEquals(0.0, waiting.y, 0.0); assertEquals(0.0, waiting.u, 0.0)
+        val tap = now - 30 * hour
+        val longAgo = died.copy(startedAt = tap + 1000, endedAt = tap + 121_000)
+        val g = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(longAgo), songs, groups, now).single()
+        assertEquals(Outcome.DROPPED, g.outcome); assertEquals(0.0, g.y, 0.0); assertEquals(0.0, g.u, 0.0)
+        // Resumed and failed again: the whole play ended in an error, so the same.
+        val again = listen("a", tap + 3 * hour, playedMs = 50_000, endReason = EndReason.ERROR).copy(id = 11, continuesListenId = 10)
+        val twice = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(longAgo, again), songs, groups, now).single()
+        assertEquals(Outcome.DROPPED, twice.outcome); assertEquals(0.0, twice.u, 0.0)
+        val recently = again.copy(startedAt = now - 2 * hour, endedAt = now - 2 * hour + 50_000)
+        assertEquals(Outcome.WAITING, Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(longAgo, recently), songs, groups, now).single().outcome)
+    }
+
+    @Test
+    fun `a failed play resumed by a row that asked not to teach drops the card`() {
+        // A chain teaches only if every row of it does.
+        val tap = now - 3 * hour
+        val died = listen("a", tap + 1000, playedMs = 60_000, impressionId = 1, endReason = EndReason.ERROR).copy(id = 10)
+        val quiet = listen("a", tap + 20 * 60_000, playedMs = 140_000, learn = false).copy(id = 11, continuesListenId = 10)
+        val g = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(died, quiet), songs, groups, now).single()
+        assertEquals(Outcome.DROPPED, g.outcome); assertEquals(0.0, g.y, 0.0); assertEquals(0.0, g.u, 0.0)
+    }
+
+    @Test
+    fun `a failed play carried on by another card's tap is that card's play alone`() {
+        // The first card's play failed three seconds in. The same song tapped on a second card two
+        // minutes later starts from the top, close enough to where the first stopped to be linked
+        // as its resume. It is the second card's play: only that card is graded by it.
+        val tap = now - 3 * hour
+        val second = tap + 2 * 60_000
+        val died = listen("a", tap + 1000, playedMs = 3_000, impressionId = 1, endReason = EndReason.ERROR).copy(id = 10)
+        val tapped = listen("a", second + 800, playedMs = 200_000, impressionId = 2).copy(id = 11, continuesListenId = 10)
+        val first = imp(1, "a", tap - 5_000, tappedAt = tap)
+        val other = imp(2, "a", tap + 60_000, tappedAt = second)
+        val g = Grading.grade(listOf(first, other), listOf(died, tapped), songs, groups, now).associateBy { it.impressionId }
+        assertEquals(Outcome.PLAYED, g[2]!!.outcome); assertEquals(1.0, g[2]!!.y, 1e-9); assertEquals(11L, g[2]!!.listenId)
+        // Nothing can carry the first card's play on any more, so it is settled now, not in a day.
+        assertEquals(Outcome.DROPPED, g[1]!!.outcome); assertEquals(0.0, g[1]!!.u, 0.0)
+        // The same with the second card already graded and only the first left to grade.
+        assertEquals(Outcome.DROPPED, Grading.grade(listOf(first), listOf(died, tapped), songs, groups, now).single().outcome)
+        // And when the second tap's link was lost and its song's play stands in for it.
+        val unlinked = tapped.copy(impressionId = null)
+        val h = Grading.grade(listOf(first, other), listOf(died, unlinked), songs, groups, now).associateBy { it.impressionId }
+        assertEquals(Outcome.PLAYED, h[2]!!.outcome); assertEquals(1.0, h[2]!!.y, 1e-9); assertEquals(11L, h[2]!!.listenId)
+        assertEquals(Outcome.DROPPED, h[1]!!.outcome)
+        // Played again from a queue rather than a card, the resume is the first card's own.
+        val own = Grading.grade(listOf(first), listOf(died, unlinked), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, own.outcome); assertEquals(10L, own.listenId)
+    }
+
+    @Test
+    fun `a later play linked to a failed play another card's already carried on is not the first card's`() {
+        // The second card's play of the song ended, and a resume is only ever linked to the latest
+        // play left stopped or failed, so a later play of it from the top is linked to the first
+        // card's failed row again. The second card's play came first and is what carried the failed
+        // play on: the first card ended there, whatever links to its row later.
+        val tap = now - 3 * hour
+        val second = tap + 2 * 60_000
+        val died = listen("a", tap + 1000, playedMs = 3_000, impressionId = 1, endReason = EndReason.ERROR).copy(id = 10)
+        val tapped = listen("a", second + 800, playedMs = 200_000, impressionId = 2).copy(id = 11, continuesListenId = 10)
+        val later = listen("a", tap + 30 * 60_000, playedMs = 200_000).copy(id = 12, continuesListenId = 10)
+        val first = imp(1, "a", tap - 5_000, tappedAt = tap)
+        val other = imp(2, "a", tap + 60_000, tappedAt = second)
+        // In either order, so neither the first nor the last row read can stand for the earliest.
+        for (listens in listOf(listOf(died, tapped, later), listOf(died, later, tapped))) {
+            val g = Grading.grade(listOf(first, other), listens, songs, groups, now).associateBy { it.impressionId }
+            assertEquals(Outcome.DROPPED, g[1]!!.outcome); assertEquals(0.0, g[1]!!.u, 0.0)
+            assertEquals(Outcome.PLAYED, g[2]!!.outcome); assertEquals(11L, g[2]!!.listenId)
+            assertEquals(Outcome.DROPPED, Grading.grade(listOf(first), listens, songs, groups, now).single().outcome)
+        }
+    }
+
+    // What a run writes
+
+    @Test
+    fun `a waiting card is marked waiting, never graded, and only once`() {
+        val died = listen("a", now - 3 * hour, playedMs = 120_000, impressionId = 1, endReason = EndReason.ERROR).copy(id = 10)
+        val waiting = Grading.grade(listOf(imp(1, "a", now - 3 * hour, tappedAt = now - 3 * hour)), listOf(died), songs, groups, now)
+        assertEquals(listOf(CardWrite.Wait(1)), Grading.writes(waiting, mapOf(1L to Outcome.PENDING)))
+        // Already marked: a run that finds only cards waiting writes nothing.
+        assertEquals(emptyList<CardWrite>(), Grading.writes(waiting, mapOf(1L to Outcome.WAITING)))
+        // Every other outcome is a grade, a waiting card's included once it is settled.
+        val settled = listOf(
+            Graded(2, Outcome.PLAYED, 1.0, 1.0, listenId = 20), Graded(3, Outcome.DROPPED, 0.0, 0.0),
+            Graded(4, Outcome.LOST, 0.0, 0.0), Graded(5, Outcome.IGNORED, 0.0, 0.3), Graded(6, Outcome.ELSEWHERE, 0.25, 0.5),
+        )
+        assertEquals(settled.map { CardWrite.Grade(it) }, Grading.writes(settled, settled.associate { it.impressionId to Outcome.WAITING }))
+        assertEquals(settled.map { CardWrite.Grade(it) }, Grading.writes(settled, emptyMap()))
+    }
+
+    @Test
+    fun `a card whose play was stopped and resumed is graded by the whole play too`() {
+        val tap = now - 3 * hour
+        val stopped = listen("a", tap + 1000, playedMs = 60_000, impressionId = 1, endReason = EndReason.STOPPED).copy(id = 10)
+        // Not carried on: what was heard, as before.
+        val alone = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(stopped), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, alone.outcome); assertEquals(0.2 / 0.7, alone.y, 1e-9)
+        val finished = listen("a", tap + 20 * 60_000, playedMs = 140_000).copy(id = 11, continuesListenId = 10)
+        val g = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(stopped, finished), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, g.outcome); assertEquals(1.0, g.y, 1e-9); assertEquals(1.0, g.u, 0.0)
+    }
+
+    @Test
+    fun `a skip, a finish and a glance are graded as before beside plays that were carried on`() {
+        val tap = now - 2 * hour
+        // Another play of the song, stopped and carried on, touches none of them.
+        val other = listen("a", tap - 5 * hour, playedMs = 60_000, endReason = EndReason.STOPPED).copy(id = 20)
+        val otherRest = listen("a", tap - 4 * hour, playedMs = 140_000).copy(id = 21, continuesListenId = 20)
+        for ((played, reason, y) in listOf(Triple(90_000L, EndReason.SKIPPED, 0.5), Triple(200_000L, EndReason.ENDED, 1.0), Triple(20_000L, EndReason.SKIPPED, 0.0))) {
+            val own = listen("a", tap + 1000, playedMs = played, impressionId = 1, endReason = reason).copy(id = 30)
+            val g = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(other, otherRest, own), songs, groups, now).single()
+            assertEquals(Outcome.PLAYED, g.outcome); assertEquals(y, g.y, 1e-9); assertEquals(1.0, g.u, 0.0); assertEquals(30L, g.listenId)
+        }
+    }
+
+    @Test
+    fun `a song that failed when played elsewhere is not a card ignored, nor a win`() {
+        val seen = now - 30 * hour
+        val died = listen("a2", seen + 3 * hour, playedMs = 200_000, endReason = EndReason.ERROR)
+        val g = Grading.grade(listOf(imp(1, "a", seen)), listOf(died), songs, groups, now).single()
+        assertEquals(Outcome.DROPPED, g.outcome); assertEquals(0.0, g.y, 0.0); assertEquals(0.0, g.u, 0.0)
+        // Played again after it failed, and heard: that play is what counts.
+        val heard = listen("a", seen + 4 * hour, playedMs = 200_000, endReason = EndReason.ENDED)
+        val again = Grading.grade(listOf(imp(1, "a", seen)), listOf(died, heard), songs, groups, now).single()
+        assertEquals(Outcome.ELSEWHERE, again.outcome); assertEquals(0.5, again.y, 1e-9); assertEquals(0.5, again.u, 0.0)
+        // And a real skip elsewhere is graded as before: half its engagement, at half the weight.
+        val skipped = listen("a", seen + 4 * hour, playedMs = 90_000, endReason = EndReason.SKIPPED)
+        val k = Grading.grade(listOf(imp(1, "a", seen)), listOf(died, skipped), songs, groups, now).single()
+        assertEquals(Outcome.ELSEWHERE, k.outcome); assertEquals(0.25, k.y, 1e-9); assertEquals(0.5, k.u, 0.0)
+    }
+
     @Test
     fun `features round-trip through the stored text`() {
         val x = DoubleArray(Features.COUNT) { it / 10.0 }

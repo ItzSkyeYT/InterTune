@@ -33,7 +33,7 @@ Not published: how Automix or Auto picks the transition point, and whether it st
 - No custom `LoadControl`: media3 buffers 50 s ahead and starts loading the next item once the current one is fully loaded (`MediaPeriodQueue.shouldLoadNextMediaPeriod`).
 - `fingerprint/`: a pure JVM float `Fft` (internal); its comment puts 1,500 FFTs of 2,048 at a few tens of ms. The Shazam peak picking is for hashing, not onsets, so what carries over is the FFT and the host test pattern (ffmpeg decode, as in `ReplayProbe`).
 - Nothing decodes files on the device yet (no `MediaExtractor` or `MediaCodec`); the recognition TODO needs the same utility. Native modules already build (`taglib`, `ffMetadataEx`, NDK 29).
-- Listens are classified from `onMediaItemTransition` reasons and a `PlaybackStatsListener` on the one player (AUTO is ENDED, SEEK is SKIPPED), and the recommendation engine learns from that split (`Engagement.kt`).
+- Listens are classified from `onMediaItemTransition` reasons and a `PlaybackStatsListener` on the one player (AUTO is ENDED, SEEK is SKIPPED), and the recommendation engine learns from that split (`Signals.kt`).
 
 ## Feasibility on a phone
 

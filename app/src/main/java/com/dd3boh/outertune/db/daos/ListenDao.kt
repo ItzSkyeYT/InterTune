@@ -7,9 +7,10 @@
 package com.dd3boh.outertune.db.daos
 
 import com.dd3boh.outertune.db.entities.EngineWeight
-import com.dd3boh.outertune.engine.EngineSql
+import com.dd3boh.outertune.db.ListenSql
 import com.dd3boh.outertune.db.RelatedSql
 import com.dd3boh.outertune.db.StatsSql
+import com.dd3boh.outertune.engine.EngineSql
 import com.dd3boh.outertune.stats.StatsBounds
 import com.dd3boh.outertune.stats.StatsListen
 import com.dd3boh.outertune.stats.StatsSongArtist
@@ -56,11 +57,8 @@ interface ListenDao {
     @Query("UPDATE listen SET playedMs = :playedMs, endPositionMs = :positionMs WHERE id = :id AND endReason = 6")
     fun checkpoint(id: Long, playedMs: Long, positionMs: Long)
 
-    /** The latest stopped or still-open play of this song, for linking a resume to it. */
-    @Query("DELETE FROM listen WHERE id = :id AND endReason = 6")
-    fun discardOpenListen(id: Long)
-
-    @Query("SELECT * FROM listen WHERE songId = :songId AND endReason IN (4, 6) ORDER BY id DESC LIMIT 1")
+    /** The latest stopped, failed or still-open play of this song, for linking a resume to it. */
+    @Query(ListenSql.LAST_RESUMABLE)
     fun lastStoppedListen(songId: String): Listen?
 
     @Insert
@@ -109,15 +107,8 @@ interface ListenDao {
     @Query("SELECT COUNT(*) FROM impression WHERE tappedAt IS NOT NULL")
     fun tapCount(): Flow<Int>
 
-    /**
-     * What the listener has just had: heard at engagement 0.5 or more (45% of a known length, or
-     * two minutes of an unknown one) in the last day, or started at all in the given session.
-     */
-    @Query("""SELECT DISTINCT s.id AS id, s.title AS title,
-        (SELECT a.name FROM song_artist_map m JOIN artist a ON a.id = m.artistId WHERE m.songId = s.id ORDER BY m.position LIMIT 1) AS artist
-        FROM listen l JOIN song s ON s.id = l.songId
-        WHERE (l.startedAt >= :dayAgo AND l.playedMs >= 30000 AND ((l.durationMs > 0 AND l.playedMs * 20 >= l.durationMs * 9) OR (l.durationMs <= 0 AND l.playedMs >= 120000)))
-           OR l.sessionId = :sessionId""")
+    /** What the listener has just had, failed plays aside; see [ListenSql.JUST_PLAYED]. */
+    @Query(ListenSql.JUST_PLAYED)
     fun justPlayed(dayAgo: Long, sessionId: Long): List<PlayedSong>
 
     /** When a seed's YouTube related list was fetched (its oldest edge), null with no edges, 0 for a legacy list of unknown age. */
@@ -144,7 +135,7 @@ interface ListenDao {
     @Query(EngineSql.SONGS)
     fun engineSongs(): List<EngineSongRow>
 
-    @Query("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId, impressionId, contextChip, id FROM listen")
+    @Query("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId, impressionId, contextChip, id, continuesListenId FROM listen")
     fun engineListens(): List<com.dd3boh.outertune.engine.ListenRow>
 
     // ---- The loop: grading what was shown, applying what was graded, keeping the weights.
@@ -154,6 +145,10 @@ interface ListenDao {
     /** [listenId] is the play the grade came from, when there was one; null leaves the column as it is. */
     @Query("UPDATE impression SET outcome = :outcome, y = :y, u = :u, gradedAt = :at, listenId = COALESCE(:listenId, listenId) WHERE id = :id")
     fun markGraded(id: Long, outcome: Int, y: Float, u: Float, at: Long, listenId: Long?)
+
+    /** A tapped card whose play failed and may yet be resumed: still pending, see Outcome.WAITING. */
+    @Query(EngineSql.MARK_WAITING)
+    fun markWaiting(id: Long)
 
     /** Graded examples the engine placed, not yet applied, oldest first. */
     @Query("SELECT * FROM impression WHERE gradedAt IS NOT NULL AND appliedAt IS NULL AND features IS NOT NULL AND u > 0 ORDER BY gradedAt, id")

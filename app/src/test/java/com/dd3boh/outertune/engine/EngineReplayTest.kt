@@ -70,7 +70,8 @@ class EngineReplayTest {
             }
             val edges = db.rows(edgeSql).map { Edge(it["songId"] as String, it["relatedSongId"] as String, (it["sources"] as Number?)?.toInt() ?: Provenance.YOUTUBE) }
             val links = db.rows("SELECT songId, versionId FROM song_version_map").map { VersionLink(it["songId"] as String, it["versionId"] as String) }
-            val all = db.rows("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin FROM listen WHERE endReason != 6 ORDER BY startedAt")
+            // Open rows have no end yet, and failed plays are left out as the app's loader leaves them out (EngineListens).
+            val all = db.rows("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin FROM listen WHERE endReason NOT IN (5, 6) ORDER BY startedAt")
                 .map { Row(it["songId"] as String, (it["startedAt"] as Number).toLong(), (it["endedAt"] as Number).toLong(), (it["playedMs"] as Number).toLong(), (it["durationMs"] as Number).toLong(),
                     (it["endReason"] as Number).toInt(), (it["origin"] as Number).toInt(), (it["autoplayDepth"] as Number).toInt(), (it["sessionId"] as Number).toLong(), (it["tzOffsetMin"] as Number).toInt()) }
             fun toListen(r: Row) = ListenRow(r.songId, r.startedAt, r.endedAt, r.playedMs, r.durationMs, r.endReason, r.origin, r.depth, r.sessionId, r.tz)

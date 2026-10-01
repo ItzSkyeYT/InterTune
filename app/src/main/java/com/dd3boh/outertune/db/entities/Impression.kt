@@ -47,7 +47,11 @@ data class Impression(
     val visibleAt: Long? = null,
     @ColumnInfo(defaultValue = "0") val visibleMs: Long = 0,
     val tappedAt: Long? = null,
-    /** 0 pending, 1 played, 2 played elsewhere, 3 ignored, 4 unseen, 5 pool pick, 6 dropped, 7 lost (tapped, no listen found). */
+    /**
+     * 0 pending, 1 played, 2 played elsewhere, 3 ignored, 4 unseen, 5 pool pick, 6 dropped, 7 lost
+     * (tapped, no listen found), 8 waiting (tapped, its play failed and may yet be resumed; still
+     * pending).
+     */
     @ColumnInfo(defaultValue = "0") val outcome: Int = 0,
     val listenId: Long? = null,
     val y: Float? = null,

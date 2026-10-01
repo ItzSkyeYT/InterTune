@@ -6,7 +6,10 @@
 
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.constants.EndReason
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ListenProgressTest {
@@ -135,5 +138,80 @@ class ListenProgressTest {
             sessionGapMs = 1_800_000L,
         )
         assertEquals(5_000L, sessionId)
+    }
+
+    // How a play ended
+
+    @Test
+    fun `the player's own end is an end, whatever else happened`() {
+        assertEquals(EndReason.ENDED, ListenProgress.endReason(endedByPlayer = true, failed = false, transition = EndReason.ENDED))
+        // An error the play got over (the network came back, the retry played on) changes nothing.
+        assertEquals(EndReason.ENDED, ListenProgress.endReason(endedByPlayer = true, failed = true, transition = null))
+    }
+
+    @Test
+    fun `a stream that died and was skipped past is an error, not a skip`() {
+        // Skip on error moves on by seeking, the same transition as the listener pressing next.
+        assertEquals(EndReason.ERROR, ListenProgress.endReason(endedByPlayer = false, failed = true, transition = EndReason.SKIPPED))
+        // And a new queue chosen to get away from a song that stopped on its error.
+        assertEquals(EndReason.ERROR, ListenProgress.endReason(endedByPlayer = false, failed = true, transition = EndReason.REPLACED))
+    }
+
+    @Test
+    fun `a dead song still dead when the service goes is an error`() {
+        assertEquals(EndReason.ERROR, ListenProgress.endReason(endedByPlayer = false, failed = true, transition = null))
+    }
+
+    @Test
+    fun `a repeat paused and then closed was stopped, not played to the end`() {
+        // On repeat one the repeat before it left ENDED for the same song, and nothing moved on
+        // from this one: the service was released while it sat paused.
+        assertEquals(EndReason.STOPPED, ListenProgress.endReason(endedByPlayer = false, failed = false, transition = EndReason.ENDED))
+    }
+
+    @Test
+    fun `otherwise the transition says how it ended, and none means stopped`() {
+        assertEquals(EndReason.SKIPPED, ListenProgress.endReason(endedByPlayer = false, failed = false, transition = EndReason.SKIPPED))
+        assertEquals(EndReason.REPLACED, ListenProgress.endReason(endedByPlayer = false, failed = false, transition = EndReason.REPLACED))
+        assertEquals(EndReason.UNKNOWN, ListenProgress.endReason(endedByPlayer = false, failed = false, transition = EndReason.UNKNOWN))
+        assertEquals(EndReason.STOPPED, ListenProgress.endReason(endedByPlayer = false, failed = false, transition = null))
+    }
+
+    // Continuing an earlier play
+
+    private val t = 1_790_000_000_000L
+    private val minute = 60_000L
+
+    private fun continues(endReason: Int, endPositionMs: Long = 83_000, endedAt: Long = t, startPositionMs: Long = 83_000, startedAt: Long = t + 10 * minute) =
+        ListenProgress.continues(endReason, endPositionMs, previousStartedAt = endedAt - 83_000, previousEndedAt = endedAt, startPositionMs = startPositionMs, startedAt = startedAt)
+
+    @Test
+    fun `a play started where a stop left it continues the stop`() {
+        assertTrue(continues(EndReason.STOPPED))
+    }
+
+    @Test
+    fun `a play started where a failed play died continues it, as a stop did before failures were written`() {
+        assertTrue(continues(EndReason.ERROR))
+    }
+
+    @Test
+    fun `nothing else is continued`() {
+        assertFalse(continues(EndReason.ENDED))
+        assertFalse(continues(EndReason.SKIPPED))
+        assertFalse(continues(EndReason.REPLACED))
+        assertFalse(continues(EndReason.UNKNOWN))
+        // A newer play still waiting for its close is not one to continue either.
+        assertFalse(continues(EndReason.OPEN))
+    }
+
+    @Test
+    fun `only from the same spot, within the day, from a known position`() {
+        assertTrue(continues(EndReason.ERROR, startPositionMs = 83_000 + ListenProgress.RESUME_TOLERANCE_MS))
+        assertFalse(continues(EndReason.ERROR, startPositionMs = 83_000 + ListenProgress.RESUME_TOLERANCE_MS + 1))
+        assertFalse(continues(EndReason.ERROR, startPositionMs = 0))
+        assertTrue(continues(EndReason.STOPPED, startedAt = t + ListenProgress.RESUME_WINDOW_MS))
+        assertFalse(continues(EndReason.STOPPED, startedAt = t + ListenProgress.RESUME_WINDOW_MS + 1))
+        assertFalse(continues(EndReason.STOPPED, endPositionMs = -1, startPositionMs = 0))
     }
 }

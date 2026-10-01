@@ -134,12 +134,25 @@ class SourceMixTest {
     }
 
     @Test
+    fun `a tapped card waiting on a resume of its failed play counts for neither source`() {
+        // Pending, it would count as a card seen and not heard, a miss against its source for as
+        // long as it waits.
+        val waiting = ev("song", l, 0f, outcome = Outcome.WAITING)
+        val s = share(side(l, 4, played = 2) + side(y, 4, played = 2) + waiting)
+        assertEquals(4.0, s.lastFm.cards, 1e-12)
+        assertEquals(0.5, s.share, 1e-12)
+        assertEquals(s.share, share(side(l, 4, played = 2) + side(y, 4, played = 2)).share, 0.0)
+        assertTrue(share(side(l, 4, played = 2) + side(y, 4, played = 2) + waiting.copy(outcome = Outcome.PENDING)).share < 0.5)
+    }
+
+    @Test
     fun `cards the spec does not count are ignored`() {
         val ignored = listOf(
             ev("t2", l, 1f, team = 2), ev("t3", l, 1f, team = 3),
             ev("l2", l, 1f, lane = 2), ev("l3", l, 1f, lane = 3), ev("l5", l, 1f, lane = 5),
             ev("b1", 1, 1f), ev("b2", 2, 1f), ev("b3", 3, 1f), ev("b7", 7, 1f), ev("b0", 0, 1f),
             ev("o4", l, 1f, outcome = 4), ev("o6", l, 1f, outcome = 6), ev("o7", l, 1f, outcome = 7),
+            ev("o8", l, 1f, outcome = Outcome.WAITING),
         )
         for (r in ignored) {
             val s = share(listOf(r))
