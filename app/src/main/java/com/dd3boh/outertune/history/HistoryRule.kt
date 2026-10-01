@@ -35,9 +35,23 @@ object HistoryRule {
      */
     fun shows(playedMs: Long, counted: Boolean): Boolean = counted || playedMs >= MIN_HEARD_MS
 
-    /** When a listen started, as a true instant. One real row carries a start of 0 and is dated back from its end. */
-    fun listenAt(startedAt: Long, endedAt: Long, playedMs: Long): Long =
-        if (startedAt > 0) startedAt else endedAt - playedMs.coerceAtLeast(0)
+    /** How much less than it heard a row's span may be and its start still be believed: clock jitter stays under it. */
+    const val SPAN_SLACK_MS = 1_000L
+
+    /**
+     * When a listen started, as a true instant: its start, unless the row cannot have started then.
+     *
+     * When a song plays again straight after itself, the service closes the row it opened for the
+     * new play with the figures of the play that just ended, so that row starts and ends a few
+     * milliseconds apart around a whole song heard: it began [playedMs] before its end. One real row
+     * carries a start of 0 and is dated back from its end too. [playedMs] is the row's own, not a
+     * resumed play's total, which a later piece made longer than the first piece's span.
+     */
+    fun listenAt(startedAt: Long, endedAt: Long, playedMs: Long): Long {
+        val heard = playedMs.coerceAtLeast(0)
+        val believable = startedAt > 0 && (endedAt <= 0 || endedAt - startedAt >= heard - SPAN_SLACK_MS)
+        return if (believable) startedAt else endedAt - heard
+    }
 
     /** The wall clock when a listen started, at the offset it was played at rather than today's. */
     fun listenStart(startedAt: Long, endedAt: Long, playedMs: Long, tzOffsetMin: Int): LocalDateTime {

@@ -23,10 +23,11 @@ class HistoryEntryTest {
 
     private fun utc(local: LocalDateTime) = local.toInstant(ZoneOffset.UTC).toEpochMilli()
 
-    private fun listenRow(startedAt: Long, endedAt: Long, playedMs: Long, tzOffsetMin: Int) = HistoryPlayWithSong(
+    private fun listenRow(startedAt: Long, endedAt: Long, playedMs: Long, tzOffsetMin: Int, headPlayedMs: Long = playedMs) = HistoryPlayWithSong(
         HistoryPlay(
             listenId = 7, eventId = null, songId = "a", startedAt = startedAt, endedAt = endedAt,
-            tzOffsetMin = tzOffsetMin, timestamp = null, playedMs = playedMs, counted = false, sortAt = startedAt,
+            tzOffsetMin = tzOffsetMin, timestamp = null, playedMs = playedMs, counted = false,
+            headPlayedMs = headPlayedMs, sortAt = startedAt,
         ),
         song,
     )
@@ -39,6 +40,22 @@ class HistoryEntryTest {
         assertEquals(LocalDateTime.of(2026, 9, 28, 8, 5), entry.start)
         assertEquals(startedAt, entry.at)
         assertEquals(7L, entry.key)
+    }
+
+    @Test
+    fun `a resumed play is dated by its first piece, whatever the later pieces heard`() {
+        // 20 seconds, stopped, and resumed later for two minutes: 140 seconds over a 20 second span.
+        val startedAt = utc(LocalDateTime.of(2026, 9, 28, 12, 5))
+        val entry = HistoryEntry.of(listenRow(startedAt, startedAt + 20_000, 140_000, tzOffsetMin = 120, headPlayedMs = 20_000), paris)
+        assertEquals(LocalDateTime.of(2026, 9, 28, 14, 5), entry.start)
+        assertEquals(startedAt, entry.at)
+    }
+
+    @Test
+    fun `a repeat is dated by what it heard, back from its end`() {
+        val endedAt = utc(LocalDateTime.of(2026, 9, 23, 16, 50, 44))
+        val entry = HistoryEntry.of(listenRow(endedAt - 38, endedAt, 123_000, tzOffsetMin = 120), paris)
+        assertEquals(LocalDateTime.of(2026, 9, 23, 18, 48, 41), entry.start)
     }
 
     @Test
@@ -56,7 +73,8 @@ class HistoryEntryTest {
         val row = HistoryPlayWithSong(
             HistoryPlay(
                 listenId = null, eventId = 3, songId = "a", startedAt = null, endedAt = null,
-                tzOffsetMin = null, timestamp = stored, playedMs = 180_000, counted = true, sortAt = stored - 180_000,
+                tzOffsetMin = null, timestamp = stored, playedMs = 180_000, counted = true, headPlayedMs = 180_000,
+                sortAt = stored - 180_000,
             ),
             song,
         )

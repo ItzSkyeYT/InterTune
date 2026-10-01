@@ -32,8 +32,8 @@ data class HistoryEntry(
                 val ended = p.endedAt ?: 0L
                 HistoryEntry(
                     play = p, song = row.song,
-                    start = HistoryRule.listenStart(listenStarted, ended, p.playedMs, p.tzOffsetMin ?: 0),
-                    at = HistoryRule.listenAt(listenStarted, ended, p.playedMs),
+                    start = HistoryRule.listenStart(listenStarted, ended, p.headPlayedMs, p.tzOffsetMin ?: 0),
+                    at = HistoryRule.listenAt(listenStarted, ended, p.headPlayedMs),
                 )
             } else {
                 val stored = p.timestamp ?: 0L

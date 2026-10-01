@@ -34,6 +34,24 @@ class HistoryRuleTest {
     }
 
     @Test
+    fun `a song played again straight after itself is dated back from its end`() {
+        // As on his phone (listen 8425): opened when the play before it ended, closed 38 ms later
+        // with the 123 seconds that play had heard, which began at 18:48:40.
+        val end = utc(LocalDateTime.of(2026, 9, 23, 16, 50, 44))
+        assertEquals(end - 123_466, HistoryRule.listenAt(end - 38, end, 123_466))
+        assertEquals(LocalDateTime.of(2026, 9, 23, 18, 48, 40, 534_000_000), HistoryRule.listenStart(end - 38, end, 123_466, 120))
+    }
+
+    @Test
+    fun `a span short of what was heard by under a second is clock jitter`() {
+        val start = utc(LocalDateTime.of(2026, 9, 28, 12, 5))
+        assertEquals(start, HistoryRule.listenAt(start, start + 199_001, 200_000))
+        assertEquals(start + 198_999 - 200_000, HistoryRule.listenAt(start, start + 198_999, 200_000))
+        // Paused along the way: the span is longer than what was heard, as usual.
+        assertEquals(start, HistoryRule.listenAt(start, start + 600_000, 200_000))
+    }
+
+    @Test
     fun `a listen is dated at the offset it was played at`() {
         val startedAt = utc(LocalDateTime.of(2026, 9, 28, 12, 5))
         assertEquals(LocalDateTime.of(2026, 9, 28, 14, 5), HistoryRule.listenStart(startedAt, startedAt + 200_000, 200_000, 120))

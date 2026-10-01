@@ -60,12 +60,13 @@ class HistorySqlTest {
         sourceEventId: Long? = null,
         durationMs: Long = 200_000,
         endPosition: Long = playedMs,
+        endedAt: Long = startedAt + playedMs,
     ): Long {
         val ratio = if (durationMs > 0) playedMs.toFloat() / durationMs else -1f
         exec(
             """INSERT INTO listen(songId, startedAt, endedAt, tzOffsetMin, playedMs, durationMs, ratio, endReason, origin,
                 originSlot, queueId, autoplayDepth, sessionId, counted, continuesListenId, sourceEventId, endPositionMs)
-            VALUES ('$song', $startedAt, ${startedAt + playedMs}, 120, $playedMs, $durationMs, $ratio, $endReason, 2, -1, 0, 0,
+            VALUES ('$song', $startedAt, $endedAt, 120, $playedMs, $durationMs, $ratio, $endReason, 2, -1, 0, 0,
                 $startedAt, ${if (counted) 1 else 0}, ${continues ?: "NULL"}, ${sourceEventId ?: "NULL"}, $endPosition)"""
         )
         return lastId()
@@ -107,6 +108,7 @@ class HistorySqlTest {
                         timestamp = rs.longOrNull("timestamp"),
                         playedMs = rs.getLong("playedMs"),
                         counted = rs.getBoolean("counted"),
+                        headPlayedMs = rs.getLong("headPlayedMs"),
                         sortAt = rs.getLong("sortAt"),
                     )
                 )
@@ -213,6 +215,8 @@ class HistorySqlTest {
         assertEquals(first, play.listenId)
         assertEquals(t, play.startedAt)
         assertEquals(20 * second + 40 * second + 2 * minute, play.playedMs)
+        assertEquals(20 * second, play.headPlayedMs)
+        assertEquals(t, play.sortAt)
         assertTrue(play.counted)
     }
 
@@ -338,6 +342,18 @@ class HistorySqlTest {
         val unknown = listen("b", t + 10 * minute, playedMs = 150 * second, endReason = 4, durationMs = -1)
         listen("b", t + 20 * minute, playedMs = 5 * minute, continues = unknown, durationMs = -1)
         assertEquals(listOf(unknown to 450 * second, stopped to 205 * second), plays().map { it.listenId to it.playedMs })
+    }
+
+    @Test
+    fun `the SQL orders plays by when HistoryRule says they started`() {
+        // A repeat, its row opened at 10 minutes and closed 11 ms later with three minutes heard...
+        val repeat = listen("a", t + 10 * minute, playedMs = 3 * minute, endedAt = t + 10 * minute + 11)
+        // ...so it began at seven, before this one at eight.
+        val eight = listen("b", t + 8 * minute, playedMs = minute)
+        val jitter = listen("c", t + 2 * minute, playedMs = minute, endedAt = t + 3 * minute - 999)
+        val noStart = listen("x", 0, playedMs = minute, endedAt = t + 5 * minute)
+        assertEquals(listOf(eight, repeat, noStart, jitter), plays().map { it.listenId })
+        for (p in plays()) assertEquals(HistoryRule.listenAt(p.startedAt!!, p.endedAt!!, p.headPlayedMs), p.sortAt)
     }
 
     @Test

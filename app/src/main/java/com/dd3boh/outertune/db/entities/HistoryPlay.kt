@@ -31,6 +31,8 @@ data class HistoryPlay(
     val playedMs: Long,
     /** Whether any piece passed Minimum playback duration. */
     val counted: Boolean,
+    /** Heard in the first piece alone, which is what dates the play (HistoryRule.listenAt). */
+    val headPlayedMs: Long,
     /** Newest first in SQL; close enough for an event, and History orders by the exact instant itself. */
     val sortAt: Long,
 )

@@ -87,7 +87,8 @@ object HistorySql {
      * A song paused, left and resumed where it stopped is one play in several pieces, each
      * pointing at the one before by continuesListenId. Each visible piece walks back to the first
      * visible piece of its chain (a primary key lookup per step, as the column has no index), and
-     * the chain is one row: dated by its first piece, heard for all of them together. A piece
+     * the chain is one row: dated by its first piece (sortAt is HistoryRule.listenAt), heard for
+     * all of them together. A piece
      * taken out of History breaks the chain there, so a later resume of a removed play is a play
      * of its own. `p.id < up.cur` holds because a resume always points back at an older row, and
      * it means the walk ends even on a database that says otherwise.
@@ -106,7 +107,9 @@ object HistorySql {
         )
         SELECT h.id AS listenId, NULL AS eventId, h.songId AS songId, h.startedAt AS startedAt, h.endedAt AS endedAt,
             h.tzOffsetMin AS tzOffsetMin, NULL AS timestamp, SUM(l.playedMs) AS playedMs, MAX(l.counted) AS counted,
-            CASE WHEN h.startedAt > 0 THEN h.startedAt ELSE h.endedAt - h.playedMs END AS sortAt
+            h.playedMs AS headPlayedMs,
+            CASE WHEN h.startedAt > 0 AND (h.endedAt <= 0 OR h.endedAt - h.startedAt >= h.playedMs - ${HistoryRule.SPAN_SLACK_MS})
+                THEN h.startedAt ELSE h.endedAt - h.playedMs END AS sortAt
         FROM up
             JOIN listen l ON l.id = up.id
             JOIN listen h ON h.id = up.cur
@@ -114,7 +117,7 @@ object HistorySql {
         GROUP BY up.cur
         HAVING SUM(l.playedMs) >= ${HistoryRule.MIN_HEARD_MS} OR MAX(l.counted) = 1
         UNION ALL
-        SELECT NULL, e.id, e.songId, NULL, NULL, NULL, e.timestamp, e.playTime, 1, e.timestamp - e.playTime
+        SELECT NULL, e.id, e.songId, NULL, NULL, NULL, e.timestamp, e.playTime, 1, e.playTime, e.timestamp - e.playTime
         FROM event e
         WHERE NOT EXISTS (SELECT 1 FROM listen l WHERE l.sourceEventId = e.id)
         ORDER BY sortAt DESC
