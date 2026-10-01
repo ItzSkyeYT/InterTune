@@ -215,6 +215,8 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Extra import locations refused a folder whose name only began like a scan folder's, such as MusicVideos beside Music, and accepted a folder holding a scan folder.
 - The scan folders dialog refused a folder whose name only began like the download folder's, such as MusicVideos with the download folder at Music.
 - Restoring a backup froze the app while it worked, and a backup it could not use, such as one from a newer version, restarted the app with only the backup's settings applied. The button now shows the restore's progress, and such a backup leaves your library and settings as they were.
+- **Back up automatically** made a backup every time you opened the app, sometimes two a few seconds apart, instead of once per interval. Background checks also ran at every launch. Both now keep to the interval you set, a new backup folder gets a backup straight away, and after a restore the schedule follows the restored settings.
+- **How many to keep** only took effect at the next backup and never removed copies with "(1)" in their name. Lowering it now asks first, says how many will be deleted, and deletes them at once. A backup cut short no longer looks like a whole one.
 - **Most played songs** in Stats was in no particular order. The song you played most now comes first.
 - **Most played artists** in Stats could come up short, or as a heading over nothing, when you mostly played local files. It now fills up with your most played artists that have a YouTube page, and is left out when there are none.
 - **Clear listen history** kept play counts, so sorting by play count and the artists in Home's Keep listening row still followed your old plays. It clears them too now.

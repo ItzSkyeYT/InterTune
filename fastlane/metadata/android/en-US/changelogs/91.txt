@@ -5,6 +5,6 @@ Version 0.11
 - A home screen widget that takes the shape of its size.
 - Spatial audio with head tracking, and fading between tracks.
 - A Stats page that says something about your listening.
-- Many fixes to sync, downloads and playlists.
+- Fixes to sync, downloads, playlists and backups.
 
 Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.11
