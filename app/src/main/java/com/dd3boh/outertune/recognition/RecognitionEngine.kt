@@ -313,7 +313,7 @@ class RecognitionEngine @Inject constructor(
         override var searchedSongs: Set<String> = emptySet(),
         override var reopened: Boolean = false,
         override var replaced: SongItem? = null,
-        override var failedRun: MixSearch.FailedRun? = null,
+        override var failedSearches: Map<String, Int> = emptyMap(),
         /**
          * The uploads, as ids, that a choice for it offered and the person answered None of these
          * to. Its later searches leave them out: see [MixSearch.turnedDown].

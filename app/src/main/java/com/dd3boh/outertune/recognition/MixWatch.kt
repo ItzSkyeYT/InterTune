@@ -1145,8 +1145,8 @@ internal object MixSearch {
         /**
          * The answer stands for now, and the next piece that comes back searches again: the search
          * failed, in whole or in part, or one odd window has only a toss-up. Searching again after
-         * a query failed stops once [FAILED_SEARCHES] in a row have, for the same songs: see
-         * [failedRun].
+         * a query failed stops for a song once [FAILED_SEARCHES] searches in a row for it have:
+         * see [failedSearches].
          */
         STAND_FOR_NOW(goesOn = false, mayTake = false, reopens = false, stands = true, notes = false),
 
@@ -1313,37 +1313,39 @@ internal object MixSearch {
          * the person picks another: see [replacedBy].
          */
         var replaced: SongItem?
-        /** The searches in a row, up to the last, that had a query fail: see [failedRun]. */
-        var failedRun: FailedRun?
+        /**
+         * The songs, as [songId], that searches with a query failing looked for, each with how many
+         * such searches for it in a row: see [MixSearch.failedSearches].
+         */
+        var failedSearches: Map<String, Int>
     }
 
     /**
-     * Searches in a row for a mashup's songs where a query failed: how many ([searches]), and the
-     * [songs], as [songId], that each was for, the ones its answer did not cover that it looked
-     * for. See [failedRun].
-     */
-    data class FailedRun(val songs: Set<String>, val searches: Int)
-
-    /**
-     * [run] brought up to date with a search that looked for [lookedFor] ([queried]) because the
-     * answer did not cover [uncovered]: one more when a query failed again ([complete] false) and
-     * the uncovered songs it looked for are the same as before, whichever others the queries took
-     * with them; a new run of one when they are not. None once every query went through, or when
-     * nothing was uncovered, as for a mashup never answered or a question asked again and waiting.
+     * [counts] brought up to date with a search that looked for [lookedFor] ([queried]) because the
+     * answer did not cover [uncovered]. Each song, as [songId], that the answer did not cover and
+     * the search looked for counts one more search in a row with a query failing, or starts again
+     * once every query went through ([complete]). The other songs keep their counts, whichever
+     * songs came back in between. None at all when nothing was uncovered, as for a mashup never
+     * answered or a question asked again and waiting.
      *
      * A search where a query failed notes nothing ([follow]), so while one query kept failing,
      * every return of a song the answer did not cover searched YouTube again, inline on the
-     * listening loop: seven returns of seven, and eleven of eleven. After [FAILED_SEARCHES] in a
-     * row, [follow] notes the songs as searched for all the same, and their later returns search
-     * no more. A song the answer does not cover yet still searches when it comes back.
+     * listening loop: seven returns of seven, and eleven of eleven. After [FAILED_SEARCHES] such
+     * searches for a song, [follow] notes it as searched for all the same, and its later returns
+     * search no more. A song the answer does not cover yet still searches when it comes back.
+     *
+     * Song by song, not by the songs a search was for: Numb and In The End, neither covered and
+     * coming back in turn, each with Faint, ended each other's run, and every return searched.
      */
-    fun failedRun(run: FailedRun?, lookedFor: List<MixWatch.Sighting>, uncovered: List<MixWatch.Sighting>, complete: Boolean): FailedRun? {
+    fun failedSearches(
+        counts: Map<String, Int>,
+        lookedFor: List<MixWatch.Sighting>,
+        uncovered: List<MixWatch.Sighting>,
+        complete: Boolean,
+    ): Map<String, Int> {
+        if (uncovered.isEmpty()) return emptyMap()
         val songs = distinctSongs(lookedFor).map(::songId).toSet() intersect distinctSongs(uncovered).map(::songId).toSet()
-        return when {
-            complete || songs.isEmpty() -> null
-            run?.songs == songs -> run.copy(searches = run.searches + 1)
-            else -> FailedRun(songs, 1)
-        }
+        return if (complete) counts - songs else counts + songs.associateWith { (counts[it] ?: 0) + 1 }
     }
 
     /**
@@ -1357,9 +1359,9 @@ internal object MixSearch {
      * itself from then on, no longer known to be the upload it was nor how long it runs, which is
      * kept as the one it may be replaced by.
      *
-     * The search having been made because the answer did not cover [uncovered], a query failing on
-     * [FAILED_SEARCHES] searches in a row for the same songs notes those songs as searched for all
-     * the same ([failedRun]), and they are returned, for the log; otherwise nothing is.
+     * The search having been made because the answer did not cover [uncovered], a song that a query
+     * failing has kept from being noted on [FAILED_SEARCHES] searches in a row is noted as searched
+     * for all the same ([failedSearches]), and such songs are returned, for the log.
      */
     fun follow(
         outcome: Outcome,
@@ -1369,10 +1371,10 @@ internal object MixSearch {
         uncovered: List<MixWatch.Sighting>,
     ): Set<String> {
         if (outcome.notes && complete) answer.searchedSongs = noted(answer.searchedSongs, lookedFor)
-        val run = failedRun(answer.failedRun, lookedFor, uncovered, complete)
-        val givenUp = run?.takeIf { it.searches >= FAILED_SEARCHES }?.songs.orEmpty()
+        val counts = failedSearches(answer.failedSearches, lookedFor, uncovered, complete)
+        val givenUp = counts.filterValues { it >= FAILED_SEARCHES }.keys
         answer.searchedSongs += givenUp
-        answer.failedRun = run.takeIf { givenUp.isEmpty() }
+        answer.failedSearches = counts - givenUp
         if (outcome.reopens) {
             answer.replaced = answer.found ?: answer.replaced
             answer.settled = false
@@ -1529,7 +1531,7 @@ internal object MixSearch {
     private const val MIN_ROOM_SPEED = 0.5
     private const val MAX_ROOM_SPEED = 2.0
 
-    /** How many searches in a row with a query failing, for the same songs, before they are noted. */
+    /** How many searches in a row for a song, each with a query failing, before it is noted. */
     const val FAILED_SEARCHES = 3
 
     /** Longer than this is a compilation or a DJ set, not a mashup. */
