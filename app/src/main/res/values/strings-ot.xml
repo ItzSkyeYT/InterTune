@@ -843,6 +843,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">Delete %1$d older backups?</item>
     </plurals>
     <string name="auto_backup_keep_confirm_text">This cannot be undone.</string>
+    <string name="auto_backup_keep_delete">Delete</string>
     <string name="auto_backup_keep_unknown_title">Lower how many backups to keep?</string>
     <string name="auto_backup_keep_unknown_text">The backup folder could not be read, so the next backup will delete older ones down to this number.</string>
     <string name="auto_backup_keep_lower">Lower</string>

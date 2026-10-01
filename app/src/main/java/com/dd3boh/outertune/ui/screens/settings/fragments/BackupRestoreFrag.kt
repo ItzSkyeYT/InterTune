@@ -393,7 +393,9 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                             if (doomed != null) AutoBackup.applyKeep(context, keep, doomed)
                         }
                     ) {
-                        Text(stringResource(if (doomed != null) R.string.delete else R.string.auto_backup_keep_lower))
+                        // Its own strings, so the button repeats the verb of the title. The
+                        // shared delete string is "Effacer" in French, next to a "Supprimer" title.
+                        Text(stringResource(if (doomed != null) R.string.auto_backup_keep_delete else R.string.auto_backup_keep_lower))
                     }
                 },
             ) {
