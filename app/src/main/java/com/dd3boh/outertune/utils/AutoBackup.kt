@@ -140,7 +140,7 @@ class AutoBackupWorker(
             val startedAt = System.currentTimeMillis()
             val name = AutoBackupPolicy.fileName(appName, MusicDatabase.MUSIC_DATABASE_VERSION, LocalDateTime.now())
             val database = EntryPointAccessors.fromApplication(context, Deps::class.java).database()
-            Log.i(TAG, "Wrote ${write(context, tree, name, database)}")
+            Log.i(TAG, "Wrote ${write(context, tree, appName, name, database)}")
 
             // The file is whole from here on, and has to be on record even if this run has been
             // stopped. Stopping cancels the coroutine but cannot interrupt the write, so a stopped
@@ -174,8 +174,13 @@ class AutoBackupWorker(
      * when the app is swiped out of recents with nothing playing), leaves only the temporary name,
      * which pruning removes later. A provider that cannot rename gets the final name from the
      * start, as before, and has only the delete on failure.
+     *
+     * A rename only counts when the name it ends up with is a backup's name of this app's, which
+     * Android's " (1)" copies are. Anything else, or a provider that will not say what it renamed
+     * the file to, is a failed run with nothing left behind: a whole backup under a name Keep does
+     * not count would never be pruned, and one Restore does not offer is no use.
      */
-    private fun write(context: Context, tree: DocumentFile, name: String, database: MusicDatabase): String {
+    private fun write(context: Context, tree: DocumentFile, appName: String, name: String, database: MusicDatabase): String {
         val partial = AutoBackupPolicy.partialName(name)
         val created = tree.createFile(MIME, partial)
             ?: throw IOException("Could not create $partial in the backup folder")
@@ -184,17 +189,26 @@ class AutoBackupWorker(
             AutoBackup.delete(context, created.uri, partial)
             tree.createFile(MIME, name) ?: throw IOException("Could not create $name in the backup folder")
         }
+        // A rename can change the document's uri, and the delete below has to reach it either way.
+        var current = file.uri
         try {
             context.contentResolver.openOutputStream(file.uri)?.use { stream ->
                 BackupWriter.write(context, database, stream)
             } ?: throw IOException("Could not open $name for writing")
             if (!renames) return file.name ?: name
-            val renamed = DocumentsContract.renameDocument(context.contentResolver, file.uri, name)
+            current = DocumentsContract.renameDocument(context.contentResolver, file.uri, name)
                 ?: throw IOException("Could not rename $partial to $name")
-            return DocumentFile.fromSingleUri(context, renamed)?.name ?: name
+            val renamedTo = DocumentFile.fromSingleUri(context, current)?.name
+            if (renamedTo == null || !AutoBackupPolicy.isBackup(appName, renamedTo)) {
+                throw IOException(
+                    if (renamedTo == null) "Renamed $partial, but could not read its new name"
+                    else "Renamed $partial to $renamedTo, which is not a backup's name"
+                )
+            }
+            return renamedTo
         } catch (e: Exception) {
-            // No file at all is the honest outcome, under either name.
-            AutoBackup.delete(context, file.uri, "the unfinished $name")
+            // No file at all is the honest outcome, under whatever name it has.
+            AutoBackup.delete(context, current, "the unfinished $name")
             throw e
         }
     }

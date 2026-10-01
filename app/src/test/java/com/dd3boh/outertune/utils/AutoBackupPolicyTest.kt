@@ -234,6 +234,31 @@ class AutoBackupPolicyTest {
         assertEquals(emptyList<String>(), AutoBackupPolicy.toDelete(app, listOf(name("20260930000000"), partial), 1))
     }
 
+    @Test
+    fun `a rename that lands on a backup's name, or Android's copy of one, counts`() {
+        // What the worker checks the renamed file's name with before calling the backup made.
+        val name = name("20260930223816")
+        assertTrue(AutoBackupPolicy.isBackup(app, name))
+        // The name was taken, so the provider numbered it. Still whole, still counted by Keep.
+        assertTrue(AutoBackupPolicy.isBackup(app, copy("20260930223816", 1)))
+    }
+
+    @Test
+    fun `a rename that lands anywhere else is a failed backup`() {
+        val partial = AutoBackupPolicy.partialName(name("20260930223816"))
+        // Left as it was, or numbered as a clash of the temporary name.
+        assertFalse(AutoBackupPolicy.isBackup(app, partial))
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune_21_20260930223816.backup (1).partial"))
+        // A provider that adds an extension of its own, or numbers it some other way.
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune_21_20260930223816.backup.bin"))
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune_21_20260930223816 1.backup"))
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune_21_20260930223816-1.backup"))
+        // Cut short, or under another app's name.
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune_21_2026093022.backup"))
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune Debug_21_20260930223816.backup"))
+        assertFalse(AutoBackupPolicy.isBackup(app, ""))
+    }
+
     private val at = LocalDateTime.of(2026, 9, 30, 22, 38, 16)
 
     @Test
