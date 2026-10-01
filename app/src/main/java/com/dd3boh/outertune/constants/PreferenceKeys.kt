@@ -247,6 +247,8 @@ val LookupYtmArtistsKey = booleanPreferencesKey("lookupYtmArtists")
 val ScanPathsKey = stringPreferencesKey("inclScanPaths") // previously "scanPaths"
 val ExcludedScanPathsKey = stringPreferencesKey("exclScanPaths") // previously "excludedScanPaths"
 val LastLocalScanKey = longPreferencesKey("lastLocalScan")
+/** Whether the automatic scan has asked for the storage permission yet. It asks once; see scanInit. */
+val LocalMediaPermissionAskedKey = booleanPreferencesKey("localMediaPermissionAsked")
 
 /**
  * Experimental settings

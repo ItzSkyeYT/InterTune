@@ -13,6 +13,7 @@ import com.dd3boh.outertune.constants.AUTO_SCAN_SOFT_COOLDOWN
 import com.dd3boh.outertune.constants.AutomaticScannerKey
 import com.dd3boh.outertune.constants.ExcludedScanPathsKey
 import com.dd3boh.outertune.constants.LastLocalScanKey
+import com.dd3boh.outertune.constants.LocalMediaPermissionAskedKey
 import com.dd3boh.outertune.constants.LastVersionKey
 import com.dd3boh.outertune.constants.LocalLibraryEnableKey
 import com.dd3boh.outertune.constants.LookupYtmArtistsKey
@@ -259,8 +260,14 @@ suspend fun scanInit(
             playerConnection?.service?.initQueue()
             Log.i(MAIN_TAG, "Local media and downloads scan completed")
         } else if (perms == PackageManager.PERMISSION_DENIED) {
-            // Request the permission using the permission launcher
-            (context as MainActivity).permissionLauncher.launch(MEDIA_PERMISSION_LEVEL)
+            // Asked once, at the first automatic scan that finds it missing. Asked at every
+            // automatic scan, which runs at launch at most once every two hours (the soft cooldown
+            // set above), it put a system dialog in front of everyone who listens only to YouTube
+            // and left local media on, which is the default. The Library banner still asks when tapped.
+            if (!context.dataStore.get(LocalMediaPermissionAskedKey, defaultValue = false)) {
+                context.dataStore.edit { settings -> settings[LocalMediaPermissionAskedKey] = true }
+                (context as MainActivity).permissionLauncher.launch(MEDIA_PERMISSION_LEVEL)
+            }
             Log.w(MAIN_TAG, "Not enough permission to perform local media scan")
         }
     } else if (localLibEnable) {

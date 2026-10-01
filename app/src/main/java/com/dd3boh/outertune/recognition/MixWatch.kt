@@ -183,6 +183,27 @@ internal class MixWatch(private val spanMs: Long = SPAN_MS) {
     /** When [key] was last heard, if it is still in view. */
     fun lastHeard(key: String): Long? = seen.lastOrNull { it.key == key }?.atMs
 
+    /**
+     * Every song still in view that was heard from [sinceMs] to [untilMs], each once, as last heard
+     * in that time. Bounded at both ends, since what is in view can run on past what is asked
+     * about: a song that went back to its top is only settled as an edit once the next song has
+     * played for two windows, and that song was not heard with it.
+     */
+    fun heardBetween(sinceMs: Long, untilMs: Long): List<Sighting> =
+        seen.filter { it.atMs in sinceMs..untilMs }.asReversed().distinctBy { it.key }.asReversed()
+
+    /**
+     * How fast [key] has been playing, 1 being as Shazam knows it: the middle of the speeds Shazam
+     * read off its windows in view, or null when none are. The middle, since one window can be well
+     * off: DNA., played straight on 24 Sep, read 3 % slow twice in fifteen windows.
+     */
+    fun speedOf(key: String): Double? {
+        val skews = seen.filter { it.key == key }.map { it.skew }.sorted()
+        if (skews.isEmpty()) return null
+        val mid = skews.size / 2
+        return 1.0 + if (skews.size % 2 == 1) skews[mid] else (skews[mid - 1] + skews[mid]) / 2
+    }
+
     /** Every song playing straight through the last [HOST_SPAN_MS]; see [steadyHost]. */
     private fun steadyKeys(atMs: Long): Set<String> = seen
         .filter { atMs - it.atMs <= HOST_SPAN_MS }
@@ -614,23 +635,163 @@ internal class VersionWatch(private val spanMs: Long = SPAN_MS) {
  */
 internal object MixSearch {
 
-    /** The queries to run, most specific first. Empty when there is not enough to search with. */
-    fun queries(pieces: List<MixWatch.Sighting>): List<String> {
+    /**
+     * The queries to run, most specific first. Empty when there is not enough to search with. At a
+     * [speed] clearly off, or with [pieces] Shazam knows as sped up or slowed, the titles once more
+     * with what uploads that fast or slow call themselves: see [speedWords].
+     */
+    fun queries(pieces: List<MixWatch.Sighting>, speed: Double): List<String> {
         // The two most heard of each. More only narrows the search onto nothing.
-        val titles = pieces.map { bareTitle(it.title) }.filter { it.isNotBlank() }.distinct().take(2)
+        val titles = titled(pieces).map { bareTitle(it.title) }
         val artists = pieces.mapNotNull { it.artist?.let(::primaryArtist) }.filter { it.isNotBlank() }.distinct().take(2)
+        if (titles.size < 2) return listOfNotNull(artists.takeIf { it.size >= 2 }?.joinToString(" ", postfix = " mashup"))
+        val both = titles.joinToString(" ")
         return listOfNotNull(
-            titles.takeIf { it.size >= 2 }?.joinToString(" ", postfix = " mashup"),
+            "$both mashup",
             artists.takeIf { it.size >= 2 }?.joinToString(" ", postfix = " mashup"),
-        )
+        ) + speedWords(speed, pieces).map { "$both $it" }
     }
 
-    /** What came back, scored and ranked, best first, each once. Only results naming two pieces. */
-    fun rank(pieces: List<MixWatch.Sighting>, results: List<List<SongItem>>): List<Pair<SongItem, Int>> {
+    /** The first two of [pieces] with a title, by title once each: the titles [queries] searches with. */
+    private fun titled(pieces: List<MixWatch.Sighting>): List<MixWatch.Sighting> =
+        pieces.filter { bareTitle(it.title).isNotBlank() }.distinctBy { bareTitle(it.title) }.take(2)
+
+    /**
+     * The songs among [pieces] that [queries] looks for, and so the ones noted as searched for once
+     * the search goes through ([noted]): those whose titles go into the queries, and those with no
+     * title to search with, which searching again cannot look for any better. With fewer than two
+     * titles the search goes by the artists alone, and that is every song.
+     *
+     * Not every song heard: the queries take two titles, so a third song was never looked for. Noted
+     * all the same, Numb heard with Faint and No Love counted as searched for, though the queries
+     * were "Faint No Love mashup" and "Linkin Park Eminem mashup".
+     */
+    fun queried(pieces: List<MixWatch.Sighting>): List<MixWatch.Sighting> {
+        val titled = titled(pieces)
+        if (titled.size < 2) return pieces
+        return pieces.filter { it in titled || bareTitle(it.title).isBlank() }
+    }
+
+    /**
+     * [songs] in the order to search for them, most heard first, as [queries] takes them, except
+     * that the songs an answer does not cover ([uncovered]) come first. The queries take only two
+     * titles, so a third song coming back after an answer was otherwise never in them, and the
+     * search meant to find it with the others looked for the two the answer already covered.
+     */
+    fun searchOrder(songs: List<MixWatch.Sighting>, uncovered: List<MixWatch.Sighting>): List<MixWatch.Sighting> {
+        val first = uncovered.map(::songId).toSet()
+        val (new, rest) = songs.partition { songId(it) in first }
+        return new + rest
+    }
+
+    /**
+     * How fast the room plays a mashup whose songs Shazam heard at [speeds], 1 being as recorded.
+     * A mashup fits its songs to one tempo, so one of them running a few percent off says nothing
+     * about the upload: in a Faint x No Love mashup heard on 29 Sep No Love ran 4.2 % fast, with
+     * its pitch where it was, and Faint at speed. Only when every song is off the same way, by
+     * more than [PlaybackVariant] takes for jitter, is the whole of it sped up or slowed down, and
+     * then by as much as the least off of them, which is the one the others were fitted to.
+     *
+     * Held between half and twice the speed, which is more than any upload plays at: lengths are
+     * divided by it.
+     */
+    fun roomSpeed(speeds: List<Double>): Double = when {
+        speeds.isEmpty() -> 1.0
+        speeds.all { it >= 1 + PlaybackVariant.TOLERANCE } -> speeds.min()
+        speeds.all { it <= 1 - PlaybackVariant.TOLERANCE } -> speeds.max()
+        else -> 1.0
+    }.coerceIn(MIN_ROOM_SPEED, MAX_ROOM_SPEED)
+
+    /**
+     * What uploads playing at [speed] call themselves, for searching: none at speed, or off by no
+     * more than a DJ plays a track ([SPED_UP_SPEED], [SLOWED_SPEED]). Past a fifth faster,
+     * nightcore as well as sped up, which is how uploads that fast are as often named.
+     */
+    fun speedWords(speed: Double, heard: List<MixWatch.Sighting> = emptyList()): List<String> = wordSpeed(speed, heard).let { at ->
+        when {
+            at >= NIGHTCORE_SPEED -> listOf("sped up", "nightcore")
+            at >= SPED_UP_SPEED -> listOf("sped up")
+            at <= SLOWED_SPEED -> listOf("slowed")
+            else -> emptyList()
+        }
+    }
+
+    /**
+     * The speed that words in titles are judged against: [speed], unless the room plays at speed
+     * and every song [heard] is itself a sped-up or slowed recording by the title Shazam knows it
+     * under. Shazam knows official sped-up releases, "Faint (Sped Up)", and matches them at their own
+     * speed, so a room playing one reads as at speed, and it is uploads saying they are sped up that
+     * fit, not those at the original's speed. Lengths still go by [speed], which is what Shazam
+     * measured against those recordings.
+     */
+    private fun wordSpeed(speed: Double, heard: List<MixWatch.Sighting>): Double = when {
+        heard.isEmpty() || kotlin.math.abs(speed - 1) >= PlaybackVariant.TOLERANCE -> speed
+        heard.all { SPED.containsMatchIn(it.title) } -> SPED_UP_SPEED
+        heard.all { SLOWED.containsMatchIn(it.title) } -> SLOWED_SPEED
+        else -> speed
+    }
+
+    /**
+     * Whether [item]'s title agrees with [speed]: 1 when it says it is sped up and the room plays
+     * well fast, or slowed and the room plays well slow; -1 when it says the opposite, or says
+     * either while the room plays at speed; 0 when it says neither while the room is off, since an
+     * upload at its own speed can still be played faster or slower. The words are the ones
+     * [pickBest] goes by.
+     *
+     * Well fast is past [SPED_UP_SPEED]. A room only a few percent off is playing a DJ edit or a
+     * track pitched to the next, which a sped-up upload, running a fifth to a third fast, is not
+     * either: its words then count neither for it nor against it.
+     *
+     * With the songs [heard], a room at speed playing recordings Shazam knows as sped up or slowed
+     * counts as playing that fast or slow: see [wordSpeed].
+     */
+    fun speedFit(item: SongItem, speed: Double, heard: List<MixWatch.Sighting> = emptyList()): Int {
+        val sped = SPED.containsMatchIn(item.title)
+        val slowed = SLOWED.containsMatchIn(item.title)
+        val at = wordSpeed(speed, heard)
+        return when {
+            at >= SPED_UP_SPEED -> if (sped) 1 else if (slowed) -1 else 0
+            at <= SLOWED_SPEED -> if (slowed) 1 else if (sped) -1 else 0
+            at >= 1 + PlaybackVariant.TOLERANCE -> if (slowed) -1 else 0
+            at <= 1 - PlaybackVariant.TOLERANCE -> if (sped) -1 else 0
+            else -> if (sped || slowed) -1 else 0
+        }
+    }
+
+    /**
+     * How long [item] lasts in the room, which plays at [speed]: its own length when its title says
+     * it is sped up or slowed that way already, and otherwise its length played at that speed. A
+     * 200 s mashup played a quarter faster is over in 160 s.
+     */
+    fun roomLength(item: SongItem, speed: Double): Double? =
+        item.duration?.let { if (speedFit(item, speed) > 0) it.toDouble() else it / speed }
+
+    /**
+     * The longest [item] can last in the room at [speed]: its [roomLength], or its own length when
+     * that is longer and its title says nothing about how fast it runs. A room playing a quarter
+     * fast is likelier playing a sped-up upload than one sped up on the spot, and not every sped-up
+     * upload says so in its title. So whether it could still be playing, and when a mashup taken
+     * has to be over, go by the longer; which fits the time heard best goes by [roomLength].
+     */
+    fun longestInRoom(item: SongItem, speed: Double): Double? =
+        roomLength(item, speed)?.let { room -> if (speedFit(item, speed) == 0) maxOf(room, item.duration!!.toDouble()) else room }
+
+    /**
+     * What came back, scored and ranked, best first, each once. Only results naming two pieces.
+     * Those naming more of the songs heard come first, whatever their score: see [songsNamed].
+     * Then those whose titles agree with how fast the room plays ([speedFit]): a room playing a
+     * quarter fast is far likelier to be playing a sped-up upload than one played faster, however
+     * many points the other scores, and at speed a sped-up or slowed upload is not what plays.
+     * Then those naming more of the songs by title: "Faint x No Love" names both songs, and
+     * "Linkin Park & Eminem - Faint" one song and two artists, however many points the credits
+     * add. The score counts a point more for agreeing with the speed and one less for not; with the
+     * [pieces] as Shazam knows them, a mashup of sped-up releases is sped up too.
+     */
+    fun rank(pieces: List<MixWatch.Sighting>, results: List<List<SongItem>>, speed: Double): List<Pair<SongItem, Int>> {
         val scored = mutableMapOf<String, Pair<SongItem, Int>>()
         val hits = mutableMapOf<String, Int>()
         for (list in results) for (item in list) {
-            val score = score(pieces, item) ?: continue
+            val score = (score(pieces, item) ?: continue) + speedFit(item, speed, pieces)
             hits[item.id] = (hits[item.id] ?: 0) + 1
             val best = scored[item.id]
             if (best == null || best.second < score) scored[item.id] = item to score
@@ -638,29 +799,167 @@ internal object MixSearch {
         // Found by both queries is worth a point: the two ask different questions of the same songs.
         return scored.values
             .map { (item, score) -> item to score + if ((hits[item.id] ?: 0) > 1) 1 else 0 }
-            .sortedByDescending { it.second }
+            .sortedWith(ranking(pieces, speed))
     }
+
+    /** The order [rank] puts uploads and their scores in, for the songs [pieces] heard at [speed]. */
+    private fun ranking(pieces: List<MixWatch.Sighting>, speed: Double): Comparator<Pair<SongItem, Int>> =
+        compareByDescending<Pair<SongItem, Int>> { songsNamed(pieces, it.first) }
+            .thenByDescending { speedFit(it.first, speed, pieces) }
+            .thenByDescending { titlesNamed(pieces, it.first) }
+            .thenByDescending { it.second }
+
+    /**
+     * What [item] scores against every song [heard] in a mashup, at the room's [speed]: its [score]
+     * and [speedFit], as [rank] counts them for the songs a search was made with. Without the point
+     * for being found by both queries, which goes by what one search asked. Null when it names
+     * fewer than two of them.
+     */
+    fun heardScore(heard: List<MixWatch.Sighting>, item: SongItem, speed: Double): Int? =
+        score(heard, item)?.plus(speedFit(item, speed, heard))
+
+    /**
+     * The uploads, as ids, that a search's queries got back ([results]), whichever of the songs
+     * each names, that could be what has been playing for [heardS] seconds at [speed] ([couldBe]).
+     * They tell whether the search found the answer given at all ([stillGiven]), which [rank] does
+     * not: it keeps only uploads naming two of the songs a return carried.
+     */
+    fun gotBack(results: List<List<SongItem>>, heardS: Double, speed: Double): Set<String> =
+        results.flatten().filter { couldBe(it, heardS, speed) }.mapTo(mutableSetOf()) { it.id }
 
     /**
      * The mashup to take without asking, or null when there is none or it is a toss-up. Clear means
-     * well ahead of the next one: a tie between two uploads is exactly the Damage case, where one
-     * of them was a different mashup of the same songs.
+     * well ahead of every other one: a tie between two uploads is exactly the Damage case, where one
+     * of them was a different mashup of the same songs. And naming two of the songs [heard], as
+     * [songsNamed] counts them: two songs by one artist are not both named by that artist's name.
+     *
+     * Ahead of every other, not only of the next: [rank] puts an upload naming more of the songs
+     * first, and one naming fewer can still score more, from both artists and a mix word. That one
+     * is no winner, and neither is the one above it while it scores as much.
      */
-    fun clearWinner(ranked: List<Pair<SongItem, Int>>): SongItem? {
+    fun clearWinner(ranked: List<Pair<SongItem, Int>>, heard: List<MixWatch.Sighting>): SongItem? {
         val (top, score) = ranked.firstOrNull() ?: return null
-        val next = ranked.getOrNull(1)?.second ?: 0
-        return top.takeIf { score >= CLEAR_SCORE && score - next >= CLEAR_LEAD }
+        val rival = ranked.drop(1).maxOfOrNull { it.second } ?: 0
+        return top.takeIf { score >= CLEAR_SCORE && score - rival >= CLEAR_LEAD && songsNamed(heard, it) >= 2 }
     }
+
+    /**
+     * Where [ranked]'s first upload stands, for the log: how many of the songs [heard] it names and
+     * how many by title, its score, how far ahead of the best of the rest, and the room's [speed]
+     * when that is off. The runs of 24 and 29 Sep could only be read back from the scores of the
+     * first three, which never said why the first was first or why it was not taken.
+     */
+    fun standing(ranked: List<Pair<SongItem, Int>>, heard: List<MixWatch.Sighting>, speed: Double): String {
+        val (top, score) = ranked.firstOrNull() ?: return "nothing names two of the songs"
+        val rival = ranked.drop(1).maxByOrNull { it.second }
+        val against = rival?.let { (item, s) -> if (score > s) "${score - s} ahead of '${item.title}'" else "'${item.title}' scores $s" }
+        return listOfNotNull(
+            "${shown(top)} names ${songsNamed(heard, top)} of ${distinctSongs(heard).size} songs, ${titlesNamed(heard, top)} by title",
+            "score $score",
+            against ?: "the only one",
+            speedNote(speed),
+        ).joinToString(", ")
+    }
+
+    /** Why [ranked]'s first upload is not [clearWinner], or null when it is. */
+    fun notClear(ranked: List<Pair<SongItem, Int>>, heard: List<MixWatch.Sighting>): String? {
+        val (top, score) = ranked.firstOrNull() ?: return "nothing names two of the songs"
+        val rival = ranked.drop(1).maxByOrNull { it.second }
+        return when {
+            songsNamed(heard, top) < 2 -> "it names only ${songsNamed(heard, top)} of the songs"
+            score < CLEAR_SCORE -> "a score of $score, under $CLEAR_SCORE"
+            rival != null && score - rival.second < CLEAR_LEAD ->
+                "'${rival.first.title}' scores ${rival.second}, " + if (rival.second >= score) "as much or more" else "too close"
+            else -> null
+        }
+    }
+
+    /**
+     * Why the one-song choice [offered] puts its first upload first, for the log: it names more of
+     * the songs [heard], or says it runs at the room's [speed], or is a remix while Shazam kept
+     * naming versions ([remixFirst]), or none of these and it is YouTube's order.
+     */
+    fun firstBecause(offered: List<SongItem>, heard: List<MixWatch.Sighting>, speed: Double, remixFirst: Boolean): String {
+        val first = offered.firstOrNull() ?: return "nothing to offer"
+        val next = offered.getOrNull(1)
+        val songs = distinctSongs(heard).size
+        val named = songsNamed(heard, first)
+        val because = when {
+            next == null -> "the only one"
+            named > songsNamed(heard, next) -> "it names $named of the $songs songs heard, the next ${songsNamed(heard, next)}"
+            speedFit(first, speed, heard) > speedFit(next, speed, heard) -> "its title says it runs as fast as the room"
+            remixFirst && !namesSeveral(first) && namesSeveral(next) -> "a remix before mashups, Shazam having named several versions"
+            songs > 1 -> "YouTube's order, none naming more of the $songs songs heard"
+            else -> "YouTube's order"
+        }
+        return listOfNotNull(shown(first), because, speedNote(speed)).joinToString(", ")
+    }
+
+    /** An upload as the log names it: its title, and its length when known. */
+    private fun shown(item: SongItem): String = "'${item.title}'" + item.duration?.let { " ${it}s" }.orEmpty()
+
+    private fun speedNote(speed: Double): String? = if (speed == 1.0) null else "the room at x${"%.2f".format(java.util.Locale.ROOT, speed)}"
+
+    /**
+     * How many of the songs [heard] [item] names: by the song's title, or by its artist when no
+     * other song heard is by the same artist. An upload named after one of them cannot then come
+     * before one that names them all. On 29 Sep a Faint x No Love mashup was offered uploads of
+     * Faint alone, in YouTube's order, since the search had only Faint to go on; No Love came a
+     * minute later. And an upload of Numb credited to Linkin Park names Numb, not a mashup of Numb
+     * with Faint.
+     */
+    fun songsNamed(heard: List<MixWatch.Sighting>, item: SongItem): Int = named(heard, item, byArtist = true)
+
+    /** How many of the songs [heard] [item] names by their own titles, which says more than an artist does. */
+    fun titlesNamed(heard: List<MixWatch.Sighting>, item: SongItem): Int = named(heard, item, byArtist = false)
+
+    private fun named(heard: List<MixWatch.Sighting>, item: SongItem, byArtist: Boolean): Int {
+        val songs = distinctSongs(heard)
+        val text = textOf(item)
+        return songs.count { namedIn(songs, it, text, byArtist) }
+    }
+
+    /**
+     * Whether [item] names [song], one of the songs [heard]: by its title, or by its artist when no
+     * other song heard is by the same artist, as [songsNamed] counts them. An upload of Faint
+     * credited to Linkin Park does not name Numb as well.
+     */
+    fun namesSong(heard: List<MixWatch.Sighting>, song: MixWatch.Sighting, item: SongItem): Boolean =
+        namedIn(distinctSongs(listOf(song) + heard), song, textOf(item), byArtist = true)
+
+    private fun namedIn(songs: List<MixWatch.Sighting>, song: MixWatch.Sighting, text: String, byArtist: Boolean): Boolean {
+        val title = titleOf(song)
+        val artist = artistOf(song)
+        return (title.length >= 3 && " $title " in text) ||
+                (byArtist && artist.length >= 3 && songs.count { artistOf(it) == artist } == 1 && " $artist " in text)
+    }
+
+    private fun artistOf(song: MixWatch.Sighting): String = song.artist?.let { words(primaryArtist(it)) }.orEmpty()
+
+    /**
+     * [candidates] with those naming more of the songs [heard] first, and otherwise as they were:
+     * see [songsNamed]. Then those whose titles agree with the room's [speed], or with the songs
+     * [heard] when Shazam knows them as sped up or slowed ([speedFit]), and
+     * with [remixFirst], remixes and edits before uploads of several songs, as [rankSingle] explains.
+     */
+    fun byNamed(candidates: List<SongItem>, heard: List<MixWatch.Sighting>, remixFirst: Boolean, speed: Double): List<SongItem> =
+        candidates.sortedWith(
+            compareByDescending<SongItem> { songsNamed(heard, it) }
+                .thenByDescending { speedFit(it, speed, heard) }
+                .thenBy { remixFirst && namesSeveral(it) }
+        )
 
     /**
      * For one song that turned out to be cut up: remixes and mashups that name it, in YouTube's own
      * order, which for "Faint Linkin Park mashup" put the Damage upload first. Never taken without
-     * asking, since one song has many of them.
+     * asking, since one song has many of them. At a [speed] clearly off, or for a [piece] Shazam
+     * knows as sped up or slowed, the song once more with what uploads that fast or slow call
+     * themselves: see [speedWords].
      */
-    fun singleQueries(piece: MixWatch.Sighting): List<String> {
+    fun singleQueries(piece: MixWatch.Sighting, speed: Double): List<String> {
         val base = listOfNotNull(bareTitle(piece.title), piece.artist?.let(::primaryArtist))
             .filter { it.isNotBlank() }.joinToString(" ")
-        return if (base.isBlank()) emptyList() else listOf("$base mashup", "$base remix")
+        return if (base.isBlank()) emptyList() else listOf("$base mashup", "$base remix") + speedWords(speed, listOf(piece)).map { "$base $it" }
     }
 
     /**
@@ -670,28 +969,40 @@ internal object MixSearch {
      * of Lean On was offered three mashups of Lean On with Lush Life, I Took A Pill In Ibiza and
      * Sorry, none of them heard. Not when the song was cut up or went back to its top, which is as
      * often a mashup whose other half Shazam never names: I'm Beggin' For DNA was only ever DNA.
+     *
+     * Before either, the uploads that also name other songs [heard] meanwhile, as they name more of
+     * them: see [songsNamed]. A song heard along with this one says which mashup of it this is.
+     * Then those that say they are as fast or as slow as the room's [speed]: an upload of the song
+     * sped up is a version of it too, and taken as one when the room plays that fast. Only as
+     * Shazam measured it, not as the title it knows the song under says: when that is the song's
+     * own sped-up release, matched at speed, the release is the recording found cut up, not what
+     * plays, though sped-up mashups of it still come first ([speedFit]).
      */
-    fun rankSingle(piece: MixWatch.Sighting, results: List<List<SongItem>>, remixFirst: Boolean = false): List<SongItem> {
-        val title = words(bareTitle(piece.title))
-        val artist = piece.artist?.let { words(primaryArtist(it)) }.orEmpty()
-        return results.flatten().distinctBy { it.id }.filter { item ->
-            val text = " " + words(item.title + " " + item.artists.joinToString(" ") { it.name }) + " "
-            val named = (title.length >= 3 && " $title " in text) || (artist.length >= 3 && " $artist " in text)
-            named && MIX_WORDS.containsMatchIn(item.title)
-        }.let { found -> if (remixFirst) found.sortedBy { namesSeveral(it) } else found }
+    fun rankSingle(
+        piece: MixWatch.Sighting,
+        results: List<List<SongItem>>,
+        remixFirst: Boolean,
+        heard: List<MixWatch.Sighting>,
+        speed: Double,
+    ): List<SongItem> {
+        val found = results.flatten().distinctBy { it.id }.filter { item ->
+            names(piece, item) && (MIX_WORDS.containsMatchIn(item.title) || speedFit(item, speed) > 0)
+        }
+        return byNamed(found, listOf(piece) + heard, remixFirst, speed)
     }
 
     /** Whether an upload is of several songs, a mashup or a medley, rather than a remix or edit of one. */
     fun namesSeveral(item: SongItem): Boolean = SEVERAL.containsMatchIn(item.title)
 
     /**
-     * Whether [item] could be what has been playing for [heardS] seconds: not an hour-long
-     * compilation, which a search for two artists and "mashup" turns up plenty of, and not shorter
-     * than what has already been heard of it.
+     * Whether [item] could be what has been playing for [heardS] seconds at [speed]: not an
+     * hour-long compilation, which a search for two artists and "mashup" turns up plenty of, and
+     * not over sooner than what has already been heard of it, however long it lasts in the room:
+     * see [longestInRoom].
      */
-    fun couldBe(item: SongItem, heardS: Double): Boolean {
+    fun couldBe(item: SongItem, heardS: Double, speed: Double): Boolean {
         val length = item.duration ?: return true
-        return length <= MAX_LENGTH_S && length >= heardS - 10
+        return length <= MAX_LENGTH_S && longestInRoom(item, speed)!! >= heardS - 10
     }
 
     /**
@@ -701,12 +1012,17 @@ internal object MixSearch {
      * than a minute longer only follows the ones that fit. On 24 Sep this put the uploads that were
      * actually playing first: Memories Anthem (207 s, heard for 192) over mashups of the same two
      * songs at 140, 342, 350 and 515, and I'm Beggin' For DNA (199 s) over three others.
+     *
+     * Each as long as it lasts in the room at [speed], which Shazam measures: a mashup sped up a
+     * quarter lasts four fifths of its upload's length, unless the upload is the sped-up one
+     * ([roomLength]). Only the order goes by that: an upload that could be sped up already without
+     * saying so is kept ([couldBe]).
      */
-    fun byLength(candidates: List<SongItem>, heardS: Double): List<SongItem> {
+    fun byLength(candidates: List<SongItem>, heardS: Double, speed: Double): List<SongItem> {
         val target = heardS + LEAD_GUESS_S
-        val (fit, rest) = candidates.filter { couldBe(it, heardS) }
-            .partition { it.duration != null && it.duration!! <= heardS + MAX_LEAD_S }
-        return fit.sortedBy { kotlin.math.abs(it.duration!! - target) } + rest
+        val (fit, rest) = candidates.filter { couldBe(it, heardS, speed) }
+            .partition { item -> roomLength(item, speed)?.let { it <= heardS + MAX_LEAD_S } == true }
+        return fit.sortedBy { kotlin.math.abs(roomLength(it, speed)!! - target) } + rest
     }
 
     /**
@@ -721,6 +1037,387 @@ internal object MixSearch {
     fun distinctSongs(pieces: List<MixWatch.Sighting>): List<MixWatch.Sighting> =
         pieces.distinctBy { words(bareTitle(it.title)).ifEmpty { it.key } }
 
+    /** How a song is told apart from others in a mashup: its title as words, or its key if it has none. */
+    fun songId(piece: MixWatch.Sighting): String = titleOf(piece).ifEmpty { piece.key }
+
+    /**
+     * The songs among [songs] that a mashup's answer does not cover, and so the mashup is searched
+     * for again with: none unless it is [settled], and none when it was answered in an earlier
+     * mashup ([answeredEarlier]), heard again after a quiet spell ended it, with nothing of its own
+     * in the answer. Left false, a mashup searched for, taken or asked about in its own right.
+     *
+     * Said outright, not read off the answer. An answer with no song noted and no upload chosen was
+     * taken to be one from an earlier mashup, but a mashup's first search where a query failed
+     * notes nothing ([follow]), and after None of these its answer is just that. A song heard
+     * later then never searched, where it did while that search still noted its songs. An upload
+     * taken from such a search still says what it covers ([chosen]).
+     *
+     * A song is covered when a search that went through looked for it ([searchedSongs], as
+     * [songId]), when a choice the person picked an upload from listed it (also in [searchedSongs]:
+     * see [afterChoice]), or when the upload [chosen], taken or picked, names it ([namesSong],
+     * among the songs [heard] in the mashup). With nothing chosen, as after None of these, only the
+     * searches cover anything.
+     *
+     * On 29 Sep the one-song choice for Faint was answered from uploads of Faint alone, and No
+     * Love, heard a minute later, only came out as one more piece, so the search with both names
+     * never ran. But the same choice can offer a Faint x No Love upload, and once that is picked
+     * No Love is what it said: searching again for it asked the question just answered.
+     */
+    fun uncovered(
+        settled: Boolean,
+        chosen: SongItem?,
+        searchedSongs: Set<String>,
+        songs: List<MixWatch.Sighting>,
+        heard: List<MixWatch.Sighting>,
+        answeredEarlier: Boolean = false,
+    ): List<MixWatch.Sighting> {
+        if (!settled || answeredEarlier) return emptyList()
+        return distinctSongs(songs).filter { song ->
+            songId(song) !in searchedSongs && (chosen == null || !namesSong(heard + songs, song, chosen))
+        }
+    }
+
+    /** [searchedSongs] with [songs] added, once a search for them has gone through. See [uncovered]. */
+    fun noted(searchedSongs: Set<String>, songs: List<MixWatch.Sighting>): Set<String> =
+        searchedSongs + distinctSongs(songs).map(::songId)
+
+    /**
+     * [searchedSongs] once the person has answered a choice that listed the songs [listed], as
+     * [songId]. Picking an upload, [picked], answers for every song the choice listed, whether or
+     * not that upload names it: the person saw them all on the card and said which upload they
+     * were heard in. So none of them, coming back later, searches YouTube again or raises a second
+     * card ([uncovered]). A mashup of Faint, No Love and Numb, its first search taking Faint and No
+     * Love for the queries, offers a choice listing all three. Picking Faint x No Love from it left
+     * Numb uncovered, and Numb's next return searched YouTube again, and asked again if anything
+     * named Numb with another song.
+     *
+     * After None of these, [picked] null, nothing is added: only what the searches looked for
+     * counts, as before, and a song listed that no search looked for is searched for when it
+     * comes back.
+     */
+    fun afterChoice(searchedSongs: Set<String>, listed: Set<String>, picked: SongItem?): Set<String> =
+        if (picked == null) searchedSongs else searchedSongs + listed
+
+    /**
+     * The uploads, as ids, that the person has turned down: [declined], and every upload [offered]
+     * by a choice answered None of these. None of them is the mashup, so a later search leaves them
+     * out ([notDeclined]): they neither reopen the answer nor come back on a choice, and the search
+     * asks again only for an upload the person has not seen and turned down already.
+     *
+     * Kept in a later search, they made the same choice come back. Faint and No Love searched for
+     * after the one-song choice for Faint, with a query failing, noted nothing; None of these, and
+     * No Love's next return searched again and offered the same two uploads. A reopen from a search
+     * with a query failing did the same on every return for as long as the query kept failing. And
+     * None of these on a reopened choice left a song only the answer set aside had named
+     * uncovered, whose next return offered the same uploads once more.
+     */
+    fun turnedDown(declined: Set<String>, offered: List<SongItem>): Set<String> = declined + offered.map { it.id }
+
+    /** [ranked] without the uploads the person turned down ([turnedDown]); null, a failed search, as it was. */
+    fun notDeclined(ranked: List<Pair<SongItem, Int>>?, declined: Set<String>): List<Pair<SongItem, Int>>? =
+        ranked?.filterNot { it.first.id in declined }
+
+    /**
+     * What becomes of a mashup once the search for its songs is back: see [outcome].
+     *
+     * @param goesOn worked out from what the search found: its uploads become the choice, and it is
+     * taken or asked about.
+     * @param mayTake taken without asking, when it is a clear winner and the songs have taken turns.
+     * @param reopens the answer given is set aside, and the question asked again.
+     * @param stands the answer given stands, and the piece that came back comes out of the list as
+     * one more of it.
+     * @param notes the songs the search looked for ([queried]) are noted ([noted]), so the same songs
+     * are not searched for again while it lasts. Only when every query went through: see [follow].
+     */
+    enum class Outcome(val goesOn: Boolean, val mayTake: Boolean, val reopens: Boolean, val stands: Boolean, val notes: Boolean) {
+        /**
+         * Nothing happens: the search failed, nothing names two of the songs, or one odd window has
+         * only a toss-up.
+         */
+        LEAVE(goesOn = false, mayTake = false, reopens = false, stands = false, notes = false),
+
+        /**
+         * Nothing found names an uncovered song with the others, or the search still says it is the
+         * answer given ([stillGiven]): the answer stands.
+         */
+        STAND(goesOn = false, mayTake = false, reopens = false, stands = true, notes = true),
+
+        /**
+         * The answer stands for now, and the next piece that comes back searches again: the search
+         * failed, in whole or in part, or one odd window has only a toss-up. Searching again after
+         * a query failed stops for a song once [FAILED_SEARCHES] searches in a row for it have:
+         * see [failedSearches].
+         */
+        STAND_FOR_NOW(goesOn = false, mayTake = false, reopens = false, stands = true, notes = false),
+
+        /**
+         * An upload names an uncovered song with the others, and the search does not still say it
+         * is the answer given: the answer is set aside and the question asked again.
+         */
+        REOPEN(goesOn = true, mayTake = false, reopens = true, stands = false, notes = true),
+
+        /** A question asked again and not answered yet: asked, never answered by itself. */
+        ASK(goesOn = true, mayTake = false, reopens = false, stands = false, notes = true),
+
+        /** A mashup never answered: taken when clear and sure, otherwise asked. */
+        ANSWER(goesOn = true, mayTake = true, reopens = false, stands = false, notes = true),
+    }
+
+    /**
+     * What becomes of a mashup, given the songs its answer did not cover ([uncovered], empty when it
+     * has none), the upload it was answered with ([given], null when there is none), whether it was
+     * answered once and is being asked again ([reopened]), what the search for its songs found
+     * ([ranked], null when it failed), whether every one of its queries went through ([complete]),
+     * its [winner], whether the return was [strong], and every song [heard] in it, which tells which
+     * of them an upload names ([namesSong]) and, with the room's [speed] and every upload the
+     * queries got back ([gotBack]), how an upload naming a song uncovered weighs against the answer
+     * given ([stillGiven]).
+     *
+     * With nothing uncovered it goes on as it always has: left alone when the search failed, when
+     * nothing names two of the songs, or after one odd window with only a toss-up, and otherwise
+     * taken or asked. Once answered and asked again it is only asked, however clear the upload: the
+     * person answered it once already.
+     *
+     * With songs uncovered, the answer is set aside only for an upload naming one of them along
+     * with another song heard ([reopening]), and only when the search does not still say it is the
+     * answer given ([stillGiven]). When nothing found does, that settles it, and the songs are
+     * noted, so the pieces coming back later in the mashup do not search YouTube for them again,
+     * inline on the listening loop. A search that failed, in whole or in part, leaves the answer
+     * standing without noting them, and so does one odd window where no upload naming them is a
+     * clear winner over everything found: a later return that says more can still ask.
+     */
+    fun outcome(
+        uncovered: List<MixWatch.Sighting>,
+        given: SongItem?,
+        reopened: Boolean,
+        ranked: List<Pair<SongItem, Int>>?,
+        complete: Boolean,
+        winner: SongItem?,
+        strong: Boolean,
+        heard: List<MixWatch.Sighting>,
+        speed: Double = 1.0,
+        gotBack: Set<String> = emptySet(),
+    ): Outcome {
+        if (uncovered.isEmpty()) return when {
+            ranked.isNullOrEmpty() || (winner == null && !strong) -> Outcome.LEAVE
+            reopened -> Outcome.ASK
+            else -> Outcome.ANSWER
+        }
+        if (ranked == null) return Outcome.STAND_FOR_NOW
+        val naming = reopening(ranked, uncovered, heard)
+        return when {
+            naming.isEmpty() || stillGiven(ranked, naming, given, heard, speed, gotBack) -> if (complete) Outcome.STAND else Outcome.STAND_FOR_NOW
+            // Clear over everything found, not only over the others naming the new song: on a weak
+            // return, an upload of the two songs answered for well ahead of one naming the third
+            // says that one is only a toss-up.
+            !strong && clearWinner(naming + ranked.filterNot { it in naming }, heard) == null -> Outcome.STAND_FOR_NOW
+            else -> Outcome.REOPEN
+        }
+    }
+
+    /**
+     * The uploads among [ranked] that say an answer missed something: those naming one of the songs
+     * it did not cover ([uncovered]) along with another song [heard], both as [songsNamed] counts
+     * them. Not every upload [rank] keeps: it counts a song as named by its artist's name even when
+     * another song heard is by the same artist, and then "Numb (Official Music Video)" on the Linkin
+     * Park channel, found for Numb coming back after Faint x No Love was picked, names Numb and,
+     * by the channel, Faint, and asked the question just answered all over again.
+     */
+    fun reopening(
+        ranked: List<Pair<SongItem, Int>>,
+        uncovered: List<MixWatch.Sighting>,
+        heard: List<MixWatch.Sighting>,
+    ): List<Pair<SongItem, Int>> =
+        ranked.filter { (item, _) -> songsNamed(heard, item) >= 2 && uncovered.any { namesSong(heard, it, item) } }
+
+    /**
+     * Whether the search, for all it found, still says the mashup is [given], the upload it was
+     * answered with: that very upload comes first of all it found ([givenFirst]), or none of the
+     * uploads [naming] a song it did not cover ([reopening]) names more of the songs [heard] than
+     * it does ([songsNamed]), or scores more than it does ([heardScore]). Asking again then only
+     * offers the answer already given first, or something the search thinks less of in its place.
+     * The other mashup of Faint and No Love, taken without asking at 7, came first again at 8 when
+     * Numb came back, and "Numb / Faint" at 4 asked the question all over again, with the answer
+     * given at the top of the choice; in a playlist's run that very upload was then listed as heard
+     * and not added, though it was in the playlist.
+     *
+     * An upload naming more of the songs reopens it whatever the scores. The answer's score counts
+     * an artist's name for every song heard by that artist, which [songsNamed] does not: with Numb
+     * heard, that same answer scored 8, a point of it for Numb's Linkin Park credit, and "Faint x
+     * No Love x Numb (Mashup)", first at 7, was outvoted. The answer stood, Numb was noted, and the
+     * mashup of all three was never asked about.
+     *
+     * Each of them is ranked and scored against every song [heard] in the mashup, at the room's
+     * [speed], and not as [ranked] has them: [rank] goes by the songs this return carried, the
+     * ones the search was made with, so whether an answer stood depended on which of its songs came
+     * back. Numb back with Faint alone put "Numb / Faint" at 4 above the answer at 3, which lost
+     * two for listing No Love, a song that return did not carry, and a strong return asked again;
+     * with No Love in the return the same two scored 4 and 8, and the answer stood.
+     *
+     * Not when the search did not get [given] back at all: the queries for the new song with
+     * another then said nothing for the answer, and an upload naming the new song is asked about
+     * as before. Whether it did goes by every upload the queries got back ([gotBack]), and not by
+     * [ranked] alone, which keeps only those naming two of the songs this return carried. With
+     * Faint x No Love the answer, Numb back with Faint left it out of [ranked], as it names Faint
+     * alone of the two, and a strong return asked again for "Numb / Faint", while Numb back with
+     * No Love, or with both, left the answer standing.
+     */
+    fun stillGiven(
+        ranked: List<Pair<SongItem, Int>>,
+        naming: List<Pair<SongItem, Int>>,
+        given: SongItem?,
+        heard: List<MixWatch.Sighting>,
+        speed: Double = 1.0,
+        gotBack: Set<String> = emptySet(),
+    ): Boolean {
+        if (given == null || (given.id !in gotBack && ranked.none { it.first.id == given.id })) return false
+        if (givenFirst(ranked, given, heard, speed)) return true
+        val named = songsNamed(heard, given)
+        val own = heardScore(heard, given, speed) ?: 0
+        return naming.none { (item, _) -> songsNamed(heard, item) > named || (heardScore(heard, item, speed) ?: 0) > own }
+    }
+
+    /**
+     * Whether nothing in [ranked] comes before [given] once each is ranked as [rank] does, against
+     * every song [heard] in the mashup at the room's [speed] and scored by [heardScore]: see
+     * [stillGiven]. An upload level with it does not come before it.
+     */
+    fun givenFirst(ranked: List<Pair<SongItem, Int>>, given: SongItem, heard: List<MixWatch.Sighting>, speed: Double): Boolean {
+        val order = ranking(heard, speed)
+        fun scored(item: SongItem) = item to (heardScore(heard, item, speed) ?: 0)
+        val own = scored(given)
+        return ranked.none { (item, _) -> item.id != given.id && order.compare(scored(item), own) < 0 }
+    }
+
+    /**
+     * What a mashup's answer is made of, which [follow] changes once the search for its songs is
+     * back. The engine's mashup being heard is one; a test can hold its own.
+     */
+    interface Answer {
+        /** The upload it was answered with, taken or picked. None while open, or after None of these. */
+        var found: SongItem?
+        /** Answered: a clear winner was taken, or the person picked one or said none of these. */
+        var settled: Boolean
+        /**
+         * The songs, as [songId], that searches which went through looked for ([queried]), whether
+         * or not they found anything, and those listed by a choice the person picked an upload from
+         * ([afterChoice]): see [uncovered].
+         */
+        var searchedSongs: Set<String>
+        /** Answered once and asked again, so never answered by itself: see [outcome]. */
+        var reopened: Boolean
+        /** When it has to be over, once it is known which upload it is and so how long it runs. */
+        var endsAtMs: Long?
+        /**
+         * The upload it was answered with before it was asked again, which comes out of the list if
+         * the person picks another: see [replacedBy].
+         */
+        var replaced: SongItem?
+        /**
+         * The songs, as [songId], that searches with a query failing looked for, each with how many
+         * such searches for it in a row: see [MixSearch.failedSearches].
+         */
+        var failedSearches: Map<String, Int>
+    }
+
+    /**
+     * [counts] brought up to date with a search that looked for [lookedFor] ([queried]) because the
+     * answer did not cover [uncovered]. Each song, as [songId], that the answer did not cover and
+     * the search looked for counts one more search in a row with a query failing, or starts again
+     * once every query went through ([complete]). The other songs keep their counts, whichever
+     * songs came back in between. None at all when nothing was uncovered, as for a mashup never
+     * answered or a question asked again and waiting.
+     *
+     * A search where a query failed notes nothing ([follow]), so while one query kept failing,
+     * every return of a song the answer did not cover searched YouTube again, inline on the
+     * listening loop: seven returns of seven, and eleven of eleven. After [FAILED_SEARCHES] such
+     * searches for a song, [follow] notes it as searched for all the same, and its later returns
+     * search no more. A song the answer does not cover yet still searches when it comes back.
+     *
+     * Song by song, not by the songs a search was for: Numb and In The End, neither covered and
+     * coming back in turn, each with Faint, ended each other's run, and every return searched.
+     */
+    fun failedSearches(
+        counts: Map<String, Int>,
+        lookedFor: List<MixWatch.Sighting>,
+        uncovered: List<MixWatch.Sighting>,
+        complete: Boolean,
+    ): Map<String, Int> {
+        if (uncovered.isEmpty()) return emptyMap()
+        val songs = distinctSongs(lookedFor).map(::songId).toSet() intersect distinctSongs(uncovered).map(::songId).toSet()
+        return if (complete) counts - songs else counts + songs.associateWith { (counts[it] ?: 0) + 1 }
+    }
+
+    /**
+     * Brings [answer] up to date with [outcome], the search having looked for the songs [lookedFor]
+     * ([queried]). Those are noted as searched for, unless only a toss-up came of it or the search
+     * failed in some way: in whole, or in part ([complete] false), whatever came of it. A query
+     * that failed may have been the one to find the upload, so, as with [Outcome.STAND_FOR_NOW],
+     * a later return of those songs searches again. Before, a mashup answered or asked about from
+     * a search where one query failed noted its songs all the same. When an upload names a song
+     * the answer did not, the answer is set aside: not settled, asked again and never answered by
+     * itself from then on, no longer known to be the upload it was nor how long it runs, which is
+     * kept as the one it may be replaced by.
+     *
+     * The search having been made because the answer did not cover [uncovered], a song that a query
+     * failing has kept from being noted on [FAILED_SEARCHES] searches in a row is noted as searched
+     * for all the same ([failedSearches]), and such songs are returned, for the log.
+     */
+    fun follow(
+        outcome: Outcome,
+        answer: Answer,
+        lookedFor: List<MixWatch.Sighting>,
+        complete: Boolean,
+        uncovered: List<MixWatch.Sighting>,
+    ): Set<String> {
+        if (outcome.notes && complete) answer.searchedSongs = noted(answer.searchedSongs, lookedFor)
+        val counts = failedSearches(answer.failedSearches, lookedFor, uncovered, complete)
+        val givenUp = counts.filterValues { it >= FAILED_SEARCHES }.keys
+        answer.searchedSongs += givenUp
+        answer.failedSearches = counts - givenUp
+        if (outcome.reopens) {
+            answer.replaced = answer.found ?: answer.replaced
+            answer.settled = false
+            answer.reopened = true
+            answer.found = null
+            answer.endsAtMs = null
+        }
+        return givenUp
+    }
+
+    /**
+     * Whether [winner] is taken without asking: only for a mashup never answered ([Outcome.mayTake]),
+     * once the songs have taken turns ([sure]) and adding without asking is on ([autoAdd]). A question
+     * asked again is asked, however clear the upload.
+     */
+    fun takes(outcome: Outcome, winner: SongItem?, sure: Boolean, autoAdd: Boolean): Boolean =
+        winner != null && autoAdd && sure && outcome.mayTake
+
+    /**
+     * The upload to take back out of the list once the person, asked again, picks [picked]: the one
+     * the question had been answered with before ([Answer.replaced]), unless it is the one picked.
+     * One mashup is one upload, and the person has now said which. After None of these the earlier
+     * one stays: the question was not answered any other way.
+     */
+    fun replacedBy(replaced: SongItem?, picked: SongItem): SongItem? = replaced?.takeIf { it.id != picked.id }
+
+    /**
+     * What a playlist's run calls a mashup it notes in the sheet as heard and not added, or null
+     * for no note: its [winner], or with none the [titles] of its songs. No note when the winner is
+     * [replaced], the upload the mashup was answered with before it was asked again, which is in
+     * the playlist already and was there when the question asked again was noted. While that
+     * question waits, nothing is uncovered, so its next search takes the songs in their usual
+     * order, which puts first the two the earlier answer names, and can find that very upload the
+     * clear winner. A note named after it listed it as heard and not added, though it was in the
+     * playlist; one named after the songs was a second note about the same mashup, under the
+     * titles of whichever songs that return carried.
+     */
+    fun sheetName(winner: SongItem?, replaced: SongItem?, titles: List<String>): String? = when {
+        winner == null -> titles.joinToString(" + ")
+        winner.id == replaced?.id -> null
+        else -> winner.title
+    }
+
     /** A piece's bare title as words: what its versions have in common. */
     fun titleOf(piece: MixWatch.Sighting): String = words(bareTitle(piece.title))
 
@@ -729,7 +1426,7 @@ internal object MixSearch {
 
     /** Whether [item] names [piece], by its title or its artist. */
     fun names(piece: MixWatch.Sighting, item: SongItem): Boolean {
-        val text = " " + words(item.title + " " + item.artists.joinToString(" ") { it.name }) + " "
+        val text = textOf(item)
         val title = words(bareTitle(piece.title))
         val artist = piece.artist?.let { words(primaryArtist(it)) }.orEmpty()
         return (title.length >= 3 && " $title " in text) || (artist.length >= 3 && " $artist " in text)
@@ -737,7 +1434,7 @@ internal object MixSearch {
 
     /** Two points a title named, one an artist, one for a word saying it is a mix. Null under two pieces. */
     internal fun score(pieces: List<MixWatch.Sighting>, item: SongItem): Int? {
-        val text = " " + words(item.title + " " + item.artists.joinToString(" ") { it.name }) + " "
+        val text = textOf(item)
         var named = 0
         var score = 0
         for (piece in distinctSongs(pieces)) {
@@ -794,6 +1491,9 @@ internal object MixSearch {
             .first()
             .trim()
 
+    /** An upload's title and channel as words, padded with a space, for whole-word lookups. */
+    private fun textOf(item: SongItem): String = " " + words(item.title + " " + item.artists.joinToString(" ") { it.name }) + " "
+
     private fun words(text: String): String = text
         .lowercase()
         .replace(Regex("['’]"), "")
@@ -814,6 +1514,25 @@ internal object MixSearch {
     /** Two titles and a mix word, or two titles and both artists. */
     private const val CLEAR_SCORE = 5
     private const val CLEAR_LEAD = 2
+
+    /** Faster than this, uploads are as often called nightcore as sped up. */
+    private const val NIGHTCORE_SPEED = 1.2
+
+    /**
+     * From this fast, an upload saying it is sped up can be what plays. A DJ moves a track by up
+     * to 8 %; sped-up uploads run a fifth to a third fast.
+     */
+    private const val SPED_UP_SPEED = 1.1
+
+    /** From this slow, an upload saying it is slowed can be what plays. Slowed uploads run a sixth or so slow. */
+    private const val SLOWED_SPEED = 0.9
+
+    /** The slowest and fastest a room is taken to play: see [roomSpeed]. */
+    private const val MIN_ROOM_SPEED = 0.5
+    private const val MAX_ROOM_SPEED = 2.0
+
+    /** How many searches in a row for a song, each with a query failing, before it is noted. */
+    const val FAILED_SEARCHES = 3
 
     /** Longer than this is a compilation or a DJ set, not a mashup. */
     private const val MAX_LENGTH_S = 600
