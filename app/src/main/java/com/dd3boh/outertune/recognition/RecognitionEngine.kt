@@ -1274,8 +1274,9 @@ class RecognitionEngine @Inject constructor(
                 active.lastCutMs = now
                 // Still heard with them: its uploads that name the new song come first at the end.
                 active.heard = (active.heard + songs).distinctBy { song -> song.key }
-                // Searched for with another song, and found nowhere with one that the search thinks
-                // more of than the answer given: not searched for again.
+                // Searched for with another song, and nothing found that the person has not turned
+                // down names it with one and is thought more of than the answer given: not searched
+                // for again, once every query went through (MixSearch.follow).
                 MixSearch.follow(outcome, active, lookedFor, search.complete)
                 retract(found.pieces)
             }
