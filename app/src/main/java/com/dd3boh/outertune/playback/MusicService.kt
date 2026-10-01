@@ -1159,9 +1159,10 @@ class MusicService : MediaLibraryService(),
     private val relatedLookupFailures = FailureMemo(RELATED_RETRY_COOLDOWN_MS)
 
     /**
-     * What each song knew about itself when it started, keyed by media id: where its queue came
-     * from, how many songs had autoplayed before it, and the wall clock. Read back when its stats
-     * arrive, because by then the queue may already be a different one.
+     * What each play knew about itself when it started: where its queue came from, how many songs
+     * had autoplayed before it, and the wall clock. Read back when its stats arrive, because by then
+     * the queue may already be a different one. How it is being left (an error it stopped on, the
+     * transition that moved on from it) is kept on it too, see [PlayEnd].
      */
     private class StartInfo(
         val origin: Int,
@@ -1171,7 +1172,7 @@ class MusicService : MediaLibraryService(),
         val autoplayDepth: Int,
         val runId: Long,
         val tappedAt: Long?,
-    ) {
+    ) : PlayEnd() {
         /** When and where sound first came out, set when the row is opened, not when the item was loaded. */
         @Volatile var startedAt: Long = 0L
         @Volatile var startPositionMs: Long = 0L
@@ -1180,25 +1181,13 @@ class MusicService : MediaLibraryService(),
         /** Where the last checkpoint (or the last seek) left the position, to measure forward progress from. */
         @Volatile var lastCheckpointPositionMs: Long = 0L
         @Volatile var opened = false
-        /** Stopped on a playback error and not played since, so however it is left now, it ended in that error. */
-        @Volatile var failed = false
         /** The open listen row for this play: 0 until its insert has run, and completed for whoever waits. */
         @Volatile var rowId: Long = 0L
         val rowReady = kotlinx.coroutines.CompletableDeferred<Long>()
     }
-    /**
-     * Per song id, oldest first. A song can be playing twice over as far as this bookkeeping is
-     * concerned: on repeat-one the next play starts before the stats of the one that ended arrive,
-     * so the stats take the oldest entry and everything about the current play uses the newest.
-     */
-    private val startInfo = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.ConcurrentLinkedDeque<StartInfo>>()
-    private fun currentStart(mediaId: String): StartInfo? = startInfo[mediaId]?.peekLast()
-    private fun takeOldestStart(mediaId: String): StartInfo? {
-        val plays = startInfo[mediaId] ?: return null
-        val oldest = plays.pollFirst()
-        if (plays.isEmpty()) startInfo.remove(mediaId, plays)
-        return oldest
-    }
+    /** The plays being followed, by song, and how each one is being left. */
+    private val plays = PlayBook<StartInfo>()
+    private fun currentStart(mediaId: String): StartInfo? = plays.current(mediaId)
 
     /** Set by anything that is the listener choosing a song, read and cleared by the next transition. */
     @Volatile var userChoicePending = false
@@ -1211,17 +1200,11 @@ class MusicService : MediaLibraryService(),
     private var volumeReceiverRegistered = false
     private var lastRepeatMode = Player.REPEAT_MODE_OFF
 
-    /** How the previous song ended, by media id, written at the transition that ended it. */
-    private val pendingEndReasons = java.util.concurrent.ConcurrentHashMap<String, Int>()
-
     /** What the last radio hop was seeded from, so two hops running never use the same song. */
     @Volatile private var lastRadioSeed: String? = null
 
     /** How far back to look for a finished song when seeding the next radio hop. */
     private val radioAnchorLookback = 10
-    /** The end reason the last closed listen of each song was given, for the rest rule. */
-    private val pendingEndReasonsSeen = java.util.concurrent.ConcurrentHashMap<String, Int>()
-    private var lastMediaId: String? = null
 
     /**
      * Where in the queue the last transition landed, so that going backwards can be told from
@@ -2237,8 +2220,9 @@ class MusicService : MediaLibraryService(),
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
         // However this play is left from here (skip on error seeking past it, the listener moving
-        // on, the service going), it ended in this error, unless it plays again first.
-        player.currentMediaItem?.mediaId?.let(::currentStart)?.failed = true
+        // on, the service going), it ended in this error, unless it plays again first. Before
+        // skipOnError below, which makes the next song current.
+        plays.playerError(player.currentMediaItem?.mediaId)
 
         // Wait for reconnection, but only where a network could help. See waitsForNetwork: a
         // local file that has gone missing used to wait here for good whenever the phone was
@@ -2440,10 +2424,8 @@ class MusicService : MediaLibraryService(),
             val isBufferingOrReady =
                 player.playbackState == Player.STATE_BUFFERING || player.playbackState == Player.STATE_READY
             // Music is coming out of the speaker again, so whatever stopped it is history.
-            if (player.playbackState == Player.STATE_READY) {
-                stoppedByError = false
-                player.currentMediaItem?.mediaId?.let(::currentStart)?.failed = false
-            }
+            if (player.playbackState == Player.STATE_READY) stoppedByError = false
+            plays.playbackState(player.currentMediaItem?.mediaId, player.playbackState)
             if (isBufferingOrReady && player.playWhenReady) {
                 openAudioEffectSession()
             } else {
@@ -2475,14 +2457,6 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
-     * The transition tells us how the song before it ended, and what the new one is starting as.
-     *
-     * The player never says "the previous song was skipped"; it says "we moved to this one, by
-     * seeking". So the reason is recorded against the song that just ended, to be picked up when its
-     * playback stats arrive, and the run of consecutive autoplays is counted so a song that played
-     * sixth in a radio queue is not weighed like one the listener chose.
-     */
-    /**
      * The most recent song in this queue that the listener let finish.
      *
      * Read backwards from where playback is, over a short window: further back than that and it
@@ -2493,20 +2467,20 @@ class MusicService : MediaLibraryService(),
         val current = player.currentMediaItemIndex
         for (i in current downTo maxOf(0, current - radioAnchorLookback)) {
             val id = runCatching { player.getMediaItemAt(i).mediaId }.getOrNull() ?: continue
-            if (pendingEndReasons[id] == EndReason.ENDED) return id
+            if (plays.leftAtItsEnd(id)) return id
         }
         return null
     }
 
+    /**
+     * The transition tells us how the play before it ended, and what the new one is starting as.
+     *
+     * The player never says "the previous song was skipped"; it says "we moved to this one, by
+     * seeking". So the reason is recorded against the play that was in progress, to be picked up
+     * when its playback stats arrive, and the run of consecutive autoplays is counted so a song that
+     * played sixth in a radio queue is not weighed like one the listener chose.
+     */
     private fun noteTransition(mediaItem: MediaItem?, reason: Int) {
-        lastMediaId?.let { previous ->
-            pendingEndReasons[previous] = when (reason) {
-                MEDIA_ITEM_TRANSITION_REASON_AUTO, Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT -> EndReason.ENDED
-                MEDIA_ITEM_TRANSITION_REASON_SEEK -> EndReason.SKIPPED
-                Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED -> EndReason.REPLACED
-                else -> EndReason.UNKNOWN
-            }
-        }
         // Depth resets when the listener chose this song (a new queue, or a tap in the queue sheet,
         // both of which set the mark) and grows otherwise: a song reached by the next button was not
         // chosen, it was the one after the one rejected. A repeat is the same choice again, and a
@@ -2524,7 +2498,7 @@ class MusicService : MediaLibraryService(),
         lastQueueIndex = player.currentMediaItemIndex
         checkpointJob?.cancel()
         val q = queueBoard.getCurrentQueue()
-        val id = mediaItem?.mediaId ?: run { lastMediaId = null; return }
+        val id = mediaItem?.mediaId ?: run { plays.transition(reason, null, null); return }
         val info = StartInfo(
             origin = origin?.code ?: q?.origin ?: PlayOrigin.UNKNOWN.code,
             originSlot = q?.originSlot ?: -1,
@@ -2534,8 +2508,8 @@ class MusicService : MediaLibraryService(),
             runId = q?.runId ?: 0L,
             tappedAt = tap,
         )
-        startInfo.getOrPut(id) { java.util.concurrent.ConcurrentLinkedDeque() }.addLast(info)
-        lastMediaId = id
+        // The play in progress was left for this reason, and this one begins.
+        plays.transition(reason, id, info)
         if (!volumeReceiverRegistered) registerVolumeReceiver()
         // A loaded item is not a listen: the queue restored at launch sits here unplayed. The row
         // opens when sound starts, which is now if playback carried straight over, and otherwise
@@ -2746,32 +2720,20 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
-     * Writes the complete record of a stop, whatever fraction was heard.
-     *
-     * Natural end is read off the stats themselves (endedCount). A play that stopped on a playback
-     * error and was left that way ended in the error. Anything else was cut short, and the
-     * transition that cut it says how; its callback and this one race, so a missing reason is
-     * given a moment to arrive before being called a stop. See [ListenProgress.endReason].
+     * Writes the complete record of a stop, whatever fraction was heard, for a play [closed] has
+     * already taken out of the book with how it ended (see [PlayBook.close]).
      */
     private suspend fun logListen(
         mediaId: String,
+        closed: PlayBook.Closed<StartInfo>,
         playbackStats: PlaybackStats,
         durationSec: Int,
         ratio: Float,
         counted: Boolean,
     ): Long {
         val endedAt = System.currentTimeMillis()
-        val info = takeOldestStart(mediaId)
-        val ended = playbackStats.endedCount > 0
-        // An ENDED waiting here without the stats' own end is an earlier play's, so it is passed
-        // over like a missing reason rather than ending the wait.
-        fun takeTransition() = pendingEndReasons.remove(mediaId)?.takeIf { it != EndReason.ENDED }
-        val transition = if (ended) null else takeTransition() ?: run {
-            delay(300)
-            takeTransition()
-        }
-        val endReason = ListenProgress.endReason(ended, info?.failed == true, transition)
-        pendingEndReasonsSeen[mediaId] = endReason
+        val info = closed.play
+        val endReason = closed.endReason
         // Zero is "never opened", not a time: the start info exists before its listen is opened,
         // and one that closed without opening wrote its whole row dated 1970 (one on his phone, a
         // radio play on 19 Sep). The fallback covers it the same as a missing info.
@@ -2854,6 +2816,8 @@ class MusicService : MediaLibraryService(),
             val historyPaused = dataStore.get(PauseListenHistoryKey, false)
             val counted = playRatio >= minPlaybackDur
             var listenId = 0L
+            // How this play ended, once its row is written: its own, never another play's.
+            var endReason: Int? = null
             // The complete record, under the same privacy switch as the counted play. Every song
             // that actually sounded goes in, however briefly: a second of something before
             // skipping it is still a fact about what was played, and the row carries `counted` so
@@ -2861,16 +2825,19 @@ class MusicService : MediaLibraryService(),
             // never produced any audio at all is left out, because that is the player settling
             // rather than anything the user did.
             if (!historyPaused && playbackStats.totalPlayTimeMs > 0) {
-                listenId = runCatching { logListen(mediaItem.mediaId, playbackStats, durationSec, playRatio, counted) }
-                    .onFailure { Log.w(TAG, "Could not log listen", it) }.getOrDefault(0L)
+                listenId = runCatching {
+                    val closed = plays.close(mediaItem.mediaId, endedByPlayer = playbackStats.endedCount > 0) { delay(300) }
+                    endReason = closed.endReason
+                    logListen(mediaItem.mediaId, closed, playbackStats, durationSec, playRatio, counted)
+                }.onFailure { Log.w(TAG, "Could not log listen", it) }.getOrDefault(0L)
             } else {
-                takeOldestStart(mediaItem.mediaId)?.let(::discardListen)
-                pendingEndReasons.remove(mediaItem.mediaId); lastKnownPosition.remove(mediaItem.mediaId)
+                plays.takeOldest(mediaItem.mediaId)?.let(::discardListen)
+                lastKnownPosition.remove(mediaItem.mediaId)
             }
             // Rest songs I skip: a skip before the middle of a liked or often-played song rests it
             // from the engine row for a week, so a mood does not become a verdict.
             if (!historyPaused && playRatio in 0f..0.5f && playbackStats.totalPlayTimeMs >= 30_000 &&
-                pendingEndReasonsSeen[mediaItem.mediaId] == EndReason.SKIPPED && dataStore.get(RestSongsISkipKey, false)
+                endReason == EndReason.SKIPPED && dataStore.get(RestSongsISkipKey, false)
             ) {
                 val title = mediaItem.metadata?.title ?: mediaItem.mediaId
                 database.query {

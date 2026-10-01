@@ -75,10 +75,11 @@ object ListenProgress {
      * skip could rest a liked song for a week over a 403.
      *
      * A transition only leaves ENDED for a natural end or a repeat, and the player counts both of
-     * those itself. One found without that count belongs to an earlier play of the same song (it
-     * is kept for the radio's anchor), so it is not how this one ended. On repeat one every repeat
-     * leaves one, and a repeat paused and then closed with the service was written as played to
-     * the end: 14 rows on his phone on 28 Sep, every one straight after a repeat of the same song.
+     * those itself, so ENDED is never taken from a transition alone: without the player's count it
+     * is a stop. When reasons were kept by song, a repeat paused and then closed with the service
+     * took the ENDED its own repeat had left and was written as played to the end: 14 rows on his
+     * phone on 28 Sep, every one straight after a repeat of the same song. [PlayBook] now keeps each
+     * reason on its play, and this rule stays as the second guard.
      */
     fun endReason(endedByPlayer: Boolean, failed: Boolean, transition: Int?): Int = when {
         endedByPlayer -> EndReason.ENDED
