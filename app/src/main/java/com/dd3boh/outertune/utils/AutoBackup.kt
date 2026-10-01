@@ -416,20 +416,27 @@ object AutoBackup {
     /**
      * The backups that setting Keep to [keep] would delete from the folder as it is now, by the
      * same listing and the same AutoBackupPolicy.toDelete that pruning uses, so that Settings can
-     * say how many before it does. Empty when there is no folder, when it cannot be written to
-     * (applyKeep deletes nothing there either), or when it cannot be listed. Runs off the main
-     * thread by itself.
+     * say how many before it does. Runs off the main thread by itself.
+     *
+     * Empty when there is nothing to delete, which includes having no folder at all. Null when
+     * there is a folder but it could not be read: the provider is offline, the card is out, the
+     * grant is gone, or the folder cannot be written to, where applyKeep deletes nothing either.
+     * Those two are kept apart because the next backup that does reach the folder still prunes
+     * it to [keep], so a folder that could not be read is not one with nothing to lose.
      */
-    suspend fun wouldDelete(context: Context, keep: Int): List<String> = withContext(Dispatchers.IO) {
+    suspend fun wouldDelete(context: Context, keep: Int): List<String>? = withContext(Dispatchers.IO) {
         try {
-            val tree = writableFolder(context) ?: return@withContext emptyList()
+            val folder = context.dataStore.data.first()[AutoBackupFolderKey] ?: ""
+            if (folder.isBlank()) return@withContext emptyList()
+            val tree = DocumentFile.fromTreeUri(context, folder.toUri())?.takeIf { it.canWrite() }
+                ?: throw IOException("The backup folder cannot be written to")
             val names = listChildren(context, tree.uri).map { it.first }
             AutoBackupPolicy.toDelete(context.getString(R.string.app_name), names, keep)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Could not list the backup folder to count what Keep $keep would delete", e)
-            emptyList()
+            null
         }
     }
 

@@ -113,6 +113,40 @@ object AutoBackupPolicy {
 
     private class Backup(val name: String, val stamp: String, val copy: Int)
 
+    /** What letting go of the Keep slider at a new value does. */
+    sealed interface KeepChange {
+        /** The new value is saved and nothing is deleted now. */
+        data object Save : KeepChange
+
+        /** Ask before deleting [doomed], which is what the new value deletes from the folder as it is. */
+        data class AskCount(val doomed: List<String>) : KeepChange
+
+        /** Ask without a number: the folder could not be read, so nothing was counted. */
+        data object AskUnknown : KeepChange
+    }
+
+    /**
+     * What a Keep change from [oldKeep] to [newKeep] does. [count] is what AutoBackup.wouldDelete
+     * finds in the folder at [newKeep], null when the folder could not be listed. It is only asked
+     * for when the answer depends on it.
+     *
+     * Raising Keep, or leaving it, saves, without asking and without deleting anything at that
+     * moment, whatever the folder holds and whether or not it can be read. The next backup prunes
+     * to the saved Keep as it always has.
+     *
+     * Lowering it is the only change that deletes at once, and only after asking: with the number
+     * when there are backups to lose, and without one when the folder could not be read (provider
+     * offline, card removed, grant lost). That is not the same as nothing to lose, because the next
+     * backup that reaches the folder deletes down to the new Keep. With nothing to lose it saves.
+     *
+     * Inline so that [count], which lists the folder, can suspend.
+     */
+    inline fun keepChange(oldKeep: Int, newKeep: Int, count: () -> List<String>?): KeepChange {
+        if (newKeep >= oldKeep) return KeepChange.Save
+        val doomed = count() ?: return KeepChange.AskUnknown
+        return if (doomed.isEmpty()) KeepChange.Save else KeepChange.AskCount(doomed)
+    }
+
     /**
      * Whether a run should write nothing, because the backup it is for has already been made.
      *

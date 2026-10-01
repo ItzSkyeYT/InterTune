@@ -65,6 +65,7 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.utils.AutoBackup
+import com.dd3boh.outertune.utils.AutoBackupPolicy
 import com.dd3boh.outertune.utils.M3u
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.reportException
@@ -306,15 +307,16 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             description = pluralStringResource(R.plurals.auto_backup_keep_count, keepShown, keepShown),
             onClick = null,
         )
-        // A new Keep that would delete backups asks first, since that cannot be undone, and says
-        // how many. They are counted on the folder as it is, off the main thread, by the same rule
-        // pruning follows, and only those are deleted. A Keep that deletes nothing is applied at
-        // once as before. Raising it almost always is one, but not always: a folder can hold more
-        // than the old Keep (copies put there by hand, or left from before Keep was applied at
-        // once), and then raising it still deletes some, so that asks too.
+        // What letting go does is AutoBackupPolicy.keepChange. Raising Keep only saves it, never
+        // asks and never deletes anything then; the next backup prunes to it as always. Lowering
+        // it asks first when it would delete backups, since that cannot be undone. They are counted
+        // on the folder as it is, off the main thread, by the same rule pruning follows, the dialog
+        // says how many, and only those are deleted. A folder that could not be read is asked about
+        // without a number, because the next backup that reaches it will still delete down to the
+        // new Keep. A lower Keep that deletes nothing is saved at once.
         val keepScope = rememberCoroutineScope()
         var keepCount by remember { mutableStateOf<Job?>(null) }
-        var keepToConfirm by remember { mutableStateOf<Pair<Int, List<String>>?>(null) }
+        var keepToConfirm by remember { mutableStateOf<Pair<Int, AutoBackupPolicy.KeepChange>?>(null) }
         val keepInteraction = remember { MutableInteractionSource() }
         Slider(
             value = keepShown.toFloat(),
@@ -324,13 +326,15 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             // broken. Handed the number rather than left to read the preference, which has not
             // landed yet.
             onValueChangeFinished = {
+                val old = autoBackupKeep
                 val keep = keepShown
                 // A count for where the thumb was before is no longer the question.
                 keepCount?.cancel()
-                keepCount = if (keep == autoBackupKeep) null else keepScope.launch {
-                    val doomed = AutoBackup.wouldDelete(context, keep)
-                    if (doomed.isEmpty()) onAutoBackupKeepChange(keep)
-                    else keepToConfirm = keep to doomed
+                keepCount = if (keep == old) null else keepScope.launch {
+                    when (val change = AutoBackupPolicy.keepChange(old, keep) { AutoBackup.wouldDelete(context, keep) }) {
+                        AutoBackupPolicy.KeepChange.Save -> onAutoBackupKeepChange(keep)
+                        else -> keepToConfirm = keep to change
+                    }
                 }
             },
             valueRange = AutoBackup.KEEP_MIN.toFloat()..AutoBackup.KEEP_MAX.toFloat(),
@@ -354,7 +358,9 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             modifier = Modifier.padding(horizontal = 16.dp),
         )
 
-        keepToConfirm?.let { (keep, doomed) ->
+        keepToConfirm?.let { (keep, change) ->
+            // Null when the folder could not be read and nothing was counted.
+            val doomed = (change as? AutoBackupPolicy.KeepChange.AskCount)?.doomed
             // Cancel, Back and a tap outside all leave Keep as it was and put the thumb back.
             val cancel = {
                 keepToConfirm = null
@@ -366,7 +372,8 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                 // Padded to line up with the text below, as ExplainDialog does.
                 title = {
                     Text(
-                        pluralStringResource(R.plurals.auto_backup_keep_confirm, doomed.size, doomed.size),
+                        if (doomed != null) pluralStringResource(R.plurals.auto_backup_keep_confirm, doomed.size, doomed.size)
+                        else stringResource(R.string.auto_backup_keep_unknown_title),
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
                     )
                 },
@@ -378,15 +385,19 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                         onClick = {
                             keepToConfirm = null
                             onAutoBackupKeepChange(keep)
-                            AutoBackup.applyKeep(context, keep, doomed)
+                            // With no count nothing was agreed to by name, so nothing goes now.
+                            // The next backup that reaches the folder prunes it.
+                            if (doomed != null) AutoBackup.applyKeep(context, keep, doomed)
                         }
                     ) {
-                        Text(stringResource(R.string.delete))
+                        Text(stringResource(if (doomed != null) R.string.delete else R.string.auto_backup_keep_lower))
                     }
                 },
             ) {
                 Text(
-                    text = stringResource(R.string.auto_backup_keep_confirm_text),
+                    text = stringResource(
+                        if (doomed != null) R.string.auto_backup_keep_confirm_text else R.string.auto_backup_keep_unknown_text
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )

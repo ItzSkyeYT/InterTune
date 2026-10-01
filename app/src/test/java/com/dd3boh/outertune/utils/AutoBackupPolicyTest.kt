@@ -8,6 +8,9 @@ package com.dd3boh.outertune.utils
 
 import androidx.work.ExistingPeriodicWorkPolicy.KEEP
 import androidx.work.ExistingPeriodicWorkPolicy.UPDATE
+import com.dd3boh.outertune.utils.AutoBackupPolicy.KeepChange.AskCount
+import com.dd3boh.outertune.utils.AutoBackupPolicy.KeepChange.AskUnknown
+import com.dd3boh.outertune.utils.AutoBackupPolicy.KeepChange.Save
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -394,6 +397,45 @@ class AutoBackupPolicyTest {
         val doomed = AutoBackupPolicy.confirmedToDelete("InterTune Preview", folder, 2, counted)
         assertEquals(folder.take(9), doomed)
         assertEquals(folder.takeLast(2), folder - doomed.toSet())
+    }
+
+    // What letting go of the Keep slider does.
+
+    /** [folder] is the listing, null when it could not be read. */
+    private fun keepChange(old: Int, new: Int, folder: List<String>?) =
+        AutoBackupPolicy.keepChange(old, new) { folder?.let { AutoBackupPolicy.toDelete("InterTune Preview", it, new) } }
+
+    @Test
+    fun `raising Keep only saves, and does not even look at the folder`() {
+        // His folder held 14 at Keep 5. Raising to 6 used to ask to delete eight there and then.
+        for ((old, new) in listOf(5 to 6, 1 to 20, 13 to 14, 5 to 5)) {
+            assertEquals("$old to $new", Save, AutoBackupPolicy.keepChange(old, new) { throw AssertionError("counted for $old to $new") })
+        }
+        assertEquals(Save, keepChange(5, 6, previewFolder))
+        // Not even when the folder cannot be read.
+        assertEquals(Save, keepChange(5, 6, null))
+    }
+
+    @Test
+    fun `lowering Keep with backups to lose asks, and says how many`() {
+        assertEquals(AskCount(previewFolder.take(9)), keepChange(14, 5, previewFolder))
+        assertEquals(AskCount(previewFolder.take(13)), keepChange(20, 1, previewFolder))
+    }
+
+    @Test
+    fun `lowering Keep with nothing to lose saves`() {
+        assertEquals(Save, keepChange(20, 14, previewFolder))
+        assertEquals(Save, keepChange(5, 3, emptyList()))
+        // Files of other builds and the user's own are not ours to count.
+        assertEquals(Save, keepChange(5, 1, listOf("InterTune_25_20260930211700.backup", "notes.txt")))
+    }
+
+    @Test
+    fun `lowering Keep when the folder cannot be read asks without a number`() {
+        // Provider offline, card out, grant lost. Not the same as nothing to lose: the next
+        // backup that reaches the folder deletes down to the new Keep.
+        assertEquals(AskUnknown, keepChange(14, 5, null))
+        assertEquals(AskUnknown, keepChange(2, 1, null))
     }
 
     // Whether a run writes at all.
