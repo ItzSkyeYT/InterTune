@@ -38,6 +38,13 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
 /**
@@ -189,17 +196,47 @@ class BackgroundCheckWorker(
         val INTERVAL_CHOICES = listOf(0, 1, 2, 5, 10, 24)
 
         /**
-         * Applies the current setting, replacing whatever was scheduled before.
+         * schedule() calls, applied one at a time in the order they were made. Off the main thread,
+         * where every caller is, because finding out what is scheduled is a query of WorkManager's
+         * database. In order, so that two quick picks in Settings end on the second.
+         */
+        private val scheduleCalls = Channel<suspend () -> Unit>(Channel.UNLIMITED).also { calls ->
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                for (call in calls) {
+                    try {
+                        call()
+                    } catch (e: Exception) {
+                        // Nobody to hand it to, and one failed call must not stop the ones after it.
+                        Log.w(TAG, "Could not apply the background check schedule", e)
+                    }
+                }
+            }
+        }
+
+        /**
+         * Applies the current setting: cancels the checks when it is off, schedules them when they
+         * are not scheduled, and replaces the schedule only when it was made for another interval
+         * ([backgroundCheckPolicy]).
          *
-         * Safe to call on every launch and on every change: the work is keyed by name and the
-         * existing schedule is replaced rather than stacked.
+         * It used to replace the schedule on every call, and every launch calls it. In WorkManager
+         * 2.8.1 replacing (ExistingPeriodicWorkPolicy.UPDATE) keeps the time of the last run but
+         * resets the count of runs to zero, and a periodic run with a count of zero is due at the
+         * time of the last one: in the past. So with the checks on, every launch ran one at once,
+         * whatever the interval. AutoBackup.schedule had the same problem and has the same fix.
+         *
+         * Returns at once and applies shortly after, in order with the other calls.
          */
         fun schedule(context: Context, hoursOverride: Int? = null) {
+            val appContext = context.applicationContext
+            scheduleCalls.trySend { applySchedule(appContext, hoursOverride) }
+        }
+
+        private suspend fun applySchedule(context: Context, hoursOverride: Int?) {
             // The caller may pass the value it has just chosen. Re-reading the datastore here was
             // the first version and it was wrong: the preference setter is fire and forget, so a
             // schedule call straight after it reads the old value and the setting appeared to do
             // nothing at all. The same trap PollsOptInCard documents.
-            val hours = hoursOverride ?: context.dataStore.get(BackgroundCheckHoursKey, 0)
+            val hours = hoursOverride ?: context.dataStore.data.first()[BackgroundCheckHoursKey] ?: 0
             val manager = WorkManager.getInstance(context)
 
             if (hours <= 0) {
@@ -208,21 +245,53 @@ class BackgroundCheckWorker(
                 return
             }
 
+            // A cancelled schedule stays listed until WorkManager clears it out, and is not one:
+            // enqueueing over it starts afresh whatever the policy.
+            val current = manager.getWorkInfosForUniqueWork(WORK_NAME).await().firstOrNull { !it.state.isFinished }
+            val policy = backgroundCheckPolicy(current?.tags, hours)
             val request = PeriodicWorkRequestBuilder<BackgroundCheckWorker>(
                 hours.toLong(), TimeUnit.HOURS
             ).setConstraints(
                 // No point waking to make two requests that cannot be made.
                 Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
-            ).build()
+            ).addTag(backgroundCheckTag(hours)).build()
 
-            manager.enqueueUniquePeriodicWork(
-                WORK_NAME,
-                ExistingPeriodicWorkPolicy.UPDATE,
-                request,
+            manager.enqueueUniquePeriodicWork(WORK_NAME, policy, request)
+            Log.i(
+                TAG,
+                "Background checks every ${hours}h, " + when {
+                    current == null -> "scheduled"
+                    policy == ExistingPeriodicWorkPolicy.KEEP -> "already scheduled"
+                    else -> "schedule replaced"
+                }
             )
-            Log.i(TAG, "Background checks every ${hours}h")
         }
     }
+}
+
+private const val BACKGROUND_CHECK_TAG = "background_checks_interval_hours="
+
+/**
+ * The tag the background check schedule carries, saying which interval it was made for, since
+ * WorkManager 2.8.1 cannot say. Stored with the schedule, so changing its format replaces every
+ * schedule once.
+ */
+internal fun backgroundCheckTag(hours: Int): String = "$BACKGROUND_CHECK_TAG$hours"
+
+/**
+ * How BackgroundCheckWorker.schedule enqueues the schedule for [hours], given the tags of the one
+ * there now ([scheduledTags], null when there is none). KEEP when it was made for [hours], which is
+ * every launch where nothing changed, since replacing makes a check due at once in 2.8.1. KEEP also
+ * when there is none, where it simply enqueues. UPDATE when it was made for another interval, which
+ * is a new pick in Settings or a Restore that brought another one back, or does not say, which is a
+ * schedule from before the tag and is replaced once.
+ */
+internal fun backgroundCheckPolicy(scheduledTags: Collection<String>?, hours: Int): ExistingPeriodicWorkPolicy {
+    if (scheduledTags == null) return ExistingPeriodicWorkPolicy.KEEP
+    val scheduled = scheduledTags.firstNotNullOfOrNull { tag ->
+        if (tag.startsWith(BACKGROUND_CHECK_TAG)) tag.removePrefix(BACKGROUND_CHECK_TAG).toIntOrNull() else null
+    }
+    return if (scheduled == hours) ExistingPeriodicWorkPolicy.KEEP else ExistingPeriodicWorkPolicy.UPDATE
 }
 
 /**

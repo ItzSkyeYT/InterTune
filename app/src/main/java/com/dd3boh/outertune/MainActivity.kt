@@ -591,18 +591,16 @@ class MainActivity : ComponentActivity() {
                     if (savedInstanceState == null) pollChecker.adoptNewsChoice()
                     pollChecker.check()
                 }
-                // Re-applied on every launch, cheap because the work is keyed by name and replaced
-                // rather than stacked. This is also what puts the schedule back after a reboot,
-                // since WorkManager needs the app to run once before it will restore its own.
+                // Re-applied on every launch, once. This is also what puts the schedule back after
+                // a reboot, since WorkManager needs the app to run once before it will restore its
+                // own. A schedule that is there is kept, and replaced only when it was made for
+                // another interval than the setting says, because replacing made every launch a
+                // check (BackgroundCheckWorker.schedule says why).
                 BackgroundCheckWorker.schedule(this@MainActivity)
 
                 // And the same again for the once-a-day count: off unless asked for, silent when
                 // it fails, and a no-op on every open after the first one each day.
                 coroutineScope.launch { activeCount.ping() }
-                // Re-applied on every launch, cheap because the work is keyed by name and replaced
-                // rather than stacked. This is also what puts the schedule back after a reboot,
-                // since WorkManager needs the app to run once before it will restore its own.
-                BackgroundCheckWorker.schedule(this@MainActivity)
                 // Scheduled backups: a no-op until the switch is on, and otherwise puts the schedule
                 // back if it is missing. It replaces one that is there only when it was made for
                 // another interval than the settings say, as after a Restore, because replacing
