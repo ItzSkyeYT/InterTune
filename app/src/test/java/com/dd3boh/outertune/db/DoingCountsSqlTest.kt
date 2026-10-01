@@ -7,7 +7,9 @@
 package com.dd3boh.outertune.db
 
 import com.dd3boh.outertune.constants.EndReason
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.db.daos.CardsSeenRow
+import com.dd3boh.outertune.db.daos.ListenDao.CodeCount
 import com.dd3boh.outertune.db.daos.ListenDao.EndCount
 import com.dd3boh.outertune.db.daos.TeamOutcome
 import com.dd3boh.outertune.engine.EndLabel
@@ -15,6 +17,7 @@ import com.dd3boh.outertune.engine.EngineSql
 import com.dd3boh.outertune.engine.cardsByTeam
 import com.dd3boh.outertune.engine.endCounts
 import com.dd3boh.outertune.engine.endLabel
+import com.dd3boh.outertune.engine.originCounts
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -49,12 +52,14 @@ class DoingCountsSqlTest {
             VALUES ($id, 1, 'a', $slot, $team, $outcome, 1000, ${if (tapped) 1100 else "NULL"}, $y, ${if (graded) 2000 else "NULL"})""")
     }
 
-    private fun listen(endReason: Int, ratio: Float) {
+    private fun listen(endReason: Int, ratio: Float, origin: PlayOrigin = PlayOrigin.UNKNOWN, runId: Long = 0, depth: Int = 0) {
         id++
         exec("""INSERT INTO listen(id, songId, startedAt, endedAt, tzOffsetMin, playedMs, durationMs, ratio, endReason, origin,
-            originSlot, queueId, autoplayDepth, sessionId, counted, learn)
-            VALUES ($id, 'a', $id, ${id + 1}, 0, 1000, 200000, $ratio, $endReason, 0, -1, 0, 0, 1, 0, 1)""")
+            originSlot, queueId, autoplayDepth, sessionId, counted, learn, runId)
+            VALUES ($id, 'a', $id, ${id + 1}, 0, 1000, 200000, $ratio, $endReason, ${origin.code}, -1, 0, $depth, 1, 0, 1, $runId)""")
     }
+
+    private fun started(origin: PlayOrigin, runId: Long, depth: Int) = listen(EndReason.ENDED, 1f, origin, runId, depth)
 
     private fun cardsSeen(): List<CardsSeenRow> = db.createStatement().use { st ->
         st.executeQuery(EngineSql.CARDS_SEEN).use { rs ->
@@ -67,6 +72,12 @@ class DoingCountsSqlTest {
     private fun gradedByTeam(): List<TeamOutcome> = db.createStatement().use { st ->
         st.executeQuery(EngineSql.GRADED_BY_TEAM).use { rs ->
             buildList { while (rs.next()) add(TeamOutcome(rs.getInt("team"), rs.getInt("outcome"), rs.getInt("n"), rs.getInt("wins"))) }
+        }
+    }
+
+    private fun startsByOrigin(): List<CodeCount> = db.createStatement().use { st ->
+        st.executeQuery(EngineSql.STARTS_BY_ORIGIN).use { rs ->
+            buildList { while (rs.next()) add(CodeCount(rs.getInt("code"), rs.getInt("n"))) }
         }
     }
 
@@ -113,5 +124,29 @@ class DoingCountsSqlTest {
             .groupingBy { it }.eachCount().toSortedMap().toList()
         assertEquals(expected, endCounts(byEnd()))
         assertEquals(listOf(EndLabel.REACHED_END to 4, EndLabel.ENDED_EARLY to 3, EndLabel.SKIPPED to 1, EndLabel.IN_PROGRESS to 1), endCounts(byEnd()))
+    }
+
+    @Test
+    fun `where you started playing counts each start once, not the songs that played on after it`() {
+        // One tapped Quick picks card that went on into a radio, with a press of previous in it.
+        started(PlayOrigin.QUICK_PICKS, runId = 10, depth = 0)
+        started(PlayOrigin.QUICK_PICKS, runId = 10, depth = 1)
+        started(PlayOrigin.QUICK_PICKS, runId = 10, depth = 2)
+        started(PlayOrigin.QUICK_PICKS, runId = 10, depth = 0)
+        // Two searches.
+        started(PlayOrigin.SEARCH, runId = 20, depth = 0)
+        started(PlayOrigin.SEARCH, runId = 21, depth = 0)
+        // A run whose first listens are gone still started once.
+        started(PlayOrigin.DISCOVER, runId = 30, depth = 3)
+        started(PlayOrigin.DISCOVER, runId = 30, depth = 4)
+        // From before runs were kept: the old play log, all chosen, and one song that played on.
+        started(PlayOrigin.UNKNOWN, runId = 0, depth = 0)
+        started(PlayOrigin.UNKNOWN, runId = 0, depth = 0)
+        started(PlayOrigin.UNKNOWN, runId = 0, depth = 3)
+
+        assertEquals(
+            listOf(PlayOrigin.SEARCH to 2, PlayOrigin.QUICK_PICKS to 1, PlayOrigin.DISCOVER to 1, PlayOrigin.UNKNOWN to 2),
+            originCounts(startsByOrigin()),
+        )
     }
 }

@@ -113,7 +113,7 @@ fun RecommendationsDoingSettings(
     val counted by viewModel.counted.collectAsState(initial = 0)
     val sessions by viewModel.sessions.collectAsState(initial = 0)
     val byEnd by viewModel.byEnd.collectAsState(initial = emptyList())
-    val byOrigin by viewModel.byOrigin.collectAsState(initial = emptyList())
+    val startsByOrigin by viewModel.startsByOrigin.collectAsState(initial = emptyList())
     val cardsSeenRows by viewModel.cardsSeen.collectAsState(initial = emptyList())
     val signals by viewModel.signals.collectAsState(initial = 0)
     val recent by viewModel.recent.collectAsState(initial = emptyList())
@@ -310,10 +310,12 @@ fun RecommendationsDoingSettings(
                     .ifBlank { stringResource(R.string.recommendations_nothing_yet) },
                 meaning = stringResource(R.string.recommendations_how_they_ended_meaning),
             )
+            // Starts, not songs: counted by song, one tapped card that started a radio gave every
+            // song after it, and "quick picks 4" stood above "2 tapped" under Cards you saw.
             StatEntry(
                 title = stringResource(R.string.recommendations_where_from),
                 explanation = stringResource(R.string.recommendations_where_from_info),
-                numbers = originCounts(byOrigin).joinToString(", ") { (origin, n) -> "${originLabel(origin)} $n" }
+                numbers = originCounts(startsByOrigin).joinToString(", ") { (origin, n) -> "${originLabel(origin)} $n" }
                     .ifBlank { stringResource(R.string.recommendations_nothing_yet) },
                 meaning = stringResource(R.string.recommendations_where_from_meaning),
             )

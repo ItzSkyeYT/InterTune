@@ -90,6 +90,21 @@ object EngineSql {
         FROM listen GROUP BY code, early
     """
 
+    /**
+     * Where you started playing: how many times you started something from each place, not how
+     * many songs played. The place is noted on the queue, so every song a queue plays carries it,
+     * and counted by song, one tapped card that started a radio gave every song after it: "quick
+     * picks 4" stood above "2 tapped" under Cards you saw. A start is a run, one play of one queue
+     * (see MultiQueueObject.runId), so going back within it is not a second start. A listen from
+     * before runs were kept has none, and counts when it was chosen rather than played on, as
+     * every listen from the old play log was.
+     */
+    const val STARTS_BY_ORIGIN = """
+        SELECT origin AS code,
+            COUNT(DISTINCT CASE WHEN runId != 0 THEN runId END) + COUNT(CASE WHEN runId = 0 AND autoplayDepth = 0 THEN 1 END) AS n
+        FROM listen GROUP BY origin
+    """
+
     /** Everything applied so far, in the order it was applied: a rebuild replays exactly this. */
     const val APPLIED_EXAMPLES = "SELECT * FROM impression WHERE appliedAt IS NOT NULL AND features IS NOT NULL AND u > 0 ORDER BY appliedAt, id"
 

@@ -48,7 +48,7 @@ class RecommendationsViewModel @Inject constructor(
     val counted = database.countedListenCount()
     val sessions = database.sessionCount()
     val byEnd = database.listensByEnd()
-    val byOrigin = database.listensByOrigin()
+    val startsByOrigin = database.startsByOrigin()
     val cardsSeen = database.cardsSeen()
     val signals = database.signalCount()
     val activeExclusions = database.activeExclusionCount(System.currentTimeMillis())

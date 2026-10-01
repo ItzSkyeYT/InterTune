@@ -295,8 +295,8 @@ interface ListenDao {
     @Query(EngineSql.LISTENS_BY_END)
     fun listensByEnd(): Flow<List<EndCount>>
 
-    @Query("SELECT origin AS code, COUNT(*) AS n FROM listen GROUP BY origin")
-    fun listensByOrigin(): Flow<List<CodeCount>>
+    @Query(EngineSql.STARTS_BY_ORIGIN)
+    fun startsByOrigin(): Flow<List<CodeCount>>
 
     @Query(EngineSql.CARDS_SEEN)
     fun cardsSeen(): Flow<List<CardsSeenRow>>
