@@ -313,6 +313,11 @@ class RecognitionEngine @Inject constructor(
         override var searchedSongs: Set<String> = emptySet(),
         override var reopened: Boolean = false,
         override var replaced: SongItem? = null,
+        /**
+         * The uploads, as ids, that a choice for it offered and the person answered None of these
+         * to. Its later searches leave them out: see [MixSearch.turnedDown].
+         */
+        var declined: Set<String> = emptySet(),
         /** When the first of its pieces was heard, since the last mashup ended. */
         var startedMs: Long = 0,
         override var endsAtMs: Long? = null,
@@ -1206,7 +1211,11 @@ class RecognitionEngine @Inject constructor(
         // The songs its answer does not cover go into the queries, which take only two titles.
         val order = MixSearch.searchOrder(songs, uncovered)
         val search = searchMix(order, speed)
-        val ranked = search.ranked?.filter { MixSearch.couldBe(it.first, heardSeconds(started, now), speed) }
+        // Not the uploads the person already said it is none of: they neither reopen an answer nor
+        // come back on a choice.
+        val declined = active?.declined.orEmpty()
+        val ranked = MixSearch.notDeclined(search.ranked, declined)?.filter { MixSearch.couldBe(it.first, heardSeconds(started, now), speed) }
+        val turnedDown = search.ranked.orEmpty().filter { it.first.id in declined }
         // Stopped or cleared while the search ran: YouTube.search catches the cancellation, so
         // without this the rest would carry on against a run that no longer exists.
         currentCoroutineContext().ensureActive()
@@ -1215,7 +1224,8 @@ class RecognitionEngine @Inject constructor(
         Log.i(
             TAG,
             "Mashup of ${titles.joinToString(" + ")}? strong=${found.strong}, sure=${found.sure}, " +
-                    (ranked?.take(3)?.joinToString { "'${it.first.title}' ${it.second}" } ?: "search failed"),
+                    (ranked?.take(3)?.joinToString { "'${it.first.title}' ${it.second}" } ?: "search failed") +
+                    if (turnedDown.isEmpty()) "" else "; left out, None of these before: ${turnedDown.joinToString { "'${it.first.title}'" }}",
         )
         // What came of it, and why: which upload was taken or put first, or why none was.
         fun picked(what: String) = Log.i(TAG, "Mashup of ${titles.joinToString(" + ")}: $what")
@@ -1653,6 +1663,9 @@ class RecognitionEngine @Inject constructor(
                 it.settled = true
                 // None of these: the songs the searches looked for stay covered, and no others.
                 it.searchedSongs = MixSearch.afterChoice(it.searchedSongs, choice.songs, null)
+                // And none of the uploads it offered is the mashup: a later search leaves them out,
+                // so a song coming back asks only about an upload the person has not turned down.
+                it.declined = MixSearch.turnedDown(it.declined, choice.candidates)
             }
             dropChoice(choice.id)
         }

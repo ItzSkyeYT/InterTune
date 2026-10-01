@@ -1074,6 +1074,25 @@ internal object MixSearch {
         if (picked == null) searchedSongs else searchedSongs + listed
 
     /**
+     * The uploads, as ids, that the person has turned down: [declined], and every upload [offered]
+     * by a choice answered None of these. None of them is the mashup, so a later search leaves them
+     * out ([notDeclined]): they neither reopen the answer nor come back on a choice, and the search
+     * asks again only for an upload the person has not seen and turned down already.
+     *
+     * In the second review's probes the same choice came back. Faint and No Love searched for after
+     * the one-song choice for Faint, with a query failing, noted nothing; None of these, and No
+     * Love's next return searched again and offered the same two uploads (P3). A reopen from a
+     * search with a query failing did the same on every return for as long as the query kept
+     * failing (P4). And None of these on a reopened choice left a song only the answer set aside
+     * had named uncovered, whose next return offered the same uploads once more (P5).
+     */
+    fun turnedDown(declined: Set<String>, offered: List<SongItem>): Set<String> = declined + offered.map { it.id }
+
+    /** [ranked] without the uploads the person turned down ([turnedDown]); null, a failed search, as it was. */
+    fun notDeclined(ranked: List<Pair<SongItem, Int>>?, declined: Set<String>): List<Pair<SongItem, Int>>? =
+        ranked?.filterNot { it.first.id in declined }
+
+    /**
      * What becomes of a mashup once the search for its songs is back: see [outcome].
      *
      * @param goesOn worked out from what the search found: its uploads become the choice, and it is
