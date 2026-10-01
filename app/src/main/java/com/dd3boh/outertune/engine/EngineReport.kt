@@ -106,8 +106,13 @@ fun trendOf(recent: CardCounts, earlier: CardCounts, minCards: Int = MIN_TREND_C
 
 /** What the card at the top of How it's doing says. */
 sealed interface DoingSummary {
-    /** Another source fills Quick picks and the engine has no cards of its own to count. */
-    data object NotSource : DoingSummary
+    /**
+     * Another source fills Quick picks and the engine has no judged cards of its own to count.
+     * [waiting] is how many it showed while it was the source that are not judged yet: they will
+     * be, and then show as numbers from before, so "it has nothing to show" was untrue beside
+     * Cards you saw listing them.
+     */
+    data class NotSource(val waiting: Int = 0) : DoingSummary
 
     /** The engine fills Quick picks but nothing it showed has been judged yet. */
     data object Waiting : DoingSummary
@@ -124,7 +129,7 @@ sealed interface DoingSummary {
 
 fun doingSummary(engineShowing: Boolean, teams: List<TeamCards>, trend: CardTrendRow?, waiting: Int = 0): DoingSummary {
     val engine = teams.firstOrNull { it.team == ENGINE_TEAM }?.cards
-    if (engine == null || engine.seen == 0) return if (engineShowing) DoingSummary.Waiting else DoingSummary.NotSource
+    if (engine == null || engine.seen == 0) return if (engineShowing) DoingSummary.Waiting else DoingSummary.NotSource(waiting)
     val t = trend?.let {
         trendOf(CardCounts(it.recentSeen, it.recentPlayed), CardCounts(it.earlierSeen, it.earlierPlayed))
     } ?: Trend.TooEarly

@@ -420,8 +420,14 @@ private fun SummaryCard(summary: DoingSummary, locale: Locale) {
         Row(modifier = Modifier.padding(start = 20.dp, top = 8.dp, end = 4.dp, bottom = 20.dp)) {
             Column(modifier = Modifier.weight(1f).padding(top = 12.dp)) {
                 when (summary) {
-                    DoingSummary.NotSource -> Text(
-                        text = stringResource(R.string.recommendations_summary_not_source),
+                    // With its cards from before still waiting, it says they will count here,
+                    // since Cards you saw below lists them.
+                    is DoingSummary.NotSource -> Text(
+                        text = if (summary.waiting > 0) {
+                            pluralStringResource(R.plurals.recommendations_summary_not_source_waiting, summary.waiting, summary.waiting)
+                        } else {
+                            stringResource(R.string.recommendations_summary_not_source)
+                        },
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     DoingSummary.Waiting -> Text(
@@ -438,7 +444,8 @@ private fun SummaryCard(summary: DoingSummary, locale: Locale) {
                             fontWeight = FontWeight.Bold,
                         )
                         // The cards it showed that are not judged yet, so the count above and
-                        // Cards you saw further down are plainly the same cards.
+                        // Cards you saw further down are plainly the same cards, with the one
+                        // line on the page that says when a card is judged.
                         if (summary.waiting > 0) {
                             Spacer(Modifier.height(8.dp))
                             Text(

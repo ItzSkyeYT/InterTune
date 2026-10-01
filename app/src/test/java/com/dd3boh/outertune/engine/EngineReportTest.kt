@@ -119,9 +119,17 @@ class EngineReportTest {
 
     @Test
     fun `with another source and no engine cards it says so instead of showing numbers`() {
-        assertEquals(DoingSummary.NotSource, doingSummary(engineShowing = false, teams = emptyList(), trend = null))
+        assertEquals(DoingSummary.NotSource(), doingSummary(engineShowing = false, teams = emptyList(), trend = null))
         // YouTube's cards are not the engine's.
-        assertEquals(DoingSummary.NotSource, doingSummary(false, listOf(TeamCards(3, CardCounts(100, 2))), null))
+        assertEquals(DoingSummary.NotSource(), doingSummary(false, listOf(TeamCards(3, CardCounts(100, 2))), null))
+    }
+
+    @Test
+    fun `not the source, with its cards from before still waiting, it says how many will count`() {
+        // The banner said "it has nothing to show" while Cards you saw listed "Best
+        // recommendations: 4 not judged yet", for a day after the source was switched away.
+        assertEquals(DoingSummary.NotSource(waiting = 4), doingSummary(engineShowing = false, teams = emptyList(), trend = null, waiting = 4))
+        assertEquals(DoingSummary.NotSource(waiting = 0), doingSummary(engineShowing = false, teams = emptyList(), trend = null, waiting = 0))
     }
 
     @Test
