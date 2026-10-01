@@ -16,11 +16,11 @@ import java.util.concurrent.TimeUnit
  * remove, whether a run should write at all, and whether the schedule is kept or replaced.
  * Nothing in here needs a device, so it is tested.
  *
- * The name is the same one the manual Backup entry has produced since the beginning, which is what
- * lets the single Restore path accept a scheduled file without knowing where it came from. The
- * timestamp is part of the name rather than read from the file system because a folder chosen
- * through the document picker does not promise reliable modification times, and because a file
- * copied elsewhere and back should still count as the age it says it is.
+ * The name is the same one the manual Backup entry has produced since the beginning, so a
+ * scheduled backup looks like any other. Restore does not go by it: it reads whatever zip its
+ * picker hands it. The timestamp is part of the name rather than read from the file system
+ * because a folder chosen through the document picker does not promise reliable modification
+ * times, and because a file copied elsewhere and back should still count as the age it says it is.
  */
 object AutoBackupPolicy {
     private val stamp: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
@@ -48,8 +48,9 @@ object AutoBackupPolicy {
 
     /**
      * What a backup called [name] is written as until it is whole, then renamed from. It is not a
-     * backup's name, so a half-written file is never counted towards Keep and never looks like
-     * something to restore, even when the app is killed mid-write and nothing is left to clean up.
+     * backup's name, so a half-written file is never counted towards Keep, even when the app is
+     * killed mid-write and the file stays behind. It does not keep the file out of Restore, whose
+     * picker asks only for application/octet-stream and reads any zip, whatever its name.
      */
     fun partialName(name: String): String = "$name$PARTIAL"
 

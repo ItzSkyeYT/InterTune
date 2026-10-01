@@ -31,7 +31,7 @@ class AutoBackupPolicyTest {
         val time = LocalDateTime.of(2026, 9, 12, 14, 5, 9)
         val name = AutoBackupPolicy.fileName(app, 21, time)
 
-        // The manual entry builds its name with this exact pattern, and Restore relies on it.
+        // The manual entry builds its name with this exact pattern.
         val manual = "InterTune_21_${time.format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))}.backup"
         assertEquals(manual, name)
         assertEquals("InterTune_21_20260912140509.backup", name)
@@ -227,7 +227,7 @@ class AutoBackupPolicyTest {
     // Written under a temporary name until whole.
 
     @Test
-    fun `a backup being written is not a backup, so nothing counts it or restores it`() {
+    fun `a backup being written is not a backup's name, so Keep never counts it`() {
         val partial = AutoBackupPolicy.partialName(name("20260930223816"))
         assertEquals("InterTune_21_20260930223816.backup.partial", partial)
         assertFalse(AutoBackupPolicy.isBackup(app, partial))

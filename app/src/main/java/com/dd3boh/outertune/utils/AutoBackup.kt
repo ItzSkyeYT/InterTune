@@ -172,11 +172,11 @@ class AutoBackupWorker(
      *
      * Written as AutoBackupPolicy.partialName and renamed once whole, so that nothing under a
      * backup's name is ever half a file. Left like that, it would count towards Keep and push a good
-     * older backup out, and Restore would accept it. A write that fails deletes its file. One that
-     * never gets the chance, because the process was killed mid-write (a Samsung phone does that
-     * when the app is swiped out of recents with nothing playing), leaves only the temporary name,
-     * which pruning removes later. A provider that cannot rename gets the final name from the
-     * start, as before, and has only the delete on failure.
+     * older backup out. A write that fails deletes its file. One that never gets the chance,
+     * because the process was killed mid-write (a Samsung phone does that when the app is swiped
+     * out of recents with nothing playing), leaves only the temporary name, which pruning removes
+     * later. A provider that cannot rename gets the final name from the start, as before, and has
+     * only the delete on failure.
      *
      * A rename only counts when the name it ends up with is a backup's name of this app's, which
      * Android's " (1)" copies are. Anything else, or a provider that will not say what it renamed
