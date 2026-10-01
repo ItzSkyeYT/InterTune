@@ -40,7 +40,7 @@ class PoTokenGenerator {
             // runBlocking on the thread resolving the stream. A page that loads but never calls
             // back therefore parks that thread forever while holding webPoTokenGenLock, so every
             // later song queues behind it and the player sits at "buffering" on 0:00 with nothing
-            // logged. On his phone in 0.10.5 that state was only recoverable by force stopping the
+            // logged. On a real phone in 0.10.5 that state was only recoverable by force stopping the
             // app. Nothing at HEAD asks for a token, so this is a guard for whenever a client needs
             // one again: a stalled page costs one song, not the player.
             runBlocking {

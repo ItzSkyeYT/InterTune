@@ -378,7 +378,7 @@ class AutoBackupPolicyTest {
 
     @Test
     fun `what Settings counts before asking is what toDelete picks`() {
-        // The dialog's number on his 30 Sep folder, lowering Keep from 14 to 5: "Delete 9 older backups?"
+        // The dialog's number on a real 30 Sep folder, lowering Keep from 14 to 5: "Delete 9 older backups?"
         assertEquals(9, AutoBackupPolicy.toDelete("InterTune Preview", previewFolder, 5).size)
         // Agreed with nothing changed in between, exactly those go.
         val counted = AutoBackupPolicy.toDelete("InterTune Preview", previewFolder, 5)
@@ -429,7 +429,7 @@ class AutoBackupPolicyTest {
 
     @Test
     fun `raising Keep only saves, and does not even look at the folder`() {
-        // His folder held 14 at Keep 5. Raising to 6 used to ask to delete eight there and then.
+        // A real folder held 14 at Keep 5. Raising to 6 used to ask to delete eight there and then.
         for ((old, new) in listOf(5 to 6, 1 to 20, 13 to 14, 5 to 5)) {
             assertEquals("$old to $new", Save, AutoBackupPolicy.keepChange(old, new) { throw AssertionError("counted for $old to $new") })
         }

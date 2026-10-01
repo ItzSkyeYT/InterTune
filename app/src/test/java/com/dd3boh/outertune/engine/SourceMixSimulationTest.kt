@@ -11,7 +11,7 @@ import org.junit.Test
 import kotlin.random.Random
 
 /**
- * The share over simulated months of listening, seeded, at about the evidence his phone gathers:
+ * The share over simulated months of listening, seeded, at about the evidence one real phone gathers:
  * 35 contested edge cards a day on average, 70% related at a 13% play rate and the rest explore
  * at 4%, with half of YouTube's cards coming from seeds Last.fm has no list for and so not
  * counted. Each day's rows follow the share the day started with, as the app's would.

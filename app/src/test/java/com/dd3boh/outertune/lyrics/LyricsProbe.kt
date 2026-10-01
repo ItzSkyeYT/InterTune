@@ -37,7 +37,7 @@ class LyricsProbe {
     // 26 Sep 2026. The ids are what it returned first for title and artist that morning. Without an
     // id, a song is searched for.
     private val songs = listOf(
-        // The one from the report of 26 Sep 2026, by the id he played.
+        // The one from the report of 26 Sep 2026, by the id that was played.
         Song("Bailando (Video Edit)", "Paradisio", "G223WQ6vSII"),
         Song("Samba de Janeiro (Radio Edit)", "Bellini", "drx71eKybAg"),
         Song("Samba De Janeiro", "Bellini", "qcsgPTxr-NI"),

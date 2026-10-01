@@ -22,8 +22,8 @@ import com.dd3boh.outertune.BuildConfig
  * history under Settings > Library and content turns it off. The ledger of what it recorded stays
  * visible for the same reason, because a log nobody can see is not one anybody should accept.
  *
- * Debug builds have it on, release builds do not. The maintainer listens on the debug build
- * precisely because it has the engine, and a gate that took that away from him every time a test
+ * Debug builds have it on, release builds do not. The debug build is the one used for daily
+ * listening precisely because it has the engine, and a gate that took that away every time a test
  * build was installed was a gate that had outgrown its job. The release is what 0.10.8 is about,
  * and `assembleCoreRelease` is what proves the gate still holds.
  *

@@ -255,7 +255,7 @@ class EngineReplayTest {
      * cards the app counts as evidence: a card whose version group the session went on to pick is
      * PLAYED at that pick's engagement, any other IGNORED. Picks are a proxy for taps, and the
      * history was shaped by YouTube's rows, so this shows that the mechanism works and what it
-     * costs or gains here, not where his phone would settle.
+     * costs or gains here, not where a real phone would settle.
      */
     private fun mixReplay(
         db: Connection, label: String, arms: String, songs: Map<String, SongRow>, links: List<VersionLink>, groups: VersionGroups,

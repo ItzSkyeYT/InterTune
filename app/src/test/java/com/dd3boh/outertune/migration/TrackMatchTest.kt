@@ -98,7 +98,7 @@ class TrackMatchTest {
 
     @Test
     fun `a dash suffix is cleaned the way the same words in brackets are`() {
-        // His import on 29 Sep. Spotify writes a version after a dash and YouTube in brackets, and
+        // A real import on 29 Sep. Spotify writes a version after a dash and YouTube in brackets, and
         // the two were cleaned by different rules: the bracket went whole, the dash stayed.
         assertEquals("hide cs01", normalise("Hide - CS01 Version"))
         assertEquals("hide cs01", normalise("Hide (CS01 Version)"))

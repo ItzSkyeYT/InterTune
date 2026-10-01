@@ -55,7 +55,7 @@ object SongVersions {
      * for "Initial D - Deja Vu". On this maintainer's library it merged sixty four entirely
      * different Initial D tracks into one version group, and since a build excludes a seed's whole
      * group, one of those seeds deleted sixty four real candidates before ranking began. That
-     * matters more than it sounds: the replay found that about nine in ten of the songs he played
+     * matters more than it sounds: the replay found that about nine in ten of the songs played
      * next were never candidates at all.
      */
     private fun describesTheRecording(segment: String): Boolean {
