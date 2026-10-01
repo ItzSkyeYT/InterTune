@@ -159,7 +159,9 @@ val MaxSongCacheSizeKey = intPreferencesKey("maxSongCacheSize")
  * Off by default and opt in: a schedule that writes files to a folder is not something to switch on
  * for somebody. The folder is the tree uri the system picker handed back, kept as text because that
  * is what the persisted permission is keyed on. The last run and its result are here so the settings
- * screen can say what happened without sending the user to look in the folder.
+ * screen can say what happened without sending the user to look in the folder. The last folder is
+ * where the last successful backup went, so that turning backups on can tell whether the folder
+ * set now has one (AutoBackupPolicy.backUpAtOnce). Backups from before it was recorded have none.
  */
 val AutoBackupEnabledKey = booleanPreferencesKey("autoBackupEnabled")
 val AutoBackupFolderKey = stringPreferencesKey("autoBackupFolder")
@@ -167,6 +169,7 @@ val AutoBackupIntervalHoursKey = intPreferencesKey("autoBackupIntervalHours")
 val AutoBackupKeepKey = intPreferencesKey("autoBackupKeep")
 val AutoBackupLastRunKey = longPreferencesKey("autoBackupLastRun")
 val AutoBackupLastResultKey = stringPreferencesKey("autoBackupLastResult")
+val AutoBackupLastFolderKey = stringPreferencesKey("autoBackupLastFolder")
 
 
 /**

@@ -176,6 +176,35 @@ object AutoBackupPolicy {
     }
 
     /**
+     * Whether a change in Settings should make one backup in [folder] at once
+     * (AutoBackup.backUpToNewFolder) instead of leaving it to the schedule. [wasOn] and [on] are
+     * the switch before and after, [setFolder] the folder set before, and [lastBackupFolder] the
+     * one the last recorded backup went to, empty when none is on record.
+     *
+     * Picking another folder while automatic backups are on: the schedule keeps its own time, so
+     * the new folder would otherwise sit empty until the next backup is due, which can be a week
+     * or a year away.
+     *
+     * Turning them on, with the switch or by picking the folder the switch asked for, when the last
+     * backup went to another folder or none is on record. Turning on makes a new schedule whose
+     * first run is due at once, but that run skips when the last backup is recent (shouldSkip),
+     * wherever it went, so a folder it never reached stayed empty for a whole interval. When the
+     * last backup did go to [folder], that run, or the backup already there, covers it. A backup
+     * from before the folder was recorded counts as none on record, which costs at most one backup
+     * more.
+     *
+     * When this and the schedule's first run both start, whichever takes the folder second
+     * normally finds the other's backup and skips (shouldSkip), so the folder gets one backup, not
+     * two. Normally, because the schedule's run only counts as that backup for this one when it
+     * started writing after this one was asked for, which it almost always does, since WorkManager
+     * has to start it first.
+     */
+    fun backUpAtOnce(wasOn: Boolean, on: Boolean, folder: String, setFolder: String, lastBackupFolder: String): Boolean {
+        if (!on || folder.isBlank()) return false
+        return if (wasOn) folder != setFolder else folder != lastBackupFolder
+    }
+
+    /**
      * The tag the periodic schedule carries, saying which interval it was made for. WorkManager
      * 2.8.1 has no other way to ask (WorkInfo only gained the period in 2.9). It is stored with the
      * schedule in WorkManager's database, so changing its format replaces every schedule once.

@@ -28,6 +28,7 @@ import com.dd3boh.outertune.constants.AutoBackupEnabledKey
 import com.dd3boh.outertune.constants.AutoBackupFolderKey
 import com.dd3boh.outertune.constants.AutoBackupIntervalHoursKey
 import com.dd3boh.outertune.constants.AutoBackupKeepKey
+import com.dd3boh.outertune.constants.AutoBackupLastFolderKey
 import com.dd3boh.outertune.constants.AutoBackupLastResultKey
 import com.dd3boh.outertune.constants.AutoBackupLastRunKey
 import com.dd3boh.outertune.db.MusicDatabase
@@ -149,9 +150,10 @@ class AutoBackupWorker(
             // phone that happened a second after launch, as the app went to the background, and
             // the restart wrote a second backup a second after the first. Now it waits for the
             // lock and finds this one recorded. The start time, not the end, so that a Back up now
-            // pressed during this write is not taken as served by it.
+            // pressed during this write is not taken as served by it. The folder, so that turning
+            // backups on can tell whether the folder set then has a backup.
             withContext(NonCancellable) {
-                record(context, AutoBackup.RESULT_OK, ranAt = startedAt)
+                record(context, AutoBackup.RESULT_OK, ranAt = startedAt, folder = folder)
             }
 
             // Pruned after the write, never before, so a failed write cannot cost an older backup.
@@ -218,10 +220,12 @@ class AutoBackupWorker(
         }
     }
 
-    private suspend fun record(context: Context, result: String, ranAt: Long? = null) {
+    /** The result, and for a backup made, when it started and the folder it went to. */
+    private suspend fun record(context: Context, result: String, ranAt: Long? = null, folder: String? = null) {
         context.dataStore.edit { prefs ->
             prefs[AutoBackupLastResultKey] = result
             if (ranAt != null) prefs[AutoBackupLastRunKey] = ranAt
+            if (folder != null) prefs[AutoBackupLastFolderKey] = folder
         }
     }
 
@@ -375,9 +379,10 @@ object AutoBackup {
     fun runNow(context: Context) = enqueueNow(context, ExistingWorkPolicy.KEEP)
 
     /**
-     * A folder was just picked while automatic backups are on: one backup there now. The schedule
-     * keeps its own time, so otherwise the new folder would stay empty until the next backup is
-     * due, which can be a week or a year away.
+     * One backup in [folder] now, when AutoBackupPolicy.backUpAtOnce says a change in Settings
+     * needs one: a folder picked while automatic backups are on, or backups turned on where the
+     * last one did not go. Otherwise the folder could stay empty until the next backup is due,
+     * which can be a week or a year away.
      *
      * Only once the settings say [folder]. Settings saves it fire and forget, the worker reads the
      * folder from the settings when it starts, and a run that started before the save landed would

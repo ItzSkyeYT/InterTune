@@ -54,6 +54,7 @@ import com.dd3boh.outertune.constants.AutoBackupEnabledKey
 import com.dd3boh.outertune.constants.AutoBackupFolderKey
 import com.dd3boh.outertune.constants.AutoBackupIntervalHoursKey
 import com.dd3boh.outertune.constants.AutoBackupKeepKey
+import com.dd3boh.outertune.constants.AutoBackupLastFolderKey
 import com.dd3boh.outertune.constants.AutoBackupLastResultKey
 import com.dd3boh.outertune.constants.AutoBackupLastRunKey
 import com.dd3boh.outertune.constants.PlaylistFilter
@@ -144,6 +145,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         rememberPreference(AutoBackupKeepKey, defaultValue = AutoBackup.DEFAULT_KEEP)
     val autoBackupLastRun by rememberPreference(AutoBackupLastRunKey, defaultValue = 0L)
     val autoBackupLastResult by rememberPreference(AutoBackupLastResultKey, defaultValue = "")
+    val autoBackupLastFolder by rememberPreference(AutoBackupLastFolderKey, defaultValue = "")
 
     // Set when the switch is what opened the picker, so that choosing a folder is what turns it
     // on. A switch that is on with nowhere to write would sit there doing nothing.
@@ -172,11 +174,17 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             // Handed the values just chosen rather than left to re-read preferences that have
             // not landed yet, the same trap BackgroundCheckWorker.schedule documents.
             AutoBackup.schedule(context, enabled = enabled, folder = folder)
-            // A new folder while backups are on gets one now: the schedule keeps its own time, and
-            // the folder would otherwise sit empty until the next one is due. Not when the switch
-            // is what opened the picker, since that makes a new schedule, whose first run is due
-            // at once.
-            if (autoBackupEnabled && folder != autoBackupFolder) AutoBackup.backUpToNewFolder(context, folder)
+            // A new folder while backups are on gets one now, and so does one the switch asked
+            // for when the last backup went elsewhere: AutoBackupPolicy.backUpAtOnce says why.
+            if (
+                AutoBackupPolicy.backUpAtOnce(
+                    wasOn = autoBackupEnabled,
+                    on = enabled,
+                    folder = folder,
+                    setFolder = autoBackupFolder,
+                    lastBackupFolder = autoBackupLastFolder,
+                )
+            ) AutoBackup.backUpToNewFolder(context, folder)
         }
 
     // The display name is a content provider query, so it stays off the main thread and is only
@@ -255,6 +263,18 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                 } else {
                     onAutoBackupEnabledChange(on)
                     AutoBackup.schedule(context, enabled = on)
+                    // Turned on where the last backup did not go, or with none on record: one
+                    // now, since the new schedule's first run skips when the last backup is
+                    // recent, wherever it went (AutoBackupPolicy.backUpAtOnce).
+                    if (
+                        AutoBackupPolicy.backUpAtOnce(
+                            wasOn = autoBackupEnabled,
+                            on = on,
+                            folder = autoBackupFolder,
+                            setFolder = autoBackupFolder,
+                            lastBackupFolder = autoBackupLastFolder,
+                        )
+                    ) AutoBackup.backUpToNewFolder(context, autoBackupFolder)
                 }
             }
         )

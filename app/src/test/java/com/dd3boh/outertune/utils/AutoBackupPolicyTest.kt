@@ -531,6 +531,56 @@ class AutoBackupPolicyTest {
         assertFalse(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = picked, lastBackupAt = picked - 2_000L, now = now, intervalHours = 24))
     }
 
+    // Whether a change in Settings makes one backup at once.
+
+    private val phone = "content://com.android.externalstorage.documents/tree/primary%3ABackups"
+    private val card = "content://com.android.externalstorage.documents/tree/1234-ABCD%3AInterTune"
+
+    private fun backUpAtOnce(wasOn: Boolean, on: Boolean, folder: String, setFolder: String, lastBackupFolder: String) =
+        AutoBackupPolicy.backUpAtOnce(wasOn = wasOn, on = on, folder = folder, setFolder = setFolder, lastBackupFolder = lastBackupFolder)
+
+    @Test
+    fun `turning backups on backs up at once when the last backup went to another folder`() {
+        // Off, the folder changed to the card, then on again: the new schedule's first run skips,
+        // since the last backup (on the phone) is recent, and the card would stay empty.
+        assertTrue(backUpAtOnce(wasOn = false, on = true, folder = card, setFolder = card, lastBackupFolder = phone))
+    }
+
+    @Test
+    fun `turning backups on with no backup on record backs up at once`() {
+        // Never backed up, or only before the folder of each backup was recorded.
+        assertTrue(backUpAtOnce(wasOn = false, on = true, folder = phone, setFolder = phone, lastBackupFolder = ""))
+    }
+
+    @Test
+    fun `turning backups on where the last backup went leaves it to the schedule`() {
+        // Its first run is due at once, and writes unless that backup is recent.
+        assertFalse(backUpAtOnce(wasOn = false, on = true, folder = phone, setFolder = phone, lastBackupFolder = phone))
+    }
+
+    @Test
+    fun `turning on by picking a folder follows the same rule`() {
+        // The switch opened the picker, so nothing was set and the folder is the one just picked.
+        assertTrue(backUpAtOnce(wasOn = false, on = true, folder = card, setFolder = "", lastBackupFolder = phone))
+        assertTrue(backUpAtOnce(wasOn = false, on = true, folder = card, setFolder = "", lastBackupFolder = ""))
+        assertFalse(backUpAtOnce(wasOn = false, on = true, folder = phone, setFolder = "", lastBackupFolder = phone))
+    }
+
+    @Test
+    fun `picking another folder while on backs up at once, as before`() {
+        assertTrue(backUpAtOnce(wasOn = true, on = true, folder = card, setFolder = phone, lastBackupFolder = phone))
+        assertTrue(backUpAtOnce(wasOn = true, on = true, folder = card, setFolder = phone, lastBackupFolder = card))
+        assertFalse(backUpAtOnce(wasOn = true, on = true, folder = phone, setFolder = phone, lastBackupFolder = card))
+    }
+
+    @Test
+    fun `nothing is backed up at once while off, or with no folder`() {
+        // A folder picked with the switch off, the switch turned off, a switch with no folder.
+        assertFalse(backUpAtOnce(wasOn = false, on = false, folder = card, setFolder = phone, lastBackupFolder = phone))
+        assertFalse(backUpAtOnce(wasOn = true, on = false, folder = phone, setFolder = phone, lastBackupFolder = ""))
+        assertFalse(backUpAtOnce(wasOn = false, on = true, folder = "", setFolder = "", lastBackupFolder = phone))
+    }
+
     // Whether a launch keeps the schedule or replaces it.
 
     /** The tag WorkManager adds to every request by itself: the worker's class name. */
