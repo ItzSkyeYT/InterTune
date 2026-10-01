@@ -780,7 +780,11 @@ class SyncUtils @Inject constructor(
         }
         val hasLocalSongs = database.songMapsToPlaylist(playlistId, 0).isNotEmpty()
         if (!mayReplacePlaylist(walked.complete, walked.items.size, hasLocalSongs)) {
-            Log.w(TAG, "Playlist $browseId was not read in full (${walked.items.size} songs), keeping the local copy")
+            if (walked.complete) {
+                Log.w(TAG, "Playlist $browseId is empty on YouTube, keeping the songs it has here")
+            } else {
+                Log.w(TAG, "Playlist $browseId was not read in full (${walked.items.size} songs), keeping the local copy")
+            }
             return@withContext false
         }
 
