@@ -514,8 +514,8 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
  * opened its dialog for the old value, the newer release could then save behind it, and Cancel on
  * that dialog put the slider on a value the user had not kept. So the thumb moving cancels it
  * ([moved]), and before that a finger coming down on the slider at all ([pressed]), since
- * Material3 1.4.0 calls onValueChange only when the value moves a whole step: a press on the
- * thumb, or on the track where the value already is, never reached [moved].
+ * Material3 1.4.0 calls onValueChange for a touch only once a drag has moved the value a whole
+ * step, or when a tap lifts: a finger coming down never reached [moved].
  *
  * A count also waits for the finger to lift before it saves or asks ([lifted]), so no dialog ever
  * opens under a finger, even for a release that arrives after the next press has begun, as a

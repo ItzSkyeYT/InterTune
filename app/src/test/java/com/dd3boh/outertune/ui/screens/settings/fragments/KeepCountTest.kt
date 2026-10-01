@@ -190,6 +190,21 @@ class KeepCountTest {
     }
 
     @Test
+    fun `a question already asked is not asked again by the next touch`() = runBlocking {
+        // Once a count has saved or asked, its release is answered. A later press and lift that
+        // moves nothing must not count it again, or every touch would reopen the dialog.
+        val keepCount = keepCount()
+        keepCount.letGo(14, 3, CompletableDeferred(folder))!!.join()
+        assertEquals(listOf(3), asked)
+
+        keepCount.pressed()
+        keepCount.lifted()
+        settle()
+        assertEquals(listOf(3), asked)
+        assertEquals(emptyList<Int>(), saved)
+    }
+
+    @Test
     fun `raising saves without looking at the folder, and letting go where it was does nothing`() = runBlocking {
         val keepCount = keepCount()
         val raise = keepCount.released(
