@@ -718,9 +718,12 @@ class QueueBoard(
      * @param item Queue object
      * @param shouldResume Set to true for the player should resume playing at the current song's last save position or
      * false to start from the beginning.
+     * @param origin For a queue picked by hand in the queue sheet, a choice made now: the same
+     * rule as addQueue's, so a queue that says nothing yet takes it, with a run of its own, and one
+     * that already says where it began keeps that. Null when the caller is not picking a queue.
      * @return New current position tracker
      */
-    fun setCurrQueue(item: MultiQueueObject?, shouldResume: Boolean = true): Int? {
+    fun setCurrQueue(item: MultiQueueObject?, shouldResume: Boolean = true, origin: PlayOrigin? = null): Int? {
         Log.d(
             TAG,
             "Loading queue ${item?.title ?: "null"} into player. Shuffle state = ${item?.shuffled}"
@@ -730,6 +733,9 @@ class QueueBoard(
             player.player.setMediaItems(ArrayList())
             return null
         }
+        // Before the songs load, since their first transition reads the queue's origin, and
+        // before bubbleUp, which saves every queue, so the saved one says it too.
+        item.startedByHand(origin, System.currentTimeMillis())
 
         // I have no idea why this value gets reset to 0 by the end... but ig this works
         val queuePos = item.getQueuePosShuffled()

@@ -66,6 +66,31 @@ class PlayOriginCoverageTest {
         assertEquals("addQueue calls with no origin:\n" + untagged.joinToString("\n"), emptyList<String>(), untagged)
     }
 
+    /**
+     * A queue picked again in the queue sheet is a choice made now, as one picked under Add to
+     * queue is: tapping a queue in the list, the play button over a queue being looked at, or a
+     * song in it. Each loads the queue with setCurrQueue, never through playQueue or addQueue, so
+     * neither test above saw them, and a queue saved before origins were kept went on giving "not
+     * recorded" after it was picked. Every setCurrQueue call outside playback that is handed a
+     * queue has to name an origin, except setCurrQueue(it) straight after the menus' addQueue,
+     * which took its origin there. setCurrQueue() with nothing reloads the queue already current,
+     * after a delete or into an empty player, and picks nothing.
+     */
+    @Test
+    fun `every queue picked by hand carries an origin`() {
+        val untagged = mutableListOf<String>()
+        sources.walkTopDown().filter { it.extension == "kt" && "playback" !in it.relativeTo(sources).path }.forEach { file ->
+            val text = file.readText()
+            Regex("""\bsetCurrQueue\(""").findAll(text).forEach { m ->
+                val args = argumentsOf(text, m.range.last + 1).trim()
+                if (args.isNotEmpty() && args != "it" && "origin =" !in args && !isComment(text, m.range.first)) {
+                    untagged += "${file.relativeTo(sources)}:${text.substring(0, m.range.first).count { it == '\n' } + 1}"
+                }
+            }
+        }
+        assertEquals("setCurrQueue calls with a queue and no origin:\n" + untagged.joinToString("\n"), emptyList<String>(), untagged)
+    }
+
     /** Whether the match sits in a // comment, where "handled by playQueue()" is prose, not a call. */
     private fun isComment(text: String, at: Int): Boolean =
         "//" in text.substring(text.lastIndexOf('\n', at) + 1, at)
