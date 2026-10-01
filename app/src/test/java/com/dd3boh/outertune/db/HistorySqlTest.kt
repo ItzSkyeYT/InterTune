@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.db
 
+import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.db.daos.SongsDao
 import com.dd3boh.outertune.db.entities.HistoryPiece
 import com.dd3boh.outertune.db.entities.HistoryPlay
@@ -45,7 +46,10 @@ class HistorySqlTest {
 
     private fun count(sql: String): Long = db.createStatement().use { st -> st.executeQuery(sql).use { it.next(); it.getLong(1) } }
 
-    /** A closed listen; ENDED (1) unless said otherwise, a three minute song of known length. */
+    /**
+     * A closed listen; ENDED (1) unless said otherwise, of a song 200 seconds long, heard from the
+     * top unless [endPosition] says where it ended.
+     */
     private fun listen(
         song: String,
         startedAt: Long,
@@ -55,13 +59,14 @@ class HistorySqlTest {
         continues: Long? = null,
         sourceEventId: Long? = null,
         durationMs: Long = 200_000,
+        endPosition: Long = playedMs,
     ): Long {
         val ratio = if (durationMs > 0) playedMs.toFloat() / durationMs else -1f
         exec(
             """INSERT INTO listen(songId, startedAt, endedAt, tzOffsetMin, playedMs, durationMs, ratio, endReason, origin,
-                originSlot, queueId, autoplayDepth, sessionId, counted, continuesListenId, sourceEventId)
+                originSlot, queueId, autoplayDepth, sessionId, counted, continuesListenId, sourceEventId, endPositionMs)
             VALUES ('$song', $startedAt, ${startedAt + playedMs}, 120, $playedMs, $durationMs, $ratio, $endReason, 2, -1, 0, 0,
-                $startedAt, ${if (counted) 1 else 0}, ${continues ?: "NULL"}, ${sourceEventId ?: "NULL"})"""
+                $startedAt, ${if (counted) 1 else 0}, ${continues ?: "NULL"}, ${sourceEventId ?: "NULL"}, $endPosition)"""
         )
         return lastId()
     }
@@ -73,9 +78,16 @@ class HistorySqlTest {
     }
 
     /** A counted play as the service records it today: the listen, its event, and the link between them. */
-    private fun countedPlay(song: String, startedAt: Long, playedMs: Long = 3 * minute, continues: Long? = null, endReason: Int = 1): Long {
+    private fun countedPlay(
+        song: String,
+        startedAt: Long,
+        playedMs: Long = 3 * minute,
+        continues: Long? = null,
+        endReason: Int = 1,
+        endPosition: Long = playedMs,
+    ): Long {
         val eventId = event(song, startedAt + playedMs + 2 * 60 * minute, playedMs)
-        return listen(song, startedAt, playedMs, counted = true, continues = continues, sourceEventId = eventId, endReason = endReason)
+        return listen(song, startedAt, playedMs, counted = true, continues = continues, sourceEventId = eventId, endReason = endReason, endPosition = endPosition)
     }
 
     private fun ResultSet.longOrNull(column: String): Long? = getLong(column).takeUnless { wasNull() }
@@ -195,8 +207,8 @@ class HistorySqlTest {
     @Test
     fun `a song resumed where it stopped is one play, dated from its first piece`() {
         val first = listen("a", t, playedMs = 20 * second, endReason = 4)
-        val middle = listen("a", t + 30 * minute, playedMs = 40 * second, endReason = 4, continues = first)
-        countedPlay("a", t + 50 * minute, playedMs = 2 * minute, continues = middle)
+        val middle = listen("a", t + 30 * minute, playedMs = 40 * second, endReason = 4, continues = first, endPosition = minute)
+        countedPlay("a", t + 50 * minute, playedMs = 2 * minute, continues = middle, endPosition = 3 * minute)
         val play = plays().single()
         assertEquals(first, play.listenId)
         assertEquals(t, play.startedAt)
@@ -270,13 +282,91 @@ class HistorySqlTest {
     }
 
     @Test
-    fun `removing a play also covers the resume still playing`() {
+    fun `a resume still playing when its play is removed is a play of its own once it ends`() {
         val first = listen("a", t, playedMs = 20 * second, endReason = 4)
         val open = listen("a", t + minute, playedMs = minute, endReason = 6, continues = first)
         remove(plays().single())
-        // It closes as the service closes every row; it must not come back as a play of its own.
-        exec("UPDATE listen SET endReason = 1, counted = 1 WHERE id = $open")
         assertEquals(emptyList<String>(), songsInHistory())
+        assertEquals(0L, count("SELECT COUNT(*) FROM listen_signal WHERE listenId = $open"))
+        // It closes as the service closes every row, and the song being heard right now is listed.
+        exec("UPDATE listen SET endReason = 1, counted = 1 WHERE id = $open")
+        assertEquals(listOf(open to minute), plays().map { it.listenId to it.playedMs })
+    }
+
+    @Test
+    fun `two plays that continue the same stopped piece are its resume and a play of its own`() {
+        // As on his phone (listen 8823): stopped near the start, then started from the top twice
+        // within a day, and the service linked both to the stopped piece.
+        val stopped = listen("a", t, playedMs = 14 * second, endReason = 4, endPosition = 0)
+        val resume = countedPlay("a", t + 5 * minute, continues = stopped)
+        val again = countedPlay("a", t + 23 * 60 * minute, continues = stopped)
+        val skip = listen("a", t + 23 * 60 * minute + 30 * minute, playedMs = 6 * second, endReason = 3, continues = stopped)
+        assertEquals(
+            listOf(skip to 6 * second, again to 3 * minute, stopped to 14 * second + 3 * minute),
+            plays().map { it.listenId to it.playedMs },
+        )
+
+        // Remove from history takes out what the row shows: the stopped piece and its first resume.
+        remove(plays().single { it.listenId == stopped })
+        assertEquals(listOf(skip, again), plays().map { it.listenId })
+        assertEquals(listOf(stopped, resume), db.createStatement().use { st ->
+            st.executeQuery("SELECT listenId FROM listen_signal ORDER BY listenId").use { rs -> buildList { while (rs.next()) add(rs.getLong(1)) } }
+        })
+        // The later play keeps its event, so it is still a play of the song.
+        assertEquals(1L, count("SELECT COUNT(*) FROM event"))
+        assertEquals(listOf("a"), mostPlayed())
+    }
+
+    @Test
+    fun `a play linked to a stopped piece that heard the song from the top is a play of its own`() {
+        // As on his phone (listens 8714 and 8715): stopped at 2:44 of 3:20, then four hours later
+        // a play the service linked to it heard the whole song. A resume from 2:44 hears 36 seconds.
+        val stopped = countedPlay("a", t, playedMs = 164 * second, endReason = 4)
+        val whole = countedPlay("a", t + 4 * 60 * minute, playedMs = 201 * second, continues = stopped, endPosition = 200 * second)
+        assertEquals(listOf(whole to 201 * second, stopped to 164 * second), plays().map { it.listenId to it.playedMs })
+
+        remove(plays().single { it.listenId == stopped })
+        assertEquals(listOf(whole), plays().map { it.listenId })
+        assertEquals(listOf("a"), mostPlayed())
+    }
+
+    @Test
+    fun `a resume may start five seconds early, and a song of unknown length is not judged`() {
+        val stopped = listen("a", t, playedMs = 150 * second, endReason = 4)
+        // 50 seconds were left, and it went back five.
+        listen("a", t + minute, playedMs = 55 * second, continues = stopped, endPosition = 200 * second)
+        val unknown = listen("b", t + 10 * minute, playedMs = 150 * second, endReason = 4, durationMs = -1)
+        listen("b", t + 20 * minute, playedMs = 5 * minute, continues = unknown, durationMs = -1)
+        assertEquals(listOf(unknown to 450 * second, stopped to 205 * second), plays().map { it.listenId to it.playedMs })
+    }
+
+    @Test
+    fun `a play the service wrote twice is listed once`() {
+        // The row opened when it started, checkpointed at a minute and closed as stopped at the
+        // next launch, and the whole row the service wrote when the play ended, 16 ms apart.
+        listen("a", t, playedMs = minute, counted = true, endReason = 4)
+        val whole = countedPlay("a", t + 16, playedMs = 82 * second)
+        assertEquals(listOf(whole to 82 * second), plays().map { it.listenId to it.playedMs })
+    }
+
+    @Test
+    fun `the same song twice in a row is two plays`() {
+        // A repeat as the service records it: the second row starts a few milliseconds after the first.
+        val once = countedPlay("a", t, playedMs = 3 * minute)
+        val twice = listen("a", t + 21, playedMs = minute, endReason = 2)
+        // The same when the first did not count: heard to its end after a seek past most of it.
+        val seekedOnce = listen("b", t + 10 * minute, playedMs = 40 * second)
+        val seekedTwice = listen("b", t + 10 * minute + 15, playedMs = 30 * second, endReason = 2)
+        assertEquals(setOf(once, twice, seekedOnce, seekedTwice), plays().map { it.listenId }.toSet())
+    }
+
+    @Test
+    fun `the Recommendations page does not count removal marks as signals`() {
+        val skip = listen("b", t, playedMs = 10 * second, endReason = 2)
+        exec("INSERT INTO listen_signal (listenId, songId, kind, positionMs, value, at) VALUES ($skip, 'b', ${SignalKind.SEEK_FORWARD}, 4000, 0, $t)")
+        remove(plays().single())
+        assertEquals(2L, count("SELECT COUNT(*) FROM listen_signal"))
+        assertEquals(1L, count(HistorySql.SIGNAL_COUNT))
     }
 
     @Test

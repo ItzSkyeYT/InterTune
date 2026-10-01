@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.db
 
+import com.dd3boh.outertune.constants.EndReason
 import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.history.HistoryRule
 
@@ -21,6 +22,9 @@ import com.dd3boh.outertune.history.HistoryRule
  * it with a [SignalKind.REMOVED_FROM_HISTORY] signal, and a play taken out before History read
  * this log lost its event, which leaves the listen pointing at an event that is gone. Either way
  * the listen itself stays, because the engine learns from it, as it always did.
+ *
+ * The fragments come once per table alias (l for the row in hand, p or d for the piece it
+ * continues), as a Room query has to be a constant.
  */
 object HistorySql {
     private const val L_REMOVED = """((l.sourceEventId IS NOT NULL AND NOT EXISTS (SELECT 1 FROM event e WHERE e.id = l.sourceEventId))
@@ -29,8 +33,53 @@ object HistorySql {
     private const val P_REMOVED = """((p.sourceEventId IS NOT NULL AND NOT EXISTS (SELECT 1 FROM event e WHERE e.id = p.sourceEventId))
         OR EXISTS (SELECT 1 FROM listen_signal s WHERE s.listenId = p.id AND s.kind = ${SignalKind.REMOVED_FROM_HISTORY}))"""
 
-    /** A piece History can show: closed (an open row is a song still playing) and not taken out. */
-    private const val P_VISIBLE = "p.endReason != 6 AND NOT $P_REMOVED"
+    /**
+     * A play the service wrote twice. When MusicService.logListen loses track of the row it opened
+     * for a play, it writes the whole play again as a new row, and the open one is closed as
+     * stopped at the next launch, from its last checkpoint, with no event. The two start within a
+     * few milliseconds of each other (16 and 29 ms on his phone); the later row is the play.
+     * Otherwise a later row of the same song starts after the stopped piece ends, so within a
+     * second of its start only when the piece lasted under a second, too short for History anyway.
+     * A song repeated back to back also leaves two rows that start milliseconds apart, but the
+     * first of those ended rather than stopped, and both are plays.
+     */
+    private const val L_REWRITTEN = """(l.endReason = ${EndReason.STOPPED} AND l.sourceEventId IS NULL
+        AND EXISTS (SELECT 1 FROM listen o WHERE o.songId = l.songId AND o.id > l.id
+            AND o.startedAt BETWEEN l.startedAt - 1000 AND l.startedAt + 1000))"""
+
+    private const val P_REWRITTEN = """(p.endReason = ${EndReason.STOPPED} AND p.sourceEventId IS NULL
+        AND EXISTS (SELECT 1 FROM listen o WHERE o.songId = p.songId AND o.id > p.id
+            AND o.startedAt BETWEEN p.startedAt - 1000 AND p.startedAt + 1000))"""
+
+    /** A piece History can show: closed (an open row is a song still playing), not taken out, not a copy. */
+    private const val L_VISIBLE = "l.endReason != ${EndReason.OPEN} AND NOT $L_REMOVED AND NOT $L_REWRITTEN"
+    private const val P_VISIBLE = "p.endReason != ${EndReason.OPEN} AND NOT $P_REMOVED AND NOT $P_REWRITTEN"
+
+    /** MusicService's RESUME_TOLERANCE_MS: a resume may start this far from where the piece stopped. */
+    private const val RESUME_EARLY_MS = 5_000
+
+    /**
+     * Whether up.cur resumes p, the piece it says it continues.
+     *
+     * Only the first piece that continues p does. The service links a play to the newest stopped
+     * piece of its song that ended where the play starts, even when the song has been played
+     * through since, so a piece stopped near the start can be continued by every play of the song
+     * from the top for a day; each after the first is a play of its own. They lie between the two
+     * ids, so this reads a day's rows at most, by primary key.
+     *
+     * And only if it heard no more than what was left of the song, from up to five seconds before
+     * where p stopped (the service's own tolerance for a resume). A play linked to a stopped piece
+     * that then went on to hear the whole song, back from the top, is a play of its own: on his
+     * phone, a play four hours later that heard 201 seconds of a song stopped at 2:44 of 3:20.
+     * A song of unknown length is not judged.
+     */
+    private const val CUR_RESUMES_P = """NOT EXISTS (SELECT 1 FROM listen x WHERE x.id > p.id AND x.id < up.cur AND x.continuesListenId = p.id)
+        AND NOT EXISTS (SELECT 1 FROM listen c WHERE c.id = up.cur
+            AND c.durationMs > 0 AND c.playedMs > c.durationMs - p.endPositionMs + $RESUME_EARLY_MS)"""
+
+    /** The same as [CUR_RESUMES_P] for CHAIN's walk the other way: whether l resumes d. */
+    private const val L_RESUMES_D = """NOT EXISTS (SELECT 1 FROM listen x WHERE x.id > d.id AND x.id < l.id AND x.continuesListenId = d.id)
+        AND NOT (l.durationMs > 0 AND l.playedMs > l.durationMs - d.endPositionMs + $RESUME_EARLY_MS)"""
 
     /**
      * Every play History shows, newest first.
@@ -50,10 +99,10 @@ object HistorySql {
     const val PLAYS = """
         WITH RECURSIVE up(id, cur, prev) AS (
             SELECT l.id, l.id, l.continuesListenId FROM listen l
-            WHERE l.endReason != 6 AND NOT $L_REMOVED
+            WHERE $L_VISIBLE
             UNION ALL
             SELECT up.id, p.id, p.continuesListenId FROM up JOIN listen p ON p.id = up.prev
-            WHERE p.id < up.cur AND $P_VISIBLE
+            WHERE p.id < up.cur AND $P_VISIBLE AND $CUR_RESUMES_P
         )
         SELECT h.id AS listenId, NULL AS eventId, h.songId AS songId, h.startedAt AS startedAt, h.endedAt AS endedAt,
             h.tzOffsetMin AS tzOffsetMin, NULL AS timestamp, SUM(l.playedMs) AS playedMs, MAX(l.counted) AS counted,
@@ -61,7 +110,7 @@ object HistorySql {
         FROM up
             JOIN listen l ON l.id = up.id
             JOIN listen h ON h.id = up.cur
-        WHERE NOT EXISTS (SELECT 1 FROM listen p WHERE p.id = up.prev AND p.id < up.cur AND $P_VISIBLE)
+        WHERE NOT EXISTS (SELECT 1 FROM listen p WHERE p.id = up.prev AND p.id < up.cur AND $P_VISIBLE AND $CUR_RESUMES_P)
         GROUP BY up.cur
         HAVING SUM(l.playedMs) >= ${HistoryRule.MIN_HEARD_MS} OR MAX(l.counted) = 1
         UNION ALL
@@ -72,16 +121,18 @@ object HistorySql {
     """
 
     /**
-     * The pieces of the play that starts at listen :head, first piece first: the head and every
-     * resume after it that is not already out of History, the one still playing included, so that
-     * it stays out once it closes.
+     * The pieces of the play that starts at listen :head, first piece first: the head and each
+     * piece PLAYS joins to it, the same links walked the other way, so Remove from history takes
+     * out exactly what the row showed. A resume still playing is not one of them: it is not on the
+     * row yet, and once it ends it is listed as a play of its own, since the piece it continues is
+     * out of History.
      */
     const val CHAIN = """
         WITH RECURSIVE down(id) AS (
             SELECT :head
             UNION ALL
-            SELECT l.id FROM down JOIN listen l ON l.continuesListenId = down.id
-            WHERE l.id > down.id AND NOT $L_REMOVED
+            SELECT l.id FROM down JOIN listen d ON d.id = down.id JOIN listen l ON l.continuesListenId = d.id
+            WHERE l.id > d.id AND $L_VISIBLE AND $L_RESUMES_D
         )
         SELECT l.id AS id, l.songId AS songId, l.sourceEventId AS sourceEventId
         FROM down JOIN listen l ON l.id = down.id
@@ -95,4 +146,7 @@ object HistorySql {
     """
 
     const val DELETE_EVENT = "DELETE FROM event WHERE id = :id"
+
+    /** What the listener did beyond playing, for the Recommendations page; History's removal marks are not that. */
+    const val SIGNAL_COUNT = "SELECT COUNT(*) FROM listen_signal WHERE kind != ${SignalKind.REMOVED_FROM_HISTORY}"
 }

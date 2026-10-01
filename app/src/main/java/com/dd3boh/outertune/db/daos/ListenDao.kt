@@ -10,7 +10,6 @@ import com.dd3boh.outertune.db.entities.EngineWeight
 import com.dd3boh.outertune.engine.EngineSql
 import com.dd3boh.outertune.db.RelatedSql
 import com.dd3boh.outertune.db.HistorySql
-import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.db.entities.HistoryPiece
 import com.dd3boh.outertune.db.entities.HistoryPlayWithSong
 import com.dd3boh.outertune.db.StatsSql
@@ -265,8 +264,7 @@ interface ListenDao {
     @Query("SELECT liked FROM song WHERE id = :id")
     fun isLiked(id: String): Boolean?
 
-    /** What the listener did beyond playing, for the Recommendations page; History's removal marks are not that. */
-    @Query("SELECT COUNT(*) FROM listen_signal WHERE kind != ${SignalKind.REMOVED_FROM_HISTORY}")
+    @Query(HistorySql.SIGNAL_COUNT)
     fun signalCount(): Flow<Int>
 
     @Insert
