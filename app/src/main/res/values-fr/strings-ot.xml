@@ -760,10 +760,29 @@
     <string name="auto_backup_every_week">Toutes les semaines</string>
     <string name="auto_backup_keep">Combien en garder</string>
     <plurals name="auto_backup_keep_count">
-        <item quantity="one">%1$d sauvegarde, la plus récente. Les plus anciennes partent quand une nouvelle est écrite.</item>
-        <item quantity="many">Les %1$d dernières sauvegardes. Les plus anciennes partent quand une nouvelle est écrite.</item>
-        <item quantity="other">Les %1$d dernières sauvegardes. Les plus anciennes partent quand une nouvelle est écrite.</item>
+        <item quantity="one">%1$d sauvegarde, la plus récente. Les plus anciennes sont supprimées.</item>
+        <item quantity="many">Les %1$d dernières sauvegardes. Les plus anciennes sont supprimées.</item>
+        <item quantity="other">Les %1$d dernières sauvegardes. Les plus anciennes sont supprimées.</item>
     </plurals>
+    <plurals name="auto_backup_pruned">
+        <item quantity="one">%1$d ancienne sauvegarde supprimée</item>
+        <item quantity="many">%1$d anciennes sauvegardes supprimées</item>
+        <item quantity="other">%1$d anciennes sauvegardes supprimées</item>
+    </plurals>
+    <plurals name="auto_backup_keep_confirm">
+        <item quantity="one">Supprimer %1$d ancienne sauvegarde ?</item>
+        <item quantity="many">Supprimer %1$d anciennes sauvegardes ?</item>
+        <item quantity="other">Supprimer %1$d anciennes sauvegardes ?</item>
+    </plurals>
+    <string name="auto_backup_keep_confirm_text">Cette action est irréversible.</string>
+    <string name="auto_backup_keep_delete">Supprimer</string>
+    <string name="auto_backup_keep_unknown_title">Réduire le nombre de sauvegardes à garder ?</string>
+    <plurals name="auto_backup_keep_unknown_text">
+        <item quantity="one">Le dossier des sauvegardes n\'a pas pu être lu, donc la prochaine sauvegarde supprimera les plus anciennes jusqu\'à ce qu\'il en reste %1$d.</item>
+        <item quantity="many">Le dossier des sauvegardes n\'a pas pu être lu, donc la prochaine sauvegarde supprimera les plus anciennes jusqu\'à ce qu\'il en reste %1$d.</item>
+        <item quantity="other">Le dossier des sauvegardes n\'a pas pu être lu, donc la prochaine sauvegarde supprimera les plus anciennes jusqu\'à ce qu\'il en reste %1$d.</item>
+    </plurals>
+    <string name="auto_backup_keep_lower">Réduire</string>
     <string name="auto_backup_now">Sauvegarder maintenant</string>
     <string name="auto_backup_last">Dernière sauvegarde : %1$s</string>
     <string name="auto_backup_last_never">Dernière sauvegarde : jamais</string>

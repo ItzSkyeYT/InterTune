@@ -834,9 +834,25 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="auto_backup_every_week">Every week</string>
     <string name="auto_backup_keep">How many to keep</string>
     <plurals name="auto_backup_keep_count">
-        <item quantity="one">The last backup. Older ones go when a new one is written.</item>
-        <item quantity="other">The last %1$d backups. Older ones go when a new one is written.</item>
+        <item quantity="one">The last backup. Older ones are deleted.</item>
+        <item quantity="other">The last %1$d backups. Older ones are deleted.</item>
     </plurals>
+    <plurals name="auto_backup_pruned">
+        <item quantity="one">Deleted %1$d older backup</item>
+        <item quantity="other">Deleted %1$d older backups</item>
+    </plurals>
+    <plurals name="auto_backup_keep_confirm">
+        <item quantity="one">Delete %1$d older backup?</item>
+        <item quantity="other">Delete %1$d older backups?</item>
+    </plurals>
+    <string name="auto_backup_keep_confirm_text">This cannot be undone.</string>
+    <string name="auto_backup_keep_delete">Delete</string>
+    <string name="auto_backup_keep_unknown_title">Lower how many backups to keep?</string>
+    <plurals name="auto_backup_keep_unknown_text">
+        <item quantity="one">The backup folder could not be read, so the next backup will delete older ones until %1$d is left.</item>
+        <item quantity="other">The backup folder could not be read, so the next backup will delete older ones until %1$d are left.</item>
+    </plurals>
+    <string name="auto_backup_keep_lower">Lower</string>
     <string name="auto_backup_now">Back up now</string>
     <string name="auto_backup_last">Last backup: %1$s</string>
     <string name="auto_backup_last_never">Last backup: never</string>

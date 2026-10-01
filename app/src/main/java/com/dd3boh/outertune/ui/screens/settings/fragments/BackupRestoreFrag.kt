@@ -23,6 +23,9 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Slider
@@ -37,9 +40,14 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -51,6 +59,7 @@ import com.dd3boh.outertune.constants.AutoBackupEnabledKey
 import com.dd3boh.outertune.constants.AutoBackupFolderKey
 import com.dd3boh.outertune.constants.AutoBackupIntervalHoursKey
 import com.dd3boh.outertune.constants.AutoBackupKeepKey
+import com.dd3boh.outertune.constants.AutoBackupLastFolderKey
 import com.dd3boh.outertune.constants.AutoBackupLastResultKey
 import com.dd3boh.outertune.constants.AutoBackupLastRunKey
 import com.dd3boh.outertune.constants.PlaylistFilter
@@ -60,12 +69,16 @@ import com.dd3boh.outertune.extensions.tryOrNull
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
+import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.utils.AutoBackup
+import com.dd3boh.outertune.utils.AutoBackupPolicy
 import com.dd3boh.outertune.utils.M3u
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -138,6 +151,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         rememberPreference(AutoBackupKeepKey, defaultValue = AutoBackup.DEFAULT_KEEP)
     val autoBackupLastRun by rememberPreference(AutoBackupLastRunKey, defaultValue = 0L)
     val autoBackupLastResult by rememberPreference(AutoBackupLastResultKey, defaultValue = "")
+    val autoBackupLastFolder by rememberPreference(AutoBackupLastFolderKey, defaultValue = "")
 
     // Set when the switch is what opened the picker, so that choosing a folder is what turns it
     // on. A switch that is on with nowhere to write would sit there doing nothing.
@@ -166,6 +180,17 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             // Handed the values just chosen rather than left to re-read preferences that have
             // not landed yet, the same trap BackgroundCheckWorker.schedule documents.
             AutoBackup.schedule(context, enabled = enabled, folder = folder)
+            // A new folder while backups are on gets one now, and so does one the switch asked
+            // for when the last backup went elsewhere: AutoBackupPolicy.backUpAtOnce says why.
+            if (
+                AutoBackupPolicy.backUpAtOnce(
+                    wasOn = autoBackupEnabled,
+                    on = enabled,
+                    folder = folder,
+                    setFolder = autoBackupFolder,
+                    lastBackupFolder = autoBackupLastFolder,
+                )
+            ) AutoBackup.backUpToNewFolder(context, folder)
         }
 
     // The display name is a content provider query, so it stays off the main thread and is only
@@ -244,6 +269,18 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                 } else {
                     onAutoBackupEnabledChange(on)
                     AutoBackup.schedule(context, enabled = on)
+                    // Turned on where the last backup did not go, or with none on record: one
+                    // now, since the new schedule's first run skips when the last backup is
+                    // recent, wherever it went (AutoBackupPolicy.backUpAtOnce).
+                    if (
+                        AutoBackupPolicy.backUpAtOnce(
+                            wasOn = autoBackupEnabled,
+                            on = on,
+                            folder = autoBackupFolder,
+                            setFolder = autoBackupFolder,
+                            lastBackupFolder = autoBackupLastFolder,
+                        )
+                    ) AutoBackup.backUpToNewFolder(context, autoBackupFolder)
                 }
             }
         )
@@ -273,6 +310,9 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                 }
             },
             onValueSelected = {
+                // Replaced only when the schedule was made for another interval, since replacing
+                // starts a run at once (AutoBackup.schedule says why). So picking the interval
+                // already set does nothing, unless the schedule disagrees with it.
                 onAutoBackupHoursChange(it)
                 AutoBackup.schedule(context, hours = it)
             }
@@ -287,19 +327,48 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         // the drag and waiting for it to come back would leave the number trailing the thumb, and
         // would write twenty times for one drag. The preference is set when the finger lifts, and
         // re-seeds this when it changes from anywhere else.
-        var keepShown by remember(autoBackupKeep) { mutableIntStateOf(autoBackupKeep) }
+        // The dialog's question, kept across a rotation (KeepQuestionSaver), and the thumb with it:
+        // back on the value the dialog asks about, not on the stored one.
+        var keepToConfirm by rememberSaveable(stateSaver = KeepQuestionSaver) {
+            mutableStateOf<Pair<Int, AutoBackupPolicy.KeepChange>?>(null)
+        }
+        var keepShown by remember(autoBackupKeep) { mutableIntStateOf(keepToConfirm?.first ?: autoBackupKeep) }
         PreferenceEntry(
             title = { Text(stringResource(R.string.auto_backup_keep)) },
             description = pluralStringResource(R.plurals.auto_backup_keep_count, keepShown, keepShown),
             onClick = null,
         )
+        // What letting go does is AutoBackupPolicy.keepChange. Raising Keep only saves it, never
+        // asks and never deletes anything then; the next backup prunes to it as always. Lowering
+        // it asks first when it would delete backups, since that cannot be undone. They are counted
+        // on the folder as it is, off the main thread, by the same rule pruning follows, the dialog
+        // says how many, and only those are deleted. A folder that could not be read is asked about
+        // without a count, because the next backup that reaches it will still delete down to the
+        // new Keep. A lower Keep that deletes nothing is saved at once.
+        val keepScope = rememberCoroutineScope()
+        val keepCount = remember { KeepCount(keepScope) }
         val keepInteraction = remember { MutableInteractionSource() }
         Slider(
             value = keepShown.toFloat(),
-            onValueChange = { keepShown = it.roundToInt() },
-            // Nothing to reschedule: the worker reads this the next time it runs, so all the
-            // release has to do is store the number the drag ended on.
-            onValueChangeFinished = { onAutoBackupKeepChange(keepShown) },
+            onValueChange = {
+                // The thumb moved to another value: a count still running for where it was let go
+                // before is stopped, and so is that release, which this drag or tap replaces.
+                keepCount.moved()
+                keepShown = it.roundToInt()
+            },
+            // Nothing to reschedule, but once agreed the folder is brought down to the new number
+            // now. Left to the next backup, which can be a week or a year away, lowering Keep looked
+            // broken. Handed the number rather than left to read the preference, which has not
+            // landed yet.
+            onValueChangeFinished = {
+                keepCount.released(
+                    old = autoBackupKeep,
+                    new = keepShown,
+                    count = { AutoBackup.wouldDelete(context, it) },
+                    save = onAutoBackupKeepChange,
+                    ask = { keep, change -> keepToConfirm = keep to change },
+                )
+            },
             valueRange = AutoBackup.KEEP_MIN.toFloat()..AutoBackup.KEEP_MAX.toFloat(),
             steps = AutoBackup.KEEP_MAX - AutoBackup.KEEP_MIN - 1,
             interactionSource = keepInteraction,
@@ -318,8 +387,76 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                     drawTick = { _, _ -> },
                 )
             },
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                // Every touch on the slider, never consumed, so the slider works as before. The
+                // finger coming down is seen before the slider's own handling (Initial), because
+                // Material3 1.4.0 says nothing about a press that does not move the thumb a whole
+                // step: onValueChange is not called, and the interaction source only hears of a
+                // drag once it has passed the touch slop. Lifting is seen after it (Final), when a
+                // tap has already been handled and released.
+                .pointerInput(keepCount) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        keepCount.pressed()
+                        try {
+                            do {
+                                val event = awaitPointerEvent(PointerEventPass.Final)
+                            } while (event.changes.any { it.pressed })
+                        } finally {
+                            keepCount.lifted()
+                        }
+                    }
+                },
         )
+
+        keepToConfirm?.let { (keep, change) ->
+            // Null when the folder could not be read and nothing was counted.
+            val doomed = (change as? AutoBackupPolicy.KeepChange.AskCount)?.doomed
+            // Cancel, Back and a tap outside all leave Keep as it was and put the thumb back.
+            val cancel = {
+                keepToConfirm = null
+                keepShown = autoBackupKeep
+            }
+            DefaultDialog(
+                onDismiss = cancel,
+                horizontalAlignment = Alignment.Start,
+                // Padded to line up with the text below, as ExplainDialog does.
+                title = {
+                    Text(
+                        if (doomed != null) pluralStringResource(R.plurals.auto_backup_keep_confirm, doomed.size, doomed.size)
+                        else stringResource(R.string.auto_backup_keep_unknown_title),
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+                    )
+                },
+                buttons = {
+                    TextButton(onClick = cancel) {
+                        Text(stringResource(android.R.string.cancel))
+                    }
+                    TextButton(
+                        onClick = {
+                            keepToConfirm = null
+                            onAutoBackupKeepChange(keep)
+                            // With no count nothing was agreed to by name, so nothing goes now.
+                            // The next backup that reaches the folder prunes it.
+                            if (doomed != null) AutoBackup.applyKeep(context, keep, doomed)
+                        }
+                    ) {
+                        // Its own strings, so the button repeats the verb of the title. The
+                        // shared delete string is "Effacer" in French, next to a "Supprimer" title.
+                        Text(stringResource(if (doomed != null) R.string.auto_backup_keep_delete else R.string.auto_backup_keep_lower))
+                    }
+                },
+            ) {
+                Text(
+                    // With no count, the number that will be left instead.
+                    text = if (doomed != null) stringResource(R.string.auto_backup_keep_confirm_text)
+                    else pluralStringResource(R.plurals.auto_backup_keep_unknown_text, keep, keep),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
+        }
 
         PreferenceEntry(
             title = { Text(stringResource(R.string.auto_backup_now)) },
@@ -367,6 +504,127 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         )
     }
 }
+
+/**
+ * The count the Keep slider starts when it is let go, one at a time, on the screen's scope, and
+ * never answered while a finger is on the slider.
+ *
+ * Touching the slider again cancels a count still running for where it was let go before.
+ * Cancelling only at the next release was not enough: a count that finished during a newer drag
+ * opened its dialog for the old value, the newer release could then save behind it, and Cancel on
+ * that dialog put the slider on a value the user had not kept. So the thumb moving cancels it
+ * ([moved]), and before that a finger coming down on the slider at all ([pressed]), since
+ * Material3 1.4.0 calls onValueChange for a touch only once a drag has moved the value a whole
+ * step, or when a tap lifts: a finger coming down never reached [moved].
+ *
+ * A count also waits for the finger to lift before it saves or asks ([lifted]), so no dialog ever
+ * opens under a finger, even for a release that arrives after the next press has begun, as a
+ * drag's can. A press that only cancelled, because the touch went on to scroll the page and never
+ * moved the thumb, would leave the thumb on a value nothing was decided for, so lifting counts
+ * that release again. A newer move or release replaces it instead.
+ *
+ * Every call comes from the main thread, so a count is either cancelled before it asks or has
+ * already asked, and once its dialog is open, the dialog is in front of the slider.
+ */
+internal class KeepCount(private val scope: CoroutineScope) {
+    private var job: Job? = null
+
+    /** The last release not yet saved or asked about, which lifting counts again if [pressed] stopped it. */
+    private var unanswered: Release? = null
+
+    /** Whether a finger is on the slider. */
+    private val held = MutableStateFlow(false)
+
+    private class Release(
+        val old: Int,
+        val new: Int,
+        val count: suspend (keep: Int) -> List<String>?,
+        val save: (keep: Int) -> Unit,
+        val ask: (keep: Int, change: AutoBackupPolicy.KeepChange) -> Unit,
+    )
+
+    /** A finger came down on the slider: a count still running stops, and none answers until it lifts. */
+    fun pressed() {
+        held.value = true
+        job?.cancel()
+        job = null
+    }
+
+    /**
+     * No finger is on the slider any more, or the touch went to something else. A count that
+     * finished meanwhile answers now, and a release whose count [pressed] stopped, with nothing
+     * since to replace it, is counted again.
+     */
+    fun lifted() {
+        held.value = false
+        val release = unanswered ?: return
+        if (job?.isActive != true) start(release)
+    }
+
+    /** The thumb moved: a count for where it was let go before is no longer the question. */
+    fun moved() {
+        job?.cancel()
+        job = null
+        unanswered = null
+    }
+
+    /**
+     * Let go at [new] with [old] stored. What happens is AutoBackupPolicy.keepChange, which calls
+     * [count] (AutoBackup.wouldDelete) only when the answer depends on the folder, then [save] or
+     * [ask], once no finger is on the slider. Returns the count's job, null when the value did not
+     * change.
+     */
+    fun released(
+        old: Int,
+        new: Int,
+        count: suspend (keep: Int) -> List<String>?,
+        save: (keep: Int) -> Unit,
+        ask: (keep: Int, change: AutoBackupPolicy.KeepChange) -> Unit,
+    ): Job? {
+        moved()
+        if (new == old) return null
+        return start(Release(old, new, count, save, ask))
+    }
+
+    private fun start(release: Release): Job {
+        unanswered = release
+        return scope.launch {
+            val change = AutoBackupPolicy.keepChange(release.old, release.new) { release.count(release.new) }
+            // Not under a finger. A press while this waits cancels it.
+            held.first { !it }
+            unanswered = null
+            when (change) {
+                AutoBackupPolicy.KeepChange.Save -> release.save(release.new)
+                else -> release.ask(release.new, change)
+            }
+        }.also { job = it }
+    }
+}
+
+/**
+ * Keeps the Keep dialog's question when the activity is recreated, as on a rotation: the new Keep,
+ * and for a counted question the names it would delete. Without it a rotation closed the dialog
+ * and put the thumb back on the stored Keep, which looked like Cancel. Saved as what a Bundle
+ * holds: the Keep and then the names as a list, or the Keep alone for a folder that could not be
+ * read. A count running when the activity goes is not kept: the thumb comes back on the stored
+ * Keep and nothing was decided.
+ */
+internal val KeepQuestionSaver = Saver<Pair<Int, AutoBackupPolicy.KeepChange>?, ArrayList<Any>>(
+    save = { question ->
+        if (question == null) null
+        else when (val change = question.second) {
+            is AutoBackupPolicy.KeepChange.AskCount -> arrayListOf<Any>(question.first, ArrayList(change.doomed))
+            AutoBackupPolicy.KeepChange.AskUnknown -> arrayListOf<Any>(question.first)
+            // Never asked about.
+            AutoBackupPolicy.KeepChange.Save -> null
+        }
+    },
+    restore = { saved ->
+        val keep = saved[0] as Int
+        val doomed = (saved.getOrNull(1) as? List<*>)?.map { it as String }
+        keep to (if (doomed == null) AutoBackupPolicy.KeepChange.AskUnknown else AutoBackupPolicy.KeepChange.AskCount(doomed))
+    },
+)
 
 /**
  * Writes one .m3u per library playlist into the folder at [treeUri] and returns how many were
