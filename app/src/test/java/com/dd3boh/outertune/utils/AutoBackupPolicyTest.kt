@@ -466,6 +466,16 @@ class AutoBackupPolicyTest {
         assertTrue(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = pressed, lastBackupAt = pressed, now = now, intervalHours = 24))
     }
 
+    @Test
+    fun `a new folder's first backup, queued behind a Back up now, makes one backup between them`() {
+        val picked = now - 10_000L
+        // The Back up now ahead of it had not started when the folder was picked, so it wrote into
+        // the new folder, after the pick. The folder's own run has nothing left to do.
+        assertTrue(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = picked, lastBackupAt = picked + 500L, now = now, intervalHours = 24))
+        // It was already writing when the folder was picked, so into the old folder. This one writes.
+        assertFalse(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = picked, lastBackupAt = picked - 2_000L, now = now, intervalHours = 24))
+    }
+
     // Whether a launch keeps the schedule or replaces it.
 
     /** The tag WorkManager adds to every request by itself: the worker's class name. */

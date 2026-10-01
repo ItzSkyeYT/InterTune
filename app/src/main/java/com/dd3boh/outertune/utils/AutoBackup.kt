@@ -49,6 +49,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.IOException
 import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
@@ -367,15 +368,44 @@ object AutoBackup {
      * A second press while one is still waiting or writing is dropped rather than replacing it.
      * Replacing stopped the first, which cannot stop its write, so a double tap was two files.
      */
-    fun runNow(context: Context) {
+    fun runNow(context: Context) = enqueueNow(context, ExistingWorkPolicy.KEEP)
+
+    /**
+     * A folder was just picked while automatic backups are on: one backup there now. The schedule
+     * keeps its own time, so otherwise the new folder would stay empty until the next backup is
+     * due, which can be a week or a year away.
+     *
+     * Only once the settings say [folder]. Settings saves it fire and forget, the worker reads the
+     * folder from the settings when it starts, and a run that started before the save landed would
+     * back up into the old one. If it has not landed within a few seconds, most likely because
+     * another folder was picked straight after, this is dropped and that pick's own call stands.
+     *
+     * Queued after a Back up now that is already writing, rather than dropped like a second press,
+     * since that one may be writing into the old folder. One that has not started yet will write
+     * into the new folder, and then this run finds a backup made after it was asked for and skips
+     * (AutoBackupPolicy.shouldSkip), so the folder still gets one backup, not two.
+     */
+    fun backUpToNewFolder(context: Context, folder: String) {
+        val appContext = context.applicationContext
+        scope.launch {
+            val saved = withTimeoutOrNull(FOLDER_SAVE_WAIT_MS) {
+                appContext.dataStore.data.first { it[AutoBackupFolderKey] == folder }
+            }
+            if (saved == null) {
+                Log.w(TAG, "The new backup folder was not saved in time, no first backup there")
+                return@launch
+            }
+            enqueueNow(appContext, ExistingWorkPolicy.APPEND_OR_REPLACE)
+        }
+    }
+
+    private const val FOLDER_SAVE_WAIT_MS = 10_000L
+
+    private fun enqueueNow(context: Context, policy: ExistingWorkPolicy) {
         val request = OneTimeWorkRequestBuilder<AutoBackupWorker>()
             .setInputData(workDataOf(INPUT_MANUAL to true, INPUT_REQUESTED_AT to System.currentTimeMillis()))
             .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            WORK_NAME_NOW,
-            ExistingWorkPolicy.KEEP,
-            request,
-        )
+        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME_NOW, policy, request)
         Log.i(TAG, "Backup requested now")
     }
 

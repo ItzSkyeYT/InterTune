@@ -171,6 +171,11 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             // Handed the values just chosen rather than left to re-read preferences that have
             // not landed yet, the same trap BackgroundCheckWorker.schedule documents.
             AutoBackup.schedule(context, enabled = enabled, folder = folder)
+            // A new folder while backups are on gets one now: the schedule keeps its own time, and
+            // the folder would otherwise sit empty until the next one is due. Not when the switch
+            // is what opened the picker, since that makes a new schedule, whose first run is due
+            // at once.
+            if (autoBackupEnabled && folder != autoBackupFolder) AutoBackup.backUpToNewFolder(context, folder)
         }
 
     // The display name is a content provider query, so it stays off the main thread and is only
