@@ -317,23 +317,22 @@ fun RecommendationsDoingSettings(
             // give, and what is not judged yet or left out named beside it rather than added in.
             // It used to be every row in the table, Discover's, the unjudged and the pool picks
             // never on screen among them, "across" every build, and read as a contradiction of
-            // the count at the top.
+            // the count at the top. Taps go on each source's line: "You tapped 2 of them." under
+            // three lines left "them" to guess.
             val seen = cardsSeen(cardsSeenRows)
-            val tapped = seen.sumOf { it.tapped }
             StatEntry(
                 title = stringResource(R.string.recommendations_cards_seen),
                 explanation = stringResource(R.string.recommendations_impressions_info),
-                numbers = (seen.map { r ->
+                numbers = seen.map { r ->
                     val name = teamNames[r.team] ?: r.team.toString()
                     (if (onlyWaiting(r)) {
                         pluralStringResource(R.plurals.recommendations_cards_seen_waiting, r.waiting, name, r.waiting)
                     } else {
                         stringResource(R.string.recommendations_cards_seen_line, name, r.judged) +
                             (if (r.waiting > 0) pluralStringResource(R.plurals.recommendations_cards_waiting, r.waiting, r.waiting) else "")
-                    }) + (if (r.leftOut > 0) pluralStringResource(R.plurals.recommendations_cards_left_out, r.leftOut, r.leftOut) else "")
-                } + listOfNotNull(
-                    if (tapped > 0) pluralStringResource(R.plurals.recommendations_cards_tapped, tapped, tapped) else null
-                )).joinToString("\n").ifBlank { stringResource(R.string.recommendations_nothing_yet) },
+                    }) + (if (r.leftOut > 0) pluralStringResource(R.plurals.recommendations_cards_left_out, r.leftOut, r.leftOut) else "") +
+                        (if (r.tapped > 0) pluralStringResource(R.plurals.recommendations_cards_tapped, r.tapped, r.tapped) else "")
+                }.joinToString("\n").ifBlank { stringResource(R.string.recommendations_nothing_yet) },
                 meaning = if (seen.isEmpty()) null else stringResource(R.string.recommendations_impressions_description),
             )
             ExplainedPreference(
