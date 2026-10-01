@@ -318,6 +318,12 @@ class RecognitionEngine @Inject constructor(
          * to. Its later searches leave them out: see [MixSearch.turnedDown].
          */
         var declined: Set<String> = emptySet(),
+        /**
+         * Settled because an earlier mashup this run answered for its pieces ([answered]), with
+         * nothing of its own in the answer: none of its songs is searched for again. See
+         * [MixSearch.uncovered].
+         */
+        var answeredEarlier: Boolean = false,
         /** When the first of its pieces was heard, since the last mashup ended. */
         var startedMs: Long = 0,
         override var endsAtMs: Long? = null,
@@ -1185,6 +1191,9 @@ class RecognitionEngine @Inject constructor(
         if ((mix == null || holding != null) && answered.containsAll(keys)) {
             mix = (holding ?: ActiveMix(startedMs = startOf(keys, now))).apply {
                 this.keys += keys; lastHeardMs = now; lastCutMs = now; strong = true; settled = true; searched = true
+                // Answered in an earlier mashup. One held back after a search of its own keeps the
+                // song that search looked for, which covers it and no other, as before.
+                answeredEarlier = searchedSongs.isEmpty()
             }
             retract(found.pieces)
             return
@@ -1195,7 +1204,7 @@ class RecognitionEngine @Inject constructor(
         val around = active?.let { it.pieces + it.heard }.orEmpty() + songs
         // Songs its answer does not cover, neither searched for nor named by the upload chosen: the
         // mashup is searched again with them all.
-        val uncovered = active?.let { MixSearch.uncovered(it.settled, it.found, it.searchedSongs, songs, around) }.orEmpty()
+        val uncovered = active?.let { MixSearch.uncovered(it.settled, it.found, it.searchedSongs, songs, around, answeredEarlier = it.answeredEarlier) }.orEmpty()
         if (active != null && uncovered.isEmpty() && (active.settled || (active.searched && active.keys.containsAll(keys) &&
                     (active.strong || !found.strong) && (active.sure || !found.sure)))) {
             active.keys += keys
@@ -1365,7 +1374,8 @@ class RecognitionEngine @Inject constructor(
         if (mix == null && piece.key in answered) {
             // Answered as an edit of itself: settled. Answered as part of a mashup: held back, and the
             // mashup check says which mashup this is once another piece shows up.
-            mix = ActiveMix(allKeys.toMutableSet(), now, now, strong = true, settled = piece.key in answeredAlone, searched = true, startedMs = startOf(allKeys, now))
+            val alone = piece.key in answeredAlone
+            mix = ActiveMix(allKeys.toMutableSet(), now, now, strong = true, settled = alone, searched = true, answeredEarlier = alone, startedMs = startOf(allKeys, now))
             retract(all)
             return
         }

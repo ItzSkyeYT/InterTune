@@ -1230,7 +1230,7 @@ class MixWatchTest {
         // Searched for both already, still open, or answered in an earlier mashup: nothing to search.
         assertTrue(MixSearch.uncovered(true, null, MixSearch.noted(searchedFaint, songs), songs, listOf(faintPiece)).isEmpty())
         assertTrue(MixSearch.uncovered(false, null, searchedFaint, songs, listOf(faintPiece)).isEmpty())
-        assertTrue(MixSearch.uncovered(true, null, emptySet(), songs, listOf(faintPiece)).isEmpty())
+        assertTrue(MixSearch.uncovered(true, null, emptySet(), songs, listOf(faintPiece), answeredEarlier = true).isEmpty())
         // Another version of the same song is not a new song.
         val faintRemix = "faint2" to ("Faint (Euphoric Hardstyle Remix)" to "Linkin Park")
         assertTrue(MixSearch.uncovered(true, null, searchedFaint, listOf(sighting(faintRemix, 200), faintPiece), listOf(faintPiece)).isEmpty())
@@ -1744,7 +1744,7 @@ class MixWatchTest {
         taken.settled = true
         assertEquals(listOf("numb"), MixSearch.uncovered(taken.settled, taken.found, taken.searchedSongs, songs, songs).map { it.key })
         // Answered in an earlier mashup, with nothing of its own: nothing searches.
-        assertTrue(MixSearch.uncovered(true, null, emptySet(), songs, songs).isEmpty())
+        assertTrue(MixSearch.uncovered(true, null, emptySet(), songs, songs, answeredEarlier = true).isEmpty())
     }
 
     /**
@@ -1836,6 +1836,36 @@ class MixWatchTest {
             // Once, noting No Love, when the search went through; and never a choice either way.
             assertEquals(if (complete) 1 else 4, rounds)
         }
+    }
+
+    /**
+     * The builder's open question, raised again by the second review: a mashup's first search, for
+     * Faint and No Love, has a query failing and notes nothing, and its choice is answered None of
+     * these. No song noted and no upload chosen read as an answer given in an earlier mashup, and
+     * Numb, heard later, never searched.
+     */
+    @Test
+    fun `None of these after a first search where a query failed still searches for a song heard later`() {
+        val numb = "numb" to ("Numb" to "Linkin Park")
+        val two = listOf(sighting(faint, 0), sighting(noLove, 12))
+        val held = Held()
+        val found = MixSearch.rank(two, listOf(listOf(otherMashup, faintNoLove)), 1.0)
+        val asked = MixSearch.outcome(emptyList(), null, false, found, false, MixSearch.clearWinner(found, two), true, two)
+        assertEquals(MixSearch.Outcome.ANSWER, asked)
+        MixSearch.follow(asked, held, MixSearch.queried(two), complete = false)
+        held.settled = true
+        held.searchedSongs = MixSearch.afterChoice(held.searchedSongs, two.map(MixSearch::songId).toSet(), null)
+        assertTrue(held.searchedSongs.isEmpty())
+        assertNull(held.found)
+        // Numb comes back with Faint, and both are searched for: the search that failed in part
+        // settled nothing about Faint either.
+        val back = listOf(sighting(numb, 300), sighting(faint, 312))
+        val heard = two + back
+        assertEquals(listOf("numb", "faint"), MixSearch.uncovered(held.settled, held.found, held.searchedSongs, back, heard).map { it.key })
+        // Answered in an earlier mashup, the same nothing leaves nothing to search for, as before,
+        // and nothing is searched for while the question is open.
+        assertTrue(MixSearch.uncovered(held.settled, held.found, held.searchedSongs, back, heard, answeredEarlier = true).isEmpty())
+        assertTrue(MixSearch.uncovered(false, held.found, held.searchedSongs, back, heard).isEmpty())
     }
 
     @Test

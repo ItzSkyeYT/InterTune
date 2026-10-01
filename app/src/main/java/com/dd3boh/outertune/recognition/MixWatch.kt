@@ -1022,11 +1022,15 @@ internal object MixSearch {
 
     /**
      * The songs among [songs] that a mashup's answer does not cover, and so the mashup is searched
-     * for again with: none unless it is [settled], and none when nothing of its own went into the
-     * answer, neither a search that noted a song ([searchedSongs] empty) nor an upload taken or
-     * picked ([chosen] null): it was answered in an earlier mashup. An upload taken from a search
-     * where one query failed, which notes nothing ([follow]), still says what it covers: before,
-     * with nothing noted, a song it does not name never searched again.
+     * for again with: none unless it is [settled], and none when it was answered in an earlier
+     * mashup ([answeredEarlier]), heard again after a quiet spell ended it, with nothing of its own
+     * in the answer. Left false, a mashup searched for, taken or asked about in its own right.
+     *
+     * Said outright, not read off the answer. An answer with no song noted and no upload chosen was
+     * taken to be one from an earlier mashup, but a mashup's first search where a query failed
+     * notes nothing ([follow]), and after None of these its answer is just that. A song heard
+     * later then never searched, where it did while that search still noted its songs. An upload
+     * taken from such a search still says what it covers ([chosen]).
      *
      * A song is covered when a search that went through looked for it ([searchedSongs], as
      * [songId]), when a choice the person picked an upload from listed it (also in [searchedSongs]:
@@ -1045,8 +1049,9 @@ internal object MixSearch {
         searchedSongs: Set<String>,
         songs: List<MixWatch.Sighting>,
         heard: List<MixWatch.Sighting>,
+        answeredEarlier: Boolean = false,
     ): List<MixWatch.Sighting> {
-        if (!settled || (searchedSongs.isEmpty() && chosen == null)) return emptyList()
+        if (!settled || answeredEarlier) return emptyList()
         return distinctSongs(songs).filter { song ->
             songId(song) !in searchedSongs && (chosen == null || !namesSong(heard + songs, song, chosen))
         }
