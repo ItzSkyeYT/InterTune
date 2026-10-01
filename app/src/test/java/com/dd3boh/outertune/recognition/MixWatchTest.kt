@@ -1960,20 +1960,35 @@ class MixWatchTest {
     }
 
     @Test
-    fun `a playlist's run never notes the answer given before as heard and not added`() {
+    fun `a playlist's run adds no note when the winner is the answer already in the playlist`() {
         val numb = "numb" to ("Numb" to "Linkin Park")
         val songs = listOf(sighting(faint, 300), sighting(noLove, 288), sighting(numb, 276))
         val titles = songs.map { it.title }
         val allThree = "Faint + No Love (feat. Lil Wayne) + Numb"
-        // Asked again for Numb, with Faint x No Love set aside. While it is asked nothing is
-        // uncovered, so the next search goes by the usual order, which puts first the two songs the
-        // answer set aside names, and finds that very upload, clear.
-        val ranked = MixSearch.rank(songs, listOf(listOf(faintNoLove), listOf(faintNoLove)), 1.0)
-        val winner = MixSearch.clearWinner(ranked, songs)
+        // Faint x No Love taken without asking, and then Numb back with the two. The search finds
+        // "Faint x No Love x Numb (Mashup)" clear, the question is asked again, and the sheet notes
+        // the mashup under that upload's name.
+        val searched = MixSearch.noted(emptySet(), listOf(sighting(faint, 0), sighting(noLove, 12)))
+        val uncovered = MixSearch.uncovered(true, faintNoLove, searched, songs, songs)
+        val three = upload("three", "Faint x No Love x Numb (Mashup)", 260)
+        val withThree = MixSearch.rank(songs, listOf(listOf(three, faintNoLove)), 1.0)
+        val first = MixSearch.clearWinner(withThree, songs)
+        assertEquals(three.id, first?.id)
+        assertEquals(MixSearch.Outcome.REOPEN, MixSearch.outcome(uncovered, faintNoLove, false, withThree, true, first, true, songs))
+        assertEquals(three.title, MixSearch.sheetName(first, faintNoLove, titles))
+
+        // While it is asked nothing is uncovered, so the next search goes by the usual order, which
+        // puts first the two songs the answer set aside names, and finds that very upload, clear.
+        val back = listOf(sighting(faint, 312), sighting(noLove, 324))
+        val ranked = MixSearch.rank(back, listOf(listOf(faintNoLove), listOf(faintNoLove)), 1.0)
+        val winner = MixSearch.clearWinner(ranked, back)
         assertEquals(faintNoLove.id, winner?.id)
         assertEquals(MixSearch.Outcome.ASK, MixSearch.outcome(emptyList(), null, true, ranked, true, winner, true, songs))
-        // It is in the playlist, so the note goes by the songs. Before, it was named after it.
-        assertEquals(allThree, MixSearch.sheetName(winner, faintNoLove, titles))
+        // It is in the playlist, and the mashup was noted when it was asked again: no note. Named
+        // after it, a note listed it as heard and not added; named after the songs instead, it was
+        // a second note about the mashup, "Faint + No Love (feat. Lil Wayne)" next to the first.
+        assertNull(MixSearch.sheetName(winner, faintNoLove, back.map { it.title }))
+        assertNull(MixSearch.sheetName(winner, faintNoLove, titles))
         // Any other winner names the note, and with none the songs do.
         assertEquals(otherMashup.title, MixSearch.sheetName(otherMashup, faintNoLove, titles))
         assertEquals(faintNoLove.title, MixSearch.sheetName(faintNoLove, null, titles))

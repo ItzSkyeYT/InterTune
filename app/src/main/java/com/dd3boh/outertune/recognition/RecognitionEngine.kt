@@ -1321,10 +1321,13 @@ class RecognitionEngine @Inject constructor(
             !autoAdd -> "adding without asking is off"
             else -> null
         }
+        // What a playlist's run notes in the sheet, if anything: see MixSearch.sheetName.
+        val note = MixSearch.sheetName(winner, current.replaced, titles)
         picked(
             when {
                 notTaken == null -> "took it, $standing"
                 playlist == null -> "asking, $standing; not taken: $notTaken"
+                note == null -> "not noted, '${winner?.title}' being the answer before, in the playlist already; $standing"
                 else -> "noted for the sheet, $standing; not taken: $notTaken"
             }
         )
@@ -1345,11 +1348,11 @@ class RecognitionEngine @Inject constructor(
             // The choice is drawn by the screen, whose runs have no playlist. The sheet shows the
             // unsure list instead, so a playlist's run notes the mashup there.
             playlist == null -> offerChoice(current, songs)
-            else -> {
-                // Never after the upload it was answered with before, which is in the playlist.
-                val name = MixSearch.sheetName(winner, current.replaced, titles)
-                if (_skipped.value.none { it.title == name }) {
-                    _skipped.value += Added(name, context.getString(R.string.recognise_mashup), auto = false, heardAtMs = now, keys = current.keys.toSet())
+            // Nothing when the winner is the upload it was answered with before, which is in the
+            // playlist already.
+            note != null -> {
+                if (_skipped.value.none { it.title == note }) {
+                    _skipped.value += Added(note, context.getString(R.string.recognise_mashup), auto = false, heardAtMs = now, keys = current.keys.toSet())
                 }
             }
         }
