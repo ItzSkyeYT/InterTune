@@ -774,7 +774,11 @@
     <string name="auto_backup_keep_confirm_text">Cette action est irréversible.</string>
     <string name="auto_backup_keep_delete">Supprimer</string>
     <string name="auto_backup_keep_unknown_title">Réduire le nombre de sauvegardes à garder ?</string>
-    <string name="auto_backup_keep_unknown_text">Le dossier des sauvegardes n\'a pas pu être lu, donc la prochaine sauvegarde supprimera les plus anciennes pour n\'en garder que ce nombre.</string>
+    <plurals name="auto_backup_keep_unknown_text">
+        <item quantity="one">Le dossier des sauvegardes n\'a pas pu être lu, donc la prochaine sauvegarde supprimera les plus anciennes jusqu\'à ce qu\'il en reste %1$d.</item>
+        <item quantity="many">Le dossier des sauvegardes n\'a pas pu être lu, donc la prochaine sauvegarde supprimera les plus anciennes jusqu\'à ce qu\'il en reste %1$d.</item>
+        <item quantity="other">Le dossier des sauvegardes n\'a pas pu être lu, donc la prochaine sauvegarde supprimera les plus anciennes jusqu\'à ce qu\'il en reste %1$d.</item>
+    </plurals>
     <string name="auto_backup_keep_lower">Réduire</string>
     <string name="auto_backup_now">Sauvegarder maintenant</string>
     <string name="auto_backup_last">Dernière sauvegarde : %1$s</string>

@@ -420,9 +420,9 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                 },
             ) {
                 Text(
-                    text = stringResource(
-                        if (doomed != null) R.string.auto_backup_keep_confirm_text else R.string.auto_backup_keep_unknown_text
-                    ),
+                    // With no count, the number that will be left instead.
+                    text = if (doomed != null) stringResource(R.string.auto_backup_keep_confirm_text)
+                    else pluralStringResource(R.plurals.auto_backup_keep_unknown_text, keep, keep),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
