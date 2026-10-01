@@ -55,8 +55,12 @@ object HistorySql {
     private const val L_VISIBLE = "l.endReason != ${EndReason.OPEN} AND NOT $L_REMOVED AND NOT $L_REWRITTEN"
     private const val P_VISIBLE = "p.endReason != ${EndReason.OPEN} AND NOT $P_REMOVED AND NOT $P_REWRITTEN"
 
-    /** MusicService's RESUME_TOLERANCE_MS: a resume may start this far from where the piece stopped. */
-    private const val RESUME_EARLY_MS = 5_000
+    /**
+     * How much more than what was left of the song a resume may hear: ten seconds, or a twentieth
+     * of the song when that is more. See [CUR_RESUMES_P].
+     */
+    private const val RESUME_SLACK_MS = 10_000
+    private const val RESUME_SLACK_PARTS = 20
 
     /**
      * Whether up.cur resumes p, the piece it says it continues.
@@ -70,23 +74,28 @@ object HistorySql {
      * from the top for a day; each after the first is a play of its own. They lie between the two
      * ids, so this reads a day's rows at most, by primary key.
      *
-     * And only if it heard no more than what was left of the song, from up to five seconds before
-     * where p stopped (the service's own tolerance for a resume). A play linked to a stopped piece
-     * that then went on to hear the whole song, back from the top, is a play of its own: in one
-     * real library, a play four hours later that heard 201 seconds of a song stopped at 2:44 of
-     * 3:20. A song of unknown length is not judged.
+     * And only if it heard no more than what was left of the song, give or take ten seconds or a
+     * twentieth of the song, whichever is more. The service links a resume that starts within five
+     * seconds of where p stopped, and a listener coming back often goes back a little more: in one
+     * real library, a resume a minute after a stop at 0:48 of 3:28 heard 166.8 seconds and ended
+     * the song, 7.5 more than was left. A play linked to a stopped piece that went on to hear the
+     * song again from the top is a play of its own, and is over by about where the piece stopped:
+     * 145 seconds and more for the whole-song replays in that library (a play four hours later
+     * that heard 201 seconds of a song stopped at 2:44 of 3:20, for one), and 15 for the least, a
+     * resume at 1:50 of 4:06 sent straight back to the top, where a twentieth is 12.3. A song of
+     * unknown length is not judged.
      */
     private const val CUR_RESUMES_P = """p.songId = up.songId
         AND NOT EXISTS (SELECT 1 FROM listen x WHERE x.id > p.id AND x.id < up.cur AND x.continuesListenId = p.id)
-        AND NOT EXISTS (SELECT 1 FROM listen c WHERE c.id = up.cur
-            AND c.durationMs > 0 AND c.playedMs > c.durationMs - p.endPositionMs + $RESUME_EARLY_MS)"""
+        AND NOT EXISTS (SELECT 1 FROM listen c WHERE c.id = up.cur AND c.durationMs > 0
+            AND c.playedMs > c.durationMs - p.endPositionMs + MAX($RESUME_SLACK_MS, c.durationMs / $RESUME_SLACK_PARTS))"""
 
     /**
      * The same as [CUR_RESUMES_P] for CHAIN's walk the other way: whether l resumes d. CHAIN's join
      * has already asked for the same song, which is what lets it find l by the songId index.
      */
     private const val L_RESUMES_D = """NOT EXISTS (SELECT 1 FROM listen x WHERE x.id > d.id AND x.id < l.id AND x.continuesListenId = d.id)
-        AND NOT (l.durationMs > 0 AND l.playedMs > l.durationMs - d.endPositionMs + $RESUME_EARLY_MS)"""
+        AND NOT (l.durationMs > 0 AND l.playedMs > l.durationMs - d.endPositionMs + MAX($RESUME_SLACK_MS, l.durationMs / $RESUME_SLACK_PARTS))"""
 
     /**
      * Each visible piece (id) walked back to every piece it continues, one row a step: cur is the

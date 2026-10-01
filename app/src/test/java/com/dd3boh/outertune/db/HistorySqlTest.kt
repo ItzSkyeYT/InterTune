@@ -294,13 +294,54 @@ class HistorySqlTest {
     }
 
     @Test
-    fun `a resume may start five seconds early, and a song of unknown length is not judged`() {
-        val stopped = listen("a", t, playedMs = 150 * second, endReason = 4)
-        // 50 seconds were left, and it went back five.
-        listen("a", t + minute, playedMs = 55 * second, continues = stopped, endPosition = 200 * second)
-        val unknown = listen("b", t + 10 * minute, playedMs = 150 * second, endReason = 4, durationMs = -1)
-        listen("b", t + 20 * minute, playedMs = 5 * minute, continues = unknown, durationMs = -1)
-        assertEquals(listOf(unknown to 450 * second, stopped to 205 * second), plays().map { it.listenId to it.playedMs })
+    fun `a resume may hear ten seconds more than was left, or a twentieth of a longer song`() {
+        // 50 seconds were left of 200: ten seconds over joins, a millisecond more does not.
+        val ten = listen("a", t, playedMs = 150 * second, endReason = 4)
+        listen("a", t + minute, playedMs = 60 * second, continues = ten, endPosition = 200 * second)
+        val overTen = listen("b", t + 2 * minute, playedMs = 150 * second, endReason = 4)
+        val alone = listen("b", t + 3 * minute, playedMs = 60 * second + 1, continues = overTen, endPosition = 200 * second)
+        // 300 seconds were left of 400, where a twentieth is 20 seconds.
+        val twentieth = listen("c", t + 4 * minute, playedMs = 100 * second, endReason = 4, durationMs = 400_000)
+        listen("c", t + 5 * minute, playedMs = 320 * second, continues = twentieth, durationMs = 400_000, endPosition = 400 * second)
+        val overTwentieth = listen("x", t + 6 * minute, playedMs = 100 * second, endReason = 4, durationMs = 400_000)
+        val aloneToo = listen("x", t + 7 * minute, playedMs = 320 * second + 1, continues = overTwentieth, durationMs = 400_000, endPosition = 400 * second)
+        // A song of unknown length is not judged.
+        val unknown = listen("y", t + 10 * minute, playedMs = 150 * second, endReason = 4, durationMs = -1)
+        listen("y", t + 20 * minute, playedMs = 5 * minute, continues = unknown, durationMs = -1)
+        assertEquals(
+            listOf(
+                unknown to 450 * second, aloneToo to 320 * second + 1, overTwentieth to 100 * second, twentieth to 420 * second,
+                alone to 60 * second + 1, overTen to 150 * second, ten to 210 * second,
+            ),
+            plays().map { it.listenId to it.playedMs },
+        )
+    }
+
+    @Test
+    fun `a real resume a little over what was left joins, a replay from the top does not`() {
+        // From one real library. Listen 7605 stopped at 48.7 s of 208, and 7606, a minute later,
+        // heard 166.8 s and ended the song: 7.5 s more than was left.
+        val stopped = listen("a", t, playedMs = 48_699, endReason = 4, durationMs = 208_000)
+        listen("a", t + minute, playedMs = 166_835, counted = true, continues = stopped, durationMs = 208_000, endPosition = 207_581)
+        // Plays the service linked to a stopped piece that then heard the song again: 8370, 8691
+        // and 8715, whole-song replays, and 7256, a resume at 1:50 sent straight back to the top.
+        val replays = listOf(
+            listOf(197_000L, 161_836L, 161_824L, 183_737L),
+            listOf(296_000L, 215_471L, 215_747L, 226_144L),
+            listOf(200_000L, 164_175L, 164_616L, 201_185L),
+            listOf(246_000L, 110_384L, 11_963L, 150_770L),
+        ).mapIndexed { i, (duration, stoppedAt, firstHeard, heard) ->
+            val song = listOf("b", "c", "x", "y")[i]
+            val at = t + (i + 1) * 60 * minute
+            val first = listen(song, at, playedMs = firstHeard, endReason = 4, durationMs = duration, endPosition = stoppedAt)
+            val again = listen(song, at + 30 * minute, playedMs = heard, counted = true, continues = first, durationMs = duration)
+            listOf(first to firstHeard, again to heard)
+        }.flatten()
+        assertEquals(
+            (replays + (stopped to 48_699L + 166_835L)).toSet(),
+            plays().map { it.listenId to it.playedMs }.toSet(),
+        )
+        assertEquals(9, plays().size)
     }
 
     @Test
