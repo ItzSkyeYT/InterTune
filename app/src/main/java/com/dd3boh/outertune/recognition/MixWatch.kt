@@ -1156,7 +1156,7 @@ internal object MixSearch {
         if (ranked == null) return Outcome.STAND_FOR_NOW
         val naming = reopening(ranked, uncovered, heard)
         return when {
-            naming.isEmpty() || stillGiven(ranked, naming, given) -> if (complete) Outcome.STAND else Outcome.STAND_FOR_NOW
+            naming.isEmpty() || stillGiven(ranked, naming, given, heard) -> if (complete) Outcome.STAND else Outcome.STAND_FOR_NOW
             // Clear over everything found, not only over the others naming the new song: on a weak
             // return, an upload of the two songs answered for well ahead of one naming the third
             // says that one is only a toss-up.
@@ -1183,21 +1183,34 @@ internal object MixSearch {
     /**
      * Whether the search, for all it found, still says the mashup is [given], the upload it was
      * answered with: [ranked] puts that very upload first, or none of the uploads [naming] a song
-     * it did not cover ([reopening]) scores more than it does in this search. Asking again then
-     * only offers the answer already given first, or something the search thinks less of in its
-     * place. In a probe of the review, the other mashup of Faint and No Love, taken without asking
-     * at 7, came first again at 8 when Numb came back, and "Numb / Faint" at 4 asked the question
-     * all over again, with the answer given at the top of the choice; in a playlist's run that very
-     * upload was then listed as heard and not added, though it was in the playlist.
+     * it did not cover ([reopening]) names more of the songs [heard] than it does ([songsNamed]),
+     * or scores more than it does in this search. Asking again then only offers the answer already
+     * given first, or something the search thinks less of in its place. In a probe of the review,
+     * the other mashup of Faint and No Love, taken without asking at 7, came first again at 8 when
+     * Numb came back, and "Numb / Faint" at 4 asked the question all over again, with the answer
+     * given at the top of the choice; in a playlist's run that very upload was then listed as heard
+     * and not added, though it was in the playlist.
+     *
+     * An upload naming more of the songs reopens it whatever the scores. The answer's score counts
+     * an artist's name for every song heard by that artist, which [songsNamed] does not: in the
+     * second review's probe that same answer scored 8 with Numb heard, a point of it for Numb's
+     * Linkin Park credit, and "Faint x No Love x Numb (Mashup)", first at 7, was outvoted. The
+     * answer stood, Numb was noted, and the mashup of all three was never asked about.
      *
      * Not when the search did not find [given] at all: how it would score is not known, and an
      * upload naming the new song is then asked about as before.
      */
-    fun stillGiven(ranked: List<Pair<SongItem, Int>>, naming: List<Pair<SongItem, Int>>, given: SongItem?): Boolean {
+    fun stillGiven(
+        ranked: List<Pair<SongItem, Int>>,
+        naming: List<Pair<SongItem, Int>>,
+        given: SongItem?,
+        heard: List<MixWatch.Sighting>,
+    ): Boolean {
         if (given == null) return false
         if (ranked.firstOrNull()?.first?.id == given.id) return true
         val own = ranked.firstOrNull { it.first.id == given.id }?.second ?: return false
-        return naming.none { it.second > own }
+        val named = songsNamed(heard, given)
+        return naming.none { (item, score) -> songsNamed(heard, item) > named || score > own }
     }
 
     /**
