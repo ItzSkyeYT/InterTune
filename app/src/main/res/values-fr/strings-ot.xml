@@ -521,6 +521,9 @@
     <string name="player_buttons_connected">Connectés</string>
     <string name="queue_button">Bouton de file d\'attente</string>
     <string name="queue_button_description">Ouvre la file d\'attente depuis un bouton à côté des autres boutons du lecteur, au lieu de la tirer depuis le bas du lecteur.</string>
+    <string name="media_control_buttons">Boutons des commandes multimédias</string>
+    <string name="media_control_buttons_explain">Votre téléphone affiche deux boutons à côté de précédent, lecture et suivant : dans la notification, sur l\'écran de verrouillage et dans le panneau multimédia. Touchez-en deux, dans l\'ordre voulu.</string>
+    <string name="media_control_repeat">Répéter</string>
     <string name="quick_picks_source_engine">Meilleures recommandations (expérimental)</string>
     <string name="quick_picks_source_compare">Essayer les deux (expérimental)</string>
     <string name="quick_picks_source_off">Désactivée</string>

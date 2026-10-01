@@ -86,6 +86,8 @@ import com.dd3boh.outertune.constants.KeepAliveKey
 import com.dd3boh.outertune.constants.MAX_PLAYER_CONSECUTIVE_ERR
 import com.dd3boh.outertune.constants.RELATED_RETRY_COOLDOWN_MS
 import com.dd3boh.outertune.constants.MaxQueuesKey
+import com.dd3boh.outertune.constants.MediaControlButtonsKey
+import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleLibrary
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleLike
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleRepeatMode
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleShuffle
@@ -398,6 +400,8 @@ class MusicService : MediaLibraryService(),
     @Volatile private var contextChip = 0
     @Volatile var persistentQueue = true
         private set
+    /** The two buttons picked for the phone's media controls. Read and written on the main thread. */
+    private var mediaControlButtons = MediaControlButtons.DEFAULT
     private val isNetworkConnected = MutableStateFlow(true)
 
     lateinit var sleepTimer: SleepTimer
@@ -675,6 +679,18 @@ class MusicService : MediaLibraryService(),
         )
 
         connectivityManager = getSystemService()!!
+
+        // Read before the first layout goes out, so a controller that connects now gets the picked
+        // buttons rather than the default and then a correction. Then followed, because the
+        // service outlives every visit to settings and the change should show while the
+        // notification is up, not at the next start.
+        mediaControlButtons = MediaControlButtons.parse(dataStore[MediaControlButtonsKey])
+        dataStore.data.map { MediaControlButtons.parse(it[MediaControlButtonsKey]) }.distinctUntilChanged()
+            .collect(scope) { buttons ->
+                if (buttons == mediaControlButtons) return@collect
+                mediaControlButtons = buttons
+                updateNotification()
+            }
 
         currentSong.collect(scope) {
             updateNotification()
@@ -2085,28 +2101,42 @@ class MusicService : MediaLibraryService(),
         Log.d(TAG, "Adaptive queue: dropped ${plan.dropped.size} of ${tail.size} upcoming, strong=$strong")
     }
 
+    /**
+     * Sends the buttons for the phone's media controls, the two picked in settings first.
+     *
+     * The system controls show two of these beside previous, play and next and drop the rest, so
+     * the order decides what anyone sees. The rest still go out after them for controllers that
+     * show more. See [MediaControlButtons].
+     */
     fun updateNotification() {
-        mediaSession.setCustomLayout(
-            listOf(
-                // Semantic icons rather than our own drawables, for both of these.
-                //
-                // A controller that redraws the media controls in its own style, which on Samsung
-                // is every one of them, can render an icon it recognises by name. It is under no
-                // obligation to draw an arbitrary drawable handed to it by an app, and One UI
-                // does not: the two buttons built this way were the two that went missing from
-                // the notification while like and radio, already semantic, came through. media3
-                // ships its own drawables for these names, so nothing is lost where the custom
-                // ones did work.
-                //
-                // The label reads the same thing the icon does. It used to read the queue's
-                // shuffled flag while the icon read the player's, and this button calls
-                // toggleShuffleMode, which sets player.shuffleModeEnabled and never touches the
-                // queue. So pressing it moved the icon and left the label behind, sometimes for
-                // good.
+        mediaSession.setCustomLayout(MediaControlButtons.layout(mediaControlButtons).map(::mediaControlButton))
+    }
+
+    private fun mediaControlButton(button: MediaControlButton): CommandButton {
+        val song = currentSong.value
+        // Semantic icons rather than our own drawables, for every one of these.
+        //
+        // A controller that redraws the media controls in its own style, which on Samsung is every
+        // one of them, can render an icon it recognises by name. It is under no obligation to draw
+        // an arbitrary drawable handed to it by an app, and One UI does not: back when shuffle and
+        // repeat carried our own drawables, they were the two that went missing from the
+        // notification while like and radio, already semantic, came through. media3 ships its own
+        // drawables for these names, so nothing is lost where the custom ones did work.
+        //
+        // A button that is not enabled is left out of the system controls altogether, and the one
+        // after it moves up into its place.
+        return when (button) {
+            // The label reads the same thing the icon does. It used to read the queue's shuffled
+            // flag while the icon read the player's, and this button calls toggleShuffleMode,
+            // which sets player.shuffleModeEnabled and never touches the queue. So pressing it
+            // moved the icon and left the label behind, sometimes for good.
+            MediaControlButton.SHUFFLE ->
                 CommandButton.Builder(if (player.shuffleModeEnabled) CommandButton.ICON_SHUFFLE_ON else CommandButton.ICON_SHUFFLE_OFF)
                     .setDisplayName(getString(if (player.shuffleModeEnabled) R.string.action_shuffle_off else R.string.action_shuffle_on))
                     .setSessionCommand(CommandToggleShuffle)
-                    .build(),
+                    .build()
+
+            MediaControlButton.REPEAT ->
                 CommandButton.Builder(
                     when (player.repeatMode) {
                         REPEAT_MODE_OFF -> CommandButton.ICON_REPEAT_OFF
@@ -2126,19 +2156,34 @@ class MusicService : MediaLibraryService(),
                         )
                     )
                     .setSessionCommand(CommandToggleRepeatMode)
-                    .build(),
-                CommandButton.Builder(if (currentSong.value?.song?.liked == true) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED)
-                    .setDisplayName(getString(if (currentSong.value?.song?.liked == true) R.string.action_remove_like else R.string.action_like))
+                    .build()
+
+            MediaControlButton.LIKE ->
+                CommandButton.Builder(if (song?.song?.liked == true) CommandButton.ICON_HEART_FILLED else CommandButton.ICON_HEART_UNFILLED)
+                    .setDisplayName(getString(if (song?.song?.liked == true) R.string.action_remove_like else R.string.action_like))
                     .setSessionCommand(CommandToggleLike)
-                    .setEnabled(currentSong.value != null)
-                    .build(),
+                    .setEnabled(song != null)
+                    .build()
+
+            MediaControlButton.RADIO ->
                 CommandButton.Builder(CommandButton.ICON_RADIO)
                     .setDisplayName(getString(R.string.start_radio))
                     .setSessionCommand(CommandToggleStartRadio)
-                    .setEnabled(currentSong.value != null)
+                    .setEnabled(song != null)
                     .build()
-            )
-        )
+
+            // A plus that turns into a tick, as the add button does in other players. Off for a
+            // local file: it is in the library because it is on the phone, and the player's own
+            // menu does not offer to take it out either.
+            MediaControlButton.LIBRARY ->
+                CommandButton.Builder(
+                    if (song?.song?.inLibrary != null) CommandButton.ICON_CHECK_CIRCLE_FILLED else CommandButton.ICON_PLUS_CIRCLE_UNFILLED
+                )
+                    .setDisplayName(getString(if (song?.song?.inLibrary != null) R.string.remove_from_library else R.string.add_to_library))
+                    .setSessionCommand(CommandToggleLibrary)
+                    .setEnabled(song != null && !song.song.isLocal)
+                    .build()
+        }
     }
 
     /**

@@ -60,6 +60,7 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.AudioQualityFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.AdaptiveQueueFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.HeadTrackingFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.MediaControlButtonsFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.StageWidthFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.ProximityVolumeFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioModeFrag
@@ -111,6 +112,7 @@ fun PlayerSettings(
             modifier = Modifier.fillMaxWidth()
         ) {
             PlayerGeneralFrag()
+            MediaControlButtonsFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))
 
