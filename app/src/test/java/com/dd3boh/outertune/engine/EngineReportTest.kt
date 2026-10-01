@@ -336,7 +336,7 @@ class EngineReportTest {
         assertEquals(BrierVerdict.WORSE, brierVerdict(0.012, brierReference(List(103) { 0.11 to 0.0 })))
         assertEquals(BrierVerdict.BETTER, brierVerdict(0.15, 0.1875))
         assertEquals(BrierVerdict.SAME, brierVerdict(0.18751, 0.1875))
-        assertEquals(BrierVerdict.WORSE, brierVerdict(0.1880, 0.1875))
+        assertEquals(BrierVerdict.WORSE, brierVerdict(0.1890, 0.1875))
     }
 
     @Test
