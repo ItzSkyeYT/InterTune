@@ -297,14 +297,15 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
 
     @Transaction
     fun update(album: AlbumEntity, albumPage: AlbumPage) {
+        val (songCount, duration) = AlbumRows.countAfterPage(album, albumPage.songs.map { it.duration })
         val updated = album.copy(
             id = albumPage.album.browseId,
             playlistId = albumPage.album.playlistId,
             title = albumPage.album.title,
             year = albumPage.album.year,
             thumbnailUrl = albumPage.album.thumbnail,
-            songCount = albumPage.songs.size,
-            duration = albumPage.songs.sumOf { it.duration ?: 0 }
+            songCount = songCount,
+            duration = duration
         )
         update(updated)
         albumPage.songs.map(SongItem::toMediaMetadata)

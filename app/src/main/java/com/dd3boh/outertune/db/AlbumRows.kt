@@ -58,4 +58,22 @@ object AlbumRows {
      */
     fun pageAddsArtist(storedArtistIds: Collection<String>, pageArtistNames: Collection<String>): Boolean =
         storedArtistIds.isEmpty() && pageArtistNames.isNotEmpty()
+
+    /**
+     * The song count and length a YouTube album page just fetched leaves the stored album with:
+     * the page's, unless the page has no songs.
+     *
+     * YouTube.album used to fail whole when it could not read an album's songs, and now returns
+     * the album with none instead, so that its page still opens. A page like that says nothing
+     * about how many songs the album has. Writing 0 over the stored count would lose it, and put
+     * the album back into every pass that fetches albums with no songs, when a failed fetch used
+     * to leave the row as it was.
+     *
+     * @param stored the row being written over
+     * @param pageDurations the length of each song on the page, in seconds, null where unknown
+     * @return the song count and the total length in seconds
+     */
+    fun countAfterPage(stored: AlbumEntity, pageDurations: List<Int?>): Pair<Int, Int> =
+        if (pageDurations.isEmpty()) stored.songCount to stored.duration
+        else pageDurations.size to pageDurations.sumOf { it ?: 0 }
 }

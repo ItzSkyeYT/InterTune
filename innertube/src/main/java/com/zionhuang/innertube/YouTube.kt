@@ -243,21 +243,64 @@ object YouTube {
     suspend fun album(browseId: String, withSongs: Boolean = true): Result<AlbumPage> = runCatching {
         val response = innerTube.browse(WEB_REMIX, browseId).body<BrowseResponse>()
         val playlistId = response.microformat?.microformatDataRenderer?.urlCanonical?.substringAfterLast('=')!!
-        AlbumPage(
-            album = AlbumItem(
-                browseId = browseId,
-                playlistId = playlistId,
-                title = response.contents?.twoColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicResponsiveHeaderRenderer?.title?.runs?.firstOrNull()?.text!!,
-                artists = response.contents.twoColumnBrowseResultsRenderer.tabs.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicResponsiveHeaderRenderer?.straplineTextOne?.runs?.oddElements()?.map {
-                    Artist(
-                        name = it.text,
-                        id = it.navigationEndpoint?.browseEndpoint?.browseId
-                    )
-                }!!,
-                year = response.contents.twoColumnBrowseResultsRenderer.tabs.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicResponsiveHeaderRenderer?.subtitle?.runs?.lastOrNull()?.text?.toIntOrNull(),
-                thumbnail = response.contents.twoColumnBrowseResultsRenderer.tabs.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicResponsiveHeaderRenderer?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull()?.url!!,
-            ),
-            songs = if (withSongs) albumSongs(playlistId).getOrThrow() else emptyList(),
+        // A playlist page with nothing on it no longer fails the album (see albumPage). Any other
+        // failure still does, as before: a request that did not get through says nothing about
+        // the album, and its own page would give the music videos in place of the songs.
+        val listed = if (withSongs) {
+            albumSongs(playlistId).getOrElse { if (it is EmptyPlaylistPage) null else throw it }
+        } else null
+        albumPage(browseId, response, listed, withSongs)
+    }
+
+    /**
+     * An album page from its browse response, with [listedSongs], the songs its playlist page
+     * listed (null when that page had no list at all).
+     *
+     * The playlist page (VL + the album's OLAK5uy_ id) is where the songs have always come from,
+     * and some albums' playlist pages are empty: no contents, just a microformat saying noindex.
+     * The same playlist on youtube.com says why: none of the album's audio tracks is available.
+     * On 30 Sep that was so for one of the two "Five More Hours" albums, MPREb_dDFLAnEcWVu ("1
+     * unavailable video is hidden"), and one of the two YOASOBI THE BOOK 2 albums,
+     * MPREb_oNAdr9eUOfS ("8 unavailable videos are hidden"), in English and French alike, whatever
+     * the client version, and for none of 30 albums found by searching. albumSongs then failed on
+     * a !!, and this with it, so the album page never opened and Stats, the library and the menus
+     * never filled those albums in.
+     *
+     * The album's own page still lists its songs, in the shelf under its header, so they are read
+     * from there instead. That shelf gives a song's music video wherever it has one, even when the
+     * audio track is there (the other "Five More Hours" lists Syo-kNPln-Q on its playlist page and
+     * the video j3CaHeakZF4 on its own), which is why it is only the fallback; for these albums the
+     * video is all there is to play. Its rows often name no artist and have no cover of their own,
+     * so they take the album's. Where neither page gives a song the album still comes back, with
+     * none, rather than failing.
+     */
+    internal fun albumPage(
+        browseId: String,
+        response: BrowseResponse,
+        listedSongs: List<SongItem>?,
+        withSongs: Boolean = true,
+    ): AlbumPage {
+        val playlistId = response.microformat?.microformatDataRenderer?.urlCanonical?.substringAfterLast('=')!!
+        val album = AlbumItem(
+            browseId = browseId,
+            playlistId = playlistId,
+            title = response.contents?.twoColumnBrowseResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicResponsiveHeaderRenderer?.title?.runs?.firstOrNull()?.text!!,
+            artists = response.contents.twoColumnBrowseResultsRenderer.tabs.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicResponsiveHeaderRenderer?.straplineTextOne?.runs?.oddElements()?.map {
+                Artist(
+                    name = it.text,
+                    id = it.navigationEndpoint?.browseEndpoint?.browseId
+                )
+            }!!,
+            year = response.contents.twoColumnBrowseResultsRenderer.tabs.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicResponsiveHeaderRenderer?.subtitle?.runs?.lastOrNull()?.text?.toIntOrNull(),
+            thumbnail = response.contents.twoColumnBrowseResultsRenderer.tabs.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicResponsiveHeaderRenderer?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails?.lastOrNull()?.url!!,
+        )
+        return AlbumPage(
+            album = album,
+            songs = when {
+                !withSongs -> emptyList()
+                !listedSongs.isNullOrEmpty() -> listedSongs
+                else -> AlbumPage.getSongs(response, album)
+            },
             otherVersions = response.contents.twoColumnBrowseResultsRenderer.secondaryContents?.sectionListRenderer?.contents?.getOrNull(1)?.musicCarouselShelfRenderer?.contents
                 ?.mapNotNull { it.musicTwoRowItemRenderer }
                 ?.mapNotNull(NewReleaseAlbumPage::fromMusicTwoRowItemRenderer)
@@ -265,18 +308,25 @@ object YouTube {
         )
     }
 
+    /** A playlist page that answered with no list of songs at all. See albumPage. */
+    private class EmptyPlaylistPage(playlistId: String) :
+        IllegalStateException("VL$playlistId has no musicPlaylistShelfRenderer")
+
+    /**
+     * The songs an album's playlist page lists. Fails when the page has no list at all, as it
+     * does when none of the album's songs is available (see albumPage), with EmptyPlaylistPage;
+     * that was a bare NullPointerException from a !! here. Album radio and an OLAK5uy_ link still
+     * fail on such an album, as they did.
+     */
     suspend fun albumSongs(playlistId: String): Result<List<SongItem>> = runCatching {
         var response = innerTube.browse(WEB_REMIX, "VL$playlistId").body<BrowseResponse>()
-        val songs = response.contents?.twoColumnBrowseResultsRenderer
-            ?.secondaryContents?.sectionListRenderer
-            ?.contents?.firstOrNull()
-            ?.musicPlaylistShelfRenderer?.contents?.getItems()
-            ?.mapNotNull {
+        val shelf = AlbumPage.playlistShelf(response) ?: throw EmptyPlaylistPage(playlistId)
+        val songs = shelf.contents.getItems()
+            .mapNotNull {
                 AlbumPage.getSong(it)
-            }!!
+            }
             .toMutableList()
-        var continuation = response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer
-            ?.contents?.firstOrNull()?.musicPlaylistShelfRenderer?.contents?.getContinuation()
+        var continuation = shelf.contents.getContinuation()
         while (continuation != null) {
             response = innerTube.browse(
                 client = WEB_REMIX,

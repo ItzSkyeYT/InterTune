@@ -3,6 +3,7 @@ package com.zionhuang.innertube.pages
 import com.zionhuang.innertube.models.Album
 import com.zionhuang.innertube.models.AlbumItem
 import com.zionhuang.innertube.models.Artist
+import com.zionhuang.innertube.models.MusicPlaylistShelfRenderer
 import com.zionhuang.innertube.models.MusicResponsiveHeaderRenderer
 import com.zionhuang.innertube.models.MusicResponsiveListItemRenderer
 import com.zionhuang.innertube.models.SongItem
@@ -68,13 +69,32 @@ data class AlbumPage(
             return header
         }
 
+        /**
+         * The shelf of songs on an album's playlist page (VL + its playlist id), or null when the
+         * page has none, which some albums' pages now do: see YouTube.albumPage.
+         */
+        fun playlistShelf(response: BrowseResponse): MusicPlaylistShelfRenderer? =
+            response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer
+                ?.contents?.firstOrNull()?.musicPlaylistShelfRenderer
+
+        /**
+         * The songs an album's own page lists, under its header, for when its playlist page lists
+         * none. Its rows often name no artist, where the playlist page names one on every row (a
+         * compilation's name theirs, a single's and THE BOOK 2's do not, not even the featured
+         * one), and have no cover of their own, so a row that names nobody takes the album's
+         * artists and every row the album's cover.
+         */
         fun getSongs(response: BrowseResponse, album: AlbumItem): List<SongItem> {
             val tabs = response.contents?.singleColumnBrowseResultsRenderer?.tabs ?: response.contents?.twoColumnBrowseResultsRenderer?.tabs
-            val shelfRenderer = tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents?.firstOrNull()?.musicShelfRenderer ?:
-                response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents?.firstOrNull()?.musicShelfRenderer
+            val shelfRenderer = tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents
+                ?.firstNotNullOfOrNull { it.musicShelfRenderer }
+                ?: response.contents?.twoColumnBrowseResultsRenderer?.secondaryContents?.sectionListRenderer?.contents
+                    ?.firstNotNullOfOrNull { it.musicShelfRenderer }
 
             val songs = shelfRenderer?.contents?.getItems()?.mapNotNull {
                 getSong(it, album)
+            }?.map { song ->
+                if (song.artists.isEmpty()) song.copy(artists = album.artists.orEmpty()) else song
             }
             return songs ?: emptyList()
         }
