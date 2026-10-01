@@ -132,9 +132,31 @@ class EngineReportTest {
     }
 
     @Test
-    fun `engine numbers kept from an earlier time say so`() {
-        val s = doingSummary(engineShowing = false, teams = engineCards, trend = null)
-        assertEquals(DoingSummary.Numbers(CardCounts(200, 9), Trend.TooEarly, fromBefore = true), s)
+    fun `engine numbers kept from an earlier time say so, with no trend when it could only say too early`() {
+        // Not in the row, so no new cards: the fortnights fill with nothing and "too early" would
+        // never go away.
+        assertEquals(
+            DoingSummary.Numbers(CardCounts(200, 9), trend = null, fromBefore = true),
+            doingSummary(engineShowing = false, teams = engineCards, trend = null),
+        )
+        assertEquals(
+            DoingSummary.Numbers(CardCounts(200, 9), trend = null, fromBefore = true),
+            doingSummary(false, engineCards, CardTrendRow(recentSeen = 0, recentPlayed = 0, earlierSeen = 120, earlierPlayed = 6)),
+        )
+    }
+
+    @Test
+    fun `a trend from before the switch is still shown while there is one`() {
+        val trend = CardTrendRow(recentSeen = 300, recentPlayed = 30, earlierSeen = 300, earlierPlayed = 10)
+        val s = doingSummary(engineShowing = false, teams = engineCards, trend = trend) as DoingSummary.Numbers
+        assertTrue(s.trend is Trend.Up)
+        assertTrue(s.fromBefore)
+    }
+
+    @Test
+    fun `while the engine is showing, too early stays, since it will fill in`() {
+        val s = doingSummary(engineShowing = true, teams = engineCards, trend = CardTrendRow(10, 1, 0, 0)) as DoingSummary.Numbers
+        assertEquals(Trend.TooEarly, s.trend)
     }
 
     @Test

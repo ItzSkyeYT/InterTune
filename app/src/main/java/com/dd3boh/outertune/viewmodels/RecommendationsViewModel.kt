@@ -19,7 +19,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.floatOrNull
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.content.Context
@@ -58,27 +60,43 @@ class RecommendationsViewModel @Inject constructor(
     val cardTrend = TrendWindows.at(System.currentTimeMillis()).let { database.engineCardTrend(it.from, it.mid, it.to) }
     private val learning by lazy { EngineLearning(context, database) }
 
-    fun resetWeights() = viewModelScope.launch(Dispatchers.IO) { runCatching { learning.reset() } }
-
-    /** The latest session stops teaching: its listens are marked, its examples skipped, the weights rebuilt without them. */
-    fun forgetLastSession() = viewModelScope.launch(Dispatchers.IO) {
-        runCatching {
-            val session = database.openListens().firstOrNull()?.sessionId ?: database.lastListen()?.sessionId ?: return@launch
-            database.transactionNow { forgetSession(session); dropForgottenExamples() }
-            learning.rebuild()
-        }
+    /**
+     * Runs [work] past the page that asked for it, and hands its result to [onDone] on the main
+     * thread, or null if it failed. Forgetting marks the listens and then rebuilds, and the rebuild
+     * can wait on the engine's lock while Home's learning run holds it: in the page's own scope,
+     * backing out at that moment cancelled the rebuild after the listens were already marked.
+     */
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun <T> pastThePage(work: suspend () -> T, onDone: (T?) -> Unit) = GlobalScope.launch(Dispatchers.IO) {
+        val result = runCatching { work() }.getOrNull()
+        withContext(Dispatchers.Main) { onDone(result) }
     }
 
-    /** Everything since local midnight stops teaching. */
-    fun forgetToday() = viewModelScope.launch(Dispatchers.IO) {
-        runCatching {
-            val now = System.currentTimeMillis()
-            val off = java.util.TimeZone.getDefault().getOffset(now)
-            val midnight = Math.floorDiv(now + off, 86_400_000L) * 86_400_000L - off
-            database.transactionNow { forgetBetween(midnight, now + 1); dropForgottenExamples() }
+    /** [onDone] gets whether it worked. */
+    fun resetWeights(onDone: (Boolean) -> Unit) = pastThePage({ learning.reset() }) { onDone(it != null) }
+
+    /**
+     * The latest session stops teaching: its listens are marked, its examples skipped, the weights
+     * rebuilt without them. [onDone] gets how many listens it marked, 0 with no session at all.
+     */
+    fun forgetLastSession(onDone: (Int?) -> Unit) = pastThePage<Int>({
+        val session = database.openListens().firstOrNull()?.sessionId ?: database.lastListen()?.sessionId
+        if (session == null) 0 else {
+            val marked = database.transactionNow<Int> { forgetSession(session).also { dropForgottenExamples() } }
             learning.rebuild()
+            marked
         }
-    }
+    }, onDone)
+
+    /** Everything since local midnight stops teaching. [onDone] gets how many listens it marked. */
+    fun forgetToday(onDone: (Int?) -> Unit) = pastThePage<Int>({
+        val now = System.currentTimeMillis()
+        val off = java.util.TimeZone.getDefault().getOffset(now)
+        val midnight = Math.floorDiv(now + off, 86_400_000L) * 86_400_000L - off
+        val marked = database.transactionNow<Int> { forgetBetween(midnight, now + 1).also { dropForgottenExamples() } }
+        learning.rebuild()
+        marked
+    }, onDone)
 
     /** Everything the engine has learned, as JSON, built off the main thread and handed back on it for the share sheet. */
     fun export(onReady: (String) -> Unit) = viewModelScope.launch(Dispatchers.IO) {
@@ -150,6 +168,10 @@ class RecommendationsViewModel @Inject constructor(
         withContext(Dispatchers.Main) { onDone(count) }
     }
 
-    fun rebuildWeights() = viewModelScope.launch(Dispatchers.IO) { runCatching { learning.rebuild() } }
+    /** [onDone] gets how many cards the weights were rebuilt from: the update count the rebuild stored. */
+    fun rebuildWeights(onDone: (Int?) -> Unit) = pastThePage<Int>({
+        learning.rebuild()
+        database.engineWeights().maxOfOrNull { it.updates } ?: 0
+    }, onDone)
     val recent = database.recentListenRows(30)
 }

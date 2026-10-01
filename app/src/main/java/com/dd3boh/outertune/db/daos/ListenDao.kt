@@ -234,11 +234,13 @@ interface ListenDao {
     fun activeExclusions(now: Long): Flow<List<EngineExclusionRow>>
 
     // ---- Forget this listening: a session or a day stops teaching, and what it taught is skipped.
+    /** How many listens it marked. */
     @Query("UPDATE listen SET learn = 0 WHERE sessionId = :sessionId")
-    fun forgetSession(sessionId: Long)
+    fun forgetSession(sessionId: Long): Int
 
+    /** How many listens it marked. */
     @Query("UPDATE listen SET learn = 0 WHERE startedAt >= :from AND startedAt < :to")
-    fun forgetBetween(from: Long, to: Long)
+    fun forgetBetween(from: Long, to: Long): Int
 
     // Also by the play a grade recorded: a tap whose link was lost is graded by its song's play just
     // after it (Grading), and only the impression knows which play that was.

@@ -37,7 +37,8 @@ data class TeamCards(val team: Int, val cards: CardCounts)
 
 /**
  * Seen and played per source, in team order. Only cards graded played, played elsewhere or
- * ignored count: pending, unseen, pool picks, dropped and lost cards were never a fair question.
+ * ignored count: pending, unseen, dropped and lost cards were never a fair question. Pool picks
+ * are left out by the query, since they were never on screen (see EngineSql.GRADED_BY_TEAM).
  */
 fun cardsByTeam(rows: List<TeamOutcome>): List<TeamCards> =
     rows.filter { it.outcome in Outcome.PLAYED..Outcome.IGNORED }
@@ -105,8 +106,12 @@ sealed interface DoingSummary {
     /** The engine fills Quick picks but nothing it showed has been judged yet. */
     data object Waiting : DoingSummary
 
-    /** [fromBefore] when these are from an earlier time: the engine is not in the row now. */
-    data class Numbers(val cards: CardCounts, val trend: Trend, val fromBefore: Boolean) : DoingSummary
+    /**
+     * [fromBefore] when these are from an earlier time: the engine is not in the row now. [trend]
+     * is null when there is none to give and never will be: from before, with too few new cards,
+     * the fortnights only fill with nothing, and "too early" would stay up for good.
+     */
+    data class Numbers(val cards: CardCounts, val trend: Trend?, val fromBefore: Boolean) : DoingSummary
 }
 
 fun doingSummary(engineShowing: Boolean, teams: List<TeamCards>, trend: CardTrendRow?): DoingSummary {
@@ -115,7 +120,8 @@ fun doingSummary(engineShowing: Boolean, teams: List<TeamCards>, trend: CardTren
     val t = trend?.let {
         trendOf(CardCounts(it.recentSeen, it.recentPlayed), CardCounts(it.earlierSeen, it.earlierPlayed))
     } ?: Trend.TooEarly
-    return DoingSummary.Numbers(engine, t, fromBefore = !engineShowing)
+    val fromBefore = !engineShowing
+    return DoingSummary.Numbers(engine, t.takeUnless { fromBefore && it == Trend.TooEarly }, fromBefore)
 }
 
 /**
@@ -160,3 +166,4 @@ fun per100Texts(a: Double, b: Double, locale: Locale): Pair<String, String> {
         whole
     }
 }
+

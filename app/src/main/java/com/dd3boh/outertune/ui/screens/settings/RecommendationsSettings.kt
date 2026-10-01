@@ -197,13 +197,15 @@ fun RecommendationsSettings(
                     },
                     onValueSelected = onSimilarSourceChange,
                 )
-                // What Both has learned so far, beside the choice it follows from.
+                // What Both has learned so far, beside the choice it follows from. With one
+                // source there is nothing shared, so no line about sharing either.
                 val mix = sourceMix
+                val single = SimilarSources.effective(similarSource, hasKey = true, engineOn = Unreleased.ENGINE) != SimilarSource.BOTH
                 StatEntry(
                     title = stringResource(R.string.similar_mix),
                     explanation = stringResource(R.string.similar_mix_info),
                     numbers = when {
-                        SimilarSources.effective(similarSource, hasKey = true, engineOn = Unreleased.ENGINE) != SimilarSource.BOTH -> stringResource(R.string.similar_mix_single)
+                        single -> stringResource(R.string.similar_mix_single)
                         mix == null || !mix.compared -> stringResource(R.string.similar_mix_none)
                         else -> {
                             val lastFm = (mix.share * 100).roundToInt()
@@ -215,7 +217,7 @@ fun RecommendationsSettings(
                             ).joinToString("\n")
                         }
                     },
-                    meaning = stringResource(R.string.similar_mix_meaning),
+                    meaning = if (single) null else stringResource(R.string.similar_mix_meaning),
                 )
             }
             Spacer(Modifier.height(16.dp))
