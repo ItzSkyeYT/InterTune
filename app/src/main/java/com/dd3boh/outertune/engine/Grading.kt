@@ -68,6 +68,12 @@ data class Graded(val impressionId: Long, val outcome: Int, val y: Double, val u
  * play, graded once by all of it. So a card whose play failed and was resumed is graded by the whole
  * play and how it ended. One that failed waits out the time a resume can still come in
  * ([Outcome.WAITING]), and is settled at no weight only once none did.
+ *
+ * The rows followed stop at a play that is another card's: one linked to another card, or standing
+ * in for another card's tap. A play that failed in its first seconds and the same song tapped again
+ * from another card a moment later look like a stop and its resume, but the second play is the
+ * other card's, graded for that card alone. The first card's play ends where the other card's
+ * began, and since no later play can carry it on after that, it is settled then.
  */
 object Grading {
     fun grade(
@@ -87,31 +93,42 @@ object Grading {
             val from = l.continuesListenId ?: continue
             if (resumedBy[from].let { it == null || l.startedAt < it.startedAt }) resumedBy[from] = l
         }
+        // Each tapped card's own play. The link is made when the listen opens, from the tap's
+        // moment carried through the player, and some ways of starting a song lose that moment. In
+        // one real library on 25 Sep, 73 tapped cards more than two days old had no listen linked,
+        // 19 of them with the same song starting within a minute of the tap. So that song's own
+        // play, started just after the tap from a queue and not linked to another card, stands in.
+        val playOf = HashMap<Long, ListenRow>()
+        for (imp in impressions) {
+            val tapped = imp.tappedAt ?: continue
+            val listen = byImpression[imp.id]
+                ?: byGroup[groups.groupOf(imp.songId)].orEmpty()
+                    .filter { it.impressionId == null && it.autoplayDepth == 0 && it.startedAt in (tapped - TAP_BEFORE_MS)..(tapped + TAP_AFTER_MS) }
+                    .minByOrNull { kotlin.math.abs(it.startedAt - tapped) }
+            if (listen != null) playOf[imp.id] = listen
+        }
+        // The card a standing-in play is taken for, as a linked play is its own card's.
+        val standingInFor = HashMap<Long, Long>()
+        for ((card, l) in playOf) if (l.impressionId == null && l.id > 0) standingInFor[l.id] = card
         val window = p.justPlayedHours * 3_600_000L
         val out = ArrayList<Graded>()
         for (imp in impressions) {
             val tapped = imp.tappedAt
             if (tapped != null) {
-                // The link is made when the listen opens, from the tap's moment carried through the
-                // player, and some ways of starting a song lose that moment. On his phone on 25 Sep,
-                // 73 tapped cards more than two days old had no listen linked, 19 of them with the
-                // same song starting within a minute of the tap. So that song's own play, started
-                // just after the tap from a queue and not claimed by another card, stands in.
-                val listen = byImpression[imp.id]
-                    ?: byGroup[groups.groupOf(imp.songId)].orEmpty()
-                        .filter { it.impressionId == null && it.autoplayDepth == 0 && it.startedAt in (tapped - TAP_BEFORE_MS)..(tapped + TAP_AFTER_MS) }
-                        .minByOrNull { kotlin.math.abs(it.startedAt - tapped) }
+                val listen = playOf[imp.id]
                 if (listen == null) {
                     // Still starting, or lost: never an ignored card. Settled once the day is over.
                     if (now - tapped >= window) out += Graded(imp.id, Outcome.LOST, 0.0, 0.0)
                     continue
                 }
-                val play = asOnePlay(listen, resumedBy)
+                val chain = asOnePlay(listen, resumedBy) { (it.impressionId ?: standingInFor[it.id] ?: imp.id) != imp.id }
+                val play = chain.play
                 if (play.endReason == EndReason.OPEN) continue
                 if (!play.learn) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
                 if (EngineListens.failed(play)) {
-                    // Until a resume can no longer come in, the play may yet be carried on.
-                    if (now - play.endedAt <= ListenProgress.RESUME_WINDOW_MS) {
+                    // Until a resume can no longer come in, the play may yet be carried on, and the
+                    // card waits. Once another card's play has carried it on, none can.
+                    if (!chain.takenOver && now - play.endedAt <= ListenProgress.RESUME_WINDOW_MS) {
                         out += Graded(imp.id, Outcome.WAITING, 0.0, 0.0)
                         continue
                     }
@@ -139,25 +156,37 @@ object Grading {
     }
 
     /**
+     * A card's play as one, and whether it was [takenOver]: carried on by a play that is another
+     * card's, which leaves nothing able to carry it on any more.
+     */
+    internal class Chain(val play: ListenRow, val takenOver: Boolean)
+
+    /**
      * [first] followed through the rows that carried it on, as one play: started when it did,
      * heard for all their time together, ended when and how the last of them ended, and meant to
      * teach only if every part was. [first] itself when nothing carried it on.
+     *
+     * A row that is [othersPlay] is not followed, nor anything after it: it is a play of its own.
+     * Only the earliest row carrying a row on is followed, so once that is another card's play, no
+     * later one can carry this play on.
      */
-    internal fun asOnePlay(first: ListenRow, resumedBy: Map<Long, ListenRow>): ListenRow {
+    internal fun asOnePlay(first: ListenRow, resumedBy: Map<Long, ListenRow>, othersPlay: (ListenRow) -> Boolean = { false }): Chain {
         var last = first
         var playedMs = first.playedMs
         var durationMs = first.durationMs
         var learn = first.learn
+        var takenOver = false
         val seen = HashSet<Long>()
         while (last.id > 0 && seen.add(last.id)) {
             val next = resumedBy[last.id] ?: break
+            if (othersPlay(next)) { takenOver = true; break }
             playedMs += next.playedMs
             if (next.durationMs > 0) durationMs = next.durationMs
             learn = learn && next.learn
             last = next
         }
-        if (last === first) return first
-        return first.copy(endedAt = last.endedAt, playedMs = playedMs, durationMs = durationMs, endReason = last.endReason, learn = learn)
+        if (last === first) return Chain(first, takenOver)
+        return Chain(first.copy(endedAt = last.endedAt, playedMs = playedMs, durationMs = durationMs, endReason = last.endReason, learn = learn), takenOver)
     }
 
     /** How far before and after a tap its song's play may start and still be that tap's. */

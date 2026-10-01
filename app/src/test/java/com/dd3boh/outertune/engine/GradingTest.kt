@@ -161,6 +161,33 @@ class GradingTest {
     }
 
     @Test
+    fun `a failed play carried on by another card's tap is that card's play alone`() {
+        // The first card's play failed three seconds in. The same song tapped on a second card two
+        // minutes later starts from the top, close enough to where the first stopped to be linked
+        // as its resume. It is the second card's play: only that card is graded by it.
+        val tap = now - 3 * hour
+        val second = tap + 2 * 60_000
+        val died = listen("a", tap + 1000, playedMs = 3_000, impressionId = 1, endReason = EndReason.ERROR).copy(id = 10)
+        val tapped = listen("a", second + 800, playedMs = 200_000, impressionId = 2).copy(id = 11, continuesListenId = 10)
+        val first = imp(1, "a", tap - 5_000, tappedAt = tap)
+        val other = imp(2, "a", tap + 60_000, tappedAt = second)
+        val g = Grading.grade(listOf(first, other), listOf(died, tapped), songs, groups, now).associateBy { it.impressionId }
+        assertEquals(Outcome.PLAYED, g[2]!!.outcome); assertEquals(1.0, g[2]!!.y, 1e-9); assertEquals(11L, g[2]!!.listenId)
+        // Nothing can carry the first card's play on any more, so it is settled now, not in a day.
+        assertEquals(Outcome.DROPPED, g[1]!!.outcome); assertEquals(0.0, g[1]!!.u, 0.0)
+        // The same with the second card already graded and only the first left to grade.
+        assertEquals(Outcome.DROPPED, Grading.grade(listOf(first), listOf(died, tapped), songs, groups, now).single().outcome)
+        // And when the second tap's link was lost and its song's play stands in for it.
+        val unlinked = tapped.copy(impressionId = null)
+        val h = Grading.grade(listOf(first, other), listOf(died, unlinked), songs, groups, now).associateBy { it.impressionId }
+        assertEquals(Outcome.PLAYED, h[2]!!.outcome); assertEquals(1.0, h[2]!!.y, 1e-9); assertEquals(11L, h[2]!!.listenId)
+        assertEquals(Outcome.DROPPED, h[1]!!.outcome)
+        // Played again from a queue rather than a card, the resume is the first card's own.
+        val own = Grading.grade(listOf(first), listOf(died, unlinked), songs, groups, now).single()
+        assertEquals(Outcome.PLAYED, own.outcome); assertEquals(10L, own.listenId)
+    }
+
+    @Test
     fun `a card whose play was stopped and resumed is graded by the whole play too`() {
         val tap = now - 3 * hour
         val stopped = listen("a", tap + 1000, playedMs = 60_000, impressionId = 1, endReason = EndReason.STOPPED).copy(id = 10)
