@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.LearnFromListeningKey
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.constants.QuickPicksSourceKey
@@ -125,6 +126,8 @@ fun RecommendationsDoingSettings(
     val buildScores by viewModel.buildScores.collectAsState(initial = emptyList())
     val (shadowComparison, onShadowComparisonChange) = rememberPreference(ShadowComparisonKey, defaultValue = true)
     val (quickPicksSource, _) = rememberEnumPreference(QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE)
+    // Off, EngineLearning.run returns at once and nothing is judged, which the summary has to say.
+    val (learnFromListening, _) = rememberPreference(LearnFromListeningKey, defaultValue = true)
     val locale = Locale.getDefault()
     val updates = weights.maxOfOrNull { it.updates } ?: 0
 
@@ -186,7 +189,7 @@ fun RecommendationsDoingSettings(
             showWeights = numbers
 
             val waiting = cardsSeenRows.firstOrNull { it.team == ENGINE_TEAM }?.waiting ?: 0
-            SummaryCard(doingSummary(engineShowing(quickPicksSource), teams, cardTrend, waiting), locale)
+            SummaryCard(doingSummary(engineShowing(quickPicksSource), teams, cardTrend, waiting, learnFromListening), locale)
             Spacer(Modifier.height(16.dp))
 
             ExplainedGroupTitle(
@@ -455,16 +458,23 @@ private fun SummaryCard(summary: DoingSummary, locale: Locale) {
                 when (summary) {
                     // With its cards from before still waiting, it says they will count here,
                     // since Cards you saw below lists them.
-                    is DoingSummary.NotSource -> Text(
-                        text = if (summary.waiting > 0) {
-                            pluralStringResource(R.plurals.recommendations_summary_not_source_waiting, summary.waiting, summary.waiting)
-                        } else {
-                            stringResource(R.string.recommendations_summary_not_source)
-                        },
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
+                    is DoingSummary.NotSource -> {
+                        Text(
+                            text = if (summary.waiting > 0) {
+                                pluralStringResource(R.plurals.recommendations_summary_not_source_waiting, summary.waiting, summary.waiting)
+                            } else {
+                                stringResource(R.string.recommendations_summary_not_source)
+                            },
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        if (!summary.learning) LearningOffLine()
+                    }
                     DoingSummary.Waiting -> Text(
                         text = stringResource(R.string.recommendations_summary_waiting),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    DoingSummary.NotLearning -> Text(
+                        text = stringResource(R.string.recommendations_summary_not_learning),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     is DoingSummary.Numbers -> {
@@ -486,6 +496,9 @@ private fun SummaryCard(summary: DoingSummary, locale: Locale) {
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
+                        // In place of the line on cards waiting, which would promise a judging
+                        // that does not come while it is off.
+                        if (!summary.learning) LearningOffLine()
                         Spacer(Modifier.height(12.dp))
                         summary.trend?.let {
                             TrendLine(it, locale)
@@ -511,6 +524,16 @@ private fun SummaryCard(summary: DoingSummary, locale: Locale) {
             )
         }
     }
+}
+
+/** With Learn from listening off: it is not learning now, so nothing new is judged, and where to turn it on. */
+@Composable
+private fun LearningOffLine() {
+    Spacer(Modifier.height(8.dp))
+    Text(
+        text = stringResource(R.string.recommendations_summary_learning_off),
+        style = MaterialTheme.typography.bodyMedium,
+    )
 }
 
 @Composable

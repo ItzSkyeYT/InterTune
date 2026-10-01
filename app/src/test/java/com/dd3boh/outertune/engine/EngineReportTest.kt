@@ -174,6 +174,38 @@ class EngineReportTest {
         assertEquals(Trend.TooEarly, s.trend)
     }
 
+    // With Learn from listening off, EngineLearning.run returns at once: nothing is judged.
+
+    @Test
+    fun `with learning off and nothing judged it says it is not learning, not that this fills in`() {
+        assertEquals(DoingSummary.NotLearning, doingSummary(engineShowing = true, teams = emptyList(), trend = null, waiting = 5, learning = false))
+        assertEquals(DoingSummary.Waiting, doingSummary(engineShowing = true, teams = emptyList(), trend = null, waiting = 5, learning = true))
+    }
+
+    @Test
+    fun `with learning off nothing is said to wait for a judging that will not come`() {
+        // Not the source: its cards from before are not judged a day later either.
+        assertEquals(
+            DoingSummary.NotSource(waiting = 0, learning = false),
+            doingSummary(engineShowing = false, teams = emptyList(), trend = null, waiting = 4, learning = false),
+        )
+        // With numbers: they stay, and the cards still waiting are not counted as about to be.
+        val s = doingSummary(engineShowing = true, teams = engineCards, trend = null, waiting = 52, learning = false) as DoingSummary.Numbers
+        assertEquals(CardCounts(200, 9), s.cards)
+        assertEquals(0, s.waiting)
+        assertFalse(s.learning)
+        assertFalse(s.fromBefore)
+    }
+
+    @Test
+    fun `with learning off too early is left out, since no new cards come to fill it`() {
+        val s = doingSummary(engineShowing = true, teams = engineCards, trend = CardTrendRow(10, 1, 0, 0), learning = false) as DoingSummary.Numbers
+        assertNull(s.trend)
+        // A real change already in the fortnights is still worth saying.
+        val up = doingSummary(true, engineCards, CardTrendRow(recentSeen = 300, recentPlayed = 30, earlierSeen = 300, earlierPlayed = 10), learning = false)
+        assertTrue((up as DoingSummary.Numbers).trend is Trend.Up)
+    }
+
     @Test
     fun `numbers exist when any figure has something in it`() {
         assertFalse(hasNumbers(emptyList(), emptyList(), predictions = 0, weightUpdates = 0))

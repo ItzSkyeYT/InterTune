@@ -112,31 +112,57 @@ sealed interface DoingSummary {
      * Another source fills Quick picks and the engine has no judged cards of its own to count.
      * [waiting] is how many it showed while it was the source that are not judged yet: they will
      * be, and then show as numbers from before, so "it has nothing to show" was untrue beside
-     * Cards you saw listing them.
+     * Cards you saw listing them. [learning] is false with Learn from listening off, when nothing
+     * is judged and nothing waits for it.
      */
-    data class NotSource(val waiting: Int = 0) : DoingSummary
+    data class NotSource(val waiting: Int = 0, val learning: Boolean = true) : DoingSummary
 
     /** The engine fills Quick picks but nothing it showed has been judged yet. */
     data object Waiting : DoingSummary
 
     /**
-     * [fromBefore] when these are from an earlier time: the engine is not in the row now. [trend]
-     * is null when there is none to give and never will be: from before, with too few new cards,
-     * the fortnights only fill with nothing, and "too early" would stay up for good. [waiting] is
-     * how many more of its cards were seen and are not judged yet, so the count at the top and
-     * Cards you saw further down are seen to be the same cards.
+     * The engine fills Quick picks with nothing judged, and Learn from listening is off: nothing
+     * is noted or judged, so "this fills in as you listen" would never come true.
      */
-    data class Numbers(val cards: CardCounts, val trend: Trend?, val fromBefore: Boolean, val waiting: Int = 0) : DoingSummary
+    data object NotLearning : DoingSummary
+
+    /**
+     * [fromBefore] when these are from an earlier time: the engine is not in the row now. [trend]
+     * is null when there is none to give and never will be: from before, or with learning off,
+     * too few new cards come in, the fortnights only fill with nothing, and "too early" would stay
+     * up for good. [waiting] is how many more of its cards were seen and are not judged yet, so the
+     * count at the top and Cards you saw further down are seen to be the same cards; none while
+     * [learning] is off, since none will be judged a day later.
+     */
+    data class Numbers(
+        val cards: CardCounts,
+        val trend: Trend?,
+        val fromBefore: Boolean,
+        val waiting: Int = 0,
+        val learning: Boolean = true,
+    ) : DoingSummary
 }
 
-fun doingSummary(engineShowing: Boolean, teams: List<TeamCards>, trend: CardTrendRow?, waiting: Int = 0): DoingSummary {
+/**
+ * The summary, from whether the engine is in the row, every source's judged cards, its two
+ * fortnights, its cards still to be judged and whether Learn from listening is on. With it off,
+ * EngineLearning.run returns at once, so nothing is judged: the summary says so, and nothing it
+ * says promises a card judged a day later.
+ */
+fun doingSummary(engineShowing: Boolean, teams: List<TeamCards>, trend: CardTrendRow?, waiting: Int = 0, learning: Boolean = true): DoingSummary {
     val engine = teams.firstOrNull { it.team == ENGINE_TEAM }?.cards
-    if (engine == null || engine.seen == 0) return if (engineShowing) DoingSummary.Waiting else DoingSummary.NotSource(waiting)
+    val stillWaiting = if (learning) waiting else 0
+    if (engine == null || engine.seen == 0) return when {
+        !engineShowing -> DoingSummary.NotSource(stillWaiting, learning)
+        learning -> DoingSummary.Waiting
+        else -> DoingSummary.NotLearning
+    }
     val t = trend?.let {
         trendOf(CardCounts(it.recentSeen, it.recentPlayed), CardCounts(it.earlierSeen, it.earlierPlayed))
     } ?: Trend.TooEarly
     val fromBefore = !engineShowing
-    return DoingSummary.Numbers(engine, t.takeUnless { fromBefore && it == Trend.TooEarly }, fromBefore, waiting)
+    val stays = !fromBefore && learning
+    return DoingSummary.Numbers(engine, t.takeUnless { !stays && it == Trend.TooEarly }, fromBefore, stillWaiting, learning)
 }
 
 /**
