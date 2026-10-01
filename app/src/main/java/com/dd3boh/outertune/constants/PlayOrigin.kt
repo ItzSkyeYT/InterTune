@@ -82,4 +82,9 @@ object SignalKind {
     const val ARTIST_PAGE = 11
     const val REMOVED_FROM_QUEUE = 12
     const val CARD_DISMISSED = 13
+    /**
+     * Taken out of History by the listener, against the listen it names. Not something the engine
+     * reads: the listen stays for it, as it always did when a play left History.
+     */
+    const val REMOVED_FROM_HISTORY = 14
 }

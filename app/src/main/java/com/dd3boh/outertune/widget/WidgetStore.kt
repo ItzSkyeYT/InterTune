@@ -298,8 +298,8 @@ object WidgetStore {
             WidgetList.KEEP_LISTENING -> database.mostPlayedSongs(
                 System.currentTimeMillis() - 14L * 86_400_000L, limit = WidgetLayout.MAX_PICKS,
             ).first()
-            // Newest first, one row per song however often it has been played.
-            WidgetList.RECENT -> database.events().first()
+            // What History shows, newest first, one row per song however often it has been played.
+            WidgetList.RECENT -> database.historyPlays().first()
                 .map { it.song }.distinctBy { it.id }.take(WidgetLayout.MAX_PICKS)
         }
         rows.take(WidgetLayout.MAX_PICKS).map { song ->

@@ -24,6 +24,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -103,6 +104,8 @@ fun SongListItem(
     caption: String? = null,
     /** On a recommendation card: the menu offers Not this song, Less of this artist, Never this artist. */
     onExclude: ((kind: Int, reason: Int) -> Unit)? = null,
+    /** A short note at the end of the row, before the menu: the time a History row was played. */
+    trailingText: String? = null,
 ) {
     val menuState = LocalMenuState.current
     val haptic = LocalHapticFeedback.current
@@ -141,6 +144,15 @@ fun SongListItem(
                 )
             },
             trailingContent = {
+                if (trailingText != null) {
+                    // Styled as the subtitle, so it reads as part of the row rather than a control.
+                    Text(
+                        text = trailingText,
+                        color = MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                    )
+                }
                 if (inSelectMode == true) {
                     Checkbox(
                         checked = isSelected,

@@ -1,5 +1,7 @@
 package com.dd3boh.outertune.ui.screens
 
+import android.text.format.DateFormat
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -49,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -70,7 +73,10 @@ import com.dd3boh.outertune.constants.HistorySource
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.SwipeToQueueKey
-import com.dd3boh.outertune.db.entities.EventWithSong
+import com.dd3boh.outertune.history.DatabaseHistoryIo
+import com.dd3boh.outertune.history.HistoryEntry
+import com.dd3boh.outertune.history.HistoryFormat
+import com.dd3boh.outertune.history.HistoryRemoval
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.toMediaMetadata
@@ -90,13 +96,11 @@ import com.dd3boh.outertune.ui.component.items.SongListItem
 import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
 import com.dd3boh.outertune.utils.rememberPreference
-import com.dd3boh.outertune.viewmodels.DateAgo
 import com.dd3boh.outertune.viewmodels.HistoryViewModel
 import com.zionhuang.innertube.utils.parseCookieString
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
-import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class, FlowPreview::class)
@@ -167,37 +171,38 @@ fun HistoryScreen(
         "SAPISID" in parseCookieString(innerTubeCookie)
     }
 
-    fun dateAgoToString(dateAgo: DateAgo): String {
-        return when (dateAgo) {
-            DateAgo.Today -> context.getString(R.string.today)
-            DateAgo.Yesterday -> context.getString(R.string.yesterday)
-            DateAgo.ThisWeek -> context.getString(R.string.this_week)
-            DateAgo.LastWeek -> context.getString(R.string.last_week)
-            is DateAgo.Other -> dateAgo.date.format(DateTimeFormatter.ofPattern("yyyy/MM"))
-        }
+    // Day headings and play times in the phone's own language and 12 or 24 hour setting.
+    val configuration = LocalConfiguration.current
+    val todayText = stringResource(R.string.today)
+    val yesterdayText = stringResource(R.string.yesterday)
+    val format = remember(context, configuration, todayText, yesterdayText) {
+        HistoryFormat(
+            locale = configuration.locales[0],
+            is24Hour = DateFormat.is24HourFormat(context),
+            today = todayText,
+            yesterday = yesterdayText,
+        )
     }
 
-    val eventsMap by viewModel.events.collectAsState()
-    val filteredEventsMap = remember(eventsMap, searchQuery) {
-        if (searchQuery.text.isEmpty()) eventsMap
-        else eventsMap
-            .mapValues { (_, songs) ->
-                songs.filter { song ->
-                    song.song.title.contains(searchQuery.text, ignoreCase = true) ||
-                            song.song.artists.fastAny { it.name.contains(searchQuery.text, ignoreCase = true) }
-                }
-            }
-            .filterValues { it.isNotEmpty() }
-    }
-    val filteredEventIndex: Map<Long, EventWithSong> by remember(filteredEventsMap) {
-        derivedStateOf {
-            filteredEventsMap.flatMap { it.value }.associateBy { it.event.id }
+    val days by viewModel.days.collectAsState()
+    val filteredDays = remember(days, searchQuery) {
+        if (searchQuery.text.isEmpty()) days
+        else days.mapNotNull { day ->
+            day.plays.filter { entry ->
+                entry.song.song.title.contains(searchQuery.text, ignoreCase = true) ||
+                        entry.song.artists.fastAny { it.name.contains(searchQuery.text, ignoreCase = true) }
+            }.takeIf { it.isNotEmpty() }?.let { day.copy(plays = it) }
         }
     }
-    LaunchedEffect(filteredEventsMap) {
-        selection.fastForEachReversed { eventId ->
-            if (filteredEventIndex[eventId] == null) {
-                selection.remove(eventId)
+    val filteredIndex: Map<Long, HistoryEntry> by remember(filteredDays) {
+        derivedStateOf {
+            filteredDays.flatMap { it.plays }.associateBy { it.key }
+        }
+    }
+    LaunchedEffect(filteredDays) {
+        selection.fastForEachReversed { key ->
+            if (filteredIndex[key] == null) {
+                selection.remove(key)
             }
         }
     }
@@ -364,10 +369,10 @@ fun HistoryScreen(
                     }
                 }
             } else {
-                filteredEventsMap.forEach { (dateAgo, eventsGroup) ->
+                filteredDays.forEach { group ->
                     stickyHeader {
                         NavigationTitle(
-                            title = dateAgoToString(dateAgo),
+                            title = format.day(group.day),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(MaterialTheme.colorScheme.surface)
@@ -376,49 +381,47 @@ fun HistoryScreen(
 
                     val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
                     itemsIndexed(
-                        items = eventsGroup,
+                        items = group.plays,
                         // By play, not by place: a new play lands at the top and shifts every row,
                         // and without keys the rows under a finger or a swipe moved with it.
-                        key = { _, event -> event.event.id },
-                    ) { index, event ->
+                        key = { _, entry -> entry.key },
+                    ) { index, entry ->
                         SongListItem(
-                            song = event.song,
+                            song = entry.song,
                             navController = navController,
                             snackbarHostState = snackbarHostState,
 
-                            isActive = event.song.id == mediaMetadata?.id,
+                            isActive = entry.song.id == mediaMetadata?.id,
                             isPlaying = isPlaying,
                             inSelectMode = inSelectMode,
-                            isSelected = selection.contains(event.event.id),
+                            isSelected = selection.contains(entry.key),
                             onSelectedChange = {
                                 inSelectMode = true
                                 if (it) {
-                                    selection.add(event.event.id)
+                                    selection.add(entry.key)
                                 } else {
-                                    selection.remove(event.event.id)
+                                    selection.remove(entry.key)
                                 }
                             },
                             swipeEnabled = swipeEnabled,
 
                             thumbnailSize = thumbnailSize,
                             onPlay = {
-                                if (event.song.id == mediaMetadata?.id) {
+                                if (entry.song.id == mediaMetadata?.id) {
                                     playerConnection.player.togglePlayPause()
                                 } else {
                                     playerConnection.playQueue(
                                         ListQueue(
-                                            title = "${context.getString(R.string.queue_local_history)}: ${
-                                                dateAgoToString(
-                                                    dateAgo
-                                                )
-                                            }",
-                                            items = eventsGroup.map { it.song.toMediaMetadata() },
+                                            title = "${context.getString(R.string.queue_local_history)}: ${format.day(group.day)}",
+                                            items = group.plays.map { it.song.toMediaMetadata() },
                                             startIndex = index
                                         ),
                                         origin = PlayOrigin.HISTORY,
                                     )
                                 }
                             },
+                            // When it started, on the clock where it was played.
+                            trailingText = format.time(entry.start),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .animateItem()
@@ -436,27 +439,27 @@ fun HistoryScreen(
         ) {
             SelectHeader(
                 navController = navController,
-                selectedItems = eventsMap.flatMap { group ->
-                    group.value.filter { it.event.id in selection }
+                selectedItems = days.flatMap { group ->
+                    group.plays.filter { it.key in selection }
                 }.map { it.song.toMediaMetadata() },
                 // The rows on screen, not the whole history: while searching, Select all must not
                 // reach plays the search is hiding.
-                totalItemCount = filteredEventIndex.size,
+                totalItemCount = filteredIndex.size,
                 onSelectAll = {
                     selection.clear()
-                    selection.addAll(filteredEventIndex.keys)
+                    selection.addAll(filteredIndex.keys)
                 },
                 onDeselectAll = { selection.clear() },
                 menuState = menuState,
                 onDismiss = onExitSelectionMode,
                 onRemoveFromHistory = {
-                    val sel = selection.mapNotNull { eventId ->
-                        filteredEventIndex[eventId]?.event
-                    }
+                    val sel = selection.mapNotNull { key -> filteredIndex[key]?.play }
+                    val at = System.currentTimeMillis()
+                    // One transaction, so a play is never half removed, and caught outside it, so
+                    // a failure rolls back rather than ending the app from Room's executor.
                     database.query {
-                        sel.forEach {
-                            delete(it)
-                        }
+                        runCatching { transactionNow { HistoryRemoval.remove(DatabaseHistoryIo(this), sel, at) } }
+                            .onFailure { Log.w("HistoryScreen", "Could not remove from history", it) }
                     }
                 },
             )
