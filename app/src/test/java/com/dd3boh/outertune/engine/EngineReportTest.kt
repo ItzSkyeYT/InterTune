@@ -206,6 +206,33 @@ class EngineReportTest {
         assertTrue((up as DoingSummary.Numbers).trend is Trend.Up)
     }
 
+    // Rows that held what you played next
+
+    @Test
+    fun `rows that held come in row order, each with its own refreshes and songs`() {
+        val lines = heldLines(
+            listOf(BuildScore(6, builds = 25, plays = 3, hits = 0), BuildScore(1, builds = 26, plays = 4, hits = 1)),
+            engineShowing = true,
+        )
+        assertEquals(listOf(HeldLine(1, refreshes = 26, chosen = 4, held = 1, fromBefore = false), HeldLine(6, 25, 3, 0, false)), lines)
+    }
+
+    @Test
+    fun `a row with no song chosen after its refreshes has nothing to compare, not 0 of 0`() {
+        val l = heldLines(listOf(BuildScore(3, builds = 3, plays = 0, hits = 0)), engineShowing = false).single()
+        assertTrue(l.nothingToCompare)
+        assertFalse(heldLines(listOf(BuildScore(3, builds = 3, plays = 1, hits = 0)), false).single().nothingToCompare)
+    }
+
+    @Test
+    fun `Best recommendations' own row is from before while it is not the source, and its unseen one never is`() {
+        // The summary said none of its cards are counted here, above a plain "Best
+        // recommendations" line from when it was the source.
+        val scores = listOf(BuildScore(ENGINE_ROW_KEY, 26, 4, 0), BuildScore(4, 10, 2, 1), BuildScore(6, 25, 3, 0))
+        assertEquals(listOf(true, false, false), heldLines(scores, engineShowing = false).map { it.fromBefore })
+        assertEquals(listOf(false, false, false), heldLines(scores, engineShowing = true).map { it.fromBefore })
+    }
+
     @Test
     fun `numbers exist when any figure has something in it`() {
         assertFalse(hasNumbers(emptyList(), emptyList(), predictions = 0, weightUpdates = 0))

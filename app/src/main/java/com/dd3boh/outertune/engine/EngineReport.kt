@@ -274,6 +274,28 @@ fun predictionBands(pairs: List<Pair<Double, Double>>, bands: Int = 5): List<Pre
         PredictionBand((b.lo * 100).roundToInt(), (b.hi * 100).roundToInt(), b.count, (b.playRate * b.count).roundToInt())
     }
 
+/** Best recommendations' own row in Quick picks, as row_build keys it; 4 is the one it builds unseen. */
+const val ENGINE_ROW_KEY = 1
+
+/**
+ * One line of Rows that held what you played next: a row, its [refreshes], how many songs you
+ * chose yourself in the day after them, and how many of those it [held].
+ *
+ * [fromBefore] for Best recommendations' own row while it is not the source: those refreshes are
+ * from when it was, and with nothing to say so the line stood under a summary saying none of its
+ * cards are counted here. With no song chosen in the day after any refresh there is nothing to
+ * compare, which "held 0 of the 0 songs" did not say.
+ */
+data class HeldLine(val rowKey: Int, val refreshes: Int, val chosen: Int, val held: Int, val fromBefore: Boolean) {
+    val nothingToCompare: Boolean get() = chosen == 0
+}
+
+/** The lines in row order, from what scoring the builds wrote down. */
+fun heldLines(scores: List<BuildScore>, engineShowing: Boolean): List<HeldLine> =
+    scores.sortedBy { it.rowKey }.map {
+        HeldLine(it.rowKey, refreshes = it.builds, chosen = it.plays, held = it.hits, fromBefore = it.rowKey == ENGINE_ROW_KEY && !engineShowing)
+    }
+
 /**
  * Whether any of the engine's own figures has something in it. With none, the rows that would
  * each say "Nothing yet" are left out, and the summary above says why in one line.

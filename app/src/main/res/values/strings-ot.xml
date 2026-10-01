@@ -1018,14 +1018,21 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="shadow_comparison_unused">Only matters while another source fills Quick picks.</string>
     <string name="recommendations_held">Rows that held what you played next</string>
     <plurals name="recommendations_held_songs">
-        <item quantity="one">%1$s: held %2$d of the %3$d song you chose yourself, over %4$s</item>
-        <item quantity="other">%1$s: held %2$d of the %3$d songs you chose yourself, over %4$s</item>
+        <item quantity="one">%1$s: held %2$d of %3$d song you chose yourself in %4$s</item>
+        <item quantity="other">%1$s: held %2$d of the %3$d songs you chose yourself in %4$s</item>
+    </plurals>
+    <string name="recommendations_held_nothing">%1$s: nothing to compare yet, over %2$s</string>
+    <string name="recommendations_after_refresh">the day after its refresh</string>
+    <plurals name="recommendations_after_refreshes">
+        <item quantity="one">the day after its %1$d refresh</item>
+        <item quantity="other">the day after each of its %1$d refreshes</item>
     </plurals>
     <plurals name="recommendations_refreshes">
         <item quantity="one">%1$d refresh</item>
         <item quantity="other">%1$d refreshes</item>
     </plurals>
     <string name="recommendations_row_shadow">Best recommendations, unseen</string>
+    <string name="recommendations_row_engine_before">Best recommendations, from when it was your source</string>
     <string name="recommendations_brier">How well it predicts</string>
     <plurals name="recommendations_brier_description">
         <item quantity="one">One number, for those who want it: a Brier score of %1$.3f over %2$d card. Lower is better, and 0 would mean every guess was exactly right.</item>

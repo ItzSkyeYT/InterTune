@@ -66,6 +66,7 @@ import com.dd3boh.outertune.engine.endCounts
 import com.dd3boh.outertune.engine.endLabel
 import com.dd3boh.outertune.engine.engineShowing
 import com.dd3boh.outertune.engine.hasNumbers
+import com.dd3boh.outertune.engine.heldLines
 import com.dd3boh.outertune.engine.listenDay
 import com.dd3boh.outertune.engine.oneInWords
 import com.dd3boh.outertune.engine.onlyWaiting
@@ -232,12 +233,21 @@ fun RecommendationsDoingSettings(
                     explanation = stringResource(R.string.recommendations_held_info),
                     // A build is each time the row on screen changed, or the unseen one was built
                     // again: a refresh, which a reader can picture where "26 rows" was a puzzle.
-                    numbers = buildScores.sortedBy { it.rowKey }.map { b ->
-                        pluralStringResource(
-                            R.plurals.recommendations_held_songs, b.plays,
-                            rowNames[b.rowKey] ?: b.rowKey.toString(), b.hits, b.plays,
-                            pluralStringResource(R.plurals.recommendations_refreshes, b.builds, b.builds),
-                        )
+                    // Each line says the songs it counts are those after its own refreshes, so two
+                    // lines with different totals do not read as two counts of the same songs.
+                    numbers = heldLines(buildScores, engineShowing(quickPicksSource)).map { l ->
+                        val name = if (l.fromBefore) stringResource(R.string.recommendations_row_engine_before)
+                            else rowNames[l.rowKey] ?: l.rowKey.toString()
+                        if (l.nothingToCompare) {
+                            stringResource(
+                                R.string.recommendations_held_nothing, name,
+                                pluralStringResource(R.plurals.recommendations_refreshes, l.refreshes, l.refreshes),
+                            )
+                        } else {
+                            val after = if (oneInWords(l.refreshes)) stringResource(R.string.recommendations_after_refresh)
+                                else pluralStringResource(R.plurals.recommendations_after_refreshes, l.refreshes, l.refreshes)
+                            pluralStringResource(R.plurals.recommendations_held_songs, l.chosen, name, l.held, l.chosen, after)
+                        }
                     }.joinToString("\n").ifBlank { stringResource(R.string.recommendations_nothing_yet) },
                     meaning = stringResource(R.string.recommendations_held_meaning),
                 )

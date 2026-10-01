@@ -952,9 +952,16 @@
     <string name="shadow_comparison_unused">Ne sert que lorsqu\'une autre source remplit la Sélection Rapide.</string>
     <string name="recommendations_held">Rangées qui contenaient ce que vous avez écouté ensuite</string>
     <plurals name="recommendations_held_songs">
-        <item quantity="one">%1$s : contenait %2$d sur %3$d titre choisi par vous-même, sur %4$s</item>
-        <item quantity="many">%1$s : contenait %2$d des %3$d titres choisis par vous-même, sur %4$s</item>
-        <item quantity="other">%1$s : contenait %2$d des %3$d titres choisis par vous-même, sur %4$s</item>
+        <item quantity="one">%1$s : contenait %2$d sur %3$d titre choisi par vous-même dans %4$s</item>
+        <item quantity="many">%1$s : contenait %2$d des %3$d titres choisis par vous-même dans %4$s</item>
+        <item quantity="other">%1$s : contenait %2$d des %3$d titres choisis par vous-même dans %4$s</item>
+    </plurals>
+    <string name="recommendations_held_nothing">%1$s : rien à comparer pour l\'instant, en %2$s</string>
+    <string name="recommendations_after_refresh">la journée suivant son actualisation</string>
+    <plurals name="recommendations_after_refreshes">
+        <item quantity="one">la journée suivant chacune de ses %1$d actualisations</item>
+        <item quantity="many">la journée suivant chacune de ses %1$d actualisations</item>
+        <item quantity="other">la journée suivant chacune de ses %1$d actualisations</item>
     </plurals>
     <plurals name="recommendations_refreshes">
         <item quantity="one">%1$d actualisation</item>
@@ -962,6 +969,7 @@
         <item quantity="other">%1$d actualisations</item>
     </plurals>
     <string name="recommendations_row_shadow">Meilleures recommandations, non affichées</string>
+    <string name="recommendations_row_engine_before">Meilleures recommandations, quand c\'était votre source</string>
     <string name="recommendations_brier">Justesse de ses prévisions</string>
     <plurals name="recommendations_brier_description">
         <item quantity="one">Un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d carte. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
