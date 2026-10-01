@@ -8,6 +8,7 @@ package com.dd3boh.outertune.db.daos
 
 import com.dd3boh.outertune.db.entities.EngineWeight
 import com.dd3boh.outertune.engine.EngineSql
+import com.dd3boh.outertune.db.ListenSql
 import com.dd3boh.outertune.db.RelatedSql
 import com.dd3boh.outertune.db.StatsSql
 import com.dd3boh.outertune.stats.StatsBounds
@@ -56,11 +57,11 @@ interface ListenDao {
     @Query("UPDATE listen SET playedMs = :playedMs, endPositionMs = :positionMs WHERE id = :id AND endReason = 6")
     fun checkpoint(id: Long, playedMs: Long, positionMs: Long)
 
-    /** The latest stopped or still-open play of this song, for linking a resume to it. */
     @Query("DELETE FROM listen WHERE id = :id AND endReason = 6")
     fun discardOpenListen(id: Long)
 
-    @Query("SELECT * FROM listen WHERE songId = :songId AND endReason IN (4, 6) ORDER BY id DESC LIMIT 1")
+    /** The latest stopped, failed or still-open play of this song, for linking a resume to it. */
+    @Query(ListenSql.LAST_RESUMABLE)
     fun lastStoppedListen(songId: String): Listen?
 
     @Insert

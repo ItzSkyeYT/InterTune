@@ -227,9 +227,6 @@ private const val CHECKPOINT_MS = 60_000L
  */
 private val orphanedListensClosedThisProcess = java.util.concurrent.atomic.AtomicBoolean(false)
 
-/** A resume within this of where a stop left off, inside this window, continues that listen. */
-private const val RESUME_TOLERANCE_MS = 5_000L
-private const val RESUME_WINDOW_MS = 24L * 60 * 60 * 1000
 /** A related list older than this is fetched again, within the daily budget. */
 private const val RELATED_STALE_MS = 90L * 24 * 60 * 60 * 1000
 private const val RELATED_REFRESH_PER_DAY = 10
@@ -2575,9 +2572,7 @@ class MusicService : MediaLibraryService(),
                 if (!songExists(mediaId)) metadata?.let { insert(it) }
                 val previous = lastStoppedListen(mediaId)
                 val continues = previous?.takeIf {
-                    it.endReason == EndReason.STOPPED && it.endPositionMs >= 0 &&
-                        kotlin.math.abs(info.startPositionMs - it.endPositionMs) <= RESUME_TOLERANCE_MS &&
-                        info.startedAt - maxOf(it.endedAt, it.startedAt) <= RESUME_WINDOW_MS
+                    ListenProgress.continues(it.endReason, it.endPositionMs, it.startedAt, it.endedAt, info.startPositionMs, info.startedAt)
                 }?.id
                 val last = lastListen()
                 // lastListen skips open rows, and the song that just ended can still be one: its

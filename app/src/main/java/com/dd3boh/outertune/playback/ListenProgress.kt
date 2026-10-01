@@ -87,4 +87,33 @@ object ListenProgress {
         transition == null || transition == EndReason.ENDED -> EndReason.STOPPED
         else -> transition
     }
+
+    /** A play that starts within this of where an earlier one was left continues it. */
+    const val RESUME_TOLERANCE_MS = 5_000L
+
+    /** And only this long after that one ended. */
+    const val RESUME_WINDOW_MS = 24L * 60 * 60 * 1000
+
+    /**
+     * Whether a play starting at [startPositionMs], at [startedAt], carries on the latest earlier
+     * play of the same song rather than being a new one: that play was cut off where it stood
+     * (stopped, or stopped on a playback error), and this one starts where it was left, within the
+     * day. A stop is not a verdict, so the two are one listen in two rows, linked.
+     *
+     * A failed play counts as cut off where it stood. Before failed plays were written as ERROR, one
+     * still sitting on its error when the service went was written as STOPPED and linked like any
+     * other stop; the listener coming back to it from the same spot is the same listen as before.
+     */
+    fun continues(
+        previousEndReason: Int,
+        previousEndPositionMs: Long,
+        previousStartedAt: Long,
+        previousEndedAt: Long,
+        startPositionMs: Long,
+        startedAt: Long,
+    ): Boolean =
+        (previousEndReason == EndReason.STOPPED || previousEndReason == EndReason.ERROR) &&
+            previousEndPositionMs >= 0 &&
+            kotlin.math.abs(startPositionMs - previousEndPositionMs) <= RESUME_TOLERANCE_MS &&
+            startedAt - maxOf(previousEndedAt, previousStartedAt) <= RESUME_WINDOW_MS
 }
