@@ -24,6 +24,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Slider
@@ -43,6 +45,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -73,6 +77,7 @@ import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -341,9 +346,8 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         Slider(
             value = keepShown.toFloat(),
             onValueChange = {
-                // A drag or a tap: a count still running for where the thumb was let go before is
-                // stopped here, not only at the next release, so its dialog cannot open during
-                // this drag or after it.
+                // The thumb moved to another value: a count still running for where it was let go
+                // before is stopped, and so is that release, which this drag or tap replaces.
                 keepCount.moved()
                 keepShown = it.roundToInt()
             },
@@ -378,7 +382,27 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                     drawTick = { _, _ -> },
                 )
             },
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier
+                .padding(horizontal = 16.dp)
+                // Every touch on the slider, never consumed, so the slider works as before. The
+                // finger coming down is seen before the slider's own handling (Initial), because
+                // Material3 1.4.0 says nothing about a press that does not move the thumb a whole
+                // step: onValueChange is not called, and the interaction source only hears of a
+                // drag once it has passed the touch slop. Lifting is seen after it (Final), when a
+                // tap has already been handled and released.
+                .pointerInput(keepCount) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        keepCount.pressed()
+                        try {
+                            do {
+                                val event = awaitPointerEvent(PointerEventPass.Final)
+                            } while (event.changes.any { it.pressed })
+                        } finally {
+                            keepCount.lifted()
+                        }
+                    }
+                },
         )
 
         keepToConfirm?.let { (keep, change) ->
@@ -477,28 +501,73 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
 }
 
 /**
- * The count the Keep slider starts when it is let go, one at a time, on the screen's scope.
+ * The count the Keep slider starts when it is let go, one at a time, on the screen's scope, and
+ * never answered while a finger is on the slider.
  *
- * The thumb moving again, by a drag or a tap, cancels a count still running for where it was let
- * go before. Cancelling only at the next release was not enough: a count that finished during a
- * newer drag opened its dialog for the old value, the newer release could then save behind it,
- * and Cancel on that dialog put the slider on a value the user had not kept. Every call comes from
- * the main thread, so a count is either cancelled before it asks or has already asked, and once
- * its dialog is open, the dialog is in front of the slider.
+ * Touching the slider again cancels a count still running for where it was let go before.
+ * Cancelling only at the next release was not enough: a count that finished during a newer drag
+ * opened its dialog for the old value, the newer release could then save behind it, and Cancel on
+ * that dialog put the slider on a value the user had not kept. So the thumb moving cancels it
+ * ([moved]), and before that a finger coming down on the slider at all ([pressed]), since
+ * Material3 1.4.0 calls onValueChange only when the value moves a whole step: a press on the
+ * thumb, or on the track where the value already is, never reached [moved].
+ *
+ * A count also waits for the finger to lift before it saves or asks ([lifted]), so no dialog ever
+ * opens under a finger, even for a release that arrives after the next press has begun, as a
+ * drag's can. A press that only cancelled, because the touch went on to scroll the page and never
+ * moved the thumb, would leave the thumb on a value nothing was decided for, so lifting counts
+ * that release again. A newer move or release replaces it instead.
+ *
+ * Every call comes from the main thread, so a count is either cancelled before it asks or has
+ * already asked, and once its dialog is open, the dialog is in front of the slider.
  */
 internal class KeepCount(private val scope: CoroutineScope) {
     private var job: Job? = null
 
-    /** The thumb moved: a count for where it was let go before is no longer the question. */
-    fun moved() {
+    /** The last release not yet saved or asked about, which lifting counts again if [pressed] stopped it. */
+    private var unanswered: Release? = null
+
+    /** Whether a finger is on the slider. */
+    private val held = MutableStateFlow(false)
+
+    private class Release(
+        val old: Int,
+        val new: Int,
+        val count: suspend (keep: Int) -> List<String>?,
+        val save: (keep: Int) -> Unit,
+        val ask: (keep: Int, change: AutoBackupPolicy.KeepChange) -> Unit,
+    )
+
+    /** A finger came down on the slider: a count still running stops, and none answers until it lifts. */
+    fun pressed() {
+        held.value = true
         job?.cancel()
         job = null
     }
 
     /**
+     * No finger is on the slider any more, or the touch went to something else. A count that
+     * finished meanwhile answers now, and a release whose count [pressed] stopped, with nothing
+     * since to replace it, is counted again.
+     */
+    fun lifted() {
+        held.value = false
+        val release = unanswered ?: return
+        if (job?.isActive != true) start(release)
+    }
+
+    /** The thumb moved: a count for where it was let go before is no longer the question. */
+    fun moved() {
+        job?.cancel()
+        job = null
+        unanswered = null
+    }
+
+    /**
      * Let go at [new] with [old] stored. What happens is AutoBackupPolicy.keepChange, which calls
      * [count] (AutoBackup.wouldDelete) only when the answer depends on the folder, then [save] or
-     * [ask]. Returns the count's job, null when the value did not change.
+     * [ask], once no finger is on the slider. Returns the count's job, null when the value did not
+     * change.
      */
     fun released(
         old: Int,
@@ -509,10 +578,19 @@ internal class KeepCount(private val scope: CoroutineScope) {
     ): Job? {
         moved()
         if (new == old) return null
+        return start(Release(old, new, count, save, ask))
+    }
+
+    private fun start(release: Release): Job {
+        unanswered = release
         return scope.launch {
-            when (val change = AutoBackupPolicy.keepChange(old, new) { count(new) }) {
-                AutoBackupPolicy.KeepChange.Save -> save(new)
-                else -> ask(new, change)
+            val change = AutoBackupPolicy.keepChange(release.old, release.new) { release.count(release.new) }
+            // Not under a finger. A press while this waits cancels it.
+            held.first { !it }
+            unanswered = null
+            when (change) {
+                AutoBackupPolicy.KeepChange.Save -> release.save(release.new)
+                else -> release.ask(release.new, change)
             }
         }.also { job = it }
     }

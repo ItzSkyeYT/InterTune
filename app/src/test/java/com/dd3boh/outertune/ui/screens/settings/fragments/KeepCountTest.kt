@@ -18,7 +18,7 @@ import org.junit.Test
 
 /**
  * The Keep slider's count, one at a time: a count for where the thumb was let go before never
- * asks once the thumb has moved again.
+ * asks once the slider is touched again, and nothing asks while a finger is on it.
  *
  * Everything runs on runBlocking's one thread, as the real thing runs on the main one, so the
  * order of the steps below is the order they happen in.
@@ -44,6 +44,9 @@ class KeepCountTest {
         )
 
     private fun CoroutineScope.keepCount() = KeepCount(this)
+
+    /** Lets everything that can run, run: counts, and whatever they resume into. */
+    private suspend fun settle() = repeat(20) { yield() }
 
     @Test
     fun `a count that finishes during a newer drag asks nothing, and the newer one asks its own`() = runBlocking {
@@ -95,6 +98,95 @@ class KeepCountTest {
         older.join()
         assertEquals(emptyList<Int>(), asked)
         assertEquals(emptyList<Int>(), saved)
+    }
+
+    // A finger on the slider.
+
+    @Test
+    fun `a press alone stops the count for the last release`() = runBlocking {
+        // Material3 calls onValueChange only for a whole step, so a press that does not move the
+        // thumb never reached moved(), and the count went on to open its dialog under the finger.
+        val keepCount = keepCount()
+        val listing = CompletableDeferred<List<String>?>()
+        val older = keepCount.letGo(14, 5, listing)!!
+        yield() // Counting, waiting on the folder.
+
+        keepCount.pressed()
+        listing.complete(folder)
+        settle()
+        assertTrue(older.isCancelled)
+        assertEquals(emptyList<Int>(), asked)
+        assertEquals(emptyList<Int>(), saved)
+    }
+
+    @Test
+    fun `nothing is asked while a finger is on the slider, only once it lifts`() = runBlocking {
+        // A release that arrives after the next press has begun, as a drag's can: Material3 says
+        // a drag has ended a moment after the finger is up.
+        val keepCount = keepCount()
+        keepCount.pressed()
+        val count = keepCount.letGo(14, 5, CompletableDeferred(folder))!!
+        settle()
+        assertTrue("the count waits for the lift", count.isActive)
+        assertEquals(emptyList<Int>(), asked)
+
+        keepCount.lifted()
+        settle()
+        assertEquals(listOf(5), asked)
+    }
+
+    @Test
+    fun `a press that scrolls the page instead asks about the last release once it lifts`() = runBlocking {
+        // Nothing moved the thumb and the slider never let go, so it still shows 3 with Keep at
+        // 14. Lifting has to count 3 again, or nothing would ever be decided for it.
+        val keepCount = keepCount()
+        val listing = CompletableDeferred<List<String>?>()
+        keepCount.letGo(14, 3, listing)!!
+        yield()
+
+        keepCount.pressed()
+        listing.complete(folder)
+        settle()
+        assertEquals(emptyList<Int>(), asked)
+
+        keepCount.lifted()
+        settle()
+        assertEquals(listOf(3), asked)
+        assertEquals(emptyList<Int>(), saved)
+    }
+
+    @Test
+    fun `a press that moves the thumb leaves the old release to the new one`() = runBlocking {
+        val keepCount = keepCount()
+        val listing = CompletableDeferred<List<String>?>()
+        keepCount.letGo(14, 3, listing)!!
+        yield()
+
+        keepCount.pressed()
+        keepCount.moved() // Dragged on to 7.
+        keepCount.lifted() // The drag's own release comes a moment after this.
+        listing.complete(folder)
+        settle()
+        assertEquals("nothing for 3", emptyList<Int>(), asked)
+        assertEquals(emptyList<Int>(), saved)
+
+        keepCount.letGo(14, 7, CompletableDeferred(folder))!!.join()
+        assertEquals(listOf(7), asked)
+    }
+
+    @Test
+    fun `a tap where the thumb already is asks once`() = runBlocking {
+        // The tap lets go at the same value without moving the thumb: its own release counts 3,
+        // and lifting must not count it a second time.
+        val keepCount = keepCount()
+        keepCount.letGo(14, 3, CompletableDeferred())!!
+        yield()
+
+        keepCount.pressed()
+        keepCount.letGo(14, 3, CompletableDeferred(folder))!!
+        keepCount.lifted()
+        settle()
+        assertEquals(listOf(3), asked)
     }
 
     @Test
