@@ -41,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.constants.EndReason
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.constants.QuickPicksSourceKey
@@ -50,14 +49,22 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.db.entities.EngineWeight
 import com.dd3boh.outertune.engine.Calibration
 import com.dd3boh.outertune.engine.DoingSummary
+import com.dd3boh.outertune.engine.ENGINE_TEAM
+import com.dd3boh.outertune.engine.EndLabel
 import com.dd3boh.outertune.engine.Features
 import com.dd3boh.outertune.engine.Trend
 import com.dd3boh.outertune.engine.cardsByTeam
+import com.dd3boh.outertune.engine.cardsSeen
+import com.dd3boh.outertune.engine.clockLength
 import com.dd3boh.outertune.engine.doingSummary
+import com.dd3boh.outertune.engine.endCounts
+import com.dd3boh.outertune.engine.endLabel
 import com.dd3boh.outertune.engine.engineShowing
 import com.dd3boh.outertune.engine.hasNumbers
+import com.dd3boh.outertune.engine.originCounts
 import com.dd3boh.outertune.engine.per100Text
 import com.dd3boh.outertune.engine.per100Texts
+import com.dd3boh.outertune.engine.predictionBands
 import com.dd3boh.outertune.engine.predictionOf
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.ExplainButton
@@ -97,12 +104,10 @@ fun RecommendationsDoingSettings(
     val listens by viewModel.listens.collectAsState(initial = 0)
     val counted by viewModel.counted.collectAsState(initial = 0)
     val sessions by viewModel.sessions.collectAsState(initial = 0)
-    val byEndReason by viewModel.byEndReason.collectAsState(initial = emptyList())
+    val byEnd by viewModel.byEnd.collectAsState(initial = emptyList())
     val byOrigin by viewModel.byOrigin.collectAsState(initial = emptyList())
-    val impressions by viewModel.impressions.collectAsState(initial = 0)
-    val rowBuilds by viewModel.rowBuilds.collectAsState(initial = 0)
+    val cardsSeenRows by viewModel.cardsSeen.collectAsState(initial = emptyList())
     val signals by viewModel.signals.collectAsState(initial = 0)
-    val taps by viewModel.taps.collectAsState(initial = 0)
     val recent by viewModel.recent.collectAsState(initial = emptyList())
     // Null until read, so the summary does not say "nothing yet" for the moment before it knows.
     val gradedByTeam by viewModel.gradedByTeam.collectAsState(initial = null)
@@ -115,17 +120,21 @@ fun RecommendationsDoingSettings(
     val locale = Locale.getDefault()
     val updates = weights.maxOfOrNull { it.updates } ?: 0
 
-    val endReasonLabels = mapOf(
-        EndReason.ENDED to stringResource(R.string.recommendations_ended),
-        EndReason.SKIPPED to stringResource(R.string.recommendations_skipped),
-        EndReason.REPLACED to stringResource(R.string.recommendations_replaced),
-        EndReason.STOPPED to stringResource(R.string.recommendations_stopped),
+    // Lower case, like the labels they stand among. Not recorded is for both: a listen from the
+    // old play log, which kept neither how it ended nor where it began, and one started a way that
+    // does not say where from.
+    val notRecorded = stringResource(R.string.recommendations_not_recorded)
+    val endLabels = mapOf(
+        EndLabel.REACHED_END to stringResource(R.string.recommendations_ended),
+        EndLabel.ENDED_EARLY to stringResource(R.string.recommendations_ended_early),
+        EndLabel.SKIPPED to stringResource(R.string.recommendations_skipped),
+        EndLabel.REPLACED to stringResource(R.string.recommendations_replaced),
+        EndLabel.STOPPED to stringResource(R.string.recommendations_stopped),
+        EndLabel.IN_PROGRESS to stringResource(R.string.recommendations_in_progress),
+        EndLabel.NOT_RECORDED to notRecorded,
     )
-    // Lower case, like the labels it stands among.
-    val unknown = stringResource(R.string.recommendations_origin_unknown)
-    fun endReasonLabel(code: Int) = endReasonLabels[code] ?: unknown
     val originLabels = mapOf(
-        PlayOrigin.UNKNOWN to stringResource(R.string.recommendations_origin_unknown),
+        PlayOrigin.UNKNOWN to notRecorded,
         PlayOrigin.SEARCH to stringResource(R.string.recommendations_origin_search),
         PlayOrigin.QUICK_PICKS to stringResource(R.string.recommendations_origin_quick_picks),
         PlayOrigin.HOME_ROW to stringResource(R.string.recommendations_origin_home_row),
@@ -145,7 +154,13 @@ fun RecommendationsDoingSettings(
         PlayOrigin.WIDGET to stringResource(R.string.recommendations_origin_widget),
         PlayOrigin.DISCOVER to stringResource(R.string.recommendations_origin_discover),
     )
-    fun originLabel(code: Int) = originLabels[PlayOrigin.fromCode(code)] ?: unknown
+    fun originLabel(origin: PlayOrigin) = originLabels[origin] ?: notRecorded
+    val teamNames = mapOf(
+        ENGINE_TEAM to stringResource(R.string.recommendations_team_engine),
+        2 to stringResource(R.string.recommendations_team_library),
+        3 to stringResource(R.string.recommendations_team_youtube),
+        DISCOVER_TEAM to stringResource(R.string.discover_something_new),
+    )
 
     ColumnWithContentPadding(
         modifier = Modifier.fillMaxHeight(),
@@ -162,7 +177,8 @@ fun RecommendationsDoingSettings(
             val numbers = hasNumbers(teams, buildScores, pairs.size, updates)
             showWeights = numbers
 
-            SummaryCard(doingSummary(engineShowing(quickPicksSource), teams, cardTrend), locale)
+            val waiting = cardsSeenRows.firstOrNull { it.team == ENGINE_TEAM }?.waiting ?: 0
+            SummaryCard(doingSummary(engineShowing(quickPicksSource), teams, cardTrend, waiting), locale)
             Spacer(Modifier.height(16.dp))
 
             ExplainedGroupTitle(
@@ -170,7 +186,6 @@ fun RecommendationsDoingSettings(
                 explanation = stringResource(R.string.recommendations_doing_title_info),
             )
             if (numbers) {
-                val teamNames = mapOf(1 to stringResource(R.string.recommendations_team_engine), 2 to stringResource(R.string.recommendations_team_library), 3 to stringResource(R.string.recommendations_team_youtube), DISCOVER_TEAM to stringResource(R.string.discover_something_new))
                 StatEntry(
                     title = stringResource(R.string.recommendations_wins),
                     explanation = stringResource(R.string.recommendations_wins_info),
@@ -202,20 +217,23 @@ fun RecommendationsDoingSettings(
                 StatEntry(
                     title = stringResource(R.string.recommendations_held),
                     explanation = stringResource(R.string.recommendations_held_info),
+                    // A build is each time the row on screen changed, or the unseen one was built
+                    // again: a refresh, which a reader can picture where "26 rows" was a puzzle.
                     numbers = buildScores.sortedBy { it.rowKey }.map { b ->
                         pluralStringResource(
                             R.plurals.recommendations_held_songs, b.plays,
                             rowNames[b.rowKey] ?: b.rowKey.toString(), b.hits, b.plays,
-                            pluralStringResource(R.plurals.recommendations_rows, b.builds, b.builds),
+                            pluralStringResource(R.plurals.recommendations_refreshes, b.builds, b.builds),
                         )
                     }.joinToString("\n").ifBlank { stringResource(R.string.recommendations_nothing_yet) },
                     meaning = stringResource(R.string.recommendations_held_meaning),
                 )
 
                 // The Brier score is the honest measure but means nothing to most people, so the
-                // row compares what it expected with what happened, and the score itself waits
-                // behind the "i" for whoever wants it. It says how many cards it covers: only those
-                // from a scored row carry a guess, which can be fewer than the summary counts.
+                // row compares what it expected with what happened, and the score waits at the foot
+                // of the "i" as a detail for whoever wants one number. It says how many cards it
+                // covers: only those from a scored row carry a guess, which can be fewer than the
+                // summary counts. Chances are "in 100" all the way down, cards plain counts.
                 val brier = Calibration.brier(pairs)
                 val prediction = predictionOf(pairs)
                 val (expected, played) = per100Texts(prediction.expectedPer100, prediction.playedPer100, locale)
@@ -227,15 +245,14 @@ fun RecommendationsDoingSettings(
                     numbers = if (brier.isNaN()) stringResource(R.string.recommendations_nothing_yet)
                         else (listOf(
                             pluralStringResource(R.plurals.recommendations_predicted_of, prediction.cards, prediction.cards, expected, played),
-                            stringResource(R.string.recommendations_by_chance),
                         ) +
                             // map, not the joinToString below it directly: map is inline and can
                             // call a composable function, joinToString's own lambda cannot.
-                            Calibration.reliability(pairs).filter { it.count > 0 }.map { b ->
-                                pluralStringResource(
-                                    R.plurals.recommendations_calibration_bucket, b.count,
-                                    b.lo * 100, b.hi * 100, b.count, b.playRate * 100
-                                )
+                            predictionBands(pairs).map { b ->
+                                val playedText = if (b.played == 0) stringResource(R.string.recommendations_band_none_played)
+                                    else pluralStringResource(R.plurals.recommendations_band_played, b.played, b.played)
+                                if (b.fromPer100 == 0) stringResource(R.string.recommendations_band_under, b.toPer100, b.cards, playedText)
+                                else stringResource(R.string.recommendations_band, b.fromPer100, b.toPer100, b.cards, playedText)
                             }).joinToString("\n"),
                     meaning = stringResource(R.string.recommendations_predicted_meaning),
                 )
@@ -257,7 +274,7 @@ fun RecommendationsDoingSettings(
         )
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             ExplainedPreference(
-                title = stringResource(R.string.recommendations_listens, listens, counted),
+                title = pluralStringResource(R.plurals.recommendations_listens, listens, listens, counted),
                 explanation = stringResource(R.string.recommendations_listens_info),
                 description = stringResource(R.string.recommendations_listens_description),
             )
@@ -269,27 +286,39 @@ fun RecommendationsDoingSettings(
             StatEntry(
                 title = stringResource(R.string.recommendations_how_they_ended),
                 explanation = stringResource(R.string.recommendations_how_they_ended_info),
-                numbers = byEndReason.joinToString(", ") { "${endReasonLabel(it.code)} ${it.n}" }
+                // Split the way Recent listens names them, so "ended early" there is a count here.
+                numbers = endCounts(byEnd).joinToString(", ") { (label, n) -> "${endLabels[label]} $n" }
                     .ifBlank { stringResource(R.string.recommendations_nothing_yet) },
                 meaning = stringResource(R.string.recommendations_how_they_ended_meaning),
             )
             StatEntry(
                 title = stringResource(R.string.recommendations_where_from),
                 explanation = stringResource(R.string.recommendations_where_from_info),
-                numbers = byOrigin.joinToString(", ") { "${originLabel(it.code)} ${it.n}" }
+                numbers = originCounts(byOrigin).joinToString(", ") { (origin, n) -> "${originLabel(origin)} $n" }
                     .ifBlank { stringResource(R.string.recommendations_nothing_yet) },
                 meaning = stringResource(R.string.recommendations_where_from_meaning),
             )
-            ExplainedPreference(
-                title = pluralStringResource(
-                    R.plurals.recommendations_impressions_shown, impressions,
-                    impressions, pluralStringResource(R.plurals.recommendations_rows, rowBuilds, rowBuilds),
-                ),
+            // By source, with the judged count first: the same number the summary and Cards played
+            // give, and what is not judged yet or left out named beside it rather than added in.
+            // It used to be every row in the table, Discover's, the unjudged and the pool picks
+            // never on screen among them, "across" every build, and read as a contradiction of
+            // the count at the top.
+            val seen = cardsSeen(cardsSeenRows)
+            val tapped = seen.sumOf { it.tapped }
+            StatEntry(
+                title = stringResource(R.string.recommendations_cards_seen),
                 explanation = stringResource(R.string.recommendations_impressions_info),
-                description = stringResource(R.string.recommendations_impressions_description),
+                numbers = (seen.map { r ->
+                    stringResource(R.string.recommendations_cards_seen_line, teamNames[r.team] ?: r.team.toString(), r.judged) +
+                        (if (r.waiting > 0) pluralStringResource(R.plurals.recommendations_cards_waiting, r.waiting, r.waiting) else "") +
+                        (if (r.leftOut > 0) pluralStringResource(R.plurals.recommendations_cards_left_out, r.leftOut, r.leftOut) else "")
+                } + listOfNotNull(
+                    if (tapped > 0) pluralStringResource(R.plurals.recommendations_cards_tapped, tapped, tapped) else null
+                )).joinToString("\n").ifBlank { stringResource(R.string.recommendations_nothing_yet) },
+                meaning = if (seen.isEmpty()) null else stringResource(R.string.recommendations_impressions_description),
             )
             ExplainedPreference(
-                title = stringResource(R.string.recommendations_signals, signals, taps),
+                title = pluralStringResource(R.plurals.recommendations_signals, signals, signals),
                 explanation = stringResource(R.string.recommendations_signals_info),
                 description = stringResource(R.string.recommendations_signals_description),
             )
@@ -317,15 +346,19 @@ fun RecommendationsDoingSettings(
             }
             recent.forEach { row ->
                 // How much was heard, not where it stopped: a song can reach the end after a jump,
-                // or a stream give out, with only a little of it heard. Unknown parts are left out.
+                // or a stream give out, with only a little of it heard, and then it "ended early".
+                // Unknown parts are left out. A minute or more reads as a clock does, 4:04.
+                val end = endLabels[endLabel(row.endReason, row.ratio)] ?: notRecorded
+                val length = clockLength(row.playedMs) ?: stringResource(R.string.recommendations_seconds, (row.playedMs / 1000).toInt())
                 val heard = if (row.ratio >= 0f) {
-                    stringResource(R.string.recommendations_recent_line, endReasonLabel(row.endReason), "${(row.ratio * 100).toInt()}%", row.playedMs / 1000)
+                    stringResource(R.string.recommendations_recent_line, end, "${(row.ratio * 100).toInt()}%", length)
                 } else {
-                    stringResource(R.string.recommendations_recent_line_no_share, endReasonLabel(row.endReason), row.playedMs / 1000)
+                    stringResource(R.string.recommendations_recent_line_no_share, end, length)
                 }
-                val origin = if (PlayOrigin.fromCode(row.origin) == PlayOrigin.UNKNOWN) "" else stringResource(
+                val from = PlayOrigin.fromCode(row.origin)
+                val origin = if (from == PlayOrigin.UNKNOWN) "" else stringResource(
                     R.string.recommendations_recent_from,
-                    originLabel(row.origin) + (if (row.originSlot >= 0) " #${row.originSlot + 1}" else ""),
+                    originLabel(from) + (if (row.originSlot >= 0) " #${row.originSlot + 1}" else ""),
                 )
                 val afterPick = if (row.autoplayDepth > 0) {
                     pluralStringResource(R.plurals.recommendations_recent_after_pick, row.autoplayDepth, row.autoplayDepth)
@@ -399,6 +432,15 @@ private fun SummaryCard(summary: DoingSummary, locale: Locale) {
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                         )
+                        // The cards it showed that are not judged yet, so the count above and
+                        // Cards you saw further down are plainly the same cards.
+                        if (summary.waiting > 0) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = pluralStringResource(R.plurals.recommendations_summary_waiting_more, summary.waiting, summary.waiting),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
                         Spacer(Modifier.height(12.dp))
                         summary.trend?.let {
                             TrendLine(it, locale)
@@ -491,6 +533,9 @@ private fun WeightsEntry(weights: List<EngineWeight>, updates: Int) {
     )
     val started = stringResource(R.string.recommendations_weight_started)
     StatEntry(
+        // Learning steps, not cards: a pool pick, a song from the spare pool behind the row that
+        // you played, is one too, and it was never on screen. Cards would have counted more than
+        // the page says it showed.
         title = pluralStringResource(R.plurals.recommendations_weights, updates, updates),
         explanation = stringResource(R.string.recommendations_weights_info),
         numbers = Features.priors.keys.filter { it in weightNames }.joinToString("\n") { name ->

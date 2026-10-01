@@ -6,15 +6,21 @@
 
 package com.dd3boh.outertune.engine
 
+import com.dd3boh.outertune.constants.EndReason
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.db.daos.BuildScore
 import com.dd3boh.outertune.db.daos.CardTrendRow
+import com.dd3boh.outertune.db.daos.CardsSeenRow
+import com.dd3boh.outertune.db.daos.ListenDao.CodeCount
+import com.dd3boh.outertune.db.daos.ListenDao.EndCount
 import com.dd3boh.outertune.db.daos.TeamOutcome
 import java.math.RoundingMode
 import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /*
@@ -109,20 +115,98 @@ sealed interface DoingSummary {
     /**
      * [fromBefore] when these are from an earlier time: the engine is not in the row now. [trend]
      * is null when there is none to give and never will be: from before, with too few new cards,
-     * the fortnights only fill with nothing, and "too early" would stay up for good.
+     * the fortnights only fill with nothing, and "too early" would stay up for good. [waiting] is
+     * how many more of its cards were seen and are not judged yet, so the count at the top and
+     * Cards you saw further down are seen to be the same cards.
      */
-    data class Numbers(val cards: CardCounts, val trend: Trend?, val fromBefore: Boolean) : DoingSummary
+    data class Numbers(val cards: CardCounts, val trend: Trend?, val fromBefore: Boolean, val waiting: Int = 0) : DoingSummary
 }
 
-fun doingSummary(engineShowing: Boolean, teams: List<TeamCards>, trend: CardTrendRow?): DoingSummary {
+fun doingSummary(engineShowing: Boolean, teams: List<TeamCards>, trend: CardTrendRow?, waiting: Int = 0): DoingSummary {
     val engine = teams.firstOrNull { it.team == ENGINE_TEAM }?.cards
     if (engine == null || engine.seen == 0) return if (engineShowing) DoingSummary.Waiting else DoingSummary.NotSource
     val t = trend?.let {
         trendOf(CardCounts(it.recentSeen, it.recentPlayed), CardCounts(it.earlierSeen, it.earlierPlayed))
     } ?: Trend.TooEarly
     val fromBefore = !engineShowing
-    return DoingSummary.Numbers(engine, t.takeUnless { fromBefore && it == Trend.TooEarly }, fromBefore)
+    return DoingSummary.Numbers(engine, t.takeUnless { fromBefore && it == Trend.TooEarly }, fromBefore, waiting)
 }
+
+/**
+ * The sources with cards to show under Cards you saw, in team order. Judged is the count every
+ * other figure on the page uses; the cards still to be judged and those left out are named
+ * beside it rather than added in, so no number here differs from the same thing counted above.
+ */
+fun cardsSeen(rows: List<CardsSeenRow>): List<CardsSeenRow> =
+    rows.filter { it.judged + it.waiting + it.leftOut > 0 }.sortedBy { it.team }
+
+/** How Recent listens and How they ended name the way a listen ended. */
+enum class EndLabel { REACHED_END, ENDED_EARLY, SKIPPED, REPLACED, STOPPED, IN_PROGRESS, NOT_RECORDED }
+
+/**
+ * Heard less than this share of a song the player took to its end, and it ended early: a jump to
+ * the last seconds, or a stream that gave out. "Reached the end, 9% heard" read as a contradiction.
+ * EngineSql.LISTENS_BY_END draws the same line.
+ */
+const val ENDED_EARLY_BELOW = 0.8
+
+/** True for a listen the player took to its end with well under the song heard. An unknown length tells nothing. */
+fun endedEarly(endReason: Int, ratio: Float): Boolean =
+    endReason == EndReason.ENDED && ratio >= 0f && ratio < ENDED_EARLY_BELOW
+
+fun endLabel(endReason: Int, early: Boolean): EndLabel = when (endReason) {
+    EndReason.ENDED -> if (early) EndLabel.ENDED_EARLY else EndLabel.REACHED_END
+    EndReason.SKIPPED -> EndLabel.SKIPPED
+    EndReason.REPLACED -> EndLabel.REPLACED
+    EndReason.STOPPED -> EndLabel.STOPPED
+    // Still playing, or paused: its row is closed when it stops.
+    EndReason.OPEN -> EndLabel.IN_PROGRESS
+    // The old play log, which never kept how a play ended.
+    else -> EndLabel.NOT_RECORDED
+}
+
+fun endLabel(endReason: Int, ratio: Float): EndLabel = endLabel(endReason, endedEarly(endReason, ratio))
+
+/** How they ended: one count per label, in [EndLabel] order, so not recorded comes last and once. */
+fun endCounts(rows: List<EndCount>): List<Pair<EndLabel, Int>> =
+    rows.groupBy { endLabel(it.code, it.early) }.mapValues { (_, r) -> r.sumOf { it.n } }
+        .filterValues { it > 0 }.toSortedMap().toList()
+
+/**
+ * Where they were started from: one count per origin, in the order of the codes, with the ones
+ * that say nothing (unknown, or a code this version does not know) together and last.
+ */
+fun originCounts(rows: List<CodeCount>): List<Pair<PlayOrigin, Int>> {
+    val byOrigin = rows.groupBy { PlayOrigin.fromCode(it.code) }.mapValues { (_, r) -> r.sumOf { it.n } }.filterValues { it > 0 }
+    return byOrigin.filterKeys { it != PlayOrigin.UNKNOWN }.toList().sortedBy { it.first.code } +
+        listOfNotNull(byOrigin[PlayOrigin.UNKNOWN]?.let { PlayOrigin.UNKNOWN to it })
+}
+
+/**
+ * How long a listen played, as a clock reads it: 4:04, or 1:02:09 past the hour. Null under a
+ * minute, which reads better as seconds: "22s".
+ */
+fun clockLength(ms: Long): String? {
+    val total = ms / 1000
+    if (total < 60) return null
+    val h = total / 3600
+    val m = total % 3600 / 60
+    val s = total % 60
+    return if (h > 0) "%d:%02d:%02d".format(Locale.ROOT, h, m, s) else "%d:%02d".format(Locale.ROOT, m, s)
+}
+
+/**
+ * One group of How well it predicts: the cards it gave a chance from [fromPer100] up to
+ * [toPer100] in 100, and how many of them were played. Counted, not given as a share, so the row
+ * says "in 100" for chances and plain numbers for cards, never percent beside it.
+ */
+data class PredictionBand(val fromPer100: Int, val toPer100: Int, val cards: Int, val played: Int)
+
+/** The groups with cards in them, lowest chance first, by the same bands as the reliability table. */
+fun predictionBands(pairs: List<Pair<Double, Double>>, bands: Int = 5): List<PredictionBand> =
+    Calibration.reliability(pairs, bands).filter { it.count > 0 }.map { b ->
+        PredictionBand((b.lo * 100).roundToInt(), (b.hi * 100).roundToInt(), b.count, (b.playRate * b.count).roundToInt())
+    }
 
 /**
  * Whether any of the engine's own figures has something in it. With none, the rows that would

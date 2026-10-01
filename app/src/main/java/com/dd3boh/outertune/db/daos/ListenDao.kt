@@ -106,9 +106,6 @@ interface ListenDao {
     @Query("UPDATE listen SET sourceEventId = :eventId WHERE id = :id")
     fun setListenSource(id: Long, eventId: Long)
 
-    @Query("SELECT COUNT(*) FROM impression WHERE tappedAt IS NOT NULL")
-    fun tapCount(): Flow<Int>
-
     /**
      * What the listener has just had: heard at engagement 0.5 or more (45% of a known length, or
      * two minutes of an unknown one) in the last day, or started at all in the given session.
@@ -287,14 +284,14 @@ interface ListenDao {
     @Query("SELECT COUNT(DISTINCT sessionId) FROM listen")
     fun sessionCount(): Flow<Int>
 
-    @Query("SELECT endReason AS code, COUNT(*) AS n FROM listen GROUP BY endReason")
-    fun listensByEndReason(): Flow<List<CodeCount>>
+    @Query(EngineSql.LISTENS_BY_END)
+    fun listensByEnd(): Flow<List<EndCount>>
 
     @Query("SELECT origin AS code, COUNT(*) AS n FROM listen GROUP BY origin")
     fun listensByOrigin(): Flow<List<CodeCount>>
 
-    @Query("SELECT COUNT(*) FROM impression")
-    fun impressionCount(): Flow<Int>
+    @Query(EngineSql.CARDS_SEEN)
+    fun cardsSeen(): Flow<List<CardsSeenRow>>
 
     @Query("SELECT * FROM listen ORDER BY endedAt DESC LIMIT :limit")
     fun recentListens(limit: Int): Flow<List<Listen>>
@@ -315,9 +312,6 @@ interface ListenDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM song WHERE id = :id)")
     fun songExists(id: String): Boolean
-
-    @Query("SELECT COUNT(*) FROM row_build")
-    fun rowBuildCount(): Flow<Int>
 
     @Query("SELECT * FROM row_build WHERE rowKey = :rowKey ORDER BY builtAt DESC LIMIT 1")
     fun lastBuild(rowKey: Int): RowBuild?
@@ -362,6 +356,9 @@ interface ListenDao {
 
     data class CodeCount(val code: Int, val n: Int)
 
+    /** How many listens ended one way; [early] when one that reached its end was mostly not heard. */
+    data class EndCount(val code: Int, val early: Boolean, val n: Int)
+
     /** One listen with its title, for the report; nothing else needs the join. */
     data class ListenRow(
         val id: Long, val title: String, val endReason: Int, val origin: Int, val originSlot: Int,
@@ -372,4 +369,6 @@ interface ListenDao {
 data class TeamOutcome(val team: Int, val outcome: Int, val n: Int, val wins: Int)
 data class PredictionGrade(val p: Float, val y: Float)
 data class BuildScore(val rowKey: Int, val builds: Int, val plays: Int, val hits: Int)
+/** One source's cards that were on screen, see EngineSql.CARDS_SEEN. */
+data class CardsSeenRow(val team: Int, val judged: Int, val waiting: Int, val leftOut: Int, val tapped: Int)
 data class CardTrendRow(val recentSeen: Int, val recentPlayed: Int, val earlierSeen: Int, val earlierPlayed: Int)

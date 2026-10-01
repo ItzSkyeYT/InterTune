@@ -6,7 +6,10 @@
 
 package com.dd3boh.outertune.engine
 
-/** SQL the engine's loader runs, kept here so the JVM trial can run the same text over a real copy. */
+/**
+ * SQL the engine's loader runs, and the counts How it's doing and Your data show, kept here so the
+ * JVM tests can run the same text over the exported schema.
+ */
 object EngineSql {
     /**
      * Every song with its primary artist: the mapping at the lowest position, joined once. The
@@ -60,6 +63,31 @@ object EngineSql {
         FROM impression
         WHERE team = 1 AND slot >= 0 AND gradedAt IS NOT NULL AND outcome IN (1, 2, 3)
           AND visibleAt >= :from AND visibleAt < :to
+    """
+
+    /**
+     * Every source's cards that were on screen, for Cards you saw on How it's doing: judged, still
+     * to be judged, and judged but left out (its play forgotten, or tapped and never heard), with
+     * how many were tapped. Only cards in a slot, as in [GRADED_BY_TEAM], so judged here is the
+     * same number as seen there and the page never gives two counts for one thing.
+     */
+    const val CARDS_SEEN = """
+        SELECT team AS team,
+            COUNT(CASE WHEN gradedAt IS NOT NULL AND outcome IN (1, 2, 3) THEN 1 END) AS judged,
+            COUNT(CASE WHEN gradedAt IS NULL THEN 1 END) AS waiting,
+            COUNT(CASE WHEN gradedAt IS NOT NULL AND outcome NOT IN (1, 2, 3) THEN 1 END) AS leftOut,
+            COUNT(CASE WHEN tappedAt IS NOT NULL THEN 1 END) AS tapped
+        FROM impression WHERE slot >= 0 GROUP BY team ORDER BY team
+    """
+
+    /**
+     * Listens by how they ended, with a song that reached its end after less than [ENDED_EARLY_BELOW]
+     * of it was heard counted apart, as Recent listens shows it. The share is written out here
+     * because Room needs the text whole; EndLabelSqlTest holds the two to the same line.
+     */
+    const val LISTENS_BY_END = """
+        SELECT endReason AS code, (endReason = 1 AND ratio >= 0 AND ratio < 0.8) AS early, COUNT(*) AS n
+        FROM listen GROUP BY code, early
     """
 
     /*

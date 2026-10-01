@@ -6,12 +6,18 @@
 
 package com.dd3boh.outertune.engine
 
+import com.dd3boh.outertune.constants.EndReason
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.db.daos.BuildScore
 import com.dd3boh.outertune.db.daos.CardTrendRow
+import com.dd3boh.outertune.db.daos.CardsSeenRow
+import com.dd3boh.outertune.db.daos.ListenDao.CodeCount
+import com.dd3boh.outertune.db.daos.ListenDao.EndCount
 import com.dd3boh.outertune.db.daos.TeamOutcome
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Locale
@@ -207,5 +213,102 @@ class EngineReportTest {
         assertEquals("4.2" to "4.4", per100Texts(4.2, 4.4, Locale.ENGLISH))
         assertEquals("6" to "4", per100Texts(6.1, 4.0, Locale.ENGLISH))
         assertEquals("3" to "3", per100Texts(3.0, 3.0, Locale.ENGLISH))
+    }
+
+    // Every count agrees with the others
+
+    @Test
+    fun `the summary carries how many more cards wait to be judged`() {
+        val teams = listOf(TeamCards(ENGINE_TEAM, CardCounts(seen = 103, played = 0)))
+        val s = doingSummary(engineShowing = true, teams, trend = null, waiting = 8) as DoingSummary.Numbers
+        assertEquals(103, s.cards.seen)
+        assertEquals(8, s.waiting)
+        assertEquals(0, (doingSummary(true, teams, null) as DoingSummary.Numbers).waiting)
+    }
+
+    @Test
+    fun `cards seen keeps the sources with any card, in team order`() {
+        val rows = listOf(
+            CardsSeenRow(team = 4, judged = 90, waiting = 8, leftOut = 0, tapped = 1),
+            CardsSeenRow(team = 3, judged = 0, waiting = 0, leftOut = 0, tapped = 0),
+            CardsSeenRow(team = 1, judged = 103, waiting = 8, leftOut = 2, tapped = 1),
+            CardsSeenRow(team = 2, judged = 0, waiting = 3, leftOut = 0, tapped = 0),
+        )
+        assertEquals(listOf(1, 2, 4), cardsSeen(rows).map { it.team })
+    }
+
+    // How a listen ended
+
+    @Test
+    fun `a song that reached its end with little of it heard ended early, and an unknown length tells nothing`() {
+        assertEquals(EndLabel.ENDED_EARLY, endLabel(EndReason.ENDED, 0.09f))
+        assertEquals(EndLabel.ENDED_EARLY, endLabel(EndReason.ENDED, 0.79f))
+        assertEquals(EndLabel.REACHED_END, endLabel(EndReason.ENDED, 0.8f))
+        assertEquals(EndLabel.REACHED_END, endLabel(EndReason.ENDED, 1.0f))
+        assertEquals(EndLabel.REACHED_END, endLabel(EndReason.ENDED, 2.1f))  // a repeat
+        assertEquals(EndLabel.REACHED_END, endLabel(EndReason.ENDED, -1f))
+        assertEquals(EndLabel.SKIPPED, endLabel(EndReason.SKIPPED, 0.09f))
+    }
+
+    @Test
+    fun `a listen still open is in progress, and the old play log is not recorded`() {
+        assertEquals(EndLabel.IN_PROGRESS, endLabel(EndReason.OPEN, 0.5f))
+        assertEquals(EndLabel.NOT_RECORDED, endLabel(EndReason.UNKNOWN, -1f))
+        assertEquals(EndLabel.NOT_RECORDED, endLabel(EndReason.ERROR, -1f))
+        assertEquals(EndLabel.STOPPED, endLabel(EndReason.STOPPED, 0.2f))
+        assertEquals(EndLabel.REPLACED, endLabel(EndReason.REPLACED, 0.2f))
+    }
+
+    @Test
+    fun `how they ended gives one count per label, ended early apart and not recorded last`() {
+        val rows = listOf(
+            EndCount(EndReason.UNKNOWN, early = false, n = 1),
+            EndCount(EndReason.ENDED, early = false, n = 3),
+            EndCount(EndReason.ENDED, early = true, n = 1),
+            EndCount(EndReason.SKIPPED, early = false, n = 11),
+            EndCount(EndReason.ERROR, early = false, n = 2),
+            EndCount(EndReason.OPEN, early = false, n = 1),
+        )
+        assertEquals(
+            listOf(EndLabel.REACHED_END to 3, EndLabel.ENDED_EARLY to 1, EndLabel.SKIPPED to 11, EndLabel.IN_PROGRESS to 1, EndLabel.NOT_RECORDED to 3),
+            endCounts(rows),
+        )
+    }
+
+    @Test
+    fun `where they were started from puts the ones that say nothing together and last`() {
+        val rows = listOf(
+            CodeCount(PlayOrigin.UNKNOWN.code, 24),
+            CodeCount(PlayOrigin.DISCOVER.code, 3),
+            CodeCount(PlayOrigin.QUICK_PICKS.code, 4),
+            CodeCount(99, 1),   // a code this version does not know
+        )
+        assertEquals(
+            listOf(PlayOrigin.QUICK_PICKS to 4, PlayOrigin.DISCOVER to 3, PlayOrigin.UNKNOWN to 25),
+            originCounts(rows),
+        )
+    }
+
+    @Test
+    fun `a minute or more reads as a clock does, and under a minute is left to seconds`() {
+        assertNull(clockLength(0))
+        assertNull(clockLength(59_999))
+        assertEquals("1:00", clockLength(60_000))
+        assertEquals("4:04", clockLength(244_000))
+        assertEquals("4:04", clockLength(244_999))
+        assertEquals("59:59", clockLength(3_599_000))
+        assertEquals("1:02:09", clockLength(3_729_000))
+    }
+
+    // How well it predicts, counted
+
+    @Test
+    fun `prediction bands count their cards and plays, lowest first, empty bands left out`() {
+        val pairs = listOf(0.05 to 0.0, 0.1 to 1.0, 0.19 to 0.0, 0.25 to 0.5, 0.3 to 0.0, 1.0 to 1.0)
+        assertEquals(
+            listOf(PredictionBand(0, 20, cards = 3, played = 1), PredictionBand(20, 40, cards = 2, played = 1), PredictionBand(80, 100, cards = 1, played = 1)),
+            predictionBands(pairs),
+        )
+        assertEquals(emptyList<PredictionBand>(), predictionBands(emptyList()))
     }
 }
