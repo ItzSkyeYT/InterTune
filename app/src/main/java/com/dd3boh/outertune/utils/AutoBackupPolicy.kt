@@ -95,6 +95,15 @@ object AutoBackupPolicy {
             .map { it.name }
     }
 
+    /**
+     * What a Keep change the user agreed to deletes: what [toDelete] picks now, but only those of
+     * them in [confirmed], the ones counted when they were asked. The folder can change in between,
+     * and a backup written meanwhile puts one more over the line; that one waits for the next
+     * backup's pruning rather than going without a word.
+     */
+    fun confirmedToDelete(appName: String, names: List<String>, keep: Int, confirmed: Set<String>): List<String> =
+        toDelete(appName, names, keep).filter { it in confirmed }
+
     private class Backup(val name: String, val stamp: String, val copy: Int)
 
     /**

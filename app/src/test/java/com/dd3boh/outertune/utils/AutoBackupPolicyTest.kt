@@ -351,6 +351,38 @@ class AutoBackupPolicyTest {
         }
     }
 
+    @Test
+    fun `what Settings counts before asking is what toDelete picks`() {
+        // The dialog's number on his 30 Sep folder, lowering Keep from 14 to 5: "Delete 9 older backups?"
+        assertEquals(9, AutoBackupPolicy.toDelete("InterTune Preview", previewFolder, 5).size)
+        // Agreed with nothing changed in between, exactly those go.
+        val counted = AutoBackupPolicy.toDelete("InterTune Preview", previewFolder, 5)
+        assertEquals(counted, AutoBackupPolicy.confirmedToDelete("InterTune Preview", previewFolder, 5, counted.toSet()))
+    }
+
+    @Test
+    fun `a backup written while the dialog was open does not add one more to the deletes`() {
+        val counted = AutoBackupPolicy.toDelete("InterTune Preview", previewFolder, 5).toSet()
+        val folder = previewFolder + "InterTune Preview_25_20260930223816.backup"
+        // Keep 5 alone would now take ten, the tenth being one the user was not told about.
+        assertEquals(10, AutoBackupPolicy.toDelete("InterTune Preview", folder, 5).size)
+        assertEquals(counted.toList(), AutoBackupPolicy.confirmedToDelete("InterTune Preview", folder, 5, counted))
+    }
+
+    @Test
+    fun `an agreed delete never takes a backup Keep would now keep`() {
+        // Counted at Keep 2, then the folder lost its oldest three to something else: of the
+        // counted ones, only those still beyond Keep go.
+        val counted = AutoBackupPolicy.toDelete("InterTune Preview", previewFolder, 2).toSet()
+        val folder = previewFolder.drop(3)
+        assertEquals(
+            AutoBackupPolicy.toDelete("InterTune Preview", folder, 2),
+            AutoBackupPolicy.confirmedToDelete("InterTune Preview", folder, 2, counted),
+        )
+        // And nothing at all when nothing was agreed to.
+        assertEquals(emptyList<String>(), AutoBackupPolicy.confirmedToDelete("InterTune Preview", previewFolder, 1, emptySet()))
+    }
+
     // Whether a run writes at all.
 
     private val hour = 3_600_000L

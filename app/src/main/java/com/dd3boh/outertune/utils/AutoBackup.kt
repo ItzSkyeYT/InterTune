@@ -380,26 +380,50 @@ object AutoBackup {
     }
 
     /**
-     * Keep was changed: brings the folder down to [keep] now instead of at the next backup, which
-     * could be a week away. Until then, lowering Keep looked like it did nothing. Says how many went,
-     * since the folder is somewhere the user is not looking.
+     * The backups that setting Keep to [keep] would delete from the folder as it is now, by the
+     * same listing and the same AutoBackupPolicy.toDelete that pruning uses, so that Settings can
+     * say how many before it does. Empty when there is no folder, when it cannot be written to
+     * (applyKeep deletes nothing there either), or when it cannot be listed. Runs off the main
+     * thread by itself.
+     */
+    suspend fun wouldDelete(context: Context, keep: Int): List<String> = withContext(Dispatchers.IO) {
+        try {
+            val tree = writableFolder(context) ?: return@withContext emptyList()
+            val names = listChildren(context, tree.uri).map { it.first }
+            AutoBackupPolicy.toDelete(context.getString(R.string.app_name), names, keep)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not list the backup folder to count what Keep $keep would delete", e)
+            emptyList()
+        }
+    }
+
+    /**
+     * Keep was lowered and the user agreed to lose [confirmed], what [wouldDelete] counted: deletes
+     * them now instead of at the next backup, which could be a week away. Until then, lowering
+     * Keep looked like it did nothing. Says how many went, since the folder is somewhere the user
+     * is not looking.
+     *
+     * Never more than [confirmed], even if the folder has changed since it was counted (a backup
+     * written in between would put one more over the line): nothing goes that the user was not
+     * told about. The next backup's pruning brings the folder the rest of the way.
      *
      * Whether or not the switch is on: Back up now writes to the same folder and prunes by the same
      * number, so Keep is about the folder, not the schedule.
      */
-    fun applyKeep(context: Context, keep: Int) {
+    fun applyKeep(context: Context, keep: Int, confirmed: Collection<String>) {
         val appContext = context.applicationContext
+        val allowed = confirmed.toSet()
         scope.launch {
             val removed = try {
                 folderLock.withLock {
-                    val folder = appContext.dataStore.data.first()[AutoBackupFolderKey] ?: ""
-                    if (folder.isBlank()) return@withLock 0
-                    val tree = DocumentFile.fromTreeUri(appContext, folder.toUri())
-                    if (tree == null || !tree.canWrite()) {
+                    val tree = writableFolder(appContext)
+                    if (tree == null) {
                         Log.w(TAG, "Keep changed to $keep, but the backup folder is not available")
                         return@withLock 0
                     }
-                    prune(appContext, tree, appContext.getString(R.string.app_name), keep)
+                    prune(appContext, tree, appContext.getString(R.string.app_name), keep, only = allowed)
                 }
             } catch (e: Exception) {
                 // Its own scope has no one to hand this to, and an uncaught exception there would
@@ -417,16 +441,23 @@ object AutoBackup {
         }
     }
 
+    /** The backup folder from the settings, when there is one and it can be written to. */
+    private suspend fun writableFolder(context: Context): DocumentFile? {
+        val folder = context.dataStore.data.first()[AutoBackupFolderKey] ?: ""
+        if (folder.isBlank()) return null
+        return DocumentFile.fromTreeUri(context, folder.toUri())?.takeIf { it.canWrite() }
+    }
+
     /**
      * Deletes this app's backups in [tree] beyond the newest [keep] and returns how many went, and
      * clears away any of its half-written ones left by a killed write. Call it holding [folderLock],
-     * off the main thread.
+     * off the main thread. With [only], deletes none but those (AutoBackupPolicy.confirmedToDelete).
      *
      * A file that will not go is logged with the reason and the rest still go. A folder that cannot
      * be listed is logged and nothing goes. It never throws: by the time the worker prunes, the
      * backup it wrote is safe, and a pruning problem is not a reason to report that as a failure.
      */
-    internal fun prune(context: Context, tree: DocumentFile, appName: String, keep: Int): Int {
+    internal fun prune(context: Context, tree: DocumentFile, appName: String, keep: Int, only: Set<String>? = null): Int {
         val children = try {
             listChildren(context, tree.uri)
         } catch (e: Exception) {
@@ -435,7 +466,10 @@ object AutoBackup {
         }
         // Only names that are ours are ever considered; the folder may hold anything else.
         val names = children.map { it.first }
-        val doomed = AutoBackupPolicy.toDelete(appName, names, keep).toSet()
+        val doomed = (
+            if (only == null) AutoBackupPolicy.toDelete(appName, names, keep)
+            else AutoBackupPolicy.confirmedToDelete(appName, names, keep, only)
+        ).toSet()
         // Not backups and not counted: what a write killed half way left under its temporary name.
         val leftovers = AutoBackupPolicy.leftoverPartials(appName, names, LocalDateTime.now()).toSet()
         var removed = 0

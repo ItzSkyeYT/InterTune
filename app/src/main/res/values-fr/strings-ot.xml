@@ -766,6 +766,12 @@
         <item quantity="many">%1$d anciennes sauvegardes supprimées</item>
         <item quantity="other">%1$d anciennes sauvegardes supprimées</item>
     </plurals>
+    <plurals name="auto_backup_keep_confirm">
+        <item quantity="one">Supprimer %1$d ancienne sauvegarde ?</item>
+        <item quantity="many">Supprimer %1$d anciennes sauvegardes ?</item>
+        <item quantity="other">Supprimer %1$d anciennes sauvegardes ?</item>
+    </plurals>
+    <string name="auto_backup_keep_confirm_text">Cette action est irréversible.</string>
     <string name="auto_backup_now">Sauvegarder maintenant</string>
     <string name="auto_backup_last">Dernière sauvegarde : %1$s</string>
     <string name="auto_backup_last_never">Dernière sauvegarde : jamais</string>

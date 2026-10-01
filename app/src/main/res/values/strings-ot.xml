@@ -838,6 +838,11 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">Deleted %1$d older backup</item>
         <item quantity="other">Deleted %1$d older backups</item>
     </plurals>
+    <plurals name="auto_backup_keep_confirm">
+        <item quantity="one">Delete %1$d older backup?</item>
+        <item quantity="other">Delete %1$d older backups?</item>
+    </plurals>
+    <string name="auto_backup_keep_confirm_text">This cannot be undone.</string>
     <string name="auto_backup_now">Back up now</string>
     <string name="auto_backup_last">Last backup: %1$s</string>
     <string name="auto_backup_last_never">Last backup: never</string>

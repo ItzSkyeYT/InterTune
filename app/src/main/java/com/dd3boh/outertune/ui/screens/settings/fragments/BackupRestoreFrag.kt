@@ -23,6 +23,7 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Slider
@@ -37,8 +38,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -60,12 +63,14 @@ import com.dd3boh.outertune.extensions.tryOrNull
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
+import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.utils.AutoBackup
 import com.dd3boh.outertune.utils.M3u
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -296,16 +301,32 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             description = pluralStringResource(R.plurals.auto_backup_keep_count, keepShown, keepShown),
             onClick = null,
         )
+        // A new Keep that would delete backups asks first, since that cannot be undone, and says
+        // how many. They are counted on the folder as it is, off the main thread, by the same rule
+        // pruning follows, and only those are deleted. A Keep that deletes nothing is applied at
+        // once as before. Raising it almost always is one, but not always: a folder can hold more
+        // than the old Keep (copies put there by hand, or left from before Keep was applied at
+        // once), and then raising it still deletes some, so that asks too.
+        val keepScope = rememberCoroutineScope()
+        var keepCount by remember { mutableStateOf<Job?>(null) }
+        var keepToConfirm by remember { mutableStateOf<Pair<Int, List<String>>?>(null) }
         val keepInteraction = remember { MutableInteractionSource() }
         Slider(
             value = keepShown.toFloat(),
             onValueChange = { keepShown = it.roundToInt() },
-            // Nothing to reschedule, but the folder is brought down to the new number now. Left to
-            // the next backup, which can be a week or a year away, lowering Keep looked broken.
-            // Handed the number rather than left to read the preference, which has not landed yet.
+            // Nothing to reschedule, but once agreed the folder is brought down to the new number
+            // now. Left to the next backup, which can be a week or a year away, lowering Keep looked
+            // broken. Handed the number rather than left to read the preference, which has not
+            // landed yet.
             onValueChangeFinished = {
-                onAutoBackupKeepChange(keepShown)
-                AutoBackup.applyKeep(context, keepShown)
+                val keep = keepShown
+                // A count for where the thumb was before is no longer the question.
+                keepCount?.cancel()
+                keepCount = if (keep == autoBackupKeep) null else keepScope.launch {
+                    val doomed = AutoBackup.wouldDelete(context, keep)
+                    if (doomed.isEmpty()) onAutoBackupKeepChange(keep)
+                    else keepToConfirm = keep to doomed
+                }
             },
             valueRange = AutoBackup.KEEP_MIN.toFloat()..AutoBackup.KEEP_MAX.toFloat(),
             steps = AutoBackup.KEEP_MAX - AutoBackup.KEEP_MIN - 1,
@@ -327,6 +348,45 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             },
             modifier = Modifier.padding(horizontal = 16.dp),
         )
+
+        keepToConfirm?.let { (keep, doomed) ->
+            // Cancel, Back and a tap outside all leave Keep as it was and put the thumb back.
+            val cancel = {
+                keepToConfirm = null
+                keepShown = autoBackupKeep
+            }
+            DefaultDialog(
+                onDismiss = cancel,
+                horizontalAlignment = Alignment.Start,
+                // Padded to line up with the text below, as ExplainDialog does.
+                title = {
+                    Text(
+                        pluralStringResource(R.plurals.auto_backup_keep_confirm, doomed.size, doomed.size),
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp),
+                    )
+                },
+                buttons = {
+                    TextButton(onClick = cancel) {
+                        Text(stringResource(android.R.string.cancel))
+                    }
+                    TextButton(
+                        onClick = {
+                            keepToConfirm = null
+                            onAutoBackupKeepChange(keep)
+                            AutoBackup.applyKeep(context, keep, doomed)
+                        }
+                    ) {
+                        Text(stringResource(R.string.delete))
+                    }
+                },
+            ) {
+                Text(
+                    text = stringResource(R.string.auto_backup_keep_confirm_text),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
+        }
 
         PreferenceEntry(
             title = { Text(stringResource(R.string.auto_backup_now)) },
