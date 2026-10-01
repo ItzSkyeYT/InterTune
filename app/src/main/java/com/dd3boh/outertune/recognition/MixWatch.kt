@@ -819,6 +819,15 @@ internal object MixSearch {
         score(heard, item)?.plus(speedFit(item, speed, heard))
 
     /**
+     * The uploads, as ids, that a search's queries got back ([results]), whichever of the songs
+     * each names, that could be what has been playing for [heardS] seconds at [speed] ([couldBe]).
+     * They tell whether the search found the answer given at all ([stillGiven]), which [rank] does
+     * not: it keeps only uploads naming two of the songs a return carried.
+     */
+    fun gotBack(results: List<List<SongItem>>, heardS: Double, speed: Double): Set<String> =
+        results.flatten().filter { couldBe(it, heardS, speed) }.mapTo(mutableSetOf()) { it.id }
+
+    /**
      * The mashup to take without asking, or null when there is none or it is a toss-up. Clear means
      * well ahead of every other one: a tie between two uploads is exactly the Damage case, where one
      * of them was a different mashup of the same songs. And naming two of the songs [heard], as
@@ -1160,8 +1169,9 @@ internal object MixSearch {
      * answered once and is being asked again ([reopened]), what the search for its songs found
      * ([ranked], null when it failed), whether every one of its queries went through ([complete]),
      * its [winner], whether the return was [strong], and every song [heard] in it, which tells which
-     * of them an upload names ([namesSong]) and, with the room's [speed], how an upload naming a
-     * song uncovered weighs against the answer given ([stillGiven]).
+     * of them an upload names ([namesSong]) and, with the room's [speed] and every upload the
+     * queries got back ([gotBack]), how an upload naming a song uncovered weighs against the answer
+     * given ([stillGiven]).
      *
      * With nothing uncovered it goes on as it always has: left alone when the search failed, when
      * nothing names two of the songs, or after one odd window with only a toss-up, and otherwise
@@ -1186,6 +1196,7 @@ internal object MixSearch {
         strong: Boolean,
         heard: List<MixWatch.Sighting>,
         speed: Double = 1.0,
+        gotBack: Set<String> = emptySet(),
     ): Outcome {
         if (uncovered.isEmpty()) return when {
             ranked.isNullOrEmpty() || (winner == null && !strong) -> Outcome.LEAVE
@@ -1195,7 +1206,7 @@ internal object MixSearch {
         if (ranked == null) return Outcome.STAND_FOR_NOW
         val naming = reopening(ranked, uncovered, heard)
         return when {
-            naming.isEmpty() || stillGiven(ranked, naming, given, heard, speed) -> if (complete) Outcome.STAND else Outcome.STAND_FOR_NOW
+            naming.isEmpty() || stillGiven(ranked, naming, given, heard, speed, gotBack) -> if (complete) Outcome.STAND else Outcome.STAND_FOR_NOW
             // Clear over everything found, not only over the others naming the new song: on a weak
             // return, an upload of the two songs answered for well ahead of one naming the third
             // says that one is only a toss-up.
@@ -1243,8 +1254,13 @@ internal object MixSearch {
      * two for listing No Love, a song that return did not carry, and a strong return asked again;
      * with No Love in the return the same two scored 4 and 8, and the answer stood.
      *
-     * Not when the search did not find [given] at all: how it would score is not known, and an
-     * upload naming the new song is then asked about as before.
+     * Not when the search did not get [given] back at all: the queries for the new song with
+     * another then said nothing for the answer, and an upload naming the new song is asked about
+     * as before. Whether it did goes by every upload the queries got back ([gotBack]), and not by
+     * [ranked] alone, which keeps only those naming two of the songs this return carried. With
+     * Faint x No Love the answer, Numb back with Faint left it out of [ranked], as it names Faint
+     * alone of the two, and a strong return asked again for "Numb / Faint", while Numb back with
+     * No Love, or with both, left the answer standing.
      */
     fun stillGiven(
         ranked: List<Pair<SongItem, Int>>,
@@ -1252,8 +1268,9 @@ internal object MixSearch {
         given: SongItem?,
         heard: List<MixWatch.Sighting>,
         speed: Double = 1.0,
+        gotBack: Set<String> = emptySet(),
     ): Boolean {
-        if (given == null || ranked.none { it.first.id == given.id }) return false
+        if (given == null || (given.id !in gotBack && ranked.none { it.first.id == given.id })) return false
         if (givenFirst(ranked, given, heard, speed)) return true
         val named = songsNamed(heard, given)
         val own = heardScore(heard, given, speed) ?: 0

@@ -1224,7 +1224,11 @@ class RecognitionEngine @Inject constructor(
         // Not the uploads the person already said it is none of: they neither reopen an answer nor
         // come back on a choice.
         val declined = active?.declined.orEmpty()
-        val ranked = MixSearch.notDeclined(search.ranked, declined)?.filter { MixSearch.couldBe(it.first, heardSeconds(started, now), speed) }
+        val heardS = heardSeconds(started, now)
+        val ranked = MixSearch.notDeclined(search.ranked, declined)?.filter { MixSearch.couldBe(it.first, heardS, speed) }
+        // Every upload the queries got back that could be playing, naming two of this return's
+        // songs or not: whether the search found the answer given at all (MixSearch.stillGiven).
+        val gotBack = MixSearch.gotBack(search.results, heardS, speed)
         val turnedDown = search.ranked.orEmpty().filter { it.first.id in declined }
         // Stopped or cleared while the search ran: YouTube.search catches the cancellation, so
         // without this the rest would carry on against a run that no longer exists.
@@ -1251,7 +1255,7 @@ class RecognitionEngine @Inject constructor(
         // this return carried (MixSearch.stillGiven). A failed search changes nothing; the next
         // piece to come back runs it again.
         val given = active?.found
-        val outcome = MixSearch.outcome(uncovered, given, active?.reopened == true, ranked, search.complete, winner, found.strong, around, speed)
+        val outcome = MixSearch.outcome(uncovered, given, active?.reopened == true, ranked, search.complete, winner, found.strong, around, speed, gotBack)
         // What the search looked for, noted as searched for when it settles something.
         val lookedFor = MixSearch.queried(order)
         val new = uncovered.joinToString(" or ") { "'${it.title}'" }
@@ -1262,7 +1266,7 @@ class RecognitionEngine @Inject constructor(
                 when {
                     ranked == null -> "nothing picked, the search failed"
                     uncovered.isNotEmpty() && naming.isEmpty() -> "nothing names $new with another song heard$failedPart"
-                    uncovered.isNotEmpty() && given != null && MixSearch.stillGiven(ranked, naming, given, around, speed) ->
+                    uncovered.isNotEmpty() && given != null && MixSearch.stillGiven(ranked, naming, given, around, speed, gotBack) ->
                         "against every song heard, " +
                                 (if (MixSearch.givenFirst(ranked, given, around, speed)) "'${given.title}', the answer given, comes first"
                                 else "nothing naming $new names more of the songs or scores more than '${given.title}', the answer given") +
@@ -1571,9 +1575,11 @@ class RecognitionEngine @Inject constructor(
      * What the search for a mashup of [songs] brought back: [ranked] mashups naming two of them,
      * heard at [speed], or null when a query failed and nothing came back; and whether every query
      * went through. One query failing while another finds something still gives a list, which is
-     * enough to ask with but not to say that nothing names a song: see [MixSearch.outcome].
+     * enough to ask with but not to say that nothing names a song: see [MixSearch.outcome]. And
+     * everything each query got back, [results], naming two of the songs or not: see
+     * [MixSearch.gotBack].
      */
-    private class MixResults(val ranked: List<Pair<SongItem, Int>>?, val complete: Boolean)
+    private class MixResults(val ranked: List<Pair<SongItem, Int>>?, val complete: Boolean, val results: List<List<SongItem>>)
 
     /** Searches for the mashup of [songs], heard at [speed], in the order [MixSearch.queries] takes them. */
     private suspend fun searchMix(songs: List<MixWatch.Sighting>, speed: Double): MixResults {
@@ -1586,7 +1592,7 @@ class RecognitionEngine @Inject constructor(
                 }
                 .getOrNull()?.items?.filterIsInstance<SongItem>()?.take(10).orEmpty()
         }
-        return MixResults(MixSearch.rank(songs, results, speed).takeUnless { failed && it.isEmpty() }, complete = !failed)
+        return MixResults(MixSearch.rank(songs, results, speed).takeUnless { failed && it.isEmpty() }, complete = !failed, results = results)
     }
 
     /**

@@ -1664,6 +1664,40 @@ class MixWatchTest {
         val asks = listOf(MixSearch.Outcome.REOPEN, MixSearch.Outcome.STAND_FOR_NOW)
         assertEquals(asks, outcomes(withFaint, withThree))
         assertEquals(asks, outcomes(withBoth, withThree))
+
+        // Faint x No Love the answer, taken without asking or picked from the one-song choice for
+        // Faint, and the search finding it and "Numb / Faint". Ranked against Numb and Faint it is
+        // left out, naming Faint alone of the two, and a strong return asked again for "Numb /
+        // Faint"; a weak one stood for now. Numb back with No Love, or with both, left it standing.
+        // The queries got it back each time, and against every song heard it scores 5 to 4.
+        val withNoLove = listOf(sighting(numb, 276), sighting(noLove, 288))
+        val bothFound = listOf(listOf(faintNoLove, slash))
+        assertEquals(listOf(slash.id), MixSearch.rank(withFaint, bothFound, 1.0).map { it.first.id })
+        assertEquals(setOf(faintNoLove.id, slash.id), MixSearch.gotBack(bothFound, 120.0, 1.0))
+        for (before in listOf(searched, searchedFaint)) for (back in listOf(withFaint, withNoLove, withBoth)) {
+            val heard = two + back
+            val left = MixSearch.uncovered(true, faintNoLove, before, back, heard)
+            assertEquals(listOf("numb"), left.map { it.key })
+            val byReturn = MixSearch.rank(MixSearch.searchOrder(back, left), bothFound, 1.0)
+            val gotBack = MixSearch.gotBack(bothFound, 120.0, 1.0)
+            for (strong in listOf(true, false)) {
+                val outcome = MixSearch.outcome(left, faintNoLove, false, byReturn, true, MixSearch.clearWinner(byReturn, back), strong, heard, 1.0, gotBack)
+                assertEquals("${back.map { it.key }}, strong $strong", MixSearch.Outcome.STAND, outcome)
+            }
+        }
+        // Not got back at all, it asks again as before.
+        val slashOnly = listOf(listOf(slash))
+        val numbOnly = listOf(sighting(numb, 276))
+        val alone = MixSearch.rank(withFaint, slashOnly, 1.0)
+        assertEquals(
+            MixSearch.Outcome.REOPEN,
+            MixSearch.outcome(numbOnly, faintNoLove, false, alone, true, null, true, two + withFaint, 1.0, MixSearch.gotBack(slashOnly, 120.0, 1.0)),
+        )
+        // Nor is an upload that cannot be what plays: one an hour long, or one shorter than what
+        // has been heard of the mashup.
+        val hour = upload("hour", "Faint x No Love (Mashup) [1 Hour]", 3600)
+        assertEquals(setOf(faintNoLove.id), MixSearch.gotBack(listOf(listOf(faintNoLove, hour)), 120.0, 1.0))
+        assertEquals(setOf(faintNoLove.id), MixSearch.gotBack(bothFound, 220.0, 1.0))
     }
 
     /**
