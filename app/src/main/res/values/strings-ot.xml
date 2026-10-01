@@ -1056,7 +1056,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_reset_weights">Reset what it learned</string>
     <string name="recommendations_reset_weights_description">Back to where it started. Nothing you played is forgotten; Rebuild brings the learning back.</string>
     <string name="recommendations_rebuild_weights">Rebuild what it learned</string>
-    <string name="recommendations_rebuild_weights_description">Starts over and goes back over every card it learned from, in order.</string>
+    <string name="recommendations_rebuild_weights_description">Starts again from the beginning and goes back over every card it learned from, in order.</string>
     <string name="tidy_home_rows">Tidy Home rows</string>
     <string name="tidy_home_rows_description">No song twice on Home, no live or remixed version beside its original, and nothing you have just heard in Quick picks.</string>
     <plurals name="recommendations_signals">

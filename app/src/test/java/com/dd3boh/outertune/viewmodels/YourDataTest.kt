@@ -103,6 +103,37 @@ class YourDataTest {
     }
 
     @Test
+    fun `a change to what it has learned clears the lines that said what it had`() {
+        // On the emulator, "Loaded." stayed under Load a copy after Forget today's listening had
+        // rebuilt from this phone's cards, which replaced the copy.
+        val before = mapOf(
+            DataAction.SAVE to DataResult.Saved,
+            DataAction.LOAD to DataResult.Loaded,
+            DataAction.REBUILD to DataResult.Rebuilt(193),
+            DataAction.FORGET_SESSION to DataResult.Forgot(0),
+        )
+        assertEquals(
+            mapOf(DataAction.SAVE to DataResult.Saved, DataAction.FORGET_SESSION to DataResult.Forgot(0), DataAction.FORGET_TODAY to DataResult.Forgot(1)),
+            afterResult(before, DataAction.FORGET_TODAY, DataResult.Forgot(1)),
+        )
+        assertEquals(
+            mapOf(DataAction.SAVE to DataResult.Saved, DataAction.FORGET_SESSION to DataResult.Forgot(0), DataAction.RESET to DataResult.ResetDone),
+            afterResult(before, DataAction.RESET, DataResult.ResetDone),
+        )
+        assertEquals(DataResult.Loaded, afterResult(mapOf(DataAction.REBUILD to DataResult.Rebuilt(5)), DataAction.LOAD, DataResult.Loaded)[DataAction.LOAD])
+        assertEquals(null, afterResult(mapOf(DataAction.REBUILD to DataResult.Rebuilt(5)), DataAction.LOAD, DataResult.Loaded)[DataAction.REBUILD])
+    }
+
+    @Test
+    fun `a tap that changed nothing leaves every other line as it was`() {
+        val before = mapOf(DataAction.LOAD to DataResult.Loaded, DataAction.REBUILD to DataResult.Rebuilt(193))
+        assertEquals(before + (DataAction.FORGET_TODAY to DataResult.Forgot(0)), afterResult(before, DataAction.FORGET_TODAY, DataResult.Forgot(0)))
+        assertEquals(before + (DataAction.RESET to DataResult.Working), afterResult(before, DataAction.RESET, DataResult.Working))
+        assertEquals(before + (DataAction.SAVE to DataResult.Saved), afterResult(before, DataAction.SAVE, DataResult.Saved))
+        assertEquals(before + (DataAction.RESET to DataResult.Failed), afterResult(before, DataAction.RESET, DataResult.Failed))
+    }
+
+    @Test
     fun `a failed forget says it failed, and one that found nothing says nothing to forget`() {
         assertEquals(DataResult.Failed, forgotResult(null))
         assertEquals(DataResult.Forgot(0), forgotResult(0))

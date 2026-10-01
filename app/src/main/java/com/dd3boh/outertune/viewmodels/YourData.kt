@@ -136,6 +136,25 @@ fun loadStep(): DataStep = DataStep.Ask(DataAsk.Load)
  */
 fun clearedFor(results: Map<DataAction, DataResult>, action: DataAction): Map<DataAction, DataResult> = results - action
 
+/** The lines that say what it has learned now, rather than what a button did once. */
+private val stateLines = setOf(DataAction.RESET, DataAction.REBUILD, DataAction.LOAD)
+
+/**
+ * The lines once [action] has said [result]. A result that changed what it has learned clears the
+ * other lines about what it has learned now, which no longer hold: "Loaded." stayed under Load a
+ * copy after Forget today's listening had rebuilt from this phone's cards and so replaced the
+ * copy, and "Rebuilt from 193 cards." or "Done." stop holding the same way. A forget's count and
+ * "Saved." stay true, so they stay, as does a line from a tap that changed nothing.
+ */
+fun afterResult(results: Map<DataAction, DataResult>, action: DataAction, result: DataResult): Map<DataAction, DataResult> {
+    val changed = when (result) {
+        is DataResult.Forgot -> result.listens > 0
+        DataResult.ResetDone, is DataResult.Rebuilt, DataResult.Loaded -> true
+        else -> false
+    }
+    return (if (changed) results.filterKeys { it !in stateLines } else results) + (action to result)
+}
+
 /** Null when forgetting failed. */
 fun forgotResult(listens: Int?): DataResult = listens?.let { DataResult.Forgot(it) } ?: DataResult.Failed
 

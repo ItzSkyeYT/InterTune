@@ -77,7 +77,7 @@ class RecommendationsViewModel @Inject constructor(
     private val _dataResults = MutableStateFlow<Map<DataAction, DataResult>>(emptyMap())
     val dataResults: StateFlow<Map<DataAction, DataResult>> = _dataResults.asStateFlow()
 
-    private fun tell(action: DataAction, result: DataResult) = _dataResults.update { it + (action to result) }
+    private fun tell(action: DataAction, result: DataResult) = _dataResults.update { afterResult(it, action, result) }
 
     /**
      * Runs [work] past the page that asked for it, and hands its result to [onDone], or null if it
