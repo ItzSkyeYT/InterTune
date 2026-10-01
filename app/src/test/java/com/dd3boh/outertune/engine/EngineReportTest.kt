@@ -410,11 +410,27 @@ class EngineReportTest {
 
     @Test
     fun `lower than the bar is better, higher is worse, and alike to three decimals is the same`() {
-        // His emulator on 1 Oct: 0.012 against a bar of 0.000, guesses too high.
+        // The emulator on 1 Oct: 0.012 against a bar of 0.000, guesses too high.
         assertEquals(BrierVerdict.WORSE, brierVerdict(0.012, brierReference(List(103) { 0.11 to 0.0 })))
         assertEquals(BrierVerdict.BETTER, brierVerdict(0.15, 0.1875))
         assertEquals(BrierVerdict.SAME, brierVerdict(0.18751, 0.1875))
         assertEquals(BrierVerdict.WORSE, brierVerdict(0.1890, 0.1875))
+    }
+
+    @Test
+    fun `with no card played it says so, rather than the same chance for every card doing better`() {
+        assertEquals(BrierVerdict.NONE_PLAYED, brierComparison(List(103) { 0.11 to 0.0 }))
+        // A grade under one half is not played.
+        assertEquals(BrierVerdict.NONE_PLAYED, brierComparison(listOf(0.2 to 0.4, 0.1 to 0.0)))
+        assertNull(brierComparison(emptyList()))
+    }
+
+    @Test
+    fun `with cards played its guesses are set against the same chance for every card`() {
+        val pairs = List(4) { i -> 0.3 to (if (i == 0) 1.0 else 0.0) }
+        assertEquals(brierVerdict(Calibration.brier(pairs), brierReference(pairs)), brierComparison(pairs))
+        // Guessing high for the one played and low for the rest beats a quarter for each.
+        assertEquals(BrierVerdict.BETTER, brierComparison(listOf(0.9 to 1.0, 0.05 to 0.0, 0.05 to 0.0, 0.05 to 0.0)))
     }
 
     @Test

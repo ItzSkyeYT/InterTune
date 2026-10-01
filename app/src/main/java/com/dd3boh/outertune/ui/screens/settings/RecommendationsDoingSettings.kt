@@ -57,7 +57,7 @@ import com.dd3boh.outertune.engine.Features
 import com.dd3boh.outertune.engine.ListenDay
 import com.dd3boh.outertune.engine.Trend
 import com.dd3boh.outertune.engine.brierReference
-import com.dd3boh.outertune.engine.brierVerdict
+import com.dd3boh.outertune.engine.brierComparison
 import com.dd3boh.outertune.engine.cardsByTeam
 import com.dd3boh.outertune.engine.cardsSeen
 import com.dd3boh.outertune.engine.clockLength
@@ -257,8 +257,9 @@ fun RecommendationsDoingSettings(
                 // of the "i" as a detail for whoever wants one number. It says how many cards it
                 // covers: only those from a scored row carry a guess, which can be fewer than the
                 // summary counts. Chances are "in 100" all the way down, cards plain counts. The
-                // score comes with the bar it is read against and which side of it it falls, since
-                // a small number alone reads as good whatever it measures.
+                // footer says first whether its guesses beat the same chance for every card, then
+                // the score beside that bar, since a small number alone reads as good whatever it
+                // measures, and a bar of 0.000 read as the lazy guess being the good one.
                 val brier = Calibration.brier(pairs)
                 val reference = brierReference(pairs)
                 val prediction = predictionOf(pairs)
@@ -266,16 +267,16 @@ fun RecommendationsDoingSettings(
                 StatEntry(
                     title = stringResource(R.string.recommendations_brier),
                     explanation = stringResource(R.string.recommendations_brier_info),
-                    footer = if (brier.isNaN()) null
-                        else pluralStringResource(R.plurals.recommendations_brier_description, pairs.size, brier, pairs.size) + " " +
-                            stringResource(
-                                when (brierVerdict(brier, reference)) {
-                                    BrierVerdict.BETTER -> R.string.recommendations_brier_better
-                                    BrierVerdict.SAME -> R.string.recommendations_brier_same
-                                    BrierVerdict.WORSE -> R.string.recommendations_brier_worse
-                                },
-                                reference,
-                            ),
+                    footer = brierComparison(pairs)?.let { verdict ->
+                        stringResource(
+                            when (verdict) {
+                                BrierVerdict.BETTER -> R.string.recommendations_brier_better
+                                BrierVerdict.SAME -> R.string.recommendations_brier_same
+                                BrierVerdict.WORSE -> R.string.recommendations_brier_worse
+                                BrierVerdict.NONE_PLAYED -> R.string.recommendations_brier_none_played
+                            },
+                        ) + " " + pluralStringResource(R.plurals.recommendations_brier_description, pairs.size, brier, pairs.size, reference)
+                    },
                     numbers = if (brier.isNaN()) stringResource(R.string.recommendations_nothing_yet)
                         else (listOf(
                             if (oneInWords(prediction.cards)) stringResource(R.string.recommendations_predicted_of_single, expected, played)
@@ -289,7 +290,8 @@ fun RecommendationsDoingSettings(
                                 if (b.fromPer100 == 0) stringResource(R.string.recommendations_band_under, b.toPer100, b.cards, playedText)
                                 else stringResource(R.string.recommendations_band, b.fromPer100, b.toPer100, b.cards, playedText)
                             }).joinToString("\n"),
-                    meaning = stringResource(R.string.recommendations_predicted_meaning),
+                    // As under Cards you saw: "Nothing yet" needs no line on what it means.
+                    meaning = if (brier.isNaN()) null else stringResource(R.string.recommendations_predicted_meaning),
                 )
             }
             Spacer(Modifier.height(16.dp))

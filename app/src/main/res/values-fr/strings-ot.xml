@@ -972,13 +972,14 @@
     <string name="recommendations_row_engine_before">Meilleures recommandations, quand c\'était votre source</string>
     <string name="recommendations_brier">Justesse de ses prévisions</string>
     <plurals name="recommendations_brier_description">
-        <item quantity="one">Un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d carte. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
-        <item quantity="many">Un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d cartes. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
-        <item quantity="other">Un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d cartes. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
+        <item quantity="one">En un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d carte, là où la même chance pour chaque carte obtient %3$.3f. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
+        <item quantity="many">En un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d cartes, là où la même chance pour chaque carte obtient %3$.3f. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
+        <item quantity="other">En un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d cartes, là où la même chance pour chaque carte obtient %3$.3f. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
     </plurals>
-    <string name="recommendations_brier_better">Donner à chaque carte la même chance, la part qui s\'est révélée écoutée, aurait obtenu %1$.3f, donc ses propres prévisions ont fait mieux.</string>
-    <string name="recommendations_brier_worse">Donner à chaque carte la même chance, la part qui s\'est révélée écoutée, aurait obtenu %1$.3f, donc ses propres prévisions ont fait moins bien.</string>
-    <string name="recommendations_brier_same">Donner à chaque carte la même chance, la part qui s\'est révélée écoutée, aurait obtenu %1$.3f, à peu près autant que ses propres prévisions.</string>
+    <string name="recommendations_brier_better">Ses propres prévisions ont fait mieux que donner à chaque carte la même chance, la part qui s\'est révélée écoutée.</string>
+    <string name="recommendations_brier_worse">Ses propres prévisions ont fait moins bien que donner à chaque carte la même chance, la part qui s\'est révélée écoutée.</string>
+    <string name="recommendations_brier_same">Ses propres prévisions ont fait à peu près aussi bien que donner à chaque carte la même chance, la part qui s\'est révélée écoutée.</string>
+    <string name="recommendations_brier_none_played">Aucune de ces cartes n\'a été écoutée, donc ne donner aucune chance à aucune carte aurait été exactement juste, et toute prévision au-dessus de rien fait moins bien. Ses prévisions ne pourront être jugées qu\'une fois des cartes écoutées.</string>
     <plurals name="recommendations_weights">
         <item quantity="one">Ce qu\'il a appris, après %1$d étape d\'apprentissage</item>
         <item quantity="many">Ce qu\'il a appris, après %1$d étapes d\'apprentissage</item>

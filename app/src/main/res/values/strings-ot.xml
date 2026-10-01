@@ -1035,12 +1035,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_row_engine_before">Best recommendations, from when it was your source</string>
     <string name="recommendations_brier">How well it predicts</string>
     <plurals name="recommendations_brier_description">
-        <item quantity="one">One number, for those who want it: a Brier score of %1$.3f over %2$d card. Lower is better, and 0 would mean every guess was exactly right.</item>
-        <item quantity="other">One number, for those who want it: a Brier score of %1$.3f over %2$d cards. Lower is better, and 0 would mean every guess was exactly right.</item>
+        <item quantity="one">As one number, for those who want it: a Brier score of %1$.3f over %2$d card, where the same chance for every card scores %3$.3f. Lower is better, and 0 would mean every guess was exactly right.</item>
+        <item quantity="other">As one number, for those who want it: a Brier score of %1$.3f over %2$d cards, where the same chance for every card scores %3$.3f. Lower is better, and 0 would mean every guess was exactly right.</item>
     </plurals>
-    <string name="recommendations_brier_better">Giving every card the same chance, the share that turned out to be played, would have scored %1$.3f, so its own guesses did better.</string>
-    <string name="recommendations_brier_worse">Giving every card the same chance, the share that turned out to be played, would have scored %1$.3f, so its own guesses did worse.</string>
-    <string name="recommendations_brier_same">Giving every card the same chance, the share that turned out to be played, would have scored %1$.3f, about the same as its own guesses.</string>
+    <string name="recommendations_brier_better">Its own guesses did better than giving every card the same chance, the share that turned out to be played.</string>
+    <string name="recommendations_brier_worse">Its own guesses did worse than giving every card the same chance, the share that turned out to be played.</string>
+    <string name="recommendations_brier_same">Its own guesses did about as well as giving every card the same chance, the share that turned out to be played.</string>
+    <string name="recommendations_brier_none_played">None of these cards was played, so giving every card no chance at all would have been exactly right, and any guess above nothing does worse. Its guesses can only be judged once some cards are played.</string>
     <plurals name="recommendations_weights">
         <item quantity="one">What it has learned, after %1$d learning step</item>
         <item quantity="other">What it has learned, after %1$d learning steps</item>

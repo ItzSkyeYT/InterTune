@@ -315,7 +315,7 @@ fun brierReference(pairs: List<Pair<Double, Double>>): Double {
     return played * (1 - played)
 }
 
-enum class BrierVerdict { BETTER, SAME, WORSE }
+enum class BrierVerdict { BETTER, SAME, WORSE, NONE_PLAYED }
 
 /** Lower is better. Compared as shown, to three decimals, so two numbers that read alike are the same. */
 fun brierVerdict(score: Double, reference: Double): BrierVerdict {
@@ -326,6 +326,18 @@ fun brierVerdict(score: Double, reference: Double): BrierVerdict {
         s > r -> BrierVerdict.WORSE
         else -> BrierVerdict.SAME
     }
+}
+
+/**
+ * How its own guesses compare with giving every card the same chance, or null with no cards. With
+ * none of the cards played, that chance is none, which cannot be wrong, and any guess above
+ * nothing does worse: said as that, since "the same chance would have scored 0.000, so its own
+ * guesses did worse" read as if guessing nothing were the good answer.
+ */
+fun brierComparison(pairs: List<Pair<Double, Double>>): BrierVerdict? = when {
+    pairs.isEmpty() -> null
+    pairs.none { it.second >= 0.5 } -> BrierVerdict.NONE_PLAYED
+    else -> brierVerdict(Calibration.brier(pairs), brierReference(pairs))
 }
 
 /** How many plays the engine expected of its cards, per 100, beside how many it got. */
