@@ -33,4 +33,21 @@ object EngineSql {
         WHERE team IN (1, 4) AND slot >= 0 AND lane IN (1, 4) AND (sources & 4) != 0 AND (sources & 3) IN (1, 2)
           AND outcome IN (0, 1, 2, 3) AND visibleAt >= :since
     """
+
+    /**
+     * The engine's own Quick picks cards, graded played, played elsewhere or ignored, seen and
+     * played in two back to back windows: from :from to :mid, and from :mid to :to. How it's
+     * doing compares the two to say whether the share played is going up. Played is a grade of
+     * one half or more, as in gradedByTeam.
+     */
+    const val CARD_TREND = """
+        SELECT
+            COUNT(CASE WHEN visibleAt >= :mid THEN 1 END) AS recentSeen,
+            COUNT(CASE WHEN visibleAt >= :mid AND y >= 0.5 THEN 1 END) AS recentPlayed,
+            COUNT(CASE WHEN visibleAt < :mid THEN 1 END) AS earlierSeen,
+            COUNT(CASE WHEN visibleAt < :mid AND y >= 0.5 THEN 1 END) AS earlierPlayed
+        FROM impression
+        WHERE team = 1 AND gradedAt IS NOT NULL AND outcome IN (1, 2, 3)
+          AND visibleAt >= :from AND visibleAt < :to
+    """
 }

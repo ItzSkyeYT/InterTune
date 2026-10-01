@@ -185,6 +185,10 @@ interface ListenDao {
     @Query("SELECT p AS p, y AS y FROM impression WHERE team = 1 AND slot >= 0 AND gradedAt IS NOT NULL AND u > 0 AND p IS NOT NULL AND y IS NOT NULL")
     fun engineCalibration(): Flow<List<PredictionGrade>>
 
+    /** The engine's graded cards in two back to back windows, for whether How it's doing is going up. */
+    @Query(EngineSql.CARD_TREND)
+    fun engineCardTrend(from: Long, mid: Long, to: Long): Flow<CardTrendRow>
+
     /** One source's edges, RelatedSongMap.SOURCE_YOUTUBE or SOURCE_LASTFM. */
     @Query(RelatedSql.ENGINE_EDGES)
     fun engineEdges(source: Int): List<EngineEdgeRow>
@@ -358,3 +362,4 @@ interface ListenDao {
 data class TeamOutcome(val team: Int, val outcome: Int, val n: Int, val wins: Int)
 data class PredictionGrade(val p: Float, val y: Float)
 data class BuildScore(val rowKey: Int, val builds: Int, val plays: Int, val hits: Int)
+data class CardTrendRow(val recentSeen: Int, val recentPlayed: Int, val earlierSeen: Int, val earlierPlayed: Int)

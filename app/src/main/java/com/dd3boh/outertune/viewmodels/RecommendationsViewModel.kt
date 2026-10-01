@@ -25,6 +25,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.engine.TrendWindows
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -53,6 +54,8 @@ class RecommendationsViewModel @Inject constructor(
     val calibration = database.engineCalibration()
     val weights = database.engineWeightsFlow()
     val buildScores = database.buildScores()
+    /** The engine's cards in the two fortnights before yesterday, for the trend on How it's doing. */
+    val cardTrend = TrendWindows.at(System.currentTimeMillis()).let { database.engineCardTrend(it.from, it.mid, it.to) }
     private val learning by lazy { EngineLearning(context, database) }
 
     fun resetWeights() = viewModelScope.launch(Dispatchers.IO) { runCatching { learning.reset() } }
