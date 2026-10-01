@@ -825,6 +825,7 @@
     </plurals>
     <string name="recommendations_home_title">Accueil</string>
     <string name="recommendations_engine_title">Meilleures recommandations</string>
+    <string name="recommendations_figures_title">Résultats de chaque source</string>
     <string name="reason_seed">Car vous avez écouté %1$s</string>
     <string name="reason_activation">Vous y revenez souvent</string>
     <string name="reason_artist">Vous écoutez souvent %1$s en entier</string>

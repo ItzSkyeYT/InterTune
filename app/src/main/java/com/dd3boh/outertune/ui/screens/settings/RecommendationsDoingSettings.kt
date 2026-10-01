@@ -195,11 +195,14 @@ fun RecommendationsDoingSettings(
             SummaryCard(doingSummary(engineShowing(quickPicksSource), teams, cardTrend, waiting, learnFromListening), locale)
             Spacer(Modifier.height(16.dp))
 
-            ExplainedGroupTitle(
-                title = stringResource(R.string.recommendations_engine_title),
-                explanation = stringResource(R.string.recommendations_doing_title_info),
-            )
+            // Named for every source, not for Best recommendations: Cards played and Rows that
+            // held give a line for each. With no figures the switch stands alone, under no
+            // heading, rather than under one that promises figures and has none.
             if (numbers) {
+                ExplainedGroupTitle(
+                    title = stringResource(R.string.recommendations_figures_title),
+                    explanation = stringResource(R.string.recommendations_doing_title_info),
+                )
                 StatEntry(
                     title = stringResource(R.string.recommendations_wins),
                     explanation = stringResource(R.string.recommendations_wins_info),
