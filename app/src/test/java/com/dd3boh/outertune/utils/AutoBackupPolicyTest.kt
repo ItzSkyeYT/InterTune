@@ -638,6 +638,36 @@ class AutoBackupPolicyTest {
         assertFalse(backUpAtOnce(wasOn = false, on = true, folder = "", setFolder = "", lastBackupFolder = phone))
     }
 
+    // Whether there is a schedule at all, and at what interval.
+
+    private val tree = "content://com.android.externalstorage.documents/tree/primary%3ABackups"
+
+    @Test
+    fun `no schedule while the switch is off or was never touched`() {
+        assertNull(AutoBackupPolicy.scheduledHours(on = false, folder = tree, hours = 24))
+        assertNull(AutoBackupPolicy.scheduledHours(on = null, folder = tree, hours = 24))
+    }
+
+    @Test
+    fun `no schedule with nowhere to write`() {
+        assertNull(AutoBackupPolicy.scheduledHours(on = true, folder = null, hours = 24))
+        assertNull(AutoBackupPolicy.scheduledHours(on = true, folder = "", hours = 24))
+        assertNull(AutoBackupPolicy.scheduledHours(on = true, folder = " ", hours = 24))
+    }
+
+    @Test
+    fun `on with a folder is scheduled at the saved interval, weekly when none is saved`() {
+        assertEquals(24, AutoBackupPolicy.scheduledHours(on = true, folder = tree, hours = 24))
+        assertEquals(8760, AutoBackupPolicy.scheduledHours(on = true, folder = tree, hours = 8760))
+        assertEquals(168, AutoBackupPolicy.scheduledHours(on = true, folder = tree, hours = null))
+    }
+
+    @Test
+    fun `an interval of nothing or less is taken as an hour`() {
+        assertEquals(1, AutoBackupPolicy.scheduledHours(on = true, folder = tree, hours = 0))
+        assertEquals(1, AutoBackupPolicy.scheduledHours(on = true, folder = tree, hours = -24))
+    }
+
     // Whether a launch keeps the schedule or replaces it.
 
     /** The tag WorkManager adds to every request by itself: the worker's class name. */

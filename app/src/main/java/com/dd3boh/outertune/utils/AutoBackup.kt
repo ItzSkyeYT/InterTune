@@ -12,6 +12,8 @@ import android.provider.DocumentsContract
 import android.util.Log
 import android.widget.Toast
 import androidx.core.net.toUri
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.documentfile.provider.DocumentFile
 import androidx.work.Constraints
@@ -321,7 +323,8 @@ object AutoBackup {
      *
      * The overrides exist for the same reason BackgroundCheckWorker has one: the preference setter
      * is fire and forget, so a call straight after it would read the old value and the change would
-     * appear to do nothing until the next launch.
+     * appear to do nothing until the next launch. They are saved before anything is scheduled
+     * (saveOverrides), so that a later call without them, such as the launch's, reads them too.
      */
     fun schedule(
         context: Context,
@@ -334,17 +337,14 @@ object AutoBackup {
     }
 
     private suspend fun applySchedule(context: Context, enabled: Boolean?, folder: String?, hours: Int?) {
-        val prefs = context.dataStore.data.first()
+        val every = saveOverrides(context.dataStore, enabled, folder, hours)
         val manager = WorkManager.getInstance(context)
-        val on = enabled ?: prefs[AutoBackupEnabledKey] ?: false
-        val where = folder ?: prefs[AutoBackupFolderKey] ?: ""
-        if (!on || where.isBlank()) {
+        if (every == null) {
             manager.cancelUniqueWork(WORK_NAME)
             Log.i(TAG, "Automatic backup off")
             return
         }
 
-        val every = (hours ?: prefs[AutoBackupIntervalHoursKey] ?: DEFAULT_INTERVAL_HOURS).coerceAtLeast(1)
         // A cancelled schedule stays listed until WorkManager clears it out, and is not one:
         // enqueueing over it starts afresh whatever the policy.
         val current = manager.getWorkInfosForUniqueWork(WORK_NAME).await().firstOrNull { !it.state.isFinished }
@@ -370,6 +370,35 @@ object AutoBackup {
                 else -> "replacing the schedule for " +
                     (AutoBackupPolicy.taggedInterval(current.tags)?.let { "every ${it}h" } ?: "an unknown interval")
             }
+        )
+    }
+
+    /**
+     * Saves whichever of [enabled], [folder] and [hours] a schedule() call was handed, and returns
+     * the interval the settings then ask for, null for no schedule (AutoBackupPolicy.scheduledHours).
+     * A call with none of them only reads.
+     *
+     * Saved here, before anything is scheduled or cancelled, and not left to Settings alone, whose
+     * own save is fire and forget and can land seconds later. The launch's call, which has no
+     * overrides, used to read the settings before that save had landed and undo the call before
+     * it. That happens when the process is killed while the folder picker is open, after the
+     * switch asked for a folder: the picker's result, handed back as the activity is recreated,
+     * turned backups on and scheduled them, and the launch read the switch as still off and
+     * cancelled the schedule, with Settings showing it on until the next start. Calls are applied
+     * one at a time, so each one now reads what the calls before it saved, and so does the first
+     * run of a new schedule. Settings' own save writes the same values, whenever it lands.
+     */
+    internal suspend fun saveOverrides(store: DataStore<Preferences>, enabled: Boolean?, folder: String?, hours: Int?): Int? {
+        val prefs = if (enabled == null && folder == null && hours == null) store.data.first()
+        else store.edit { saved ->
+            if (enabled != null) saved[AutoBackupEnabledKey] = enabled
+            if (folder != null) saved[AutoBackupFolderKey] = folder
+            if (hours != null) saved[AutoBackupIntervalHoursKey] = hours
+        }
+        return AutoBackupPolicy.scheduledHours(
+            on = prefs[AutoBackupEnabledKey],
+            folder = prefs[AutoBackupFolderKey],
+            hours = prefs[AutoBackupIntervalHoursKey],
         )
     }
 
