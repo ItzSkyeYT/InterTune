@@ -687,8 +687,8 @@ internal object MixSearch {
     /**
      * How fast the room plays a mashup whose songs Shazam heard at [speeds], 1 being as recorded.
      * A mashup fits its songs to one tempo, so one of them running a few percent off says nothing
-     * about the upload: in the Faint x No Love mashup on his S25U (29 Sep) No Love ran 4.2 % fast,
-     * with its pitch where it was, and Faint at speed. Only when every song is off the same way, by
+     * about the upload: in a Faint x No Love mashup heard on 29 Sep No Love ran 4.2 % fast, with
+     * its pitch where it was, and Faint at speed. Only when every song is off the same way, by
      * more than [PlaybackVariant] takes for jitter, is the whole of it sped up or slowed down, and
      * then by as much as the least off of them, which is the one the others were fitted to.
      *
@@ -883,10 +883,10 @@ internal object MixSearch {
     /**
      * How many of the songs [heard] [item] names: by the song's title, or by its artist when no
      * other song heard is by the same artist. An upload named after one of them cannot then come
-     * before one that names them all. On his S25U on 29 Sep a Faint x No Love mashup was offered
-     * uploads of Faint alone, in YouTube's order, since the search had only Faint to go on; No Love
-     * came a minute later. And an upload of Numb credited to Linkin Park names Numb, not a mashup of
-     * Numb with Faint.
+     * before one that names them all. On 29 Sep a Faint x No Love mashup was offered uploads of
+     * Faint alone, in YouTube's order, since the search had only Faint to go on; No Love came a
+     * minute later. And an upload of Numb credited to Linkin Park names Numb, not a mashup of Numb
+     * with Faint.
      */
     fun songsNamed(heard: List<MixWatch.Sighting>, item: SongItem): Int = named(heard, item, byArtist = true)
 
@@ -1038,10 +1038,10 @@ internal object MixSearch {
      * among the songs [heard] in the mashup). With nothing chosen, as after None of these, only the
      * searches cover anything.
      *
-     * His S25U, 29 Sep: the one-song choice for Faint was answered from uploads of Faint alone,
-     * and No Love, heard a minute later, only came out as one more piece, so the search with both
-     * names never ran. But the same choice can offer a Faint x No Love upload, and once that is
-     * picked No Love is what it said: searching again for it asked the question just answered.
+     * On 29 Sep the one-song choice for Faint was answered from uploads of Faint alone, and No
+     * Love, heard a minute later, only came out as one more piece, so the search with both names
+     * never ran. But the same choice can offer a Faint x No Love upload, and once that is picked
+     * No Love is what it said: searching again for it asked the question just answered.
      */
     fun uncovered(
         settled: Boolean,
@@ -1084,12 +1084,12 @@ internal object MixSearch {
      * out ([notDeclined]): they neither reopen the answer nor come back on a choice, and the search
      * asks again only for an upload the person has not seen and turned down already.
      *
-     * In the second review's probes the same choice came back. Faint and No Love searched for after
-     * the one-song choice for Faint, with a query failing, noted nothing; None of these, and No
-     * Love's next return searched again and offered the same two uploads (P3). A reopen from a
-     * search with a query failing did the same on every return for as long as the query kept
-     * failing (P4). And None of these on a reopened choice left a song only the answer set aside
-     * had named uncovered, whose next return offered the same uploads once more (P5).
+     * Kept in a later search, they made the same choice come back. Faint and No Love searched for
+     * after the one-song choice for Faint, with a query failing, noted nothing; None of these, and
+     * No Love's next return searched again and offered the same two uploads. A reopen from a search
+     * with a query failing did the same on every return for as long as the query kept failing. And
+     * None of these on a reopened choice left a song only the answer set aside had named
+     * uncovered, whose next return offered the same uploads once more.
      */
     fun turnedDown(declined: Set<String>, offered: List<SongItem>): Set<String> = declined + offered.map { it.id }
 
@@ -1209,17 +1209,17 @@ internal object MixSearch {
      * answered with: [ranked] puts that very upload first, or none of the uploads [naming] a song
      * it did not cover ([reopening]) names more of the songs [heard] than it does ([songsNamed]),
      * or scores more than it does in this search. Asking again then only offers the answer already
-     * given first, or something the search thinks less of in its place. In a probe of the review,
-     * the other mashup of Faint and No Love, taken without asking at 7, came first again at 8 when
-     * Numb came back, and "Numb / Faint" at 4 asked the question all over again, with the answer
-     * given at the top of the choice; in a playlist's run that very upload was then listed as heard
-     * and not added, though it was in the playlist.
+     * given first, or something the search thinks less of in its place. The other mashup of Faint
+     * and No Love, taken without asking at 7, came first again at 8 when Numb came back, and
+     * "Numb / Faint" at 4 asked the question all over again, with the answer given at the top of
+     * the choice; in a playlist's run that very upload was then listed as heard and not added,
+     * though it was in the playlist.
      *
      * An upload naming more of the songs reopens it whatever the scores. The answer's score counts
-     * an artist's name for every song heard by that artist, which [songsNamed] does not: in the
-     * second review's probe that same answer scored 8 with Numb heard, a point of it for Numb's
-     * Linkin Park credit, and "Faint x No Love x Numb (Mashup)", first at 7, was outvoted. The
-     * answer stood, Numb was noted, and the mashup of all three was never asked about.
+     * an artist's name for every song heard by that artist, which [songsNamed] does not: with Numb
+     * heard, that same answer scored 8, a point of it for Numb's Linkin Park credit, and "Faint x
+     * No Love x Numb (Mashup)", first at 7, was outvoted. The answer stood, Numb was noted, and the
+     * mashup of all three was never asked about.
      *
      * Not when the search did not find [given] at all: how it would score is not known, and an
      * upload naming the new song is then asked about as before.

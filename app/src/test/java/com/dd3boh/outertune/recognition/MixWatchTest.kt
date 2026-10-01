@@ -847,9 +847,9 @@ class MixWatchTest {
         SongItem(id = id, title = title, artists = listOf(Artist(name = channel, id = null)), thumbnail = "", duration = seconds)
 
     /**
-     * What the one-song search for Faint found on his S25U on 29 Sep, in the order it offered them
-     * (the log keeps titles and lengths, not channels). The Faint x No Love upload is made up: the
-     * log does not say which upload was playing, and the search for Faint alone did not find one.
+     * What the one-song search for Faint found on 29 Sep, in the order it offered them (the log
+     * keeps titles and lengths, not channels). The Faint x No Love upload is made up: the log does
+     * not say which upload was playing, and the search for Faint alone did not find one.
      */
     private val faintAlone = listOf(
         upload("vaint", "LINKIN PARK x СМЕШАРИКИ \u2014 VAINT [MASHUP]", 165),
@@ -927,9 +927,9 @@ class MixWatchTest {
     }
 
     /**
-     * His S25U, 29 Sep, 10:47:43 on: the Faint x No Love mashup, seconds in, offset and speed as
-     * logged. Faint at speed throughout, No Love twice, 4.2 % fast with its pitch unchanged: fitted
-     * to Faint's tempo. One window at 228 s matched nothing.
+     * 29 Sep, 10:47:43 on: the Faint x No Love mashup, seconds in, offset and speed as logged.
+     * Faint at speed throughout, No Love twice, 4.2 % fast with its pitch unchanged: fitted to
+     * Faint's tempo. One window at 228 s matched nothing.
      */
     private val sep29 = listOf(
         Triple(faint, 0, -4.5 to 0.0003), Triple(faint, 12, 28.8 to 0.0), Triple(faint, 24, 40.8 to -0.0009),
@@ -1504,9 +1504,9 @@ class MixWatchTest {
     }
 
     /**
-     * The review's probe: Faint and No Love take the other mashup of the two without asking, and
-     * then Numb comes back. The search with Numb finds that same upload first, well clear, and
-     * "Numb / Faint" far behind it.
+     * Faint and No Love take the other mashup of the two without asking, and then Numb comes back.
+     * The search with Numb finds that same upload first, well clear, and "Numb / Faint" far behind
+     * it.
      */
     @Test
     fun `an answer is not asked again for itself`() {
@@ -1585,10 +1585,10 @@ class MixWatchTest {
     }
 
     /**
-     * The second review's probe: the other mashup of Faint and No Love taken without asking at 7,
-     * and then Numb coming back. The search finds "Faint x No Love x Numb (Mashup)", which names all
-     * three, first, and the answer given a point or so above it, which it owes to Numb's Linkin Park
-     * credit: no song is named by it that Faint does not already name.
+     * The other mashup of Faint and No Love taken without asking at 7, and then Numb coming back.
+     * The search finds "Faint x No Love x Numb (Mashup)", which names all three, first, and the
+     * answer given a point or so above it, which it owes to Numb's Linkin Park credit: no song is
+     * named by it that Faint does not already name.
      */
     @Test
     fun `an upload naming more of the songs than the answer reopens it, whatever it scores`() {
@@ -1748,7 +1748,7 @@ class MixWatchTest {
     }
 
     /**
-     * The second review's P3, on the screen: Faint cut up, its one-song search noting Faint and
+     * On the screen, where choices are offered: Faint cut up, its one-song search noting Faint and
      * offering a choice, and then Faint and No Love coming back. One query of the search for both
      * fails, so nothing is noted, and the choice offers the other mashup and Faint x No Love.
      */
@@ -1794,9 +1794,9 @@ class MixWatchTest {
     }
 
     /**
-     * The second review's P4 and P5: Faint x No Love picked from the one-song choice for Faint,
-     * and then Numb heard with them. The search finds "Linkin Park - Numb x Faint (Mashup)" above
-     * the answer, which is set aside, and the choice offers the two. None of these.
+     * Faint x No Love picked from the one-song choice for Faint, and then Numb heard with them. The
+     * search finds "Linkin Park - Numb x Faint (Mashup)" above the answer, which is set aside, and
+     * the choice offers the two. None of these.
      */
     @Test
     fun `a choice asked again and answered None of these is not offered again`() {
@@ -1816,9 +1816,9 @@ class MixWatchTest {
             val declined = MixSearch.turnedDown(emptySet(), found.map { it.first })
 
             // Every later return finds the same two. With nothing chosen, No Love, which only the
-            // answer set aside named, is uncovered too (P5). Before, its return asked again with
-            // the same choice, once after a search that went through, and after one where a query
-            // failed, on every return for as long as the query kept failing (P4).
+            // answer set aside named, is uncovered too. Before, its return asked again with the
+            // same choice, once after a search that went through, and after one where a query
+            // failed, on every return for as long as the query kept failing.
             var rounds = 0
             while (rounds < 4) {
                 val left = MixSearch.uncovered(held.settled, held.found, held.searchedSongs, songs, songs)
@@ -1839,10 +1839,9 @@ class MixWatchTest {
     }
 
     /**
-     * The builder's open question, raised again by the second review: a mashup's first search, for
-     * Faint and No Love, has a query failing and notes nothing, and its choice is answered None of
-     * these. No song noted and no upload chosen read as an answer given in an earlier mashup, and
-     * Numb, heard later, never searched.
+     * A mashup's first search, for Faint and No Love, has a query failing and notes nothing, and
+     * its choice is answered None of these. No song noted and no upload chosen read as an answer
+     * given in an earlier mashup, and Numb, heard later, never searched.
      */
     @Test
     fun `None of these after a first search where a query failed still searches for a song heard later`() {
