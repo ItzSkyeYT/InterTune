@@ -179,16 +179,35 @@ object AutoBackupPolicy {
      * real run costs a whole extra interval without a backup. A last backup in the future means the
      * clock was moved back, and waiting for it to catch up could be months, so it counts as old.
      *
-     * Back up now ([manual] true) is for one backup made after the button was pressed at
+     * Back up now ([manual] true), which is also how a new folder gets its first backup
+     * (AutoBackup.backUpToNewFolder), is for one backup in [folder] made after it was asked for at
      * [requestedAt]. It writes unless one that started at or after that moment has already
-     * succeeded, which only happens when WorkManager starts the same request a second time. A
-     * request with no time on it, from before this was recorded, always writes.
+     * succeeded in [folder]. That happens when WorkManager starts the same request a second time,
+     * and when a Back up now queued ahead of a new folder's backup wrote into the new folder. The
+     * time alone is not enough: a Back up now that read the settings just before the folder
+     * changed takes its start time only after checking that folder, which can be after the new
+     * folder's backup was asked for, and it writes into the old folder. A request with no time on
+     * it, from before this was recorded, always writes, and so does one when the last backup has
+     * no folder on record.
      *
-     * [lastBackupAt] is when the last successful backup started, 0 for never.
+     * [lastBackupAt] is when the last successful backup started, 0 for never, and
+     * [lastBackupFolder] the folder it went to, empty when none is on record. Scheduled runs go by
+     * the interval alone and do not look at the folders.
      */
-    fun shouldSkip(manual: Boolean, requestedAt: Long, lastBackupAt: Long, now: Long, intervalHours: Int): Boolean {
+    fun shouldSkip(
+        manual: Boolean,
+        requestedAt: Long,
+        lastBackupAt: Long,
+        now: Long,
+        intervalHours: Int,
+        folder: String,
+        lastBackupFolder: String,
+    ): Boolean {
         if (lastBackupAt <= 0L) return false
-        if (manual) return requestedAt > 0L && lastBackupAt >= requestedAt
+        if (manual) {
+            return requestedAt > 0L && lastBackupAt >= requestedAt &&
+                lastBackupFolder.isNotEmpty() && lastBackupFolder == folder
+        }
         val age = now - lastBackupAt
         if (age < 0L) return false
         val interval = TimeUnit.HOURS.toMillis(intervalHours.coerceAtLeast(1).toLong())

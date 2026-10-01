@@ -111,6 +111,8 @@ class AutoBackupWorker(
                 lastBackupAt = lastBackupAt,
                 now = System.currentTimeMillis(),
                 intervalHours = hours,
+                folder = folder,
+                lastBackupFolder = prefs[AutoBackupLastFolderKey] ?: "",
             )
         ) {
             val minutes = (System.currentTimeMillis() - lastBackupAt) / 60_000
@@ -151,7 +153,8 @@ class AutoBackupWorker(
             // the restart wrote a second backup a second after the first. Now it waits for the
             // lock and finds this one recorded. The start time, not the end, so that a Back up now
             // pressed during this write is not taken as served by it. The folder, so that turning
-            // backups on can tell whether the folder set then has a backup.
+            // backups on can tell whether the folder set then has a backup, and so that a Back up
+            // now for another folder is never taken as served by this one.
             withContext(NonCancellable) {
                 record(context, AutoBackup.RESULT_OK, ranAt = startedAt, folder = folder)
             }
@@ -391,8 +394,9 @@ object AutoBackup {
      *
      * Queued after a Back up now that is already writing, rather than dropped like a second press,
      * since that one may be writing into the old folder. One that has not started yet will write
-     * into the new folder, and then this run finds a backup made after it was asked for and skips
-     * (AutoBackupPolicy.shouldSkip), so the folder still gets one backup, not two.
+     * into the new folder, and then this run finds a backup made in this folder after it was asked
+     * for and skips (AutoBackupPolicy.shouldSkip), so the folder still gets one backup, not two.
+     * One that read the old folder never makes this run skip, whenever it started writing.
      */
     fun backUpToNewFolder(context: Context, folder: String) {
         val appContext = context.applicationContext

@@ -466,8 +466,21 @@ class AutoBackupPolicyTest {
     private val day = 24 * hour
     private val now = 1_790_000_000_000L
 
-    private fun scheduledSkips(lastBackupAt: Long, hours: Int = 24) =
-        AutoBackupPolicy.shouldSkip(manual = false, requestedAt = 0L, lastBackupAt = lastBackupAt, now = now, intervalHours = hours)
+    private val phone = "content://com.android.externalstorage.documents/tree/primary%3ABackups"
+    private val card = "content://com.android.externalstorage.documents/tree/1234-ABCD%3AInterTune"
+
+    private fun scheduledSkips(lastBackupAt: Long, hours: Int = 24, folder: String = phone, lastBackupFolder: String = phone) =
+        AutoBackupPolicy.shouldSkip(
+            manual = false, requestedAt = 0L, lastBackupAt = lastBackupAt, now = now, intervalHours = hours,
+            folder = folder, lastBackupFolder = lastBackupFolder,
+        )
+
+    /** A Back up now asked for at [requestedAt], writing to [folder]. */
+    private fun manualSkips(requestedAt: Long, lastBackupAt: Long, folder: String = phone, lastBackupFolder: String = phone) =
+        AutoBackupPolicy.shouldSkip(
+            manual = true, requestedAt = requestedAt, lastBackupAt = lastBackupAt, now = now, intervalHours = 24,
+            folder = folder, lastBackupFolder = lastBackupFolder,
+        )
 
     @Test
     fun `a scheduled run with no backup before it writes`() {
@@ -524,14 +537,22 @@ class AutoBackupPolicyTest {
     }
 
     @Test
+    fun `a scheduled run goes by the interval, wherever the last backup went`() {
+        // A new folder's first backup comes from backUpToNewFolder, not from the schedule.
+        assertTrue(scheduledSkips(now - 3_000L, folder = card, lastBackupFolder = phone))
+        assertTrue(scheduledSkips(now - 3_000L, folder = card, lastBackupFolder = ""))
+        assertFalse(scheduledSkips(now - day, folder = phone, lastBackupFolder = phone))
+    }
+
+    @Test
     fun `Back up now always writes when it is pressed`() {
         val pressed = now - 1_000L
         // However recent the last backup, even one from this same second.
         for (last in listOf(0L, now - 30 * day, now - 5_000L, pressed - 1)) {
-            assertFalse(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = pressed, lastBackupAt = last, now = now, intervalHours = 24))
+            assertFalse(manualSkips(requestedAt = pressed, lastBackupAt = last))
         }
         // A request from before this version, with no time on it, writes too.
-        assertFalse(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = 0L, lastBackupAt = now - 1_000L, now = now, intervalHours = 24))
+        assertFalse(manualSkips(requestedAt = 0L, lastBackupAt = now - 1_000L))
     }
 
     @Test
@@ -539,8 +560,8 @@ class AutoBackupPolicyTest {
         // The first attempt was stopped but its write cannot be, so it finished and recorded a
         // backup that started after the press. The restarted attempt has nothing left to do.
         val pressed = now - 4_000L
-        assertTrue(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = pressed, lastBackupAt = pressed + 200L, now = now, intervalHours = 24))
-        assertTrue(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = pressed, lastBackupAt = pressed, now = now, intervalHours = 24))
+        assertTrue(manualSkips(requestedAt = pressed, lastBackupAt = pressed + 200L))
+        assertTrue(manualSkips(requestedAt = pressed, lastBackupAt = pressed))
     }
 
     @Test
@@ -548,15 +569,29 @@ class AutoBackupPolicyTest {
         val picked = now - 10_000L
         // The Back up now ahead of it had not started when the folder was picked, so it wrote into
         // the new folder, after the pick. The folder's own run has nothing left to do.
-        assertTrue(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = picked, lastBackupAt = picked + 500L, now = now, intervalHours = 24))
+        assertTrue(manualSkips(requestedAt = picked, lastBackupAt = picked + 500L, folder = card, lastBackupFolder = card))
         // It was already writing when the folder was picked, so into the old folder. This one writes.
-        assertFalse(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = picked, lastBackupAt = picked - 2_000L, now = now, intervalHours = 24))
+        assertFalse(manualSkips(requestedAt = picked, lastBackupAt = picked - 2_000L, folder = card, lastBackupFolder = phone))
+    }
+
+    @Test
+    fun `a Back up now that read the old folder never makes the new folder's backup skip`() {
+        // It read the settings just before the folder changed, then took its start time only once
+        // it had checked the old folder, after the new folder's backup was asked for. Its backup
+        // went to the phone, so the card's run still writes.
+        val picked = now - 10_000L
+        assertFalse(manualSkips(requestedAt = picked, lastBackupAt = picked + 500L, folder = card, lastBackupFolder = phone))
+    }
+
+    @Test
+    fun `Back up now writes when the last backup has no folder on record`() {
+        // Recorded before the folder was, or never: there is nothing to say it went here.
+        val pressed = now - 4_000L
+        assertFalse(manualSkips(requestedAt = pressed, lastBackupAt = pressed + 200L, folder = phone, lastBackupFolder = ""))
+        assertFalse(manualSkips(requestedAt = pressed, lastBackupAt = pressed + 200L, folder = "", lastBackupFolder = ""))
     }
 
     // Whether a change in Settings makes one backup at once.
-
-    private val phone = "content://com.android.externalstorage.documents/tree/primary%3ABackups"
-    private val card = "content://com.android.externalstorage.documents/tree/1234-ABCD%3AInterTune"
 
     private fun backUpAtOnce(wasOn: Boolean, on: Boolean, folder: String, setFolder: String, lastBackupFolder: String) =
         AutoBackupPolicy.backUpAtOnce(wasOn = wasOn, on = on, folder = folder, setFolder = setFolder, lastBackupFolder = lastBackupFolder)
