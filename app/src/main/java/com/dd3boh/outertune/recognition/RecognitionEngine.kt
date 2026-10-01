@@ -1331,13 +1331,17 @@ class RecognitionEngine @Inject constructor(
             !autoAdd -> "adding without asking is off"
             else -> null
         }
-        // What a playlist's run notes in the sheet, if anything: see MixSearch.sheetName.
+        // What a playlist's run notes in the sheet, if anything: see MixSearch.sheetName. Nothing
+        // when the sheet has a note about this mashup already: see notedAlready.
+        val mashup = context.getString(R.string.recognise_mashup)
         val note = MixSearch.sheetName(winner, current.replaced, titles)
+        val noted = note != null && notedAlready(_skipped.value, current.keys, note, mashup)
         picked(
             when {
                 notTaken == null -> "took it, $standing"
                 playlist == null -> "asking, $standing; not taken: $notTaken"
                 note == null -> "not noted, '${winner?.title}' being the answer before, in the playlist already; $standing"
+                noted -> "not noted as '$note', the sheet has a note about this mashup already; $standing; not taken: $notTaken"
                 else -> "noted for the sheet, $standing; not taken: $notTaken"
             }
         )
@@ -1351,7 +1355,6 @@ class RecognitionEngine @Inject constructor(
                 // The sheet's stand-in for the choice goes the same way, from every run of this
                 // mashup, and so does a note naming this very upload. Left, it listed the mashup as
                 // heard and not added right above the same mashup, added.
-                val mashup = context.getString(R.string.recognise_mashup)
                 _skipped.update { list -> list.filterNot { isMashupNoteOf(it, current.keys, winner.title, mashup) } }
                 add(winner)
             }
@@ -1359,11 +1362,9 @@ class RecognitionEngine @Inject constructor(
             // unsure list instead, so a playlist's run notes the mashup there.
             playlist == null -> offerChoice(current, songs)
             // Nothing when the winner is the upload it was answered with before, which is in the
-            // playlist already.
-            note != null -> {
-                if (_skipped.value.none { it.title == note }) {
-                    _skipped.value += Added(note, context.getString(R.string.recognise_mashup), auto = false, heardAtMs = now, keys = current.keys.toSet())
-                }
+            // playlist already, or when this mashup has a note already.
+            note != null && !noted -> {
+                _skipped.value += Added(note, mashup, auto = false, heardAtMs = now, keys = current.keys.toSet())
             }
         }
     }
@@ -1797,6 +1798,19 @@ class RecognitionEngine @Inject constructor(
          */
         internal fun isMashupNoteOf(note: Added, keys: Set<String>, upload: String, mashup: String): Boolean =
             note.artist == mashup && (note.title == upload || (note.keys.isNotEmpty() && keys.containsAll(note.keys)))
+
+        /**
+         * Whether a playlist's run has, among [notes], a note called [name] already, or a [mashup]
+         * note about the mashup of [keys], as [isMashupNoteOf] tells them. A mashup gets one note,
+         * the first, under the name it was first noted by.
+         *
+         * Not only by name. Faint x No Love taken, and then asked again for Numb, the mashup was
+         * noted as "Faint x No Love x Numb (Mashup)". While the question waited, a search clear for
+         * the other mashup of Faint and No Love added a second note under that upload's title, and
+         * one with only a toss-up a second note under the titles of the songs it carried.
+         */
+        internal fun notedAlready(notes: List<Added>, keys: Set<String>, name: String, mashup: String): Boolean =
+            notes.any { it.title == name || isMashupNoteOf(it, keys, name, mashup) }
 
         /**
          * Where [retract] starts taking back what was noted or confirmed of a song first heard at

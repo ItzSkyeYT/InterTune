@@ -11,8 +11,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Which notes in the list of what was heard and not added a mashup's piece takes back out, and which
- * the mashup takes when it is added.
+ * Which notes in the list of what was heard and not added a mashup's piece takes back out, which
+ * the mashup takes when it is added, and when a playlist's run has noted a mashup already.
  *
  * Found to be part of a mashup, a piece's note goes, since the question about the mashup covers it.
  * It used to be every note with the piece's title, from any time in the run, so an unsure Stay by
@@ -104,5 +104,24 @@ class UnsureNotesTest {
         // A song that was unsure, which is a piece's to take, not the mashup's.
         assertFalse(isAbout(RecognitionEngine.Added("Stay + Peaches", "someone", auto = false), "stayk", "peaches"))
         assertFalse(isAbout(RecognitionEngine.Added("Peaches", "Justin Bieber", auto = false), "stayk", "peaches"))
+    }
+
+    private fun notedAlready(notes: List<RecognitionEngine.Added>, name: String, vararg keys: String) =
+        RecognitionEngine.notedAlready(notes, keys.toSet(), name, "mashup")
+
+    @Test
+    fun `a playlist's run notes a mashup once`() {
+        // Faint x No Love taken, and then asked again for Numb: noted under the upload naming all
+        // three. While the question waits, a search clear for another upload of Faint and No Love,
+        // or one with only a toss-up named after the songs it carried, notes nothing more, though
+        // more of the mashup has been heard since.
+        val notes = listOf(mashupNote("Faint x No Love x Numb (Mashup)", "faint", "nolove", "numb"))
+        assertTrue(notedAlready(notes, "Eminem & LINKIN PARK - No Love / Faint (No Love x Faint Mashup)", "faint", "nolove", "numb"))
+        assertTrue(notedAlready(notes, "Faint + No Love (feat. Lil Wayne)", "faint", "nolove", "numb", "faint-alt"))
+        // Another mashup with one of its songs in it gets a note of its own.
+        assertFalse(notedAlready(notes, "Faint + In The End", "faint", "intheend"))
+        // A note of the same name, whatever it is about, as before.
+        assertTrue(notedAlready(listOf(RecognitionEngine.Added("Faint + In The End", "someone", auto = false)), "Faint + In The End", "faint", "intheend"))
+        assertFalse(notedAlready(emptyList(), "Faint + In The End", "faint", "intheend"))
     }
 }
