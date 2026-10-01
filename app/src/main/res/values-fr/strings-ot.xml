@@ -962,12 +962,15 @@
         <item quantity="other">%1$d actualisations</item>
     </plurals>
     <string name="recommendations_row_shadow">Meilleures recommandations, non affichées</string>
-    <string name="recommendations_brier">Qualité de ses prédictions</string>
+    <string name="recommendations_brier">Justesse de ses prévisions</string>
     <plurals name="recommendations_brier_description">
-        <item quantity="one">Un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d carte. C\'est la moyenne du carré de l\'écart entre chaque prévision et ce qui s\'est passé : 0 est parfait, et 0,25 est ce qu\'obtiendrait une prévision d\'une chance sur deux à chaque fois. La plupart des cartes ne sont pas écoutées, donc prévoir bas pour toutes obtient aussi un bon score.</item>
-        <item quantity="many">Un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d cartes. C\'est la moyenne du carré de l\'écart entre chaque prévision et ce qui s\'est passé : 0 est parfait, et 0,25 est ce qu\'obtiendrait une prévision d\'une chance sur deux à chaque fois. La plupart des cartes ne sont pas écoutées, donc prévoir bas pour toutes obtient aussi un bon score.</item>
-        <item quantity="other">Un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d cartes. C\'est la moyenne du carré de l\'écart entre chaque prévision et ce qui s\'est passé : 0 est parfait, et 0,25 est ce qu\'obtiendrait une prévision d\'une chance sur deux à chaque fois. La plupart des cartes ne sont pas écoutées, donc prévoir bas pour toutes obtient aussi un bon score.</item>
+        <item quantity="one">Un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d carte. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
+        <item quantity="many">Un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d cartes. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
+        <item quantity="other">Un seul chiffre, pour qui le veut : un score de Brier de %1$.3f sur %2$d cartes. Plus il est bas, mieux c\'est, et 0 voudrait dire que chaque prévision était exacte.</item>
     </plurals>
+    <string name="recommendations_brier_better">Donner à chaque carte la même chance, la part qui s\'est révélée écoutée, aurait obtenu %1$.3f, donc ses propres prévisions ont fait mieux.</string>
+    <string name="recommendations_brier_worse">Donner à chaque carte la même chance, la part qui s\'est révélée écoutée, aurait obtenu %1$.3f, donc ses propres prévisions ont fait moins bien.</string>
+    <string name="recommendations_brier_same">Donner à chaque carte la même chance, la part qui s\'est révélée écoutée, aurait obtenu %1$.3f, à peu près autant que ses propres prévisions.</string>
     <plurals name="recommendations_weights">
         <item quantity="one">Ce qu\'il a appris, après %1$d étape d\'apprentissage</item>
         <item quantity="many">Ce qu\'il a appris, après %1$d étapes d\'apprentissage</item>
@@ -1078,7 +1081,7 @@
     <string name="recommendations_summary_no_change">Pas de changement net : %1$s sur 100 ces deux dernières semaines, %2$s sur 100 les deux semaines d\'avant.</string>
     <string name="recommendations_summary_too_early">Trop tôt pour dire dans quel sens ça va.</string>
     <string name="recommendations_summary_from_before">Ces chiffres datent de quand Meilleures recommandations était la source de votre Sélection Rapide.</string>
-    <string name="recommendations_wins_meaning">Combien des cartes vues vous avez ensuite écoutées, en ne comptant que les cartes déjà jugées. Plus c\'est haut, mieux c\'est.</string>
+    <string name="recommendations_wins_meaning">Écoutée signifie que vous avez entendu au moins une demi-minute et près de la moitié du titre, ou que vous l\'avez aimé. Toucher puis passer vite ne compte pas. Seules les cartes déjà jugées sont comptées, et plus c\'est haut, mieux c\'est.</string>
     <string name="similar_mix_meaning">Comment les titres similaires sont partagés entre les deux sources. Celle dont vous écoutez le plus en reçoit davantage.</string>
     <string name="recommendations_held_meaning">Parmi les titres que vous avez choisis vous-même dans la journée suivant chaque actualisation, combien étaient déjà dans la rangée. Plus c\'est haut, mieux c\'est, et un chiffre bas est normal.</string>
     <plurals name="recommendations_predicted_of">
@@ -1086,15 +1089,15 @@
         <item quantity="many">Sur les %1$d cartes pour lesquelles il a fait une prévision, il pensait que %2$s sur 100 seraient écoutées, et %3$s sur 100 l\'ont été.</item>
         <item quantity="other">Sur les %1$d cartes pour lesquelles il a fait une prévision, il pensait que %2$s sur 100 seraient écoutées, et %3$s sur 100 l\'ont été.</item>
     </plurals>
-    <string name="recommendations_band_under">Cartes auxquelles il donnait moins de %1$d sur 100 : %2$d, %3$s</string>
-    <string name="recommendations_band">Cartes auxquelles il donnait de %1$d à %2$d sur 100 : %3$d, %4$s</string>
+    <string name="recommendations_band_under">Cartes auxquelles il donnait moins de %1$d chances sur 100 : %2$d, %3$s</string>
+    <string name="recommendations_band">Cartes auxquelles il donnait de %1$d à %2$d chances sur 100 : %3$d, %4$s</string>
     <string name="recommendations_band_none_played">aucune écoutée</string>
     <plurals name="recommendations_band_played">
         <item quantity="one">%1$d écoutée</item>
         <item quantity="many">%1$d écoutées</item>
         <item quantity="other">%1$d écoutées</item>
     </plurals>
-    <string name="recommendations_predicted_meaning">Plus les deux sont proches, plus ses prédictions sont justes.</string>
+    <string name="recommendations_predicted_meaning">Plus les deux sont proches, plus ses prévisions sont justes.</string>
     <string name="recommendations_weights_meaning">Le poids actuel de chaque critère dans la note d\'une carte, à côté de son point de départ. Ni plus haut ni plus bas n\'est mieux : c\'est ce que votre écoute lui a appris.</string>
     <string name="recommendations_how_they_ended_meaning">Les titres écoutés jusqu\'au bout comptent en leur faveur, les titres passés contre eux.</string>
     <string name="recommendations_where_from_meaning">Un titre choisi vous-même, depuis la recherche par exemple, lui en apprend plus qu\'un titre qui s\'est enchaîné tout seul.</string>

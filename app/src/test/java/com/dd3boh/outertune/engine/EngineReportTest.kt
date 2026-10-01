@@ -318,6 +318,27 @@ class EngineReportTest {
     // How well it predicts, counted
 
     @Test
+    fun `the Brier bar is what one chance for every card, the share played, would score`() {
+        // 103 cards, none played: the bar is 0, and guessing anything at all does worse.
+        assertEquals(0.0, brierReference(List(103) { 0.11 to 0.0 }), 1e-12)
+        // One in four played: a quarter for every card scores 0.25 x 0.75.
+        val pairs = List(4) { i -> 0.3 to (if (i == 0) 1.0 else 0.0) }
+        assertEquals(0.1875, brierReference(pairs), 1e-12)
+        // A grade of one half counts as played, as in the score itself.
+        assertEquals(0.25, brierReference(listOf(0.1 to 0.5, 0.1 to 0.2)), 1e-12)
+        assertTrue(brierReference(emptyList()).isNaN())
+    }
+
+    @Test
+    fun `lower than the bar is better, higher is worse, and alike to three decimals is the same`() {
+        // His emulator on 1 Oct: 0.012 against a bar of 0.000, guesses too high.
+        assertEquals(BrierVerdict.WORSE, brierVerdict(0.012, brierReference(List(103) { 0.11 to 0.0 })))
+        assertEquals(BrierVerdict.BETTER, brierVerdict(0.15, 0.1875))
+        assertEquals(BrierVerdict.SAME, brierVerdict(0.18751, 0.1875))
+        assertEquals(BrierVerdict.WORSE, brierVerdict(0.1880, 0.1875))
+    }
+
+    @Test
     fun `prediction bands count their cards and plays, lowest first, empty bands left out`() {
         val pairs = listOf(0.05 to 0.0, 0.1 to 1.0, 0.19 to 0.0, 0.25 to 0.5, 0.3 to 0.0, 1.0 to 1.0)
         assertEquals(

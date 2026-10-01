@@ -226,6 +226,31 @@ fun predictionBands(pairs: List<Pair<Double, Double>>, bands: Int = 5): List<Pre
 fun hasNumbers(teams: List<TeamCards>, held: List<BuildScore>, predictions: Int, weightUpdates: Int): Boolean =
     teams.any { it.cards.seen > 0 } || held.isNotEmpty() || predictions > 0 || weightUpdates > 0
 
+/**
+ * What giving every card the same chance would have scored, that chance being the share that
+ * turned out to be played: the plain bar a Brier score is read against. A score of 0.012 alone read
+ * as near perfect beside a row saying 11 in 100 were expected and none played; with none played
+ * this bar is 0, and any chance above nothing does worse. NaN with no cards.
+ */
+fun brierReference(pairs: List<Pair<Double, Double>>): Double {
+    if (pairs.isEmpty()) return Double.NaN
+    val played = pairs.count { it.second >= 0.5 }.toDouble() / pairs.size
+    return played * (1 - played)
+}
+
+enum class BrierVerdict { BETTER, SAME, WORSE }
+
+/** Lower is better. Compared as shown, to three decimals, so two numbers that read alike are the same. */
+fun brierVerdict(score: Double, reference: Double): BrierVerdict {
+    val s = (score * 1000).roundToInt()
+    val r = (reference * 1000).roundToInt()
+    return when {
+        s < r -> BrierVerdict.BETTER
+        s > r -> BrierVerdict.WORSE
+        else -> BrierVerdict.SAME
+    }
+}
+
 /** How many plays the engine expected of its cards, per 100, beside how many it got. */
 data class Prediction(val cards: Int, val expectedPer100: Double, val playedPer100: Double)
 

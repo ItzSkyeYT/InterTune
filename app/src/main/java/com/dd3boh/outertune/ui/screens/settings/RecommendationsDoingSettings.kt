@@ -47,12 +47,15 @@ import com.dd3boh.outertune.constants.QuickPicksSourceKey
 import com.dd3boh.outertune.constants.ShadowComparisonKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.db.entities.EngineWeight
+import com.dd3boh.outertune.engine.BrierVerdict
 import com.dd3boh.outertune.engine.Calibration
 import com.dd3boh.outertune.engine.DoingSummary
 import com.dd3boh.outertune.engine.ENGINE_TEAM
 import com.dd3boh.outertune.engine.EndLabel
 import com.dd3boh.outertune.engine.Features
 import com.dd3boh.outertune.engine.Trend
+import com.dd3boh.outertune.engine.brierReference
+import com.dd3boh.outertune.engine.brierVerdict
 import com.dd3boh.outertune.engine.cardsByTeam
 import com.dd3boh.outertune.engine.cardsSeen
 import com.dd3boh.outertune.engine.clockLength
@@ -234,15 +237,26 @@ fun RecommendationsDoingSettings(
                 // row compares what it expected with what happened, and the score waits at the foot
                 // of the "i" as a detail for whoever wants one number. It says how many cards it
                 // covers: only those from a scored row carry a guess, which can be fewer than the
-                // summary counts. Chances are "in 100" all the way down, cards plain counts.
+                // summary counts. Chances are "in 100" all the way down, cards plain counts. The
+                // score comes with the bar it is read against and which side of it it falls, since
+                // a small number alone reads as good whatever it measures.
                 val brier = Calibration.brier(pairs)
+                val reference = brierReference(pairs)
                 val prediction = predictionOf(pairs)
                 val (expected, played) = per100Texts(prediction.expectedPer100, prediction.playedPer100, locale)
                 StatEntry(
                     title = stringResource(R.string.recommendations_brier),
                     explanation = stringResource(R.string.recommendations_brier_info),
                     footer = if (brier.isNaN()) null
-                        else pluralStringResource(R.plurals.recommendations_brier_description, pairs.size, brier, pairs.size),
+                        else pluralStringResource(R.plurals.recommendations_brier_description, pairs.size, brier, pairs.size) + " " +
+                            stringResource(
+                                when (brierVerdict(brier, reference)) {
+                                    BrierVerdict.BETTER -> R.string.recommendations_brier_better
+                                    BrierVerdict.SAME -> R.string.recommendations_brier_same
+                                    BrierVerdict.WORSE -> R.string.recommendations_brier_worse
+                                },
+                                reference,
+                            ),
                     numbers = if (brier.isNaN()) stringResource(R.string.recommendations_nothing_yet)
                         else (listOf(
                             pluralStringResource(R.plurals.recommendations_predicted_of, prediction.cards, prediction.cards, expected, played),
