@@ -178,8 +178,12 @@ class AutoBackupWorker(
      *
      * A rename only counts when the name it ends up with is a backup's name of this app's, which
      * Android's " (1)" copies are. Anything else, or a provider that will not say what it renamed
-     * the file to, is a failed run with nothing left behind: a whole backup under a name Keep does
-     * not count would never be pruned, and one Restore does not offer is no use.
+     * the file to, is a failed run with nothing left behind. Recorded as a success, it would go
+     * wrong either way. Under a name Keep does not count, it would never be pruned. Still under its
+     * temporary name, it looks like what a killed write leaves, so the first pruning more than an
+     * hour later deletes it (AutoBackupPolicy.leftoverPartials) and the backup on record is gone.
+     * Restore is not the reason: its picker asks only for application/octet-stream and reads any
+     * zip, whatever its name.
      */
     private fun write(context: Context, tree: DocumentFile, appName: String, name: String, database: MusicDatabase): String {
         val partial = AutoBackupPolicy.partialName(name)
