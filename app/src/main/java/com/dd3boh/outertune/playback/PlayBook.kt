@@ -29,8 +29,13 @@ import java.util.concurrent.ConcurrentLinkedDeque
  */
 open class PlayEnd {
     /**
-     * Sound has come out of this play, and its listen row was opened then. A play the player only
-     * loaded (the queue restored at launch, a song moved past before it started) never sounded.
+     * Sound has come out of this play, and the service opened its listen then. A play the player
+     * only loaded (the queue restored at launch, a song moved past before it started) never
+     * sounded.
+     *
+     * With listen history paused, opening sets this and writes no row, so a play can be opened
+     * and have no row. Stats with play time then take the oldest play of the song, which writes
+     * nothing either, and stats with none still leave this play alone (see [PlayBook.takeUnplayed]).
      */
     @Volatile var opened = false
         internal set
