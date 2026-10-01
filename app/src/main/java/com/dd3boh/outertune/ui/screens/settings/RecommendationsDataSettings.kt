@@ -143,9 +143,11 @@ fun RecommendationsDataSettings(
             ask = ask,
             onDismiss = viewModel::dismissAsk,
             onConfirm = {
-                viewModel.confirm(ask)
                 // The yes to loading is a yes to choosing the file that replaces what it learned.
-                if (ask is DataAsk.Load) importEngineLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                // Only the first yes: a second tap before the dialog closed would open a second picker.
+                if (viewModel.confirm(ask) && ask is DataAsk.Load) {
+                    importEngineLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                }
             },
         )
     }

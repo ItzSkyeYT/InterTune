@@ -66,8 +66,8 @@ class RecommendationsViewModel @Inject constructor(
     private val learning by lazy { EngineLearning(context, database) }
 
     /** The change on Your data waiting for a yes. Here, not on the page, so a rotation keeps the dialog. */
-    private val _asking = MutableStateFlow<DataAsk?>(null)
-    val asking: StateFlow<DataAsk?> = _asking.asStateFlow()
+    private val pending = PendingAsk()
+    val asking: StateFlow<DataAsk?> = pending.asking
 
     /**
      * What each button on Your data did, in place of its description. Held here rather than in the
@@ -120,7 +120,7 @@ class RecommendationsViewModel @Inject constructor(
                         copy,
                     )
                 }
-                DataAction.FORGET_TODAY -> todayNow().let { forgetTodayStep(database.forgettableBetween(it.first, it.last + 1), copy) }
+                DataAction.FORGET_TODAY -> todayNow().let { forgetTodayStep(database.forgettableBetween(it.first, it.last + 1), it, copy) }
                 DataAction.RESET -> resetStep(stored, database.appliedCardCount(), copy)
                 DataAction.REBUILD -> rebuildStep(database.appliedCardCount(), copy)
                 DataAction.LOAD -> loadStep()
@@ -128,20 +128,22 @@ class RecommendationsViewModel @Inject constructor(
             }
         }.getOrElse { DataStep.Tell(DataResult.Failed) }
         when (step) {
-            is DataStep.Ask -> _asking.value = step.ask
+            is DataStep.Ask -> pending.put(step.ask)
             is DataStep.Tell -> tell(action, step.result)
         }
     }
 
     /** No, or Back, or a tap outside the dialog: nothing changes. */
-    fun dismissAsk() {
-        _asking.value = null
-    }
+    fun dismissAsk() = pending.clear()
 
-    /** Yes. Loading only opens the file picker from here, which the page does; the rest runs now. */
-    fun confirm(ask: DataAsk) {
-        _asking.value = null
-        if (ask is DataAsk.Load) return
+    /**
+     * Yes. Loading only opens the file picker from here, which the page does when this returns
+     * true; the rest runs now. False for a yes to a question no longer waiting, such as the second
+     * of two quick taps, which could otherwise run a forget twice or open two pickers.
+     */
+    fun confirm(ask: DataAsk): Boolean {
+        if (!pending.take(ask)) return false
+        if (ask is DataAsk.Load) return true
         tell(ask.action, DataResult.Working)
         when (ask) {
             is DataAsk.ForgetSession -> pastThePage({
@@ -149,9 +151,10 @@ class RecommendationsViewModel @Inject constructor(
                 learning.rebuild()
                 marked
             }) { tell(DataAction.FORGET_SESSION, forgotResult(it)) }
+            // The day the dialog counted, not today worked out again: a yes given after midnight
+            // would forget the new day, and one a few songs later more than it had said.
             is DataAsk.ForgetToday -> pastThePage({
-                val day = todayNow()
-                val marked = database.transactionNow<Int> { forgetBetween(day.first, day.last + 1).also { dropForgottenExamples() } }
+                val marked = database.transactionNow<Int> { forgetBetween(ask.from, ask.to).also { dropForgottenExamples() } }
                 learning.rebuild()
                 marked
             }) { tell(DataAction.FORGET_TODAY, forgotResult(it)) }
@@ -165,6 +168,7 @@ class RecommendationsViewModel @Inject constructor(
             }) { tell(DataAction.REBUILD, it?.let { n -> DataResult.Rebuilt(n) } ?: DataResult.Failed) }
             DataAsk.Load -> Unit
         }
+        return true
     }
 
     private fun exportJson(): String {
@@ -200,10 +204,14 @@ class RecommendationsViewModel @Inject constructor(
      * Unknown names are skipped rather than rejected. A file from an older build will not have
      * every feature this one has, and the sensible reading of that is "use what you recognise"
      * rather than refusing the lot.
+     *
+     * Past the page, as every other change to what it has learned is: in the page's own scope,
+     * leaving Your data while a copy loaded could cancel it between writing the weights and
+     * marking them as a loaded copy, and a later forget, reset or rebuild then said nothing of it.
      */
-    fun importFrom(uri: Uri) = viewModelScope.launch(Dispatchers.IO) {
+    fun importFrom(uri: Uri) {
         tell(DataAction.LOAD, DataResult.Working)
-        val count = runCatching {
+        pastThePage({
             val text = context.contentResolver.openInputStream(uri)?.use {
                 it.readBytes().decodeToString()
             } ?: error("no stream")
@@ -232,8 +240,7 @@ class RecommendationsViewModel @Inject constructor(
                 context.dataStore.edit { it[EngineCopyLoadedKey] = true }
             }
             rows.size
-        }.getOrDefault(0)
-        tell(DataAction.LOAD, if (count > 0) DataResult.Loaded else DataResult.FileFailed)
+        }) { count -> tell(DataAction.LOAD, if ((count ?: 0) > 0) DataResult.Loaded else DataResult.FileFailed) }
     }
 
     val recent = database.recentListenRows(30)

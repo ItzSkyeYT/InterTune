@@ -6,6 +6,10 @@
 
 package com.dd3boh.outertune.viewmodels
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
 /*
  * The rules behind Your data, apart from the screen so they can be tested: which buttons ask before
  * they act, what they ask with, and what each says it did in place of its description.
@@ -32,7 +36,12 @@ sealed interface DataAsk {
         override val action get() = DataAction.FORGET_SESSION
     }
 
-    data class ForgetToday(val listens: Int, override val copyLoaded: Boolean = false) : DataAsk {
+    /**
+     * [from] and [to] are the day it counted, local midnight to just after the tap, [to] left out.
+     * The forget takes the same window, so a yes given after midnight, or after more songs have
+     * started, forgets what the dialog counted rather than a day worked out again.
+     */
+    data class ForgetToday(val listens: Int, val from: Long, val to: Long, override val copyLoaded: Boolean = false) : DataAsk {
         override val action get() = DataAction.FORGET_TODAY
     }
 
@@ -118,8 +127,10 @@ fun forgetSessionStep(sessionId: Long?, listens: Int, began: Long, copyLoaded: B
     if (sessionId == null || listens <= 0) DataStep.Tell(DataResult.Forgot(0))
     else DataStep.Ask(DataAsk.ForgetSession(sessionId, listens, began, copyLoaded))
 
-fun forgetTodayStep(listens: Int, copyLoaded: Boolean = false): DataStep =
-    if (listens <= 0) DataStep.Tell(DataResult.Forgot(0)) else DataStep.Ask(DataAsk.ForgetToday(listens, copyLoaded))
+/** [day] is the window the listens were counted over, as [today] gives it, and the one the forget takes. */
+fun forgetTodayStep(listens: Int, day: LongRange, copyLoaded: Boolean = false): DataStep =
+    if (listens <= 0) DataStep.Tell(DataResult.Forgot(0))
+    else DataStep.Ask(DataAsk.ForgetToday(listens, from = day.first, to = day.last + 1, copyLoaded = copyLoaded))
 
 /** With nothing learned it is already where a reset would put it, so there is nothing to ask. */
 fun resetStep(learnedAnything: Boolean, cards: Int, copyLoaded: Boolean = false): DataStep =
@@ -153,6 +164,29 @@ fun afterResult(results: Map<DataAction, DataResult>, action: DataAction, result
         else -> false
     }
     return (if (changed) results.filterKeys { it !in stateLines } else results) + (action to result)
+}
+
+/**
+ * The change waiting for a yes, and the yes taken once. Two quick taps on Forget could both reach
+ * the dialog's button before it closed and run the forget twice, and two on Choose a file could
+ * open two pickers. A yes counts only while its own question is still the one waiting, and taking
+ * it clears it in the same step, so the second tap finds nothing. A yes to a question already
+ * answered or dismissed does nothing either.
+ */
+class PendingAsk {
+    private val state = MutableStateFlow<DataAsk?>(null)
+    val asking: StateFlow<DataAsk?> = state.asStateFlow()
+
+    fun put(ask: DataAsk) {
+        state.value = ask
+    }
+
+    fun clear() {
+        state.value = null
+    }
+
+    /** True for the first yes to [ask] while it waits; false for any after it, or once it is gone. */
+    fun take(ask: DataAsk): Boolean = state.compareAndSet(ask, null)
 }
 
 /** Null when forgetting failed. */

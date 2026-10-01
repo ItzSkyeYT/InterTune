@@ -8,11 +8,15 @@ package com.dd3boh.outertune.viewmodels
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Which buttons on Your data ask before they act, what they ask with, and what they say after. */
 class YourDataTest {
+
+    /** A day it counted: from local midnight to just after the tap. */
+    private val day = 1_000L..5_000L
 
     @Test
     fun `everything that changes what it has learned asks first, and saving a copy does not`() {
@@ -33,8 +37,8 @@ class YourDataTest {
         val nothing = DataStep.Tell(DataResult.Forgot(0))
         assertEquals(nothing, forgetSessionStep(sessionId = 7, listens = 0, began = 1_000))
         assertEquals(nothing, forgetSessionStep(sessionId = null, listens = 0, began = 0))
-        assertEquals(nothing, forgetTodayStep(0))
-        assertEquals(DataStep.Ask(DataAsk.ForgetToday(3)), forgetTodayStep(3))
+        assertEquals(nothing, forgetTodayStep(0, day))
+        assertEquals(DataStep.Ask(DataAsk.ForgetToday(3, from = 1_000, to = 5_001)), forgetTodayStep(3, day))
     }
 
     @Test
@@ -53,7 +57,7 @@ class YourDataTest {
     @Test
     fun `each question belongs to its button, so its answer lands on the right line`() {
         assertEquals(DataAction.FORGET_SESSION, DataAsk.ForgetSession(1, 1, 0).action)
-        assertEquals(DataAction.FORGET_TODAY, DataAsk.ForgetToday(1).action)
+        assertEquals(DataAction.FORGET_TODAY, DataAsk.ForgetToday(1, 0, 1).action)
         assertEquals(DataAction.RESET, DataAsk.Reset(1).action)
         assertEquals(DataAction.REBUILD, DataAsk.Rebuild(1).action)
         assertEquals(DataAction.LOAD, DataAsk.Load.action)
@@ -62,7 +66,7 @@ class YourDataTest {
     @Test
     fun `each step carries whether what it has now came from a loaded copy`() {
         assertEquals(DataStep.Ask(DataAsk.ForgetSession(7, 14, 1_000, copyLoaded = true)), forgetSessionStep(7, 14, 1_000, copyLoaded = true))
-        assertEquals(DataStep.Ask(DataAsk.ForgetToday(3, copyLoaded = true)), forgetTodayStep(3, copyLoaded = true))
+        assertEquals(DataStep.Ask(DataAsk.ForgetToday(3, 1_000, 5_001, copyLoaded = true)), forgetTodayStep(3, day, copyLoaded = true))
         assertEquals(DataStep.Ask(DataAsk.Reset(0, copyLoaded = true)), resetStep(learnedAnything = true, cards = 0, copyLoaded = true))
         assertEquals(DataStep.Ask(DataAsk.Rebuild(0, copyLoaded = true)), rebuildStep(0, copyLoaded = true))
     }
@@ -82,8 +86,8 @@ class YourDataTest {
     fun `forgetting cannot be undone, and replaces a loaded copy as a rebuild does`() {
         // Forgetting rebuilds what it learned from this phone's cards, and the Forget dialogs used
         // to leave that out while the Rebuild dialog warned of it.
-        assertEquals(listOf(AskNote.CANNOT_UNDO), askNotes(DataAsk.ForgetToday(3)))
-        assertEquals(listOf(AskNote.COPY_REPLACED, AskNote.CANNOT_UNDO), askNotes(DataAsk.ForgetToday(3, copyLoaded = true)))
+        assertEquals(listOf(AskNote.CANNOT_UNDO), askNotes(DataAsk.ForgetToday(3, 1_000, 5_001)))
+        assertEquals(listOf(AskNote.COPY_REPLACED, AskNote.CANNOT_UNDO), askNotes(DataAsk.ForgetToday(3, 1_000, 5_001, copyLoaded = true)))
         assertEquals(listOf(AskNote.CANNOT_UNDO), askNotes(DataAsk.ForgetSession(7, 14, 1_000)))
         assertEquals(listOf(AskNote.COPY_REPLACED, AskNote.CANNOT_UNDO), askNotes(DataAsk.ForgetSession(7, 14, 1_000, copyLoaded = true)))
     }
@@ -138,6 +142,49 @@ class YourDataTest {
         assertEquals(DataResult.Failed, forgotResult(null))
         assertEquals(DataResult.Forgot(0), forgotResult(0))
         assertEquals(DataResult.Forgot(14), forgotResult(14))
+    }
+
+    @Test
+    fun `forget today forgets the day it counted, the tap's own moment included`() {
+        // Worked out again at the yes, a yes given after midnight would forget the new day, which
+        // the dialog had not counted.
+        val counted = today(now = 20_000 * 86_400_000L - 60_000, offsetMs = 0)
+        val ask = (forgetTodayStep(12, counted) as DataStep.Ask).ask as DataAsk.ForgetToday
+        assertEquals(counted.first, ask.from)
+        assertEquals(counted.last + 1, ask.to)
+        assertEquals(12, ask.listens)
+    }
+
+    @Test
+    fun `a yes is taken once, so two quick taps on Forget forget once`() {
+        val pending = PendingAsk()
+        val ask = DataAsk.ForgetToday(3, 1_000, 5_001)
+        pending.put(ask)
+        assertTrue(pending.take(ask))
+        assertFalse(pending.take(ask))
+        assertNull(pending.asking.value)
+    }
+
+    @Test
+    fun `two quick taps on Choose a file open one picker`() {
+        val pending = PendingAsk()
+        pending.put(DataAsk.Load)
+        assertTrue(pending.take(DataAsk.Load))
+        assertFalse(pending.take(DataAsk.Load))
+    }
+
+    @Test
+    fun `a yes to a question no longer waiting does nothing`() {
+        val pending = PendingAsk()
+        val forget = DataAsk.ForgetSession(7, 14, 1_000)
+        pending.put(forget)
+        pending.clear()
+        assertFalse(pending.take(forget))
+        // A newer question waits: an old dialog's yes does not answer it.
+        val reset = DataAsk.Reset(193)
+        pending.put(reset)
+        assertFalse(pending.take(forget))
+        assertEquals(reset, pending.asking.value)
     }
 
     @Test
