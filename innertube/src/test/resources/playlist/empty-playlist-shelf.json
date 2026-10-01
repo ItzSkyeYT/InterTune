@@ -1,0 +1,20 @@
+{
+  "responseContext": {},
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [],
+      "secondaryContents": {
+        "sectionListRenderer": {
+          "contents": [
+            {
+              "musicPlaylistShelfRenderer": {
+                "playlistId": "PLtest_empty_playlist",
+                "collapsedItemCount": 0
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
