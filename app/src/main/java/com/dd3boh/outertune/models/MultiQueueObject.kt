@@ -41,6 +41,12 @@ data class MultiQueueObject(
      * listen from it read "not recorded". A queue saved before origins were kept says nothing
      * either, and picking it by hand is where it begins now. A queue that already says where it
      * began keeps that, and a null [origin] changes nothing.
+     *
+     * It does not mark the listener's choice as playQueue does (MusicService.userChoicePending), and
+     * does not need to: loading another queue reaches the player as a playlist change, which starts
+     * the autoplay depth again on its own (AutoplayDepth.next). A queue that loads under the song
+     * already playing makes no transition at all, so a mark set there would wait for the next one and
+     * count the song that plays on after it as chosen.
      */
     fun startedByHand(origin: PlayOrigin?, now: Long) {
         if (origin == null || this.origin != PlayOrigin.UNKNOWN.code) return

@@ -59,4 +59,17 @@ class AutoplayDepthTest {
         assertEquals(4, AutoplayDepth.next(current = 3, chosen = false, wentBack = false, reason = auto))
         assertEquals(3, AutoplayDepth.next(current = 3, chosen = false, wentBack = false, reason = repeat))
     }
+
+    @Test
+    fun `a queue loaded by hand starts again at nought with no choice marked`() {
+        // Create queue, a queue from Add to queue's list and one picked in the queue sheet load
+        // with setCurrQueue, never through playQueue, so nothing marks the choice. Loading
+        // another queue is a playlist change, which starts the depth again by itself.
+        assertEquals(0, AutoplayDepth.next(current = 6, chosen = false, wentBack = false, reason = playlist))
+        // A queue that loads under the song already playing makes no transition. A mark set
+        // there would wait for the next one, and the song that plays on after it would count as
+        // chosen, which is why those paths set none.
+        assertEquals(0, AutoplayDepth.next(current = 6, chosen = true, wentBack = false, reason = auto))
+        assertEquals(7, AutoplayDepth.next(current = 6, chosen = false, wentBack = false, reason = auto))
+    }
 }
