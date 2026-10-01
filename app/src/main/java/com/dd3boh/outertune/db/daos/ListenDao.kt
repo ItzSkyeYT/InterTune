@@ -178,7 +178,7 @@ interface ListenDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsertEngineWeights(rows: List<EngineWeight>)
 
-    @Query("SELECT team AS team, outcome AS outcome, COUNT(*) AS n, SUM(CASE WHEN y >= 0.5 THEN 1 ELSE 0 END) AS wins FROM impression WHERE gradedAt IS NOT NULL GROUP BY team, outcome")
+    @Query(EngineSql.GRADED_BY_TEAM)
     fun gradedByTeam(): Flow<List<TeamOutcome>>
 
     /** The engine's slotted, graded cards: prediction beside grade, for the Brier score and the reliability table. */

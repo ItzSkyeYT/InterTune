@@ -35,10 +35,21 @@ object EngineSql {
     """
 
     /**
+     * Every source's graded cards by outcome, with how many were played: a grade of one half or
+     * more. Only cards in a slot. A pool pick (slot -1) is a song from the spare pool behind the
+     * row that was played; it is stored as a played card so the weights learn from it, but it was
+     * never on screen, so counting it would add a play nobody made from a card.
+     */
+    const val GRADED_BY_TEAM = """
+        SELECT team AS team, outcome AS outcome, COUNT(*) AS n, SUM(CASE WHEN y >= 0.5 THEN 1 ELSE 0 END) AS wins
+        FROM impression WHERE gradedAt IS NOT NULL AND slot >= 0 GROUP BY team, outcome
+    """
+
+    /**
      * The engine's own Quick picks cards, graded played, played elsewhere or ignored, seen and
      * played in two back to back windows: from :from to :mid, and from :mid to :to. How it's
-     * doing compares the two to say whether the share played is going up. Played is a grade of
-     * one half or more, as in gradedByTeam.
+     * doing compares the two to say whether the share played is going up. The same cards and
+     * the same played as [GRADED_BY_TEAM].
      */
     const val CARD_TREND = """
         SELECT
@@ -47,7 +58,7 @@ object EngineSql {
             COUNT(CASE WHEN visibleAt < :mid THEN 1 END) AS earlierSeen,
             COUNT(CASE WHEN visibleAt < :mid AND y >= 0.5 THEN 1 END) AS earlierPlayed
         FROM impression
-        WHERE team = 1 AND gradedAt IS NOT NULL AND outcome IN (1, 2, 3)
+        WHERE team = 1 AND slot >= 0 AND gradedAt IS NOT NULL AND outcome IN (1, 2, 3)
           AND visibleAt >= :from AND visibleAt < :to
     """
 }
