@@ -129,6 +129,14 @@ object SimilarSources {
             false, null -> SimilarSource.YOUTUBE
         }
 
+    /**
+     * Whether How similar songs are split shows under the choice: only with Both, the one mode in
+     * which the songs are shared out. With one source there is nothing to split, and a line saying
+     * so read as a figure that had failed to fill in.
+     */
+    fun showsSplit(stored: SimilarSource, hasKey: Boolean, engineOn: Boolean): Boolean =
+        effective(stored, hasKey, engineOn) == SimilarSource.BOTH
+
     /** Whether this install has chosen, either way, through the setting, the old switch or the question. */
     fun asked(value: String?, oldLastFmSwitch: Boolean?): Boolean = value != null || oldLastFmSwitch != null
 }

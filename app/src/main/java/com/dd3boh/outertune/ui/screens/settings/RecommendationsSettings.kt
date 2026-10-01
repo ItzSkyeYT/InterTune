@@ -197,17 +197,16 @@ fun RecommendationsSettings(
                     },
                     onValueSelected = onSimilarSourceChange,
                 )
-                // What Both has learned so far, beside the choice it follows from. With one
-                // source there is nothing shared, so no line about sharing either.
-                val mix = sourceMix
-                val single = SimilarSources.effective(similarSource, hasKey = true, engineOn = Unreleased.ENGINE) != SimilarSource.BOTH
-                StatEntry(
-                    title = stringResource(R.string.similar_mix),
-                    explanation = stringResource(R.string.similar_mix_info),
-                    numbers = when {
-                        single -> stringResource(R.string.similar_mix_single)
-                        mix == null || !mix.compared -> stringResource(R.string.similar_mix_none)
-                        else -> {
+                // What Both has learned so far, beside the choice it follows from. Only with Both:
+                // with one source nothing is shared, so there is no split to show.
+                if (SimilarSources.showsSplit(similarSource, hasKey = true, engineOn = Unreleased.ENGINE)) {
+                    val mix = sourceMix
+                    StatEntry(
+                        title = stringResource(R.string.similar_mix),
+                        explanation = stringResource(R.string.similar_mix_info),
+                        numbers = if (mix == null || !mix.compared) {
+                            stringResource(R.string.similar_mix_none)
+                        } else {
                             val lastFm = (mix.share * 100).roundToInt()
                             listOf(
                                 stringResource(R.string.similar_mix_share, lastFm, 100 - lastFm),
@@ -215,10 +214,10 @@ fun RecommendationsSettings(
                                 stringResource(R.string.similar_mix_youtube_line, mix.youTube.per100, mix.youTube.cards.roundToInt()),
                                 pluralStringResource(R.plurals.similar_mix_days, mix.days, mix.days),
                             ).joinToString("\n")
-                        }
-                    },
-                    meaning = if (single) null else stringResource(R.string.similar_mix_meaning),
-                )
+                        },
+                        meaning = stringResource(R.string.similar_mix_meaning),
+                    )
+                }
             }
             Spacer(Modifier.height(16.dp))
 
