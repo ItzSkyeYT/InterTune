@@ -273,8 +273,12 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                 }
             },
             onValueSelected = {
-                onAutoBackupHoursChange(it)
-                AutoBackup.schedule(context, hours = it)
+                // Replacing the schedule starts a run at once (AutoBackup.schedule says why), so
+                // picking the interval that is already set leaves it alone.
+                if (it != autoBackupHours) {
+                    onAutoBackupHoursChange(it)
+                    AutoBackup.schedule(context, hours = it)
+                }
             }
         )
 
@@ -297,9 +301,13 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         Slider(
             value = keepShown.toFloat(),
             onValueChange = { keepShown = it.roundToInt() },
-            // Nothing to reschedule: the worker reads this the next time it runs, so all the
-            // release has to do is store the number the drag ended on.
-            onValueChangeFinished = { onAutoBackupKeepChange(keepShown) },
+            // Nothing to reschedule, but the folder is brought down to the new number now. Left to
+            // the next backup, which can be a week or a year away, lowering Keep looked broken.
+            // Handed the number rather than left to read the preference, which has not landed yet.
+            onValueChangeFinished = {
+                onAutoBackupKeepChange(keepShown)
+                AutoBackup.applyKeep(context, keepShown)
+            },
             valueRange = AutoBackup.KEEP_MIN.toFloat()..AutoBackup.KEEP_MAX.toFloat(),
             steps = AutoBackup.KEEP_MAX - AutoBackup.KEEP_MIN - 1,
             interactionSource = keepInteraction,

@@ -603,8 +603,9 @@ class MainActivity : ComponentActivity() {
                 // rather than stacked. This is also what puts the schedule back after a reboot,
                 // since WorkManager needs the app to run once before it will restore its own.
                 BackgroundCheckWorker.schedule(this@MainActivity)
-                // Same again for scheduled backups: a no-op until the switch is on, and the
-                // thing that brings the schedule back after a reboot.
+                // Scheduled backups: a no-op until the switch is on, and otherwise only puts the
+                // schedule back if it is missing. It never replaces one that is there, because
+                // replacing made every launch a backup (AutoBackup.schedule says why).
                 AutoBackup.schedule(this@MainActivity)
 
                 // A notification about a question opens the question. handleOpenPoll is called for

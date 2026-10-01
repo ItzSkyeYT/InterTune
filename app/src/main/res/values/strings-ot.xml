@@ -831,8 +831,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="auto_backup_every_week">Every week</string>
     <string name="auto_backup_keep">How many to keep</string>
     <plurals name="auto_backup_keep_count">
-        <item quantity="one">The last backup. Older ones go when a new one is written.</item>
-        <item quantity="other">The last %1$d backups. Older ones go when a new one is written.</item>
+        <item quantity="one">The last backup. Older ones are deleted.</item>
+        <item quantity="other">The last %1$d backups. Older ones are deleted.</item>
+    </plurals>
+    <plurals name="auto_backup_pruned">
+        <item quantity="one">Deleted %1$d older backup</item>
+        <item quantity="other">Deleted %1$d older backups</item>
     </plurals>
     <string name="auto_backup_now">Back up now</string>
     <string name="auto_backup_last">Last backup: %1$s</string>

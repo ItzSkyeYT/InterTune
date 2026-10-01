@@ -125,4 +125,284 @@ class AutoBackupPolicyTest {
         assertEquals(expected, AutoBackupPolicy.toDelete(app, names, -4))
         assertEquals(expected, AutoBackupPolicy.toDelete(app, names, 1))
     }
+
+    // Copies renamed by the storage provider.
+
+    private fun copy(stamp: String, n: Int) = "InterTune_21_$stamp ($n).backup"
+
+    @Test
+    fun `a copy the storage provider renamed is still one of ours`() {
+        // What Android's own provider does with a name that is already taken, seen on the phone as
+        // "InterTune Debug_23_20260929220109 (1).backup" beside the unsuffixed file.
+        assertTrue(AutoBackupPolicy.isBackup("InterTune Debug", "InterTune Debug_23_20260929220109 (1).backup"))
+        assertTrue(AutoBackupPolicy.isBackup(app, copy("20260912140509", 1)))
+        assertTrue(AutoBackupPolicy.isBackup(app, copy("20260912140509", 12)))
+    }
+
+    @Test
+    fun `things that only look like a renamed copy are not ours`() {
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune_21_20260912140509(1).backup"))
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune_21_20260912140509 ().backup"))
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune_21_20260912140509 (a).backup"))
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune_21_20260912140509 (1).backup.bak"))
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune_21_20260912140509 (1) (1).backup"))
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune_21_20260912140509  (1).backup"))
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune_21_20260912140509 copy.backup"))
+        // Another app's copy is still another app's.
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune Debug_23_20260929220109 (1).backup"))
+        assertFalse(AutoBackupPolicy.isBackup(app, "OuterTune_21_20260912140509 (1).backup"))
+    }
+
+    @Test
+    fun `renamed copies count towards Keep and go oldest first`() {
+        val names = listOf(
+            name("20260929220109"),
+            copy("20260929220109", 1),
+            name("20260930084500"),
+            copy("20260930084500", 2),
+            copy("20260930084500", 1),
+            name("20260930120000"),
+        )
+        // Six of ours, not three: before, the copies were invisible to Keep and stayed for good.
+        assertEquals(
+            listOf(name("20260929220109"), copy("20260929220109", 1), name("20260930084500")),
+            AutoBackupPolicy.toDelete(app, names, 3),
+        )
+        // Within one second the provider's number is the order they were written in, and the
+        // unsuffixed name came first.
+        assertEquals(
+            listOf(
+                name("20260929220109"), copy("20260929220109", 1), name("20260930084500"),
+                copy("20260930084500", 1), copy("20260930084500", 2),
+            ),
+            AutoBackupPolicy.toDelete(app, names, 1),
+        )
+    }
+
+    @Test
+    fun `copy numbers compare as numbers`() {
+        val names = listOf(copy("20260101000000", 10), copy("20260101000000", 2), name("20260101000000"))
+        assertEquals(
+            listOf(name("20260101000000"), copy("20260101000000", 2)),
+            AutoBackupPolicy.toDelete(app, names, 1),
+        )
+    }
+
+    @Test
+    fun `a shared folder with every build's backups and their copies only loses ours`() {
+        val preview = "InterTune Preview"
+        val theirs = listOf(
+            "InterTune_20_20260829151000.backup",
+            "InterTune_20_20260830145000.backup",
+            "InterTune_20_20260911190000 (1).backup",
+            "InterTune Debug_23_20260929220109.backup",
+            "InterTune Debug_23_20260929220109 (1).backup",
+            "OuterTune_21_20260101000000 (1).backup",
+            "InterTune Preview_25_20260929224700.backup.txt",
+            "notes (1).txt",
+        )
+        val ours = listOf(
+            "InterTune Preview_25_20260929224700.backup",
+            "InterTune Preview_25_20260929225000.backup",
+            "InterTune Preview_25_20260929225000 (1).backup",
+            "InterTune Preview_25_20260930213000.backup",
+        )
+        val doomed = AutoBackupPolicy.toDelete(preview, theirs + ours, 1)
+        assertEquals(ours.dropLast(1), doomed)
+        assertTrue(doomed.none { it in theirs })
+        // And the release build pruning the same folder leaves the Preview's and Debug's alone,
+        // copies included, even though its name is the start of theirs.
+        assertEquals(
+            listOf("InterTune_20_20260829151000.backup", "InterTune_20_20260830145000.backup"),
+            AutoBackupPolicy.toDelete("InterTune", theirs + ours, 1),
+        )
+    }
+
+    // Written under a temporary name until whole.
+
+    @Test
+    fun `a backup being written is not a backup, so nothing counts it or restores it`() {
+        val partial = AutoBackupPolicy.partialName(name("20260930223816"))
+        assertEquals("InterTune_21_20260930223816.backup.partial", partial)
+        assertFalse(AutoBackupPolicy.isBackup(app, partial))
+        // Android's provider numbers a clashing temporary name before its last dot.
+        assertFalse(AutoBackupPolicy.isBackup(app, "InterTune_21_20260930223816.backup (1).partial"))
+        // Nor does it count towards Keep: with one real backup and Keep 1, nothing goes.
+        assertEquals(emptyList<String>(), AutoBackupPolicy.toDelete(app, listOf(name("20260930000000"), partial), 1))
+    }
+
+    private val at = LocalDateTime.of(2026, 9, 30, 22, 38, 16)
+
+    @Test
+    fun `half-written backups more than an hour old are left over and go`() {
+        val names = listOf(
+            "InterTune_21_20260929220109.backup.partial",
+            "InterTune_21_20260930213815.backup.partial",
+            "InterTune_21_20260929220109.backup (1).partial",
+        )
+        assertEquals(names, AutoBackupPolicy.leftoverPartials(app, names, at))
+    }
+
+    @Test
+    fun `a write still within the hour is never taken for a leftover`() {
+        val names = listOf(
+            "InterTune_21_20260930223816.backup.partial",
+            "InterTune_21_20260930213817.backup.partial",
+            // A clock moved back makes a fresh one look like it is from the future.
+            "InterTune_21_20261001080000.backup.partial",
+        )
+        assertEquals(emptyList<String>(), AutoBackupPolicy.leftoverPartials(app, names, at))
+        // The line is an hour to the second.
+        assertEquals(
+            listOf("InterTune_21_20260930213815.backup.partial"),
+            AutoBackupPolicy.leftoverPartials(app, listOf("InterTune_21_20260930213815.backup.partial"), at),
+        )
+    }
+
+    @Test
+    fun `only this app's leftovers, never backups or anyone else's files`() {
+        val names = listOf(
+            name("20260101000000"),
+            copy("20260101000000", 1),
+            "InterTune Debug_23_20260929220109.backup.partial",
+            "OuterTune_21_20260101000000.backup.partial",
+            "InterTune_21_20260101000000.partial",
+            "InterTune_21_20260101000000.backup.partial.txt",
+            "InterTune_21_20260101000000 (1).backup.partial",
+            "download.partial",
+            "notes.txt",
+        )
+        assertEquals(emptyList<String>(), AutoBackupPolicy.leftoverPartials(app, names, at))
+        assertEquals(
+            listOf("InterTune Debug_23_20260929220109.backup.partial"),
+            AutoBackupPolicy.leftoverPartials("InterTune Debug", names, at),
+        )
+    }
+
+    // Keep changing.
+
+    /** The Preview's files on 30 Sep, as the phone listed them before the launch at 22:38. */
+    private val previewFolder = listOf(
+        "20260929224700", "20260929225000", "20260929225100", "20260929230500",
+        "20260930083300", "20260930093100", "20260930101800", "20260930122100",
+        "20260930151900", "20260930174300", "20260930174303", "20260930194248",
+        "20260930194251", "20260930211700",
+    ).map { "InterTune Preview_25_$it.backup" }
+
+    @Test
+    fun `a Keep high enough for everything there removes nothing`() {
+        assertEquals(14, previewFolder.count { AutoBackupPolicy.isBackup("InterTune Preview", it) })
+        assertEquals(emptyList<String>(), AutoBackupPolicy.toDelete("InterTune Preview", previewFolder, 14))
+        assertEquals(emptyList<String>(), AutoBackupPolicy.toDelete("InterTune Preview", previewFolder, 20))
+    }
+
+    @Test
+    fun `lowering Keep to 5 leaves the five newest`() {
+        val doomed = AutoBackupPolicy.toDelete("InterTune Preview", previewFolder, 5)
+        assertEquals(previewFolder.take(9), doomed)
+        assertEquals(previewFolder.takeLast(5), previewFolder - doomed.toSet())
+    }
+
+    @Test
+    fun `the launch at 22_38 wrote two more and removed eleven, which is Keep 5 holding`() {
+        // Its log: two files a second apart, then eleven "Removed" lines from the first run.
+        val folder = previewFolder + listOf(
+            "InterTune Preview_25_20260930223816.backup",
+            "InterTune Preview_25_20260930223817.backup",
+        )
+        assertEquals(11, AutoBackupPolicy.toDelete("InterTune Preview", folder, 5).size)
+    }
+
+    @Test
+    fun `raising Keep never removes anything that lowering it would keep`() {
+        for (keep in 1..20) {
+            val atKeep = AutoBackupPolicy.toDelete("InterTune Preview", previewFolder, keep).toSet()
+            val atMore = AutoBackupPolicy.toDelete("InterTune Preview", previewFolder, keep + 1).toSet()
+            assertTrue("keep $keep", atKeep.containsAll(atMore))
+            assertEquals("keep $keep", maxOf(0, previewFolder.size - keep), atKeep.size)
+        }
+    }
+
+    // Whether a run writes at all.
+
+    private val hour = 3_600_000L
+    private val day = 24 * hour
+    private val now = 1_790_000_000_000L
+
+    private fun scheduledSkips(lastBackupAt: Long, hours: Int = 24) =
+        AutoBackupPolicy.shouldSkip(manual = false, requestedAt = 0L, lastBackupAt = lastBackupAt, now = now, intervalHours = hours)
+
+    @Test
+    fun `a scheduled run with no backup before it writes`() {
+        assertFalse(scheduledSkips(0L))
+        assertFalse(scheduledSkips(-1L))
+    }
+
+    @Test
+    fun `a scheduled run seconds after the last backup writes nothing`() {
+        // The pairs on the phone: 17:43:00 and 17:43:03, 19:42:48 and 19:42:51.
+        assertTrue(scheduledSkips(now - 3_000L))
+        assertTrue(scheduledSkips(now))
+    }
+
+    @Test
+    fun `a scheduled run each time the app opened writes nothing inside the interval`() {
+        // 22:47, 22:50, 22:51 and 23:05 on 29 Sep, then 08:33 the next morning: one backup a day.
+        assertTrue(scheduledSkips(now - 3 * 60_000L))
+        assertTrue(scheduledSkips(now - 18 * 60_000L))
+        assertTrue(scheduledSkips(now - 9 * hour - 46 * 60_000L))
+        assertTrue(scheduledSkips(now - 17 * hour))
+    }
+
+    @Test
+    fun `a scheduled run on time writes`() {
+        // WorkManager never starts a period early, so a real one is at least the interval later.
+        assertFalse(scheduledSkips(now - day))
+        assertFalse(scheduledSkips(now - day - 1))
+        assertFalse(scheduledSkips(now - 30 * day))
+    }
+
+    @Test
+    fun `the line is three quarters of the interval`() {
+        assertTrue(scheduledSkips(now - 18 * hour + 1))
+        assertFalse(scheduledSkips(now - 18 * hour))
+        assertTrue(scheduledSkips(now - 4 * hour - 30 * 60_000L + 1, hours = 6))
+        assertFalse(scheduledSkips(now - 4 * hour - 30 * 60_000L, hours = 6))
+        assertTrue(scheduledSkips(now - 270 * day, hours = 8760))
+        assertFalse(scheduledSkips(now - 274 * day, hours = 8760))
+    }
+
+    @Test
+    fun `a nonsense interval is treated as an hour rather than as never`() {
+        assertTrue(scheduledSkips(now - 60_000L, hours = 0))
+        assertFalse(scheduledSkips(now - hour, hours = 0))
+        assertFalse(scheduledSkips(now - hour, hours = -5))
+    }
+
+    @Test
+    fun `a last backup in the future does not hold backups off`() {
+        // The clock was moved back. Waiting for it to catch up could be months without a backup.
+        assertFalse(scheduledSkips(now + hour))
+        assertFalse(scheduledSkips(now + 400 * day))
+    }
+
+    @Test
+    fun `Back up now always writes when it is pressed`() {
+        val pressed = now - 1_000L
+        // However recent the last backup, even one from this same second.
+        for (last in listOf(0L, now - 30 * day, now - 5_000L, pressed - 1)) {
+            assertFalse(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = pressed, lastBackupAt = last, now = now, intervalHours = 24))
+        }
+        // A request from before this version, with no time on it, writes too.
+        assertFalse(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = 0L, lastBackupAt = now - 1_000L, now = now, intervalHours = 24))
+    }
+
+    @Test
+    fun `Back up now started again by WorkManager does not write a second copy`() {
+        // The first attempt was stopped but its write cannot be, so it finished and recorded a
+        // backup that started after the press. The restarted attempt has nothing left to do.
+        val pressed = now - 4_000L
+        assertTrue(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = pressed, lastBackupAt = pressed + 200L, now = now, intervalHours = 24))
+        assertTrue(AutoBackupPolicy.shouldSkip(manual = true, requestedAt = pressed, lastBackupAt = pressed, now = now, intervalHours = 24))
+    }
 }
