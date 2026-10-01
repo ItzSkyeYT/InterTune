@@ -767,7 +767,7 @@ class MixWatchTest {
 
     @Test
     fun aSongThatPausesTwiceWithAChorusMisplacedIsNotCutUp() {
-        // From the second review of 25 Sep: two six second pauses and a window placed on a chorus.
+        // Seen on 25 Sep: two six second pauses and a window placed on a chorus.
         val windows = listOf(0 to 30.0, 12 to 42.0, 24 to 54.0, 36 to 60.0, 48 to 72.0, 60 to 84.0, 72 to 40.0,
             84 to 108.0, 96 to 114.0, 108 to 126.0, 120 to 138.0, 132 to 40.0, 144 to 162.0, 156 to 174.0)
         val watch = CutWatch()
