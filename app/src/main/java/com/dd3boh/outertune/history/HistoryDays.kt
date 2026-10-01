@@ -66,11 +66,15 @@ class HistoryFormat(
     private fun formatter(skeleton: String): DateTimeFormatter =
         formatters.getOrPut(skeleton) { DateTimeFormatter.ofPattern(pattern(locale, skeleton), locale) }
 
+    /** The day as the locale writes it inside a sentence: "lundi 28 septembre" in French, as in the queue's title. */
     fun day(day: HistoryDay): String = when (day) {
         HistoryDay.Today -> today
         HistoryDay.Yesterday -> yesterday
         is HistoryDay.On -> formatter(daySkeleton(day.withYear)).format(day.date)
     }
+
+    /** The day over its plays, which starts with a capital in every language: "Lundi 28 septembre". */
+    fun heading(day: HistoryDay): String = day(day).replaceFirstChar { it.titlecase(locale) }
 
     fun time(start: LocalDateTime): String = formatter(timeSkeleton(is24Hour)).format(start)
 

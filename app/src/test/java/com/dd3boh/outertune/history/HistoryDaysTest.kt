@@ -160,8 +160,12 @@ class HistoryDaysTest {
     }
 
     @Test
-    fun `French day names come from the locale`() {
+    fun `French day names come from the locale, with a capital over the plays`() {
         val f = HistoryFormat(Locale.FRANCE, true, "Aujourd'hui", "Hier") { _, skeleton -> britishPatterns.getValue(skeleton) }
-        assertEquals("lundi 28 septembre", f.day(HistoryDay.On(LocalDate.of(2026, 9, 28), withYear = false)))
+        val monday = HistoryDay.On(LocalDate.of(2026, 9, 28), withYear = false)
+        assertEquals("Lundi 28 septembre", f.heading(monday))
+        // In the queue's title it follows a colon, so it stays as French writes it there.
+        assertEquals("lundi 28 septembre", f.day(monday))
+        assertEquals("Aujourd'hui", f.heading(HistoryDay.Today))
     }
 }

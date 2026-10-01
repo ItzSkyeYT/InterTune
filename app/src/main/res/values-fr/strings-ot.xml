@@ -58,7 +58,7 @@
     <string name="token_adv_login_description">Il s\'agit d\'une méthode de connexion avancée. En guise d\'alternative au portail Web, vous pouvez saisir ou mettre à jour directement votre jeton de connexion ici. Par exemple, cela peut accélérer la connexion sur plusieurs appareils. Veuillez noter que tout format de jeton non valide que l\'application ne parvient pas à analyser ne sera pas accepté</string>
     <string name="audio_offload_description">Utilisez le chemin audio de déchargement pour la lecture audio. L\'activation de cette option peut réduire la consommation d\'énergie, mais peut entraîner des problèmes de lecture audio ou de post-traitement. Cette préférence n\'a aucun effet sur les codecs ou appareils non pris en charge.</string>
     <string name="min_playback_duration">Durée minimale de lecture</string>
-    <string name="min_playback_duration_description">La part d\'un titre qui doit être lue pour compter comme une lecture, en pourcentage de sa durée. C\'est ce qui décide du nombre de lectures, des titres les plus joués et de ce qui part dans votre historique YouTube. L\'historique montre chaque titre écouté au moins 5 secondes, quel que soit ce réglage. Plus bas, les titres passés comptent quand même ; plus haut, seuls les titres vraiment écoutés jusqu\'au bout comptent.</string>
+    <string name="min_playback_duration_description">La part d\'un titre qui doit être lue pour compter comme une lecture, en pourcentage de sa durée. C\'est ce qui décide du nombre de lectures, des titres les plus joués et de ce qui est envoyé à votre historique YouTube. Plus bas, les titres passés comptent quand même ; plus haut, seuls les titres écoutés en grande partie comptent. La page Historique affiche chaque titre écouté au moins 5 secondes, quel que soit ce réglage.</string>
     <string name="lyrics_prefer_local">Préférez les fichiers de paroles locaux</string>
     <string name="lyrics_settings_title">Paroles</string>
     <string name="slim_navbar_title">Barre de navigation fine</string>
@@ -405,7 +405,7 @@
     <string name="stop_music_on_task_clear_description">Arrêter la musique quand vous balayez l\'application hors des applications récentes.</string>
     <string name="enable_dynamic_theme_description">Reprendre les couleurs de l\'application depuis votre fond d\'écran.</string>
     <string name="pure_black_description">Utiliser du vrai noir au lieu du gris foncé. Sur un écran OLED, cela économise aussi un peu de batterie.</string>
-    <string name="min_playback_duration_short">Quelle part d\'un morceau doit être écoutée pour compter comme une écoute. L\'historique montre quand même chaque morceau écouté au moins 5 secondes.</string>
+    <string name="min_playback_duration_short">La part d\'un titre qui doit être lue pour compter comme une lecture. La page Historique affiche quand même chaque titre écouté au moins 5 secondes.</string>
     <string name="throttle_banner_title">YouTube a suspendu cette connexion</string>
 
     <!-- General -->

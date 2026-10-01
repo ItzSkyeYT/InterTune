@@ -100,7 +100,10 @@ fun SongListItem(
     onPlay: () -> Unit,
     dragHandleModifier: Modifier? = null,
     modifier: Modifier = Modifier,
-    /** Why a recommendation row holds this card; shown in place of the length, which matters least there. */
+    /**
+     * Shown in place of the length: why a recommendation row holds this card, where the length
+     * matters least. Empty leaves the length out, as History does, whose rows carry a time instead.
+     */
     caption: String? = null,
     /** On a recommendation card: the menu offers Not this song, Less of this artist, Never this artist. */
     onExclude: ((kind: Int, reason: Int) -> Unit)? = null,

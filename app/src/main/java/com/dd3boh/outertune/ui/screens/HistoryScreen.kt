@@ -372,7 +372,7 @@ fun HistoryScreen(
                 filteredDays.forEach { group ->
                     stickyHeader {
                         NavigationTitle(
-                            title = format.day(group.day),
+                            title = format.heading(group.day),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(MaterialTheme.colorScheme.surface)
@@ -420,7 +420,9 @@ fun HistoryScreen(
                                     )
                                 }
                             },
-                            // When it started, on the clock where it was played.
+                            // When it started, on the clock where it was played. The song's length
+                            // leaves the subtitle, so the row has one time on it and that is this one.
+                            caption = "",
                             trailingText = format.time(entry.start),
                             modifier = Modifier
                                 .fillMaxWidth()
