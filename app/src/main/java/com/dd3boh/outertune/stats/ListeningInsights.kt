@@ -223,8 +223,8 @@ object ListeningInsights {
 
     /** One listen, with its artist and its local times worked out once. */
     private class Row(val l: StatsListen, val artistId: String?) {
-        // One row on his phone was closed without ever being opened and carried a start of 0,
-        // 1970. Its end and length are right, so it is dated back from those.
+        // One row in one real library was closed without ever being opened and carried a start of
+        // 0, 1970. Its end and length are right, so it is dated back from those.
         val start: Long = if (l.startedAt > 0) l.startedAt else l.endedAt - l.playedMs.coerceAtLeast(0)
         val local: Long = start + l.tzOffsetMin * MINUTE_MS
         val day: Long = Math.floorDiv(local, DAY_MS)
