@@ -313,6 +313,7 @@ class RecognitionEngine @Inject constructor(
         override var searchedSongs: Set<String> = emptySet(),
         override var reopened: Boolean = false,
         override var replaced: SongItem? = null,
+        override var failedRun: MixSearch.FailedRun? = null,
         /**
          * The uploads, as ids, that a choice for it offered and the person answered None of these
          * to. Its later searches leave them out: see [MixSearch.turnedDown].
@@ -1238,6 +1239,10 @@ class RecognitionEngine @Inject constructor(
         )
         // What came of it, and why: which upload was taken or put first, or why none was.
         fun picked(what: String) = Log.i(TAG, "Mashup of ${titles.joinToString(" + ")}: $what")
+        // Songs noted as searched for after a query failed on search after search for them.
+        fun gaveUp(songs: Set<String>) {
+            if (songs.isNotEmpty()) picked("a query failed on ${MixSearch.FAILED_SEARCHES} searches in a row for ${songs.joinToString { "'$it'" }}, noted as searched for")
+        }
         // Nothing on YouTube names two of the pieces, so there is no mashup to point at, and the
         // songs heard stay as they are. One odd window with only a toss-up is left alone too, and
         // so is an answer already given, unless an upload names a song it does not cover along
@@ -1278,8 +1283,9 @@ class RecognitionEngine @Inject constructor(
                 active.heard = (active.heard + songs).distinctBy { song -> song.key }
                 // Searched for with another song, and nothing found that the person has not turned
                 // down names it with one and is thought more of than the answer given: not searched
-                // for again, once every query went through (MixSearch.follow).
-                MixSearch.follow(outcome, active, lookedFor, search.complete)
+                // for again, once every query went through, or once a query has failed on search
+                // after search for it (MixSearch.follow).
+                gaveUp(MixSearch.follow(outcome, active, lookedFor, search.complete, uncovered))
                 retract(found.pieces)
             }
             return
@@ -1301,7 +1307,7 @@ class RecognitionEngine @Inject constructor(
         // Noted as searched for, if every query went through. And when the earlier answer did not
         // name a song now heard with another, and an upload does: asked again, never answered by
         // itself, and no longer known to be the upload it was, or how long it runs.
-        MixSearch.follow(outcome, current, lookedFor, search.complete)
+        gaveUp(MixSearch.follow(outcome, current, lookedFor, search.complete, uncovered))
         // The upload answered with before stays where it was put, unless another is picked from the
         // choice: see MixSearch.replacedBy.
         if (outcome.reopens) current.replaced?.let {

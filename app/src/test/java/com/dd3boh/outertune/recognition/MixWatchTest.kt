@@ -1706,7 +1706,7 @@ class MixWatchTest {
             val weak = MixSearch.outcome(uncovered, taken, false, ranked, true, winner, false, songs)
             assertEquals("$scores", MixSearch.Outcome.STAND_FOR_NOW, weak)
             val held = Held(found = taken, settled = true, searchedSongs = searched)
-            MixSearch.follow(weak, held, MixSearch.queried(MixSearch.searchOrder(songs, uncovered)), complete = true)
+            MixSearch.follow(weak, held, MixSearch.queried(MixSearch.searchOrder(songs, uncovered)), complete = true, uncovered = uncovered)
             assertEquals(listOf("numb"), MixSearch.uncovered(held.settled, held.found, held.searchedSongs, songs, songs).map { it.key })
         }
     }
@@ -1719,6 +1719,7 @@ class MixWatchTest {
         override var reopened: Boolean = false,
         override var endsAtMs: Long? = null,
         override var replaced: SongItem? = null,
+        override var failedRun: MixSearch.FailedRun? = null,
     ) : MixSearch.Answer
 
     @Test
@@ -1730,7 +1731,7 @@ class MixWatchTest {
 
         // Nothing names Numb with another song: the answer stays as it was, and Numb is noted, so
         // its next return does not search again.
-        val stood = answered().also { MixSearch.follow(MixSearch.Outcome.STAND, it, lookedFor, complete = true) }
+        val stood = answered().also { MixSearch.follow(MixSearch.Outcome.STAND, it, lookedFor, complete = true, uncovered = uncovered) }
         assertEquals(setOf("faint", "numb"), stood.searchedSongs)
         assertTrue(stood.settled && !stood.reopened)
         assertEquals(faintNoLove, stood.found)
@@ -1738,13 +1739,13 @@ class MixWatchTest {
         assertTrue(MixSearch.uncovered(stood.settled, stood.found, stood.searchedSongs, songs, songs).isEmpty())
 
         // Failed, or a weak toss-up: nothing changes, and the next return searches again.
-        val forNow = answered().also { MixSearch.follow(MixSearch.Outcome.STAND_FOR_NOW, it, lookedFor, complete = true) }
+        val forNow = answered().also { MixSearch.follow(MixSearch.Outcome.STAND_FOR_NOW, it, lookedFor, complete = true, uncovered = uncovered) }
         assertEquals(searchedFaint, forNow.searchedSongs)
         assertEquals(listOf("numb"), MixSearch.uncovered(forNow.settled, forNow.found, forNow.searchedSongs, songs, songs).map { it.key })
 
         // An upload names Numb with another song: set aside and asked again, never answered by
         // itself, the upload it was and its length forgotten, and kept as the one to replace.
-        val reopened = answered().also { MixSearch.follow(MixSearch.Outcome.REOPEN, it, lookedFor, complete = true) }
+        val reopened = answered().also { MixSearch.follow(MixSearch.Outcome.REOPEN, it, lookedFor, complete = true, uncovered = uncovered) }
         assertFalse(reopened.settled)
         assertTrue(reopened.reopened)
         assertNull(reopened.found)
@@ -1765,18 +1766,18 @@ class MixWatchTest {
 
         // Asked again after None of these: the upload before that is still the one to replace.
         val dismissed = Held(settled = true, searchedSongs = setOf("faint"), reopened = true, replaced = faintNoLove)
-        MixSearch.follow(MixSearch.Outcome.REOPEN, dismissed, lookedFor, complete = true)
+        MixSearch.follow(MixSearch.Outcome.REOPEN, dismissed, lookedFor, complete = true, uncovered = uncovered)
         assertEquals(faintNoLove, dismissed.replaced)
 
         // A mashup never answered, or asked and not answered yet: noted, nothing set aside.
         for (outcome in listOf(MixSearch.Outcome.ANSWER, MixSearch.Outcome.ASK)) {
-            val open = Held().also { MixSearch.follow(outcome, it, lookedFor, complete = true) }
+            val open = Held().also { MixSearch.follow(outcome, it, lookedFor, complete = true, uncovered = uncovered) }
             assertEquals(setOf("numb", "faint"), open.searchedSongs)
             assertFalse(open.reopened || open.settled)
             assertNull(open.replaced)
         }
         // Left alone: nothing at all.
-        val left = answered().also { MixSearch.follow(MixSearch.Outcome.LEAVE, it, lookedFor, complete = true) }
+        val left = answered().also { MixSearch.follow(MixSearch.Outcome.LEAVE, it, lookedFor, complete = true, uncovered = uncovered) }
         assertEquals(searchedFaint, left.searchedSongs)
         assertTrue(left.settled)
     }
@@ -1790,12 +1791,12 @@ class MixWatchTest {
         // answered or asked about, the songs were noted when a query had failed as well.
         for (outcome in MixSearch.Outcome.entries) for (complete in listOf(true, false)) {
             val held = Held(found = faintNoLove, settled = true, searchedSongs = searchedFaint)
-            MixSearch.follow(outcome, held, lookedFor, complete)
+            MixSearch.follow(outcome, held, lookedFor, complete, uncovered)
             assertEquals("$outcome, complete $complete", if (outcome.notes && complete) setOf("faint", "numb") else searchedFaint, held.searchedSongs)
         }
         // The rest of what it does is the same: set aside and asked again.
         val reopened = Held(found = faintNoLove, settled = true, searchedSongs = searchedFaint)
-        MixSearch.follow(MixSearch.Outcome.REOPEN, reopened, lookedFor, complete = false)
+        MixSearch.follow(MixSearch.Outcome.REOPEN, reopened, lookedFor, complete = false, uncovered = uncovered)
         assertTrue(reopened.reopened && !reopened.settled)
         assertEquals(faintNoLove, reopened.replaced)
 
@@ -1809,7 +1810,7 @@ class MixWatchTest {
         assertEquals(MixSearch.Outcome.ANSWER, asked)
         for (complete in listOf(true, false)) {
             val held = Held(searchedSongs = searchedFaint)
-            MixSearch.follow(asked, held, MixSearch.queried(two), complete)
+            MixSearch.follow(asked, held, MixSearch.queried(two), complete, uncovered = emptyList())
             held.searchedSongs = MixSearch.afterChoice(held.searchedSongs, two.map(MixSearch::songId).toSet(), null)
             held.settled = true
             val left = MixSearch.uncovered(held.settled, held.found, held.searchedSongs, two, listOf(faintPiece))
@@ -1820,7 +1821,7 @@ class MixWatchTest {
         // upload taken says what it covers. Numb, which it does not name, searches when it comes
         // back. Before, with nothing noted, nothing ever searched again.
         val taken = Held()
-        MixSearch.follow(MixSearch.Outcome.ANSWER, taken, MixSearch.queried(songs), complete = false)
+        MixSearch.follow(MixSearch.Outcome.ANSWER, taken, MixSearch.queried(songs), complete = false, uncovered = emptyList())
         assertTrue(taken.searchedSongs.isEmpty())
         taken.found = faintNoLove
         taken.settled = true
@@ -1841,7 +1842,7 @@ class MixWatchTest {
         val found = MixSearch.rank(two, listOf(listOf(otherMashup, faintNoLove)), 1.0)
         val asked = MixSearch.outcome(emptyList(), null, false, found, false, MixSearch.clearWinner(found, two), true, two)
         assertEquals(MixSearch.Outcome.ANSWER, asked)
-        MixSearch.follow(asked, held, MixSearch.queried(two), complete = false)
+        MixSearch.follow(asked, held, MixSearch.queried(two), complete = false, uncovered = emptyList())
         assertEquals(searchedFaint, held.searchedSongs)
         val offered = found.map { it.first }
         assertEquals(listOf(otherMashup, faintNoLove), offered)
@@ -1892,7 +1893,7 @@ class MixWatchTest {
             val found = MixSearch.rank(order, results, 1.0)
             val reopen = MixSearch.outcome(uncovered, held.found, false, found, complete, MixSearch.clearWinner(found, songs), true, songs)
             assertEquals(MixSearch.Outcome.REOPEN, reopen)
-            MixSearch.follow(reopen, held, MixSearch.queried(order), complete)
+            MixSearch.follow(reopen, held, MixSearch.queried(order), complete, uncovered)
             held.settled = true
             held.searchedSongs = MixSearch.afterChoice(held.searchedSongs, songs.map(MixSearch::songId).toSet(), null)
             val declined = MixSearch.turnedDown(emptySet(), found.map { it.first })
@@ -1901,23 +1902,98 @@ class MixWatchTest {
             // answer set aside named, is uncovered too. Before, its return asked again with the
             // same choice, once after a search that went through, and after one where a query
             // failed, on every return for as long as the query kept failing.
-            var rounds = 0
-            while (rounds < 4) {
+            var returns = 0
+            while (returns < 5) {
                 val left = MixSearch.uncovered(held.settled, held.found, held.searchedSongs, songs, songs)
                 if (left.isEmpty()) break
-                assertTrue("complete $complete, round $rounds", left.any { it.key == "nolove" })
+                assertTrue("complete $complete, return $returns", left.any { it.key == "nolove" })
                 val again = MixSearch.rank(MixSearch.searchOrder(songs, left), results, 1.0)
                 val kept = MixSearch.outcome(left, held.found, true, again, complete, MixSearch.clearWinner(again, songs), true, songs)
                 assertEquals(MixSearch.Outcome.REOPEN, kept)
                 val asked = MixSearch.notDeclined(again, declined)!!
                 val outcome = MixSearch.outcome(left, held.found, true, asked, complete, MixSearch.clearWinner(asked, songs), true, songs)
-                assertEquals("complete $complete, round $rounds", if (complete) MixSearch.Outcome.STAND else MixSearch.Outcome.STAND_FOR_NOW, outcome)
-                MixSearch.follow(outcome, held, MixSearch.queried(MixSearch.searchOrder(songs, left)), complete)
-                rounds++
+                assertEquals("complete $complete, return $returns", if (complete) MixSearch.Outcome.STAND else MixSearch.Outcome.STAND_FOR_NOW, outcome)
+                MixSearch.follow(outcome, held, MixSearch.queried(MixSearch.searchOrder(songs, left)), complete, left)
+                returns++
             }
             // Once, noting No Love, when the search went through; and never a choice either way.
-            assertEquals(if (complete) 1 else 4, rounds)
+            // With a query failing every time, three times, and then the songs are noted all the
+            // same: see failedRun.
+            assertEquals(if (complete) 1 else MixSearch.FAILED_SEARCHES, returns)
         }
+    }
+
+    /**
+     * Faint x No Love picked from the one-song choice for Faint, and then Numb coming back with
+     * one or the other, again and again, while one of the queries keeps failing. A search where a
+     * query failed notes nothing, so every return of Numb searched YouTube again, for as long as
+     * the query kept failing: seven returns of seven, and eleven of eleven.
+     */
+    @Test
+    fun `three searches in a row with a query failing for the same songs note them`() {
+        val numb = "numb" to ("Numb" to "Linkin Park")
+        val (songs, _) = pickedThenThird(numb)
+        val withFaint = listOf(sighting(numb, 400), sighting(faint, 412))
+        val withNoLove = listOf(sighting(numb, 400), sighting(noLove, 412))
+        val held = Held(found = faintNoLove, settled = true, searchedSongs = searchedFaint)
+        // A return of Numb searched for, with what came of the search: the songs noted because
+        // searches in a row for them kept failing.
+        fun search(back: List<MixWatch.Sighting>, outcome: MixSearch.Outcome, complete: Boolean): Set<String> {
+            val left = MixSearch.uncovered(held.settled, held.found, held.searchedSongs, back, songs)
+            assertEquals(listOf("numb"), left.map { it.key })
+            return MixSearch.follow(outcome, held, MixSearch.queried(MixSearch.searchOrder(back, left)), complete, left)
+        }
+        // Numb with Faint, then with No Love, then with Faint: the queries take Numb with whichever
+        // came with it, and Numb is what each search was for. The third notes it.
+        assertEquals(emptySet<String>(), search(withFaint, MixSearch.Outcome.STAND_FOR_NOW, complete = false))
+        assertEquals(MixSearch.FailedRun(setOf("numb"), 1), held.failedRun)
+        assertEquals(emptySet<String>(), search(withNoLove, MixSearch.Outcome.STAND_FOR_NOW, complete = false))
+        assertEquals(setOf("numb"), search(withFaint, MixSearch.Outcome.STAND_FOR_NOW, complete = false))
+        assertEquals(setOf("faint", "numb"), held.searchedSongs)
+        assertNull(held.failedRun)
+        // Its next return searches nothing.
+        assertTrue(MixSearch.uncovered(held.settled, held.found, held.searchedSongs, withNoLove, songs).isEmpty())
+
+        // A search that went through in between, here one odd window with only a toss-up, which
+        // notes nothing either, starts the count again.
+        held.searchedSongs = searchedFaint
+        for ((outcome, complete) in listOf(
+            MixSearch.Outcome.STAND_FOR_NOW to false, MixSearch.Outcome.STAND_FOR_NOW to false,
+            MixSearch.Outcome.STAND_FOR_NOW to true,
+            MixSearch.Outcome.STAND_FOR_NOW to false, MixSearch.Outcome.STAND_FOR_NOW to false,
+        )) assertEquals(emptySet<String>(), search(withFaint, outcome, complete))
+        assertEquals(searchedFaint, held.searchedSongs)
+        assertEquals(setOf("numb"), search(withFaint, MixSearch.Outcome.STAND_FOR_NOW, complete = false))
+
+        // Whatever came of it: a third search that finds an upload naming Numb, and asks again,
+        // notes Numb all the same.
+        held.searchedSongs = searchedFaint
+        repeat(2) { assertEquals(emptySet<String>(), search(withNoLove, MixSearch.Outcome.STAND_FOR_NOW, complete = false)) }
+        assertEquals(setOf("numb"), search(withNoLove, MixSearch.Outcome.REOPEN, complete = false))
+        assertTrue(held.reopened && !held.settled)
+        assertEquals(setOf("faint", "numb"), held.searchedSongs)
+    }
+
+    @Test
+    fun `a run of failing searches is counted for the same songs an answer did not cover`() {
+        val numb = "numb" to ("Numb" to "Linkin Park")
+        val inTheEnd = "intheend" to ("In The End" to "Linkin Park")
+        val numbBack = listOf(sighting(numb, 0), sighting(faint, 12))
+        val numbOnly = listOf(sighting(numb, 0))
+        val one = MixSearch.failedRun(null, numbBack, numbOnly, complete = false)
+        assertEquals(MixSearch.FailedRun(setOf("numb"), 1), one)
+        // The same songs again: one more, whichever other song the queries took with them.
+        assertEquals(MixSearch.FailedRun(setOf("numb"), 2), MixSearch.failedRun(one, listOf(sighting(numb, 0), sighting(noLove, 12)), numbOnly, complete = false))
+        // Other songs uncovered: a run of its own.
+        val both = listOf(sighting(numb, 0), sighting(inTheEnd, 12))
+        assertEquals(MixSearch.FailedRun(setOf("numb", "in the end"), 1), MixSearch.failedRun(one, both, both, complete = false))
+        // Every query through, or nothing uncovered, as for a mashup never answered: no run.
+        assertNull(MixSearch.failedRun(one, numbBack, numbOnly, complete = true))
+        assertNull(MixSearch.failedRun(one, numbBack, emptyList(), complete = false))
+        // Only the songs the search looked for: a third uncovered song the queries never took is
+        // not noted for their failing.
+        val three = listOf(sighting(numb, 0), sighting(inTheEnd, 12), sighting(noLove, 24))
+        assertEquals(setOf("numb", "in the end"), MixSearch.failedRun(null, MixSearch.queried(three), three, complete = false)?.songs)
     }
 
     /**
@@ -1933,7 +2009,7 @@ class MixWatchTest {
         val found = MixSearch.rank(two, listOf(listOf(otherMashup, faintNoLove)), 1.0)
         val asked = MixSearch.outcome(emptyList(), null, false, found, false, MixSearch.clearWinner(found, two), true, two)
         assertEquals(MixSearch.Outcome.ANSWER, asked)
-        MixSearch.follow(asked, held, MixSearch.queried(two), complete = false)
+        MixSearch.follow(asked, held, MixSearch.queried(two), complete = false, uncovered = emptyList())
         held.settled = true
         held.searchedSongs = MixSearch.afterChoice(held.searchedSongs, two.map(MixSearch::songId).toSet(), null)
         assertTrue(held.searchedSongs.isEmpty())
