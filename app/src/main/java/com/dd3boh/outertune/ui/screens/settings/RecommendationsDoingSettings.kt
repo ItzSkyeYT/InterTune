@@ -56,8 +56,15 @@ import com.dd3boh.outertune.engine.EndLabel
 import com.dd3boh.outertune.engine.Features
 import com.dd3boh.outertune.engine.ListenDay
 import com.dd3boh.outertune.engine.Trend
-import com.dd3boh.outertune.engine.brierReference
-import com.dd3boh.outertune.engine.brierComparison
+import com.dd3boh.outertune.engine.HeldRow
+import com.dd3boh.outertune.engine.NotSourceText
+import com.dd3boh.outertune.engine.PredictionLine
+import com.dd3boh.outertune.engine.ShadowLine
+import com.dd3boh.outertune.engine.brierFooter
+import com.dd3boh.outertune.engine.engineRowsHeld
+import com.dd3boh.outertune.engine.notSourceText
+import com.dd3boh.outertune.engine.predictionLine
+import com.dd3boh.outertune.engine.shadowLine
 import com.dd3boh.outertune.engine.cardsByTeam
 import com.dd3boh.outertune.engine.cardsSeen
 import com.dd3boh.outertune.engine.clockLength
@@ -86,7 +93,6 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
-import com.dd3boh.outertune.viewmodels.DISCOVER_ROW_KEY
 import com.dd3boh.outertune.viewmodels.DISCOVER_TEAM
 import com.dd3boh.outertune.viewmodels.RecommendationsViewModel
 import java.text.DateFormat
@@ -192,7 +198,8 @@ fun RecommendationsDoingSettings(
             showWeights = numbers
 
             val waiting = cardsSeenRows.firstOrNull { it.team == ENGINE_TEAM }?.waiting ?: 0
-            SummaryCard(doingSummary(engineShowing(quickPicksSource), teams, cardTrend, waiting, learnFromListening), locale)
+            val held = heldLines(buildScores, quickPicksSource)
+            SummaryCard(doingSummary(engineShowing(quickPicksSource), teams, cardTrend, waiting, learnFromListening, engineRowsHeld(held)), locale)
             Spacer(Modifier.height(16.dp))
 
             // Named for every source, not for Best recommendations: Cards played and Rows that
@@ -219,33 +226,49 @@ fun RecommendationsDoingSettings(
             }
             // A switch, not a figure, so it stays when there is nothing to count: with another
             // source showing, it is what lets the engine be judged at all. With Best
-            // recommendations already in the row it builds nothing, and its line says so.
+            // recommendations already in the row it builds nothing, and its line says so. With
+            // Learn from listening off its rows wait unchecked, so the line does not promise a
+            // day later.
             ExplainedSwitchPreference(
                 title = stringResource(R.string.shadow_comparison),
                 explanation = stringResource(R.string.shadow_comparison_info),
                 description = stringResource(
-                    if (engineShowing(quickPicksSource)) R.string.shadow_comparison_unused else R.string.shadow_comparison_description
+                    when (shadowLine(engineShowing(quickPicksSource), learnFromListening)) {
+                        ShadowLine.UNUSED -> R.string.shadow_comparison_unused
+                        ShadowLine.CHECKED -> R.string.shadow_comparison_description
+                        ShadowLine.NOT_CHECKED -> R.string.shadow_comparison_not_learning
+                    }
                 ),
                 checked = shadowComparison,
                 onCheckedChange = onShadowComparisonChange,
             )
             if (numbers) {
-                val rowNames = mapOf(1 to stringResource(R.string.recommendations_team_engine), 2 to stringResource(R.string.recommendations_team_library), 3 to stringResource(R.string.recommendations_team_youtube), 4 to stringResource(R.string.recommendations_row_shadow), DISCOVER_ROW_KEY to stringResource(R.string.discover_something_new))
+                val rowNames = mapOf(
+                    HeldRow.ENGINE to stringResource(R.string.recommendations_team_engine),
+                    HeldRow.ENGINE_BEFORE to stringResource(R.string.recommendations_row_engine_before),
+                    HeldRow.ENGINE_ALONE_BEFORE to stringResource(R.string.recommendations_row_engine_alone_before),
+                    HeldRow.LIBRARY to stringResource(R.string.recommendations_team_library),
+                    HeldRow.YOUTUBE to stringResource(R.string.recommendations_team_youtube),
+                    HeldRow.UNSEEN to stringResource(R.string.recommendations_row_shadow),
+                    HeldRow.TRY_BOTH to stringResource(R.string.recommendations_row_try_both),
+                    HeldRow.TRY_BOTH_BEFORE to stringResource(R.string.recommendations_row_try_both_before),
+                    HeldRow.DISCOVER to stringResource(R.string.discover_something_new),
+                )
                 StatEntry(
                     title = stringResource(R.string.recommendations_held),
                     explanation = stringResource(R.string.recommendations_held_info),
                     // A build is each time the row on screen changed, or the unseen one was built
                     // again: a refresh, which a reader can picture where "26 rows" was a puzzle.
                     // Each line says the songs it counts are those after its own refreshes, so two
-                    // lines with different totals do not read as two counts of the same songs.
-                    numbers = heldLines(buildScores, engineShowing(quickPicksSource)).map { l ->
-                        val name = if (l.fromBefore) stringResource(R.string.recommendations_row_engine_before)
-                            else rowNames[l.rowKey] ?: l.rowKey.toString()
+                    // lines with different totals do not read as two counts of the same songs, and
+                    // that a card you tapped is one of them. With none it says why there is nothing
+                    // to compare.
+                    numbers = held.map { l ->
+                        val name = rowNames.getValue(l.row)
                         if (l.nothingToCompare) {
-                            stringResource(
-                                R.string.recommendations_held_nothing, name,
-                                pluralStringResource(R.plurals.recommendations_refreshes, l.refreshes, l.refreshes),
-                            )
+                            val after = if (oneInWords(l.refreshes)) stringResource(R.string.recommendations_after_refresh)
+                                else pluralStringResource(R.plurals.recommendations_after_any_refresh, l.refreshes, l.refreshes)
+                            stringResource(R.string.recommendations_held_nothing, name, after)
                         } else {
                             val after = if (oneInWords(l.refreshes)) stringResource(R.string.recommendations_after_refresh)
                                 else pluralStringResource(R.plurals.recommendations_after_refreshes, l.refreshes, l.refreshes)
@@ -260,30 +283,33 @@ fun RecommendationsDoingSettings(
                 // of the "i" as a detail for whoever wants one number. It says how many cards it
                 // covers: only those from a scored row carry a guess, which can be fewer than the
                 // summary counts. Chances are "in 100" all the way down, cards plain counts. The
-                // footer says first whether its guesses beat the same chance for every card, then
-                // the score beside that bar, since a small number alone reads as good whatever it
-                // measures, and a bar of 0.000 read as the lazy guess being the good one.
+                // footer says first whether its guesses beat the same chance for every card, named
+                // as the share played, then the score beside that bar, since a small number alone
+                // reads as good whatever it measures. With none played there is no score to give,
+                // and the footer says only that.
                 val brier = Calibration.brier(pairs)
-                val reference = brierReference(pairs)
                 val prediction = predictionOf(pairs)
                 val (expected, played) = per100Texts(prediction.expectedPer100, prediction.playedPer100, locale)
                 StatEntry(
                     title = stringResource(R.string.recommendations_brier),
                     explanation = stringResource(R.string.recommendations_brier_info),
-                    footer = brierComparison(pairs)?.let { verdict ->
-                        stringResource(
-                            when (verdict) {
-                                BrierVerdict.BETTER -> R.string.recommendations_brier_better
-                                BrierVerdict.SAME -> R.string.recommendations_brier_same
-                                BrierVerdict.WORSE -> R.string.recommendations_brier_worse
-                                BrierVerdict.NONE_PLAYED -> R.string.recommendations_brier_none_played
-                            },
-                        ) + " " + pluralStringResource(R.plurals.recommendations_brier_description, pairs.size, brier, pairs.size, reference)
+                    footer = brierFooter(pairs)?.let { f ->
+                        when (f.verdict) {
+                            BrierVerdict.NONE_PLAYED -> stringResource(R.string.recommendations_brier_none_played)
+                            BrierVerdict.BETTER -> stringResource(R.string.recommendations_brier_better, played)
+                            BrierVerdict.SAME -> stringResource(R.string.recommendations_brier_same, played)
+                            BrierVerdict.WORSE -> stringResource(R.string.recommendations_brier_worse, played)
+                        } + (if (f.score != null && f.reference != null) {
+                            " " + pluralStringResource(R.plurals.recommendations_brier_description, pairs.size, f.score, pairs.size, f.reference)
+                        } else "")
                     },
                     numbers = if (brier.isNaN()) stringResource(R.string.recommendations_nothing_yet)
                         else (listOf(
-                            if (oneInWords(prediction.cards)) stringResource(R.string.recommendations_predicted_of_single, expected, played)
-                            else pluralStringResource(R.plurals.recommendations_predicted_of, prediction.cards, prediction.cards, expected, played),
+                            when (predictionLine(prediction)) {
+                                PredictionLine.ONE_PLAYED -> stringResource(R.string.recommendations_predicted_of_single_played, expected)
+                                PredictionLine.ONE_NOT_PLAYED -> stringResource(R.string.recommendations_predicted_of_single, expected)
+                                PredictionLine.MANY -> pluralStringResource(R.plurals.recommendations_predicted_of, prediction.cards, prediction.cards, expected, played)
+                            },
                         ) +
                             // map, not the joinToString below it directly: map is inline and can
                             // call a composable function, joinToString's own lambda cannot.
@@ -476,17 +502,26 @@ private fun SummaryCard(summary: DoingSummary, locale: Locale) {
                 when (summary) {
                     // With its cards from before still waiting, it says they will count here,
                     // since Cards you saw below lists them.
+                    // With Learn from listening off they wait until it is back on. Rows that held
+                    // can still show its rows below, which the summary then says.
                     is DoingSummary.NotSource -> {
                         Text(
-                            text = if (oneInWords(summary.waiting)) {
-                                stringResource(R.string.recommendations_summary_not_source_waiting_single)
-                            } else if (summary.waiting > 0) {
-                                pluralStringResource(R.plurals.recommendations_summary_not_source_waiting, summary.waiting, summary.waiting)
-                            } else {
-                                stringResource(R.string.recommendations_summary_not_source)
+                            text = when (notSourceText(summary)) {
+                                NotSourceText.NOTHING -> stringResource(R.string.recommendations_summary_not_source)
+                                NotSourceText.WAITING_ONE -> stringResource(R.string.recommendations_summary_not_source_waiting_single)
+                                NotSourceText.WAITING -> pluralStringResource(R.plurals.recommendations_summary_not_source_waiting, summary.waiting, summary.waiting)
+                                NotSourceText.PAUSED_ONE -> stringResource(R.string.recommendations_summary_not_source_paused_single)
+                                NotSourceText.PAUSED -> pluralStringResource(R.plurals.recommendations_summary_not_source_paused, summary.waiting, summary.waiting)
                             },
                             style = MaterialTheme.typography.bodyLarge,
                         )
+                        if (summary.rowsBelow) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.recommendations_summary_rows_below),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
                         if (!summary.learning) LearningOffLine()
                     }
                     DoingSummary.Waiting -> Text(

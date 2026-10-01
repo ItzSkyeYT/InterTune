@@ -53,6 +53,9 @@ import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.constants.QuickPicksSourceKey
 import com.dd3boh.outertune.constants.SimilarSource
 import com.dd3boh.outertune.engine.SourceMix
+import com.dd3boh.outertune.engine.DISCOVER_ROW_KEY
+import com.dd3boh.outertune.engine.SHADOW_ROW_KEY
+import com.dd3boh.outertune.engine.quickPicksRowKey
 import com.dd3boh.outertune.utils.similarSourceOf
 import com.dd3boh.outertune.utils.LastFmSimilar
 import com.dd3boh.outertune.constants.orOffered
@@ -99,8 +102,7 @@ private const val SESSION_GAP_MS = 30L * 60 * 1000
 /** How long the engine's input is kept before being read again. */
 private const val ENGINE_INPUT_TTL_MS = 5L * 60 * 1000
 
-/** Discover something new in the build log: its own row key beside 1 to 5, and its own team beside 1 to 3. */
-const val DISCOVER_ROW_KEY = 6
+/** Discover something new's own team beside 1 to 3. Its row key is DISCOVER_ROW_KEY, with the others in RowKeys. */
 const val DISCOVER_TEAM = 4
 
 /** How long a load will wait for the "Similar to" rows before giving up on them for this pass. */
@@ -563,7 +565,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Default) {
             runCatching {
                 val now = System.currentTimeMillis()
-                val last = database.lastBuild(4)
+                val last = database.lastBuild(SHADOW_ROW_KEY)
                 if (last != null && rowIsFresh(last.builtAt, last.sessionId, last.bucket, now)) return@launch
                 val mode = similarMode()
                 val input = engineInput(now, mode)
@@ -573,7 +575,7 @@ class HomeViewModel @Inject constructor(
                 if (row.cards.isEmpty()) return@launch
                 database.transactionNow {
                     insert(RowBuild(
-                        builtAt = now, rowKey = 4, sessionId = currentSessionOf(now), bucket = input.bucket, dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness),
+                        builtAt = now, rowKey = SHADOW_ROW_KEY, sessionId = currentSessionOf(now), bucket = input.bucket, dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness),
                         seeds = EngineLoader.seedsJson(row.seeds), weights = weights.asMap().entries.joinToString(",", "{", "}") { "\"${it.key}\":${it.value}" },
                         pool = RowBuildCodec.encode(row.pool), cards = RowBuildCodec.encode(row.cards),
                         shownIds = row.cards.joinToString("\n") { it.songId },
@@ -790,7 +792,7 @@ class HomeViewModel @Inject constructor(
                 // song, and YouTube's row arrives from the feed, not from the table.
                 songs.forEach { if (!songExists(it.id)) insert(it) }
                 val sessionId = currentSessionOf(now)
-                val rowKey = when (source) { 1 -> 3; 2 -> 1; 3 -> 5; else -> 2 }
+                val rowKey = quickPicksRowKey(source)
                 val engineRow = lastEngineRow?.takeIf { source == 2 || source == 3 }
                 currentBuildId = insert(RowBuild(
                     builtAt = now, rowKey = rowKey, sessionId = sessionId, bucket = dayPartBucket(now),

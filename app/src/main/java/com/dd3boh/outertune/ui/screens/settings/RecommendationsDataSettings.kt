@@ -29,7 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.engine.oneInWords
+import com.dd3boh.outertune.engine.CountForm
+import com.dd3boh.outertune.engine.countForm
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.FloatingTopBar
@@ -169,7 +170,12 @@ private fun resultText(result: DataResult): String = when (result) {
         else pluralStringResource(R.plurals.recommendations_forgot, result.listens, result.listens)
     DataResult.ResetDone -> stringResource(R.string.recommendations_reset_done)
     DataResult.AlreadyAtStart -> stringResource(R.string.recommendations_already_at_start)
-    is DataResult.Rebuilt -> pluralStringResource(R.plurals.recommendations_rebuilt, result.cards, result.cards)
+    // Nought and one in words: "Rebuilt from 0 cards" read as if something had failed.
+    is DataResult.Rebuilt -> when (countForm(result.cards)) {
+        CountForm.NONE -> stringResource(R.string.recommendations_rebuilt_nothing)
+        CountForm.ONE -> stringResource(R.string.recommendations_rebuilt_single)
+        CountForm.MANY -> pluralStringResource(R.plurals.recommendations_rebuilt, result.cards, result.cards)
+    }
     DataResult.Saved -> stringResource(R.string.engine_data_export_done)
     DataResult.Loaded -> stringResource(R.string.engine_data_import_done)
     DataResult.Failed -> stringResource(R.string.recommendations_data_failed)
@@ -206,19 +212,19 @@ private fun AskFirstDialog(ask: DataAsk, onDismiss: () -> Unit, onConfirm: () ->
         }
         is DataAsk.Reset -> {
             title = stringResource(R.string.recommendations_reset_title)
-            what = when {
-                ask.cards == 0 -> stringResource(R.string.recommendations_reset_text_nothing)
-                oneInWords(ask.cards) -> stringResource(R.string.recommendations_reset_text_single)
-                else -> pluralStringResource(R.plurals.recommendations_reset_text, ask.cards, ask.cards)
+            what = when (countForm(ask.cards)) {
+                CountForm.NONE -> stringResource(R.string.recommendations_reset_text_nothing)
+                CountForm.ONE -> stringResource(R.string.recommendations_reset_text_single)
+                CountForm.MANY -> pluralStringResource(R.plurals.recommendations_reset_text, ask.cards, ask.cards)
             }
             confirm = stringResource(R.string.recommendations_reset_confirm)
         }
         is DataAsk.Rebuild -> {
             title = stringResource(R.string.recommendations_rebuild_title)
-            what = when {
-                ask.cards == 0 -> stringResource(R.string.recommendations_rebuild_text_nothing)
-                oneInWords(ask.cards) -> stringResource(R.string.recommendations_rebuild_text_single)
-                else -> pluralStringResource(R.plurals.recommendations_rebuild_text, ask.cards, ask.cards)
+            what = when (countForm(ask.cards)) {
+                CountForm.NONE -> stringResource(R.string.recommendations_rebuild_text_nothing)
+                CountForm.ONE -> stringResource(R.string.recommendations_rebuild_text_single)
+                CountForm.MANY -> pluralStringResource(R.plurals.recommendations_rebuild_text, ask.cards, ask.cards)
             }
             confirm = stringResource(R.string.recommendations_rebuild_confirm)
         }

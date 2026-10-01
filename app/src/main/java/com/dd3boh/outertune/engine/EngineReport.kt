@@ -112,10 +112,12 @@ sealed interface DoingSummary {
      * Another source fills Quick picks and the engine has no judged cards of its own to count.
      * [waiting] is how many it showed while it was the source that are not judged yet: they will
      * be, and then show as numbers from before, so "it has nothing to show" was untrue beside
-     * Cards you saw listing them. [learning] is false with Learn from listening off, when nothing
-     * is judged and nothing waits for it.
+     * Cards you saw listing them. [learning] is false with Learn from listening off, when they
+     * wait until it is back on (see notSourceText). [rowsBelow] when Rows that held what you
+     * played next still has a line for its rows, so "none of its cards are counted here" does not
+     * stand above one unexplained.
      */
-    data class NotSource(val waiting: Int = 0, val learning: Boolean = true) : DoingSummary
+    data class NotSource(val waiting: Int = 0, val learning: Boolean = true, val rowsBelow: Boolean = false) : DoingSummary
 
     /** The engine fills Quick picks but nothing it showed has been judged yet. */
     data object Waiting : DoingSummary
@@ -145,15 +147,24 @@ sealed interface DoingSummary {
 
 /**
  * The summary, from whether the engine is in the row, every source's judged cards, its two
- * fortnights, its cards still to be judged and whether Learn from listening is on. With it off,
- * EngineLearning.run returns at once, so nothing is judged: the summary says so, and nothing it
- * says promises a card judged a day later.
+ * fortnights, its cards still to be judged, whether Learn from listening is on and whether Rows
+ * that held shows its rows. With learning off, EngineLearning.run returns at once, so nothing is
+ * judged: the summary says so, and nothing it says promises a card judged a day later. Not the
+ * source, its cards still waiting are kept and said to wait for learning: dropped, the summary
+ * read "none of its cards are counted here" above Cards you saw listing them as not judged yet.
  */
-fun doingSummary(engineShowing: Boolean, teams: List<TeamCards>, trend: CardTrendRow?, waiting: Int = 0, learning: Boolean = true): DoingSummary {
+fun doingSummary(
+    engineShowing: Boolean,
+    teams: List<TeamCards>,
+    trend: CardTrendRow?,
+    waiting: Int = 0,
+    learning: Boolean = true,
+    rowsBelow: Boolean = false,
+): DoingSummary {
     val engine = teams.firstOrNull { it.team == ENGINE_TEAM }?.cards
     val stillWaiting = if (learning) waiting else 0
     if (engine == null || engine.seen == 0) return when {
-        !engineShowing -> DoingSummary.NotSource(stillWaiting, learning)
+        !engineShowing -> DoingSummary.NotSource(waiting, learning, rowsBelow)
         learning -> DoingSummary.Waiting
         else -> DoingSummary.NotLearning
     }
@@ -163,6 +174,53 @@ fun doingSummary(engineShowing: Boolean, teams: List<TeamCards>, trend: CardTren
     val fromBefore = !engineShowing
     val stays = !fromBefore && learning
     return DoingSummary.Numbers(engine, t.takeUnless { !stays && it == Trend.TooEarly }, fromBefore, stillWaiting, learning)
+}
+
+/** Which wording the not-source summary takes. */
+enum class NotSourceText {
+    /** None of its cards are counted here. */
+    NOTHING,
+    /** Its cards from before are judged a day after they were seen, and counted here then. */
+    WAITING_ONE,
+    WAITING,
+    /** Its cards from before are judged once Learn from listening is back on. */
+    PAUSED_ONE,
+    PAUSED,
+}
+
+fun notSourceText(summary: DoingSummary.NotSource): NotSourceText = when {
+    summary.waiting <= 0 -> NotSourceText.NOTHING
+    !summary.learning -> if (oneInWords(summary.waiting)) NotSourceText.PAUSED_ONE else NotSourceText.PAUSED
+    else -> if (oneInWords(summary.waiting)) NotSourceText.WAITING_ONE else NotSourceText.WAITING
+}
+
+/** What the line under Compare in the background says. */
+enum class ShadowLine {
+    /** Best recommendations fills the row, on its own or under Try both: nothing to build unseen. */
+    UNUSED,
+    /** A day later this page shows whether the unseen row would have held what you played. */
+    CHECKED,
+    /** Learn from listening is off: the unseen rows are built and wait, unchecked, until it is back on. */
+    NOT_CHECKED,
+}
+
+/**
+ * Off, EngineLearning.run returns before it scores any row, while Home goes on building the
+ * unseen one, so "a day later this page shows" would not come true.
+ */
+fun shadowLine(engineShowing: Boolean, learning: Boolean): ShadowLine = when {
+    engineShowing -> ShadowLine.UNUSED
+    learning -> ShadowLine.CHECKED
+    else -> ShadowLine.NOT_CHECKED
+}
+
+/** How a count of cards is said: nought and one have wordings of their own, so neither reads "0 cards" or opens on a bare 1. */
+enum class CountForm { NONE, ONE, MANY }
+
+fun countForm(n: Int): CountForm = when {
+    n <= 0 -> CountForm.NONE
+    oneInWords(n) -> CountForm.ONE
+    else -> CountForm.MANY
 }
 
 /**
@@ -274,27 +332,66 @@ fun predictionBands(pairs: List<Pair<Double, Double>>, bands: Int = 5): List<Pre
         PredictionBand((b.lo * 100).roundToInt(), (b.hi * 100).roundToInt(), b.count, (b.playRate * b.count).roundToInt())
     }
 
-/** Best recommendations' own row in Quick picks, as row_build keys it; 4 is the one it builds unseen. */
-const val ENGINE_ROW_KEY = 1
+/** Which row a line of Rows that held what you played next is about, as the line names it. */
+enum class HeldRow {
+    ENGINE,
+    /** Best recommendations' own row while another source fills Quick picks. */
+    ENGINE_BEFORE,
+    /** Best recommendations' own row under Try both, which keys its refreshes as its own. */
+    ENGINE_ALONE_BEFORE,
+    LIBRARY,
+    YOUTUBE,
+    UNSEEN,
+    TRY_BOTH,
+    /** Try both's row while another source fills Quick picks. */
+    TRY_BOTH_BEFORE,
+    DISCOVER,
+}
 
 /**
- * One line of Rows that held what you played next: a row, its [refreshes], how many songs you
- * chose yourself in the day after them, and how many of those it [held].
- *
- * [fromBefore] for Best recommendations' own row while it is not the source: those refreshes are
- * from when it was, and with nothing to say so the line stood under a summary saying none of its
- * cards are counted here. With no song chosen in the day after any refresh there is nothing to
- * compare, which "held 0 of the 0 songs" did not say.
+ * What a row key is called on its line, with [source] the Quick picks source now. Best
+ * recommendations' own row is from before while it is not the source: those refreshes are from
+ * when it was, and with nothing to say so the line stood under a summary saying none of its cards
+ * are counted here. Under Try both its refreshes are Try both's, so its own line is from when it
+ * filled the row on its own; Try both's line is from before in the same way. Null for a key no
+ * version writes, which a reader could only have seen as a number.
  */
-data class HeldLine(val rowKey: Int, val refreshes: Int, val chosen: Int, val held: Int, val fromBefore: Boolean) {
+fun heldRow(rowKey: Int, source: QuickPicksSource): HeldRow? {
+    val now = source.orOffered()
+    return when (rowKey) {
+        ENGINE_ROW_KEY -> when (now) {
+            QuickPicksSource.ENGINE -> HeldRow.ENGINE
+            QuickPicksSource.COMPARE -> HeldRow.ENGINE_ALONE_BEFORE
+            else -> HeldRow.ENGINE_BEFORE
+        }
+        LIBRARY_ROW_KEY -> HeldRow.LIBRARY
+        YOUTUBE_ROW_KEY -> HeldRow.YOUTUBE
+        SHADOW_ROW_KEY -> HeldRow.UNSEEN
+        COMPARE_ROW_KEY -> if (now == QuickPicksSource.COMPARE) HeldRow.TRY_BOTH else HeldRow.TRY_BOTH_BEFORE
+        DISCOVER_ROW_KEY -> HeldRow.DISCOVER
+        else -> null
+    }
+}
+
+/**
+ * One line of Rows that held what you played next: a [row], its [refreshes], how many songs you
+ * chose yourself in the day after them, tapped cards included, and how many of those it [held].
+ * With no song chosen in the day after any refresh there is nothing to compare, which "held 0 of
+ * the 0 songs" did not say.
+ */
+data class HeldLine(val row: HeldRow, val refreshes: Int, val chosen: Int, val held: Int) {
     val nothingToCompare: Boolean get() = chosen == 0
 }
 
-/** The lines in row order, from what scoring the builds wrote down. */
-fun heldLines(scores: List<BuildScore>, engineShowing: Boolean): List<HeldLine> =
-    scores.sortedBy { it.rowKey }.map {
-        HeldLine(it.rowKey, refreshes = it.builds, chosen = it.plays, held = it.hits, fromBefore = it.rowKey == ENGINE_ROW_KEY && !engineShowing)
+/** The lines in row order, from what scoring the builds wrote down, each named for [source]. */
+fun heldLines(scores: List<BuildScore>, source: QuickPicksSource): List<HeldLine> =
+    scores.sortedBy { it.rowKey }.mapNotNull { s ->
+        heldRow(s.rowKey, source)?.let { HeldLine(it, refreshes = s.builds, chosen = s.plays, held = s.hits) }
     }
+
+/** Whether Rows that held shows a line for Best recommendations' own rows, before or unseen. */
+fun engineRowsHeld(lines: List<HeldLine>): Boolean =
+    lines.any { it.row == HeldRow.ENGINE_BEFORE || it.row == HeldRow.ENGINE_ALONE_BEFORE || it.row == HeldRow.UNSEEN || it.row == HeldRow.ENGINE }
 
 /**
  * Whether any of the engine's own figures has something in it. With none, the rows that would
@@ -317,14 +414,24 @@ fun brierReference(pairs: List<Pair<Double, Double>>): Double {
 
 enum class BrierVerdict { BETTER, SAME, WORSE, NONE_PLAYED }
 
-/** Lower is better. Compared as shown, to three decimals, so two numbers that read alike are the same. */
+/**
+ * How far from the bar, as a share of it, still counts as about as well, either way: a Brier skill
+ * score under 0.05 says next to nothing, and 0.053 against 0.055 was called better.
+ */
+const val BRIER_SAME_WITHIN = 0.05
+
+/**
+ * Lower is better. Two numbers that read alike to three decimals are the same, and so is a score
+ * within [BRIER_SAME_WITHIN] of the bar.
+ */
 fun brierVerdict(score: Double, reference: Double): BrierVerdict {
     val s = (score * 1000).roundToInt()
     val r = (reference * 1000).roundToInt()
     return when {
+        s == r -> BrierVerdict.SAME
+        reference > 0 && abs(score - reference) < BRIER_SAME_WITHIN * reference -> BrierVerdict.SAME
         s < r -> BrierVerdict.BETTER
-        s > r -> BrierVerdict.WORSE
-        else -> BrierVerdict.SAME
+        else -> BrierVerdict.WORSE
     }
 }
 
@@ -340,6 +447,18 @@ fun brierComparison(pairs: List<Pair<Double, Double>>): BrierVerdict? = when {
     else -> brierVerdict(Calibration.brier(pairs), brierReference(pairs))
 }
 
+/**
+ * The footer behind How well it predicts' "i": the verdict, then the score beside its bar. With no
+ * card played there is no [score]: the bar is nought, which no real guess can beat, and a score
+ * sentence ending "lower is better" beside it read as the guesses losing to guessing nothing.
+ */
+data class BrierFooter(val verdict: BrierVerdict, val score: Double?, val reference: Double?)
+
+fun brierFooter(pairs: List<Pair<Double, Double>>): BrierFooter? = brierComparison(pairs)?.let { verdict ->
+    if (verdict == BrierVerdict.NONE_PLAYED) BrierFooter(verdict, null, null)
+    else BrierFooter(verdict, Calibration.brier(pairs), brierReference(pairs))
+}
+
 /** How many plays the engine expected of its cards, per 100, beside how many it got. */
 data class Prediction(val cards: Int, val expectedPer100: Double, val playedPer100: Double)
 
@@ -351,6 +470,21 @@ fun predictionOf(pairs: List<Pair<Double, Double>>): Prediction =
         expectedPer100 = 100.0 * pairs.sumOf { it.first } / pairs.size,
         playedPer100 = per100(pairs.count { it.second >= 0.5 }, pairs.size),
     )
+
+/** How the first line of How well it predicts reads. */
+enum class PredictionLine {
+    /** Of the cards it made a guess for, it expected so many in 100 to be played, and so many were. */
+    MANY,
+    /** One card is played or not: "it gave its one card a 12 in 100 chance, and you played it", never "0 in 100 were". */
+    ONE_PLAYED,
+    ONE_NOT_PLAYED,
+}
+
+fun predictionLine(prediction: Prediction): PredictionLine = when {
+    !oneInWords(prediction.cards) -> PredictionLine.MANY
+    prediction.playedPer100 > 0 -> PredictionLine.ONE_PLAYED
+    else -> PredictionLine.ONE_NOT_PLAYED
+}
 
 /**
  * A number of cards in 100, for reading rather than for the record: whole from one up, one
