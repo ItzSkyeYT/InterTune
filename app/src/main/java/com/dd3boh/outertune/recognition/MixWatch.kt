@@ -1026,9 +1026,10 @@ internal object MixSearch {
      * the answer ([searchedSongs] empty: it was answered in an earlier mashup).
      *
      * A song is covered when a search that went through looked for it ([searchedSongs], as
-     * [songId]), or when the upload [chosen], taken or picked, names it ([namesSong], among the
-     * songs [heard] in the mashup). With nothing chosen, as after None of these, only the searches
-     * cover anything.
+     * [songId]), when a choice the person picked an upload from listed it (also in [searchedSongs]:
+     * see [afterChoice]), or when the upload [chosen], taken or picked, names it ([namesSong],
+     * among the songs [heard] in the mashup). With nothing chosen, as after None of these, only the
+     * searches cover anything.
      *
      * His S25U, 29 Sep: the one-song choice for Faint was answered from uploads of Faint alone,
      * and No Love, heard a minute later, only came out as one more piece, so the search with both
@@ -1051,6 +1052,23 @@ internal object MixSearch {
     /** [searchedSongs] with [songs] added, once a search for them has gone through. See [uncovered]. */
     fun noted(searchedSongs: Set<String>, songs: List<MixWatch.Sighting>): Set<String> =
         searchedSongs + distinctSongs(songs).map(::songId)
+
+    /**
+     * [searchedSongs] once the person has answered a choice that listed the songs [listed], as
+     * [songId]. Picking an upload, [picked], answers for every song the choice listed, whether or
+     * not that upload names it: the person saw them all on the card and said which upload they
+     * were heard in. So none of them, coming back later, searches YouTube again or raises a second
+     * card ([uncovered]). A mashup of Faint, No Love and Numb, its first search taking Faint and No
+     * Love for the queries, offers a choice listing all three. Picking Faint x No Love from it left
+     * Numb uncovered, and Numb's next return searched YouTube again, and asked again if anything
+     * named Numb with another song.
+     *
+     * After None of these, [picked] null, nothing is added: only what the searches looked for
+     * counts, as before, and a song listed that no search looked for is searched for when it
+     * comes back.
+     */
+    fun afterChoice(searchedSongs: Set<String>, listed: Set<String>, picked: SongItem?): Set<String> =
+        if (picked == null) searchedSongs else searchedSongs + listed
 
     /**
      * What becomes of a mashup once the search for its songs is back: see [outcome].
@@ -1190,7 +1208,8 @@ internal object MixSearch {
         var settled: Boolean
         /**
          * The songs, as [songId], that searches which went through looked for ([queried]), whether
-         * or not they found anything: see [uncovered].
+         * or not they found anything, and those listed by a choice the person picked an upload from
+         * ([afterChoice]): see [uncovered].
          */
         var searchedSongs: Set<String>
         /** Answered once and asked again, so never answered by itself: see [outcome]. */

@@ -394,6 +394,11 @@ class RecognitionEngine @Inject constructor(
         /** The Shazam keys of its pieces, which is what ties the choice to its mashup. */
         val keys: Set<String>,
         val pieces: List<String>,
+        /**
+         * The songs it lists, as [MixSearch.songId]: picking an upload answers for every one of
+         * them. See [MixSearch.afterChoice].
+         */
+        val songs: Set<String>,
         val candidates: List<SongItem>,
         /**
          * Asked again: the upload it had been answered with, which comes out of the list if
@@ -1316,7 +1321,7 @@ class RecognitionEngine @Inject constructor(
             }
             // The choice is drawn by the screen, whose runs have no playlist. The sheet shows the
             // unsure list instead, so a playlist's run notes the mashup there.
-            playlist == null -> offerChoice(current, titles)
+            playlist == null -> offerChoice(current, songs)
             else -> {
                 val name = winner?.title ?: titles.joinToString(" + ")
                 if (_skipped.value.none { it.title == name }) {
@@ -1415,7 +1420,7 @@ class RecognitionEngine @Inject constructor(
             },
         )
         when {
-            choices.isNotEmpty() && playlist == null -> offerChoice(current, listOf(piece.title))
+            choices.isNotEmpty() && playlist == null -> offerChoice(current, listOf(piece))
             choices.isNotEmpty() || !failed -> {
                 if (_skipped.value.none { it.title == piece.title }) {
                     _skipped.value += Added(piece.title, context.getString(R.string.recognise_edit), auto = false, heardAtMs = now)
@@ -1468,13 +1473,15 @@ class RecognitionEngine @Inject constructor(
         updateChoice(active.id) { it.copy(candidates = still.take(CHOICES)) }
     }
 
-    /** Shows the choice for [active], in place of one it already had, alongside any others. */
-    private fun offerChoice(active: ActiveMix, titles: List<String>) {
+    /** Shows the choice for [active], listing the songs [listed], in place of one it already had, alongside any others. */
+    private fun offerChoice(active: ActiveMix, listed: List<MixWatch.Sighting>) {
+        val titles = listed.map { it.title }
+        val songs = listed.map(MixSearch::songId).toSet()
         _mixChoices.update { list ->
             // The same remix or mashup asked about before a pause ended it: one question, and its
             // answer covers every key either was heard under. Two cards for Lean On is one too many.
             val same = list.filter { it.id == active.id || active.keys.containsAll(it.keys) || it.pieces == titles }
-            val choice = MixChoice(active.id, active.keys + same.flatMap { it.keys }, titles, active.candidates.take(CHOICES), active.replaced)
+            val choice = MixChoice(active.id, active.keys + same.flatMap { it.keys }, titles, songs, active.candidates.take(CHOICES), active.replaced)
             listOf(choice) + list.filterNot { it in same }
         }
     }
@@ -1615,6 +1622,9 @@ class RecognitionEngine @Inject constructor(
                 found = song
                 settled = true
                 replaced = null
+                // Every song the choice listed is answered for, named by the upload or not, so none
+                // of them coming back searches again or asks again.
+                searchedSongs = MixSearch.afterChoice(searchedSongs, choice.songs, song)
                 endsAtMs = endOf(startedMs, song, speed)
                 // Picked, so it was a mashup: the songs it names come out, and only those.
                 retract(pieces.filter { MixSearch.names(it, song) })
@@ -1637,6 +1647,8 @@ class RecognitionEngine @Inject constructor(
             mix?.takeIf { it.id == choice.id }?.let {
                 answered += it.keys
                 it.settled = true
+                // None of these: the songs the searches looked for stay covered, and no others.
+                it.searchedSongs = MixSearch.afterChoice(it.searchedSongs, choice.songs, null)
             }
             dropChoice(choice.id)
         }

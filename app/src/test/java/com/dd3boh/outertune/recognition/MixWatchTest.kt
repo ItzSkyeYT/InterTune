@@ -1418,10 +1418,15 @@ class MixWatchTest {
         assertEquals(listOf("numb", "faint"), MixSearch.queried(order).map { it.key })
 
         // A mashup of three heard before its first search: the third is not noted as searched for,
-        // and an answer that does not name it searches again when it comes back.
+        // and an answer taken without asking that does not name it searches again when it comes
+        // back. Picked from the choice, which listed all three, it does not: the person saw Numb
+        // there and answered for it (afterChoice). After None of these, only the searches count.
         val first = MixSearch.noted(emptySet(), MixSearch.queried(songs))
         assertEquals(setOf("faint", "no love"), first)
         assertEquals(listOf("numb"), MixSearch.uncovered(true, faintNoLove, first, songs, songs).map { it.key })
+        val listed = songs.map(MixSearch::songId).toSet()
+        assertTrue(MixSearch.uncovered(true, faintNoLove, MixSearch.afterChoice(first, listed, faintNoLove), songs, songs).isEmpty())
+        assertEquals(listOf("numb"), MixSearch.uncovered(true, null, MixSearch.afterChoice(first, listed, null), songs, songs).map { it.key })
 
         // A song with no title to search with is noted, since searching again cannot do better, and
         // with fewer than two titles the search goes by the artists, which is every song.
@@ -1430,6 +1435,38 @@ class MixWatchTest {
         assertEquals(listOf("faint", "nolove", "intro"), MixSearch.queried(withUntitled).map { it.key })
         val fewTitles = listOf(sighting(faint, 0), sighting(untitled, 12))
         assertEquals(fewTitles, MixSearch.queried(fewTitles))
+    }
+
+    @Test
+    fun `a choice an upload was picked from answers for every song it listed`() {
+        val numb = "numb" to ("Numb" to "Linkin Park")
+        val nero = "nero" to ("Nero Forte" to "Slipknot")
+        // Faint, No Love and Numb heard before the first search, which takes Faint and No Love.
+        val songs = listOf(sighting(faint, 300), sighting(noLove, 288), sighting(numb, 276))
+        val searched = MixSearch.noted(emptySet(), MixSearch.queried(songs))
+        assertEquals(setOf("faint", "no love"), searched)
+        // The choice lists all three, and Faint x No Love, which does not name Numb, is picked.
+        val listed = songs.map(MixSearch::songId).toSet()
+        val picked = MixSearch.afterChoice(searched, listed, faintNoLove)
+        assertEquals(setOf("faint", "no love", "numb"), picked)
+        // Any of them coming back searches nothing and asks nothing.
+        for (back in songs) assertTrue(MixSearch.uncovered(true, faintNoLove, picked, listOf(back), songs).isEmpty())
+        // A song the choice did not list still searches: Nero Forte, heard after the pick.
+        val later = songs + sighting(nero, 312)
+        assertEquals(listOf("nero"), MixSearch.uncovered(true, faintNoLove, picked, later, later).map { it.key })
+
+        // None of these keeps what the searches looked for and nothing else: Numb, which none
+        // looked for, is searched for when it comes back.
+        val dismissed = MixSearch.afterChoice(searched, listed, null)
+        assertEquals(searched, dismissed)
+        assertEquals(listOf("numb"), MixSearch.uncovered(true, null, dismissed, songs, songs).map { it.key })
+
+        // The one-song choice for Faint lists Faint alone. An upload of Faint alone picked from it
+        // leaves No Love, heard later, to be searched for with it.
+        val ultimate = faintAlone.first { it.id == "ultimate" }
+        val fromOne = MixSearch.afterChoice(emptySet(), setOf(MixSearch.songId(faintPiece)), ultimate)
+        assertEquals(searchedFaint, fromOne)
+        assertEquals(listOf("nolove"), MixSearch.uncovered(true, ultimate, fromOne, faintNoLoveReturn(), listOf(faintPiece)).map { it.key })
     }
 
     @Test
@@ -1588,12 +1625,16 @@ class MixWatchTest {
         assertEquals(faintNoLove, reopened.replaced)
         assertEquals(setOf("faint", "numb"), reopened.searchedSongs)
         assertTrue(MixSearch.uncovered(reopened.settled, reopened.found, reopened.searchedSongs, songs, songs).isEmpty())
-        // Answered again with an upload of Faint and Numb alone: No Love, neither searched for nor
-        // named by it, is what a later return asks about, and only once.
+        // Answered again with an upload of Faint and Numb alone, from a choice listing the two: No
+        // Love, neither searched for, named by it nor listed, is what a later return asks about.
+        // From a choice that listed No Love as well, nothing is.
         val numbFaint = upload("numbfaint", "Numb x Faint (Mashup)", 205)
         reopened.found = numbFaint
         reopened.settled = true
-        assertEquals(listOf("nolove"), MixSearch.uncovered(true, numbFaint, reopened.searchedSongs, songs, songs).map { it.key })
+        val fromTwo = MixSearch.afterChoice(reopened.searchedSongs, setOf("numb", "faint"), numbFaint)
+        assertEquals(listOf("nolove"), MixSearch.uncovered(true, numbFaint, fromTwo, songs, songs).map { it.key })
+        val fromAll = MixSearch.afterChoice(reopened.searchedSongs, songs.map(MixSearch::songId).toSet(), numbFaint)
+        assertTrue(MixSearch.uncovered(true, numbFaint, fromAll, songs, songs).isEmpty())
 
         // Asked again after None of these: the upload before that is still the one to replace.
         val dismissed = Held(settled = true, searchedSongs = setOf("faint"), reopened = true, replaced = faintNoLove)
