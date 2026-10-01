@@ -642,7 +642,7 @@ internal object MixSearch {
      */
     fun queries(pieces: List<MixWatch.Sighting>, speed: Double): List<String> {
         // The two most heard of each. More only narrows the search onto nothing.
-        val titles = pieces.map { bareTitle(it.title) }.filter { it.isNotBlank() }.distinct().take(2)
+        val titles = titled(pieces).map { bareTitle(it.title) }
         val artists = pieces.mapNotNull { it.artist?.let(::primaryArtist) }.filter { it.isNotBlank() }.distinct().take(2)
         if (titles.size < 2) return listOfNotNull(artists.takeIf { it.size >= 2 }?.joinToString(" ", postfix = " mashup"))
         val both = titles.joinToString(" ")
@@ -650,6 +650,38 @@ internal object MixSearch {
             "$both mashup",
             artists.takeIf { it.size >= 2 }?.joinToString(" ", postfix = " mashup"),
         ) + speedWords(speed, pieces).map { "$both $it" }
+    }
+
+    /** The first two of [pieces] with a title, by title once each: the titles [queries] searches with. */
+    private fun titled(pieces: List<MixWatch.Sighting>): List<MixWatch.Sighting> =
+        pieces.filter { bareTitle(it.title).isNotBlank() }.distinctBy { bareTitle(it.title) }.take(2)
+
+    /**
+     * The songs among [pieces] that [queries] looks for, and so the ones noted as searched for once
+     * the search goes through ([noted]): those whose titles go into the queries, and those with no
+     * title to search with, which searching again cannot look for any better. With fewer than two
+     * titles the search goes by the artists alone, and that is every song.
+     *
+     * Not every song heard: the queries take two titles, so a third song was never looked for. Noted
+     * all the same, Numb heard with Faint and No Love counted as searched for, though the queries
+     * were "Faint No Love mashup" and "Linkin Park Eminem mashup".
+     */
+    fun queried(pieces: List<MixWatch.Sighting>): List<MixWatch.Sighting> {
+        val titled = titled(pieces)
+        if (titled.size < 2) return pieces
+        return pieces.filter { it in titled || bareTitle(it.title).isBlank() }
+    }
+
+    /**
+     * [songs] in the order to search for them, most heard first, as [queries] takes them, except
+     * that the songs an answer does not cover ([uncovered]) come first. The queries take only two
+     * titles, so a third song coming back after an answer was otherwise never in them, and the
+     * search meant to find it with the others looked for the two the answer already covered.
+     */
+    fun searchOrder(songs: List<MixWatch.Sighting>, uncovered: List<MixWatch.Sighting>): List<MixWatch.Sighting> {
+        val first = uncovered.map(::songId).toSet()
+        val (new, rest) = songs.partition { songId(it) in first }
+        return new + rest
     }
 
     /**
@@ -1029,8 +1061,8 @@ internal object MixSearch {
      * @param reopens the answer given is set aside, and the question asked again.
      * @param stands the answer given stands, and the piece that came back comes out of the list as
      * one more of it.
-     * @param notes the songs searched for are noted ([noted]), so the same songs are not searched
-     * for again while it lasts.
+     * @param notes the songs the search looked for ([queried]) are noted ([noted]), so the same songs
+     * are not searched for again while it lasts.
      */
     enum class Outcome(val goesOn: Boolean, val mayTake: Boolean, val reopens: Boolean, val stands: Boolean, val notes: Boolean) {
         /**
@@ -1042,7 +1074,10 @@ internal object MixSearch {
         /** Nothing found names an uncovered song with the others: the answer stands. */
         STAND(goesOn = false, mayTake = false, reopens = false, stands = true, notes = true),
 
-        /** The answer stands for now, and the next piece that comes back searches again. */
+        /**
+         * The answer stands for now, and the next piece that comes back searches again: the search
+         * failed, in whole or in part, or one odd window has only a toss-up.
+         */
         STAND_FOR_NOW(goesOn = false, mayTake = false, reopens = false, stands = true, notes = false),
 
         /**
@@ -1061,9 +1096,9 @@ internal object MixSearch {
     /**
      * What becomes of a mashup, given the songs its answer did not cover ([uncovered], empty when it
      * has none), whether it was answered once and is being asked again ([reopened]), what the search
-     * for its songs found ([ranked], null when it failed), its [winner], whether the return was
-     * [strong], and every song [heard] in it, which tells which of them an upload names
-     * ([namesSong]).
+     * for its songs found ([ranked], null when it failed), whether every one of its queries went
+     * through ([complete]), its [winner], whether the return was [strong], and every song [heard]
+     * in it, which tells which of them an upload names ([namesSong]).
      *
      * With nothing uncovered it goes on as it always has: left alone when the search failed, when
      * nothing names two of the songs, or after one odd window with only a toss-up, and otherwise
@@ -1071,32 +1106,111 @@ internal object MixSearch {
      * person answered it once already.
      *
      * With songs uncovered, the answer is set aside only for an upload naming one of them along
-     * with the others. When nothing found does, that settles it, and the songs are noted, so the
-     * pieces coming back later in the mashup do not search YouTube for them again, inline on the
-     * listening loop. A failed search, or one odd window with only a toss-up, leaves the answer
-     * standing without noting them: a later return that says more can still ask.
+     * with another song heard ([reopening]). When nothing found does, that settles it, and the songs
+     * are noted, so the pieces coming back later in the mashup do not search YouTube for them again,
+     * inline on the listening loop. A search that failed, in whole or in part, leaves the answer
+     * standing without noting them, and so does one odd window where no upload naming them is a
+     * clear winner over everything found: a later return that says more can still ask.
      */
     fun outcome(
         uncovered: List<MixWatch.Sighting>,
         reopened: Boolean,
         ranked: List<Pair<SongItem, Int>>?,
+        complete: Boolean,
         winner: SongItem?,
         strong: Boolean,
         heard: List<MixWatch.Sighting>,
     ): Outcome {
-        val oddWindow = winner == null && !strong
         if (uncovered.isEmpty()) return when {
-            ranked.isNullOrEmpty() || oddWindow -> Outcome.LEAVE
+            ranked.isNullOrEmpty() || (winner == null && !strong) -> Outcome.LEAVE
             reopened -> Outcome.ASK
             else -> Outcome.ANSWER
         }
+        if (ranked == null) return Outcome.STAND_FOR_NOW
+        val naming = reopening(ranked, uncovered, heard)
         return when {
-            ranked == null -> Outcome.STAND_FOR_NOW
-            ranked.none { (item, _) -> uncovered.any { namesSong(heard, it, item) } } -> Outcome.STAND
-            oddWindow -> Outcome.STAND_FOR_NOW
+            naming.isEmpty() -> if (complete) Outcome.STAND else Outcome.STAND_FOR_NOW
+            // Clear over everything found, not only over the others naming the new song: on a weak
+            // return, an upload of the two songs answered for well ahead of one naming the third
+            // says that one is only a toss-up.
+            !strong && clearWinner(naming + ranked.filterNot { it in naming }, heard) == null -> Outcome.STAND_FOR_NOW
             else -> Outcome.REOPEN
         }
     }
+
+    /**
+     * The uploads among [ranked] that say an answer missed something: those naming one of the songs
+     * it did not cover ([uncovered]) along with another song [heard], both as [songsNamed] counts
+     * them. Not every upload [rank] keeps: it counts a song as named by its artist's name even when
+     * another song heard is by the same artist, and then "Numb (Official Music Video)" on the Linkin
+     * Park channel, found for Numb coming back after Faint x No Love was picked, names Numb and,
+     * by the channel, Faint, and asked the question just answered all over again.
+     */
+    fun reopening(
+        ranked: List<Pair<SongItem, Int>>,
+        uncovered: List<MixWatch.Sighting>,
+        heard: List<MixWatch.Sighting>,
+    ): List<Pair<SongItem, Int>> =
+        ranked.filter { (item, _) -> songsNamed(heard, item) >= 2 && uncovered.any { namesSong(heard, it, item) } }
+
+    /**
+     * What a mashup's answer is made of, which [follow] changes once the search for its songs is
+     * back. The engine's mashup being heard is one; a test can hold its own.
+     */
+    interface Answer {
+        /** The upload it was answered with, taken or picked. None while open, or after None of these. */
+        var found: SongItem?
+        /** Answered: a clear winner was taken, or the person picked one or said none of these. */
+        var settled: Boolean
+        /**
+         * The songs, as [songId], that searches which went through looked for ([queried]), whether
+         * or not they found anything: see [uncovered].
+         */
+        var searchedSongs: Set<String>
+        /** Answered once and asked again, so never answered by itself: see [outcome]. */
+        var reopened: Boolean
+        /** When it has to be over, once it is known which upload it is and so how long it runs. */
+        var endsAtMs: Long?
+        /**
+         * The upload it was answered with before it was asked again, which comes out of the list if
+         * the person picks another: see [replacedBy].
+         */
+        var replaced: SongItem?
+    }
+
+    /**
+     * Brings [answer] up to date with [outcome], the search having looked for the songs [lookedFor]
+     * ([queried]). Those are noted as searched for, unless the search failed in some way or only a
+     * toss-up came of it. When an upload names a song the answer did not, the answer is set aside:
+     * not settled, asked again and never answered by itself from then on, no longer known to be the
+     * upload it was nor how long it runs, which is kept as the one it may be replaced by.
+     */
+    fun follow(outcome: Outcome, answer: Answer, lookedFor: List<MixWatch.Sighting>) {
+        if (outcome.notes) answer.searchedSongs = noted(answer.searchedSongs, lookedFor)
+        if (outcome.reopens) {
+            answer.replaced = answer.found ?: answer.replaced
+            answer.settled = false
+            answer.reopened = true
+            answer.found = null
+            answer.endsAtMs = null
+        }
+    }
+
+    /**
+     * Whether [winner] is taken without asking: only for a mashup never answered ([Outcome.mayTake]),
+     * once the songs have taken turns ([sure]) and adding without asking is on ([autoAdd]). A question
+     * asked again is asked, however clear the upload.
+     */
+    fun takes(outcome: Outcome, winner: SongItem?, sure: Boolean, autoAdd: Boolean): Boolean =
+        winner != null && autoAdd && sure && outcome.mayTake
+
+    /**
+     * The upload to take back out of the list once the person, asked again, picks [picked]: the one
+     * the question had been answered with before ([Answer.replaced]), unless it is the one picked.
+     * One mashup is one upload, and the person has now said which. After None of these the earlier
+     * one stays: the question was not answered any other way.
+     */
+    fun replacedBy(replaced: SongItem?, picked: SongItem): SongItem? = replaced?.takeIf { it.id != picked.id }
 
     /** A piece's bare title as words: what its versions have in common. */
     fun titleOf(piece: MixWatch.Sighting): String = words(bareTitle(piece.title))
