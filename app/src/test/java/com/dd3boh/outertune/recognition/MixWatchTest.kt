@@ -1701,6 +1701,44 @@ class MixWatchTest {
     }
 
     /**
+     * Faint x No Love picked, and Numb coming back. "Linkin Park & Eminem - Numb (Mashup)" names
+     * Numb and scores 6 to the answer's 5, but names one song by title to its two, and comes after
+     * it. Another upload of Faint and No Love, level with the answer in every way and first in
+     * YouTube's order, does not come before it, and the answer stands.
+     *
+     * In a room playing a quarter fast, an upload of Numb and Faint saying it is sped up comes
+     * before the answer and scores 6 to its 5, and a strong return asks again. At speed the same
+     * upload says the opposite of what plays, scores 4, and the answer stands.
+     */
+    @Test
+    fun `an upload level with the answer does not come before it, and the room's speed counts`() {
+        val numb = "numb" to ("Numb" to "Linkin Park")
+        val (songs, uncovered) = pickedThenThird(numb)
+        val credits = upload("credits", "Linkin Park & Eminem - Numb (Mashup)", 200)
+        val level = upload("nolovefaint", "No Love x Faint (Mashup)", 210)
+        assertEquals(listOf(5, 5, 6), listOf(faintNoLove, level, credits).map { MixSearch.heardScore(songs, it, 1.0) })
+        val ranked = MixSearch.rank(songs, listOf(listOf(level, faintNoLove, credits)), 1.0)
+        assertEquals(listOf(level.id, faintNoLove.id, credits.id), ranked.map { it.first.id })
+        assertEquals(listOf(credits.id), MixSearch.reopening(ranked, uncovered, songs).map { it.first.id })
+        assertTrue(MixSearch.givenFirst(ranked, faintNoLove, songs, 1.0))
+        assertEquals(MixSearch.Outcome.STAND, MixSearch.outcome(uncovered, faintNoLove, false, ranked, true, null, true, songs))
+
+        val sped = upload("numbfaintsped", "Numb x Faint (Mashup) (Sped Up)", 170)
+        assertEquals(listOf(6, 4), listOf(1.25, 1.0).map { MixSearch.heardScore(songs, sped, it) })
+        assertEquals(listOf(5, 5), listOf(1.25, 1.0).map { MixSearch.heardScore(songs, faintNoLove, it) })
+        val order = MixSearch.searchOrder(songs, uncovered)
+        for ((speed, outcomes) in listOf(
+            1.25 to listOf(MixSearch.Outcome.REOPEN, MixSearch.Outcome.STAND_FOR_NOW),
+            1.0 to listOf(MixSearch.Outcome.STAND, MixSearch.Outcome.STAND),
+        )) {
+            val found = MixSearch.rank(order, listOf(listOf(faintNoLove, sped)), speed)
+            assertEquals("x$speed", outcomes, listOf(true, false).map { strong ->
+                MixSearch.outcome(uncovered, faintNoLove, false, found, true, MixSearch.clearWinner(found, order), strong, songs, speed)
+            })
+        }
+    }
+
+    /**
      * The other mashup of Faint and No Love taken without asking at 7, and then Numb coming back.
      * The search finds "Faint x No Love x Numb (Mashup)", which names all three, first, and the
      * answer given a point or so above it, which it owes to Numb's Linkin Park credit: no song is
