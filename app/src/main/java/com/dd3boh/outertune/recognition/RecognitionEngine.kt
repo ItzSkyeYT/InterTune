@@ -1256,7 +1256,7 @@ class RecognitionEngine @Inject constructor(
                 active.heard = (active.heard + songs).distinctBy { song -> song.key }
                 // Searched for with another song, and found nowhere with one that the search thinks
                 // more of than the answer given: not searched for again.
-                MixSearch.follow(outcome, active, lookedFor)
+                MixSearch.follow(outcome, active, lookedFor, search.complete)
                 retract(found.pieces)
             }
             return
@@ -1275,10 +1275,10 @@ class RecognitionEngine @Inject constructor(
             startedMs = started
             candidates = ranked.take(MAX_CANDIDATES).map { it.first }
         }
-        // Noted as searched for. And when the earlier answer did not name a song now heard with
-        // another, and an upload does: asked again, never answered by itself, and no longer known to
-        // be the upload it was, or how long it runs.
-        MixSearch.follow(outcome, current, lookedFor)
+        // Noted as searched for, if every query went through. And when the earlier answer did not
+        // name a song now heard with another, and an upload does: asked again, never answered by
+        // itself, and no longer known to be the upload it was, or how long it runs.
+        MixSearch.follow(outcome, current, lookedFor, search.complete)
         // The upload answered with before stays where it was put, unless another is picked from the
         // choice: see MixSearch.replacedBy.
         if (outcome.reopens) current.replaced?.let {

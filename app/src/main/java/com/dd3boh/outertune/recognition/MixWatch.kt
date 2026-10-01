@@ -1022,8 +1022,11 @@ internal object MixSearch {
 
     /**
      * The songs among [songs] that a mashup's answer does not cover, and so the mashup is searched
-     * for again with: none unless it is [settled], and none when no search of its own went into
-     * the answer ([searchedSongs] empty: it was answered in an earlier mashup).
+     * for again with: none unless it is [settled], and none when nothing of its own went into the
+     * answer, neither a search that noted a song ([searchedSongs] empty) nor an upload taken or
+     * picked ([chosen] null): it was answered in an earlier mashup. An upload taken from a search
+     * where one query failed, which notes nothing ([follow]), still says what it covers: before,
+     * with nothing noted, a song it does not name never searched again.
      *
      * A song is covered when a search that went through looked for it ([searchedSongs], as
      * [songId]), when a choice the person picked an upload from listed it (also in [searchedSongs]:
@@ -1043,7 +1046,7 @@ internal object MixSearch {
         songs: List<MixWatch.Sighting>,
         heard: List<MixWatch.Sighting>,
     ): List<MixWatch.Sighting> {
-        if (!settled || searchedSongs.isEmpty()) return emptyList()
+        if (!settled || (searchedSongs.isEmpty() && chosen == null)) return emptyList()
         return distinctSongs(songs).filter { song ->
             songId(song) !in searchedSongs && (chosen == null || !namesSong(heard + songs, song, chosen))
         }
@@ -1080,7 +1083,7 @@ internal object MixSearch {
      * @param stands the answer given stands, and the piece that came back comes out of the list as
      * one more of it.
      * @param notes the songs the search looked for ([queried]) are noted ([noted]), so the same songs
-     * are not searched for again while it lasts.
+     * are not searched for again while it lasts. Only when every query went through: see [follow].
      */
     enum class Outcome(val goesOn: Boolean, val mayTake: Boolean, val reopens: Boolean, val stands: Boolean, val notes: Boolean) {
         /**
@@ -1225,13 +1228,17 @@ internal object MixSearch {
 
     /**
      * Brings [answer] up to date with [outcome], the search having looked for the songs [lookedFor]
-     * ([queried]). Those are noted as searched for, unless the search failed in some way or only a
-     * toss-up came of it. When an upload names a song the answer did not, the answer is set aside:
-     * not settled, asked again and never answered by itself from then on, no longer known to be the
-     * upload it was nor how long it runs, which is kept as the one it may be replaced by.
+     * ([queried]). Those are noted as searched for, unless only a toss-up came of it or the search
+     * failed in some way: in whole, or in part ([complete] false), whatever came of it. A query
+     * that failed may have been the one to find the upload, so, as with [Outcome.STAND_FOR_NOW],
+     * a later return of those songs searches again. Before, a mashup answered or asked about from
+     * a search where one query failed noted its songs all the same. When an upload names a song
+     * the answer did not, the answer is set aside: not settled, asked again and never answered by
+     * itself from then on, no longer known to be the upload it was nor how long it runs, which is
+     * kept as the one it may be replaced by.
      */
-    fun follow(outcome: Outcome, answer: Answer, lookedFor: List<MixWatch.Sighting>) {
-        if (outcome.notes) answer.searchedSongs = noted(answer.searchedSongs, lookedFor)
+    fun follow(outcome: Outcome, answer: Answer, lookedFor: List<MixWatch.Sighting>, complete: Boolean) {
+        if (outcome.notes && complete) answer.searchedSongs = noted(answer.searchedSongs, lookedFor)
         if (outcome.reopens) {
             answer.replaced = answer.found ?: answer.replaced
             answer.settled = false
