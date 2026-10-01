@@ -13,8 +13,8 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Names backup files and the temporary files they are written as, decides which old ones to
- * remove, whether a run should write at all, and whether the schedule is kept or replaced.
- * Nothing in here needs a device, so it is tested.
+ * remove, whether a listing of the folder can be trusted, whether a run should write at all, and
+ * whether the schedule is kept or replaced. Nothing in here needs a device, so it is tested.
  *
  * The name is the same one the manual Backup entry has produced since the beginning, so a
  * scheduled backup looks like any other. Restore does not go by it: it reads whatever zip its
@@ -113,6 +113,25 @@ object AutoBackupPolicy {
         toDelete(appName, names, keep).filter { it in confirmed }
 
     private class Backup(val name: String, val stamp: String, val copy: Int)
+
+    /**
+     * Why a listing of the backup folder is not the whole folder, or null when it is. [loading]
+     * and [error] are what the provider put in the listing cursor's extras under
+     * DocumentsContract.EXTRA_LOADING and EXTRA_ERROR.
+     *
+     * A cloud provider such as Drive answers at once with what it has so far and says it is still
+     * loading the rest, or, offline, answers with nothing, or with what it last saw, and an error.
+     * Taken as the folder, either one can look like fewer backups than there are. The Keep check
+     * then finds nothing to delete and saves a lower Keep without asking, and the next backup that
+     * sees the whole folder deletes what nobody was told about. So both count as a folder that
+     * could not be listed. Any error does, even an empty one, since a provider only sets it when
+     * something went wrong.
+     */
+    fun incompleteListing(loading: Boolean, error: String?): String? = when {
+        error != null -> "the provider reported an error" + if (error.isBlank()) "" else ": $error"
+        loading -> "the provider is still loading it"
+        else -> null
+    }
 
     /** What letting go of the Keep slider at a new value does. */
     sealed interface KeepChange {

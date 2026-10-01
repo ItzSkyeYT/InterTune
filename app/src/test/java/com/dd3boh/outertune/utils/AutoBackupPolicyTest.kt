@@ -13,6 +13,7 @@ import com.dd3boh.outertune.utils.AutoBackupPolicy.KeepChange.AskUnknown
 import com.dd3boh.outertune.utils.AutoBackupPolicy.KeepChange.Save
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -308,6 +309,27 @@ class AutoBackupPolicyTest {
             listOf("InterTune Debug_23_20260929220109.backup.partial"),
             AutoBackupPolicy.leftoverPartials("InterTune Debug", names, at),
         )
+    }
+
+    // Whether a listing of the folder is the whole folder.
+
+    @Test
+    fun `a listing the provider is still loading could not be listed`() {
+        // Drive, answering at once with what it has so far.
+        assertNotNull(AutoBackupPolicy.incompleteListing(loading = true, error = null))
+    }
+
+    @Test
+    fun `a listing with an error could not be listed, whatever the error says`() {
+        // Offline: nothing, or what it last saw, and a message for the user.
+        assertNotNull(AutoBackupPolicy.incompleteListing(loading = false, error = "Network unavailable"))
+        assertNotNull(AutoBackupPolicy.incompleteListing(loading = true, error = "Network unavailable"))
+        assertNotNull(AutoBackupPolicy.incompleteListing(loading = false, error = ""))
+    }
+
+    @Test
+    fun `a listing with neither is the folder`() {
+        assertNull(AutoBackupPolicy.incompleteListing(loading = false, error = null))
     }
 
     // Keep changing.

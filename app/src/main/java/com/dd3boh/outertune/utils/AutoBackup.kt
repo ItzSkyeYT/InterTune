@@ -424,8 +424,9 @@ object AutoBackup {
      * say how many before it does. Runs off the main thread by itself.
      *
      * Empty when there is nothing to delete, which includes having no folder at all. Null when
-     * there is a folder but it could not be read: the provider is offline, the card is out, the
-     * grant is gone, or the folder cannot be written to, where applyKeep deletes nothing either.
+     * there is a folder but it could not be read: the provider is offline or has not finished
+     * listing it, the card is out, the grant is gone, or the folder cannot be written to, where
+     * applyKeep deletes nothing either.
      * Those two are kept apart because the next backup that does reach the folder still prunes
      * it to [keep], so a folder that could not be read is not one with nothing to lose.
      */
@@ -507,7 +508,7 @@ object AutoBackup {
         val children = try {
             listChildren(context, tree.uri)
         } catch (e: Exception) {
-            Log.w(TAG, "Could not list the backup folder to prune it", e)
+            Log.w(TAG, "Could not list the backup folder, so nothing was pruned", e)
             return 0
         }
         // Only names that are ours are ever considered; the folder may hold anything else.
@@ -566,7 +567,9 @@ object AutoBackup {
      * Name and document uri of everything directly inside [folder], in one query.
      *
      * DocumentFile.listFiles returns an empty list when the provider refuses, which reads exactly
-     * like an empty folder, and asks for each name separately afterwards. This throws instead.
+     * like an empty folder, and asks for each name separately afterwards. This throws instead, and
+     * also when the provider says the listing is still loading or failed, which it says only in
+     * the cursor's extras (AutoBackupPolicy.incompleteListing).
      */
     private fun listChildren(context: Context, folder: Uri): List<Pair<String, Uri>> {
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(folder, DocumentsContract.getDocumentId(folder))
@@ -576,6 +579,11 @@ object AutoBackup {
             null, null, null,
         ) ?: throw IOException("The provider returned nothing for $children")
         return cursor.use { c ->
+            val extras = c.extras
+            AutoBackupPolicy.incompleteListing(
+                loading = extras?.getBoolean(DocumentsContract.EXTRA_LOADING, false) == true,
+                error = extras?.getString(DocumentsContract.EXTRA_ERROR),
+            )?.let { reason -> throw IOException("Could not list $children: $reason") }
             buildList {
                 while (c.moveToNext()) {
                     val id = c.getString(0) ?: continue
