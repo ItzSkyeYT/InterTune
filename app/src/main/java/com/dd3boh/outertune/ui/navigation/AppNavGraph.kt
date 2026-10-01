@@ -70,6 +70,8 @@ import com.dd3boh.outertune.ui.screens.settings.LyricsSettings
 import com.dd3boh.outertune.ui.screens.settings.PlayerSettings
 import com.dd3boh.outertune.ui.screens.settings.PrivacySettings
 import com.dd3boh.outertune.ui.screens.settings.RecognitionSettings
+import com.dd3boh.outertune.ui.screens.settings.RecommendationsDataSettings
+import com.dd3boh.outertune.ui.screens.settings.RecommendationsDoingSettings
 import com.dd3boh.outertune.ui.screens.settings.RecommendationsSettings
 import com.dd3boh.outertune.ui.screens.settings.SettingsScreen
 import com.dd3boh.outertune.ui.screens.settings.BackupSettings
@@ -366,6 +368,12 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("settings/recommendations") {
             RecommendationsSettings(navController, scrollBehavior)
+        }
+        screen("settings/recommendations/doing") {
+            RecommendationsDoingSettings(navController, scrollBehavior)
+        }
+        screen("settings/recommendations/data") {
+            RecommendationsDataSettings(navController, scrollBehavior)
         }
         screen("settings/recommendations/exclusions") {
             ExclusionsSettings(navController, scrollBehavior)
