@@ -1114,7 +1114,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_ask_copy_goes">The copy you loaded goes too.</string>
     <string name="recommendations_ask_cannot_undo">This cannot be undone.</string>
     <string name="recommendations_load_confirm">Choose a file</string>
-    <string name="recommendations_summary_not_source">Best recommendations is not your Quick picks source, so it has nothing to show. You can choose it in Settings, under Library and content, Quick picks source.</string>
+    <string name="recommendations_summary_not_source">Best recommendations is not your Quick picks source, so none of its cards are counted here. You can choose it in Settings, under Library and content, Quick picks source.</string>
     <plurals name="recommendations_summary_not_source_waiting">
         <item quantity="one">Best recommendations is no longer your Quick picks source. The %1$d card it showed you before is judged a day after you saw it, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</item>
         <item quantity="other">Best recommendations is no longer your Quick picks source. The %1$d cards it showed you before are judged a day after you saw them, and counted here then. You can choose it again in Settings, under Library and content, Quick picks source.</item>
