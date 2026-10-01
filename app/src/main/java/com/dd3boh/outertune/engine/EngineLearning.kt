@@ -121,9 +121,14 @@ class EngineLearning(private val context: Context, private val database: MusicDa
         val graded = Grading.grade(rows, recent, songs, groups, now)
         if (graded.isEmpty()) return
         database.transactionNow {
-            graded.forEach { markGraded(it.impressionId, it.outcome, it.y.toFloat(), it.u.toFloat(), now, it.listenId) }
+            graded.forEach {
+                // A card waiting on a resume stays pending, to be graded again on the next run; the
+                // mark keeps it out of the source share meanwhile.
+                if (it.outcome == Outcome.WAITING) markWaiting(it.impressionId)
+                else markGraded(it.impressionId, it.outcome, it.y.toFloat(), it.u.toFloat(), now, it.listenId)
+            }
         }
-        Log.d(TAG, "graded ${graded.size} of ${pending.size} pending impressions")
+        Log.d(TAG, "graded ${graded.count { it.outcome != Outcome.WAITING }} of ${pending.size} pending impressions")
     }
 
     private fun example(i: Impression): Example? {

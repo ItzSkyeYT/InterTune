@@ -38,8 +38,17 @@ object Outcome {
      * again on every run for good.
      */
     const val LOST = 7
+    /**
+     * Tapped, and its play failed: waiting, until a resume could no longer link to the play, for
+     * one that carries it on. Not graded, so it is read again on every run, but it decides nothing
+     * meanwhile. A plain pending card counts as seen and not heard in the share of each similar
+     * songs source ([SourceMix]); this one is left out of it, as it is left out of the learning
+     * until it is graded.
+     */
+    const val WAITING = 8
 }
 
+/** What became of a card, or with [Outcome.WAITING], that it is not graded yet. */
 data class Graded(val impressionId: Long, val outcome: Int, val y: Double, val u: Double, val listenId: Long? = null)
 
 /**
@@ -57,8 +66,8 @@ data class Graded(val impressionId: Long, val outcome: Int, val y: Double, val u
  * A card's play is followed through the rows that carry it on (continuesListenId, see
  * [ListenProgress.continues]): a play stopped or failed and picked up again where it stood is one
  * play, graded once by all of it. So a card whose play failed and was resumed is graded by the whole
- * play and how it ended. One that failed waits out the time a resume can still come in, and is
- * settled at no weight only once none did.
+ * play and how it ended. One that failed waits out the time a resume can still come in
+ * ([Outcome.WAITING]), and is settled at no weight only once none did.
  */
 object Grading {
     fun grade(
@@ -102,7 +111,10 @@ object Grading {
                 if (!play.learn) { out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0); continue }
                 if (EngineListens.failed(play)) {
                     // Until a resume can no longer come in, the play may yet be carried on.
-                    if (now - play.endedAt <= ListenProgress.RESUME_WINDOW_MS) continue
+                    if (now - play.endedAt <= ListenProgress.RESUME_WINDOW_MS) {
+                        out += Graded(imp.id, Outcome.WAITING, 0.0, 0.0)
+                        continue
+                    }
                     out += Graded(imp.id, Outcome.DROPPED, 0.0, 0.0)
                     continue
                 }

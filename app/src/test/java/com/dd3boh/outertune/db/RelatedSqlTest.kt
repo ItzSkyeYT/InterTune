@@ -129,7 +129,7 @@ class RelatedSqlTest {
         impression(team = 2); impression(team = 3); impression(slot = -1)
         impression(lane = 2); impression(lane = 3); impression(lane = 5)
         impression(sources = 1); impression(sources = 2); impression(sources = 3); impression(sources = 7); impression(sources = 0); impression(sources = 4)
-        impression(outcome = 4); impression(outcome = 6); impression(outcome = 7)
+        impression(outcome = 4); impression(outcome = 6); impression(outcome = 7); impression(outcome = 8)
         impression(visibleAt = 3_999)
         // The app's text as it is, and again with the id selected so the rows can be named.
         val sql = com.dd3boh.outertune.engine.EngineSql.SOURCE_EVIDENCE.replace(":since", "4000")
@@ -139,6 +139,27 @@ class RelatedSqlTest {
             st.executeQuery(sql.replace("SELECT songId,", "SELECT id, songId,")).use { rs -> buildSet { while (rs.next()) add(rs.getInt("id")) } }
         }
         assertEquals(wanted.toSet(), ids)
+    }
+
+    @Test
+    fun `a card marked waiting stays pending and leaves the share's evidence`() {
+        exec("""INSERT INTO row_build(id, builtAt, rowKey, sessionId, bucket, contextChip, dial, engineVersion, seeds, weights, shownIds)
+            VALUES (1, 1000, 1, 1, 0, 0, 15, 0, '[]', '{}', '')""")
+        exec("""INSERT INTO impression(id, buildId, songId, slot, lane, team, outcome, visibleAt, tappedAt, sources)
+            VALUES (1, 1, 'a', 0, 1, 1, 0, 5000, 5000, 5)""")
+        val evidence = com.dd3boh.outertune.engine.EngineSql.SOURCE_EVIDENCE.replace(":since", "4000")
+        fun count() = db.createStatement().use { st -> st.executeQuery(evidence).use { rs -> var n = 0; while (rs.next()) n++; n } }
+        val markWaiting = com.dd3boh.outertune.engine.EngineSql.MARK_WAITING.replace(":id", "1")
+        // Tapped and not graded yet, the card counts as seen and not heard.
+        assertEquals(1, count())
+        exec(markWaiting)
+        assertEquals(0, count())
+        assertEquals(8L, long("SELECT outcome FROM impression WHERE id = 1"))
+        assertNull(long("SELECT gradedAt FROM impression WHERE id = 1"))
+        // A card already graded keeps its grade.
+        exec("UPDATE impression SET outcome = 1, y = 1, gradedAt = 9000 WHERE id = 1")
+        exec(markWaiting)
+        assertEquals(1L, long("SELECT outcome FROM impression WHERE id = 1"))
     }
 
     @Test

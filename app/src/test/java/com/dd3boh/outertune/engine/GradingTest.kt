@@ -145,7 +145,9 @@ class GradingTest {
     @Test
     fun `a card whose play failed waits for a resume, and is dropped once none came`() {
         val died = listen("a", now - 3 * hour, playedMs = 120_000, impressionId = 1, endReason = EndReason.ERROR).copy(id = 10)
-        assertTrue(Grading.grade(listOf(imp(1, "a", now - 3 * hour, tappedAt = now - 3 * hour)), listOf(died), songs, groups, now).isEmpty())
+        // Waiting is said outright, so the card can be kept out of what is learned meanwhile.
+        val waiting = Grading.grade(listOf(imp(1, "a", now - 3 * hour, tappedAt = now - 3 * hour)), listOf(died), songs, groups, now).single()
+        assertEquals(Outcome.WAITING, waiting.outcome); assertEquals(0.0, waiting.y, 0.0); assertEquals(0.0, waiting.u, 0.0)
         val tap = now - 30 * hour
         val longAgo = died.copy(startedAt = tap + 1000, endedAt = tap + 121_000)
         val g = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(longAgo), songs, groups, now).single()
@@ -155,7 +157,7 @@ class GradingTest {
         val twice = Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(longAgo, again), songs, groups, now).single()
         assertEquals(Outcome.DROPPED, twice.outcome); assertEquals(0.0, twice.u, 0.0)
         val recently = again.copy(startedAt = now - 2 * hour, endedAt = now - 2 * hour + 50_000)
-        assertTrue(Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(longAgo, recently), songs, groups, now).isEmpty())
+        assertEquals(Outcome.WAITING, Grading.grade(listOf(imp(1, "a", tap, tappedAt = tap)), listOf(longAgo, recently), songs, groups, now).single().outcome)
     }
 
     @Test

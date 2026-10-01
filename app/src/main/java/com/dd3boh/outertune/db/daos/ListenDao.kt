@@ -146,6 +146,10 @@ interface ListenDao {
     @Query("UPDATE impression SET outcome = :outcome, y = :y, u = :u, gradedAt = :at, listenId = COALESCE(:listenId, listenId) WHERE id = :id")
     fun markGraded(id: Long, outcome: Int, y: Float, u: Float, at: Long, listenId: Long?)
 
+    /** A tapped card whose play failed and may yet be resumed: still pending, see Outcome.WAITING. */
+    @Query(EngineSql.MARK_WAITING)
+    fun markWaiting(id: Long)
+
     /** Graded examples the engine placed, not yet applied, oldest first. */
     @Query("SELECT * FROM impression WHERE gradedAt IS NOT NULL AND appliedAt IS NULL AND features IS NOT NULL AND u > 0 ORDER BY gradedAt, id")
     fun unappliedExamples(): List<Impression>

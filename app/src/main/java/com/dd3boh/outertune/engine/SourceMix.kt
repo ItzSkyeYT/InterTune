@@ -65,6 +65,8 @@ object SourceMix {
         for (r in rows) {
             if (r.team != 1 && r.team != 4) continue
             if (r.lane != 1 && r.lane != 4) continue
+            // A card waiting on a resume of its failed play (Outcome.WAITING) is outside 0..3: it
+            // decides nothing until it is graded.
             if (!Provenance.isEvidence(r.sources) || r.outcome !in 0..3) continue
             // A pending card is seen and not yet played, so a fresh play cannot lift its source
             // before the cards ignored beside it are graded.
