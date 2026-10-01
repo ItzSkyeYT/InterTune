@@ -1473,7 +1473,10 @@ class RecognitionEngine @Inject constructor(
         updateChoice(active.id) { it.copy(candidates = still.take(CHOICES)) }
     }
 
-    /** Shows the choice for [active], listing the songs [listed], in place of one it already had, alongside any others. */
+    /**
+     * Shows the choice for [active], listing the songs [listed], in place of one it already had,
+     * alongside any others.
+     */
     private fun offerChoice(active: ActiveMix, listed: List<MixWatch.Sighting>) {
         val titles = listed.map { it.title }
         val songs = listed.map(MixSearch::songId).toSet()

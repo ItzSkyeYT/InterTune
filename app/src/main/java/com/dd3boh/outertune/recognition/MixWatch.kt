@@ -1093,8 +1093,8 @@ internal object MixSearch {
         LEAVE(goesOn = false, mayTake = false, reopens = false, stands = false, notes = false),
 
         /**
-         * Nothing found names an uncovered song with the others, or what does the search thinks no
-         * more of than the answer given ([stillGiven]): the answer stands.
+         * Nothing found names an uncovered song with the others, or the search still says it is the
+         * answer given ([stillGiven]): the answer stands.
          */
         STAND(goesOn = false, mayTake = false, reopens = false, stands = true, notes = true),
 
