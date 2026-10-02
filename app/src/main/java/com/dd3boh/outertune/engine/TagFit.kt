@@ -16,11 +16,11 @@ package com.dd3boh.outertune.engine
  * base rate of 39.2. Three to one, on a library where 28 percent of titles carry a qualifier.
  *
  * What was tried first and thrown away: a global affinity per tag, "which treatments does this
- * listener finish". It measures almost nothing. His engagement with slowed edits, 2,113 listens,
+ * listener finish". It measures almost nothing. One real listener's engagement with slowed edits, 2,113 listens,
  * is 0.776 against an overall 0.758, a difference of two hundredths on a spread of a third. The
  * tags with an apparent effect all had thirty listens or fewer. Taste in treatments, if it exists,
- * is far weaker than the run. So this asks the question that pays instead: not what does he like,
- * but what is he doing right now.
+ * is far weaker than the run. So this asks the question that pays instead: not what does the listener like,
+ * but what are they doing right now.
  *
  * None of the engine's other features can see this. Time of day and session artists are the
  * closest, and neither knows that this hour is a slowed hour.

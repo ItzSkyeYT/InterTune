@@ -82,7 +82,7 @@ data class EngineParams(
     val columns: Int = 4,
     /**
      * Explore share is [exploreBase] + [exploreSpan] times the dial in [0, 1]: one card of twenty at
-     * 0, two at the default of 50 and three at 100. It used to reach seven, and on his phone the
+     * 0, two at the default of 50 and three at 100. It used to reach seven, and in one real library the
      * explore cards were played about one time in fifty against one in four for again, so the top
      * of the slider was a third of the row nobody played.
      */

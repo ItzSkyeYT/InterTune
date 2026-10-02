@@ -35,7 +35,7 @@ class HistoryRuleTest {
 
     @Test
     fun `a song played again straight after itself is dated back from its end`() {
-        // As on his phone (listen 8425): opened when the play before it ended, closed 38 ms later
+        // As in one real library (listen 8425): opened when the play before it ended, closed 38 ms later
         // with the 123 seconds that play had heard, which began at 18:48:40.
         val end = utc(LocalDateTime.of(2026, 9, 23, 16, 50, 44))
         assertEquals(end - 123_466, HistoryRule.listenAt(end - 38, end, 123_466))
