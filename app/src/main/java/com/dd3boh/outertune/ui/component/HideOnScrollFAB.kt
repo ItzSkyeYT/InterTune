@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.ui.component
 
+import com.dd3boh.outertune.ui.utils.dpadOverlay
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
@@ -98,6 +99,7 @@ private fun BoxScope.HideOnScrollFAB(visible: Boolean, onClick: () -> Unit, icon
         exit = slideOutVertically { it },
         modifier = Modifier
             .align(Alignment.BottomEnd)
+            .dpadOverlay()
             .windowInsetsPadding(
                 LocalPlayerAwareWindowInsets.current
                     .only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)

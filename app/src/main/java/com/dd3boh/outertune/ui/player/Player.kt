@@ -146,6 +146,20 @@ import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.platform.LocalLayoutDirection
+import com.dd3boh.outertune.ui.utils.dpadSeekTarget
+import com.dd3boh.outertune.ui.utils.blockFocusWhen
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -241,6 +255,26 @@ fun BottomSheetPlayer(
     val menuState = LocalMenuState.current
     val context = LocalContext.current
     val database = LocalDatabase.current
+
+    // Focus follows the sheet for the keys: opened from the mini player, it lands on play and
+    // pause; closed again, it goes back to the mini player's title. Left alone it vanished with
+    // whichever half had just been taken away, and the next key press had nowhere to start from.
+    val inputModeManager = LocalInputModeManager.current
+    val focusManager = LocalFocusManager.current
+    val sheetLayoutDirection = LocalLayoutDirection.current
+    val playPauseFocus = remember { FocusRequester() }
+    val miniPlayerFocus = remember { FocusRequester() }
+    var sheetWasOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(state.isExpanded, state.isCollapsed) {
+        val keys = inputModeManager.inputMode == InputMode.Keyboard
+        if (state.isExpanded) {
+            sheetWasOpen = true
+            if (keys) runCatching { playPauseFocus.requestFocus() }
+        } else if (state.isCollapsed && sheetWasOpen) {
+            sheetWasOpen = false
+            if (keys) runCatching { miniPlayerFocus.requestFocus() }
+        }
+    }
 
     val playbackState by playerConnection.playbackState.collectAsState()
     val isPlaying by playerConnection.isPlaying.collectAsState()
@@ -714,7 +748,9 @@ fun BottomSheetPlayer(
         collapsedContent = {
             MiniPlayer(
                 position = shownPosition,
-                duration = shownDuration
+                duration = shownDuration,
+                onExpand = state::expandSoft,
+                expandFocusRequester = miniPlayerFocus,
             )
         }
     ) {
@@ -1111,7 +1147,32 @@ fun BottomSheetPlayer(
                             trackInsideCornerSize = 4.dp,
                         )
                     },
-                    modifier = Modifier.padding(horizontal = hPadding)
+                    modifier = Modifier
+                        .padding(horizontal = hPadding)
+                        // From the keys, left and right seek in steps of a few seconds, which a
+                        // whole song's worth of one percent nudges was not. Up and down move on
+                        // rather than nudging the slider, which would otherwise hold on to focus.
+                        .onPreviewKeyEvent { event ->
+                            val forward = when (event.key) {
+                                Key.DirectionRight -> sheetLayoutDirection == LayoutDirection.Ltr
+                                Key.DirectionLeft -> sheetLayoutDirection != LayoutDirection.Ltr
+                                Key.DirectionUp, Key.DirectionDown -> {
+                                    if (event.type == KeyEventType.KeyDown) {
+                                        focusManager.moveFocus(
+                                            if (event.key == Key.DirectionUp) FocusDirection.Up else FocusDirection.Down
+                                        )
+                                    }
+                                    return@onPreviewKeyEvent true
+                                }
+                                else -> return@onPreviewKeyEvent false
+                            }
+                            if (event.type == KeyEventType.KeyDown && playerConnection.player.currentMediaItem != null) {
+                                val target = dpadSeekTarget(playerConnection.player.currentPosition, shownDuration, forward)
+                                playerConnection.player.seekTo(target)
+                                position = target
+                            }
+                            true
+                        }
                 )
 
                 Row(
@@ -1223,6 +1284,7 @@ fun BottomSheetPlayer(
                             .animateContentSize()
                             .clip(RoundedCornerShape(playPauseRoundness))
                             .background(MaterialTheme.colorScheme.primary)
+                            .focusRequester(playPauseFocus)
                             .clickable {
                                 // One branch. setCurrQueue loads the queue but never prepares,
                                 // and togglePlayPause used to flip playWhenReady instead of
@@ -1555,9 +1617,28 @@ fun BottomSheetPlayer(
             }
 
         }
-        lol()
+        // Closed to the keys while the queue is open over it. Focus goes into the queue as it
+        // opens and back to play and pause as it closes, since what had it is gone each time and
+        // Compose would look for a new start in the closed part first.
+        val queueCovers by remember(queueSheetState) { derivedStateOf { queueSheetState.progress >= 0.5f } }
+        val queueFocus = remember { FocusRequester() }
+        var queueWasOpen by remember { mutableStateOf(false) }
+        LaunchedEffect(queueSheetState.isExpanded, queueSheetState.isCollapsed) {
+            val keys = inputModeManager.inputMode == InputMode.Keyboard
+            if (queueSheetState.isExpanded) {
+                queueWasOpen = true
+                if (keys) runCatching { queueFocus.requestFocus() }
+            } else if (queueSheetState.isCollapsed && queueWasOpen) {
+                queueWasOpen = false
+                if (keys && state.isExpanded) runCatching { playPauseFocus.requestFocus() }
+            }
+        }
+        Box(Modifier.fillMaxSize().blockFocusWhen(queueCovers)) {
+            lol()
+        }
 
         QueueSheet(
+            modifier = Modifier.focusRequester(queueFocus),
             state = queueSheetState,
             playerBottomSheetState = state,
             onTerminate = {

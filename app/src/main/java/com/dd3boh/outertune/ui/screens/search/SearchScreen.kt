@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.screens.search
 
+import com.dd3boh.outertune.ui.utils.dpadOverlay
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
@@ -173,7 +174,8 @@ fun SearchBarContainer(
         exit = fadeOut()
     ) {
         SearchBar(
-            pillModifier = Modifier.tourTarget(Tour.SEARCH_BAR),
+            // The pill, which grows to the whole screen while searching, floats over the page.
+            pillModifier = Modifier.tourTarget(Tour.SEARCH_BAR).dpadOverlay(),
             query = query,
             onQueryChange = onQueryChange,
             onSearch = onSearch,

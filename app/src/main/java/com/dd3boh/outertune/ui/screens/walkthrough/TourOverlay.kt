@@ -6,6 +6,10 @@
 
 package com.dd3boh.outertune.ui.screens.walkthrough
 
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -453,6 +457,14 @@ private fun TourBubble(
     val isLast = state.index == state.stops.lastIndex
     val title = stringResource(stop.title)
 
+    // From the keys, each card starts on its main button. The screen behind is closed to the
+    // keys while the tour runs (see MainActivity), so without this there was nowhere to start.
+    val inputModeManager = LocalInputModeManager.current
+    val advanceFocus = remember { FocusRequester() }
+    LaunchedEffect(state.index) {
+        if (inputModeManager.inputMode == InputMode.Keyboard) runCatching { advanceFocus.requestFocus() }
+    }
+
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(BUBBLE_RADIUS),
@@ -500,7 +512,7 @@ private fun TourBubble(
                     }
                     Spacer(Modifier.width(4.dp))
                 }
-                Button(onClick = onAdvance) {
+                Button(onClick = onAdvance, modifier = Modifier.focusRequester(advanceFocus)) {
                     Text(
                         stringResource(
                             when {

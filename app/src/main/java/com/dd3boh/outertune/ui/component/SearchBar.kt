@@ -11,6 +11,8 @@
 
 package com.dd3boh.outertune.ui.component
 
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.KeyEventType
 import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
@@ -369,6 +371,15 @@ private fun SearchBarInputField(
                     }
                 }
                 .onKeyEvent {
+                    // The centre key opens the search the way a tap on the field does, since a
+                    // keypad has no tap. Some keypad phones send Enter from it instead, which on
+                    // the closed field ran a search for nothing; it opens the search too. The
+                    // centre key is not taken, so the field still brings up the keyboard.
+                    val centre = it.key == Key.DirectionCenter || it.key == Key.Enter || it.key == Key.NumPadEnter
+                    if (centre && !active) {
+                        if (it.type == KeyEventType.KeyUp) onActiveChange(true)
+                        return@onKeyEvent it.key != Key.DirectionCenter
+                    }
                     if (it.key == Key.Enter) {
                         onSearch(query.text)
                         return@onKeyEvent true
