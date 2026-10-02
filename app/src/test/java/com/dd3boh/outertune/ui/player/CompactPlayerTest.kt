@@ -211,4 +211,12 @@ class CompactPlayerTest {
             assertFalse("previous at $width", miniPlayerShowsPrevious(width))
         }
     }
+
+    @Test
+    fun `two circles stacked beside the cover need their height, or they go in a row`() {
+        assertTrue(classicSideColumnsFit(88.dp))
+        assertTrue(classicSideColumnsFit(140.dp))
+        // At 240 x 320 dp the space left for the cover is about 60dp.
+        assertFalse(classicSideColumnsFit(60.dp))
+    }
 }

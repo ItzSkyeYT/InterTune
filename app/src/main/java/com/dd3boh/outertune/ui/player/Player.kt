@@ -77,6 +77,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -842,22 +843,16 @@ fun BottomSheetPlayer(
             // Classic: circles beside the title. Tertiary on the timer while it runs, and a
             // tap then cancels it, as the menu's entry does. With the queue on a button it comes
             // first, so like and the menu stay where they always were at the end of the row.
-            val classicButtons: @Composable RowScope.() -> Unit = {
-                Log.v(TAG, "PLR-3.xa")
-                Spacer(modifier = Modifier.width(10.dp))
-
-                if (queueLayout.queueButton) {
-                    PlayerCircleButton(
-                        painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
-                        contentDescription = stringResource(R.string.queue),
-                        container = MaterialTheme.colorScheme.primary,
-                        content = MaterialTheme.colorScheme.onPrimary,
-                        onClick = openQueue
-                    )
-
-                    Spacer(modifier = Modifier.width(7.dp))
-                }
-
+            val queueCircle: @Composable () -> Unit = {
+                PlayerCircleButton(
+                    painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
+                    contentDescription = stringResource(R.string.queue),
+                    container = MaterialTheme.colorScheme.primary,
+                    content = MaterialTheme.colorScheme.onPrimary,
+                    onClick = openQueue
+                )
+            }
+            val timerCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
                     painter = rememberVectorPainter(Icons.Rounded.Timer),
                     contentDescription = stringResource(R.string.sleep_timer),
@@ -868,9 +863,8 @@ fun BottomSheetPlayer(
                         else showSleepTimerDialog = true
                     }
                 )
-
-                Spacer(modifier = Modifier.width(7.dp))
-
+            }
+            val likeCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
                     painter = painterResource(if (currentSong?.song?.liked == true) R.drawable.favorite else R.drawable.favorite_border),
                     contentDescription = null,
@@ -878,9 +872,8 @@ fun BottomSheetPlayer(
                     content = MaterialTheme.colorScheme.onPrimary,
                     onClick = playerConnection::toggleLike
                 )
-
-                Spacer(modifier = Modifier.width(7.dp))
-
+            }
+            val menuCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
                     painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                     contentDescription = stringResource(R.string.options),
@@ -888,6 +881,44 @@ fun BottomSheetPlayer(
                     content = MaterialTheme.colorScheme.onPrimary,
                     onClick = showPlayerMenu
                 )
+            }
+
+            val classicButtons: @Composable RowScope.() -> Unit = {
+                Log.v(TAG, "PLR-3.xa")
+                Spacer(modifier = Modifier.width(10.dp))
+
+                if (queueLayout.queueButton) {
+                    queueCircle()
+                    Spacer(modifier = Modifier.width(7.dp))
+                }
+                timerCircle()
+                Spacer(modifier = Modifier.width(7.dp))
+                likeCircle()
+                Spacer(modifier = Modifier.width(7.dp))
+                menuCircle()
+            }
+
+            /**
+             * Classic's four circles in a small window, two in a column on each side of the cover:
+             * queue and sleep timer on the left, like and the menu on the right. The window is
+             * wider than it is tall there, so the cover is held back by height, and a row of the
+             * circles above the title took height the cover could have had. On a keypad, left and
+             * right from the cover reach them.
+             */
+            val classicBesideCover = compactPlayer && buttonsStyle == PlayerButtonsStyle.CLASSIC
+            val classicSideColumn: @Composable (Boolean) -> Unit = { left ->
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (left) {
+                        queueCircle()
+                        timerCircle()
+                    } else {
+                        likeCircle()
+                        menuCircle()
+                    }
+                }
             }
 
             // Connected: share and like beside the title as one pair, round on the outside and
@@ -945,14 +976,13 @@ fun BottomSheetPlayer(
              * title there too. Connected's queue button is in the row under the controls, which a
              * tablet already shows.
              *
-             * A small window puts Classic's row above the title too, as narrow landscape does. The
-             * queue button always joins it there, and four circles beside the title left the title
-             * a few letters on a keypad phone. Connected's pair stays beside the title, with the
-             * queue in the row under the controls.
+             * A small window puts Classic's circles beside the cover instead (see classicBesideCover):
+             * four circles beside the title left the title a few letters on a keypad phone, and a
+             * row of them above it took height from the cover. Connected's pair stays beside the
+             * title, with the queue in the row under the controls.
              */
-            val classicAboveTitle = compactPlayer && buttonsStyle == PlayerButtonsStyle.CLASSIC
-            val buttonsAboveTitle = (isLandscape && !tabMode && !wideScreen) || classicAboveTitle
-            val buttonsBesideTitle = (!isLandscape && !classicAboveTitle) ||
+            val buttonsAboveTitle = isLandscape && !tabMode && !wideScreen
+            val buttonsBesideTitle = (!isLandscape && !classicBesideCover) ||
                 (landscapeTwoPane && buttonsStyle == PlayerButtonsStyle.CONNECTED) ||
                 (tabMode && queueAsButton && buttonsStyle == PlayerButtonsStyle.CLASSIC)
 
@@ -1562,10 +1592,9 @@ fun BottomSheetPlayer(
                             else queueReserve
                         )
                 ) {
-                    BoxWithConstraints(
+                    val coverBox: @Composable (Modifier) -> Unit = { boxModifier -> BoxWithConstraints(
                         contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .weight(1f)
+                        modifier = boxModifier
                             .nestedScroll(state.preUpPostDownNestedScrollConnection)
                     ) {
                         Log.v(TAG, "PLR-3.2b")
@@ -1601,6 +1630,39 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
+                    } }
+                    if (classicBesideCover) {
+                        BoxWithConstraints(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .padding(horizontal = hPadding)
+                        ) {
+                            if (classicSideColumnsFit(maxHeight)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    classicSideColumn(true)
+                                    coverBox(Modifier.weight(1f).fillMaxHeight())
+                                    classicSideColumn(false)
+                                }
+                            } else {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    queueCircle()
+                                    timerCircle()
+                                    likeCircle()
+                                    menuCircle()
+                                }
+                            }
+                        }
+                    } else {
+                        coverBox(Modifier.weight(1f))
                     }
 
                     // Shrunk as a block when the window is too short for them, as the landscape

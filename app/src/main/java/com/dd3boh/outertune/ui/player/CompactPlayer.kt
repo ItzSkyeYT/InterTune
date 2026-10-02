@@ -130,6 +130,20 @@ internal val CompactCoverMinHeight = 48.dp
 internal fun compactCoverFits(height: Dp): Boolean = height >= CompactCoverMinHeight
 
 /**
+ * The height two of Classic's 36dp circles need stacked, with the 8dp gap between them and the
+ * 5dp they sit lowered by, plus a little room.
+ */
+internal val ClassicSideColumnMinHeight = 88.dp
+
+/**
+ * Whether Classic's circles fit in two columns beside the cover in a small player's cover space
+ * [height] tall. Below that a column ran into the status bar above and the title below, so the
+ * four circles go in one row in that space instead, and the cover, which would be smaller than
+ * them there, is left out.
+ */
+internal fun classicSideColumnsFit(height: Dp): Boolean = height >= ClassicSideColumnMinHeight
+
+/**
  * The sizes of the transport controls under the seek bar.
  *
  * @property playButton the play button's side.
