@@ -152,6 +152,10 @@ android {
             initWith(getByName("debug"))
             applicationIdSuffix = ".preview"
             matchingFallbacks += listOf("debug")
+            // A preview published for testers carries its own version, so Obtainium can tell one
+            // build from the next: tools/preview/publish-preview.sh passes -PpreviewVersion=<stamp>.
+            // Without the property nothing changes.
+            (project.findProperty("previewVersion") as String?)?.let { versionNameSuffix = "-preview.$it" }
         }
 
         // userdebug is release builds without minify
