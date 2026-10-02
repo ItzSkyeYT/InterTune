@@ -159,8 +159,9 @@ fun MiniPlayer(
             // The mini player had play and next and nothing to go back with, so the only way
             // to hear something again was to open the full player or reach for the headset. It
             // takes width from the title, which is the point of the row, so it is the narrower of
-            // the two jobs that loses out: the text truncates a little sooner.
-            IconButton(
+            // the two jobs that loses out: the text truncates a little sooner. In a window too
+            // narrow to spare that width the title wins, see miniPlayerShowsPrevious.
+            if (miniPlayerShowsPrevious(windowWidth())) IconButton(
                 enabled = canSkipPrevious,
                 onClick = {
                     if (playerConnection.player.currentMediaItem == null) {

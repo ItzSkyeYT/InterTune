@@ -456,15 +456,14 @@ fun BottomSheetPlayer(
 
     // ignoringVisibility so hiding the bars in immersive landscape does not change this bound and
     // rebuild the sheet state mid-gesture. See the matching note in MainActivity.
-    val dismissedBound =
-        QueuePeekHeight + WindowInsets.systemBarsIgnoringVisibility.asPaddingValues().calculateBottomPadding()
+    val bottomBarsInset = WindowInsets.systemBarsIgnoringVisibility.asPaddingValues().calculateBottomPadding()
 
     /**
      * The collapsed queue sheet is [QueuePeekHeight] taller than the peek it actually needs, and
-     * [QueueSheet] pins its expand arrow to the *top* of that strip. In portrait, spending 96dp on
-     * it costs nothing. In landscape the whole player is 384dp tall and the artwork is
-     * height-constrained, so those extra 48dp come straight out of the artwork while leaving the
-     * arrow floating in the middle of the transport controls.
+     * [QueueSheet] pins its expand arrow to the *top* of that strip. On a phone held upright,
+     * spending 96dp on it costs little. In landscape the whole player is 384dp tall and the
+     * artwork is height-constrained, so those extra 48dp come straight out of the artwork while
+     * leaving the arrow floating in the middle of the transport controls.
      *
      * Landscape therefore collapses to exactly the peek. Safe: [rememberBottomSheetState] already
      * defaults collapsedBound to dismissedBound, and a slow release below the collapsed midpoint
@@ -480,11 +479,27 @@ fun BottomSheetPlayer(
      * or from its button. Giving the strip back when the button took over let everything above it
      * drop, 96dp in portrait, and the controls are pressed from memory, so turning the button on
      * must not move them.
+     *
+     * A small window, a keypad phone's screen or a floating window, has no room for the strip at
+     * all, so there it is gone and the queue opens from a button among the controls as well as
+     * from a swipe up. See [playerQueueLayout].
      */
-    val queueReserve = if (landscapeTwoPane || tabletTwoPane) dismissedBound else dismissedBound + QueuePeekHeight
+    val queueLayout = playerQueueLayout(
+        windowHeight = state.expandedBound,
+        bottomInset = bottomBarsInset,
+        landscape = isLandscape,
+        twoPane = landscapeTwoPane || tabletTwoPane,
+        queueAsButton = queueAsButton,
+        songLoaded = mediaMetadata != null,
+    )
+    val queueReserve = queueLayout.reserve
+    val compactPlayer = queueLayout.compact
 
     /**
-     * Whether the queue opens from its button rather than from the sheet's handle.
+     * With the queue on a button the sheet collapses to nothing at all: it sits wholly below the
+     * screen, so the player has no handle and no pull-up gesture at the bottom, and the button is
+     * the only way up. Opened, it is the same sheet with the same queue in it, and back or a drag
+     * down puts it away again.
      *
      * Only while a song is loaded. The button sits with the controls, which are not drawn without
      * one, so a queue emptied by swiping its last song away left the player with no controls and,
@@ -492,18 +507,10 @@ fun BottomSheetPlayer(
      * something is loaded again, and since the player keeps queueReserve clear either way, nothing
      * moves when it does.
      */
-    val queueOnButton = queueAsButton && mediaMetadata != null
-
-    /**
-     * With the queue on a button the sheet collapses to nothing at all: it sits wholly below the
-     * screen, so the player has no handle and no pull-up gesture at the bottom, and the button is
-     * the only way up. Opened, it is the same sheet with the same queue in it, and back or a drag
-     * down puts it away again.
-     */
     val queueSheetState = rememberBottomSheetState(
-        dismissedBound = if (queueOnButton) 0.dp else dismissedBound,
+        dismissedBound = queueLayout.sheetDismissed,
         expandedBound = state.expandedBound,
-        collapsedBound = if (queueOnButton) 0.dp else queueReserve,
+        collapsedBound = queueLayout.sheetCollapsed,
         initialAnchor = 1
     )
 
@@ -729,22 +736,31 @@ fun BottomSheetPlayer(
              *
              * Hoisted to this scope because both [controlsContent] and the two-pane landscape
              * column need them.
+             *
+             * A small window has a narrower gutter, so the title has the width and the controls
+             * have room to breathe.
              */
             val landscapePlayer = isLandscape && !tabMode
-            val hPadding = if (landscapePlayer) 24.dp else PlayerHorizontalPadding
+            val hPadding = when {
+                compactPlayer -> CompactPlayerGutter
+                landscapePlayer -> 24.dp
+                else -> PlayerHorizontalPadding
+            }
             val titleSize = if (landscapePlayer) 25.sp else TextUnit.Unspecified
             val artistSize = if (landscapePlayer) 19.sp else TextUnit.Unspecified
 
             /**
-             * Transport controls run larger in landscape, where there is room for them.
+             * Transport controls run larger in landscape, where there is room for them, and
+             * smaller in a small window, where there is not. See [playerControlSizes].
              *
              * Lyrics do not change them. The play button used to drop to 56dp whenever lyrics were
              * showing, to give the lyrics a little more height, and the controls jumping to a smaller
              * size as lyrics came up read as the player shrinking its buttons. The lyrics take the
              * artwork's place, which is plenty of room without the controls giving any up.
              */
-            val transportIconSize = if (landscapePlayer) 42.dp else 32.dp
-            val playButtonSize = if (landscapePlayer) 84.dp else 72.dp
+            val controlSizes = playerControlSizes(landscapePlayer = landscapePlayer, compact = compactPlayer)
+            val transportIconSize = controlSizes.transportIcon
+            val playButtonSize = controlSizes.playButton
 
             // Sleep timer, lyrics and the menu one tap away on the player itself, not only inside
             // the menu (yuuichi-s #54). The timer's fields are Compose state, so the buttons follow it.
@@ -794,7 +810,7 @@ fun BottomSheetPlayer(
                 Log.v(TAG, "PLR-3.xa")
                 Spacer(modifier = Modifier.width(10.dp))
 
-                if (queueAsButton) {
+                if (queueLayout.queueButton) {
                     PlayerCircleButton(
                         painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
                         contentDescription = stringResource(R.string.queue),
@@ -892,8 +908,15 @@ fun BottomSheetPlayer(
              * without that row the saved queues would be out of reach, so the row sits beside the
              * title there too. Connected's queue button is in the row under the controls, which a
              * tablet already shows.
+             *
+             * A small window puts Classic's row above the title too, as narrow landscape does. The
+             * queue button always joins it there, and four circles beside the title left the title
+             * a few letters on a keypad phone. Connected's pair stays beside the title, with the
+             * queue in the row under the controls.
              */
-            val buttonsBesideTitle = !isLandscape ||
+            val classicAboveTitle = compactPlayer && buttonsStyle == PlayerButtonsStyle.CLASSIC
+            val buttonsAboveTitle = (isLandscape && !tabMode && !wideScreen) || classicAboveTitle
+            val buttonsBesideTitle = (!isLandscape && !classicAboveTitle) ||
                 (landscapeTwoPane && buttonsStyle == PlayerButtonsStyle.CONNECTED) ||
                 (tabMode && queueAsButton && buttonsStyle == PlayerButtonsStyle.CLASSIC)
 
@@ -901,41 +924,50 @@ fun BottomSheetPlayer(
             // thing they control is on. The timer shows what is left, so a running timer is visible
             // without opening anything, and a tap on it cancels, as the menu's entry does. With the
             // queue on a button it joins the group in front of lyrics, the other button that opens
-            // a view, and the three stay exactly where they sit with it off.
+            // a view, and the three stay exactly where they sit with it off. A small player always
+            // has it, so there it is simply one of four, all centred together.
             val quickActions: @Composable () -> Unit = {
                 val inactive = onBackgroundColor.copy(alpha = 0.12f)
+                val actionWidth = if (compactPlayer) {
+                    compactQuickActionWidth(
+                        rowWidth = windowWidth() - hPadding * 2,
+                        count = 4,
+                        gap = ConnectedButtonGap,
+                        preferred = QuickActionWidth,
+                    )
+                } else QuickActionWidth
+                val queueSegment: @Composable () -> Unit = {
+                    PlayerActionSegment(
+                        painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
+                        contentDescription = stringResource(R.string.queue),
+                        shape = connectedShape(first = true, last = false),
+                        container = inactive,
+                        filled = false,
+                        content = onBackgroundColor,
+                        width = actionWidth,
+                        backdrop = buttonBackdrop,
+                        glassIntensity = glassIntensity,
+                        onClick = openQueue,
+                    )
+                }
                 CentredRowWithLeading(
                     gap = ConnectedButtonGap,
                     gutter = hPadding,
-                    leading = if (queueAsButton) {
-                        {
-                            PlayerActionSegment(
-                                painter = rememberVectorPainter(Icons.AutoMirrored.Rounded.QueueMusic),
-                                contentDescription = stringResource(R.string.queue),
-                                shape = connectedShape(first = true, last = false),
-                                container = inactive,
-                                filled = false,
-                                content = onBackgroundColor,
-                                width = QuickActionWidth,
-                                backdrop = buttonBackdrop,
-                                glassIntensity = glassIntensity,
-                                onClick = openQueue,
-                            )
-                        }
-                    } else null,
+                    leading = if (queueLayout.queueButton && !compactPlayer) queueSegment else null,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = hPadding)
                         .padding(top = 16.dp)
                 ) {
+                    if (compactPlayer) queueSegment()
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.Lyrics),
                         contentDescription = stringResource(R.string.toggle_lyrics),
-                        shape = connectedShape(first = !queueAsButton, last = false),
+                        shape = connectedShape(first = !queueLayout.queueButton, last = false),
                         container = if (showLyrics) MaterialTheme.colorScheme.primary else inactive,
                         filled = showLyrics,
                         content = if (showLyrics) MaterialTheme.colorScheme.onPrimary else onBackgroundColor,
-                        width = QuickActionWidth,
+                        width = actionWidth,
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
                         onClick = {
@@ -950,7 +982,7 @@ fun BottomSheetPlayer(
                         container = if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else inactive,
                         filled = sleepTimerOn,
                         content = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else onBackgroundColor,
-                        width = QuickActionWidth,
+                        width = actionWidth,
                         label = if (sleepTimerOn && sleepTimerLeft > 0) makeTimeString(sleepTimerLeft) else null,
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
@@ -966,7 +998,7 @@ fun BottomSheetPlayer(
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,
-                        width = QuickActionWidth,
+                        width = actionWidth,
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
                         onClick = showPlayerMenu,
@@ -977,21 +1009,21 @@ fun BottomSheetPlayer(
             val controlsContent: @Composable ColumnScope.(MediaMetadata) -> Unit = { mediaMetadata ->
                 Log.v(TAG, "PLR-3.xb")
                 val playPauseRoundness by animateDpAsState(
-                    targetValue = if (isPlaying) 24.dp else 36.dp,
+                    targetValue = if (isPlaying) controlSizes.playingCorner else controlSizes.pausedCorner,
                     animationSpec = tween(durationMillis = 100, easing = LinearEasing),
                     label = "playPauseRoundness"
                 )
 
                 // Action buttons for landscape, above the title. The two-pane layout hoists these
                 // to the top of its controls column instead, so this only covers narrow landscape,
-                // which still uses the stacked layout.
-                if (landscapePlayer && !wideScreen) {
+                // which still uses the stacked layout, and Classic in a small window.
+                if (buttonsAboveTitle) {
                     Row(
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = hPadding, end = hPadding, bottom = 16.dp)
+                            .padding(start = hPadding, end = hPadding, bottom = if (compactPlayer) 8.dp else 16.dp)
                     ) {
                         actionButtons()
                     }
@@ -1138,7 +1170,7 @@ fun BottomSheetPlayer(
                     )
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(controlSizes.gapAboveTransport))
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -1241,7 +1273,7 @@ fun BottomSheetPlayer(
                             colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
                             modifier = Modifier
                                 .align(Alignment.Center)
-                                .size(36.dp)
+                                .size(controlSizes.playIcon)
                         )
                     }
 
@@ -1475,7 +1507,9 @@ fun BottomSheetPlayer(
                             .nestedScroll(state.preUpPostDownNestedScrollConnection)
                     ) {
                         Log.v(TAG, "PLR-3.2b")
-                        if (!swipeToSkip) {
+                        if (compactPlayer && !compactCoverFits(maxHeight)) {
+                            // No room for a cover worth the name, so none rather than a sliver.
+                        } else if (!swipeToSkip) {
                             Thumbnail(
                                 modifier = Modifier
 //                                .width(horizontalLazyGridItemWidth)
@@ -1490,7 +1524,7 @@ fun BottomSheetPlayer(
                                 currentIndex = currentMediaIndex,
                                 scrollable = state.isExpanded,
                                 expanded = state.isExpanded,
-                                modifier = Modifier.padding(vertical = QueuePeekHeight / 2),
+                                modifier = Modifier.padding(vertical = queueLayout.artworkPadding),
                                 onSkip = { forward -> skipFromArtwork(playerConnection, forward) },
                             ) {
                                 Thumbnail(
@@ -1520,7 +1554,10 @@ fun BottomSheetPlayer(
                             modifier = Modifier.shrinkToFitHeight(keepClearAtTop = statusBar)
                         ) {
                             controlsContent(controlsFor)
-                            Spacer(Modifier.height(24.dp))
+                            // A small player keeps this gap in queueReserve instead, outside the
+                            // block, so the queue's grab strip over it never covers a control
+                            // when the block has to shrink.
+                            if (!compactPlayer) Spacer(Modifier.height(24.dp))
                         }
                     } else {
                         Spacer(Modifier.height(24.dp))
@@ -1566,7 +1603,8 @@ fun BottomSheetPlayer(
             },
             onBackgroundColor = onBackgroundColor,
             navController = navController,
-            showHandle = !queueOnButton
+            showHandle = queueLayout.showHandle,
+            compact = queueLayout.compactSheet,
         )
     }
 }
@@ -1578,6 +1616,9 @@ fun BottomSheetPlayer(
  * tablet does not need because the queue is permanently beside the player.
  */
 private val TabletQueueHandleReserve = 48.dp
+
+/** The side gutter of a small player, Material's margin for a compact window. */
+private val CompactPlayerGutter = 16.dp
 
 /** The space either side of the play button, between it and its neighbours' slots. */
 private val PlayButtonGap = 8.dp

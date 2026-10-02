@@ -206,6 +206,12 @@ fun QueueSheet(
      * from that button.
      */
     showHandle: Boolean = true,
+    /**
+     * Whether the open sheet is laid out for a small window: the bar at its bottom has no
+     * transport controls, which the player has a back press away, and keeps the queue's title to
+     * one line. On a keypad phone those two took all the height and left none for the songs.
+     */
+    compact: Boolean = false,
 ) {
     Log.v("QueueSheet", "Q-1")
     val haptic = LocalHapticFeedback.current
@@ -248,7 +254,8 @@ fun QueueSheet(
             queueState = state,
             onTerminate = onTerminate,
             playerState = playerBottomSheetState,
-            navController = navController
+            navController = navController,
+            compact = compact,
         )
     }
 }
@@ -292,6 +299,8 @@ fun BoxScope.QueueContent(
      * rather than permanently occupying the player.
      */
     songsOnly: Boolean = false,
+    /** Whether to lay the bar at the bottom out for a small window, see [QueueSheet]. */
+    compact: Boolean = false,
 ) {
     Log.v("QueueContent", "QC-1")
     val context = LocalContext.current
@@ -1230,6 +1239,7 @@ fun BoxScope.QueueContent(
                         Text(
                             text = detachedQueue?.title ?: mutableQueues.getOrNull(playingQueue)?.title ?: "",
                             style = MaterialTheme.typography.titleMedium,
+                            maxLines = if (compact) 1 else Int.MAX_VALUE,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier
                                 .weight(1f)
@@ -1302,7 +1312,7 @@ fun BoxScope.QueueContent(
             }
 
             // player controls
-            if (queueState != null) {
+            if (queueState != null && !compact) {
                 val iconButtonColor = MaterialTheme.colorScheme.onSecondaryContainer
                 Row(
                     horizontalArrangement = Arrangement.SpaceAround,
