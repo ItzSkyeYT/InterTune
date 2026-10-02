@@ -153,4 +153,11 @@ class DpadFocusTest {
         assertEquals(15_000L, dpadSeekTarget(5_000L, -1L, forward = true))
         assertEquals(0L, dpadSeekTarget(5_000L, -1L, forward = false))
     }
+
+    @Test
+    fun `the screen is searched only from a floating control or with nothing focused`() {
+        assertTrue(needsScreenSearch(anythingFocused = false, overlaysFocused = 0))
+        assertTrue(needsScreenSearch(anythingFocused = true, overlaysFocused = 1))
+        assertFalse(needsScreenSearch(anythingFocused = true, overlaysFocused = 0))
+    }
 }

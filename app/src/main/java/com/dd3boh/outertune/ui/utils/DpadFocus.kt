@@ -17,11 +17,13 @@ import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidedValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.InputModeManager
@@ -43,6 +45,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.SemanticsPropertyKey
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
 import androidx.compose.ui.semantics.semantics
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -88,7 +91,29 @@ private var SemanticsPropertyReceiver.dpadBlocked by DpadBlockedKey
  * key pressed on it moves to the nearest visible element anywhere on screen (see
  * [dpadOverlayEscape]), and content lying underneath it is never chosen.
  */
-fun Modifier.dpadOverlay(): Modifier = semantics { dpadOverlay = true }
+fun Modifier.dpadOverlay(): Modifier = semantics { dpadOverlay = true }.composed {
+    // Counted in and out as focus enters and leaves, so an arrow key in ordinary content can skip
+    // the search across the screen without walking it first. See [needsScreenSearch].
+    val had = remember { BooleanArray(1) }
+    DisposableEffect(Unit) { onDispose { if (had[0]) overlaysFocused.decrementAndGet() } }
+    onFocusEvent { state ->
+        if (state.hasFocus != had[0]) {
+            had[0] = state.hasFocus
+            if (state.hasFocus) overlaysFocused.incrementAndGet() else overlaysFocused.decrementAndGet()
+        }
+    }
+}
+
+/** How many floating controls hold focus right now; see [dpadOverlay]. */
+private val overlaysFocused = AtomicInteger(0)
+
+/**
+ * Whether an arrow key needs the search across the whole screen: only when focus is on a floating
+ * control, or nowhere. Anywhere else Compose's own search is enough, and walking every element on
+ * screen for each key press cost a slow phone a visible pause in long lists.
+ */
+fun needsScreenSearch(anythingFocused: Boolean, overlaysFocused: Int): Boolean =
+    !anythingFocused || overlaysFocused > 0
 
 /**
  * Whether [candidate] lies in [direction] from [from]: it must start beyond the edge being moved
@@ -297,16 +322,18 @@ private class Focusable(val node: SemanticsNode, val bounds: Rect, val inOverlay
 
 /**
  * Answers an arrow key pressed on a floating control (see [dpadOverlay]) by moving to the nearest
- * focusable element in that direction anywhere on screen, and an arrow key pressed while nothing
- * has focus by focusing the first element in reading order. Goes on the root of the window's
+ * focusable element in that direction anywhere on screen, and, when a key reaches it with nothing
+ * inside focused, by focusing the first element in reading order. Goes on the root of the window's
  * content. Keys pressed anywhere else, and inside a list that scrolls within a floating control
  * such as the search suggestions, are left to Compose's own search.
  */
 fun Modifier.dpadOverlayEscape(): Modifier = composed {
     val view = LocalView.current
-    onPreviewKeyEvent { event ->
+    val anythingFocused = remember { BooleanArray(1) }
+    onFocusEvent { anythingFocused[0] = it.hasFocus }.onPreviewKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
         val direction = event.dpadDirection() ?: return@onPreviewKeyEvent false
+        if (!needsScreenSearch(anythingFocused[0], overlaysFocused.get())) return@onPreviewKeyEvent false
         dpadMove(view, direction, fromAnywhere = false)
     }
 }
