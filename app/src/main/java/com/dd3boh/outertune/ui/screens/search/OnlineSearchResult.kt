@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.screens.search
 
+import com.dd3boh.outertune.ui.utils.dpadOverlay
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -316,6 +317,8 @@ fun OnlineSearchResult(
             }
         },
         modifier = Modifier
+            // Floats over the results, which scroll up underneath it.
+            .dpadOverlay()
             .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top).add(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal)))
             .padding(top = AppBarHeight)
     )

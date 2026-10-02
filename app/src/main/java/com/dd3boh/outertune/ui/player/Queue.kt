@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.ui.player
 
+import androidx.compose.ui.focus.focusProperties
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.utils.ActivityLog
@@ -1183,6 +1184,9 @@ fun BoxScope.QueueContent(
                 .background(MaterialTheme.colorScheme.secondaryContainer)
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.End))
+                // Not a stop for the arrow keys, or the buttons inside could never be reached:
+                // focus only moves between siblings. Back closes the queue from the keys.
+                .focusProperties { canFocus = false }
                 .clickable {
                     queueState?.collapseSoft()
                     haptic.performHapticFeedback(HapticFeedbackType.ContextClick)

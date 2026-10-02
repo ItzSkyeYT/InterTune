@@ -9,6 +9,9 @@
 
 package com.dd3boh.outertune.ui.component
 
+import androidx.compose.ui.focus.focusProperties
+import com.dd3boh.outertune.ui.utils.dpadOverlay
+
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.Animatable
@@ -218,6 +221,12 @@ fun BottomSheet(
                     .graphicsLayer {
                         alpha = 1f - (state.progress * 4).coerceAtMost(1f)
                     }
+                    .dpadOverlay()
+                    // Not a stop for the arrow keys itself. It spans the navigation bar as well
+                    // as the mini player, so as one focusable box it could only be left upwards,
+                    // and the buttons inside it could not be reached at all. The collapsed
+                    // content offers its own way to open the sheet from the keys.
+                    .focusProperties { canFocus = false }
                     .clickable(
                         onClick = state::expandSoft
                     )

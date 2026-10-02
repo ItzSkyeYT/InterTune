@@ -9,6 +9,12 @@
 
 package com.dd3boh.outertune.ui.menu
 
+import kotlinx.coroutines.launch
+import androidx.compose.material3.SheetValue
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -61,6 +67,8 @@ fun BottomSheetMenu(
     background: Color = Color.Transparent,
 ) {
     val focusManager = LocalFocusManager.current
+    val inputModeManager = LocalInputModeManager.current
+    val coroutineScope = rememberCoroutineScope()
 
     if (state.isVisible) {
         ModalBottomSheet(
@@ -80,6 +88,16 @@ fun BottomSheetMenu(
                     .fillMaxWidth()
                     .clip(ShapeDefaults.Large.top())
                     .background(background)
+                    // Opened from the keys, the sheet goes all the way up. Half open, the arrow
+                    // keys walked on into entries below the bottom of the screen, which nothing
+                    // scrolled into view, since the menu's own list had them in view already.
+                    .onFocusChanged {
+                        if (it.hasFocus && inputModeManager.inputMode == InputMode.Keyboard &&
+                            state.sheetState.currentValue == SheetValue.PartiallyExpanded
+                        ) {
+                            coroutineScope.launch { state.sheetState.expand() }
+                        }
+                    }
             ) {
                 state.content(this)
             }

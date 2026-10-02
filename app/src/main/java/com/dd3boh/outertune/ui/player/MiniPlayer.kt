@@ -70,6 +70,9 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.ui.util.lerp
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.keyboardClickable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
 import com.dd3boh.outertune.utils.rememberPreference
 import com.kyant.backdrop.drawBackdrop
@@ -82,6 +85,10 @@ fun MiniPlayer(
     position: Long,
     duration: Long,
     modifier: Modifier = Modifier,
+    /** Opens the player from the keys: the centre key on the title. Touch opens it from the sheet around this. */
+    onExpand: () -> Unit = {},
+    /** Lets the player hand focus back to the title when it closes. */
+    expandFocusRequester: FocusRequester = remember { FocusRequester() },
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val isPlaying by playerConnection.isPlaying.collectAsState()
@@ -146,7 +153,12 @@ fun MiniPlayer(
             modifier = Modifier.fillMaxSize(),
         ) {
             val iconButtonColor = MaterialTheme.colorScheme.onSecondaryContainer
-            Box(Modifier.weight(1f)) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .focusRequester(expandFocusRequester)
+                    .keyboardClickable(onExpand)
+            ) {
                 mediaMetadata?.let {
                     MiniMediaInfo(
                         mediaMetadata = it,

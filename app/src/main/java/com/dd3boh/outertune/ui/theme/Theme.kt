@@ -8,6 +8,10 @@
  */
 package com.dd3boh.outertune.ui.theme
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material.ripple.RippleAlpha
+import androidx.compose.material3.RippleConfiguration
+import androidx.compose.material3.LocalRippleConfiguration
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.Build
@@ -72,9 +76,24 @@ fun OuterTuneTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = MaterialTheme.typography,
-        content = content
-    )
+    ) {
+        // Material's focus highlight is a 10% wash, which on a small keypad phone's screen is
+        // hard to find. Only focus is made stronger: a press looks as it always has, and touch
+        // never gives these controls focus in the first place.
+        CompositionLocalProvider(
+            LocalRippleConfiguration provides RippleConfiguration(rippleAlpha = KeyFocusRippleAlpha),
+            content = content,
+        )
+    }
 }
+
+/** Material's own ripple alphas, with the focused state raised from 0.1 to stand out under a D-pad. */
+private val KeyFocusRippleAlpha = RippleAlpha(
+    draggedAlpha = 0.16f,
+    focusedAlpha = 0.3f,
+    hoveredAlpha = 0.08f,
+    pressedAlpha = 0.1f,
+)
 
 fun Bitmap.extractThemeColor(): Color {
     val colorsToPopulation = Palette.from(this)

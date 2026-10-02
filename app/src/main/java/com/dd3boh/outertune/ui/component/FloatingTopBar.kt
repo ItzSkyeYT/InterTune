@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.component
 
+import com.dd3boh.outertune.ui.utils.dpadOverlay
 import androidx.compose.foundation.background
 import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.semantics.semantics
@@ -120,6 +121,7 @@ fun FloatingTopBar(
             // that re-recorded both screens, twice each, for the length of the slide.
             .then(if (barGlass != null) Modifier.drawnBy(host!!).graphicsLayer() else Modifier)
             .topBarFade()
+            .dpadOverlay()
             .semantics {
                 isTraversalGroup = true
                 // Composed after the content it floats over, so TalkBack would reach it last.

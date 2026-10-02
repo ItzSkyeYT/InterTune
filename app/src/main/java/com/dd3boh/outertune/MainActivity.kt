@@ -190,6 +190,16 @@ import com.dd3boh.outertune.ui.theme.DefaultThemeColor
 import com.dd3boh.outertune.ui.theme.OuterTuneTheme
 import com.dd3boh.outertune.ui.theme.extractThemeColor
 import com.dd3boh.outertune.ui.utils.appBarScrollBehavior
+import com.dd3boh.outertune.ui.utils.blockFocusWhen
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.platform.LocalInputModeManager
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.activity.compose.BackHandler
+import com.dd3boh.outertune.ui.utils.dpadOverlay
+import com.dd3boh.outertune.ui.utils.dpadOverlayEscape
+import com.dd3boh.outertune.ui.utils.dpadBringIntoView
 import com.dd3boh.outertune.ui.utils.resetHeightOffset
 import com.dd3boh.outertune.utils.ActivityLauncherHelper
 import com.dd3boh.outertune.utils.InstallSource
@@ -1034,6 +1044,7 @@ class MainActivity : ComponentActivity() {
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
                         LocalAppBackdropAvailable provides backdropAvailable,
                         LocalGlassIntensity provides glassIntensity,
+                        dpadBringIntoView(),
                     ) {
                         /**
                          * Ask for the answers this install never gave.
@@ -1134,9 +1145,25 @@ class MainActivity : ComponentActivity() {
                             })
                         }
 
+                        // Behind the expanded player or the walkthrough, the screen is still composed, and
+                        // the arrow keys would wander into controls nobody can see.
+                        val screenCovered by remember(playerBottomSheetState, tourState) {
+                            derivedStateOf { playerBottomSheetState.progress >= 0.5f || tourState.running }
+                        }
+
+                        // From the keys, Back on a tab's own screen first takes focus down to the
+                        // tabs: other than scrolling to the very end of a long list, the only way
+                        // there. The next Back does what it always did.
+                        var contentHasFocus by remember { mutableStateOf(false) }
+                        val selectedTabFocus = remember { FocusRequester() }
+                        val onTabRoot by remember(navigationItems) {
+                            derivedStateOf { navigationItems.any { it.route == navBackStackEntry?.destination?.route } }
+                        }
+
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .dpadOverlayEscape()
                         ) {
                             Log.v(MAIN_TAG, "RC-3")
 
@@ -1248,6 +1275,8 @@ class MainActivity : ComponentActivity() {
                                 NavigationBar(
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
+                                        .blockFocusWhen(screenCovered)
+                                        .dpadOverlay()
                                         .height(bottomInset + getNavPadding())
                                         .offset {
                                             if (navigationBarHeight == 0.dp) {
@@ -1320,14 +1349,17 @@ class MainActivity : ComponentActivity() {
 //                                        val isSelected = navBackStackEntry?.destination?.hierarchy?.any {
 //                                            it.route?.substringBefore("?")?.substringBefore("/") == screen.route
 //                                        } == true
+                                        val tabSelected = navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true
                                         NavigationBarItem(
                                             // Only the library tab is pointed at, so only it is
                                             // reported. Tagging every tab would have four of them
                                             // writing bounds on every recomposition of the bar.
-                                            modifier = if (screen.route == Screens.Library.route) {
+                                            modifier = (if (screen.route == Screens.Library.route) {
                                                 Modifier.tourTarget(Tour.NAV_LIBRARY)
-                                            } else Modifier,
-                                            selected = navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true,
+                                            } else Modifier).then(
+                                                if (tabSelected) Modifier.focusRequester(selectedTabFocus) else Modifier
+                                            ),
+                                            selected = tabSelected,
                                             icon = {
                                                 Icon(
                                                     screen.icon,
@@ -1406,6 +1438,7 @@ class MainActivity : ComponentActivity() {
                                     // top of the open player, and swallowed every tap on its left strip.
                                     modifier = Modifier
                                         .align(alignment)
+                                        .blockFocusWhen(screenCovered)
                                         .fillMaxHeight()
                                         .offset {
                                             if (navigationBarHeight == 0.dp) {
@@ -1515,6 +1548,8 @@ class MainActivity : ComponentActivity() {
                                                 .layerBackdrop(appBackdrop)
                                         } else Modifier
                                     )
+                                    .onFocusChanged { contentHasFocus = it.hasFocus }
+                                    .blockFocusWhen(screenCovered)
                             ) {
                                 // The nav host in a layer of its own, which the search pill beside it reads for
                                 // its glass (LocalSearchBarGlass). Always wrapped so turning glass on or off does
@@ -1557,6 +1592,12 @@ class MainActivity : ComponentActivity() {
 
                                 if (!useNavRail) {
                                     navbar()
+                                    BackHandler(
+                                        enabled = contentHasFocus && onTabRoot && !searchActive &&
+                                                LocalInputModeManager.current.inputMode == InputMode.Keyboard
+                                    ) {
+                                        runCatching { selectedTabFocus.requestFocus() }
+                                    }
                                 } else {
                                     navRail(if (LocalLayoutDirection.current == LayoutDirection.Rtl) Alignment.BottomEnd else Alignment.BottomStart)
                                 }
