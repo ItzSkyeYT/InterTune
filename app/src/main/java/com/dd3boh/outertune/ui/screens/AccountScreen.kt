@@ -179,7 +179,7 @@ fun AccountScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Settings,
-                            contentDescription = null
+                            contentDescription = stringResource(R.string.settings)
                         )
                     }
                 }
