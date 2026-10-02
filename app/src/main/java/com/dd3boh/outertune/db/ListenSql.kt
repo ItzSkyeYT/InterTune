@@ -16,10 +16,15 @@ object ListenSql {
      * The latest play of :songId that was cut off where it stood (stopped, or stopped on a playback
      * error) or is still open, for linking a resume to it. An open row is included so that a newer
      * play still waiting for its close is found before an older stop, and then turned down by
-     * ListenProgress.continues, which links only to a stop or an error.
+     * ListenProgress.continues, which links only to a stop or an error. Only the song's latest play
+     * counts, and only if nothing carries it on yet: a stop that a later play already continued, or
+     * one behind a play that finished, is not where a new play picks up.
      */
     const val LAST_RESUMABLE = """
-        SELECT * FROM listen WHERE songId = :songId AND endReason IN (4, 5, 6) ORDER BY id DESC LIMIT 1
+        SELECT * FROM listen l
+        WHERE l.id = (SELECT MAX(id) FROM listen WHERE songId = :songId)
+            AND l.endReason IN (4, 5, 6)
+            AND NOT EXISTS (SELECT 1 FROM listen c WHERE c.songId = l.songId AND c.continuesListenId = l.id)
     """
 
     /**

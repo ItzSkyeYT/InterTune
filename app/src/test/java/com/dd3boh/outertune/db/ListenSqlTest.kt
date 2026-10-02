@@ -74,6 +74,31 @@ class ListenSqlTest {
     }
 
     @Test
+    fun `a stop that was already carried on is not offered again`() {
+        // One real library: a play stopped near its start became the parent of every play of the
+        // song from the top for a day, so separate plays were read as one.
+        val stopped = listen("s", EndReason.STOPPED)
+        val resumed = listen("s", EndReason.ENDED, startedAt = t + minute)
+        exec("UPDATE listen SET continuesListenId = $stopped WHERE id = $resumed")
+        assertNull(lastResumable("s"))
+    }
+
+    @Test
+    fun `only the song's latest play can be carried on`() {
+        listen("s", EndReason.STOPPED)
+        listen("s", EndReason.ENDED, startedAt = t + minute)
+        assertNull(lastResumable("s"))
+    }
+
+    @Test
+    fun `a resume that stopped again can be carried on itself`() {
+        val first = listen("s", EndReason.STOPPED)
+        val second = listen("s", EndReason.STOPPED, startedAt = t + minute)
+        exec("UPDATE listen SET continuesListenId = $first WHERE id = $second")
+        assertEquals(second to EndReason.STOPPED, lastResumable("s"))
+    }
+
+    @Test
     fun `the latest of them, a newer open play included, and only this song's`() {
         listen("s", EndReason.STOPPED)
         listen("s", EndReason.ERROR, startedAt = t + minute)
