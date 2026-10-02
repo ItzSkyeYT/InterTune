@@ -107,6 +107,13 @@ class YourDataTest {
     }
 
     @Test
+    fun `a tap keeps a line that says what it has learned now, so Cancel loses nothing`() {
+        val before = mapOf(DataAction.REBUILD to DataResult.Rebuilt(193), DataAction.FORGET_SESSION to DataResult.Forgot(3))
+        assertEquals(before, clearedFor(before, DataAction.REBUILD))
+        assertEquals(mapOf(DataAction.REBUILD to DataResult.Rebuilt(193)), clearedFor(before, DataAction.FORGET_SESSION))
+    }
+
+    @Test
     fun `a change to what it has learned clears the lines that said what it had`() {
         // On the emulator, "Loaded." stayed under Load a copy after Forget today's listening had
         // rebuilt from this phone's cards, which replaced the copy.

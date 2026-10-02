@@ -141,14 +141,17 @@ fun rebuildStep(cards: Int, copyLoaded: Boolean = false): DataStep = DataStep.As
 
 fun loadStep(): DataStep = DataStep.Ask(DataAsk.Load)
 
-/**
- * A new tap clears what the button said last time, and only that: "Nothing to forget." from an
- * hour ago stood under the button while its new dialog asked to forget 14 listens.
- */
-fun clearedFor(results: Map<DataAction, DataResult>, action: DataAction): Map<DataAction, DataResult> = results - action
-
 /** The lines that say what it has learned now, rather than what a button did once. */
 private val stateLines = setOf(DataAction.RESET, DataAction.REBUILD, DataAction.LOAD)
+
+/**
+ * A new tap clears what the button said last time, and only that: "Nothing to forget." from an
+ * hour ago stood under the button while its new dialog asked to forget 14 listens. A line that
+ * says what it has learned now stays: "Loaded." went at the tap, so after Cancel the copy was
+ * still loaded and nothing said so. A yes replaces it anyway, with Working.
+ */
+fun clearedFor(results: Map<DataAction, DataResult>, action: DataAction): Map<DataAction, DataResult> =
+    if (action in stateLines) results else results - action
 
 /**
  * The lines once [action] has said [result]. A result that changed what it has learned clears the
