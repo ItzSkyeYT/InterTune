@@ -301,7 +301,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="announcement_picture_failed">This picture could not be loaded.</string>
     <string name="polls_forget_description">Clears the record of what you have answered, dismissed and read, so past questions and news can come back.</string>
     <string name="catch_up_title">A few quick questions</string>
-    <string name="catch_up_body">These settings need your say-so, and this install has never been asked. It shows up after an update, or after restoring a backup that did not carry your answers.</string>
+    <string name="catch_up_body">These settings need your say-so, and this install has never been asked.</string>
     <string name="catch_up_done">Done</string>
     <string name="polls_opt_in_title">Ask you the occasional question?</string>
     <string name="polls_opt_in_body">Now and then InterTune can show a short question at the top of Home, about what to build or change. Answers, and the first time you open one, are counted anonymously. You can turn this off in Settings at any time.</string>
