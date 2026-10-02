@@ -303,7 +303,7 @@ fun Lyrics(
                 .add(WindowInsets(top = maxHeight / 2, bottom = maxHeight / 2))
                 .asPaddingValues(),
             modifier = Modifier
-                .fadingEdge(vertical = 64.dp)
+                .fadingEdge(vertical = lyricsFadeLength(maxHeight))
                 .nestedScroll(remember {
                     object : NestedScrollConnection {
                         override fun onPostScroll(
@@ -696,3 +696,12 @@ fun calculateLineProgress(line: LyricLine, currentPositionMs: Long): Float {
 
 const val animateScrollDuration = 300L
 val LyricsPreviewTime = 7.seconds
+
+/**
+ * How far the lyrics fade out at the top and bottom of a view [height] tall.
+ *
+ * 64dp, but never more than a quarter of the height. In the 100dp or so a keypad phone or a
+ * floating window has for them, two full fades met in the middle and left every line faded out.
+ * A view 256dp or taller, as on any ordinary phone held upright, keeps the 64dp it always had.
+ */
+internal fun lyricsFadeLength(height: Dp): Dp = minOf(64.dp, height / 4)
