@@ -2175,6 +2175,9 @@ class MixWatchTest {
         assertEquals(otherMashup.title, MixSearch.sheetName(otherMashup, faintNoLove, titles))
         assertEquals(faintNoLove.title, MixSearch.sheetName(faintNoLove, null, titles))
         assertEquals(allThree, MixSearch.sheetName(null, faintNoLove, titles))
+        // Reopened while the answer in the playlist wins this search: an upload naming more of the
+        // songs was found, so the mashup heard is not the one in the playlist and gets a note.
+        assertEquals(allThree, MixSearch.sheetName(faintNoLove, faintNoLove, titles, reopens = true))
     }
 
     @Test

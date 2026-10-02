@@ -1334,7 +1334,7 @@ class RecognitionEngine @Inject constructor(
         // What a playlist's run notes in the sheet, if anything: see MixSearch.sheetName. Nothing
         // when the sheet has a note about this mashup already: see notedAlready.
         val mashup = context.getString(R.string.recognise_mashup)
-        val note = MixSearch.sheetName(winner, current.replaced, titles)
+        val note = MixSearch.sheetName(winner, current.replaced, titles, outcome.reopens)
         val noted = note != null && notedAlready(_skipped.value, current.keys, note, mashup)
         picked(
             when {

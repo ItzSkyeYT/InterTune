@@ -1412,9 +1412,12 @@ internal object MixSearch {
      * playlist; one named after the songs was a second note about the same mashup, under the
      * titles of whichever songs that return carried.
      */
-    fun sheetName(winner: SongItem?, replaced: SongItem?, titles: List<String>): String? = when {
+    fun sheetName(winner: SongItem?, replaced: SongItem?, titles: List<String>, reopens: Boolean = false): String? = when {
         winner == null -> titles.joinToString(" + ")
-        winner.id == replaced?.id -> null
+        // The answer already in the playlist wins this search. Asked again, that is no news. But
+        // reopened, an upload naming more of the songs was found, a mashup the playlist does not
+        // hold, and with no note it was heard and never listed: it is named after the songs.
+        winner.id == replaced?.id -> if (reopens) titles.joinToString(" + ") else null
         else -> winner.title
     }
 
