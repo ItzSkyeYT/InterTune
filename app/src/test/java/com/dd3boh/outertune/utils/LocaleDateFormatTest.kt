@@ -136,4 +136,18 @@ class LocaleDateFormatTest {
         assertEquals("下午2:05", stats.timeOfDay(14 * 60 + 5))
         assertEquals("下午2時", stats.hour(14))
     }
+
+    @Test
+    fun `History and the Stats page go through the guard, not straight to java time`() {
+        // '#' is reserved in every java.time, the test JVM's included, so a formatter built
+        // straight from this pattern throws here as it would on a phone.
+        val history = HistoryFormat(Locale.US, is24Hour = false, today = "Today", yesterday = "Yesterday") { _, _ -> "h:mm #" }
+        assertEquals("2:05 #", history.time(LocalDateTime.of(2026, 9, 28, 14, 5)))
+        @Suppress("DEPRECATION")
+        val stats = StatsFormat(Resources(null, null, null), Locale.US, is24Hour = false) { _, skeleton ->
+            if (skeleton == "ha") "h a #" else "h:mm #"
+        }
+        assertEquals("2:05 #", stats.timeOfDay(14 * 60 + 5))
+        assertEquals("2 PM #", stats.hour(14))
+    }
 }

@@ -46,6 +46,10 @@ class LocaleDateFormat(
         formatter.format(value)
     } catch (_: DateTimeException) {
         fallbackFormatter.format(value)
+    } catch (_: IllegalArgumentException) {
+        // Text lookups behind a formatter can throw this too, for example the stand-alone
+        // weekday names the desugared library asks java.text for.
+        fallbackFormatter.format(value)
     }
 
     companion object {
