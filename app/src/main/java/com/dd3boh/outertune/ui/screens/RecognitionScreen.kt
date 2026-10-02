@@ -137,11 +137,11 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import kotlin.random.Random
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.dd3boh.outertune.utils.LocaleDateFormat
+import java.util.Locale
 
 /**
  * Naming what is playing, as a screen rather than a sheet.
@@ -315,7 +315,8 @@ fun RecognitionScreen(
 
     fun proposeSave() {
         scope.launch {
-            val today = LocalDate.now().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+            // Through the same guard as History: the desugared java.time cannot read every pattern ICU gives.
+            val today = LocaleDateFormat(Locale.getDefault(), "yMMMd", "d MMM yyyy").format(LocalDate.now())
             saveName = viewModel.proposePlaylistName(
                 context.getString(R.string.recognise_playlist_name, today)
             )
