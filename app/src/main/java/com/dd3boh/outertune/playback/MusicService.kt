@@ -2886,8 +2886,13 @@ class MusicService : MediaLibraryService(),
                     }.onFailure { Log.w(TAG, "Could not rest a skipped song", it) }
                 }
             }
+            // A counted play: the play count, the event Most played and the other play lists read,
+            // YouTube's history and Last.fm. History lists the listen written above once it has
+            // been heard for five seconds (HistoryRule), so it needs nothing from here.
             if (counted && !historyPaused) {
-                database.query {
+                // One transaction: History lists an event no listen points at yet from the event
+                // itself, so between two separate writes the play was listed twice.
+                database.transaction {
                     incrementPlayCount(mediaItem.mediaId)
                     try {
                         val eventId = insert(

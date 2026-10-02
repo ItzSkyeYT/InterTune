@@ -24,6 +24,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -99,10 +100,15 @@ fun SongListItem(
     onPlay: () -> Unit,
     dragHandleModifier: Modifier? = null,
     modifier: Modifier = Modifier,
-    /** Why a recommendation row holds this card; shown in place of the length, which matters least there. */
+    /**
+     * Shown in place of the length: why a recommendation row holds this card, where the length
+     * matters least. Empty leaves the length out, as History does, whose rows carry a time instead.
+     */
     caption: String? = null,
     /** On a recommendation card: the menu offers Not this song, Less of this artist, Never this artist. */
     onExclude: ((kind: Int, reason: Int) -> Unit)? = null,
+    /** A short note at the end of the row, before the menu: the time a History row was played. */
+    trailingText: String? = null,
 ) {
     val menuState = LocalMenuState.current
     val haptic = LocalHapticFeedback.current
@@ -141,6 +147,15 @@ fun SongListItem(
                 )
             },
             trailingContent = {
+                if (trailingText != null) {
+                    // Styled as the subtitle, so it reads as part of the row rather than a control.
+                    Text(
+                        text = trailingText,
+                        color = MaterialTheme.colorScheme.secondary,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                    )
+                }
                 if (inSelectMode == true) {
                     Checkbox(
                         checked = isSelected,

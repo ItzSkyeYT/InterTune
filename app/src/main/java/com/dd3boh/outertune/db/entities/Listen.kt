@@ -17,10 +17,11 @@ import androidx.room.PrimaryKey
  * Every playback stop, whatever fraction of the song was heard.
  *
  * [Event] is the counted play, written only past the listener's threshold (30% by default), and
- * it stays that way because History, play counts and Last.fm all read it as "a play". This table
+ * it stays that way because play counts, Most played and Last.fm read it as "a play". This table
  * is the complete record underneath: the twenty second skip, the song abandoned at the chorus,
  * the one played to the end, each with how it ended and where it was started from. It is what the
- * recommendation engine learns from, and nothing else reads it.
+ * recommendation engine learns from and what the Stats page reads, and History lists every play
+ * in it heard for five seconds or more (see [com.dd3boh.outertune.history.HistoryRule]).
  *
  * Times are true UTC epoch milliseconds, unlike [Event.timestamp], which is the wall clock stored
  * as if it were UTC. [tzOffsetMin] is kept so time-of-day can still be recovered.

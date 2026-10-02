@@ -9,6 +9,9 @@ package com.dd3boh.outertune.db.daos
 import com.dd3boh.outertune.db.entities.EngineWeight
 import com.dd3boh.outertune.db.ListenSql
 import com.dd3boh.outertune.db.RelatedSql
+import com.dd3boh.outertune.db.HistorySql
+import com.dd3boh.outertune.db.entities.HistoryPiece
+import com.dd3boh.outertune.db.entities.HistoryPlayWithSong
 import com.dd3boh.outertune.db.StatsSql
 import com.dd3boh.outertune.engine.EngineSql
 import com.dd3boh.outertune.stats.StatsBounds
@@ -239,10 +242,24 @@ interface ListenDao {
     @Query("SELECT COUNT(*) FROM event WHERE songId = :songId")
     fun playCountOf(songId: String): Int
 
+    // ---- History, see db/HistorySql.kt and history/HistoryRemoval.kt.
+    @Transaction
+    @Query(HistorySql.PLAYS)
+    fun historyPlays(): Flow<List<HistoryPlayWithSong>>
+
+    @Query(HistorySql.CHAIN)
+    fun historyChain(head: Long): List<HistoryPiece>
+
+    @Query(HistorySql.MARK_REMOVED)
+    fun markRemovedFromHistory(listenId: Long, songId: String, at: Long)
+
+    @Query(HistorySql.DELETE_EVENT)
+    fun deleteEvent(id: Long)
+
     @Query("SELECT liked FROM song WHERE id = :id")
     fun isLiked(id: String): Boolean?
 
-    @Query("SELECT COUNT(*) FROM listen_signal")
+    @Query(HistorySql.SIGNAL_COUNT)
     fun signalCount(): Flow<Int>
 
     @Insert

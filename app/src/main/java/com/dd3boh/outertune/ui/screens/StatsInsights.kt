@@ -97,11 +97,11 @@ import com.dd3boh.outertune.stats.ListenSource
 import com.dd3boh.outertune.stats.ListeningInsights
 import com.dd3boh.outertune.stats.Summary
 import com.dd3boh.outertune.ui.component.items.ItemThumbnail
+import com.dd3boh.outertune.utils.LocaleDateFormat
 import com.dd3boh.outertune.viewmodels.PeriodInsights
 import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.LocalTime
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** Findings shown before Show more: enough to fill a screen, few enough to reach the lists. */
@@ -210,8 +210,16 @@ fun LazyListScope.statsInsights(
 
 private fun Modifier.cardPadding() = fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
 
-/** Numbers, lengths, dates and times, in the phone's locale and its 12 or 24 hour setting. */
-class StatsFormat(private val res: Resources, private val locale: Locale, private val is24Hour: Boolean) {
+/**
+ * Numbers, lengths, dates and times, in the phone's locale and its 12 or 24 hour setting.
+ * [pattern] turns a skeleton into ICU's pattern for the locale; tests give it fixed ones.
+ */
+class StatsFormat(
+    private val res: Resources,
+    private val locale: Locale,
+    private val is24Hour: Boolean,
+    private val pattern: (Locale, String) -> String? = { l, skeleton -> DateFormat.getBestDateTimePattern(l, skeleton) },
+) {
     private val integer = NumberFormat.getIntegerInstance(locale)
     private val percent = NumberFormat.getPercentInstance(locale)
     private val decimal = NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 1 }
@@ -232,20 +240,26 @@ class StatsFormat(private val res: Resources, private val locale: Locale, privat
         }
     }
 
+    /** Each skeleton's format, made once: see [LocaleDateFormat] for why not straight from ICU. */
+    private val formats = HashMap<String, LocaleDateFormat>()
+
+    private fun format(skeleton: String, fallback: String) =
+        formats.getOrPut(skeleton) { LocaleDateFormat(locale, skeleton, fallback, pattern) }
+
     /** A local epoch day: "Saturday 5 September", with the year when it is not this one. */
     fun day(epochDay: Long, weekday: Boolean = true): String {
         val date = LocalDate.ofEpochDay(epochDay)
-        val skeleton = (if (weekday) "EEEE" else "") + "dMMMM" + (if (date.year != thisYear) "y" else "")
-        return DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, skeleton), locale).format(date)
+        val withYear = date.year != thisYear
+        val skeleton = (if (weekday) "EEEE" else "") + "dMMMM" + (if (withYear) "y" else "")
+        val fallback = (if (weekday) "EEEE " else "") + "d MMMM" + (if (withYear) " y" else "")
+        return format(skeleton, fallback).format(date)
     }
 
     fun timeOfDay(minute: Int): String =
-        DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, if (is24Hour) "Hm" else "hm"), locale)
-            .format(LocalTime.of(minute / 60, minute % 60))
+        (if (is24Hour) format("Hm", "HH:mm") else format("hm", "h:mm a")).format(LocalTime.of(minute / 60, minute % 60))
 
     fun hour(h: Int): String =
-        DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, if (is24Hour) "Hm" else "ha"), locale)
-            .format(LocalTime.of(h, 0))
+        (if (is24Hour) format("Hm", "HH:mm") else format("ha", "h a")).format(LocalTime.of(h, 0))
 }
 
 @Composable
