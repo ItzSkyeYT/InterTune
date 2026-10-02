@@ -23,6 +23,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -195,7 +196,9 @@ private fun Config(initial: WidgetSettings, size: IntSize?, onDone: (WidgetSetti
                 Choice(stringResource(R.string.widget_list_recent), s.list == WidgetList.RECENT) { s = s.copy(list = WidgetList.RECENT) }
 
                 Section(stringResource(R.string.widget_config_rows))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                // Wraps: seven chips need about 443 dp, more than the dialog has on most phones,
+                // and in a plain Row the ones past 3 were squashed out of reach.
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Chip(stringResource(R.string.widget_rows_auto), s.maxRows == 0) { s = s.copy(maxRows = 0) }
                     for (n in 1..WidgetLayout.MAX_PICKS) {
                         Chip(n.toString(), s.maxRows == n) { s = s.copy(maxRows = n) }
@@ -233,7 +236,7 @@ private fun Config(initial: WidgetSettings, size: IntSize?, onDone: (WidgetSetti
             Choice(stringResource(R.string.widget_buttons_none), s.buttons == WidgetButtons.NONE) { s = s.copy(buttons = WidgetButtons.NONE) }
 
             Section(stringResource(R.string.widget_config_text_size))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 Chip(stringResource(R.string.widget_text_small), s.textSize == WidgetTextSize.SMALL) { s = s.copy(textSize = WidgetTextSize.SMALL) }
                 Chip(stringResource(R.string.widget_text_normal), s.textSize == WidgetTextSize.NORMAL) { s = s.copy(textSize = WidgetTextSize.NORMAL) }
                 Chip(stringResource(R.string.widget_text_large), s.textSize == WidgetTextSize.LARGE) { s = s.copy(textSize = WidgetTextSize.LARGE) }
