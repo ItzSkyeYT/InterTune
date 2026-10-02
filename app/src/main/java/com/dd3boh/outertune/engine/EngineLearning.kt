@@ -15,6 +15,7 @@ import android.util.Log
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.EngineBudgetDayKey
 import com.dd3boh.outertune.constants.EngineBudgetSpentKey
+import com.dd3boh.outertune.constants.EngineCopyLoadedKey
 import com.dd3boh.outertune.constants.LearnFromListeningKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.EngineWeight
@@ -186,9 +187,13 @@ class EngineLearning(private val context: Context, private val database: MusicDa
         })
     }
 
-    /** Back to the priors; the examples stay graded and applied, so Rebuild can bring the learning back. */
+    /**
+     * Back to the priors; the examples stay graded and applied, so Rebuild can bring the learning
+     * back. A loaded copy goes with it.
+     */
     suspend fun reset() = lock.withLock {
         database.transactionNow { clearEngineWeights() }
+        forgetLoadedCopy()
     }
 
     /**
@@ -200,7 +205,13 @@ class EngineLearning(private val context: Context, private val database: MusicDa
         val examples = database.appliedExamples()
         examples.forEach { i -> example(i)?.let { learner.apply(it) } }
         database.transactionNow { clearEngineWeights(); store(learner) }
+        // What it has now is what this phone's cards taught it, so a loaded copy is gone.
+        forgetLoadedCopy()
         learner.asMap()
+    }
+
+    private suspend fun forgetLoadedCopy() {
+        context.dataStore.edit { it[EngineCopyLoadedKey] = false }
     }
 
     companion object {

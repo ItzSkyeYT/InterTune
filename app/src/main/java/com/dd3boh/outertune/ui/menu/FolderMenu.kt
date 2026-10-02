@@ -217,7 +217,7 @@ fun FolderMenu(
                 if (allFolderSongs.isEmpty()) return@AddToQueueDialog
                 val q = playerConnection.service.queueBoard.addQueue(
                     queueName, allFolderSongs.map { it.toMediaMetadata() },
-                    forceInsert = true, delta = false
+                    forceInsert = true, delta = false, origin = PlayOrigin.QUEUE
                 )
                 q?.let {
                     playerConnection.service.queueBoard.setCurrQueue(it)

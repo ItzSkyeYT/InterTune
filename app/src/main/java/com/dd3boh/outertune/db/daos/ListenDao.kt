@@ -107,9 +107,6 @@ interface ListenDao {
     @Query("UPDATE listen SET sourceEventId = :eventId WHERE id = :id")
     fun setListenSource(id: Long, eventId: Long)
 
-    @Query("SELECT COUNT(*) FROM impression WHERE tappedAt IS NOT NULL")
-    fun tapCount(): Flow<Int>
-
     /** What the listener has just had, failed plays aside; see [ListenSql.JUST_PLAYED]. */
     @Query(ListenSql.JUST_PLAYED)
     fun justPlayed(dayAgo: Long, sessionId: Long): List<PlayedSong>
@@ -158,8 +155,12 @@ interface ListenDao {
     fun unappliedExamples(): List<Impression>
 
     /** Everything applied so far, in the order it was applied: a rebuild replays exactly this. */
-    @Query("SELECT * FROM impression WHERE appliedAt IS NOT NULL AND features IS NOT NULL AND u > 0 ORDER BY appliedAt, id")
+    @Query(EngineSql.APPLIED_EXAMPLES)
     fun appliedExamples(): List<Impression>
+
+    /** The cards among [appliedExamples], pool picks left out. */
+    @Query(EngineSql.APPLIED_CARDS)
+    fun appliedCardCount(): Int
 
     @Query("UPDATE impression SET appliedAt = :at WHERE id = :id")
     fun markApplied(id: Long, at: Long)
@@ -176,12 +177,16 @@ interface ListenDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsertEngineWeights(rows: List<EngineWeight>)
 
-    @Query("SELECT team AS team, outcome AS outcome, COUNT(*) AS n, SUM(CASE WHEN y >= 0.5 THEN 1 ELSE 0 END) AS wins FROM impression WHERE gradedAt IS NOT NULL GROUP BY team, outcome")
+    @Query(EngineSql.GRADED_BY_TEAM)
     fun gradedByTeam(): Flow<List<TeamOutcome>>
 
     /** The engine's slotted, graded cards: prediction beside grade, for the Brier score and the reliability table. */
     @Query("SELECT p AS p, y AS y FROM impression WHERE team = 1 AND slot >= 0 AND gradedAt IS NOT NULL AND u > 0 AND p IS NOT NULL AND y IS NOT NULL")
     fun engineCalibration(): Flow<List<PredictionGrade>>
+
+    /** The engine's graded cards in two back to back windows, for whether How it's doing is going up. */
+    @Query(EngineSql.CARD_TREND)
+    fun engineCardTrend(from: Long, mid: Long, to: Long): Flow<CardTrendRow>
 
     /** One source's edges, RelatedSongMap.SOURCE_YOUTUBE or SOURCE_LASTFM. */
     @Query(RelatedSql.ENGINE_EDGES)
@@ -228,11 +233,25 @@ interface ListenDao {
     fun activeExclusions(now: Long): Flow<List<EngineExclusionRow>>
 
     // ---- Forget this listening: a session or a day stops teaching, and what it taught is skipped.
-    @Query("UPDATE listen SET learn = 0 WHERE sessionId = :sessionId")
-    fun forgetSession(sessionId: Long)
+    /** How many listens it marked: only those that still taught, so a second tap gets 0. */
+    @Query(EngineSql.FORGET_SESSION)
+    fun forgetSession(sessionId: Long): Int
 
-    @Query("UPDATE listen SET learn = 0 WHERE startedAt >= :from AND startedAt < :to")
-    fun forgetBetween(from: Long, to: Long)
+    /** How many listens it marked: only those that still taught, so a second tap gets 0. */
+    @Query(EngineSql.FORGET_BETWEEN)
+    fun forgetBetween(from: Long, to: Long): Int
+
+    /** How many listens [forgetSession] would mark now. */
+    @Query(EngineSql.FORGETTABLE_IN_SESSION)
+    fun forgettableInSession(sessionId: Long): Int
+
+    /** How many listens [forgetBetween] would mark now. */
+    @Query(EngineSql.FORGETTABLE_BETWEEN)
+    fun forgettableBetween(from: Long, to: Long): Int
+
+    /** When a session began: its first listen's start. */
+    @Query("SELECT MIN(startedAt) FROM listen WHERE sessionId = :sessionId")
+    fun sessionStart(sessionId: Long): Long?
 
     // Also by the play a grade recorded: a tap whose link was lost is graded by its song's play just
     // after it (Grading), and only the impression knows which play that was.
@@ -285,21 +304,21 @@ interface ListenDao {
     @Query("SELECT COUNT(DISTINCT sessionId) FROM listen")
     fun sessionCount(): Flow<Int>
 
-    @Query("SELECT endReason AS code, COUNT(*) AS n FROM listen GROUP BY endReason")
-    fun listensByEndReason(): Flow<List<CodeCount>>
+    @Query(EngineSql.LISTENS_BY_END)
+    fun listensByEnd(): Flow<List<EndCount>>
 
-    @Query("SELECT origin AS code, COUNT(*) AS n FROM listen GROUP BY origin")
-    fun listensByOrigin(): Flow<List<CodeCount>>
+    @Query(EngineSql.STARTS_BY_ORIGIN)
+    fun startsByOrigin(): Flow<List<CodeCount>>
 
-    @Query("SELECT COUNT(*) FROM impression")
-    fun impressionCount(): Flow<Int>
+    @Query(EngineSql.CARDS_SEEN)
+    fun cardsSeen(): Flow<List<CardsSeenRow>>
 
     @Query("SELECT * FROM listen ORDER BY endedAt DESC LIMIT :limit")
     fun recentListens(limit: Int): Flow<List<Listen>>
 
     @Query("""
         SELECT listen.id, song.title, listen.endReason, listen.origin, listen.originSlot, listen.ratio,
-               listen.playedMs, listen.endedAt, listen.counted, listen.autoplayDepth
+               listen.playedMs, listen.endedAt, listen.counted, listen.autoplayDepth, listen.learn
         FROM listen JOIN song ON song.id = listen.songId
         ORDER BY listen.endedAt DESC LIMIT :limit
     """)
@@ -313,9 +332,6 @@ interface ListenDao {
 
     @Query("SELECT EXISTS(SELECT 1 FROM song WHERE id = :id)")
     fun songExists(id: String): Boolean
-
-    @Query("SELECT COUNT(*) FROM row_build")
-    fun rowBuildCount(): Flow<Int>
 
     @Query("SELECT * FROM row_build WHERE rowKey = :rowKey ORDER BY builtAt DESC LIMIT 1")
     fun lastBuild(rowKey: Int): RowBuild?
@@ -360,13 +376,21 @@ interface ListenDao {
 
     data class CodeCount(val code: Int, val n: Int)
 
+    /** How many listens ended one way; [early] when one that reached its end was mostly not heard. */
+    data class EndCount(val code: Int, val early: Boolean, val n: Int)
+
     /** One listen with its title, for the report; nothing else needs the join. */
     data class ListenRow(
         val id: Long, val title: String, val endReason: Int, val origin: Int, val originSlot: Int,
         val ratio: Float, val playedMs: Long, val endedAt: Long, val counted: Boolean, val autoplayDepth: Int,
+        /** False once forgotten, or when its queue was set not to teach: it no longer teaches. */
+        val learn: Boolean = true,
     )
 }
 
 data class TeamOutcome(val team: Int, val outcome: Int, val n: Int, val wins: Int)
 data class PredictionGrade(val p: Float, val y: Float)
 data class BuildScore(val rowKey: Int, val builds: Int, val plays: Int, val hits: Int)
+/** One source's cards that were on screen, see EngineSql.CARDS_SEEN. */
+data class CardsSeenRow(val team: Int, val judged: Int, val waiting: Int, val leftOut: Int, val tapped: Int)
+data class CardTrendRow(val recentSeen: Int, val recentPlayed: Int, val earlierSeen: Int, val earlierPlayed: Int)

@@ -425,7 +425,7 @@ fun PlaylistMenu(
             onAdd = { queueName ->
                 val q = playerConnection.service.queueBoard.addQueue(
                     queueName, songs.map { it.toMediaMetadata() },
-                    forceInsert = true, delta = false
+                    forceInsert = true, delta = false, origin = PlayOrigin.QUEUE
                 )
                 q?.let {
                     playerConnection.service.queueBoard.setCurrQueue(it)

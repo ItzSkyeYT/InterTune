@@ -172,6 +172,15 @@ class SourceMixTest {
     }
 
     @Test
+    fun `how similar songs are split shows only with Both, as the app acts on it`() {
+        assertEquals(true, SimilarSources.showsSplit(SimilarSource.BOTH, hasKey = true, engineOn = true))
+        assertEquals(false, SimilarSources.showsSplit(SimilarSource.YOUTUBE, hasKey = true, engineOn = true))
+        assertEquals(false, SimilarSources.showsSplit(SimilarSource.LASTFM, hasKey = true, engineOn = true))
+        assertEquals(false, SimilarSources.showsSplit(SimilarSource.BOTH, hasKey = false, engineOn = true))
+        assertEquals(false, SimilarSources.showsSplit(SimilarSource.BOTH, hasKey = true, engineOn = false))
+    }
+
+    @Test
     fun `the old Last-fm switch keeps its meaning until the new choice is made`() {
         // Never asked: nothing goes to Last.fm until the first-run question is answered.
         assertEquals(SimilarSource.YOUTUBE, SimilarSources.stored(null, null))

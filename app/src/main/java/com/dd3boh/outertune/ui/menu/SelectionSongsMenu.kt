@@ -284,7 +284,8 @@ fun SelectionMediaMetadataMenu(
                     queueName,
                     selection,
                     forceInsert = true,
-                    delta = false
+                    delta = false,
+                    origin = PlayOrigin.QUEUE
                 )
                 q?.let {
                     playerConnection.service.queueBoard.setCurrQueue(it)

@@ -1483,7 +1483,9 @@ class MusicService : MediaLibraryService(),
                         ListQueue(
                             title = items.first().mediaMetadata.title.toString(),
                             items = items.mapNotNull { it.metadata }
-                        )
+                        ),
+                        // The listener put these in the queue, so the queue is what they chose.
+                        origin = PlayOrigin.QUEUE,
                     )
                 }
             } else {
@@ -1511,7 +1513,8 @@ class MusicService : MediaLibraryService(),
                     ListQueue(
                         title = items.first().mediaMetadata.title.toString(),
                         items = items.mapNotNull { it.metadata }
-                    )
+                    ),
+                    origin = PlayOrigin.QUEUE,
                 )
             }
             return

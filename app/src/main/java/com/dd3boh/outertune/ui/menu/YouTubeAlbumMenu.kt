@@ -222,7 +222,7 @@ fun YouTubeAlbumMenu(
                 songsToQueue.takeIf { it.isNotEmpty() }?.let { songs ->
                     val q = playerConnection.service.queueBoard.addQueue(
                         queueName, songs,
-                        forceInsert = true, delta = false
+                        forceInsert = true, delta = false, origin = PlayOrigin.QUEUE
                     )
                     q?.let {
                         playerConnection.service.queueBoard.setCurrQueue(it)

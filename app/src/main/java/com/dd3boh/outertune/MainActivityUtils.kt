@@ -8,6 +8,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.datastore.preferences.core.edit
 import androidx.navigation.NavController
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.AUTO_SCAN_COOLDOWN
 import com.dd3boh.outertune.constants.AUTO_SCAN_SOFT_COOLDOWN
 import com.dd3boh.outertune.constants.AutomaticScannerKey
@@ -103,7 +104,9 @@ fun youtubeNavigator(
                         queue = ListQueue(
                             title = s.title,
                             items = listOf(s.toMediaMetadata())
-                        )
+                        ),
+                        // A link opened from another app.
+                        origin = PlayOrigin.EXTERNAL,
                     )
                 }
             }.onFailure {

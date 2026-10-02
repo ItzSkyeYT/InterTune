@@ -6,84 +6,75 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
-import com.dd3boh.outertune.utils.BuiltInKeys
-import androidx.compose.ui.platform.LocalContext
-import com.dd3boh.outertune.constants.RestsEverywhereKey
-import com.dd3boh.outertune.constants.RestSongsISkipKey
-import com.dd3boh.outertune.constants.ShadowComparisonKey
-import com.dd3boh.outertune.engine.EngineParams
-import com.dd3boh.outertune.constants.FamiliarityKey
-import com.dd3boh.outertune.engine.Features
-import com.dd3boh.outertune.engine.Calibration
-import com.dd3boh.outertune.constants.LearnFromListeningKey
-import com.dd3boh.outertune.constants.NewSongsOnlyKey
-import com.dd3boh.outertune.constants.DiscoverRowKey
-import com.dd3boh.outertune.viewmodels.DISCOVER_ROW_KEY
-import com.dd3boh.outertune.viewmodels.DISCOVER_TEAM
-import com.dd3boh.outertune.constants.SimilarFromLastFmKey
-import com.dd3boh.outertune.constants.SimilarSource
-import com.dd3boh.outertune.constants.SimilarSourceKey
-import com.dd3boh.outertune.engine.SimilarSources
-import com.dd3boh.outertune.ui.component.EnumListPreference
-import com.dd3boh.outertune.ui.component.ExplainButton
-import com.dd3boh.outertune.utils.dataStore
-import com.dd3boh.outertune.utils.get
-import com.dd3boh.outertune.utils.rememberEnumPreference
-import kotlin.math.roundToInt
-import androidx.compose.material3.Slider
-import com.dd3boh.outertune.engine.quotas
-import com.dd3boh.outertune.engine.Lane
-import com.dd3boh.outertune.constants.AdventurousnessKey
-import com.dd3boh.outertune.constants.DefaultAdventurousness
-import com.dd3boh.outertune.constants.ShowReasonsKey
-import com.dd3boh.outertune.constants.Unreleased
-import com.dd3boh.outertune.constants.RankWithListeningKey
-import com.dd3boh.outertune.utils.rememberPreference
-import com.dd3boh.outertune.ui.component.ExplainedGroupTitle
-import com.dd3boh.outertune.ui.component.ExplainedPreference
-import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
-import com.dd3boh.outertune.constants.TidyHomeRowsKey
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
-import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
-import com.dd3boh.outertune.ui.component.FloatingTopBar
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.ManageHistory
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarScrollBehavior
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.constants.EndReason
-import com.dd3boh.outertune.constants.PlayOrigin
-import com.dd3boh.outertune.ui.component.PreferenceEntry
+import com.dd3boh.outertune.constants.AdventurousnessKey
+import com.dd3boh.outertune.constants.DefaultAdventurousness
+import com.dd3boh.outertune.constants.DiscoverRowKey
+import com.dd3boh.outertune.constants.FamiliarityKey
+import com.dd3boh.outertune.constants.LearnFromListeningKey
+import com.dd3boh.outertune.constants.NewSongsOnlyKey
+import com.dd3boh.outertune.constants.RankWithListeningKey
+import com.dd3boh.outertune.constants.RestSongsISkipKey
+import com.dd3boh.outertune.constants.RestsEverywhereKey
+import com.dd3boh.outertune.constants.ShowReasonsKey
+import com.dd3boh.outertune.constants.SimilarFromLastFmKey
+import com.dd3boh.outertune.constants.SimilarSource
+import com.dd3boh.outertune.constants.SimilarSourceKey
+import com.dd3boh.outertune.constants.TidyHomeRowsKey
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.engine.EngineParams
+import com.dd3boh.outertune.engine.Lane
+import com.dd3boh.outertune.engine.percentText
+import com.dd3boh.outertune.engine.SimilarSources
+import com.dd3boh.outertune.engine.quotas
+import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
+import com.dd3boh.outertune.ui.component.EnumListPreference
+import com.dd3boh.outertune.ui.component.ExplainButton
+import com.dd3boh.outertune.ui.component.ExplainedGroupTitle
+import com.dd3boh.outertune.ui.component.ExplainedPreference
+import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
+import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.utils.BuiltInKeys
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
+import com.dd3boh.outertune.utils.rememberEnumPreference
+import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.RecommendationsViewModel
-import java.text.DateFormat
-import java.util.Date
+import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
- * What the app has learned about how you listen, and, in time, how Quick picks uses it.
+ * The recommendation settings people change: Home's rows, the engine's own controls, and what it
+ * learns from. The numbers and the data buttons are one step further in, under How it's doing
+ * and Your data, so the switches are not buried among statistics.
  *
  * Shown in the open rather than hidden behind a developer flag, because a recommendation that
- * cannot explain itself is not one anybody should be asked to trust. For now this is the ledger:
- * every stop the engine will learn from, with the two facts about it that matter most.
+ * cannot explain itself is not one anybody should be asked to trust.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -92,16 +83,6 @@ fun RecommendationsSettings(
     scrollBehavior: TopAppBarScrollBehavior,
     viewModel: RecommendationsViewModel = hiltViewModel(),
 ) {
-    val listens by viewModel.listens.collectAsState(initial = 0)
-    val counted by viewModel.counted.collectAsState(initial = 0)
-    val sessions by viewModel.sessions.collectAsState(initial = 0)
-    val byEndReason by viewModel.byEndReason.collectAsState(initial = emptyList())
-    val byOrigin by viewModel.byOrigin.collectAsState(initial = emptyList())
-    val impressions by viewModel.impressions.collectAsState(initial = 0)
-    val rowBuilds by viewModel.rowBuilds.collectAsState(initial = 0)
-    val signals by viewModel.signals.collectAsState(initial = 0)
-    val taps by viewModel.taps.collectAsState(initial = 0)
-    val recent by viewModel.recent.collectAsState(initial = emptyList())
     val (tidyHomeRows, onTidyHomeRowsChange) = rememberPreference(TidyHomeRowsKey, defaultValue = true)
     val (rankWithListening, onRankWithListeningChange) = rememberPreference(RankWithListeningKey, defaultValue = true)
     val (showReasons, onShowReasonsChange) = rememberPreference(ShowReasonsKey, defaultValue = true)
@@ -110,11 +91,7 @@ fun RecommendationsSettings(
     val (discoverRow, onDiscoverRowChange) = rememberPreference(DiscoverRowKey, defaultValue = true)
     val (familiarity, onFamiliarityChange) = rememberPreference(FamiliarityKey, defaultValue = 25)
     val activeExclusions by viewModel.activeExclusions.collectAsState(initial = 0)
-    val gradedByTeam by viewModel.gradedByTeam.collectAsState(initial = emptyList())
-    val calibration by viewModel.calibration.collectAsState(initial = emptyList())
-    val weights by viewModel.weights.collectAsState(initial = emptyList())
     val (learnFromListening, onLearnFromListeningChange) = rememberPreference(LearnFromListeningKey, defaultValue = true)
-    val (shadowComparison, onShadowComparisonChange) = rememberPreference(ShadowComparisonKey, defaultValue = true)
     val (restSongsISkip, onRestSongsISkipChange) = rememberPreference(RestSongsISkipKey, defaultValue = false)
     val (restsEverywhere, onRestsEverywhereChange) = rememberPreference(RestsEverywhereKey, defaultValue = false)
     val context = LocalContext.current
@@ -122,38 +99,6 @@ fun RecommendationsSettings(
     val similarDefault = remember { SimilarSources.stored(null, context.dataStore[SimilarFromLastFmKey]) }
     val (similarSource, onSimilarSourceChange) = rememberEnumPreference(SimilarSourceKey, similarDefault)
     val sourceMix by viewModel.sourceMix.collectAsState(initial = null)
-    val buildScores by viewModel.buildScores.collectAsState(initial = emptyList())
-    val endReasonLabels = mapOf(
-        EndReason.ENDED to stringResource(R.string.recommendations_ended),
-        EndReason.SKIPPED to stringResource(R.string.recommendations_skipped),
-        EndReason.REPLACED to stringResource(R.string.recommendations_replaced),
-        EndReason.STOPPED to stringResource(R.string.recommendations_stopped),
-        EndReason.ERROR to stringResource(R.string.recommendations_error),
-    )
-    val unknown = stringResource(R.string.unknown)
-    fun endReasonLabel(code: Int) = endReasonLabels[code] ?: unknown
-    val originLabels = mapOf(
-        PlayOrigin.UNKNOWN to stringResource(R.string.recommendations_origin_unknown),
-        PlayOrigin.SEARCH to stringResource(R.string.recommendations_origin_search),
-        PlayOrigin.QUICK_PICKS to stringResource(R.string.recommendations_origin_quick_picks),
-        PlayOrigin.HOME_ROW to stringResource(R.string.recommendations_origin_home_row),
-        PlayOrigin.PLAYLIST to stringResource(R.string.recommendations_origin_playlist),
-        PlayOrigin.ALBUM to stringResource(R.string.recommendations_origin_album),
-        PlayOrigin.ARTIST to stringResource(R.string.recommendations_origin_artist),
-        PlayOrigin.LIBRARY to stringResource(R.string.recommendations_origin_library),
-        PlayOrigin.RADIO to stringResource(R.string.recommendations_origin_radio),
-        PlayOrigin.HISTORY to stringResource(R.string.recommendations_origin_history),
-        PlayOrigin.STATS to stringResource(R.string.recommendations_origin_stats),
-        PlayOrigin.QUEUE to stringResource(R.string.recommendations_origin_queue),
-        PlayOrigin.LOCAL_FILES to stringResource(R.string.recommendations_origin_local_files),
-        PlayOrigin.MENU to stringResource(R.string.recommendations_origin_menu),
-        PlayOrigin.RESUMED to stringResource(R.string.recommendations_origin_resumed),
-        PlayOrigin.EXTERNAL to stringResource(R.string.recommendations_origin_external),
-        PlayOrigin.RECOGNISED to stringResource(R.string.recommendations_origin_recognised),
-        PlayOrigin.WIDGET to stringResource(R.string.recommendations_origin_widget),
-        PlayOrigin.DISCOVER to stringResource(R.string.recommendations_origin_discover),
-    )
-    fun originLabel(code: Int) = originLabels[PlayOrigin.fromCode(code)] ?: unknown
 
     ColumnWithContentPadding(
         modifier = Modifier.fillMaxHeight(),
@@ -190,336 +135,153 @@ fun RecommendationsSettings(
         Spacer(Modifier.height(16.dp))
 
         // Held back for 0.11 with the row they steer: see Unreleased. What stays visible without
-        // them is the log and its ledger, which is the part a listener is owed either way.
+        // them is the log and its ledger, under How it's doing, which is the part a listener is
+        // owed either way.
         if (Unreleased.ENGINE) {
-        // The engine's own controls. Choosing it is done where the source is chosen, under Content.
-        ExplainedGroupTitle(
-            title = stringResource(R.string.recommendations_engine_title),
-            explanation = stringResource(R.string.recommendations_engine_title_info),
-        )
-        ExplainedSwitchPreference(
-            title = stringResource(R.string.show_reasons),
-            explanation = stringResource(R.string.show_reasons_info),
-            description = stringResource(R.string.show_reasons_description),
-            checked = showReasons,
-            onCheckedChange = onShowReasonsChange,
-        )
-        ExplainedPreference(
-            title = stringResource(R.string.adventurousness),
-            explanation = stringResource(R.string.adventurousness_info),
-            description = stringResource(R.string.adventurousness_description, quotas(20, adventurousness / 100.0, false)[Lane.EXPLORE] ?: 0),
-        )
-        Slider(
-            value = adventurousness.toFloat(),
-            onValueChange = { onAdventurousnessChange(it.toInt()) },
-            valueRange = 0f..100f,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
-        ExplainedPreference(
-            title = stringResource(R.string.familiarity),
-            explanation = stringResource(R.string.familiarity_info),
-            description = stringResource(R.string.familiarity_description, quotas(20, adventurousness / 100.0, false, EngineParams.DEFAULT.withFamiliarity(familiarity / 100.0))[Lane.AGAIN] ?: 0),
-        )
-        Slider(
-            value = familiarity.toFloat(),
-            onValueChange = { onFamiliarityChange(it.toInt()) },
-            valueRange = 0f..60f,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
-        ExplainedSwitchPreference(
-            title = stringResource(R.string.new_songs_only),
-            explanation = stringResource(R.string.new_songs_only_info),
-            description = stringResource(R.string.new_songs_only_description),
-            checked = newSongsOnly,
-            onCheckedChange = onNewSongsOnlyChange,
-        )
-        // Needs the Last.fm key built into the app. A build without one, or a copy not signed with
-        // the release key, has nothing to ask with, so the choice is not shown rather than shown
-        // doing nothing, and the app acts as YouTube only.
-        if (BuiltInKeys.lastFmApiKey.isNotEmpty()) {
-            val similarTitle = stringResource(R.string.similar_source)
-            val similarInfo = stringResource(R.string.similar_source_info)
-            EnumListPreference(
-                title = { Text(similarTitle) },
-                icon = null,
-                trailingContent = { ExplainButton(similarTitle, similarInfo) },
-                selectedValue = similarSource,
-                valueText = {
-                    when (it) {
-                        SimilarSource.BOTH -> stringResource(R.string.similar_source_both)
-                        SimilarSource.YOUTUBE -> stringResource(R.string.similar_source_youtube)
-                        SimilarSource.LASTFM -> stringResource(R.string.similar_source_lastfm)
-                    }
-                },
-                onValueSelected = onSimilarSourceChange,
+            // The engine's own controls. Choosing it is done where the source is chosen, under Content.
+            ExplainedGroupTitle(
+                title = stringResource(R.string.recommendations_engine_title),
+                explanation = stringResource(R.string.recommendations_engine_title_info),
             )
-        }
-        ExplainedPreference(
-            title = stringResource(R.string.exclusions),
-            explanation = stringResource(R.string.exclusions_info),
-            description = stringResource(R.string.exclusions_count, activeExclusions),
-            onClick = { navController.navigate("settings/recommendations/exclusions") },
-        )
-        ExplainedSwitchPreference(
-            title = stringResource(R.string.rest_songs_i_skip),
-            explanation = stringResource(R.string.rest_songs_i_skip_info),
-            description = stringResource(R.string.rest_songs_i_skip_description),
-            checked = restSongsISkip,
-            onCheckedChange = onRestSongsISkipChange,
-        )
-        ExplainedSwitchPreference(
-            title = stringResource(R.string.rests_everywhere),
-            explanation = stringResource(R.string.rests_everywhere_info),
-            description = stringResource(R.string.rests_everywhere_description),
-            checked = restsEverywhere,
-            onCheckedChange = onRestsEverywhereChange,
-            isEnabled = restSongsISkip,
-        )
-        Spacer(Modifier.height(16.dp))
-
-        // How it's doing: what was shown, what was played, how well the predictions matched, and
-        // each weight beside where it started.
-        ExplainedGroupTitle(
-            title = stringResource(R.string.recommendations_doing_title),
-            explanation = stringResource(R.string.recommendations_doing_title_info),
-        )
-        ExplainedSwitchPreference(
-            title = stringResource(R.string.learn_from_listening),
-            explanation = stringResource(R.string.learn_from_listening_info),
-            description = stringResource(R.string.learn_from_listening_description),
-            checked = learnFromListening,
-            onCheckedChange = onLearnFromListeningChange,
-        )
-        val teamNames = mapOf(1 to stringResource(R.string.recommendations_team_engine), 2 to stringResource(R.string.recommendations_team_library), 3 to stringResource(R.string.recommendations_team_youtube), DISCOVER_TEAM to stringResource(R.string.discover_something_new))
-        val scored = gradedByTeam.filter { it.outcome in 1..3 }.groupBy { it.team }
-        val winsLine = stringResource(R.string.recommendations_wins_line)
-        ExplainedPreference(
-            title = stringResource(R.string.recommendations_wins),
-            explanation = stringResource(R.string.recommendations_wins_info),
-            description = scored.entries.sortedBy { it.key }.joinToString("\n") { (team, rows) ->
-                val seen = rows.sumOf { it.n }; val wins = rows.sumOf { it.wins }
-                String.format(winsLine, teamNames[team] ?: team.toString(), wins, seen, if (seen > 0) 100.0 * wins / seen else 0.0)
-            }.ifBlank { stringResource(R.string.recommendations_nothing_yet) },
-        )
-        // Only where the choice is offered: without a key there is one source and nothing to weigh.
-        if (BuiltInKeys.lastFmApiKey.isNotEmpty()) {
-            val mix = sourceMix
+            ExplainedSwitchPreference(
+                title = stringResource(R.string.show_reasons),
+                explanation = stringResource(R.string.show_reasons_info),
+                description = stringResource(R.string.show_reasons_description),
+                checked = showReasons,
+                onCheckedChange = onShowReasonsChange,
+            )
             ExplainedPreference(
-                title = stringResource(R.string.similar_mix),
-                explanation = stringResource(R.string.similar_mix_info),
-                description = when {
-                    SimilarSources.effective(similarSource, hasKey = true, engineOn = Unreleased.ENGINE) != SimilarSource.BOTH -> stringResource(R.string.similar_mix_single)
-                    mix == null || !mix.compared -> stringResource(R.string.similar_mix_none)
-                    else -> {
-                        val lastFm = (mix.share * 100).roundToInt()
-                        listOf(
-                            stringResource(R.string.similar_mix_share, lastFm, 100 - lastFm),
-                            stringResource(R.string.similar_mix_lastfm_line, mix.lastFm.per100, mix.lastFm.cards.roundToInt()),
-                            stringResource(R.string.similar_mix_youtube_line, mix.youTube.per100, mix.youTube.cards.roundToInt()),
-                            pluralStringResource(R.plurals.similar_mix_days, mix.days, mix.days),
-                        ).joinToString("\n")
-                    }
-                },
+                title = stringResource(R.string.adventurousness),
+                explanation = stringResource(R.string.adventurousness_info),
+                description = stringResource(R.string.adventurousness_description, quotas(20, adventurousness / 100.0, false)[Lane.EXPLORE] ?: 0),
             )
-        }
-        ExplainedSwitchPreference(
-            title = stringResource(R.string.shadow_comparison),
-            explanation = stringResource(R.string.shadow_comparison_info),
-            description = stringResource(R.string.shadow_comparison_description),
-            checked = shadowComparison,
-            onCheckedChange = onShadowComparisonChange,
-        )
-        val rowNames = mapOf(1 to stringResource(R.string.recommendations_team_engine), 2 to stringResource(R.string.recommendations_team_library), 3 to stringResource(R.string.recommendations_team_youtube), 4 to stringResource(R.string.recommendations_row_shadow), DISCOVER_ROW_KEY to stringResource(R.string.discover_something_new))
-        val heldLine = stringResource(R.string.recommendations_held_line)
-        ExplainedPreference(
-            title = stringResource(R.string.recommendations_held),
-            explanation = stringResource(R.string.recommendations_held_info),
-            description = buildScores.sortedBy { it.rowKey }.joinToString("\n") { b ->
-                String.format(heldLine, rowNames[b.rowKey] ?: b.rowKey.toString(), b.hits, b.plays, if (b.plays > 0) 100.0 * b.hits / b.plays else 0.0, b.builds)
-            }.ifBlank { stringResource(R.string.recommendations_nothing_yet) },
-        )
-        val pairs = calibration.map { it.p.toDouble() to it.y.toDouble() }
-        val brier = Calibration.brier(pairs)
-        ExplainedPreference(
-            title = stringResource(R.string.recommendations_brier),
-            explanation = stringResource(R.string.recommendations_brier_info),
-            description = if (brier.isNaN()) stringResource(R.string.recommendations_nothing_yet)
-                else pluralStringResource(R.plurals.recommendations_brier_description, pairs.size, brier, pairs.size) + "\n" +
-                    // map, not the joinToString below it directly: map is inline and can call a
-                    // composable function, joinToString's own lambda cannot.
-                    Calibration.reliability(pairs).filter { it.count > 0 }.map { b ->
-                        pluralStringResource(
-                            R.plurals.recommendations_calibration_bucket, b.count,
-                            b.lo * 100, b.hi * 100, b.count, b.playRate * 100
-                        )
-                    }.joinToString("\n"),
-        )
-        val weightNames = mapOf(
-            "x_act" to stringResource(R.string.weight_act), "x_sat" to stringResource(R.string.weight_sat), "x_gap" to stringResource(R.string.weight_gap),
-            "x_dorm" to stringResource(R.string.weight_dorm), "x_like" to stringResource(R.string.weight_like), "x_seed" to stringResource(R.string.weight_seed),
-            "x_art" to stringResource(R.string.weight_art), "x_novel" to stringResource(R.string.weight_novel), "x_imp" to stringResource(R.string.weight_imp),
-            "x_co" to stringResource(R.string.weight_co), "x_ctx" to stringResource(R.string.weight_ctx), "x_over" to stringResource(R.string.weight_over),
-            "w_pos" to stringResource(R.string.weight_pos), "b" to stringResource(R.string.weight_bias),
-        )
-        val updates = weights.maxOfOrNull { it.updates } ?: 0
-        val started = stringResource(R.string.recommendations_weight_started)
-        ExplainedPreference(
-            title = pluralStringResource(R.plurals.recommendations_weights, updates, updates),
-            explanation = stringResource(R.string.recommendations_weights_info),
-            description = Features.priors.keys.filter { it in weightNames }.joinToString("\n") { name ->
-                val row = weights.firstOrNull { it.name == name }
-                val prior = Features.priors[name]!!.value
-                "%s: %.2f (%s %.2f)".format(weightNames[name], row?.value ?: prior, started, prior)
-            },
-        )
-        ExplainedPreference(
-            title = stringResource(R.string.recommendations_reset_weights),
-            explanation = stringResource(R.string.recommendations_reset_weights_info),
-            description = stringResource(R.string.recommendations_reset_weights_description),
-            onClick = { viewModel.resetWeights() },
-        )
-        ExplainedPreference(
-            title = stringResource(R.string.recommendations_rebuild_weights),
-            explanation = stringResource(R.string.recommendations_rebuild_weights_info),
-            description = stringResource(R.string.recommendations_rebuild_weights_description),
-            onClick = { viewModel.rebuildWeights() },
-        )
-        ExplainedPreference(
-            title = stringResource(R.string.forget_last_session),
-            explanation = stringResource(R.string.forget_last_session_info),
-            description = stringResource(R.string.forget_last_session_description),
-            onClick = { viewModel.forgetLastSession() },
-        )
-        ExplainedPreference(
-            title = stringResource(R.string.forget_today),
-            explanation = stringResource(R.string.forget_today_info),
-            description = stringResource(R.string.forget_today_description),
-            onClick = { viewModel.forgetToday() },
-        )
-        ExplainedPreference(
-            title = stringResource(R.string.engine_developer),
-            explanation = stringResource(R.string.engine_developer_info),
-            description = stringResource(R.string.engine_developer_description),
-            onClick = { navController.navigate("settings/recommendations/developer") },
-        )
-        // A file, not a share sheet full of text. The reason anyone wants this is to move it to
-        // another device or keep it before a reset, and neither is served by several kilobytes of
-        // JSON pasted into a chat.
-        var engineIoResult by remember { mutableStateOf<String?>(null) }
-        val exportEngineLauncher = rememberLauncherForActivityResult(
-            ActivityResultContracts.CreateDocument("application/json")
-        ) { uri ->
-            if (uri != null) viewModel.exportTo(uri) { ok ->
-                engineIoResult = context.getString(
-                    if (ok) R.string.engine_data_export_done else R.string.engine_data_failed
+            Slider(
+                value = adventurousness.toFloat(),
+                onValueChange = { onAdventurousnessChange(it.toInt()) },
+                valueRange = 0f..100f,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            ExplainedPreference(
+                title = stringResource(R.string.familiarity),
+                explanation = stringResource(R.string.familiarity_info),
+                description = stringResource(R.string.familiarity_description, quotas(20, adventurousness / 100.0, false, EngineParams.DEFAULT.withFamiliarity(familiarity / 100.0))[Lane.AGAIN] ?: 0),
+            )
+            Slider(
+                value = familiarity.toFloat(),
+                onValueChange = { onFamiliarityChange(it.toInt()) },
+                valueRange = 0f..60f,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            ExplainedSwitchPreference(
+                title = stringResource(R.string.new_songs_only),
+                explanation = stringResource(R.string.new_songs_only_info),
+                description = stringResource(R.string.new_songs_only_description),
+                checked = newSongsOnly,
+                onCheckedChange = onNewSongsOnlyChange,
+            )
+            // Needs the Last.fm key built into the app. A build without one, or a copy not signed with
+            // the release key, has nothing to ask with, so the choice is not shown rather than shown
+            // doing nothing, and the app acts as YouTube only.
+            if (BuiltInKeys.lastFmApiKey.isNotEmpty()) {
+                val similarTitle = stringResource(R.string.similar_source)
+                val similarInfo = stringResource(R.string.similar_source_info)
+                EnumListPreference(
+                    title = { Text(similarTitle) },
+                    icon = null,
+                    trailingContent = { ExplainButton(similarTitle, similarInfo) },
+                    selectedValue = similarSource,
+                    valueText = {
+                        when (it) {
+                            SimilarSource.BOTH -> stringResource(R.string.similar_source_both)
+                            SimilarSource.YOUTUBE -> stringResource(R.string.similar_source_youtube)
+                            SimilarSource.LASTFM -> stringResource(R.string.similar_source_lastfm)
+                        }
+                    },
+                    onValueSelected = onSimilarSourceChange,
                 )
-            }
-        }
-        val importEngineLauncher = rememberLauncherForActivityResult(
-            ActivityResultContracts.OpenDocument()
-        ) { uri ->
-            if (uri != null) viewModel.importFrom(uri) { count ->
-                engineIoResult = if (count > 0) {
-                    context.resources.getQuantityString(R.plurals.engine_data_import_done, count, count)
-                } else {
-                    context.getString(R.string.engine_data_failed)
+                // What Both has learned so far, beside the choice it follows from. Only with Both:
+                // with one source nothing is shared, so there is no split to show.
+                if (SimilarSources.showsSplit(similarSource, hasKey = true, engineOn = Unreleased.ENGINE)) {
+                    val mix = sourceMix
+                    StatEntry(
+                        title = stringResource(R.string.similar_mix),
+                        explanation = stringResource(R.string.similar_mix_info),
+                        numbers = if (mix == null || !mix.compared) {
+                            stringResource(R.string.similar_mix_none)
+                        } else {
+                            val lastFm = (mix.share * 100).roundToInt()
+                            listOf(
+                                stringResource(R.string.similar_mix_share, percentText(lastFm, Locale.getDefault()), percentText(100 - lastFm, Locale.getDefault())),
+                                stringResource(R.string.similar_mix_lastfm_line, mix.lastFm.per100, mix.lastFm.cards.roundToInt()),
+                                stringResource(R.string.similar_mix_youtube_line, mix.youTube.per100, mix.youTube.cards.roundToInt()),
+                                pluralStringResource(R.plurals.similar_mix_days, mix.days, mix.days),
+                            ).joinToString("\n")
+                        },
+                        meaning = stringResource(R.string.similar_mix_meaning),
+                    )
                 }
             }
-        }
+            Spacer(Modifier.height(16.dp))
 
-        ExplainedPreference(
-            title = stringResource(R.string.export_engine_data),
-            explanation = stringResource(R.string.export_engine_data_info),
-            description = engineIoResult ?: stringResource(R.string.export_engine_data_description),
-            onClick = {
-                val stamp = java.time.LocalDateTime.now()
-                    .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
-                exportEngineLauncher.launch("InterTune_engine_$stamp.json")
-            },
-        )
-        ExplainedPreference(
-            title = stringResource(R.string.import_engine_data),
-            explanation = stringResource(R.string.import_engine_data_info),
-            description = stringResource(R.string.import_engine_data_description),
-            onClick = { importEngineLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
-        )
-        Spacer(Modifier.height(16.dp))
-        }
-
-        ExplainedGroupTitle(
-            title = stringResource(R.string.recommendations_learned_title),
-            explanation = stringResource(R.string.recommendations_learned_title_info),
-        )
-        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-            ExplainedPreference(
-                title = stringResource(R.string.recommendations_listens, listens, counted),
-                explanation = stringResource(R.string.recommendations_listens_info),
-                description = stringResource(R.string.recommendations_listens_description),
+            // What it learns from, and what it is told to leave out.
+            ExplainedGroupTitle(
+                title = stringResource(R.string.recommendations_learning_title),
+                explanation = stringResource(R.string.recommendations_learning_title_info),
             )
-            ExplainedPreference(
-                title = pluralStringResource(R.plurals.recommendations_sessions, sessions, sessions),
-                explanation = stringResource(R.string.recommendations_sessions_info),
-                description = stringResource(R.string.recommendations_sessions_description),
+            ExplainedSwitchPreference(
+                title = stringResource(R.string.learn_from_listening),
+                explanation = stringResource(R.string.learn_from_listening_info),
+                description = stringResource(R.string.learn_from_listening_description),
+                checked = learnFromListening,
+                onCheckedChange = onLearnFromListeningChange,
             )
-            ExplainedPreference(
-                title = stringResource(R.string.recommendations_how_they_ended),
-                explanation = stringResource(R.string.recommendations_how_they_ended_info),
-                description = byEndReason.joinToString(", ") { "${endReasonLabel(it.code)} ${it.n}" }
-                    .ifBlank { stringResource(R.string.recommendations_nothing_yet) },
+            ExplainedSwitchPreference(
+                title = stringResource(R.string.rest_songs_i_skip),
+                explanation = stringResource(R.string.rest_songs_i_skip_info),
+                description = stringResource(R.string.rest_songs_i_skip_description),
+                checked = restSongsISkip,
+                onCheckedChange = onRestSongsISkipChange,
             )
-            ExplainedPreference(
-                title = stringResource(R.string.recommendations_where_from),
-                explanation = stringResource(R.string.recommendations_where_from_info),
-                description = byOrigin.joinToString(", ") { "${originLabel(it.code)} ${it.n}" }
-                    .ifBlank { stringResource(R.string.recommendations_nothing_yet) },
-            )
-            ExplainedPreference(
-                title = stringResource(R.string.recommendations_impressions, impressions, rowBuilds),
-                explanation = stringResource(R.string.recommendations_impressions_info),
-                description = stringResource(R.string.recommendations_impressions_description),
-            )
-            ExplainedPreference(
-                title = stringResource(R.string.recommendations_signals, signals, taps),
-                explanation = stringResource(R.string.recommendations_signals_info),
-                description = stringResource(R.string.recommendations_signals_description),
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-
-        ExplainedGroupTitle(
-            title = stringResource(R.string.recommendations_recent_title),
-            explanation = stringResource(R.string.recommendations_recent_title_info),
-        )
-        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-            if (recent.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.recommendations_nothing_yet),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp),
+            // Only means anything while rests are written, so it is only shown then.
+            if (restSongsISkip) {
+                ExplainedSwitchPreference(
+                    title = stringResource(R.string.rests_everywhere),
+                    explanation = stringResource(R.string.rests_everywhere_info),
+                    description = stringResource(R.string.rests_everywhere_description),
+                    checked = restsEverywhere,
+                    onCheckedChange = onRestsEverywhereChange,
                 )
             }
-            recent.forEach { row ->
-                val pct = if (row.ratio >= 0f) "${(row.ratio * 100).toInt()}%" else "?"
-                val origin = originLabel(row.origin) +
-                        (if (row.originSlot >= 0) " #${row.originSlot + 1}" else "") +
-                        (if (row.autoplayDepth > 0)
-                            stringResource(R.string.recommendations_recent_autoplay, row.autoplayDepth)
-                        else "")
-                PreferenceEntry(
-                    title = { Text(row.title) },
-                    description = stringResource(
-                        R.string.recommendations_recent_line,
-                        endReasonLabel(row.endReason), pct, row.playedMs / 1000, origin
-                    ) +
-                            (if (row.counted) "" else stringResource(R.string.recommendations_recent_not_counted)) +
-                            " · " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(row.endedAt)),
-                    onClick = null,
+            ExplainedPreference(
+                title = stringResource(R.string.exclusions),
+                explanation = stringResource(R.string.exclusions_info),
+                description = stringResource(R.string.exclusions_count, activeExclusions),
+                onClick = { navController.navigate("settings/recommendations/exclusions") },
+            )
+            Spacer(Modifier.height(16.dp))
+        }
+
+        // The two pages behind this one: the numbers, and the buttons that change what it keeps.
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            ExplainedPreference(
+                title = stringResource(R.string.recommendations_doing_title),
+                explanation = stringResource(R.string.recommendations_doing_info),
+                description = stringResource(R.string.recommendations_doing_description),
+                icon = { Icon(Icons.Rounded.Insights, null) },
+                onClick = { navController.navigate("settings/recommendations/doing") },
+            )
+            if (Unreleased.ENGINE) {
+                ExplainedPreference(
+                    title = stringResource(R.string.recommendations_data_title),
+                    explanation = stringResource(R.string.recommendations_data_info),
+                    description = stringResource(R.string.recommendations_data_description),
+                    icon = { Icon(Icons.Rounded.ManageHistory, null) },
+                    onClick = { navController.navigate("settings/recommendations/data") },
                 )
             }
         }
+        Spacer(Modifier.height(16.dp))
     }
 
     FloatingTopBar(title = stringResource(R.string.recommendations), navController = navController)
 }
-

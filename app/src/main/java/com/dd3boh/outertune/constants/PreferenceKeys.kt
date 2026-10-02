@@ -218,6 +218,12 @@ val LearnFromListeningKey = booleanPreferencesKey("learnFromListening")
 /** The local day (days since the epoch) and how much of the day's update budget is spent. */
 val EngineBudgetDayKey = longPreferencesKey("engineBudgetDay")
 val EngineBudgetSpentKey = floatPreferencesKey("engineBudgetSpent")
+/**
+ * What it has learned came from a copy loaded under Your data, so a forget, reset or rebuild
+ * throws that copy away, and its dialog says so. Cleared by each of those and by Clear listen
+ * history.
+ */
+val EngineCopyLoadedKey = booleanPreferencesKey("engineCopyLoaded")
 /** The day (in days since the epoch) and count of related-song refreshes spent, at most ten a day. */
 val RelatedRefreshDayKey = longPreferencesKey("relatedRefreshDay")
 val RelatedRefreshCountKey = intPreferencesKey("relatedRefreshCount")

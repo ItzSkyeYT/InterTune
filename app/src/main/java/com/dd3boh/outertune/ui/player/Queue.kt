@@ -10,6 +10,7 @@
 package com.dd3boh.outertune.ui.player
 
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.utils.ActivityLog
 import android.content.res.Configuration
@@ -720,7 +721,7 @@ fun BoxScope.QueueContent(
                                     } else {
                                         coroutineScope.launch(Dispatchers.Main) {
                                             isSearching = false
-                                            qb.setCurrQueue(mq)
+                                            qb.setCurrQueue(mq, origin = PlayOrigin.QUEUE)
                                             // prepare() first, else it cannot start after playback
                                             // was stopped by an auto-skip on error.
                                             playerConnection.player.prepare()
@@ -831,7 +832,7 @@ fun BoxScope.QueueContent(
                     onClick = {
                         coroutineScope.launch(Dispatchers.Main) {
                             // change to this queue, seek to the item clicked on
-                            qb.setCurrQueue(detachedQueue)
+                            qb.setCurrQueue(detachedQueue, origin = PlayOrigin.QUEUE)
                             playerConnection.player.prepare() // else cannot click to play after auto-skip onError stop
                             playerConnection.player.playWhenReady = true
                             exitDetachHead()
@@ -1049,7 +1050,7 @@ fun BoxScope.QueueContent(
                                                     val index = index // race condition...?
                                                     if (detachedHead) {
                                                         detachedQueue?.setCurrentQueuePos(index)
-                                                        qb.setCurrQueue(detachedQueue, false)
+                                                        qb.setCurrQueue(detachedQueue, false, origin = PlayOrigin.QUEUE)
                                                     } else {
                                                         playerConnection.markUserChoice(); playerConnection.player.seekToDefaultPosition(index)
                                                     }
