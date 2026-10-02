@@ -80,6 +80,8 @@ fun Thumbnail(
     modifier: Modifier = Modifier,
     showLyricsOnClick: Boolean = false,
     customMediaMetadata: MediaMetadata? = null,
+    /** Shown in the small player; passed on to [Lyrics]. */
+    smallWindow: Boolean = false,
     /**
      * Extra bottom room to leave clear under the lyrics view's close/more row. Callers whose
      * layout already reserves space for the collapsed queue sheet around the whole Thumbnail
@@ -211,6 +213,7 @@ fun Thumbnail(
         ) {
             Lyrics(
                 sliderPositionProvider = sliderPositionProvider,
+                smallWindow = smallWindow,
                 // Same gesture that opened it closes it again. Only wired when tapping the artwork
                 // is what toggles lyrics in the first place, so the two stay symmetrical.
                 onNoLyricsClick = if (showLyricsOnClick) {
