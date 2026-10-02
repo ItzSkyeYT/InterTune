@@ -164,7 +164,7 @@ fun doingSummary(
     val engine = teams.firstOrNull { it.team == ENGINE_TEAM }?.cards
     val stillWaiting = if (learning) waiting else 0
     if (engine == null || engine.seen == 0) return when {
-        !engineShowing -> DoingSummary.NotSource(waiting, learning, rowsBelow)
+        !engineShowing -> DoingSummary.NotSource(stillWaiting, learning, rowsBelow)
         learning -> DoingSummary.Waiting
         else -> DoingSummary.NotLearning
     }

@@ -211,26 +211,28 @@ class EngineReportTest {
     @Test
     fun `rows that held come in row order, each with its own refreshes and songs`() {
         val lines = heldLines(
-            listOf(BuildScore(6, builds = 25, plays = 3, hits = 0), BuildScore(1, builds = 26, plays = 4, hits = 1)),
-            engineShowing = true,
+            listOf(BuildScore(DISCOVER_ROW_KEY, builds = 25, plays = 3, hits = 0), BuildScore(ENGINE_ROW_KEY, builds = 26, plays = 4, hits = 1)),
+            QuickPicksSource.ENGINE,
         )
-        assertEquals(listOf(HeldLine(1, refreshes = 26, chosen = 4, held = 1, fromBefore = false), HeldLine(6, 25, 3, 0, false)), lines)
+        assertEquals(listOf(HeldLine(HeldRow.ENGINE, refreshes = 26, chosen = 4, held = 1), HeldLine(HeldRow.DISCOVER, 25, 3, 0)), lines)
     }
 
     @Test
     fun `a row with no song chosen after its refreshes has nothing to compare, not 0 of 0`() {
-        val l = heldLines(listOf(BuildScore(3, builds = 3, plays = 0, hits = 0)), engineShowing = false).single()
+        val l = heldLines(listOf(BuildScore(YOUTUBE_ROW_KEY, builds = 3, plays = 0, hits = 0)), QuickPicksSource.YOUTUBE).single()
         assertTrue(l.nothingToCompare)
-        assertFalse(heldLines(listOf(BuildScore(3, builds = 3, plays = 1, hits = 0)), false).single().nothingToCompare)
+        assertFalse(heldLines(listOf(BuildScore(YOUTUBE_ROW_KEY, builds = 3, plays = 1, hits = 0)), QuickPicksSource.YOUTUBE).single().nothingToCompare)
     }
 
     @Test
     fun `Best recommendations' own row is from before while it is not the source, and its unseen one never is`() {
         // The summary said none of its cards are counted here, above a plain "Best
         // recommendations" line from when it was the source.
-        val scores = listOf(BuildScore(ENGINE_ROW_KEY, 26, 4, 0), BuildScore(4, 10, 2, 1), BuildScore(6, 25, 3, 0))
-        assertEquals(listOf(true, false, false), heldLines(scores, engineShowing = false).map { it.fromBefore })
-        assertEquals(listOf(false, false, false), heldLines(scores, engineShowing = true).map { it.fromBefore })
+        val scores = listOf(BuildScore(ENGINE_ROW_KEY, 26, 4, 0), BuildScore(SHADOW_ROW_KEY, 10, 2, 1), BuildScore(DISCOVER_ROW_KEY, 25, 3, 0))
+        assertEquals(listOf(HeldRow.ENGINE_BEFORE, HeldRow.UNSEEN, HeldRow.DISCOVER), heldLines(scores, QuickPicksSource.YOUTUBE).map { it.row })
+        assertEquals(listOf(HeldRow.ENGINE, HeldRow.UNSEEN, HeldRow.DISCOVER), heldLines(scores, QuickPicksSource.ENGINE).map { it.row })
+        assertEquals(listOf(HeldRow.ENGINE_ALONE_BEFORE, HeldRow.UNSEEN, HeldRow.DISCOVER), heldLines(scores, QuickPicksSource.COMPARE).map { it.row })
+        assertNull(heldRow(99, QuickPicksSource.ENGINE))
     }
 
     @Test
@@ -409,12 +411,14 @@ class EngineReportTest {
     }
 
     @Test
-    fun `lower than the bar is better, higher is worse, and alike to three decimals is the same`() {
+    fun `lower than the bar is better, higher is worse, and close to it is the same`() {
         // The emulator on 1 Oct: 0.012 against a bar of 0.000, guesses too high.
         assertEquals(BrierVerdict.WORSE, brierVerdict(0.012, brierReference(List(103) { 0.11 to 0.0 })))
         assertEquals(BrierVerdict.BETTER, brierVerdict(0.15, 0.1875))
         assertEquals(BrierVerdict.SAME, brierVerdict(0.18751, 0.1875))
-        assertEquals(BrierVerdict.WORSE, brierVerdict(0.1890, 0.1875))
+        // Within a twentieth of the bar is too close to call either way.
+        assertEquals(BrierVerdict.SAME, brierVerdict(0.1890, 0.1875))
+        assertEquals(BrierVerdict.WORSE, brierVerdict(0.20, 0.1875))
     }
 
     @Test
