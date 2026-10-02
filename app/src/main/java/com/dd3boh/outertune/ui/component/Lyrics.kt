@@ -117,6 +117,8 @@ import kotlin.time.Duration.Companion.seconds
 fun Lyrics(
     sliderPositionProvider: () -> Long?,
     modifier: Modifier = Modifier,
+    /** The small player's lyrics view, where the fades are kept short; see [lyricsFadeLength]. */
+    smallWindow: Boolean = false,
     /**
      * Invoked when the user taps the "lyrics not found" state. There is nothing to read and nothing
      * to seek to, so the tap that got them here should also get them back to the artwork rather
@@ -303,7 +305,7 @@ fun Lyrics(
                 .add(WindowInsets(top = maxHeight / 2, bottom = maxHeight / 2))
                 .asPaddingValues(),
             modifier = Modifier
-                .fadingEdge(vertical = lyricsFadeLength(maxHeight))
+                .fadingEdge(vertical = lyricsFadeLength(maxHeight, smallWindow))
                 .nestedScroll(remember {
                     object : NestedScrollConnection {
                         override fun onPostScroll(
@@ -700,8 +702,10 @@ val LyricsPreviewTime = 7.seconds
 /**
  * How far the lyrics fade out at the top and bottom of a view [height] tall.
  *
- * 64dp, but never more than a quarter of the height. In the 100dp or so a keypad phone or a
- * floating window has for them, two full fades met in the middle and left every line faded out.
- * A view 256dp or taller, as on any ordinary phone held upright, keeps the 64dp it always had.
+ * 64dp. In the small player ([smallWindow]: a keypad phone or a floating window) never more than
+ * a quarter of the height: in the 100dp or so it has for lyrics, two full fades met in the middle
+ * and left every line faded out. Everywhere else it stays 64dp whatever the height, since an
+ * ordinary phone's lyrics view can be as short as 200dp with some player settings.
  */
-internal fun lyricsFadeLength(height: Dp): Dp = minOf(64.dp, height / 4)
+internal fun lyricsFadeLength(height: Dp, smallWindow: Boolean): Dp =
+    if (smallWindow) minOf(64.dp, height / 4) else 64.dp

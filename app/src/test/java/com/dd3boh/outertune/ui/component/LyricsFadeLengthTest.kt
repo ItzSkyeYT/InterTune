@@ -14,10 +14,11 @@ import org.junit.Test
 class LyricsFadeLengthTest {
 
     @Test
-    fun `a view of any ordinary size keeps the fade it always had`() {
-        var height = 256.dp
+    fun `outside the small player the fade is what it always was, however short the view`() {
+        // An ordinary phone with the Connected buttons gives lyrics about 204dp.
+        var height = 40.dp
         while (height <= 2000.dp) {
-            assertEquals(64.dp, lyricsFadeLength(height))
+            assertEquals(64.dp, lyricsFadeLength(height, smallWindow = false))
             height += 13.dp
         }
     }
@@ -26,7 +27,7 @@ class LyricsFadeLengthTest {
     fun `the two fades never meet, so some lines always show at full strength`() {
         // About 117dp on a keypad phone with a navigation bar, status bar included.
         for (height in listOf(40.dp, 80.dp, 117.dp, 165.dp, 255.dp)) {
-            val fade = lyricsFadeLength(height)
+            val fade = lyricsFadeLength(height, smallWindow = true)
             assertTrue("fades meet at $height", height - fade * 2 >= height / 2)
         }
     }

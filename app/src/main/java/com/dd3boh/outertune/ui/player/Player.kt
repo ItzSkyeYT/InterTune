@@ -1511,6 +1511,7 @@ fun BottomSheetPlayer(
                             // No room for a cover worth the name, so none rather than a sliver.
                         } else if (!swipeToSkip) {
                             Thumbnail(
+                                smallWindow = compactPlayer,
                                 modifier = Modifier
 //                                .width(horizontalLazyGridItemWidth)
                                     .animateContentSize(),
@@ -1528,6 +1529,7 @@ fun BottomSheetPlayer(
                                 onSkip = { forward -> skipFromArtwork(playerConnection, forward) },
                             ) {
                                 Thumbnail(
+                                    smallWindow = compactPlayer,
                                     modifier = Modifier
                                         .width(maxWidth)
                                         .animateContentSize(),
