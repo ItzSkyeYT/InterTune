@@ -259,7 +259,7 @@
     <string name="download_on_wifi_only_title">Télécharger en Wi-Fi uniquement</string>
     <string name="download_waiting_for_wifi">En attente. Le téléchargement démarrera dès que le Wi-Fi sera disponible</string>
     <string name="err_copy_details">Copier les détails de l\'erreur</string>
-    <string name="err_youtube_busy">YouTube a temporairement cessé d\'envoyer de la musique à cette connexion Internet. Ce n\'est ni votre téléphone, ni votre compte, ni ce titre, et cela se règle tout seul. Passer aux données mobiles fonctionne en général tout de suite. Sinon, patientez un peu et réessayez.</string>
+    <string name="err_youtube_busy">YouTube a temporairement cessé d\'envoyer de la musique à cette connexion Internet. Ce n\'est ni votre téléphone, ni votre compte, ni ce titre, et cela se règle tout seul. Un autre réseau, comme les données mobiles, fonctionne souvent. Sinon, patientez un peu et réessayez.</string>
     <string name="grouped_player_controls">Regrouper les boutons du lecteur</string>
     <string name="grouped_player_controls_description">Réunit les boutons aléatoire, suivant, lecture et répétition dans une seule barre de verre. Désactivez pour qu\'ils flottent séparément sur la pochette. Nécessite Liquid glass.</string>
     <string name="grp_updates">Mises à jour</string>

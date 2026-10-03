@@ -18,6 +18,8 @@ import com.dd3boh.outertune.utils.YTPlayerUtils.STREAM_FALLBACK_CLIENTS
 import com.dd3boh.outertune.utils.YTPlayerUtils.streamStatus
 import com.dd3boh.outertune.utils.potoken.PoTokenGenerator
 import com.dd3boh.outertune.utils.potoken.PoTokenResult
+import com.dd3boh.outertune.App
+import com.zionhuang.innertube.AddressPolicy
 import com.zionhuang.innertube.NewPipeUtils
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.YouTubeClient
@@ -180,6 +182,12 @@ object YTPlayerUtils {
         var gotStream = false
         var blocked: PlayerResponse.PlayabilityStatus? = null
 
+        /**
+         * A fallback client gave the bot check. [blocked] counts the main client too, and ANDROID_VR
+         * gives it on a healthy network, so a song that is simply unavailable would look refused.
+         */
+        var fallbackBlocked = false
+
         fun tellThrottle() {
             if (gotStream) Throttle.note("OK", null) else blocked?.let { Throttle.note(it.status, it.reason) }
         }
@@ -189,14 +197,52 @@ object YTPlayerUtils {
     @Volatile
     private var lastSwapFailedAt = 0L
 
+    /** Which address family worked on which network, for [FamilyChoice]. In memory only. */
+    @Volatile
+    private var familyMemory: FamilyChoice.Memory? = null
+
+    /**
+     * The network in use, for [FamilyChoice], or null when there is no choice to make: no network
+     * known, or a proxy, whose own connection decides the family.
+     */
+    private fun currentNetwork(connectivityManager: ConnectivityManager?): FamilyChoice.Network? {
+        if (YouTube.proxy != null) return null
+        return runCatching {
+            val cm = connectivityManager ?: App.instance.getSystemService(ConnectivityManager::class.java)
+            val network = cm.activeNetwork ?: return null
+            val addresses = cm.getLinkProperties(network)?.linkAddresses?.map { it.address } ?: return null
+            FamilyChoice.networkOf(network.networkHandle, addresses)
+        }.getOrNull()
+    }
+
+    /**
+     * One /player request over the family [FamilyChoice] picks, and over the other one when the
+     * first is refused with the bot check. For the single requests outside the stream chain, which
+     * would otherwise go over a family the chain already knows is refused and trip the throttle.
+     */
+    private suspend fun playerOverBestFamily(
+        request: suspend (AddressPolicy?) -> Result<PlayerResponse>,
+    ): Result<PlayerResponse> {
+        val outcome = FamilyChoice.resolve(currentNetwork(null), familyMemory, SystemClock.elapsedRealtime()) { policy ->
+            val answer = request(policy)
+            FamilyChoice.Attempt(
+                answer,
+                ok = answer.isSuccess,
+                refused = Throttle.looksLikeBlock(answer.getOrNull()?.playabilityStatus?.reason),
+            )
+        }
+        familyMemory = outcome.memory
+        return outcome.chosen.value
+    }
+
     /**
      * Custom player response intended to use for playback.
      * Metadata like audioConfig and videoDetails are from [MAIN_CLIENT].
      * Format & stream can be from [MAIN_CLIENT] or [STREAM_FALLBACK_CLIENTS].
      *
-     * One pass of the chain, and when VISIONOS turned it down, one more with a visitorData YouTube
-     * has only just issued: see [StreamCheck.mayRetryWithNewVisitor]. The throttle hears the
-     * outcome once both are done, so a refusal the second pass clears never trips the back off.
+     * The chain over the address family [FamilyChoice] picks, and once more over the other family
+     * when the bot check refused it there. The throttle hears the outcome once both are done, so a
+     * refusal the other family clears never trips the back off.
      */
     suspend fun playerResponseForPlayback(
         videoId: String,
@@ -204,25 +250,56 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
     ): Result<PlaybackData> {
+        val trails = mutableListOf<String>()
+        val outcome = FamilyChoice.resolve(
+            currentNetwork(connectivityManager),
+            familyMemory,
+            SystemClock.elapsedRealtime(),
+        ) { policy ->
+            if (policy?.only == true) {
+                Log.i(TAG, "[$videoId] refused over ${policy.first.other.label}, trying ${policy.first.label}")
+            }
+            // Cleared first, so a pass that fails before writing its own does not report the last song's.
+            lastStreamTrail = null
+            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy)
+            trails += listOfNotNull(policy?.first?.label, lastStreamTrail).joinToString(": ")
+            FamilyChoice.Attempt(result to notes, ok = result.isSuccess, refused = result.isFailure && notes.fallbackBlocked)
+        }
+        familyMemory = outcome.memory
+        lastStreamTrail = trails.filter { it.isNotEmpty() }.joinToString("; ").ifEmpty { null }
+        val (result, notes) = outcome.chosen.value
+        notes.tellThrottle()
+        return result
+    }
+
+    /**
+     * One pass of the chain, and when VISIONOS turned it down, one more with a visitorData YouTube
+     * has only just issued: see [StreamCheck.mayRetryWithNewVisitor]. Returns what the pass that
+     * counts learned, for the caller to tell the throttle.
+     */
+    private suspend fun resolveWithNewVisitor(
+        videoId: String,
+        playlistId: String?,
+        audioQuality: AudioQuality,
+        connectivityManager: ConnectivityManager,
+        policy: AddressPolicy?,
+    ): Pair<Result<PlaybackData>, ChainNotes> {
         val first = ChainNotes()
-        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first)
+        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy)
         val sinceFailedSwap = lastSwapFailedAt.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
         if (result.isSuccess || !StreamCheck.mayRetryWithNewVisitor(first.visionosRefused, sinceFailedSwap)) {
-            first.tellThrottle()
-            return result
+            return result to first
         }
         val previous = YouTube.visitorData
-        val fresh = mintVisitorData(videoId)?.takeIf { it != previous }
+        val fresh = mintVisitorData(videoId, policy)?.takeIf { it != previous }
         if (fresh == null) {
-            first.tellThrottle()
-            return result
+            return result to first
         }
 
         Log.i(TAG, "[$videoId] VISIONOS refused, trying again with a visitorData YouTube has just issued")
         YouTube.visitorData = fresh
         val second = ChainNotes()
-        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second)
-        second.tellThrottle()
+        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy)
         if (retried.isSuccess) {
             lastSwapFailedAt = 0L
             // Kept for good only when signed out. Signed in, the stored one came from the
@@ -233,7 +310,7 @@ object YTPlayerUtils {
             YouTube.visitorData = previous
             lastSwapFailedAt = SystemClock.elapsedRealtime()
         }
-        return retried
+        return retried to second
     }
 
     /**
@@ -241,8 +318,8 @@ object YTPlayerUtils {
      * carries a new one whatever it says. sw.js_data would do as well, but it is the very fetch
      * that failed at every launch in issue #17.
      */
-    private suspend fun mintVisitorData(videoId: String): String? =
-        YouTube.player(videoId, null, MAIN_CLIENT, visitorData = null)
+    private suspend fun mintVisitorData(videoId: String, policy: AddressPolicy?): String? =
+        YouTube.player(videoId, null, MAIN_CLIENT, visitorData = null, addressPolicy = policy)
             .onFailure { Throttle.noteFailure(it) }
             .getOrNull()
             ?.responseContext?.visitorData
@@ -254,6 +331,7 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
         notes: ChainNotes,
+        policy: AddressPolicy?,
     ): Result<PlaybackData> = runCatchingCancellable {
         Log.d(TAG, "Playback info requested: $videoId")
 
@@ -329,7 +407,7 @@ object YTPlayerUtils {
         }
 
         val mainPlayerResponse =
-            YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestampFor(MAIN_CLIENT), webPlayerPot)
+            YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestampFor(MAIN_CLIENT), webPlayerPot, addressPolicy = policy)
                 .onFailure { Throttle.noteFailure(it) }
                 .getOrThrow()
         mainPlayerResponse.rememberBlock()
@@ -403,13 +481,17 @@ object YTPlayerUtils {
                 // in English would let its routine bot check (see blockedStatus) reach the throttle
                 // in every language.
                 val fallbackResult =
-                    YouTube.player(videoId, playlistId, client, signatureTimestampFor(client), webPlayerPot, hlOverride = "en")
+                    YouTube.player(
+                        videoId, playlistId, client, signatureTimestampFor(client), webPlayerPot,
+                        hlOverride = "en", addressPolicy = policy,
+                    )
                         .onFailure { Throttle.noteFailure(it) }
                 streamPlayerResponse = fallbackResult.getOrNull()
                 if (streamPlayerResponse == null) {
                     fallbackResult.exceptionOrNull()?.let { lastFallbackFailure = it }
                 }
                 streamPlayerResponse?.rememberBlock()
+                if (Throttle.looksLikeBlock(streamPlayerResponse?.playabilityStatus?.reason)) notes.fallbackBlocked = true
             }
 
             lastClient = client
@@ -579,7 +661,9 @@ object YTPlayerUtils {
     ): Result<PlayerResponse> =
         // hl=en: noteThrottle hands the reason to Throttle.looksLikeBlock, which knows the bot
         // check only in English. Nothing here shows the reason.
-        YouTube.player(videoId, playlistId, client = VISIONOS, hlOverride = "en").noteThrottle()
+        playerOverBestFamily { policy ->
+            YouTube.player(videoId, playlistId, client = VISIONOS, hlOverride = "en", addressPolicy = policy)
+        }.noteThrottle()
 
     /** Outcome of a loudness lookup. Distinguishes "no value exists" from "the request failed". */
     sealed interface LoudnessResult {
@@ -605,7 +689,9 @@ object YTPlayerUtils {
     suspend fun loudnessFor(videoId: String): LoudnessResult {
         // hl=en for the same reason as playerResponseForMetadata. LoudnessRepair's batch is
         // exactly the background work the back off exists to stop on a refused network.
-        val response = YouTube.player(videoId, client = VISIONOS, hlOverride = "en").noteThrottle()
+        val response = playerOverBestFamily { policy ->
+            YouTube.player(videoId, client = VISIONOS, hlOverride = "en", addressPolicy = policy)
+        }.noteThrottle()
             .getOrElse { return LoudnessResult.Failed(it) }
 
         val db = response.playerConfig?.audioConfig?.effectiveLoudnessDb
