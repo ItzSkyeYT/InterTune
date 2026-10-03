@@ -19,6 +19,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import java.net.Proxy
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Provide access to InnerTube endpoints.
@@ -45,12 +46,31 @@ class InnerTube {
             field = value
             httpClient.close()
             httpClient = createClient()
+            familyClients.values.forEach { it.close() }
+            familyClients.clear()
         }
+
+    /**
+     * One client per [AddressPolicy], made when first asked for.
+     *
+     * Separate clients rather than one with a switch: OkHttp reuses a pooled connection for any
+     * request to the same host, so a client that had connected over IPv6 would go on sending over
+     * IPv6 whatever it was told afterwards.
+     */
+    private val familyClients = ConcurrentHashMap<AddressPolicy, HttpClient>()
+
+    /**
+     * The client for [policy], or the ordinary one when there is none or a proxy is set. Through a
+     * proxy the proxy picks the family, and pinning the lookup of its own name would only break it.
+     */
+    private fun clientFor(policy: AddressPolicy?): HttpClient =
+        if (policy == null || proxy != null) httpClient
+        else familyClients.computeIfAbsent(policy) { createClient(it) }
 
     var useLoginForBrowse: Boolean = false
 
     @OptIn(ExperimentalSerializationApi::class)
-    private fun createClient() = HttpClient(OkHttp) {
+    private fun createClient(policy: AddressPolicy? = null) = HttpClient(OkHttp) {
         expectSuccess = true
 
         install(ContentNegotiation) {
@@ -80,6 +100,10 @@ class InnerTube {
         if (proxy != null) {
             engine {
                 proxy = this@InnerTube.proxy
+            }
+        } else if (policy != null) {
+            engine {
+                config(keepToFamily(policy))
             }
         }
 
@@ -146,7 +170,9 @@ class InnerTube {
         // callers that pass "en" are in YTPlayerUtils: resolveOnce, playerResponseForMetadata and
         // loudnessFor.
         hlOverride: String? = null,
-    ) = httpClient.post("player") {
+        // Null connects the way every other call does. See AddressPolicy.
+        addressPolicy: AddressPolicy? = null,
+    ) = clientFor(addressPolicy).post("player") {
         ytClient(client, setLogin = true)
         setBody(
             PlayerBody(

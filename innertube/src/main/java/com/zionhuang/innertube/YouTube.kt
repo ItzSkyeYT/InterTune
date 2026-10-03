@@ -811,8 +811,11 @@ object YouTube {
         // is still asked in. The callers that pass "en" are in YTPlayerUtils: resolveOnce,
         // playerResponseForMetadata and loudnessFor.
         hlOverride: String? = null,
+        // Which address family to ask over. Null leaves it to the system, as for every other call.
+        addressPolicy: AddressPolicy? = null,
     ): Result<PlayerResponse> = runCatchingCancellable {
-        innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData, hlOverride).body<PlayerResponse>()
+        innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData, hlOverride, addressPolicy)
+            .body<PlayerResponse>()
     }
 
     suspend fun registerPlayback(playlistId: String? = null, playbackTracking: String) = runCatching {
