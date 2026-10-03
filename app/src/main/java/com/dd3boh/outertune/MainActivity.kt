@@ -199,6 +199,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.activity.compose.BackHandler
 import com.dd3boh.outertune.ui.utils.dpadOverlay
 import com.dd3boh.outertune.ui.utils.dpadOverlayEscape
+import com.dd3boh.outertune.ui.utils.dpadTabBar
 import com.dd3boh.outertune.ui.utils.dpadBringIntoView
 import com.dd3boh.outertune.ui.utils.resetHeightOffset
 import com.dd3boh.outertune.utils.ActivityLauncherHelper
@@ -1277,6 +1278,7 @@ class MainActivity : ComponentActivity() {
                                         .align(Alignment.BottomCenter)
                                         .blockFocusWhen(screenCovered)
                                         .dpadOverlay()
+                                        .dpadTabBar()
                                         .height(bottomInset + getNavPadding())
                                         .offset {
                                             if (navigationBarHeight == 0.dp) {
