@@ -108,7 +108,7 @@
     <string name="download_on_wifi_only_title">僅限 Wi-Fi 下載</string>
     <string name="download_waiting_for_wifi">已排入等候。有 Wi-Fi 時會開始下載</string>
     <string name="err_copy_details">複製錯誤詳細資訊</string>
-    <string name="err_youtube_busy">YouTube 暫時停止向這個網路連線提供音樂。這不是你的手機、你的帳號或這首歌的問題，過一陣子就會自行恢復。改用行動數據通常馬上就能播放，否則請稍等一會兒再試。</string>
+    <string name="err_youtube_busy">YouTube 暫時停止向這個網路連線提供音樂。這不是你的手機、你的帳號或這首歌的問題，過一陣子就會自行恢復。改用其他網路（例如行動數據）通常可以播放，否則請稍等一會兒再試。</string>
     <string name="grouped_player_controls">集中播放器按鈕</string>
     <string name="grouped_player_controls_description">把隨機播放、上下一首、播放和重複播放集中在同一條玻璃列上。關閉後按鈕會各自浮在封面上方。需要開啟液態玻璃。</string>
     <string name="grp_updates">更新</string>

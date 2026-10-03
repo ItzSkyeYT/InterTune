@@ -62,7 +62,7 @@
     <string name="download_on_wifi_only_title">Yalnız Wi-Fi ilə yüklə</string>
     <string name="download_waiting_for_wifi">Növbəyə alındı. Wi-Fi əlçatan olanda yüklənəcək</string>
     <string name="err_copy_details">Xəta təfərrüatlarını kopyala</string>
-    <string name="err_youtube_busy">YouTube bu internet bağlantısına müvəqqəti olaraq musiqi verməyi dayandırıb. Səbəb nə telefonunuz, nə hesabınız, nə də bu mahnıdır — bu, öz-özünə keçib gedir. Mobil internetə keçmək adətən dərhal kömək edir. Yoxsa bir az gözləyib yenidən cəhd edin.</string>
+    <string name="err_youtube_busy">YouTube bu internet bağlantısına müvəqqəti olaraq musiqi verməyi dayandırıb. Səbəb nə telefonunuz, nə hesabınız, nə də bu mahnıdır — bu, öz-özünə keçib gedir. Başqa bir şəbəkə, məsələn mobil internet, çox vaxt işləyir. Yoxsa bir az gözləyib yenidən cəhd edin.</string>
     <string name="grouped_player_controls">Səsləndirici düymələrini qruplaşdır</string>
     <string name="grouped_player_controls_description">Qarışdırma, keçid, oxutma və təkrar düymələrini bir şüşə zolaqda birləşdirir. Söndürsəniz, düymələr albom şəklinin üzərində ayrıca dayanır. Maye şüşə aktiv olmalıdır.</string>
     <string name="grp_updates">Yeniləmələr</string>

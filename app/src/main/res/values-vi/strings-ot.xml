@@ -112,7 +112,7 @@
     <string name="download_on_wifi_only_title">Chỉ tải xuống qua Wi-Fi</string>
     <string name="download_waiting_for_wifi">Đang trong hàng chờ. Sẽ tải xuống khi có Wi-Fi</string>
     <string name="err_copy_details">Sao chép chi tiết lỗi</string>
-    <string name="err_youtube_busy">YouTube tạm thời ngừng phục vụ nhạc cho kết nối mạng này. Đây không phải lỗi của điện thoại, tài khoản hay bài hát này, và nó sẽ tự hết. Chuyển sang dữ liệu di động thường có tác dụng ngay. Nếu không, hãy chờ một lát rồi thử lại.</string>
+    <string name="err_youtube_busy">YouTube tạm thời ngừng phục vụ nhạc cho kết nối mạng này. Đây không phải lỗi của điện thoại, tài khoản hay bài hát này, và nó sẽ tự hết. Một mạng khác, chẳng hạn dữ liệu di động, thường dùng được. Nếu không, hãy chờ một lát rồi thử lại.</string>
     <string name="grouped_player_controls">Gộp các nút của trình phát</string>
     <string name="grouped_player_controls_description">Đặt nút trộn bài, chuyển bài, phát và lặp lại chung trong một thanh kính. Tắt đi thì các nút nằm riêng trên ảnh bìa. Cần bật Kính lỏng.</string>
     <string name="grp_updates">Cập nhật</string>

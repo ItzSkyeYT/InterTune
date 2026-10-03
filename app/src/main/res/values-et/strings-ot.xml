@@ -137,7 +137,7 @@
     <string name="download_on_wifi_only_title">Laadi alla ainult Wi-Fi kaudu</string>
     <string name="download_waiting_for_wifi">Ootel. Laadime alla, kui Wi-Fi on saadaval</string>
     <string name="err_copy_details">Kopeeri vea üksikasjad</string>
-    <string name="err_youtube_busy">YouTube on ajutiselt lõpetanud muusika saatmise sellele internetiühendusele. Asi pole sinu telefonis, sinu kasutajakontos ega selles loos ning see läheb ise üle. Mobiilsele andmesidele lülitumine aitab tavaliselt kohe. Muidu oota veidi ja proovi uuesti.</string>
+    <string name="err_youtube_busy">YouTube on ajutiselt lõpetanud muusika saatmise sellele internetiühendusele. Asi pole sinu telefonis, sinu kasutajakontos ega selles loos ning see läheb ise üle. Mõni teine võrk, näiteks mobiilne andmeside, toimib sageli. Muidu oota veidi ja proovi uuesti.</string>
     <string name="grouped_player_controls">Rühmita mängija nupud</string>
     <string name="grouped_player_controls_description">Paneb segamise, edasihüppe, esitamise ja korduse ühte klaasribasse. Kui selle välja lülitad, seisavad nupud eraldi kaanepildi peal. Vajab sisselülitatud vedelklaasi.</string>
     <string name="grp_updates">Uuendused</string>

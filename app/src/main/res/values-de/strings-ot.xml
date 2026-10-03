@@ -243,7 +243,7 @@
     <string name="download_on_wifi_only_title">Nur über Wi-Fi herunterladen</string>
     <string name="download_waiting_for_wifi">In der Warteschlange. Wird geladen, sobald Wi-Fi verfügbar ist</string>
     <string name="err_copy_details">Fehlerdetails kopieren</string>
-    <string name="err_youtube_busy">YouTube liefert vorübergehend keine Musik mehr an diese Internetverbindung. Es liegt nicht an deinem Handy, deinem Konto oder diesem Song, und es geht von selbst wieder weg. Ein Wechsel zu mobilen Daten hilft meist sofort. Sonst warte einfach eine Weile und versuche es erneut.</string>
+    <string name="err_youtube_busy">YouTube liefert vorübergehend keine Musik mehr an diese Internetverbindung. Es liegt nicht an deinem Handy, deinem Konto oder diesem Song, und es geht von selbst wieder weg. Ein anderes Netz, etwa mobile Daten, funktioniert oft. Sonst warte einfach eine Weile und versuche es erneut.</string>
     <string name="grouped_player_controls">Player-Tasten gruppieren</string>
     <string name="grouped_player_controls_description">Fasst Shuffle, Weiter, Wiedergabe und Wiederholen in einer Glasleiste zusammen. Aus: Die Tasten stehen einzeln über dem Cover. Erfordert aktiviertes Liquid Glass.</string>
     <string name="grp_updates">Updates</string>

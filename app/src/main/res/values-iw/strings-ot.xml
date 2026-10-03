@@ -236,7 +236,7 @@
     <string name="download_on_wifi_only_title">הורדה ב-Wi-Fi בלבד</string>
     <string name="download_waiting_for_wifi">בתור. ההורדה תתחיל כשיהיה Wi-Fi</string>
     <string name="err_copy_details">העתק את פרטי השגיאה</string>
-    <string name="err_youtube_busy">YouTube הפסיק זמנית לספק מוזיקה לחיבור האינטרנט הזה. זה לא המכשיר שלך, לא החשבון שלך ולא השיר הזה, וזה מסתדר מעצמו. מעבר לרשת סלולרית בדרך כלל עובד מיד. אחרת, המתן קצת ונסה שוב.</string>
+    <string name="err_youtube_busy">YouTube הפסיק זמנית לספק מוזיקה לחיבור האינטרנט הזה. זה לא המכשיר שלך, לא החשבון שלך ולא השיר הזה, וזה מסתדר מעצמו. רשת אחרת, כמו רשת סלולרית, עובדת לעיתים קרובות. אחרת, המתן קצת ונסה שוב.</string>
     <string name="grouped_player_controls">קבץ את כפתורי הנגן</string>
     <string name="grouped_player_controls_description">מציב את הערבוב, הדילוג, הניגון והחזרה יחד בתוך סרגל זכוכית אחד. כבה כדי שהכפתורים יופיעו בנפרד מעל העטיפה. דורש הפעלה של זכוכית נוזלית.</string>
     <string name="grp_updates">עדכונים</string>

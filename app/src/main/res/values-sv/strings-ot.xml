@@ -10,7 +10,7 @@
     <string name="download_on_wifi_only_title">Ladda bara ner via Wi-Fi</string>
     <string name="download_waiting_for_wifi">I kö. Laddas ner när Wi-Fi finns tillgängligt</string>
     <string name="err_copy_details">Kopiera felinformation</string>
-    <string name="err_youtube_busy">YouTube har tillfälligt slutat leverera musik till den här internetanslutningen. Det beror inte på din telefon, ditt konto eller den här låten, och det löser sig av sig självt. Att byta till mobildata brukar fungera direkt. Annars kan du vänta en stund och försöka igen.</string>
+    <string name="err_youtube_busy">YouTube har tillfälligt slutat leverera musik till den här internetanslutningen. Det beror inte på din telefon, ditt konto eller den här låten, och det löser sig av sig självt. Ett annat nätverk, till exempel mobildata, fungerar ofta. Annars kan du vänta en stund och försöka igen.</string>
     <string name="grouped_player_controls">Gruppera spelarens knappar</string>
     <string name="grouped_player_controls_description">Samlar blanda, hoppa över, spela och upprepa i en glaslist. Stäng av så ligger knapparna fritt över omslaget. Kräver att Liquid glass är på.</string>
     <string name="grp_updates">Uppdateringar</string>

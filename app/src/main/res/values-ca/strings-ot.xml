@@ -54,7 +54,7 @@
     <string name="download_on_wifi_only_title">Baixa només amb Wi-Fi</string>
     <string name="download_waiting_for_wifi">En espera. Es baixarà quan hi hagi Wi-Fi</string>
     <string name="err_copy_details">Copia els detalls de l\'error</string>
-    <string name="err_youtube_busy">YouTube ha deixat de servir música temporalment a aquesta connexió a internet. No és cosa del teu telèfon, ni del teu compte, ni d\'aquesta cançó, i es resol sol. Canviar a dades mòbils sol funcionar de seguida. Si no, deixa-ho estar una estona i torna-ho a provar.</string>
+    <string name="err_youtube_busy">YouTube ha deixat de servir música temporalment a aquesta connexió a internet. No és cosa del teu telèfon, ni del teu compte, ni d\'aquesta cançó, i es resol sol. Una altra xarxa, com les dades mòbils, sovint funciona. Si no, deixa-ho estar una estona i torna-ho a provar.</string>
     <string name="grouped_player_controls">Agrupa els botons del reproductor</string>
     <string name="grouped_player_controls_description">Posa els botons de mescla, salt, reproducció i repetició dins d\'una barra de vidre. Si ho desactives, els botons queden solts sobre la portada. Cal tenir activat el Vidre líquid.</string>
     <string name="grp_updates">Actualitzacions</string>

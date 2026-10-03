@@ -244,7 +244,7 @@
     <string name="download_on_wifi_only_title">Wi-Fiのみでダウンロード</string>
     <string name="download_waiting_for_wifi">待機中。Wi-Fiに接続するとダウンロードします</string>
     <string name="err_copy_details">エラーの詳細をコピー</string>
-    <string name="err_youtube_busy">YouTube がこのインターネット接続への音楽の配信を一時的に停止しています。端末やアカウント、この曲が原因ではなく、時間が経てば自然に解消します。モバイルデータ通信に切り替えると、たいていはすぐに再生できます。それ以外の場合は、しばらく待ってからもう一度お試しください。</string>
+    <string name="err_youtube_busy">YouTube がこのインターネット接続への音楽の配信を一時的に停止しています。端末やアカウント、この曲が原因ではなく、時間が経てば自然に解消します。モバイルデータ通信など、別のネットワークなら再生できることがよくあります。それ以外の場合は、しばらく待ってからもう一度お試しください。</string>
     <string name="grouped_player_controls">プレーヤーのボタンをまとめる</string>
     <string name="grouped_player_controls_description">シャッフル、スキップ、再生、リピートを1つのガラスバーにまとめます。オフにすると、各ボタンがアートワークの上に個別に並びます。Liquid glass をオンにする必要があります。</string>
     <string name="grp_updates">アップデート</string>

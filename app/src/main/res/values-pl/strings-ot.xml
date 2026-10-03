@@ -253,7 +253,7 @@
     <string name="download_on_wifi_only_title">Pobieraj wyłącznie przez Wi-Fi</string>
     <string name="download_waiting_for_wifi">W kolejce. Pobieranie ruszy, gdy będzie dostępne Wi-Fi</string>
     <string name="err_copy_details">Skopiuj szczegóły błędu</string>
-    <string name="err_youtube_busy">YouTube tymczasowo przestał udostępniać muzykę na tym połączeniu internetowym. To nie wina twojego telefonu, twojego konta ani tego utworu, i minie samo. Przełączenie na dane komórkowe zwykle pomaga od razu. W przeciwnym razie odczekaj chwilę i spróbuj ponownie.</string>
+    <string name="err_youtube_busy">YouTube tymczasowo przestał udostępniać muzykę na tym połączeniu internetowym. To nie wina twojego telefonu, twojego konta ani tego utworu, i minie samo. Inna sieć, na przykład dane komórkowe, często działa. W przeciwnym razie odczekaj chwilę i spróbuj ponownie.</string>
     <string name="grouped_player_controls">Zgrupuj przyciski odtwarzacza</string>
     <string name="grouped_player_controls_description">Umieszcza losowanie, przewijanie, odtwarzanie i powtarzanie razem w jednym szklanym pasku. Wyłącz, aby przyciski leżały osobno na okładce. Wymaga włączonego Płynnego szkła.</string>
     <string name="grp_updates">Aktualizacje</string>

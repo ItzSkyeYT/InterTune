@@ -225,7 +225,7 @@
     <string name="download_on_wifi_only_description">Wi-Fi 같은 무제한 연결을 기다렸다가 다운로드합니다. 모바일 데이터에서 요청한 다운로드는 대기했다가 Wi-Fi에 다시 연결되면 알아서 시작됩니다</string>
     <string name="download_waiting_for_wifi">대기 중. Wi-Fi에 연결되면 다운로드합니다</string>
     <string name="err_copy_details">오류 상세 정보 복사</string>
-    <string name="err_youtube_busy">YouTube가 이 인터넷 연결로 음악을 보내는 것을 일시적으로 중단했습니다. 휴대폰이나 계정, 이 노래의 문제가 아니며 시간이 지나면 저절로 풀립니다. 모바일 데이터로 바꾸면 대개 바로 됩니다. 그렇지 않으면 잠시 기다렸다가 다시 시도하세요.</string>
+    <string name="err_youtube_busy">YouTube가 이 인터넷 연결로 음악을 보내는 것을 일시적으로 중단했습니다. 휴대폰이나 계정, 이 노래의 문제가 아니며 시간이 지나면 저절로 풀립니다. 모바일 데이터 같은 다른 네트워크에서는 되는 경우가 많습니다. 그렇지 않으면 잠시 기다렸다가 다시 시도하세요.</string>
     <string name="grouped_player_controls">플레이어 버튼 묶기</string>
     <string name="grouped_player_controls_description">셔플, 건너뛰기, 재생, 반복 버튼을 하나의 유리 바 안에 모읍니다. 끄면 버튼이 앨범 아트 위에 따로 놓입니다. 리퀴드 글래스가 켜져 있어야 합니다.</string>
     <string name="grp_updates">업데이트</string>

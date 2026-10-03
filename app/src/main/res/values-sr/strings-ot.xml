@@ -225,7 +225,7 @@
     <string name="download_on_wifi_only_title">Preuzimaj samo preko Wi-Fi</string>
     <string name="download_waiting_for_wifi">Na čekanju. Preuzeće se kada Wi-Fi bude dostupan</string>
     <string name="err_copy_details">Kopiraj detalje greške</string>
-    <string name="err_youtube_busy">YouTube je privremeno prestao da šalje muziku na ovu internet vezu. Nije do tvog telefona, tvog naloga ni ove pesme, i prolazi samo od sebe. Prelazak na mobilne podatke obično odmah pomogne. U suprotnom sačekaj malo pa pokušaj ponovo.</string>
+    <string name="err_youtube_busy">YouTube je privremeno prestao da šalje muziku na ovu internet vezu. Nije do tvog telefona, tvog naloga ni ove pesme, i prolazi samo od sebe. Druga mreža, na primer mobilni podaci, često radi. U suprotnom sačekaj malo pa pokušaj ponovo.</string>
     <string name="grouped_player_controls">Grupiši dugmad plejera</string>
     <string name="grouped_player_controls_description">Stavlja mešanje, preskakanje, puštanje i ponavljanje zajedno u jednu staklenu traku. Isključi da dugmad stoje odvojeno preko omota. Zahteva uključeno Tečno staklo.</string>
     <string name="grp_updates">Ažuriranja</string>

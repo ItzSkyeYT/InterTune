@@ -255,7 +255,7 @@
     <string name="download_on_wifi_only_title">Baixar somente no Wi-Fi</string>
     <string name="download_waiting_for_wifi">Na fila. Será baixado quando houver Wi-Fi</string>
     <string name="err_copy_details">Copiar detalhes do erro</string>
-    <string name="err_youtube_busy">O YouTube parou temporariamente de fornecer músicas para esta conexão de internet. Não é o seu celular, nem a sua conta, nem esta música, e isso passa sozinho. Mudar para os dados móveis costuma resolver na hora. Se não, espere um pouco e tente novamente.</string>
+    <string name="err_youtube_busy">O YouTube parou temporariamente de fornecer músicas para esta conexão de internet. Não é o seu celular, nem a sua conta, nem esta música, e isso passa sozinho. Outra rede, como os dados móveis, costuma funcionar. Se não, espere um pouco e tente novamente.</string>
     <string name="grouped_player_controls">Agrupar os botões do reprodutor</string>
     <string name="grouped_player_controls_description">Junta os botões de modo aleatório, pular, tocar e repetir em uma única barra de vidro. Desative para que os botões fiquem soltos sobre a capa. Precisa que o Vidro líquido esteja ativado.</string>
     <string name="grp_updates">Atualizações</string>

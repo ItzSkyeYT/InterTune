@@ -254,7 +254,7 @@
     <string name="download_on_wifi_only_title">Descargar solo con Wi-Fi</string>
     <string name="download_waiting_for_wifi">En espera. Se descargará cuando haya Wi-Fi</string>
     <string name="err_copy_details">Copiar detalles del error</string>
-    <string name="err_youtube_busy">YouTube ha dejado de servir música temporalmente a esta conexión a internet. No es tu teléfono, ni tu cuenta, ni esta canción, y se arregla solo. Cambiar a datos móviles suele funcionar al momento. Si no, espera un rato y vuelve a intentarlo.</string>
+    <string name="err_youtube_busy">YouTube ha dejado de servir música temporalmente a esta conexión a internet. No es tu teléfono, ni tu cuenta, ni esta canción, y se arregla solo. Otra red, como los datos móviles, suele funcionar. Si no, espera un rato y vuelve a intentarlo.</string>
     <string name="grouped_player_controls">Agrupar los botones del reproductor</string>
     <string name="grouped_player_controls_description">Junta aleatorio, saltar, reproducir y repetir en una sola barra de cristal. Desactívalo para que los botones queden sueltos sobre la carátula. Necesita el cristal líquido activado.</string>
     <string name="grp_updates">Actualizaciones</string>

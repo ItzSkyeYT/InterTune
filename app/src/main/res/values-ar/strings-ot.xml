@@ -209,7 +209,7 @@
     <string name="download_on_wifi_only_title">التنزيل عبر Wi-Fi فقط</string>
     <string name="download_waiting_for_wifi">في قائمة الانتظار. سيبدأ التنزيل عند توفر Wi-Fi</string>
     <string name="err_copy_details">نسخ تفاصيل الخطأ</string>
-    <string name="err_youtube_busy">أوقف YouTube مؤقتًا تقديم الموسيقى لهذا الاتصال بالإنترنت. المشكلة ليست في هاتفك أو حسابك أو هذه الأغنية، وتزول من تلقاء نفسها. التبديل إلى بيانات الجوال ينجح عادةً على الفور. وإلا فانتظر قليلًا ثم أعد المحاولة.</string>
+    <string name="err_youtube_busy">أوقف YouTube مؤقتًا تقديم الموسيقى لهذا الاتصال بالإنترنت. المشكلة ليست في هاتفك أو حسابك أو هذه الأغنية، وتزول من تلقاء نفسها. غالبًا تنجح شبكة أخرى، مثل بيانات الجوال. وإلا فانتظر قليلًا ثم أعد المحاولة.</string>
     <string name="grouped_player_controls">تجميع أزرار المشغل</string>
     <string name="grouped_player_controls_description">يضع أزرار الخلط والتخطي والتشغيل والتكرار معًا داخل شريط زجاجي واحد. عطّله لتظهر الأزرار منفردة فوق صورة الألبوم. يتطلب تفعيل الزجاج السائل.</string>
     <string name="grp_updates">التحديثات</string>

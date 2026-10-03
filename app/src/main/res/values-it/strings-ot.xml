@@ -255,7 +255,7 @@
     <string name="download_on_wifi_only_title">Scarica solo con Wi-Fi</string>
     <string name="download_waiting_for_wifi">In coda. Verrà scaricato quando il Wi-Fi sarà disponibile</string>
     <string name="err_copy_details">Copia i dettagli dell\'errore</string>
-    <string name="err_youtube_busy">YouTube ha temporaneamente smesso di fornire musica a questa connessione a internet. Non è colpa del tuo telefono, del tuo account o di questo brano, e si risolve da solo. Passare ai dati mobili di solito funziona subito. Altrimenti aspetta un po\' e riprova.</string>
+    <string name="err_youtube_busy">YouTube ha temporaneamente smesso di fornire musica a questa connessione a internet. Non è colpa del tuo telefono, del tuo account o di questo brano, e si risolve da solo. Un\'altra rete, come i dati mobili, spesso funziona. Altrimenti aspetta un po\' e riprova.</string>
     <string name="grouped_player_controls">Raggruppa i pulsanti del player</string>
     <string name="grouped_player_controls_description">Mette casuale, avanti, riproduci e ripeti insieme in un\'unica barra di vetro. Disattivalo per avere i pulsanti da soli sopra la copertina. Richiede il Vetro liquido attivo.</string>
     <string name="grp_updates">Aggiornamenti</string>

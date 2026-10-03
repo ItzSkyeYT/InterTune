@@ -5,7 +5,7 @@
     <string name="download_on_wifi_only_title">Mag-download sa Wi-Fi lang</string>
     <string name="download_waiting_for_wifi">Naka-queue. Magda-download kapag may Wi-Fi</string>
     <string name="err_copy_details">Kopyahin ang mga detalye ng error</string>
-    <string name="err_youtube_busy">Pansamantalang tumigil ang YouTube sa pagbibigay ng musika sa koneksyong ito. Hindi ito ang telepono mo, ang account mo o ang kantang ito, at kusa itong maaayos. Kadalasan ay gumagana agad ang paglipat sa mobile data. Kung hindi, hintayin nang kaunti at subukan ulit.</string>
+    <string name="err_youtube_busy">Pansamantalang tumigil ang YouTube sa pagbibigay ng musika sa koneksyong ito. Hindi ito ang telepono mo, ang account mo o ang kantang ito, at kusa itong maaayos. Madalas gumagana ang ibang network, gaya ng mobile data. Kung hindi, hintayin nang kaunti at subukan ulit.</string>
     <string name="grouped_player_controls">Pagsama-samahin ang mga button ng player</string>
     <string name="grouped_player_controls_description">Isinasama ang shuffle, skip, play at repeat sa iisang glass bar. I-off ito para magkahiwalay ang mga button sa ibabaw ng artwork. Kailangang naka-on ang Liquid glass.</string>
     <string name="grp_updates">Mga update</string>

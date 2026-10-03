@@ -249,7 +249,7 @@
     <string name="download_on_wifi_only_title">Unduh hanya lewat Wi-Fi</string>
     <string name="download_waiting_for_wifi">Diantrekan. Akan diunduh saat Wi-Fi tersedia</string>
     <string name="err_copy_details">Salin detail kesalahan</string>
-    <string name="err_youtube_busy">YouTube untuk sementara berhenti mengirim musik ke sambungan internet ini. Ini bukan karena ponsel Anda, akun Anda, atau lagu ini, dan akan pulih dengan sendirinya. Beralih ke data seluler biasanya langsung berhasil. Jika tidak, tunggu sebentar lalu coba lagi.</string>
+    <string name="err_youtube_busy">YouTube untuk sementara berhenti mengirim musik ke sambungan internet ini. Ini bukan karena ponsel Anda, akun Anda, atau lagu ini, dan akan pulih dengan sendirinya. Jaringan lain, seperti data seluler, sering kali berhasil. Jika tidak, tunggu sebentar lalu coba lagi.</string>
     <string name="grouped_player_controls">Kelompokkan tombol pemutar</string>
     <string name="grouped_player_controls_description">Menyatukan tombol acak, lewati, putar, dan ulangi dalam satu bilah kaca. Matikan agar tombol berdiri sendiri di atas sampul. Perlu Liquid glass aktif.</string>
     <string name="grp_updates">Pembaruan</string>

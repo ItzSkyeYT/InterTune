@@ -37,7 +37,7 @@
     <string name="download_on_wifi_only_title">ดาวน์โหลดผ่าน Wi-Fi เท่านั้น</string>
     <string name="download_waiting_for_wifi">อยู่ในคิว จะดาวน์โหลดเมื่อมี Wi-Fi</string>
     <string name="err_copy_details">คัดลอกรายละเอียดข้อผิดพลาด</string>
-    <string name="err_youtube_busy">YouTube หยุดส่งเพลงมาที่การเชื่อมต่ออินเทอร์เน็ตนี้ชั่วคราว ไม่ได้เกิดจากโทรศัพท์ บัญชี หรือเพลงนี้ของคุณ และจะหายไปเอง การสลับไปใช้เน็ตมือถือมักใช้ได้ทันที ถ้าไม่ได้ ให้รอสักครู่แล้วลองใหม่</string>
+    <string name="err_youtube_busy">YouTube หยุดส่งเพลงมาที่การเชื่อมต่ออินเทอร์เน็ตนี้ชั่วคราว ไม่ได้เกิดจากโทรศัพท์ บัญชี หรือเพลงนี้ของคุณ และจะหายไปเอง เครือข่ายอื่น เช่น เน็ตมือถือ มักใช้ได้ ถ้าไม่ได้ ให้รอสักครู่แล้วลองใหม่</string>
     <string name="grouped_player_controls">รวมกลุ่มปุ่มเครื่องเล่น</string>
     <string name="grouped_player_controls_description">รวมปุ่มสุ่ม ข้าม เล่น และเล่นซ้ำ ไว้ในแถบกระจกเดียวกัน ปิดไว้เพื่อให้ปุ่มลอยแยกกันอยู่บนภาพปก ต้องเปิด Liquid glass ก่อน</string>
     <string name="grp_updates">อัปเดต</string>

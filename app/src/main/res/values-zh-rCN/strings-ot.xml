@@ -248,7 +248,7 @@
     <string name="download_on_wifi_only_title">仅在 Wi-Fi 下下载</string>
     <string name="download_waiting_for_wifi">已排队。有 Wi-Fi 时将自动下载</string>
     <string name="err_copy_details">复制错误详情</string>
-    <string name="err_youtube_busy">YouTube 暂时停止向此网络连接提供音乐。这不是您的手机、账号或这首歌曲的问题，过一会儿会自行恢复。切换到移动数据通常立即就能播放。否则请稍等片刻再试。</string>
+    <string name="err_youtube_busy">YouTube 暂时停止向此网络连接提供音乐。这不是您的手机、账号或这首歌曲的问题，过一会儿会自行恢复。换用其他网络（例如移动数据）通常可以播放。否则请稍等片刻再试。</string>
     <string name="grouped_player_controls">合并播放器按钮</string>
     <string name="grouped_player_controls_description">将随机播放、切歌、播放和循环按钮放进同一条玻璃条中。关闭后，按钮会各自单独浮在封面上。需要开启“液态玻璃”。</string>
     <string name="grp_updates">更新</string>
