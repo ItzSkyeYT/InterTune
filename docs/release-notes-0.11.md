@@ -19,6 +19,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Adventurousness puts one song by an artist you have never played in the row at its lowest and three at its highest, two by default, so new names never crowd out the rest.
 - Long-press a card for **Not this song**, **Less of this artist** or **Never this artist**. Exclusions touch the recommendation rows only, never search, your library, playlists or radio, and banning a song covers its other versions. **Rest songs I skip** (off by default) rests a song you skip early for a week.
 - It learns from what you play and pass over, a little at a time, never more than a set amount per day. **How it's doing** under Settings > Recommendations shows cards played of cards seen per source, how often each row held what you played next, how well it predicts, and every weight beside where it started. **Learn from listening**, **Forget the last session**, **Forget today**, **Reset**, **Rebuild from history** and **Export** are all there.
+- Settings > Recommendations is three pages: the settings you change, **How it's doing**, which opens with a plain summary and says what each figure counts, and **Your data**, where anything that changes what it has learned asks first.
 
 - **Discover something new** (on by default): a second row under Quick picks, of songs you have never played at all, picked the way Best recommendations picks. A song you skipped after a few seconds counts as played. Pull to refresh for other songs.
 - **Similar songs from Last.fm and YouTube**: InterTune asks once whether Best recommendations may use Last.fm as well as YouTube. Say yes and it takes similar songs from both, what Last.fm's listeners play alongside a song and what YouTube lists beside it, and leans toward whichever you actually play, never more than four in five either way so it can swing back. Or pick one in Settings. With Last.fm, InterTune sends it the title and artist of each song you play, and once, of the songs you played in the last month and the ones you liked, and nothing else. Until you answer, nothing is sent.
@@ -33,6 +34,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 - When Shazam stops answering (no network, or too many requests), Keep listening waits longer between tries, says so, and carries on by itself once Shazam answers again.
 - It knows which version is playing. A sped-up or slowed edit is measured by how fast it plays rather than guessed from a title.
 - **Mashups and remixes.** In Keep listening it notices when a song is being cut up with others, or when Shazam keeps naming different versions of it, and looks for the mashup or remix on YouTube instead of adding the pieces. When two uploads are equally likely, it asks.
+- A mashup you have answered is asked about again only when an upload names more of the songs heard. Uploads turned down with **None of these** are not offered again, and a playlist notes each mashup once.
 - On headphones your music keeps playing while it listens. Only the phone's own speaker pauses, whether you listen from the search bar or from a playlist.
 - A **history** of everything it has recognised.
 - Your playlists have a listen button in their header, to fill one with what is playing around you. If What's playing? is already listening, it says so and offers to switch, and closing it leaves that run going. The What's playing? screen does the same when a playlist is listening.
@@ -59,6 +61,8 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Swiping the artwork changes song again, including straight after the app opens.
 - In landscape the controls always have room for all five transport buttons, and nothing is cut off at the ends of the Connected row.
 - In a small pop-up window the controls shrink together to fit, rather than the last ones being squashed.
+- A layout for small screens, such as a keypad phone or a floating window: a bigger cover, a readable title, Classic's buttons beside the cover, and a queue list with room for songs.
+- **Media control buttons** under Settings > Player and audio: pick which two of Like, Start radio, Shuffle, Repeat and Add to library sit beside previous, play and next in the notification, on the lock screen and in the media panel. Shuffle and Repeat by default, as before.
 
 ## Playback
 
@@ -88,6 +92,12 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Questions and news are fetched fresh after an update rather than taken from the copy the old version saved, and the check-now row and "Let me be asked again" cover news as well as questions.
 - If InterTune crashes, it offers to report it the next time it opens, with the error already filled in. Nothing is sent unless you choose to.
 - With Best recommendations, Home opens on the row it last showed rather than a new one every time.
+- **History** lists every song you heard for 5 seconds or more, by day, with the time each play started. Play counts and Most played still follow **Minimum playback duration**. **Remove from history** is fast on a long history.
+
+## Keypad phones
+
+- The D-pad gets past the floating bars and buttons into lists, the mini player, the player and the queue, and what is focused stays in sight. Touch is unchanged.
+- Playlist, album and artist pages scroll through their header with the D-pad, Up at the top of a screen goes round to the tabs, and Enter on the search bar opens search.
 
 ## Settings
 
@@ -97,6 +107,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 - The proxy fields carry working examples.
 - Recommendation engine data can be imported as well as exported.
 - Back buttons on the screens that were missing one, including the Last.fm login.
+- Android's own cloud backup no longer carries the settings file, which holds your YouTube Music sign-in. Your library is still backed up, and InterTune's own backup carries everything as before.
 
 ## Battery
 
@@ -229,3 +240,13 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Checking for updates without a working connection said "No updates available" and hid an update or question found earlier. It now says it could not check.
 - An announcement could show in a language further down your phone's list: with English first and French second, you got the French text.
 - Lyrics looked up with no connection were saved as not found, so the song never showed lyrics again without **Refetch**. It now looks again the next time the song plays. Songs already saved as not found still need **Refetch**.
+- On connections where YouTube refuses IPv6 but not IPv4, or the other way round, every song stopped with "Sign in to confirm you're not a bot". InterTune now asks over the other one instead of giving up. The message for a connection YouTube has stopped serving no longer promises that mobile data fixes it.
+- A YouTube link tapped while InterTune sat in recent apps, closed by Android, opened Home and nothing else.
+- With local media on and the storage permission not granted, InterTune asked for it every time it opened. It asks once now.
+- An album with songs YouTube no longer has would not open, from its own page, from Stats or from a menu.
+- A playlist that is empty on YouTube Music made its sync fail.
+- A song that stopped on a playback error was recorded as skipped, which with **Rest songs I skip** on could rest a song you like for a week. It is recorded as failed and teaches recommendations nothing.
+- A repeat that was paused and then closed was recorded as played to the end, and a song tapped while it was already loading as the next track lost where it was played from.
+- The times on History and Stats could close the app in languages whose clock names the part of the day.
+- **Most played songs** in Stats could show its heading over an empty list.
+- The settings buttons on Home and Account are named for screen readers.
