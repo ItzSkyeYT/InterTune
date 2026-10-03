@@ -107,6 +107,7 @@ import com.dd3boh.outertune.ui.component.shimmer.TextPlaceholder
 import com.dd3boh.outertune.ui.menu.AlbumMenu
 import com.dd3boh.outertune.ui.menu.YouTubeAlbumMenu
 import com.dd3boh.outertune.ui.utils.getNSongsString
+import com.dd3boh.outertune.ui.utils.linkStylesWithFocus
 import com.dd3boh.outertune.utils.LocalArtworkPath
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.joinByBullet
@@ -223,6 +224,7 @@ fun AlbumScreen(
                                 fontSizeRange = FontSizeRange(16.sp, 22.sp)
                             )
 
+                            val linkStyles = linkStylesWithFocus()
                             val annotatedString = buildAnnotatedString {
                                 withStyle(
                                     style = MaterialTheme.typography.titleMedium.copy(
@@ -232,7 +234,7 @@ fun AlbumScreen(
                                 ) {
                                     albumWithSongsLocal.artists.fastForEachIndexed { index, artist ->
                                         withLink(
-                                            LinkAnnotation.Clickable(artist.id) {
+                                            LinkAnnotation.Clickable(artist.id, linkStyles) {
                                                 navController.navigate("artist/${artist.id}")
                                             }
                                         ) { append(artist.name) }

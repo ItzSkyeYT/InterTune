@@ -9,6 +9,7 @@ package com.dd3boh.outertune.ui.utils
 import androidx.compose.ui.geometry.Rect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -159,5 +160,91 @@ class DpadFocusTest {
         assertTrue(needsScreenSearch(anythingFocused = false, overlaysFocused = 0))
         assertTrue(needsScreenSearch(anythingFocused = true, overlaysFocused = 1))
         assertFalse(needsScreenSearch(anythingFocused = true, overlaysFocused = 0))
+    }
+
+    @Test
+    fun `up at the top of what a list holds scrolls the rest of the page back into view first`() {
+        // A playlist scrolled a little, its cover half under the top bar, focus on the first
+        // button of the header: nothing focusable above it in the list.
+        assertTrue(dpadScrollsInstead(DpadDirection.Up, value = 40f, maxValue = 900f, reversed = false, furtherInList = false))
+        // Once the list is at its start, Up leaves it for the top bar as before.
+        assertFalse(dpadScrollsInstead(DpadDirection.Up, value = 0f, maxValue = 900f, reversed = false, furtherInList = false))
+        // With a row above, Compose's own search moves to it, scrolling as it goes.
+        assertFalse(dpadScrollsInstead(DpadDirection.Up, value = 40f, maxValue = 900f, reversed = false, furtherInList = true))
+    }
+
+    @Test
+    fun `down at the end of what a list holds scrolls the rest into view while the list can go further`() {
+        assertTrue(dpadScrollsInstead(DpadDirection.Down, value = 860f, maxValue = 900f, reversed = false, furtherInList = false))
+        assertFalse(dpadScrollsInstead(DpadDirection.Down, value = 900f, maxValue = 900f, reversed = false, furtherInList = false))
+        assertFalse(dpadScrollsInstead(DpadDirection.Down, value = 100f, maxValue = 900f, reversed = false, furtherInList = true))
+    }
+
+    @Test
+    fun `sideways keys and reversed lists never scroll instead of moving`() {
+        assertFalse(dpadScrollsInstead(DpadDirection.Left, value = 40f, maxValue = 900f, reversed = false, furtherInList = false))
+        assertFalse(dpadScrollsInstead(DpadDirection.Right, value = 40f, maxValue = 900f, reversed = false, furtherInList = false))
+        assertFalse(dpadScrollsInstead(DpadDirection.Up, value = 40f, maxValue = 900f, reversed = true, furtherInList = false))
+    }
+
+    @Test
+    fun `one press never scrolls a list back past its start`() {
+        // 30% of a 640 high list, unless less is left: the rest would go to a pull to refresh.
+        assertEquals(-192f, dpadEdgeScrollDelta(DpadDirection.Up, height = 640f, value = 1000f, maxValue = 2000f, lazy = false))
+        assertEquals(-40f, dpadEdgeScrollDelta(DpadDirection.Up, height = 640f, value = 40f, maxValue = 2000f, lazy = false))
+        // A lazy list with its first item in view reports the exact offset.
+        assertEquals(-40f, dpadEdgeScrollDelta(DpadDirection.Up, height = 640f, value = 40f, maxValue = 140f, lazy = true))
+        // Further down a lazy list's value is an estimate, so nothing is scrolled back.
+        assertNull(dpadEdgeScrollDelta(DpadDirection.Up, height = 640f, value = LazyScrollValuePerItem + 40f, maxValue = 700f, lazy = true))
+        assertNull(dpadEdgeScrollDelta(DpadDirection.Up, height = 640f, value = 0f, maxValue = 140f, lazy = true))
+    }
+
+    @Test
+    fun `one press down scrolls a share of the list, never past an end it knows`() {
+        assertEquals(192f, dpadEdgeScrollDelta(DpadDirection.Down, height = 640f, value = 0f, maxValue = 2000f, lazy = false))
+        assertEquals(60f, dpadEdgeScrollDelta(DpadDirection.Down, height = 640f, value = 1940f, maxValue = 2000f, lazy = false))
+        assertEquals(192f, dpadEdgeScrollDelta(DpadDirection.Down, height = 640f, value = 40f, maxValue = 140f, lazy = true))
+        assertNull(dpadEdgeScrollDelta(DpadDirection.Left, height = 640f, value = 40f, maxValue = 140f, lazy = false))
+    }
+
+    @Test
+    fun `from the top bar to the mini player is a jump over the list, between neighbours it is not`() {
+        val topBarBack = Rect(24f, 48f, 120f, 144f)
+        // A cover filling the list between them: nothing in the list to stop at.
+        assertTrue(dpadJumpsOverList(topBarBack, miniTitle, list, DpadDirection.Down))
+        assertTrue(dpadJumpsOverList(miniTitle, topBarBack, list, DpadDirection.Up))
+        // Nothing at all below, as without a mini player.
+        assertTrue(dpadJumpsOverList(topBarBack, null, list, DpadDirection.Down))
+        assertFalse(dpadJumpsOverList(homeTab, miniPlay, list, DpadDirection.Up))
+        assertFalse(dpadJumpsOverList(fab, miniPlay, list, DpadDirection.Down))
+        assertFalse(dpadJumpsOverList(searchPill, rowAbove, list, DpadDirection.Left))
+    }
+
+    @Test
+    fun `up goes round to the tabs only when nothing is above`() {
+        assertTrue(dpadWrapsToTabs(DpadDirection.Up, moved = false, redirected = false))
+        // A move that happened, rows brought in from above included.
+        assertFalse(dpadWrapsToTabs(DpadDirection.Up, moved = true, redirected = false))
+        // A move refused by a closed part and made again by the search across the screen.
+        assertFalse(dpadWrapsToTabs(DpadDirection.Up, moved = false, redirected = true))
+        assertFalse(dpadWrapsToTabs(DpadDirection.Down, moved = false, redirected = false))
+        assertFalse(dpadWrapsToTabs(DpadDirection.Left, moved = false, redirected = false))
+    }
+
+    @Test
+    fun `the selected tab is the one reached, or the first when none is selected`() {
+        val selectedThird = listOf(DpadTab(false, true), DpadTab(false, true), DpadTab(true, true), DpadTab(false, true))
+        assertEquals(2, dpadTabToFocus(selectedThird))
+        val noneSelected = listOf(DpadTab(false, true), DpadTab(false, true))
+        assertEquals(0, dpadTabToFocus(noneSelected))
+    }
+
+    @Test
+    fun `a tab that cannot take focus is never picked`() {
+        // The selected tab out of sight: the first one in reach instead.
+        assertEquals(1, dpadTabToFocus(listOf(DpadTab(true, false), DpadTab(false, true))))
+        // The bar closed while the expanded player covers it, or no bar at all, as beside a rail.
+        assertNull(dpadTabToFocus(listOf(DpadTab(true, false), DpadTab(false, false))))
+        assertNull(dpadTabToFocus(emptyList()))
     }
 }

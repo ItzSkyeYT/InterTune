@@ -107,6 +107,7 @@ import com.dd3boh.outertune.ui.component.AutoResizeText
 import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.utils.backToMain
+import com.dd3boh.outertune.ui.utils.linkStylesWithFocus
 import com.dd3boh.outertune.ui.component.FontSizeRange
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.ScrollToTopManager
@@ -341,6 +342,7 @@ fun OnlinePlaylistScreen(
                                         )
 
                                         playlist.author?.let { artist ->
+                                            val linkStyles = linkStylesWithFocus()
                                             val annotatedString = buildAnnotatedString {
                                                 withStyle(
                                                     style = MaterialTheme.typography.titleMedium.copy(
@@ -350,7 +352,7 @@ fun OnlinePlaylistScreen(
                                                 ) {
                                                     if (artist.id != null) {
                                                         withLink(
-                                                            LinkAnnotation.Clickable(artist.id!!) {
+                                                            LinkAnnotation.Clickable(artist.id!!, linkStyles) {
                                                                 navController.navigate("artist/${artist.id}")
                                                             }
                                                         ) { append(artist.name) }
