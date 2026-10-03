@@ -20,9 +20,10 @@
 <li>YouTube Music, for everything you search, play, download or sync. Signing in is optional.</li>
 <li>LRCLIB and KuGou, to find lyrics for the song that is playing. Each can be turned off.</li>
 <li>Shazam, only when you ask it to recognise a song. A sound fingerprint is sent, not the recording.</li>
-<li>Last.fm, only if you turn it on.</li>
+<li>Last.fm, only if you turn it on. It is sent the title and artist of songs you play, to find similar ones.</li>
 <li>GitHub, only if you turn on the update check. The app can then download a new release and hand it to Android's installer, which always asks you first. A copy installed from F-Droid is sent to F-Droid for its update instead.</li>
 <li>Polls and announcements, only if you turn them on. They are read from a GitHub gist, and seeing or answering one is counted on Umami Cloud, with no account and no device identifier.</li>
+<li>The usage count, only if you turn it on. Once a day at most it tells Umami Cloud the app is in use: a random name that changes every month, whether it was installed from F-Droid, and the app and Android versions.</li>
 </ul>
 
 <p><br><b>Notice:</b></p>
