@@ -34,9 +34,22 @@ enum class IpFamily {
  * refusal, at the cost of another request to an address YouTube is already wary of.
  */
 data class AddressPolicy(val first: IpFamily, val only: Boolean = false) {
+    /**
+     * The families take turns, the preferred one first. Not all of one and then the other: with
+     * OkHttp's race off (see [keepToFamily]) each address gets the whole connect timeout, and
+     * music.youtube.com has a dozen IPv4 addresses, so on a line whose IPv4 drops every packet the
+     * request ran out of time before IPv6 was ever tried. Taking turns costs one timeout there,
+     * and a healthy line still connects over the preferred family.
+     */
     fun order(addresses: List<InetAddress>): List<InetAddress> {
         val (preferred, rest) = addresses.partition { IpFamily.of(it) == first }
-        return if (only) preferred else preferred + rest
+        if (only) return preferred
+        return buildList {
+            for (i in 0 until maxOf(preferred.size, rest.size)) {
+                preferred.getOrNull(i)?.let(::add)
+                rest.getOrNull(i)?.let(::add)
+            }
+        }
     }
 }
 
