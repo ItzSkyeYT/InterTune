@@ -56,9 +56,10 @@ fun UpdatePrompt(
     onRemindLater: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    // Where this copy came from decides what the primary button should do. Offering to sideload an
-    // apk over an F-Droid install is worse than useless: F-Droid signs its own builds, so Android
-    // refuses the install outright, and the store was going to update the app anyway.
+    // Where this copy came from decides what the primary button should do. An F-Droid install is
+    // updated by F-Droid, so it is not offered an apk from GitHub. Android would accept one, since
+    // F-Droid's build is reproducible and ships the same signature, but whoever chose F-Droid
+    // chose its checks and its timing along with it.
     val context = LocalContext.current
     val fromFdroid = remember { context.installSource() == InstallSource.F_DROID }
 

@@ -37,9 +37,9 @@ import javax.inject.Singleton
 /**
  * Tells the user when a newer InterTune release exists.
  *
- * There is no in-app installer here on purpose. This only ever reads a small JSON document and
- * points at the release page: installing an APK needs REQUEST_INSTALL_PACKAGES plus the user
- * granting "install unknown apps", which is a lot of trust to ask for a convenience.
+ * This only ever reads a small JSON document. Fetching the new APK and handing it to Android's
+ * installer is [UpdateInstaller]'s, and a copy installed by an F-Droid client is pointed at its
+ * F-Droid page instead; see [InstallSource].
  *
  * Opt in. Nothing is fetched until the user turns it on, because a version check is a network
  * request to a third party that reveals roughly when the app is used.

@@ -306,7 +306,8 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.util)
-    implementation(libs.compose.ui.tooling)
+    // Debug only: it brings PreviewActivity with it, exported, and a release has no use for it.
+    debugImplementation(libs.compose.ui.tooling)
     implementation(libs.compose.animation)
     implementation(libs.compose.reorderable)
     implementation(libs.compose.icons.extended)
