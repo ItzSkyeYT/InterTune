@@ -276,7 +276,8 @@ internal const val DpadEdgeScrollFraction = 0.3f
 /**
  * How far a lazy list's scroll value moves per item before it: Compose reports the position of
  * one as the first visible item's index times this plus the offset into it, so the value is exact
- * only while the first item is in view.
+ * only while the first item is scrolled less than this far out of view. That is Compose's own
+ * estimate (1.9.4) and may change with it.
  */
 internal const val LazyScrollValuePerItem = 500f
 
@@ -285,8 +286,9 @@ internal const val LazyScrollValuePerItem = 500f
  * [dpadScrollsInstead] says it should: [DpadEdgeScrollFraction] of its height, but never further
  * back than the list's start. What a list cannot take goes on to whatever is around it, and a pull
  * to refresh read the rest as a pull and stayed half drawn. A [lazy] list's value is exact only
- * while its first item is in view, so further down it is not scrolled back at all, and Compose's
- * own search, which brings in the rows above, is left to it. Null for no scroll.
+ * below [LazyScrollValuePerItem], so further down it is not scrolled back at all, and Compose's
+ * own search, which brings in the rows above, is left to it. A tall first item scrolled further
+ * than that out of view is left to Compose too. Null for no scroll.
  */
 internal fun dpadEdgeScrollDelta(direction: DpadDirection, height: Float, value: Float, maxValue: Float, lazy: Boolean): Float? {
     val step = height * DpadEdgeScrollFraction
@@ -657,22 +659,38 @@ private fun moveFromOverlay(root: SemanticsNode, direction: DpadDirection?, from
     val candidates = visible.filter { it !== from }
     val targets = dpadTargets(from.bounds, direction, candidates.map { it.bounds })
     val best = targets.firstOrNull()?.let { candidates[it] }
-    if (from.inOverlay && (best == null || best.inOverlay) && scrollListBetween(lists, from.bounds, best?.bounds, direction)) {
+    if (from.inOverlay && (best == null || best.inOverlay) &&
+        scrollListBetween(lists, overlays, from.bounds, best?.bounds, direction)
+    ) {
         return DpadMove.Moved
     }
     for (index in targets) {
         if (candidates[index].requestFocus()) return DpadMove.Moved
     }
+    // A text field keeps an arrow key nothing else wants: it moves the cursor, and keyboards with
+    // arrow keys send them while typing.
+    if (SemanticsProperties.EditableText in from.node.config) return DpadMove.NotOurs
     return DpadMove.NothingThere
 }
 
 /**
  * Scrolls the largest of [lists] in line with [from] when a move to [target] would jump over its
  * middle and it can still scroll in [direction]; see [dpadJumpsOverList]. Says whether it did.
+ * A list lying under one of [overlays], such as the feed under the open search, is out of sight
+ * and never scrolled.
  */
-private fun scrollListBetween(lists: List<SemanticsNode>, from: Rect, target: Rect?, direction: DpadDirection): Boolean {
+private fun scrollListBetween(
+    lists: List<SemanticsNode>,
+    overlays: List<Rect>,
+    from: Rect,
+    target: Rect?,
+    direction: DpadDirection,
+): Boolean {
     val list = lists
-        .filter { val b = it.boundsInRoot; !b.isEmpty && b.left < from.right && b.right > from.left }
+        .filter {
+            val b = it.boundsInRoot
+            !b.isEmpty && b.left < from.right && b.right > from.left && !hiddenUnderOverlay(b, overlays)
+        }
         .maxByOrNull { it.boundsInRoot.width * it.boundsInRoot.height } ?: return false
     val bounds = list.boundsInRoot
     if (!dpadJumpsOverList(from, target, bounds, direction)) return false
