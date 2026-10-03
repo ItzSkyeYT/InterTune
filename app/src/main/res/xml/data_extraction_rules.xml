@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+   Android 12 and later. The settings file holds the YouTube Music sign-in and the Last.fm session,
+   so it stays out of the cloud backup. A transfer straight from one phone to another still carries
+   it. The library is backed up either way; the app's own backup carries everything.
 -->
 <data-extraction-rules>
     <cloud-backup>
+        <exclude
+            domain="file"
+            path="datastore/" />
         <exclude
             domain="file"
             path="./exoplayer" />
