@@ -80,7 +80,7 @@ class MusicDatabase(
     fun close() = delegate.close()
 
     companion object {
-        const val MUSIC_DATABASE_VERSION = 25
+        const val MUSIC_DATABASE_VERSION = 26
     }
 }
 
@@ -157,6 +157,10 @@ class MusicDatabase(
         // Migration24To25. A version of its own so it runs once on every library, the ones already
         // at 24 included. As a step of 23 to 24 it would never run there, and 24 is on a device too.
         AutoMigration(from = 24, to = 25, spec = Migration24To25::class),
+        // row_build.lean, leanApplied and leadWeight: which Quick picks lean a build was made
+        // under and how much its lead lane weighs in learning. Additive with defaults, and 0, 0
+        // and 1.0 are also the truth for every row written before them: no lean.
+        AutoMigration(from = 25, to = 26),
     ]
 )
 @TypeConverters(Converters::class)

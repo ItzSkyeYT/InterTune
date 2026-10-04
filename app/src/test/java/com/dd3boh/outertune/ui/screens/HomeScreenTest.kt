@@ -77,4 +77,44 @@ class HomeScreenTest {
             quickPicksLabelKind(QuickPicksSource.COMPARE, engineFallback = 2, ytPicksShown = true, localPicksNonEmpty = false),
         )
     }
+
+    @Test
+    fun `the engine's own row says what it leans toward, and only while it is the row on screen`() {
+        assertEquals(
+            QuickPicksLabelKind.LEAN,
+            quickPicksLabelKind(QuickPicksSource.ENGINE, engineFallback = 0, ytPicksShown = false, localPicksNonEmpty = true, leaning = true),
+        )
+        // Try both keeps its own label: half of its row is the other source's.
+        assertEquals(
+            QuickPicksLabelKind.TRY_BOTH,
+            quickPicksLabelKind(QuickPicksSource.COMPARE, engineFallback = 0, ytPicksShown = false, localPicksNonEmpty = true, leaning = true),
+        )
+        // Fallen back to the library, the row is the library's whatever was chosen.
+        assertEquals(
+            QuickPicksLabelKind.LIBRARY,
+            quickPicksLabelKind(QuickPicksSource.ENGINE, engineFallback = 1, ytPicksShown = false, localPicksNonEmpty = true, leaning = true),
+        )
+        assertEquals(
+            QuickPicksLabelKind.NONE,
+            quickPicksLabelKind(QuickPicksSource.ENGINE, engineFallback = 0, ytPicksShown = false, localPicksNonEmpty = true, leaning = false),
+        )
+    }
+
+    @Test
+    fun `the first chip carries the lean's short name, and Auto otherwise`() {
+        assertEquals(com.dd3boh.outertune.R.string.chip_auto, leanChipName(com.dd3boh.outertune.engine.Lean.AUTO))
+        assertEquals(com.dd3boh.outertune.R.string.chip_lean_new, leanChipName(com.dd3boh.outertune.engine.Lean.NEW))
+        assertEquals(com.dd3boh.outertune.R.string.chip_lean_similar, leanChipName(com.dd3boh.outertune.engine.Lean.SIMILAR))
+    }
+
+    @Test
+    fun `a lean is named in the setting's words, one name each`() {
+        val names = com.dd3boh.outertune.engine.Lean.entries.associateWith { leanOptionName(it) }
+        assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_auto, names[com.dd3boh.outertune.engine.Lean.AUTO])
+        assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_new, names[com.dd3boh.outertune.engine.Lean.NEW])
+        assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_artist, names[com.dd3boh.outertune.engine.Lean.ARTIST])
+        assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_forgotten, names[com.dd3boh.outertune.engine.Lean.FORGOTTEN])
+        assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_similar, names[com.dd3boh.outertune.engine.Lean.SIMILAR])
+        assertEquals(names.size, names.values.toSet().size)
+    }
 }

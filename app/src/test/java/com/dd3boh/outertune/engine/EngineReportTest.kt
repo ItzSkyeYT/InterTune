@@ -174,6 +174,45 @@ class EngineReportTest {
         assertEquals(Trend.TooEarly, s.trend)
     }
 
+    // Quick picks leans toward: only cards shown under the choice as it stands are compared.
+
+    @Test
+    fun `too few cards under the choice, with enough under any, is too early since the choice`() {
+        // Chose Never heard ten days ago: the earlier fortnight was Auto's.
+        assertEquals(Trend.TooEarlySinceChoice, trendOf(CardCounts(200, 6), CardCounts(0, 0), recentAny = 260, earlierAny = 300))
+        assertEquals(Trend.TooEarlySinceChoice, trendOf(CardCounts(49, 6), CardCounts(300, 20), recentAny = 50, earlierAny = 300))
+        // Too few cards whatever was chosen is plain too early.
+        assertEquals(Trend.TooEarly, trendOf(CardCounts(200, 6), CardCounts(0, 0), recentAny = 260, earlierAny = 49))
+        assertEquals(Trend.TooEarly, trendOf(CardCounts(10, 1), CardCounts(0, 0)))
+    }
+
+    @Test
+    fun `with enough cards under the choice the trend is theirs alone`() {
+        val own = trendOf(CardCounts(300, 30), CardCounts(300, 10))
+        assertTrue(own is Trend.Up)
+        assertEquals(own, trendOf(CardCounts(300, 30), CardCounts(300, 10), recentAny = 900, earlierAny = 900))
+    }
+
+    @Test
+    fun `a fortnight on Never heard after one on Auto is not called going down`() {
+        // Auto played 12 in 100, Never heard 4 in 100. One fortnight against the other is a clear
+        // drop, and all it shows is that the choice changed. Under Never heard alone there is
+        // nothing to compare yet.
+        assertTrue(trendOf(CardCounts(300, 12), CardCounts(300, 36)) is Trend.Down)
+        val row = CardTrendRow(recentSeen = 300, recentPlayed = 12, earlierSeen = 0, earlierPlayed = 0, recentAny = 300, earlierAny = 300)
+        val s = doingSummary(engineShowing = true, teams = engineCards, trend = row) as DoingSummary.Numbers
+        assertEquals(Trend.TooEarlySinceChoice, s.trend)
+    }
+
+    @Test
+    fun `too early since the choice is left out where plain too early is`() {
+        val row = CardTrendRow(recentSeen = 10, recentPlayed = 1, earlierSeen = 0, earlierPlayed = 0, recentAny = 300, earlierAny = 300)
+        assertEquals(Trend.TooEarlySinceChoice, (doingSummary(engineShowing = true, teams = engineCards, trend = row) as DoingSummary.Numbers).trend)
+        // Not in the row, or not learning: no new cards come, so it would never go away.
+        assertNull((doingSummary(engineShowing = false, teams = engineCards, trend = row) as DoingSummary.Numbers).trend)
+        assertNull((doingSummary(engineShowing = true, teams = engineCards, trend = row, learning = false) as DoingSummary.Numbers).trend)
+    }
+
     // With Learn from listening off, EngineLearning.run returns at once: nothing is judged.
 
     @Test

@@ -14,7 +14,7 @@ import java.sql.Connection
 
 /**
  * The database of the last release, taken through every migration since, comes out as the schema
- * this build expects. 0.10.9 shipped schema 21; anybody updating to 0.11 goes through 22 to 25.
+ * this build expects. 0.10.9 shipped schema 21; anybody updating to 0.11 goes through 22 to 26.
  *
  * Room checks a migrated database against the schema's identity hash when it opens it, and a
  * mismatch is a crash on launch, for everyone who updates. This runs Room's own generated
@@ -80,6 +80,7 @@ class MigrationFromReleasedTest {
             InternalDatabase_AutoMigration_22_23_Impl(),
             InternalDatabase_AutoMigration_23_24_Impl(),
             InternalDatabase_AutoMigration_24_25_Impl(),
+            InternalDatabase_AutoMigration_25_26_Impl(),
         )
         assertEquals("a migration for every step from the release to now", MusicDatabase.MUSIC_DATABASE_VERSION - released, migrations.size)
         var at = released
@@ -116,5 +117,13 @@ class MigrationFromReleasedTest {
 
         assertEquals(listOf(listOf("MPREb_real", "Album", "1")), old.rows("SELECT id, title, songCount FROM album"))
         assertEquals(listOf(listOf("song", "MPREb_real")), old.rows("SELECT songId, albumId FROM song_album_map"))
+    }
+
+    @Test
+    fun `a build recorded before leans reads as built under Auto`() {
+        val old = SchemaDb.open(version = released)
+        old.exec("INSERT INTO row_build(builtAt, rowKey, sessionId, bucket, contextChip, dial, engineVersion, seeds, weights) VALUES (1, 1, 1, 0, 0, 50, 0, '[]', '{}')")
+        migrateFromReleased(old)
+        assertEquals(listOf(listOf("0", "0", "1.0")), old.rows("SELECT lean, leanApplied, leadWeight FROM row_build"))
     }
 }

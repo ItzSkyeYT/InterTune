@@ -45,6 +45,10 @@ object EngineTuning {
         Tunable("seedDamp", "Weight kept by a seed used in the last three hours, per build", 0.3) { p, v -> p.copy(seedDamp = v) },
         Tunable("engineFreshHours", "Hours a song heard well stays out of the engine row", 1.0) { p, v -> p.copy(engineFreshHours = v.toInt()) },
         Tunable("againWindowDays", "Days back the Again lane looks", 14.0) { p, v -> p.copy(againWindowDays = v.toInt()) },
+        Tunable("leanCards", "Cards a lean gives its lane, the first column included", 12.0) { p, v -> p.copy(leanCards = v.toInt()) },
+        Tunable("leanLovedListens", "Good listens that make a song loved, for Forgotten", 3.0) { p, v -> p.copy(leanLovedListens = v.toInt()) },
+        Tunable("leanReturnSessions", "Sessions an artist must be heard well in, for Your artists", 3.0) { p, v -> p.copy(leanReturnSessions = v.toInt()) },
+        Tunable("leanSimilarRebuildListens", "Good listens before Playing now rebuilds on return to Home (0 off)", 3.0) { p, v -> p.copy(leanSimilarRebuildListens = v.toInt()) },
     )
 
     /** `{"name":value,...}` to a map; anything unreadable is ignored. */

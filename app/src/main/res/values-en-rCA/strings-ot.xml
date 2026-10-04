@@ -213,4 +213,35 @@
     <string name="cached_songs_note">Kept because you played them, so they work with no connection. The app clears the oldest as the cache fills; download a song to keep it for good.</string>
     <string name="cached_songs_empty">Nothing is cached yet. Songs appear here after you play them.</string>
     <string name="cached_songs_disabled">The song cache is turned off, so nothing is being kept. Set a size under Storage and downloads to use this.</string>
+
+    <!-- Quick picks leans toward: a standing choice for Best recommendations. The option names are the poll's answers. -->
+    <string name="quick_picks_lean">Quick picks leans toward</string>
+    <string name="quick_picks_lean_auto">Auto</string>
+    <string name="quick_picks_lean_new">Songs I have never heard</string>
+    <string name="quick_picks_lean_artist">More from artists I keep coming back to</string>
+    <string name="quick_picks_lean_forgotten">Things I loved and forgot about</string>
+    <string name="quick_picks_lean_similar">Songs that fit what I am playing now</string>
+    <string name="quick_picks_lean_description">%1$d of the 20 cards, the first four included. The rest is the usual mix.</string>
+    <string name="quick_picks_lean_description_compare">About %1$d of the 20 cards and %2$d of the first four, since Try both gives half the row to the other source.</string>
+    <string name="quick_picks_lean_not_source">Applies when Quick picks source is Best recommendations or Try both.</string>
+    <string name="quick_picks_lean_set_aside_chip">The %1$s chip on Home takes over while it is on.</string>
+    <string name="quick_picks_lean_set_aside_new_only">New songs only takes over while it is on.</string>
+    <string name="quick_picks_lean_new_only_strict">With New songs only on, Best recommendations picks only songs you have never even started, as long as there are enough.</string>
+    <string name="quick_picks_lean_info">Auto is the usual mix, picked by what Best recommendations has learned from your listening. Each other choice gives one kind of song most of the Best recommendations cards, the first ones included, as long as there are enough such songs. It applies while Quick picks source is Best recommendations or Try both, and changing it then rebuilds Quick picks at once. With Songs that fit what I am playing now, Quick picks is also rebuilt once you have listened to a few songs from elsewhere and come back to Home.</string>
+    <string name="quick_picks_leaning_new">Leaning toward songs you have never heard</string>
+    <string name="quick_picks_leaning_artist">Leaning toward artists you keep coming back to</string>
+    <string name="quick_picks_leaning_forgotten">Leaning toward things you loved and forgot about</string>
+    <string name="quick_picks_leaning_similar">Leaning toward what you are playing now</string>
+    <string name="quick_picks_leaning_similar_last">Leaning toward what you played last (%1$s)</string>
+    <string name="quick_picks_leaning_short">%1$s: only %2$d right now, the rest is the usual mix</string>
+    <string name="quick_picks_leaning_none">%1$s: nothing yet, so this is the usual mix for now</string>
+    <string name="quick_picks_leaning_forgotten_none">Nothing you loved has been quiet for 45 days yet, so this is the usual mix for now</string>
+    <string name="chip_lean_new">Never heard</string>
+    <string name="chip_lean_artist">Your artists</string>
+    <string name="chip_lean_forgotten">Forgotten</string>
+    <string name="chip_lean_similar">Playing now</string>
+    <string name="why_these_lean">Leaning toward: %1$s, %2$d of the %3$d cards on screen</string>
+    <string name="adventurousness_description_lean_new">Set by Quick picks leaning toward songs you have never heard: %1$d of 20 cards.</string>
+    <string name="recommendations_summary_too_early_choice">Too early to tell which way it is going since you changed what Quick picks leans toward.</string>
+    <string name="context_chips_info">The first chip is your usual row: Auto, or the short name of what you chose under Quick picks leans toward. Discover gives at least half the row to songs new to you. Favourites starts only from songs you have liked, and leans toward your artists and old favourites.\n\nFocus, Chill and Party start from what song titles say about the recording, such as slowed or nightcore. They learn from what you play while each is on, and after eight plays heard well they follow those alone. New songs only gives the whole row to songs you have not heard well. A chip stays on until you change it.</string>
 </resources>

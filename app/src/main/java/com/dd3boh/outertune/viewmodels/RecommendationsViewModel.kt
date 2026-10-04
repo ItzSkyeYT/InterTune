@@ -7,10 +7,14 @@
 package com.dd3boh.outertune.viewmodels
 
 import com.dd3boh.outertune.engine.EngineLearning
+import com.dd3boh.outertune.engine.LeanChoice
 import com.dd3boh.outertune.engine.SourceMix
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -32,6 +36,7 @@ import androidx.lifecycle.ViewModel
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.engine.TrendWindows
 import com.dd3boh.outertune.constants.EngineCopyLoadedKey
+import com.dd3boh.outertune.constants.QuickPicksLeanKey
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import androidx.datastore.preferences.core.edit
@@ -61,8 +66,16 @@ class RecommendationsViewModel @Inject constructor(
     val calibration = database.engineCalibration()
     val weights = database.engineWeightsFlow()
     val buildScores = database.buildScores()
-    /** The engine's cards in the two fortnights before yesterday, for the trend on How it's doing. */
-    val cardTrend = TrendWindows.at(System.currentTimeMillis()).let { database.engineCardTrend(it.from, it.mid, it.to) }
+    /**
+     * The engine's cards in the two fortnights before yesterday, for the trend on How it's doing:
+     * those shown under the choice under Quick picks leans toward as it stands, read again when
+     * the choice changes.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val cardTrend = context.dataStore.data
+        .map { LeanChoice.selected(it[QuickPicksLeanKey]) }
+        .distinctUntilChanged()
+        .flatMapLatest { lean -> TrendWindows.at(System.currentTimeMillis()).let { database.engineCardTrend(it.from, it.mid, it.to, lean.code) } }
     private val learning by lazy { EngineLearning(context, database) }
 
     /** The change on Your data waiting for a yes. Here, not on the page, so a rotation keeps the dialog. */

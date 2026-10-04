@@ -83,6 +83,13 @@ private const val TREND_Z = 1.96
 
 sealed interface Trend {
     data object TooEarly : Trend
+
+    /**
+     * Too early only because the choice under Quick picks leans toward changed: the fortnights
+     * hold enough cards, but not enough of them were shown under the choice as it stands, and
+     * cards shown under another are not compared with them.
+     */
+    data object TooEarlySinceChoice : Trend
     data class Up(val recent: Double, val earlier: Double) : Trend
     data class Down(val recent: Double, val earlier: Double) : Trend
     data class NoClearChange(val recent: Double, val earlier: Double) : Trend
@@ -91,9 +98,21 @@ sealed interface Trend {
 /**
  * Whether the last fortnight's play rate is really above or below the one before: a two
  * proportion z test, so a handful of lucky plays on a small week does not read as going up.
+ *
+ * [recent] and [earlier] are the cards shown under the choice under Quick picks leans toward as
+ * it stands. [recentAny] and [earlierAny] are the fortnights' cards under any choice: when those
+ * would have been enough, it is the change of choice that makes it too early, and it says so.
  */
-fun trendOf(recent: CardCounts, earlier: CardCounts, minCards: Int = MIN_TREND_CARDS): Trend {
-    if (recent.seen < minCards || earlier.seen < minCards) return Trend.TooEarly
+fun trendOf(
+    recent: CardCounts,
+    earlier: CardCounts,
+    minCards: Int = MIN_TREND_CARDS,
+    recentAny: Int = recent.seen,
+    earlierAny: Int = earlier.seen,
+): Trend {
+    if (recent.seen < minCards || earlier.seen < minCards) {
+        return if (recentAny >= minCards && earlierAny >= minCards) Trend.TooEarlySinceChoice else Trend.TooEarly
+    }
     val p1 = recent.played.toDouble() / recent.seen
     val p2 = earlier.played.toDouble() / earlier.seen
     val pooled = (recent.played + earlier.played).toDouble() / (recent.seen + earlier.seen)
@@ -169,11 +188,12 @@ fun doingSummary(
         else -> DoingSummary.NotLearning
     }
     val t = trend?.let {
-        trendOf(CardCounts(it.recentSeen, it.recentPlayed), CardCounts(it.earlierSeen, it.earlierPlayed))
+        trendOf(CardCounts(it.recentSeen, it.recentPlayed), CardCounts(it.earlierSeen, it.earlierPlayed), recentAny = it.recentAny, earlierAny = it.earlierAny)
     } ?: Trend.TooEarly
     val fromBefore = !engineShowing
     val stays = !fromBefore && learning
-    return DoingSummary.Numbers(engine, t.takeUnless { !stays && it == Trend.TooEarly }, fromBefore, stillWaiting, learning)
+    val tooEarly = t == Trend.TooEarly || t == Trend.TooEarlySinceChoice
+    return DoingSummary.Numbers(engine, t.takeUnless { !stays && tooEarly }, fromBefore, stillWaiting, learning)
 }
 
 /** Which wording the not-source summary takes. */

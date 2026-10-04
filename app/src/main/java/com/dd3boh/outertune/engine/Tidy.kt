@@ -81,6 +81,12 @@ class TidyPass(
          * Off by default, because it only makes sense where a row is meant to be varied.
          */
         maxPerArtist: Int = Int.MAX_VALUE,
+        /**
+         * A cap per item instead of [maxPerArtist] for all, so the lead cards of a lean on Your
+         * artists may hold up to four of one artist while the rest of the row keeps two. Applies
+         * only where [maxPerArtist] is set at all. Null keeps [maxPerArtist] for every item.
+         */
+        capOf: ((T) -> Int)? = null,
     ): List<T> {
         val perArtist = HashMap<String, Int>()
         return items.filter { item ->
@@ -103,7 +109,7 @@ class TidyPass(
             val who = itemArtist?.trim()?.lowercase()
             if (!who.isNullOrEmpty()) {
                 val had = perArtist.getOrDefault(who, 0)
-                if (had >= maxPerArtist) return@filter false
+                if (had >= (capOf?.invoke(item) ?: maxPerArtist)) return@filter false
                 perArtist[who] = had + 1
             }
         }

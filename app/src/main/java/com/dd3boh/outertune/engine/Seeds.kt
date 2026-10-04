@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.engine
 
+import com.dd3boh.outertune.constants.EndReason
 import com.dd3boh.outertune.constants.PlayOrigin
 import kotlin.random.Random
 
@@ -22,8 +23,13 @@ class SeedSampler(
     private val features: Features.Context,
     private val p: EngineParams = EngineParams.DEFAULT,
     private val random: Random = Random.Default,
+    /** The applied lean; only Playing now changes the draw, and only its Now pool. */
+    private val lean: Lean = Lean.AUTO,
 ) {
     private val day = 86_400_000.0
+
+    /** Under Playing now, the seeds drawn from the session under way (or the latest one): what its related lane is built from. */
+    val nowSeeds = HashSet<String>()
 
     /** A song's willingness to seed: worn out or recently used, it steps back. */
     private fun damping(songId: String): Double {
@@ -132,7 +138,28 @@ class SeedSampler(
             out += got
             carry += want - got.size
         }
-        take(now, p.seedsNow)
+        if (lean == Lean.SIMILAR) {
+            // Playing now: the session under way, the song playing or just played included before
+            // it has been heard well, unless it was skipped. With no session under way, the latest
+            // session, as Now always is. More seeds than Now's four, since the related lane is
+            // built from these alone; the other pools give up what the extra seeds take.
+            val current = currentSessionId(input.listens)
+            val latest = input.listens.filter { it.sessionId == current }.maxByOrNull { it.startedAt }
+            val live = latest != null && (latest.endReason == EndReason.OPEN || input.now - latest.endedAt <= p.sessionGapMs)
+            val pool = if (!live) now else HashMap<String, Double>().also { pool ->
+                for (l in input.listens) {
+                    if (l.sessionId != current || !l.learn) continue
+                    val liked = input.songs[l.songId]?.likedAt?.takeIf { l.songId !in stats.bulkLikeSongIds }
+                    val good = Signals.engagement(l, liked, p) >= p.justPlayedEngagement
+                    val playing = l === latest && l.endReason != EndReason.SKIPPED
+                    if (good || playing) pool.merge(l.songId, Signals.recency(input.now, l.startedAt), ::maxOf)
+                }
+            }
+            val got = draw(damped(pool), p.leanSimilarSeedsNow, taken)
+            out += got
+            nowSeeds += got
+            carry += p.seedsNow - minOf(p.seedsNow, got.size)
+        } else take(now, p.seedsNow)
         take(today, p.seedsToday)
         take(searched, p.seedsSearched)
         take(likedRecent, p.seedsLikedRecent)

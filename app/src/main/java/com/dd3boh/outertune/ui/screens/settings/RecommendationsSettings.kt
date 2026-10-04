@@ -33,11 +33,15 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AdventurousnessKey
+import com.dd3boh.outertune.constants.ContextChipKey
 import com.dd3boh.outertune.constants.DefaultAdventurousness
 import com.dd3boh.outertune.constants.DiscoverRowKey
 import com.dd3boh.outertune.constants.FamiliarityKey
 import com.dd3boh.outertune.constants.LearnFromListeningKey
 import com.dd3boh.outertune.constants.NewSongsOnlyKey
+import com.dd3boh.outertune.constants.QuickPicksLeanKey
+import com.dd3boh.outertune.constants.QuickPicksSource
+import com.dd3boh.outertune.constants.QuickPicksSourceKey
 import com.dd3boh.outertune.constants.RankWithListeningKey
 import com.dd3boh.outertune.constants.RestSongsISkipKey
 import com.dd3boh.outertune.constants.RestsEverywhereKey
@@ -47,11 +51,11 @@ import com.dd3boh.outertune.constants.SimilarSource
 import com.dd3boh.outertune.constants.SimilarSourceKey
 import com.dd3boh.outertune.constants.TidyHomeRowsKey
 import com.dd3boh.outertune.constants.Unreleased
-import com.dd3boh.outertune.engine.EngineParams
-import com.dd3boh.outertune.engine.Lane
+import com.dd3boh.outertune.engine.ContextChip
+import com.dd3boh.outertune.engine.LeanChoice
+import com.dd3boh.outertune.engine.LeanLine
 import com.dd3boh.outertune.engine.percentText
 import com.dd3boh.outertune.engine.SimilarSources
-import com.dd3boh.outertune.engine.quotas
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.ExplainButton
@@ -59,6 +63,7 @@ import com.dd3boh.outertune.ui.component.ExplainedGroupTitle
 import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.screens.leanOptionName
 import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
@@ -90,6 +95,11 @@ fun RecommendationsSettings(
     val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
     val (discoverRow, onDiscoverRowChange) = rememberPreference(DiscoverRowKey, defaultValue = true)
     val (familiarity, onFamiliarityChange) = rememberPreference(FamiliarityKey, defaultValue = 25)
+    // Kept by name and read as Home reads it; unset, or a name this version does not know, is Auto.
+    val (leanName, onLeanNameChange) = rememberPreference(QuickPicksLeanKey, defaultValue = "")
+    val lean = LeanChoice.selected(leanName)
+    val (quickPicksSource, _) = rememberEnumPreference(QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE)
+    val (chip, _) = rememberPreference(ContextChipKey, defaultValue = ContextChip.AUTO)
     val activeExclusions by viewModel.activeExclusions.collectAsState(initial = 0)
     val (learnFromListening, onLearnFromListeningChange) = rememberPreference(LearnFromListeningKey, defaultValue = true)
     val (restSongsISkip, onRestSongsISkipChange) = rememberPreference(RestSongsISkipKey, defaultValue = false)
@@ -143,6 +153,24 @@ fun RecommendationsSettings(
                 title = stringResource(R.string.recommendations_engine_title),
                 explanation = stringResource(R.string.recommendations_engine_title_info),
             )
+            // First in the group: it decides what most of the row is, and the sliders below
+            // share out what it leaves. The line under the choice says what it does as things
+            // stand, since another source, a chip or New songs only can each leave it waiting.
+            val leanTitle = stringResource(R.string.quick_picks_lean)
+            val leanInfo = stringResource(R.string.quick_picks_lean_info)
+            val leanLine = remember(lean, quickPicksSource, chip, newSongsOnly, adventurousness) {
+                LeanChoice.line(lean, quickPicksSource, chip, newSongsOnly, adventurousness / 100.0)
+            }
+            EnumListPreference(
+                title = { Text(leanTitle) },
+                icon = null,
+                trailingContent = { ExplainButton(leanTitle, leanInfo) },
+                content = leanLine?.let { line -> @Composable { MeaningLine(leanLineText(line)) } },
+                selectedValue = lean,
+                values = LeanChoice.options,
+                valueText = { stringResource(leanOptionName(it)) },
+                onValueSelected = { onLeanNameChange(LeanChoice.stored(it)) },
+            )
             ExplainedSwitchPreference(
                 title = stringResource(R.string.show_reasons),
                 explanation = stringResource(R.string.show_reasons_info),
@@ -153,7 +181,11 @@ fun RecommendationsSettings(
             ExplainedPreference(
                 title = stringResource(R.string.adventurousness),
                 explanation = stringResource(R.string.adventurousness_info),
-                description = stringResource(R.string.adventurousness_description, quotas(20, adventurousness / 100.0, false)[Lane.EXPLORE] ?: 0),
+                // While Never heard leads the row the slider no longer sets this count, and the line says what does.
+                description = stringResource(
+                    if (LeanChoice.newSetByChoice(lean, chip, newSongsOnly)) R.string.adventurousness_description_lean_new else R.string.adventurousness_description,
+                    LeanChoice.newCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly),
+                ),
             )
             Slider(
                 value = adventurousness.toFloat(),
@@ -164,7 +196,7 @@ fun RecommendationsSettings(
             ExplainedPreference(
                 title = stringResource(R.string.familiarity),
                 explanation = stringResource(R.string.familiarity_info),
-                description = stringResource(R.string.familiarity_description, quotas(20, adventurousness / 100.0, false, EngineParams.DEFAULT.withFamiliarity(familiarity / 100.0))[Lane.AGAIN] ?: 0),
+                description = stringResource(R.string.familiarity_description, LeanChoice.againCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly)),
             )
             Slider(
                 value = familiarity.toFloat(),
@@ -284,4 +316,33 @@ fun RecommendationsSettings(
     }
 
     FloatingTopBar(title = stringResource(R.string.recommendations), navController = navController)
+}
+
+/** The line under Quick picks leans toward, in words. */
+@Composable
+private fun leanLineText(line: LeanLine): String = when (line) {
+    is LeanLine.SetAside -> if (line.newOnly) stringResource(leanLineString(line)) else stringResource(leanLineString(line), stringResource(contextChipName(line.chip)))
+    is LeanLine.Leading -> stringResource(leanLineString(line), line.cards)
+    is LeanLine.TryBoth -> stringResource(leanLineString(line), line.cards, line.first)
+    LeanLine.NotSource, LeanLine.StrictNew -> stringResource(leanLineString(line))
+}
+
+/** Which sentence the line under Quick picks leans toward is. */
+internal fun leanLineString(line: LeanLine): Int = when (line) {
+    LeanLine.NotSource -> R.string.quick_picks_lean_not_source
+    is LeanLine.SetAside -> if (line.newOnly) R.string.quick_picks_lean_set_aside_new_only else R.string.quick_picks_lean_set_aside_chip
+    // Never heard is not set aside by New songs only: it keeps it to songs never even started.
+    LeanLine.StrictNew -> R.string.quick_picks_lean_new_only_strict
+    is LeanLine.Leading -> R.string.quick_picks_lean_description
+    is LeanLine.TryBoth -> R.string.quick_picks_lean_description_compare
+}
+
+/** A chip above Quick picks by the name it carries there. */
+internal fun contextChipName(chip: Int): Int = when (chip) {
+    ContextChip.DISCOVER -> R.string.chip_discover
+    ContextChip.FAVOURITES -> R.string.chip_favourites
+    ContextChip.FOCUS -> R.string.chip_focus
+    ContextChip.CHILL -> R.string.chip_chill
+    ContextChip.PARTY -> R.string.chip_party
+    else -> R.string.chip_auto
 }

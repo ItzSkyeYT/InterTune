@@ -135,6 +135,32 @@ data class EngineParams(
     val justPlayedHours: Int = 24,
     val justPlayedEngagement: Double = 0.5,
     val sessionGapMs: Long = 30L * 60_000,
+
+    // ---- Quick picks leans toward (see Lean)
+    /** The cards a lean gives its lane, the first column included; the other lanes share the rest as in the blend. */
+    val leanCards: Int = 12,
+    /** Never heard with the Discover chip on: more of the row, from new artists only. */
+    val leanDiscoverCards: Int = 16,
+    /** A song loved before: liked, or heard well this many times. */
+    val leanLovedListens: Int = 3,
+    /** An artist kept coming back to: heard well in this many sessions, on [leanReturnDays] local days, inside the context window. */
+    val leanReturnSessions: Int = 3,
+    val leanReturnDays: Int = 2,
+    /**
+     * Under Playing now, the row is built again when Home comes back into view after this many
+     * listens heard well have started since the build, none of them from the row itself. 0 turns
+     * it off, and the row then follows the session only at the usual rebuilds.
+     */
+    val leanSimilarRebuildListens: Int = 3,
+    /** Playing now: seeds from the session under way, and the related cards one of them may refer. */
+    val leanSimilarSeedsNow: Int = 10,
+    val leanSimilarMaxPerSeed: Int = 5,
+    /** The most cards one returning artist may hold in the Your artists lane. */
+    val leanLeadArtistCapMax: Int = 4,
+    /** The lead lane is cut to its best this many before assembly, which reads a lane whole on every pick. */
+    val leanLaneTrim: Int = 400,
+    /** Lead-lane cards kept after the pool's forty, for the tidy pass to put in place of a lead card it drops. */
+    val leanSpares: Int = 8,
 ) {
     /** The Again lane's share of the row after explore, the other three lanes scaled to the rest. */
     fun withFamiliarity(share: Double): EngineParams {

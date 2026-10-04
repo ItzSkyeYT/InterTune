@@ -186,4 +186,23 @@ class TidyPassTest {
         )
         assertEquals(6, kept.size)
     }
+
+    @Test
+    fun `a cap of its own per card lets a lean's lead cards past two, and only them`() {
+        // Six by one artist, the first four the lean's own cards: they may hold four, the rest two,
+        // and the count is shared, so a lead card after two others still sees the two.
+        val items = (1..6).map { Triple("id$it", "Song $it", "One Artist") }
+        val lead = setOf("id1", "id2", "id3", "id4")
+        val kept = TidyPass(emptyList()).row(items, id = { it.first }, title = { it.second }, artist = { it.third }, maxPerArtist = 2,
+            capOf = { if (it.first in lead) 4 else 2 })
+        assertEquals(listOf("id1", "id2", "id3", "id4"), kept.map { it.first })
+        val mixed = listOf("o1", "o2", "id1", "id2", "id3").map { Triple(it, "Song $it", "One Artist") }
+        val keptMixed = TidyPass(emptyList()).row(mixed, id = { it.first }, title = { it.second }, artist = { it.third }, maxPerArtist = 2,
+            capOf = { if (it.first.startsWith("id")) 4 else 2 })
+        assertEquals(listOf("o1", "o2", "id1", "id2"), keptMixed.map { it.first })
+        // With no per-card cap, the row cap holds for everything, as before.
+        assertEquals(2, TidyPass(emptyList()).row(items, id = { it.first }, title = { it.second }, artist = { it.third }, maxPerArtist = 2).size)
+        // And with no row cap at all, a per-card cap changes nothing: it only refines a cap that is set.
+        assertEquals(6, TidyPass(emptyList()).row(items, id = { it.first }, title = { it.second }, artist = { it.third }, capOf = { 1 }).size)
+    }
 }

@@ -602,6 +602,7 @@ private fun LearningOffLine() {
 private fun TrendLine(trend: Trend, locale: Locale) {
     val (icon, text) = when (trend) {
         Trend.TooEarly -> null to stringResource(R.string.recommendations_summary_too_early)
+        Trend.TooEarlySinceChoice -> null to stringResource(R.string.recommendations_summary_too_early_choice)
         is Trend.Up -> per100Texts(trend.recent, trend.earlier, locale).let { (a, b) ->
             Icons.AutoMirrored.Rounded.TrendingUp to stringResource(R.string.recommendations_summary_up, a, b)
         }
@@ -637,18 +638,18 @@ internal fun StatEntry(
 ) = PreferenceEntry(
     title = { Text(title) },
     description = numbers,
-    content = meaning?.let { m ->
-        @Composable {
-            Text(
-                text = m,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-        }
-    },
+    content = meaning?.let { m -> @Composable { MeaningLine(m) } },
     trailingContent = { ExplainButton(title = title, body = explanation, footer = footer) },
     onClick = null,
+)
+
+/** The one plain line under a figure, or under a choice: what it means as things stand. */
+@Composable
+internal fun MeaningLine(text: String) = Text(
+    text = text,
+    style = MaterialTheme.typography.bodySmall,
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    modifier = Modifier.padding(top = 4.dp),
 )
 
 /** What each thing counts for in a card's score now, beside where it started. */

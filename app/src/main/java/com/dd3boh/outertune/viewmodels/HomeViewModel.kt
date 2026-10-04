@@ -5,13 +5,20 @@ import com.dd3boh.outertune.constants.EngineOverridesKey
 import com.dd3boh.outertune.engine.EngineTuning
 import com.dd3boh.outertune.engine.ContextChip
 import com.dd3boh.outertune.constants.ContextChipKey
+import com.dd3boh.outertune.constants.QuickPicksLeanKey
+import com.dd3boh.outertune.db.Converters
+import com.dd3boh.outertune.engine.Lean
+import com.dd3boh.outertune.engine.LeanGaveWay
+import com.dd3boh.outertune.engine.LeanOnScreen
+import com.dd3boh.outertune.engine.LeanRow
+import com.dd3boh.outertune.engine.storedLocalToInstant
+import kotlinx.coroutines.flow.StateFlow
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.engine.versionKey
 import com.dd3boh.outertune.constants.RestsEverywhereKey
 import kotlinx.coroutines.sync.withLock
 import com.dd3boh.outertune.constants.ShadowComparisonKey
 import com.dd3boh.outertune.engine.dayPartBucket
-import com.dd3boh.outertune.engine.quotas
 import com.dd3boh.outertune.engine.RowBuildCodec
 import com.dd3boh.outertune.constants.FamiliarityKey
 import com.dd3boh.outertune.constants.DiscoverRowKey
@@ -188,7 +195,15 @@ class HomeViewModel @Inject constructor(
      * listener has just played stays where it was, playing, until they pull to refresh; an
      * exclusion written from the player's menu in the meantime is applied, since they asked for it.
      */
-    fun applyTidy() { viewModelScope.launch(Dispatchers.IO) { runCatching { learning.run() }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }; tidyRows() } }
+    fun applyTidy() {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { learning.run() }.onFailure { Log.w("HomeViewModel", "The loop failed", it) }
+            // Under Playing now, a session that has moved on brings a new row. On the engine's own
+            // row that is read from the phone only; Try both drafts its mix after the feed, so it
+            // takes the whole load. Every other row, and this one until then, stays as it was.
+            if (similarRebuildDue()) { lastEngineBuildAt = 0L; refresh(localOnly = quickPicksSource() == QuickPicksSource.ENGINE) } else tidyRows()
+        }
+    }
 
     /**
      * What counts as just played, taken once per refresh. The pass used to read it afresh every
@@ -274,6 +289,30 @@ class HomeViewModel @Inject constructor(
     private var lastEngineNewOnly = false
     private var lastEngineFamiliarity = -1
     private var lastEngineChip = -1
+    /** The lean chosen when the standing engine row was built, so a change of choice builds it again. */
+    private var lastEngineLean = Lean.AUTO
+    /** Playing now built with no session under way: when the latest session's last listen ended. */
+    private var lastEngineSimilarLastAt: Long? = null
+
+    /** What Best recommendations leans toward, as chosen: Auto unless the listener picked one. */
+    private fun storedLean(): Lean = Lean.ofName(context.dataStore[QuickPicksLeanKey])
+
+    /** The choice as it stands, for the first chip's label (and the settings line under it). */
+    val quickPicksLean: StateFlow<Lean> = context.dataStore.data
+        .map { Lean.ofName(it[QuickPicksLeanKey]) }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, Lean.AUTO)
+
+    /**
+     * Under a lean, what Home shows of it: the heading over Quick picks and the line in Why these?,
+     * counted on the row actually on screen. Null when no lean is applied, or the engine's row is
+     * not the one showing.
+     */
+    val leanOnScreen = MutableStateFlow<LeanOnScreen?>(null)
+
+    /** The engine's parameters as the developer page and Familiarity leave them. */
+    private fun engineParams(familiarity: Int = context.dataStore.get(FamiliarityKey, 25)): EngineParams =
+        EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0)
     /** How many listens carry the current mood chip; below the threshold the row says it is still learning. */
     val engineChipTagged = MutableStateFlow(-1)
 
@@ -537,11 +576,41 @@ class HomeViewModel @Inject constructor(
         val last = database.lastBuild(1) ?: return@withContext null
         if (!rowIsFresh(last.builtAt, last.sessionId, last.bucket, now)) return@withContext null
         if (last.contextChip != context.dataStore.get(ContextChipKey, 0)) return@withContext null
+        // Built under another lean than the one chosen now: not the row that was left.
+        val stored = storedLean()
+        if (last.lean != stored.code) return@withContext null
         val cards = RowBuildCodec.decode(last.cards)
         if (cards.size < EngineParams.DEFAULT.minCards) return@withContext null
-        BuiltRow(cards, EngineLoader.parseSeeds(last.seeds), RowBuildCodec.decode(last.pool), quotas(20, last.dial / 100.0, false), last.lastFmShare).also {
+        val newOnly = context.dataStore.get(NewSongsOnlyKey, false)
+        val familiarity = context.dataStore.get(FamiliarityKey, 25)
+        val p = engineParams(familiarity)
+        // The quotas the build had, from the settings it was built under, Familiarity included:
+        // they were taken at the dial alone, so Why these? gave the wrong Again count after a cold start.
+        val shape = EngineRow.shape(p, last.dial / 100.0, newOnly, false, last.contextChip, stored)
+        val applied = Lean.ofCode(last.leanApplied)
+        val lead = applied.lane
+        // A lane was to lead and the build followed no lean: the lean had too little and the row
+        // is Auto's, with Auto's quotas. Which of the two reasons is not kept, so the heading
+        // takes the usual one, a lane with nothing. Never heard with New songs only has no lead
+        // lane, so there the build cannot be told from one that kept its rule, and says nothing.
+        val gaveWay = if (shape.lead != null && lead == null) LeanGaveWay(shape.lean, nothing = true) else null
+        // The most lead cards one artist holds, which is at least what the build allowed; the
+        // build's own figure is not kept, and the tidy pass only needs one that lets them all stay.
+        val cap = if (lead == null) p.maxPerArtist else {
+            val leadIds = cards.filter { it.lane == lead }.map { it.songId }
+            val byArtist = runCatching { database.songsByIds(leadIds).first() }.getOrDefault(emptyList())
+                .groupingBy { it.artists.firstOrNull()?.name?.trim()?.lowercase() }.eachCount().filterKeys { !it.isNullOrEmpty() }
+            maxOf(p.maxPerArtist, byArtist.values.maxOrNull() ?: 0)
+        }
+        BuiltRow(
+            cards, EngineLoader.parseSeeds(last.seeds), RowBuildCodec.decode(last.pool), if (gaveWay != null) shape.autoQuotas else shape.quotas, last.lastFmShare,
+            lean = applied, leanPlaced = if (lead == null) 0 else cards.count { it.lane == lead }, leadArtistCap = cap, leadWeight = last.leadWeight,
+            gaveWay = gaveWay,
+        ).also {
             lastEngineRow = it; lastEngineBuildAt = last.builtAt; lastEngineSession = last.sessionId; lastEngineBucket = last.bucket
-            lastEngineNewOnly = context.dataStore.get(NewSongsOnlyKey, false); lastEngineFamiliarity = context.dataStore.get(FamiliarityKey, 25); lastEngineChip = last.contextChip
+            lastEngineNewOnly = newOnly; lastEngineFamiliarity = familiarity; lastEngineChip = last.contextChip
+            lastEngineLean = stored
+            lastEngineSimilarLastAt = if (it.asked == Lean.SIMILAR && last.sessionId == -1L) runCatching { database.lastListen()?.endedAt }.getOrNull() else null
         }
     }
 
@@ -566,12 +635,14 @@ class HomeViewModel @Inject constructor(
             runCatching {
                 val now = System.currentTimeMillis()
                 val last = database.lastBuild(SHADOW_ROW_KEY)
-                if (last != null && rowIsFresh(last.builtAt, last.sessionId, last.bucket, now)) return@launch
+                // Under the lean chosen now, so "would Best recommendations have held it" judges the
+                // row this listener would actually get; chip Auto, as the shadow always was.
+                val stored = storedLean()
+                if (last != null && rowIsFresh(last.builtAt, last.sessionId, last.bucket, now) && last.lean == stored.code) return@launch
                 val mode = similarMode()
                 val input = engineInput(now, mode)
                 val weights = runCatching { learning.weights() }.getOrDefault(Weights.PRIORS)
-                val familiarity = context.dataStore.get(FamiliarityKey, 25)
-                val row = EngineRow.build(input, weights = weights, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness) / 100.0, lastFmShare = lastFmShare(mode, now))
+                val row = EngineRow.build(input, weights = weights, p = engineParams(), dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness) / 100.0, lastFmShare = lastFmShare(mode, now), stored = stored)
                 if (row.cards.isEmpty()) return@launch
                 database.transactionNow {
                     insert(RowBuild(
@@ -580,6 +651,7 @@ class HomeViewModel @Inject constructor(
                         pool = RowBuildCodec.encode(row.pool), cards = RowBuildCodec.encode(row.cards),
                         shownIds = row.cards.joinToString("\n") { it.songId },
                         lastFmShare = row.lastFmShare,
+                        lean = stored.code, leanApplied = row.lean.code, leadWeight = row.leadWeight,
                     ))
                 }
             }.onFailure { Log.w("HomeViewModel", "Shadow build failed", it) }
@@ -608,7 +680,9 @@ class HomeViewModel @Inject constructor(
         val session = currentSessionOf(now)
         val newOnlyNow = context.dataStore.get(NewSongsOnlyKey, false)
         val familiarityNow = context.dataStore.get(FamiliarityKey, 25)
+        val leanNow = storedLean()
         if (restored != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && newOnlyNow == lastEngineNewOnly && familiarityNow == lastEngineFamiliarity && context.dataStore.get(ContextChipKey, 0) == lastEngineChip &&
+            leanNow == lastEngineLean &&
             lastEngineBucket == dayPartBucket(now, java.util.TimeZone.getDefault().getOffset(now) / 60_000) && engineInputCache == null) {
             // Fresh and restored from the database: shown as it was, without reading the library first.
             engineReasons.value = (restored.cards + restored.pool).associate { c -> c.songId to c.reasons.map { CardReason(it, null) } }
@@ -624,24 +698,34 @@ class HomeViewModel @Inject constructor(
             return@withContext wanted.mapNotNull { byId[it] }
         }
         val mode = similarMode()
+        // Playing now follows the session, so it never builds from an input older than the last
+        // listen: the five-minute cache would otherwise miss the songs just played and the related
+        // lists fetched for the one playing. Every other row keeps the cache as it was.
+        if (Lean.applied(leanNow, context.dataStore.get(ContextChipKey, ContextChip.AUTO), newOnlyNow, false) == Lean.SIMILAR) {
+            val cached = engineInputCache
+            if (cached != null && LeanRow.inputBehind(runCatching { database.latestListenStart() }.getOrNull(), cached.second.listens.maxOfOrNull { it.startedAt })) engineInputCache = null
+        }
         val input = engineInput(now, mode)
         val standing = lastEngineRow
         // A refresh asks for something else: the last row's songs sit this build out and its
-        // seeds are damped as if they had just been used, which they were.
+        // seeds are damped as if they had just been used, which they were. Under Playing now the
+        // lead cards past the first column may come back, see LeanRow.pullBanned.
         val variety = varietyOnNextBuild && standing != null
         varietyOnNextBuild = false
         val varied = if (variety) input.copy(
             pastSeeds = input.pastSeeds + PastSeeds(now, standing!!.seeds),
-            banned = standing.cards.mapTo(HashSet()) { it.songId },
+            banned = LeanRow.pullBanned(standing.cards, standing.lean, EngineParams.DEFAULT.columns),
         ) else input
         val newOnly = context.dataStore.get(NewSongsOnlyKey, false)
         val familiarity = context.dataStore.get(FamiliarityKey, 25)
         val chip = context.dataStore.get(ContextChipKey, ContextChip.AUTO)
         engineChipTagged.value = if (chip in ContextChip.MOODS) input.listens.count { it.contextChip == chip } else -1
-        val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly && familiarity == lastEngineFamiliarity && chip == lastEngineChip) standing
-        else EngineRow.build(varied.copy(notSeeds = rejectedSeeds.toSet(), chip = chip), weights = weightsInUse, p = EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0), dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness) / 100.0, newOnly = newOnly, lastFmShare = lastFmShare(mode, now)).also {
+        val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly && familiarity == lastEngineFamiliarity && chip == lastEngineChip && leanNow == lastEngineLean) standing
+        else EngineRow.build(varied.copy(notSeeds = rejectedSeeds.toSet(), chip = chip), weights = weightsInUse, p = engineParams(familiarity), dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness) / 100.0, newOnly = newOnly, lastFmShare = lastFmShare(mode, now), stored = leanNow).also {
             lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket; lastEngineNewOnly = newOnly; lastEngineFamiliarity = familiarity; lastEngineChip = chip
-            Log.d("HomeViewModel", "engine row: ${it.cards.size} cards, ${it.pool.size} in the pool, ${it.seeds.size} seeds, from ${input.songs.size} songs, ${input.listens.size} listens, ${input.edges.size} edges in ${System.currentTimeMillis() - now} ms")
+            lastEngineLean = leanNow
+            lastEngineSimilarLastAt = if (it.asked == Lean.SIMILAR && session == -1L) runCatching { database.lastListen()?.endedAt }.getOrNull() else null
+            Log.d("HomeViewModel", "engine row: ${it.cards.size} cards, ${it.pool.size} in the pool, ${it.seeds.size} seeds, lean ${it.lean} (${it.leanPlaced} of ${it.lean.lane?.let { l -> it.quotas[l] } ?: 0})${it.gaveWay?.let { g -> ", ${g.lean} gave way" }.orEmpty()}, from ${input.songs.size} songs, ${input.listens.size} listens, ${input.edges.size} edges in ${System.currentTimeMillis() - now} ms")
         }
         engineReasons.value = (row.cards + row.pool).associate { c -> c.songId to c.reasons.map { reasonOf(it, c, input) } }
         engineSeeds.value = row.seeds.map { it to (input.songs[it]?.title ?: it) }
@@ -702,11 +786,54 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun tidyRows() = withContext(Dispatchers.IO) { tidyLock.withLock { tidyRowsNow() } }
 
+    /**
+     * The lean as the row on screen shows it, or null with none applied. Under Try both only the
+     * engine's own cards count, so Why these? says what is really there.
+     */
+    private fun leanOnScreenOf(row: BuiltRow?, shown: List<Song>, laneOf: Map<String, Lane>, source: QuickPicksSource): LeanOnScreen? {
+        // The lean had too little to give and the row is Auto's: none of its cards are the lean's.
+        // Never heard with New songs only says nothing then, as it says nothing when its strict
+        // row stands: it usually had a few songs, only not enough for a row.
+        row?.gaveWay?.takeIf { !(it.lean == Lean.NEW && lastEngineNewOnly) }
+            ?.let { return LeanOnScreen(lastEngineLean, it.lean, 0, 0, 0, shown.size, lastEngineSimilarLastAt, it) }
+        val lead = row?.lean?.lane ?: return null
+        val onScreen = shown.count { laneOf[it.id] == lead && (source != QuickPicksSource.COMPARE || compareTeams[it.id] == 1) }
+        return LeanOnScreen(lastEngineLean, row.lean, row.quotas[lead] ?: 0, row.leanPlaced, onScreen, shown.size, lastEngineSimilarLastAt)
+    }
+
+    /**
+     * Playing now follows the session: when Home comes back into view and enough listens heard
+     * well have started since the row was built, none of them from the row or its widget, the
+     * row is due to be built again. See [EngineParams.leanSimilarRebuildListens]; 0 turns it off.
+     * A row that gave way to Auto's for want of related songs follows the session too, since the
+     * songs played since may be the ones that have some.
+     */
+    private suspend fun similarRebuildDue(): Boolean = runCatching {
+        val row = lastEngineRow ?: return false
+        if (row.asked != Lean.SIMILAR || engineFallback.value != 0) return false
+        val source = quickPicksSource()
+        if (source != QuickPicksSource.ENGINE && source != QuickPicksSource.COMPARE) return false
+        val p = engineParams()
+        if (p.leanSimilarRebuildListens <= 0) return false
+        val listens = database.listensSince(lastEngineBuildAt)
+        if (listens.size < p.leanSimilarRebuildListens) return false
+        val likedAt = database.songsByIds(listens.map { it.songId }.distinct()).first().associate { s ->
+            s.id to s.song.likedDate?.let { d -> storedLocalToInstant(Converters().dateToTimestamp(d)!!) }?.takeIf { s.song.liked }
+        }
+        LeanRow.similarRebuildDue(row.asked, LeanRow.heardWellSince(listens, { likedAt[it] }, p), p)
+    }.onFailure { Log.w("HomeViewModel", "Could not count the listens since the build", it) }.getOrDefault(false)
+
     private suspend fun tidyRowsNow() {
         val tidy = context.dataStore.get(TidyHomeRowsKey, true)
+        // The engine's row behind Quick picks, when it is the one showing (on its own or in Try
+        // both), and its cards' lanes, for the lean's heading and what the pass keeps in place.
+        val source = quickPicksSource()
+        val engineRow = lastEngineRow?.takeIf { (source == QuickPicksSource.ENGINE || source == QuickPicksSource.COMPARE) && engineFallback.value == 0 }
+        val laneOf = engineRow?.let { r -> (r.cards + r.pool).associate { it.songId to it.lane } }.orEmpty()
         if (!tidy) {
             quickPicks.value = quickPicksPool.take(20)
             ytQuickPicks.value = ytQuickPicksPool?.take(20)
+            leanOnScreen.value = leanOnScreenOf(engineRow, quickPicks.value.orEmpty(), laneOf, source)
             if (discoverBuilding.get() == 0) discover.value = discoverPool.take(20).takeIf { discoverWanted() }
             forgottenFavorites.value = forgottenPool.take(20)
             keepListening.value = keepListeningPool
@@ -735,7 +862,16 @@ class HomeViewModel @Inject constructor(
         // Quick picks is the row that is supposed to be varied, and the one that goes lopsided:
         // a run of the same sort of music arrives together because it comes from the same few
         // artists. Two apiece breaks that up without thinning a row that was fine already.
-        fun songs(items: List<Song>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE) = pass.row(items, fresh, { it.song.id }, { it.song.title }, { it.artists.firstOrNull()?.name }, { it.artists.firstOrNull()?.id }, { it.song.id in againIds }, maxPerArtist)
+        fun songs(items: List<Song>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE, capOf: ((Song) -> Int)? = null) = pass.row(items, fresh, { it.song.id }, { it.song.title }, { it.artists.firstOrNull()?.name }, { it.artists.firstOrNull()?.id }, { it.song.id in againIds }, maxPerArtist, capOf)
+        // The engine's own row under a lean: its lead cards keep their places and the first
+        // column through the pass (LeanRow.compose). Never Try both, whose row is a drafted mix.
+        val leanRow = engineRow?.takeIf { source == QuickPicksSource.ENGINE && it.lean.lane != null }
+        fun quickPicksRow(): List<Song> {
+            val lead = leanRow?.lean?.lane ?: return songs(quickPicksPool, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST).take(20)
+            val tidied = songs(quickPicksPool, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST, capOf = { s -> if (laneOf[s.id] == lead) maxOf(QUICK_PICKS_PER_ARTIST, leanRow.leadArtistCap) else QUICK_PICKS_PER_ARTIST })
+            val cardIds = leanRow.cards.mapTo(HashSet()) { it.songId }
+            return LeanRow.compose(quickPicksPool.filter { it.id in cardIds }, tidied, lead, 20, EngineParams.DEFAULT.columns, { it.id }, { laneOf[it.id] }, { it.artists.firstOrNull()?.name })
+        }
         fun local(items: List<LocalItem>) = pass.row(items, false, { (it as? Song)?.song?.id }, { (it as? Song)?.song?.title }, { (it as? Song)?.artists?.firstOrNull()?.name }, { (it as? Song)?.artists?.firstOrNull()?.id })
         fun yt(items: List<YTItem>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE) = pass.row(items, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name }, { (it as? SongItem)?.artists?.firstOrNull()?.id }, { false }, maxPerArtist)
         // Whichever Quick picks row is on screen goes first; the other is not shown and must not
@@ -746,9 +882,10 @@ class HomeViewModel @Inject constructor(
             Log.d("HomeViewModel", "showing the YouTube row: ${ytQuickPicks.value?.size} of a pool of ${ytQuickPicksPool?.size} after tidy, first ${ytQuickPicks.value?.firstOrNull()?.title}")
             quickPicks.value = quickPicksPool.take(20)
         } else {
-            quickPicks.value = songs(quickPicksPool, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST).take(20)
+            quickPicks.value = quickPicksRow()
             ytQuickPicks.value = ytQuickPicksPool?.take(20)
         }
+        leanOnScreen.value = leanOnScreenOf(engineRow, if (ytShown) emptyList() else quickPicks.value.orEmpty(), laneOf, source)
         // Under Quick picks, so it gives way to it; nothing just played, like Quick picks.
         // Held while a build is running, and claiming nothing then, as it is not what will be shown.
         if (discoverBuilding.get() == 0) discover.value = if (discoverWanted()) songs(discoverPool, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST).take(20) else null
@@ -804,6 +941,10 @@ class HomeViewModel @Inject constructor(
                     // Every source, not just the engine's, so all three can be scored the same way.
                     shownIds = ids.joinToString("\n"),
                     lastFmShare = engineRow?.lastFmShare,
+                    // The engine's own row and Try both carry the lean; every other row has none.
+                    lean = if (engineRow != null) lastEngineLean.code else 0,
+                    leanApplied = engineRow?.lean?.code ?: 0,
+                    leadWeight = engineRow?.leadWeight ?: 1.0,
                 ))
                 currentBuildSongs = ids
                 currentTeam = rowKey
@@ -1495,6 +1636,19 @@ class HomeViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { engineInputCache = null; lastEngineBuildAt = 0L; lastDiscoverBuildAt = 0L; refresh(force = true) }
+        }
+        // A new choice under Quick picks leans toward is a new row at once, like a new source of
+        // similar songs, when the row on screen is the engine's. On another source nothing on
+        // screen changes, and the shadow build notices the change by itself at its next turn.
+        viewModelScope.launch {
+            context.dataStore.data
+                .map { Lean.ofName(it[QuickPicksLeanKey]) }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect {
+                    val source = quickPicksSource()
+                    if (source == QuickPicksSource.ENGINE || source == QuickPicksSource.COMPARE) { lastEngineBuildAt = 0L; refresh(force = true) }
+                }
         }
         // The Discover row appears or goes the moment its switch is turned, not at the next refresh.
         viewModelScope.launch {

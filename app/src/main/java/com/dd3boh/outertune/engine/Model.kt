@@ -198,7 +198,72 @@ data class BuiltRow(
     val quotas: Map<Lane, Int>,
     /** The Last.fm share this build aimed its similar songs at, or null when it drew on one source. */
     val lastFmShare: Double? = null,
-)
+    /**
+     * The lean this build applied: AUTO when none is set, when a chip or New songs only set it
+     * aside, for Never heard under New songs only, where the whole row is new and no lane leads,
+     * and when the lean had too little to give and the row is Auto's (see [gaveWay]).
+     */
+    val lean: Lean = Lean.AUTO,
+    /** How many of the lead lane's cards the build placed, for the heading's "only N right now". */
+    val leanPlaced: Int = 0,
+    /** Cards one artist may hold in the lead lane: two, up to four for someone with few returning artists. */
+    val leadArtistCap: Int = 2,
+    /** What each of the lead lane's impressions weighs in learning, see [LeanWeighting]. One with no lean. */
+    val leadWeight: Double = 1.0,
+    /**
+     * Set when the settings asked for a lean and the build gave Auto's row instead. Every other
+     * field is then Auto's, [lean] and [leadWeight] included, so the row is tidied, recorded and
+     * graded as the Auto row it is; this only tells the heading what to say.
+     */
+    val gaveWay: LeanGaveWay? = null,
+) {
+    /** The lean the build was for: the one it followed, or the one it gave way on. */
+    val asked: Lean get() = gaveWay?.lean ?: lean
+}
+
+/**
+ * A lean the build could not follow. Either its lane had no song to give ([nothing]), or the leaned
+ * row came out with fewer cards than Quick picks needs to show the engine's row
+ * ([EngineParams.minCards]) where Auto's has enough.
+ */
+data class LeanGaveWay(val lean: Lean, val nothing: Boolean)
+
+/**
+ * What Best recommendations leans toward, a standing choice kept in the preferences by name.
+ *
+ * Auto is the ordinary row. Each other value gives one existing lane most of the row and the
+ * whole first column, narrowed to what its label promises, and leaves the rest to the usual mix:
+ * Never heard (explore), Your artists (artist), Forgotten (rediscover), Playing now (related). The
+ * code is what row_build stores, never the ordinal, as with [Lane] and the play origins.
+ */
+enum class Lean(val code: Int, val lane: Lane?) {
+    AUTO(0, null),
+    NEW(1, Lane.EXPLORE),
+    ARTIST(2, Lane.ARTIST),
+    FORGOTTEN(3, Lane.REDISCOVER),
+    SIMILAR(4, Lane.RELATED);
+
+    companion object {
+        fun ofCode(code: Int): Lean = entries.firstOrNull { it.code == code } ?: AUTO
+        fun ofName(name: String?): Lean = entries.firstOrNull { it.name == name } ?: AUTO
+
+        /**
+         * The lean a build follows. A chip or New songs only is a request for right now and wins
+         * over the standing choice, except where following it would make the row less of what the
+         * lean promises: under Never heard, Discover and New songs only keep the lean and narrow
+         * it. A mood under Playing now is a request to break the run the lean follows, so the
+         * lean is set aside. The Discover something new row never leans.
+         */
+        fun applied(stored: Lean, chip: Int, newOnly: Boolean, neverPlayed: Boolean): Lean = when {
+            neverPlayed || stored == AUTO -> AUTO
+            newOnly -> if (stored == NEW) NEW else AUTO
+            chip == ContextChip.FAVOURITES -> AUTO
+            chip == ContextChip.DISCOVER -> if (stored == NEW) NEW else AUTO
+            chip in ContextChip.MOODS && stored == SIMILAR -> AUTO
+            else -> stored
+        }
+    }
+}
 
 /** Weekday or weekend, times night 0 to 5, morning 6 to 11, afternoon 12 to 17, evening 18 to 23. */
 fun dayPartBucket(startedAt: Long, tzOffsetMin: Int): Int {

@@ -13,6 +13,9 @@ import com.dd3boh.outertune.constants.ContextChipKey
 import com.dd3boh.outertune.constants.AdventurousnessKey
 import com.dd3boh.outertune.constants.DefaultAdventurousness
 import com.dd3boh.outertune.engine.Lane
+import com.dd3boh.outertune.engine.Lean
+import com.dd3boh.outertune.engine.LeanHeadingKind
+import com.dd3boh.outertune.engine.LeanOnScreen
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
@@ -54,6 +57,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.delay
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -174,7 +178,7 @@ import kotlin.random.Random
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
-internal enum class QuickPicksLabelKind { NONE, TRY_BOTH, LIBRARY, YOUTUBE }
+internal enum class QuickPicksLabelKind { NONE, TRY_BOTH, LIBRARY, YOUTUBE, LEAN }
 
 /**
  * Which label belongs over Quick picks, named after what the row actually draws: YouTube's
@@ -182,14 +186,19 @@ internal enum class QuickPicksLabelKind { NONE, TRY_BOTH, LIBRARY, YOUTUBE }
  * YouTube's shelf is not always there when the engine has fallen back that far (the opening load
  * stays on the phone, and the network or the feed can leave it out), and then the library's
  * songs, or none, are on screen.
+ *
+ * [leaning] is a lean applied to the engine's row on screen: its own row says what it leans
+ * toward. Try both keeps its own label, since half of its row is the other source's.
  */
 internal fun quickPicksLabelKind(
     source: QuickPicksSource,
     engineFallback: Int,
     ytPicksShown: Boolean,
     localPicksNonEmpty: Boolean,
+    leaning: Boolean = false,
 ): QuickPicksLabelKind = when {
     source == QuickPicksSource.COMPARE && engineFallback == 0 -> QuickPicksLabelKind.TRY_BOTH
+    source == QuickPicksSource.ENGINE && engineFallback == 0 && leaning -> QuickPicksLabelKind.LEAN
     source != QuickPicksSource.ENGINE && source != QuickPicksSource.COMPARE -> QuickPicksLabelKind.NONE
     engineFallback == 2 && ytPicksShown -> QuickPicksLabelKind.YOUTUBE
     engineFallback >= 1 && localPicksNonEmpty -> QuickPicksLabelKind.LIBRARY
@@ -448,6 +457,7 @@ fun HomeScreen(
     // or a row scrolled past in a flick is not something the listener passed over.
     val engineFallback by viewModel.engineFallback.collectAsState()
     val engineReasons by viewModel.engineReasons.collectAsState()
+    val leanState by viewModel.leanOnScreen.collectAsState()
     val showReasons by rememberPreference(ShowReasonsKey, defaultValue = true)
     // YouTube's shelf is the row when it is the source, or when it stands in for the engine. The
     // view model tidies and logs by the same rule, so the row it tidies is the row drawn here.
@@ -742,10 +752,11 @@ fun HomeScreen(
                     NavigationTitle(
                         title = stringResource(R.string.quick_picks),
                         onClick = if ((quickPicksSource == QuickPicksSource.ENGINE || quickPicksSource == QuickPicksSource.COMPARE) && engineFallback == 0) ({ showWhyThese = true }) else null,
-                        label = when (quickPicksLabelKind(quickPicksSource, engineFallback, ytPicksShown = ytPicks != null, localPicksNonEmpty = localPicks.isNotEmpty())) {
+                        label = when (quickPicksLabelKind(quickPicksSource, engineFallback, ytPicksShown = ytPicks != null, localPicksNonEmpty = localPicks.isNotEmpty(), leaning = leanState?.heading != null)) {
                             QuickPicksLabelKind.TRY_BOTH -> stringResource(R.string.quick_picks_try_both_label)
                             QuickPicksLabelKind.LIBRARY -> stringResource(R.string.quick_picks_showing_library)
                             QuickPicksLabelKind.YOUTUBE -> stringResource(R.string.quick_picks_showing_youtube)
+                            QuickPicksLabelKind.LEAN -> leanState?.let { leanHeadingText(it) }
                             QuickPicksLabelKind.NONE -> null
                         },
                         modifier = Modifier.animateItem()
@@ -1328,6 +1339,53 @@ private fun reasonText(reason: CardReason): String = when (reason.key) {
     else -> stringResource(R.string.reason_activation)
 }
 
+/** The first chip's name: Auto, or the short name of the chosen lean. */
+internal fun leanChipName(lean: Lean): Int = when (lean) {
+    Lean.AUTO -> R.string.chip_auto
+    Lean.NEW -> R.string.chip_lean_new
+    Lean.ARTIST -> R.string.chip_lean_artist
+    Lean.FORGOTTEN -> R.string.chip_lean_forgotten
+    Lean.SIMILAR -> R.string.chip_lean_similar
+}
+
+/**
+ * A lean in the words of the setting, which are the poll's. The one place they are looked up, for
+ * the setting's options and for Why these?, so a lean reads the same wherever it is named.
+ */
+internal fun leanOptionName(lean: Lean): Int = when (lean) {
+    Lean.AUTO -> R.string.quick_picks_lean_auto
+    Lean.NEW -> R.string.quick_picks_lean_new
+    Lean.ARTIST -> R.string.quick_picks_lean_artist
+    Lean.FORGOTTEN -> R.string.quick_picks_lean_forgotten
+    Lean.SIMILAR -> R.string.quick_picks_lean_similar
+}
+
+/** The heading over Quick picks under a lean: what it leans toward, and whether it ran short. */
+@Composable
+private fun leanHeadingText(state: LeanOnScreen): String? {
+    val kind = state.heading ?: return null
+    val context = LocalContext.current
+    val base = when (state.applied) {
+        Lean.AUTO -> return null
+        Lean.NEW -> stringResource(R.string.quick_picks_leaning_new)
+        Lean.ARTIST -> stringResource(R.string.quick_picks_leaning_artist)
+        Lean.FORGOTTEN -> stringResource(R.string.quick_picks_leaning_forgotten)
+        Lean.SIMILAR -> state.lastSessionEndedAt?.let { at ->
+            // The time alone today, with the date before it on an earlier day.
+            val sameDay = android.text.format.DateUtils.isToday(at)
+            val flags = android.text.format.DateUtils.FORMAT_SHOW_TIME or
+                (if (sameDay) 0 else android.text.format.DateUtils.FORMAT_SHOW_DATE or android.text.format.DateUtils.FORMAT_ABBREV_MONTH)
+            stringResource(R.string.quick_picks_leaning_similar_last, android.text.format.DateUtils.formatDateTime(context, at, flags))
+        } ?: stringResource(R.string.quick_picks_leaning_similar)
+    }
+    return when (kind) {
+        LeanHeadingKind.LEANING -> base
+        LeanHeadingKind.SHORT -> stringResource(R.string.quick_picks_leaning_short, base, state.onScreen)
+        LeanHeadingKind.NOTHING -> if (state.forgottenHasNothing) stringResource(R.string.quick_picks_leaning_forgotten_none)
+            else stringResource(R.string.quick_picks_leaning_none, base)
+    }
+}
+
 /** Why these? The seeds the row was built around (each can be turned down), the lanes and their quotas, and the exclusions in force. */
 @Composable
 private fun WhyTheseDialog(viewModel: HomeViewModel, navController: NavController, onDismiss: () -> Unit) {
@@ -1335,6 +1393,7 @@ private fun WhyTheseDialog(viewModel: HomeViewModel, navController: NavControlle
     val quotas by viewModel.engineQuotas.collectAsState()
     val exclusions by viewModel.activeExclusions.collectAsState(initial = 0)
     val adventurousness by rememberPreference(AdventurousnessKey, defaultValue = DefaultAdventurousness)
+    val leanState by viewModel.leanOnScreen.collectAsState()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.why_these)) },
@@ -1348,6 +1407,11 @@ private fun WhyTheseDialog(viewModel: HomeViewModel, navController: NavControlle
                     }
                 }
                 Spacer(Modifier.height(8.dp))
+                // Counted on the row on screen, so it is true under Try both as well.
+                leanState?.let { s ->
+                    Text(stringResource(R.string.why_these_lean, stringResource(leanOptionName(s.applied)), s.onScreen, s.shown), style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(8.dp))
+                }
                 Text(stringResource(R.string.why_these_lanes), style = MaterialTheme.typography.titleSmall)
                 Text(
                     listOf(
@@ -1375,8 +1439,11 @@ private fun ContextChipRow(viewModel: HomeViewModel, modifier: Modifier = Modifi
     val (chip, onChipChange) = rememberPreference(ContextChipKey, defaultValue = ContextChip.AUTO)
     val tagged by viewModel.engineChipTagged.collectAsState()
     val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
+    // While a lean is chosen the first chip carries its short name, in the same place and at the
+    // same size, so "Auto" means one thing on screen at a time.
+    val lean by viewModel.quickPicksLean.collectAsState()
     val names = listOf(
-        ContextChip.AUTO to stringResource(R.string.chip_auto), ContextChip.DISCOVER to stringResource(R.string.chip_discover),
+        ContextChip.AUTO to stringResource(leanChipName(lean)), ContextChip.DISCOVER to stringResource(R.string.chip_discover),
         ContextChip.FAVOURITES to stringResource(R.string.chip_favourites), ContextChip.FOCUS to stringResource(R.string.chip_focus),
         ContextChip.CHILL to stringResource(R.string.chip_chill), ContextChip.PARTY to stringResource(R.string.chip_party),
     )

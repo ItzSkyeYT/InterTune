@@ -33,6 +33,13 @@ class EngineBuildTrial {
             timed("groups", { VersionGroups(songs.values, links) })
             val row = timed("build (all)", { EngineRow.build(input, random = Random(1)) })
             timed("build again", { EngineRow.build(input, random = Random(2)) })
+            // The two leans with the biggest lanes: Never heard reads every song never played, Your
+            // artists every song of the returning artists. Both should cost about what Auto does.
+            val auto = (3..7).map { s -> val t0 = System.nanoTime(); EngineRow.build(input, random = Random(s.toLong())); System.nanoTime() - t0 }.average()
+            for (lean in listOf(Lean.NEW, Lean.ARTIST)) {
+                val leaned = (3..7).map { s -> val t0 = System.nanoTime(); EngineRow.build(input, random = Random(s.toLong()), stored = lean); System.nanoTime() - t0 }.average()
+                println("  %-14s %5d ms, Auto %d ms, %+.0f%%".format("build ${lean.name.lowercase()}", (leaned / 1e6).toLong(), (auto / 1e6).toLong(), 100 * (leaned / auto - 1)))
+            }
             timed("rank 40", { EngineRow.rank(input, songs.keys.take(40).toList()) })
             println("  ${row.cards.size} cards, ${row.pool.size} pool, ${row.seeds.size} seeds; ${stats.songs.size} songs with listens, ${stats.artists.size} artists")
             row.cards.forEachIndexed { i, c -> println("  %2d %-9s z %.2f p %.3f %-40s %s".format(i, c.lane, c.z, c.p, songs[c.songId]?.title?.take(40), c.reasons)) }

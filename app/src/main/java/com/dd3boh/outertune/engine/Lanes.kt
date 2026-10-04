@@ -14,8 +14,14 @@ import kotlin.random.Random
 /** A candidate with everything the assembly needs to place it; [sources] are its [Provenance] bits. */
 class Candidate(val songId: String, val lane: Lane, val x: DoubleArray, val z: Double, val seedId: String?, val artistId: String?, val group: String, val sources: Int = 0)
 
-/** How many cards each lane gets, by largest remainder over the row. */
-fun quotas(rowSize: Int, dial: Double, newOnly: Boolean, p: EngineParams = EngineParams.DEFAULT): Map<Lane, Int> {
+/**
+ * How many cards each lane gets, by largest remainder over the row.
+ *
+ * With a [lean] (and not [newOnly], which already decides the whole row), the lean's lane gets
+ * [leadCards] and the other four split what is left by largest remainder in their blend
+ * proportions, so Adventurousness and Familiarity still shape the rest of the row.
+ */
+fun quotas(rowSize: Int, dial: Double, newOnly: Boolean, p: EngineParams = EngineParams.DEFAULT, lean: Lean = Lean.AUTO, leadCards: Int = p.leanCards): Map<Lane, Int> {
     val e = if (newOnly) 1.0 else (p.exploreBase + p.exploreSpan * dial.coerceIn(0.0, 1.0))
     val rest = 1 - e
     val shares = mapOf(
@@ -25,6 +31,18 @@ fun quotas(rowSize: Int, dial: Double, newOnly: Boolean, p: EngineParams = Engin
         Lane.ARTIST to rest * p.artistShare,
         Lane.REDISCOVER to rest * p.rediscoverShare,
     )
+    val lead = lean.lane.takeIf { !newOnly }
+    if (lead != null) {
+        val leadCount = leadCards.coerceIn(0, rowSize)
+        val others = shares.filterKeys { it != lead }
+        val total = others.values.sum().takeIf { it > 0 } ?: 1.0
+        val restCards = rowSize - leadCount
+        val out = others.mapValues { (_, s) -> (s / total * restCards).toInt() }.toMutableMap()
+        var left = restCards - out.values.sum()
+        for (lane in others.keys.sortedByDescending { others[it]!! / total * restCards - out[it]!! }) { if (left <= 0) break; out[lane] = out[lane]!! + 1; left-- }
+        out[lead] = leadCount
+        return shares.keys.associateWith { out[it] ?: 0 }
+    }
     val floors = shares.mapValues { (_, s) -> (s * rowSize).toInt() }
     var left = rowSize - floors.values.sum()
     val byRemainder = shares.keys.sortedByDescending { shares[it]!! * rowSize - floors[it]!! }
@@ -45,6 +63,11 @@ fun quotas(rowSize: Int, dial: Double, newOnly: Boolean, p: EngineParams = Engin
  * whenever floor(share * (places + 1) + U) is more than it has had, with U drawn once per row, so
  * over the first n places it holds floor(share * n + U) of them. A due source with nothing open
  * gives its place to what the lane has, so the split never makes the row shorter.
+ *
+ * With a [lead] lane (a lean), the first column is the lead lane's, so the first thing on screen
+ * is what was asked for, and the rest of its cards spread evenly over the other columns. A lane
+ * that runs short then hands its places to the others in proportion to their quotas, so the row
+ * stays full and the usual mix fills the gap.
  */
 class Assembly(
     private val lanes: Map<Lane, List<Candidate>>,
@@ -53,6 +76,10 @@ class Assembly(
     private val p: EngineParams = EngineParams.DEFAULT,
     private val random: Random = Random.Default,
     private val lastFmShare: Double? = null,
+    /** The lane a lean favours; null for Auto, which keeps every rule exactly as it was. */
+    private val lead: Lane? = null,
+    /** Cards one artist may hold in the lead lane; every other card keeps [EngineParams.maxPerArtist]. */
+    private val leadArtistCap: Int = p.maxPerArtist,
 ) {
     private val takenGroups = HashSet<String>()
     private val perArtist = HashMap<String, Int>()
@@ -80,7 +107,8 @@ class Assembly(
         if (c.group in takenGroups) return false
         val artist = c.artistId
         if (artist != null && !(p.againIgnoresArtistCap && c.lane == Lane.AGAIN)) {
-            if ((perArtist[artist] ?: 0) >= p.maxPerArtist) return false
+            val cap = if (lead != null && c.lane == lead) leadArtistCap else p.maxPerArtist
+            if ((perArtist[artist] ?: 0) >= cap) return false
             if (artist in artistsInColumn(columnOf(slot))) return false
         }
         if (c.lane == Lane.RELATED && c.seedId != null && (perSeed[c.seedId] ?: 0) >= p.maxPerSeed) return false
@@ -136,25 +164,60 @@ class Assembly(
             if (have < want) {
                 val spare = want - have
                 effectiveQuotas[lane] = have
+                if (lead != null) {
+                    // Under a lean the usual mix fills the gap, each lane in proportion to its quota.
+                    repeat(spare) {
+                        laneOrder.filter { it != lane && lanes[it].orEmpty().size > (effectiveQuotas[it] ?: 0) }
+                            .maxByOrNull { handOffPull(it) }
+                            ?.let { effectiveQuotas[it] = (effectiveQuotas[it] ?: 0) + 1 }
+                    }
+                    continue
+                }
                 val to = listOf(Lane.RELATED, Lane.AGAIN, Lane.ARTIST).firstOrNull { it != lane && lanes[it].orEmpty().size > (effectiveQuotas[it] ?: 0) } ?: continue
                 effectiveQuotas[to] = (effectiveQuotas[to] ?: 0) + spare
             }
         }
-        // The first column: one card each from related, again, artist and explore when they all have something.
-        val firstColumn = listOf(Lane.RELATED, Lane.AGAIN, Lane.ARTIST, Lane.EXPLORE)
-        if (firstColumn.all { lanes[it].orEmpty().isNotEmpty() && (effectiveQuotas[it] ?: 0) > 0 }) {
-            for (lane in firstColumn) { val c = pick(lane, placed.size) ?: continue; place(c.first, c.second) }
+        // Where the furthest-behind rule starts counting from: nothing for Auto, the first column under a lean.
+        val base = HashMap<Lane, Int>()
+        if (lead != null) {
+            // The first column is the lead lane's, as far as it has cards it may place.
+            repeat(p.columns) {
+                if ((used[lead] ?: 0) < (effectiveQuotas[lead] ?: 0)) pick(lead, placed.size)?.let { place(it.first, it.second) }
+            }
+            base.putAll(used)
+        } else {
+            // The first column: one card each from related, again, artist and explore when they all have something.
+            val firstColumn = listOf(Lane.RELATED, Lane.AGAIN, Lane.ARTIST, Lane.EXPLORE)
+            if (firstColumn.all { lanes[it].orEmpty().isNotEmpty() && (effectiveQuotas[it] ?: 0) > 0 }) {
+                for (lane in firstColumn) { val c = pick(lane, placed.size) ?: continue; place(c.first, c.second) }
+            }
         }
-        // Then the lane furthest behind its quota, as a fraction, takes the next slot.
+        // Then the lane furthest behind its quota, as a fraction, takes the next slot. Under a lean
+        // the fraction is of what is left after the first column, so the rest of the lead lane's
+        // cards spread evenly over the columns instead of bunching at the end.
         var guard = 0
         while (placed.size < rowSize && guard++ < rowSize * 8) {
             val next = laneOrder
                 .filter { (effectiveQuotas[it] ?: 0) > (used[it] ?: 0) }
-                .maxByOrNull { 1.0 - (used[it] ?: 0).toDouble() / (effectiveQuotas[it] ?: 1) } ?: break
+                .maxByOrNull { val b = base[it] ?: 0; 1.0 - ((used[it] ?: 0) - b).toDouble() / maxOf(1, (effectiveQuotas[it] ?: 1) - b) } ?: break
             val c = pick(next, placed.size)
-            if (c == null) { effectiveQuotas[next] = used[next] ?: 0; continue }
+            if (c == null) {
+                val spare = (effectiveQuotas[next] ?: 0) - (used[next] ?: 0)
+                effectiveQuotas[next] = used[next] ?: 0
+                // Under a lean a lane that runs out of cards it may place hands its places on, so the
+                // row stays full; the heading says the lean ran short.
+                if (lead != null) repeat(spare) {
+                    laneOrder.filter { it != next && lanes[it].orEmpty().any { k -> allowed(k, placed.size) } }
+                        .maxByOrNull { handOffPull(it) }
+                        ?.let { effectiveQuotas[it] = (effectiveQuotas[it] ?: 0) + 1 }
+                }
+                continue
+            }
             place(c.first, c.second)
         }
         return placed
     }
+
+    /** How strongly a lane draws a handed-on place: its quota over one plus what it has been handed already. */
+    private fun handOffPull(lane: Lane): Double = (quotas[lane] ?: 0).toDouble() / (1 + (effectiveQuotas[lane] ?: 0) - (quotas[lane] ?: 0))
 }

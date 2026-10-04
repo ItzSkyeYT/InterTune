@@ -53,4 +53,16 @@ data class RowBuild(
     val gradedAt: Long? = null,
     /** The Last.fm share the build aimed its similar songs at; null when it drew on one source. */
     val lastFmShare: Double? = null,
+    /**
+     * The Quick picks lean that was chosen when the row was built, a [com.dd3boh.outertune.engine.Lean]
+     * code: 0 for Auto, and for every row that is not the engine's.
+     */
+    @ColumnInfo(defaultValue = "0") val lean: Int = 0,
+    /**
+     * The lean the build followed: 0 when a chip or New songs only set the chosen one aside, and
+     * when the lean had too little to give and the row is Auto's.
+     */
+    @ColumnInfo(defaultValue = "0") val leanApplied: Int = 0,
+    /** What each of the lead lane's impressions weighs in learning, see LeanWeighting; 1 with no lean. */
+    @ColumnInfo(defaultValue = "1.0") val leadWeight: Double = 1.0,
 )

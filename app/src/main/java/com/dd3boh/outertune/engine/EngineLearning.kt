@@ -83,13 +83,15 @@ class EngineLearning(private val context: Context, private val database: MusicDa
             val hits = picks.keys.count { it in rowGroups }
             database.transactionNow { scoreBuild(b.id, picks.size, hits, now) }
             if (b.rowKey != 1 || pool.isEmpty() || database.poolPicksOf(b.id) > 0) continue
-            // Pool picks: at most three, against the cards on screen that were not played.
+            // Pool picks: at most three, against the cards on screen that were not played. Under a
+            // lean each of those cards weighs what its impression weighs, so the comparison is with
+            // a row shaped like Auto's; with no lean every weight is one and this is the plain mean.
             val playedGroups = picks.keys
-            val reference = (cards + pool).filter { it.songId in shownSet && groups.groupOf(it.songId) !in playedGroups }
-                .distinctBy { it.songId }.map { it.features }
-            if (reference.isEmpty()) continue
-            val mean = DoubleArray(Features.COUNT) { i -> reference.sumOf { it[i] } / reference.size }
-            val poolPicks = pool.filter { c -> groups.groupOf(c.songId) in playedGroups && groups.groupOf(c.songId) !in rowGroups }.take(3)
+            val mean = LeanWeighting.reference(
+                (cards + pool).filter { it.songId in shownSet && groups.groupOf(it.songId) !in playedGroups }.distinctBy { it.songId },
+                Lean.ofCode(b.leanApplied).lane, b.leadWeight,
+            ) ?: continue
+            val poolPicks = LeanWeighting.poolPickCandidates(pool).filter { c -> groups.groupOf(c.songId) in playedGroups && groups.groupOf(c.songId) !in rowGroups }.take(3)
             if (poolPicks.isEmpty()) continue
             database.transactionNow {
                 poolPicks.forEach { c ->
@@ -125,11 +127,20 @@ class EngineLearning(private val context: Context, private val database: MusicDa
         // finds only cards already waiting leaves the database alone.
         val writes = Grading.writes(graded, pending.associate { it.id to it.outcome })
         if (writes.isEmpty()) return
+        // A leaned build's lead lane is weighed back to the share Auto would have given it (see
+        // LeanWeighting), here at grading, so Apply and Rebuild replay the same stored u.
+        val byId = pending.associateBy { it.id }
+        val builds = writes.mapNotNull { w -> (w as? CardWrite.Grade)?.let { byId[it.graded.impressionId]?.buildId } }.distinct().chunked(900)
+            .flatMap { database.buildLeans(it) }.associateBy { it.id }
         database.transactionNow {
             writes.forEach {
                 when (it) {
                     is CardWrite.Wait -> markWaiting(it.impressionId)
-                    is CardWrite.Grade -> it.graded.let { g -> markGraded(g.impressionId, g.outcome, g.y.toFloat(), g.u.toFloat(), now, g.listenId) }
+                    is CardWrite.Grade -> it.graded.let { g ->
+                        val imp = byId[g.impressionId]
+                        val u = if (imp == null) g.u else LeanWeighting.gradedU(g.u, imp.team, Lane.ofCode(imp.lane), builds[imp.buildId])
+                        markGraded(g.impressionId, g.outcome, g.y.toFloat(), u.toFloat(), now, g.listenId)
+                    }
                 }
             }
         }

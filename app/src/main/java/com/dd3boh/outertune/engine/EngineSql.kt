@@ -64,16 +64,26 @@ object EngineSql {
      * played in two back to back windows: from :from to :mid, and from :mid to :to. How it's
      * doing compares the two to say whether the share played is going up. The same cards and
      * the same played as [GRADED_BY_TEAM].
+     *
+     * Only cards of rows built under :lean, the choice under Quick picks leans toward as a Lean
+     * code, are compared. A choice changes what kind of song fills most of the row, and some kinds
+     * are played less however well they are picked, so a fortnight under one choice against a
+     * fortnight under another would read as the engine doing better or worse when only the
+     * question changed. It is the choice as stored on the build, so an evening on a chip does not
+     * take its cards out. recentAny and earlierAny count each window's cards under any choice,
+     * so the page can tell too few cards from too few since the choice changed.
      */
     const val CARD_TREND = """
         SELECT
-            COUNT(CASE WHEN visibleAt >= :mid THEN 1 END) AS recentSeen,
-            COUNT(CASE WHEN visibleAt >= :mid AND y >= 0.5 THEN 1 END) AS recentPlayed,
-            COUNT(CASE WHEN visibleAt < :mid THEN 1 END) AS earlierSeen,
-            COUNT(CASE WHEN visibleAt < :mid AND y >= 0.5 THEN 1 END) AS earlierPlayed
-        FROM impression
-        WHERE team = 1 AND slot >= 0 AND gradedAt IS NOT NULL AND outcome IN (1, 2, 3)
-          AND visibleAt >= :from AND visibleAt < :to
+            COUNT(CASE WHEN i.visibleAt >= :mid AND b.lean = :lean THEN 1 END) AS recentSeen,
+            COUNT(CASE WHEN i.visibleAt >= :mid AND b.lean = :lean AND i.y >= 0.5 THEN 1 END) AS recentPlayed,
+            COUNT(CASE WHEN i.visibleAt < :mid AND b.lean = :lean THEN 1 END) AS earlierSeen,
+            COUNT(CASE WHEN i.visibleAt < :mid AND b.lean = :lean AND i.y >= 0.5 THEN 1 END) AS earlierPlayed,
+            COUNT(CASE WHEN i.visibleAt >= :mid THEN 1 END) AS recentAny,
+            COUNT(CASE WHEN i.visibleAt < :mid THEN 1 END) AS earlierAny
+        FROM impression i JOIN row_build b ON b.id = i.buildId
+        WHERE i.team = 1 AND i.slot >= 0 AND i.gradedAt IS NOT NULL AND i.outcome IN (1, 2, 3)
+          AND i.visibleAt >= :from AND i.visibleAt < :to
     """
 
     /**
@@ -136,4 +146,26 @@ object EngineSql {
     const val FORGET_BETWEEN = "UPDATE listen SET learn = 0 WHERE startedAt >= :from AND startedAt < :to AND learn = 1"
     const val FORGETTABLE_IN_SESSION = "SELECT COUNT(*) FROM listen WHERE sessionId = :sessionId AND learn = 1"
     const val FORGETTABLE_BETWEEN = "SELECT COUNT(*) FROM listen WHERE startedAt >= :from AND startedAt < :to AND learn = 1"
+
+    /**
+     * A listen's columns in the engine's shape, [ListenRow], in its order. Every query that reads
+     * one takes them from here, so a column added to the shape is added to them all.
+     */
+    const val LISTEN_COLUMNS = "songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId, impressionId, contextChip, id, continuesListenId"
+
+    /** Every listen, in the engine's shape: what a build, the grading and the scoring of builds read. */
+    const val LISTENS = "SELECT $LISTEN_COLUMNS FROM listen"
+
+    /** The listens started after :since, in the engine's shape: what Playing now counts before following the session. */
+    const val LISTENS_SINCE = "SELECT $LISTEN_COLUMNS FROM listen WHERE startedAt > :since"
+
+    /**
+     * When the latest listen started, still-open ones included; null with none. A play that failed
+     * is left out, as the engine's input leaves it out (EngineListens.forBuild), so the two can be
+     * compared.
+     */
+    const val LATEST_LISTEN_START = "SELECT MAX(startedAt) FROM listen WHERE endReason != 5"
+
+    /** The lean each build followed and what its lead lane weighs, for grading the build's impressions. */
+    const val BUILD_LEANS = "SELECT id, leanApplied, leadWeight FROM row_build WHERE id IN (:ids)"
 }

@@ -135,8 +135,20 @@ interface ListenDao {
     @Query(EngineSql.SONGS)
     fun engineSongs(): List<EngineSongRow>
 
-    @Query("SELECT songId, startedAt, endedAt, playedMs, durationMs, endReason, origin, autoplayDepth, sessionId, tzOffsetMin, learn, runId, queueId, impressionId, contextChip, id, continuesListenId FROM listen")
+    @Query(EngineSql.LISTENS)
     fun engineListens(): List<com.dd3boh.outertune.engine.ListenRow>
+
+    /** The listens started after [since], in the engine's shape, for Playing now's rebuild on return to Home. */
+    @Query(EngineSql.LISTENS_SINCE)
+    fun listensSince(since: Long): List<com.dd3boh.outertune.engine.ListenRow>
+
+    /** When the latest listen started, open ones included and failed plays left out; null with none. */
+    @Query(EngineSql.LATEST_LISTEN_START)
+    fun latestListenStart(): Long?
+
+    /** The lean each of these builds followed and what its lead lane weighs, for grading their impressions. */
+    @Query(EngineSql.BUILD_LEANS)
+    fun buildLeans(ids: List<Long>): List<com.dd3boh.outertune.engine.BuildLean>
 
     // ---- The loop: grading what was shown, applying what was graded, keeping the weights.
     @Query("SELECT * FROM impression WHERE gradedAt IS NULL AND visibleAt IS NOT NULL ORDER BY id")
@@ -184,9 +196,12 @@ interface ListenDao {
     @Query("SELECT p AS p, y AS y FROM impression WHERE team = 1 AND slot >= 0 AND gradedAt IS NOT NULL AND u > 0 AND p IS NOT NULL AND y IS NOT NULL")
     fun engineCalibration(): Flow<List<PredictionGrade>>
 
-    /** The engine's graded cards in two back to back windows, for whether How it's doing is going up. */
+    /**
+     * The engine's graded cards in two back to back windows, for whether How it's doing is going
+     * up: those of rows built under [lean], a Lean code.
+     */
     @Query(EngineSql.CARD_TREND)
-    fun engineCardTrend(from: Long, mid: Long, to: Long): Flow<CardTrendRow>
+    fun engineCardTrend(from: Long, mid: Long, to: Long, lean: Int): Flow<CardTrendRow>
 
     /** One source's edges, RelatedSongMap.SOURCE_YOUTUBE or SOURCE_LASTFM. */
     @Query(RelatedSql.ENGINE_EDGES)
@@ -393,4 +408,15 @@ data class PredictionGrade(val p: Float, val y: Float)
 data class BuildScore(val rowKey: Int, val builds: Int, val plays: Int, val hits: Int)
 /** One source's cards that were on screen, see EngineSql.CARDS_SEEN. */
 data class CardsSeenRow(val team: Int, val judged: Int, val waiting: Int, val leftOut: Int, val tapped: Int)
-data class CardTrendRow(val recentSeen: Int, val recentPlayed: Int, val earlierSeen: Int, val earlierPlayed: Int)
+/**
+ * Two fortnights of the engine's cards under one Quick picks choice, see EngineSql.CARD_TREND.
+ * [recentAny] and [earlierAny] are each fortnight's cards under any choice.
+ */
+data class CardTrendRow(
+    val recentSeen: Int,
+    val recentPlayed: Int,
+    val earlierSeen: Int,
+    val earlierPlayed: Int,
+    val recentAny: Int = recentSeen,
+    val earlierAny: Int = earlierSeen,
+)

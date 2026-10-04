@@ -211,6 +211,11 @@ val RestSongsISkipKey = booleanPreferencesKey("restSongsISkip")
 val RestsEverywhereKey = booleanPreferencesKey("restsEverywhere")
 /** The declared context chip above the engine row, kept until changed: 0 Auto, 1 Discover, 2 Favourites, 3 Focus, 4 Chill, 5 Party. */
 val ContextChipKey = intPreferencesKey("contextChip")
+/**
+ * What Best recommendations leans toward, a standing choice: a [com.dd3boh.outertune.engine.Lean]
+ * name. Unset or unknown means Auto, the usual mix, so nothing changes for anyone who never picks.
+ */
+val QuickPicksLeanKey = stringPreferencesKey("quickPicksLean")
 /** Developer overrides of EngineParams, as one JSON object of name to value. */
 val EngineOverridesKey = stringPreferencesKey("engineOverrides")
 /** Off freezes the engine's weights and stops impressions; the listen log continues. */
