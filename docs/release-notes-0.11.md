@@ -1,6 +1,6 @@
 # InterTune 0.11
 
-Quick picks learns how you listen, InterTune can name the song playing around you, using Shazam, and there is a home screen widget. Most of what follows is a switch or a choice and stays off until you turn it on. What changes for everyone: whatever is marked "on by default", each with an off, the new seekbar and the top bars.
+This is the biggest InterTune release so far, more than three weeks in the making. Quick picks learns how you listen, InterTune can name the song playing around you, using Shazam, and there is a home screen widget. Most of what follows is a switch or a choice and stays off until you turn it on. What changes for everyone: whatever is marked "on by default", each with an off, the new seekbar and the top bars.
 
 ## One thing to know
 
