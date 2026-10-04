@@ -1,9 +1,9 @@
 Version 0.11
 
-- Quick picks can learn how you listen: Best recommendations, with Why these?, mood chips, a Discover row and a choice of what it leans toward.
-- What's playing? names the song around you.
+- Quick picks that learn how you listen: Best recommendations, with mood chips, a Discover row and a choice of what it leans toward.
+- What's playing? names the song around you, using Shazam.
 - A home screen widget.
-- Spatial audio with head tracking, and fading between tracks.
+- Spatial audio, with head tracking on supported headphones.
 - History by day, with the time of each play.
 - Keypad phones and small screens.
 - Fixes to sync, downloads, playlists and backups.

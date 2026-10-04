@@ -15,7 +15,7 @@ It is experimental and finds its feet over the first week. **Try both** mixes it
 
 If you updated, you are still on the source you had. Switch under Settings > Library and content > Quick picks source.
 
-Also new: **What's playing?** names the song around you (tap the waveform in the search bar), and a home screen widget.
+Also new: **What's playing?** names the song around you, using Shazam (tap the waveform in the search bar), a home screen widget, and spatial audio, with head tracking on supported headphones.
 
 Tell me what the row gets right and wrong: discord.gg/68jmqhMjXk
 

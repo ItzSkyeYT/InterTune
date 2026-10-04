@@ -1,6 +1,6 @@
 # InterTune 0.11
 
-Quick picks learns how you listen, InterTune can name the song playing around you, and there is a home screen widget. Most of what follows is a switch or a choice and stays off until you turn it on. What changes for everyone: whatever is marked "on by default", each with an off, the new seekbar and the top bars.
+Quick picks learns how you listen, InterTune can name the song playing around you, using Shazam, and there is a home screen widget. Most of what follows is a switch or a choice and stays off until you turn it on. What changes for everyone: whatever is marked "on by default", each with an off, the new seekbar and the top bars.
 
 ## One thing to know
 
@@ -77,7 +77,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 
 - **Spatial audio**. Takes the music off the line between your ears and puts it on a stage in front of you. It renders the stereo mix through a pair of virtual speakers using measured ear responses, so it works on any headphones, with nothing to pair and nothing to buy.
 - **Stage width**, from 15 to 90 degrees. Thirty is what stereo is mixed for. Wider pulls the instruments apart at the cost of a hole in the middle.
-- **Head tracking**, on headphones that report their orientation and a phone that passes it on. The music stays where it is when you turn your head, so a song sounds like it is coming from a fixed point in the room rather than from the headphones. **Follow tilting too** (off by default) does the same when you look up or down.
+- **Head tracking**, only on supported headphones: ones that report their orientation, on a phone that passes it on. The music stays where it is when you turn your head, so a song sounds like it is coming from a fixed point in the room rather than from the headphones. **Follow tilting too** (off by default) does the same when you look up or down.
 - **Tracking response** picks how tightly the sound follows: Smooth, Balanced, Quick or Instant. **Tracking lead** compensates for the delay between your headphones reporting a movement and the sound arriving. **Recentre** puts the stage back in front of you, and **Calibrate** measures how fast your headphones drift to one side while you sit still for 30 seconds, then corrects it from then on.
 - The status row under Player and audio says whether your headphones and phone actually support tracking, and links out if yours should but does not.
 - **Quieter as you walk away** (Android 12 and later). Treats your phone as where the music is coming from, so the volume falls as you leave it behind and comes back as you return. It asks for the Nearby devices permission, to measure how far away your headphones are. Off by default.
