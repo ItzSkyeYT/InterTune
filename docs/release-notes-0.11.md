@@ -13,13 +13,13 @@ After the update, a few quick questions come up once, for what needs your say-so
 - **Best recommendations (experimental)**, a new Quick picks source beside YouTube Music and Your library, and where a new install starts. Updating keeps the source you had. It builds the row from how you actually listen: what you finish, search for and like, when you play it, what you come back to and what you pass over. Twenty cards from five lanes: related to what you play, songs you come back to, more from artists you finish, favourites gone quiet, and artists you have never played.
 - **Try both**: a row that mixes Best recommendations with the other source, card for card, so you can compare them fairly.
 - **Rank with your listening** and **Tidy Home rows** are switches now. Since 0.10.8 Home has ordered the YouTube Music and Your library rows by what you finish, search for and like, and kept repeats and other versions of a song out of its rows; both stay on unless you turn them off.
-- **Quick picks leans toward**, under Settings > Recommendations. Auto is the row as it was. The other four choices give one kind of song most of the cards, the first ones included: songs you have never heard, more from artists you keep coming back to, things you loved and forgot about, or songs that fit what you are playing now. Changing it rebuilds Quick picks at once, and a choice with too little to give leaves you the usual mix.
-- **Context chips** under the row: Auto, Discover, Favourites, Focus, Chill and Party. The three moods learn from what you play while they are on.
+- **Quick picks leans toward**, under Settings > Recommendations, for when Best recommendations fills the row. Auto is the row as it was. The other four choices give one kind of song most of the cards, the first ones included: songs you have never heard, more from artists you keep coming back to, things you loved and forgot about, or songs that fit what you are playing now. Changing it rebuilds Quick picks at once, and a choice with too little to give leaves you the usual mix.
+- **Context chips** above the row: Auto, Discover, Favourites, Focus, Chill and Party. The three moods learn from what you play while they are on.
 - **Why these?** on the Quick picks heading: the songs the row was built around (each can be turned down), the lanes, and the exclusions in force. A line under each card says what put it there.
-- **Adventurousness** and **Familiarity** dials, **New songs only** (also a chip on the row), and an **Off** option for the row.
+- **Adventurousness** and **Familiarity** dials, and **New songs only** (also a chip on the row).
 - Adventurousness puts one song by an artist you have never played in the row at its lowest and three at its highest, two by default, so new names never crowd out the rest.
-- Long-press a card for **Not this song**, **Less of this artist** or **Never this artist**. Exclusions touch the recommendation rows only, never search, your library, playlists or radio, and banning a song covers its other versions. **Rest songs I skip** (off by default) rests a song you skip early for a week.
-- It learns from what you play and pass over, a little at a time, never more than a set amount per day. **How it's doing** under Settings > Recommendations shows cards played of cards seen per source, how often each row held what you played next, how well it predicts, and every weight beside where it started. **Learn from listening**, **Forget the last session**, **Forget today**, **Reset**, **Rebuild from history** and **Export** are all there.
+- Long-press a card for **Not this song**, **Less of this artist** or **Never this artist**. Exclusions touch the recommendation rows only, never search, your library, playlists or radio, and banning a song covers its other versions. **Rest songs I skip** (off by default) rests a liked or often-played song for a week when you skip it before its middle.
+- It learns from what you play and pass over, a little at a time, never more than a set amount per day. **How it's doing** under Settings > Recommendations shows cards played of cards seen per source, how often each row held what you played next, how well it predicts, and the weights beside where they started. **Learn from listening** is on the first page. **Forget the last session**, **Forget today's listening**, **Reset what it learned**, **Rebuild what it learned**, **Save a copy** and **Load a copy** are under **Your data**.
 - Settings > Recommendations is three pages: the settings you change, **How it's doing**, which opens with a plain summary and says what each figure counts, and **Your data**, where anything that changes what it has learned asks first.
 
 - **Discover something new** (on by default): a second row under Quick picks, of songs you have never played at all, picked the way Best recommendations picks. A song you skipped after a few seconds counts as played. Pull to refresh for other songs.
@@ -33,18 +33,18 @@ After the update, a few quick questions come up once, for what needs your say-so
 - From that list, **Create playlist** or **Add to playlist**. Every song it hears after that goes into the same playlist.
 - The notification shows the song playing around you and how far into it the room is, and goes back to "Listening" as soon as the song changes.
 - When Shazam stops answering (no network, or too many requests), Keep listening waits longer between tries, says so, and carries on by itself once Shazam answers again.
-- It knows which version is playing. A sped-up or slowed edit is measured by how fast it plays rather than guessed from a title.
+- In Keep listening it knows which version is playing. A sped-up or slowed edit is measured by how fast it plays rather than guessed from a title.
 - **Mashups and remixes.** In Keep listening it notices when a song is being cut up with others, or when Shazam keeps naming different versions of it, and looks for the mashup or remix on YouTube instead of adding the pieces. When two uploads are equally likely, it asks.
 - A mashup you have answered is asked about again only when an upload names more of the songs heard. Uploads turned down with **None of these** are not offered again, and a playlist notes each mashup once.
 - On headphones your music keeps playing while it listens. Only the phone's own speaker pauses, whether you listen from the search bar or from a playlist.
-- A **history** of everything it has recognised.
+- **What you have heard**, from the clock button on the What's playing? screen: the last 200 songs it has recognised, and when.
 - Your playlists have a listen button in their header, to fill one with what is playing around you. If What's playing? is already listening, it says so and offers to switch, and closing it leaves that run going. The What's playing? screen does the same when a playlist is listening.
 - Settings for how long each listen lasts, whether matches are added by themselves, and whether the screen stays on.
 
 ## Home screen
 
 - A **widget**: what is playing, with previous, play or pause and next, and a list under it. Tap a row to play it. It works with the app closed, and its play button brings back the queue you were on.
-- It takes the shape of its size rather than scaling: one cell is the cover with play over it, a single row is one slim line, four by two is the song with rows under it, square lets the cover fill it with the song over it, and wide and tall puts a big cover beside the song. Nothing is cut off at any size or text size.
+- It takes the shape of its size rather than scaling: one cell is the cover with play over it, a single row is one slim line, and four by two is the song with rows under it. With no room for a row, or set to show only what's playing, a square one lets the cover fill it with the song over it, and a wide and tall one puts a big cover beside the song. Nothing is cut off at any size or text size.
 - Each widget is set up on its own, when you add it and later from the launcher: what it shows (what's playing, a list, or both), which list (Quick picks, Forgotten favourites, Keep listening, Recently played), how many rows, the background (the system's, dark, light, taken from the artwork, or none), how solid it is, which buttons, the text size, whether artwork, artists and the heading are drawn, and whether the corners are rounded. The settings show the widget itself, changing as you choose.
 - **Play liked songs** on the app icon: long-press it, or pin the shortcut to your home screen.
 - The Songs, Albums and Playlists shortcuts on the app icon open their tab again. They had been opening the app on its first tab.
@@ -58,9 +58,9 @@ After the update, a few quick questions come up once, for what needs your say-so
 
 - An M3E seekbar: a bar thumb with a gap either side, and a thicker track.
 - A sleep timer button beside like and the menu.
-- **Player buttons**: Classic, or Connected, which joins the controls into one frosted row. Classic by default.
+- **Player buttons**: Classic, or Connected, which puts share and like together by the title and adds a row under the controls for lyrics, the sleep timer and the menu. Classic by default.
 - Swiping the artwork changes song again, including straight after the app opens.
-- In landscape the controls always have room for all five transport buttons, and nothing is cut off at the ends of the Connected row.
+- In landscape the controls always have room for all five transport buttons, and with Liquid glass on the outer ones no longer run into the rounded ends of the glass bar.
 - In a small pop-up window the controls shrink together to fit, rather than the last ones being squashed.
 - A layout for small screens, such as a keypad phone or a floating window: a bigger cover, a readable title, Classic's buttons beside the cover, and a queue list with room for songs.
 - **Media control buttons** under Settings > Player and audio: pick which two of Like, Start radio, Shuffle, Repeat and Add to library sit beside previous, play and next in the notification, on the lock screen and in the media panel. Shuffle and Repeat by default, as before.
@@ -77,8 +77,8 @@ After the update, a few quick questions come up once, for what needs your say-so
 
 - **Spatial audio**. Takes the music off the line between your ears and puts it on a stage in front of you. It renders the stereo mix through a pair of virtual speakers using measured ear responses, so it works on any headphones, with nothing to pair and nothing to buy.
 - **Stage width**, from 15 to 90 degrees. Thirty is what stereo is mixed for. Wider pulls the instruments apart at the cost of a hole in the middle.
-- **Head tracking**, on headphones that report their orientation. The music stays where it is when you turn your head, including when you look up or down, so a song sounds like it is coming from a fixed point in the room rather than from the headphones.
-- **Tracking response** picks how tightly the sound follows: Smooth, Balanced, Quick or Instant. **Tracking lead** compensates for the delay between your headphones reporting a movement and the sound arriving. **Recentre** puts the stage back in front of you, and there is a one-off calibration that learns your headphones' delay while you listen.
+- **Head tracking**, on headphones that report their orientation and a phone that passes it on. The music stays where it is when you turn your head, so a song sounds like it is coming from a fixed point in the room rather than from the headphones. **Follow tilting too** (off by default) does the same when you look up or down.
+- **Tracking response** picks how tightly the sound follows: Smooth, Balanced, Quick or Instant. **Tracking lead** compensates for the delay between your headphones reporting a movement and the sound arriving. **Recentre** puts the stage back in front of you, and **Calibrate** measures how fast your headphones drift to one side while you sit still for 30 seconds, then corrects it from then on.
 - The status row under Player and audio says whether your headphones and phone actually support tracking, and links out if yours should but does not.
 - **Quieter as you walk away** (Android 12 and later). Treats your phone as where the music is coming from, so the volume falls as you leave it behind and comes back as you return. It asks for the Nearby devices permission, to measure how far away your headphones are. Off by default.
 
@@ -92,7 +92,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 - **Favourite artists** beside Liked songs and Downloaded songs: a mix of the artists you have bookmarked, one song from each in turn, so one big catalogue cannot take it over.
 - Questions and news are fetched fresh after an update rather than taken from the copy the old version saved, and the check-now row and "Let me be asked again" cover news as well as questions.
 - If InterTune crashes, it offers to report it the next time it opens, with the error already filled in. Nothing is sent unless you choose to.
-- With Best recommendations, Home opens on the row it last showed rather than a new one every time.
+- With Best recommendations, Home reopens on the row it last showed while that row is still fresh: under three hours old, from the same part of the day and the same listening session.
 - **History** lists every song you heard for 5 seconds or more, by day, with the time each play started. Play counts and Most played still follow **Minimum playback duration**. **Remove from history** is fast on a long history.
 
 ## Keypad phones
@@ -103,18 +103,18 @@ After the update, a few quick questions come up once, for what needs your say-so
 ## Settings
 
 - Spatial audio has its own category rather than sitting inside the audio card.
-- Every "i" explanation was rewritten: shorter, plainer, and sized to fit without scrolling.
+- Most "i" explanations were rewritten in plainer words.
 - **Backup and restore** is its own entry in Settings again, rather than the bottom of Storage and downloads.
 - The proxy fields carry working examples.
 - Recommendation engine data can be imported as well as exported.
 - Back buttons on the screens that were missing one, including the Last.fm login.
-- Android's own cloud backup no longer carries your YouTube Music sign-in. A library small enough for Android's 25 MB limit is still backed up there, and InterTune's own backup carries the library and settings as before.
+- Android's own cloud backup no longer carries your YouTube Music sign-in, or your settings, which are kept in the same file. A library small enough for Android's 25 MB limit is still backed up there, and InterTune's own backup carries the library and settings as before.
 
 ## Battery
 
 - A stopped player service stayed in memory and kept working, and each one left a network listener behind.
 - Synced lyrics no longer follow the song with the screen off.
-- The listening notification, the sleep timer notification, the rate limit banner and the mini player no longer wake the phone to redraw for nobody.
+- The rate limit banner and the mini player no longer wake the phone to redraw for nobody, and with no sleep timer set InterTune no longer checks for one every five seconds.
 - The dynamic theme no longer loads each cover at full size just to pick one colour.
 
 ## Fixes
@@ -163,11 +163,11 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Searching for a word such as "watch" or "playlist" did nothing, and searching the library missed synced playlists and saved albums.
 - **Add to playlist** from a YouTube playlist's menu added nothing, a local artist's albums stopped at six, and the album menu queued an album out of order.
 - **Read only** sync still changed your YouTube Music account, down to deleting playlists. It now changes nothing there.
-- A sync that failed or came back partial, on a bad connection for example, could remove songs, albums, artists and playlists from your library with **Overwrite with remote** on.
-- Signing in for the first time, or with another account, could take away likes you made while signed out. A like is now only taken back when YouTube had it and lost it.
+- A sync that failed or came back partial, on a bad connection for example, could remove songs, albums, artists and playlists from your library with **Conflict resolution** set to **Overwrite local content with remote content**.
+- Signing in for the first time, or with another account, could take away likes you made while signed out. A like is now taken back only when YouTube had it and lost it, and only with **Conflict resolution** set to **Overwrite local content with remote content**. On the default, Keep all local content, sync never removes a like.
 - Creating a synced playlist with no connection closed the app.
 - Last.fm scrobbles named every artist of a song as one, and songs started from search were never scrobbled. Nothing is sent as now playing while listening history is paused, and a Last.fm connection revoked on the website now shows as disconnected.
-- **Sync now** often did nothing and said the sync was complete.
+- **Trigger manual sync** often did nothing and said the sync was complete.
 - Opening the app and leaving without pressing play reset the saved place in the song to the start, so the next resume, from headphones or the notification, began at 0:00.
 - Play next before pressing play after reopening the app put the songs in the wrong place, lost where the restored song had stopped, and with a shuffled queue could close the app.
 - Pressing play on headphones with the app closed and nothing to resume closed the app about ten seconds later.
@@ -181,12 +181,12 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Saving a YouTube playlist kept only about its first hundred songs, and sync never refreshed saved playlists.
 - **Remove download** on a playlist you cannot edit, such as a read-only synced one, emptied it.
 - A download folder inside a folder InterTune scans is now refused, and so is a scan folder holding the download folder. Each download was also being scanned in as a local song, and tidying those up could delete the YouTube song with its likes and history.
-- Start radio on a long album did nothing but show an error. Karaoke lyrics could close the app, and so could coming back to it while selecting songs in a YouTube playlist, or opening the Cached tab past 999 songs on Android 11 and older.
+- Start radio on a long album did nothing but show an error. Karaoke lyrics could close the app, and so could coming back to it while selecting songs in a YouTube playlist, or opening the Offline tab past 999 songs on Android 11 and older.
 - A partly cached song could be finished from a different stream of it.
 - One background task failing could stop the volume, normalisation and sleep timer from working until the app restarted.
-- While signed out, playing a song no longer tells YouTube about it, and a like reaches YouTube once instead of twice.
+- A like reaches YouTube once instead of twice, and while signed out a song you played is no longer reported to YouTube's watch history.
 - Adding to a playlist could put songs in the wrong place, lose them from YouTube if the dialog closed too soon, and Skip or Add anyway after the duplicates question sent nothing to YouTube.
-- A failed search or artist page offers Retry. Folders with #, ?, % or ; in their name open. The open search bar no longer slides under the status bar. Tapping a Library tab again goes back to the top.
+- A failed search offers Retry, and so does the full list behind one of an artist's sections. Folders with #, ?, % or ; in their name open. The open search bar no longer slides under the status bar. Tapping a Library tab again goes back to the top.
 - In Android Auto, search results are songs to play rather than folders.
 - After a resume, the shuffle button showed the wrong state for a shuffled queue.
 - While a song played, the app told the whole system its position every three seconds, for nobody.
@@ -214,7 +214,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Scrolling a long YouTube playlist could list a page of its songs twice.
 - Removing a saved playlist's downloads from its YouTube page emptied the playlist in your library.
 - With **Automatically download your liked songs** on, some of the songs a sync had just liked waited for a later sync to be downloaded.
-- **Sync now** stopped part way, without saying so, if you left the settings page.
+- **Trigger manual sync** stopped part way, without saying so, if you left the settings page.
 - **Add to playlist** in the menu of a playlist in your library waited on two requests to YouTube that always failed before adding anything.
 - **Remove from playlist** in the player menu also listed playlists you follow and, with **Read only** sync, your synced ones, where the song could come back at the next sync. It now lists only playlists InterTune can change.
 - **Add to playlist** with more than 999 songs at once, from a big queue, folder or playlist, closed the app on Android 11 and older.
@@ -241,9 +241,9 @@ After the update, a few quick questions come up once, for what needs your say-so
 - Checking for updates without a working connection said "No updates available" and hid an update or question found earlier. It now says it could not check.
 - An announcement could show in a language further down your phone's list: with English first and French second, you got the French text.
 - Lyrics looked up with no connection were saved as not found, so the song never showed lyrics again without **Refetch**. It now looks again the next time the song plays. Songs already saved as not found still need **Refetch**.
-- On connections where YouTube refuses IPv6 but not IPv4, or the other way round, every song stopped with "Sign in to confirm you're not a bot". InterTune now asks over the other one instead of giving up. The message for a connection YouTube has stopped serving no longer promises that mobile data fixes it.
+- On connections where YouTube refuses IPv6 but not IPv4, or the other way round, nothing played and InterTune said YouTube had stopped serving the connection. It now asks over the other one instead of giving up. That message no longer promises that mobile data fixes it.
 - A YouTube link tapped while InterTune sat in recent apps, closed by Android, opened Home and nothing else.
-- With local media on and the storage permission not granted, InterTune asked for it every time it opened. It asks once now.
+- With local media on and the storage permission not granted, InterTune asked for it again when it opened, as often as every two hours. It asks once now.
 - An album with songs YouTube no longer has would not open, from its own page, from Stats or from a menu.
 - A playlist that is empty on YouTube Music made its sync fail.
 - A song that stopped on a playback error was recorded as skipped, which with **Rest songs I skip** on could rest a song you like for a week. It is recorded as failed and teaches recommendations nothing.

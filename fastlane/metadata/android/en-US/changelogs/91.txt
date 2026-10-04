@@ -1,10 +1,11 @@
 Version 0.11
 
-- Quick picks can learn how you listen: Best recommendations, with Why these?, mood chips and a Discover row.
-- What's playing? names the song around you and can fill a playlist.
-- A home screen widget that takes the shape of its size.
+- Quick picks can learn how you listen: Best recommendations, with Why these?, mood chips, a Discover row and a choice of what it leans toward.
+- What's playing? names the song around you.
+- A home screen widget.
 - Spatial audio with head tracking, and fading between tracks.
-- A Stats page that says something about your listening.
+- History by day, with the time of each play.
+- Keypad phones and small screens.
 - Fixes to sync, downloads, playlists and backups.
 
 Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.11
