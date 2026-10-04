@@ -1540,14 +1540,19 @@ class MainActivity : ComponentActivity() {
                             // follows it in the chain, and the app's surface fill lives on the
                             // outer BoxWithConstraints, outside this layer. Without it the recorded
                             // layer is transparent between rows and blur() bleeds into nothing.
+                            // It used to come before, which looks the same on screen and records no
+                            // fill: the dock and the mini player then drew a blurred copy of the rows
+                            // with nothing behind it, and the rows themselves showed through that
+                            // copy, sharp. Only rows with a fill of their own were spared, such as
+                            // the song rows, which sit on a surface for the swipe to queue.
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .then(
                                         if (navGlass) {
                                             Modifier
-                                                .background(MaterialTheme.colorScheme.surface)
                                                 .layerBackdrop(appBackdrop)
+                                                .background(MaterialTheme.colorScheme.surface)
                                         } else Modifier
                                     )
                                     .onFocusChanged { contentHasFocus = it.hasFocus }
