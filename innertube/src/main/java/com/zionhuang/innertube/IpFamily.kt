@@ -38,8 +38,8 @@ data class AddressPolicy(val first: IpFamily, val only: Boolean = false) {
      * The families take turns, the preferred one first. Not all of one and then the other: with
      * OkHttp's race off (see [keepToFamily]) each address gets the whole connect timeout, and
      * music.youtube.com has a dozen IPv4 addresses, so on a line whose IPv4 drops every packet the
-     * request ran out of time before IPv6 was ever tried. Taking turns costs one timeout there,
-     * and a healthy line still connects over the preferred family.
+     * request ran out of time before IPv6 was ever tried. Taking turns costs one connect timeout
+     * per new connection there, and a healthy line still connects over the preferred family.
      */
     fun order(addresses: List<InetAddress>): List<InetAddress> {
         val (preferred, rest) = addresses.partition { IpFamily.of(it) == first }

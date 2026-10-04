@@ -127,7 +127,8 @@ object FamilyChoice {
      * Asks once over [first]'s family, and over the other when that was refused and [retryOver]
      * allows it.
      *
-     * The first try may still fall back to the other family when its own cannot connect at all.
+     * The first try may still fall back to the other family when an address of its own does not
+     * connect. Which family answered is not recorded: [first] is remembered either way.
      * The second keeps to its family: falling back would only ask the family that just refused.
      *
      * When the second try works, it is the answer and the first refusal is never reported, so the

@@ -247,4 +247,51 @@ class DpadFocusTest {
         assertNull(dpadTabToFocus(listOf(DpadTab(true, false), DpadTab(false, false))))
         assertNull(dpadTabToFocus(emptyList()))
     }
+
+    @Test
+    fun `a list is hidden only under a floating control that covers nearly all of it`() {
+        // A keypad phone's screen, 240 by 320, with the page's list as tall as the screen.
+        val list = Rect(0f, 0f, 240f, 320f)
+        // The mini player and the tabs: 164 high, so they reach past the middle of the list.
+        val sheet = Rect(0f, 156f, 240f, 320f)
+        assertTrue(sheet.contains(list.center))
+        assertFalse(listHiddenUnderOverlay(list, listOf(sheet)))
+        // The open search covers the whole screen, and the feed under it with it.
+        assertTrue(listHiddenUnderOverlay(list, listOf(sheet, Rect(0f, 0f, 240f, 320f))))
+        // A top bar and the sheet together still leave the list in sight.
+        assertFalse(listHiddenUnderOverlay(list, listOf(Rect(0f, 0f, 240f, 56f), sheet)))
+        assertFalse(listHiddenUnderOverlay(list, emptyList()))
+    }
+
+    @Test
+    fun `on the shortest screen a move across the list that shows still scrolls it`() {
+        // 240 by 320 with a navigation bar under the tabs: the mini player starts above the middle.
+        val list = Rect(0f, 0f, 240f, 320f)
+        val back = Rect(12f, 32f, 60f, 80f)
+        val miniPlayer = Rect(0f, 158f, 144f, 218f)
+        val homeTab = Rect(0f, 220f, 54f, 272f)
+        val floatingButton = Rect(176f, 100f, 232f, 156f)
+        assertTrue(miniPlayer.top < list.center.y)
+        assertTrue(dpadJumpsOverList(back, miniPlayer, list, DpadDirection.Down))
+        assertTrue(dpadJumpsOverList(miniPlayer, back, list, DpadDirection.Up))
+        // Neighbours stay neighbours: the tabs under the mini player, the button just above it.
+        assertFalse(dpadJumpsOverList(homeTab, miniPlayer, list, DpadDirection.Up))
+        assertFalse(dpadJumpsOverList(miniPlayer, homeTab, list, DpadDirection.Down))
+        assertFalse(dpadJumpsOverList(floatingButton, miniPlayer, list, DpadDirection.Down))
+        assertFalse(dpadJumpsOverList(miniPlayer, floatingButton, list, DpadDirection.Up))
+    }
+
+    @Test
+    fun `only a floating control as large as the screen covers it`() {
+        val screen = Rect(0f, 0f, 240f, 320f)
+        // The open search: the whole screen, or all of it under the status bar.
+        assertTrue(dpadCoversScreen(Rect(0f, 0f, 240f, 320f), screen))
+        assertTrue(dpadCoversScreen(Rect(0f, 24f, 240f, 320f), screen))
+        // The closed search pill, a top bar, and the mini player with the tabs.
+        assertFalse(dpadCoversScreen(Rect(8f, 28f, 232f, 76f), screen))
+        assertFalse(dpadCoversScreen(Rect(0f, 0f, 240f, 56f), screen))
+        assertFalse(dpadCoversScreen(Rect(0f, 156f, 240f, 320f), screen))
+        // Full height but narrow, such as a rail, is not the screen either.
+        assertFalse(dpadCoversScreen(Rect(0f, 0f, 80f, 320f), screen))
+    }
 }

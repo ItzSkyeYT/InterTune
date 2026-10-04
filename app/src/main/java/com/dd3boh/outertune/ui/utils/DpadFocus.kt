@@ -83,7 +83,8 @@ import kotlin.math.max
  * cover and title of a playlist or an album stayed under the top bar once focus had gone up to
  * the bar, and where the cover filled all of the list between the top bar and the mini player,
  * the list could not be entered at all. And Up with nothing at all above, from content or from
- * the search pill or a top bar, goes round to the selected tab of the navigation bar.
+ * the search pill or a top bar, goes round to the selected tab of the navigation bar, unless the
+ * floating control covers the screen, as the open search does: the tabs are out of sight then.
  *
  * Touch use is untouched: Compose gives focus to clickable elements only in keyboard mode, the
  * scrolling rule falls back to the default unless the last input came from keys, and the key
@@ -309,12 +310,24 @@ internal fun dpadEdgeScrollDelta(direction: DpadDirection, height: Float, value:
  * When the list can still scroll that way, it scrolls instead (see [dpadEdgeScrollDelta]), until
  * something in it comes into view. A move between neighbours, like from the navigation bar up to
  * the mini player, or from the floating button down to it, does not cross the middle.
+ *
+ * The middle alone is not enough on the shortest screens, where the mini player and the tabs
+ * reach above it: a move also jumps over the list when the list shows between the two controls
+ * for at least the height of the one the move starts from, room enough for a row.
  */
 internal fun dpadJumpsOverList(from: Rect, target: Rect?, list: Rect, direction: DpadDirection): Boolean {
     val middle = list.center.y
     return when (direction) {
-        DpadDirection.Down -> from.bottom <= middle && (target == null || target.top >= middle)
-        DpadDirection.Up -> from.top >= middle && (target == null || target.bottom <= middle)
+        DpadDirection.Down -> {
+            val to = target?.top ?: list.bottom
+            (from.bottom <= middle && to >= middle) ||
+                (to - from.bottom >= from.height && list.top <= from.bottom && list.bottom >= to)
+        }
+        DpadDirection.Up -> {
+            val to = target?.bottom ?: list.top
+            (from.top >= middle && to <= middle) ||
+                (from.top - to >= from.height && list.bottom >= from.top && list.top <= to)
+        }
         DpadDirection.Left, DpadDirection.Right -> false
     }
 }
@@ -326,7 +339,8 @@ internal fun dpadJumpsOverList(from: Rect, target: Rect?, list: Rect, direction:
  * still moves up through its rows first; only at the real top is there nothing. On a floating
  * control it is the search across the screen, which finds nothing only above the topmost ones,
  * the search pill and a screen's top bar. Those sit above the first row of every screen, so with
- * content alone the wrap would never come.
+ * content alone the wrap would never come. A floating control that covers the screen does not
+ * wrap; see [dpadCoversScreen].
  */
 internal fun dpadWrapsToTabs(direction: DpadDirection, moved: Boolean, redirected: Boolean): Boolean =
     direction == DpadDirection.Up && !moved && !redirected
@@ -347,6 +361,24 @@ internal fun dpadTabToFocus(tabs: List<DpadTab>): Int? {
 /** Whether [candidate], which is not part of a floating control, lies underneath one of [overlays]. */
 internal fun hiddenUnderOverlay(candidate: Rect, overlays: List<Rect>): Boolean =
     overlays.any { it.contains(candidate.center) }
+
+/**
+ * Whether a [list] is out of sight under one of [overlays]: one that covers nearly all of it, as
+ * the open search covers the feed. For a list its centre is not enough. It is as tall as the
+ * screen, and on a short one the mini player and the tabs together reach past the middle of a
+ * list whose top half is in plain view.
+ */
+internal fun listHiddenUnderOverlay(list: Rect, overlays: List<Rect>): Boolean = overlays.any {
+    it.contains(list.center) && it.top <= list.top + list.height / 4 && it.bottom >= list.bottom - list.height / 4
+}
+
+/**
+ * Whether a floating control [overlay] covers the [screen], as the open search does. The tabs are
+ * out of sight underneath it then, so Up with nothing above stops there instead of going round
+ * to them, and a search field being typed in does not lose its focus to a bar nobody can see.
+ */
+internal fun dpadCoversScreen(overlay: Rect, screen: Rect): Boolean =
+    overlay.width >= screen.width * 0.9f && overlay.height >= screen.height * 0.9f
 
 /**
  * How far to scroll for an item of [size] at [offset] that has just taken focus in a container of
@@ -446,8 +478,10 @@ private fun KeyEvent.dpadDirection(): DpadDirection? = when (key) {
     else -> null
 }
 
-/** A focusable element found on screen, and whether it belongs to a floating control. */
-private class Focusable(val node: SemanticsNode, val bounds: Rect, val inOverlay: Boolean)
+/** A focusable element found on screen, and the floating control it belongs to, if any. */
+private class Focusable(val node: SemanticsNode, val bounds: Rect, val overlay: Rect?) {
+    val inOverlay: Boolean get() = overlay != null
+}
 
 /**
  * Answers an arrow key pressed on a floating control (see [dpadOverlay]) by moving to the nearest
@@ -462,7 +496,8 @@ private class Focusable(val node: SemanticsNode, val bounds: Rect, val inOverlay
  * Up and down in ordinary content get two more answers: a list that can still scroll that way,
  * with nothing focusable left in it in that direction, scrolls instead of letting focus out (see
  * [dpadScrollsInstead]), and Up with nothing above goes round to the navigation bar (see
- * [dpadWrapsToTabs]), as it does from the topmost floating controls.
+ * [dpadWrapsToTabs]), as it does from the topmost floating controls. From one that covers the
+ * screen, Up with nothing above is taken and goes nowhere (see [dpadCoversScreen]).
  */
 fun Modifier.dpadOverlayEscape(): Modifier = composed {
     val view = LocalView.current
@@ -478,6 +513,8 @@ fun Modifier.dpadOverlayEscape(): Modifier = composed {
             DpadMove.NotOurs -> false
             DpadMove.NothingThere ->
                 dpadWrapsToTabs(direction, moved = false, redirected = false) && focusTabBar(view)
+            // Taken, so that Compose's own search does not go looking underneath.
+            DpadMove.Covered -> direction == DpadDirection.Up
         }
     }.onKeyEvent { event ->
         // Up and down in ordinary content that nothing focused has taken. The rest stays with
@@ -595,8 +632,11 @@ private fun dpadMove(view: View, direction: DpadDirection?, fromAnywhere: Boolea
     return moveFromOverlay(owner.unmergedRootSemanticsNode, direction, fromAnywhere) == DpadMove.Moved
 }
 
-/** What [moveFromOverlay] made of a key: a move, nothing in that direction, or a key it leaves to Compose. */
-private enum class DpadMove { Moved, NothingThere, NotOurs }
+/**
+ * What [moveFromOverlay] made of a key: a move, nothing in that direction, nothing in that
+ * direction from a floating control that covers the screen, or a key it leaves to Compose.
+ */
+private enum class DpadMove { Moved, NothingThere, Covered, NotOurs }
 
 private fun moveFromOverlay(root: SemanticsNode, direction: DpadDirection?, fromAnywhere: Boolean): DpadMove {
     val focusables = ArrayList<Focusable>()
@@ -615,14 +655,16 @@ private fun moveFromOverlay(root: SemanticsNode, direction: DpadDirection?, from
     // jumping over; see [dpadJumpsOverList].
     val lists = ArrayList<SemanticsNode>()
 
-    fun visit(node: SemanticsNode, inOverlay: Boolean, scrollerInOverlay: Boolean) {
+    fun visit(node: SemanticsNode, enclosing: Rect?, scrollerInOverlay: Boolean) {
         val config = node.config
         // Closed to the keys, so neither a place to go nor, being out of sight, cover for anything.
         if (config.getOrElse(DpadBlockedKey) { false }) return
         // Composed ahead of need by a lazy list and not placed: not on screen at all.
         if (!node.layoutInfo.isPlaced) return
         val isOverlay = config.getOrElse(DpadOverlayKey) { false }
-        val overlay = inOverlay || isOverlay
+        // The floating control this node is in or is: the nearest one, when they nest.
+        val within = if (isOverlay) node.boundsInRoot else enclosing
+        val overlay = within != null
         val scroller = if (isOverlay) false else scrollerInOverlay || (overlay && alongAxis in config)
         if (isOverlay) overlays += node.boundsInRoot
         if (!overlay && SemanticsProperties.VerticalScrollAxisRange in config && SemanticsActions.ScrollBy in config) {
@@ -631,16 +673,16 @@ private fun moveFromOverlay(root: SemanticsNode, direction: DpadDirection?, from
         if (SemanticsProperties.Focused in config && SemanticsActions.RequestFocus in config &&
             SemanticsProperties.Disabled !in config
         ) {
-            val item = Focusable(node, node.boundsInRoot, overlay)
+            val item = Focusable(node, node.boundsInRoot, within)
             if (config[SemanticsProperties.Focused]) {
                 focused = item
                 focusedInScroller = scroller
             }
             focusables += item
         }
-        node.children.forEach { visit(it, overlay, scroller) }
+        node.children.forEach { visit(it, within, scroller) }
     }
-    visit(root, inOverlay = false, scrollerInOverlay = false)
+    visit(root, enclosing = null, scrollerInOverlay = false)
 
     val visible = focusables.filter {
         !it.bounds.isEmpty && (it.inOverlay || !hiddenUnderOverlay(it.bounds, overlays))
@@ -667,9 +709,8 @@ private fun moveFromOverlay(root: SemanticsNode, direction: DpadDirection?, from
     for (index in targets) {
         if (candidates[index].requestFocus()) return DpadMove.Moved
     }
-    // A text field keeps an arrow key nothing else wants: it moves the cursor, and keyboards with
-    // arrow keys send them while typing.
-    if (SemanticsProperties.EditableText in from.node.config) return DpadMove.NotOurs
+    val within = from.overlay
+    if (within != null && dpadCoversScreen(within, root.boundsInRoot)) return DpadMove.Covered
     return DpadMove.NothingThere
 }
 
@@ -677,7 +718,7 @@ private fun moveFromOverlay(root: SemanticsNode, direction: DpadDirection?, from
  * Scrolls the largest of [lists] in line with [from] when a move to [target] would jump over its
  * middle and it can still scroll in [direction]; see [dpadJumpsOverList]. Says whether it did.
  * A list lying under one of [overlays], such as the feed under the open search, is out of sight
- * and never scrolled.
+ * and never scrolled; see [listHiddenUnderOverlay].
  */
 private fun scrollListBetween(
     lists: List<SemanticsNode>,
@@ -689,7 +730,7 @@ private fun scrollListBetween(
     val list = lists
         .filter {
             val b = it.boundsInRoot
-            !b.isEmpty && b.left < from.right && b.right > from.left && !hiddenUnderOverlay(b, overlays)
+            !b.isEmpty && b.left < from.right && b.right > from.left && !listHiddenUnderOverlay(b, overlays)
         }
         .maxByOrNull { it.boundsInRoot.width * it.boundsInRoot.height } ?: return false
     val bounds = list.boundsInRoot
