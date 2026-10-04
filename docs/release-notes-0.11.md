@@ -13,6 +13,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 - **Best recommendations (experimental)**, a new Quick picks source beside YouTube Music and Your library, and where a new install starts. Updating keeps the source you had. It builds the row from how you actually listen: what you finish, search for and like, when you play it, what you come back to and what you pass over. Twenty cards from five lanes: related to what you play, songs you come back to, more from artists you finish, favourites gone quiet, and artists you have never played.
 - **Try both**: a row that mixes Best recommendations with the other source, card for card, so you can compare them fairly.
 - **Rank with your listening** and **Tidy Home rows** are switches now. Since 0.10.8 Home has ordered the YouTube Music and Your library rows by what you finish, search for and like, and kept repeats and other versions of a song out of its rows; both stay on unless you turn them off.
+- **Quick picks leans toward**, under Settings > Recommendations. Auto is the row as it was. The other four choices give one kind of song most of the cards, the first ones included: songs you have never heard, more from artists you keep coming back to, things you loved and forgot about, or songs that fit what you are playing now. Changing it rebuilds Quick picks at once, and a choice with too little to give leaves you the usual mix.
 - **Context chips** under the row: Auto, Discover, Favourites, Focus, Chill and Party. The three moods learn from what you play while they are on.
 - **Why these?** on the Quick picks heading: the songs the row was built around (each can be turned down), the lanes, and the exclusions in force. A line under each card says what put it there.
 - **Adventurousness** and **Familiarity** dials, **New songs only** (also a chip on the row), and an **Off** option for the row.
@@ -23,7 +24,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 
 - **Discover something new** (on by default): a second row under Quick picks, of songs you have never played at all, picked the way Best recommendations picks. A song you skipped after a few seconds counts as played. Pull to refresh for other songs.
 - **Similar songs from Last.fm and YouTube**: InterTune asks once whether Best recommendations may use Last.fm as well as YouTube. Say yes and it takes similar songs from both, what Last.fm's listeners play alongside a song and what YouTube lists beside it, and leans toward whichever you actually play, never more than four in five either way so it can swing back. Or pick one in Settings. With Last.fm, InterTune sends it the title and artist of each song you play, and once, of the songs you played in the last month and the ones you liked, and nothing else. Until you answer, nothing is sent.
-- Quick picks never has more than two songs by one artist.
+- Quick picks never has more than two songs by one artist, or four among the leading cards when you choose More from artists I keep coming back to.
 
 ## Song recognition
 
