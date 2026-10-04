@@ -286,7 +286,7 @@
     <string name="song_cache_max_size">गानों के कैश का अधिकतम आकार</string>
     <string name="image_cache_max_size">कवर कैश का अधिकतम आकार</string>
     <string name="max_queues_description">ऐप एक साथ कितनी कतारें रखता है। इससे आगे जाने पर सबसे पुरानी हट जाती है।</string>
-    <string name="enable_proxy_description">YouTube Music के अनुरोध और स्ट्रीम पहले किसी दूसरे सर्वर से गुज़ारें। तस्वीरें, गीत के बोल और ऐप की बाक़ी सेवाएँ अब भी सीधे जुड़ती हैं। जब तक आपको पक्का पता न हो कि ज़रूरत है, इसे बंद रहने दें।</string>
+    <string name="enable_proxy_description">YouTube Music के अनुरोध और स्ट्रीम पहले किसी दूसरे सर्वर से गुज़ारें। तस्वीरें, गीत के बोल और ऐप की बाकी सेवाएँ अब भी सीधे जुड़ती हैं। जब तक आपको पक्का पता न हो कि ज़रूरत है, इसे बंद रहने दें।</string>
     <string name="show_liked_and_downloaded_playlist_description">पसंद किए गए गाने और डाउनलोड किए गए गाने आपकी लाइब्रेरी में प्लेलिस्ट के रूप में दिखाएँ।</string>
     <string name="pause_listen_history_description">आपके इतिहास में गाने जोड़ना बंद करें। जो पहले से उसमें है, वह नहीं हटता।</string>
     <string name="pause_remote_listen_history_description">YouTube Music को यह बताना बंद करें कि आप क्या चला रहे हैं। इस ऐप के भीतर का इतिहास दोनों ही स्थिति में चलता रहता है।</string>

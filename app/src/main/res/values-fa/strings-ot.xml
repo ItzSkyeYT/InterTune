@@ -345,7 +345,7 @@
     <string name="song_cache_max_size">بیشینهٔ اندازهٔ حافظهٔ موقت آهنگ‌ها</string>
     <string name="image_cache_max_size">بیشینهٔ اندازهٔ حافظهٔ موقت کاورها</string>
     <string name="max_queues_description">برنامه هم‌زمان چند صف نگه می‌دارد. وقتی از این عدد بگذرید، قدیمی‌ترین حذف می‌شود.</string>
-    <string name="enable_proxy_description">درخواست‌ها و پخش‌های YouTube Music ابتدا از سرور دیگری بگذرند. تصویرها، متن ترانه‌ها و سرویس‌های دیگری که برنامه استفاده می‌کند همچنان مستقیم وصل می‌شوند. اگر مطمئن نیستید لازمش دارید، خاموش بگذارید.</string>
+    <string name="enable_proxy_description">درخواست‌ها و پخش‌های YouTube Music ابتدا از سرور دیگری بگذرند. تصویرها، متن ترانه‌ها و سرویس‌های دیگری که برنامه از آن‌ها استفاده می‌کند همچنان مستقیم وصل می‌شوند. اگر مطمئن نیستید لازمش دارید، خاموش بگذارید.</string>
     <string name="show_liked_and_downloaded_playlist_description">آهنگ‌های پسندیده و آهنگ‌های دانلودشده را به‌صورت فهرست پخش در کتابخانه‌تان نشان بده.</string>
     <string name="pause_listen_history_description">دیگر آهنگی به تاریخچهٔ شما اضافه نشود. چیزی که از قبل در آن است حذف نمی‌شود.</string>
     <string name="pause_remote_listen_history_description">دیگر به YouTube Music نگو چه پخش می‌کنی. تاریخچهٔ داخل این برنامه در هر صورت ادامه می‌یابد.</string>

@@ -26,7 +26,7 @@
     <string name="action_skip">Saltar</string>
     <string name="action_next">Següent</string>
     <string name="action_back">Anterior</string>
-    <string name="m3u_ytm_lookup">Busca a YouTube Music cançons que no es trobin a la base de dades de la aplicació</string>
+    <string name="m3u_ytm_lookup">Busca a YouTube Music cançons que no es trobin a la base de dades de l\'aplicació</string>
     <string name="m3u_import_playlist_failed">No s\'ha pogut importar la playlist</string>
     <string name="m3u_import_playlist">Importar una playlist (m3u)</string>
     <string name="m3u_import_failed">No s\'han trobat cancons. L\'arxiu M3U no és vàlid o no es troben cançons coincidents</string>
