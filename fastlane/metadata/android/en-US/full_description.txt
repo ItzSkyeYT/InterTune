@@ -11,7 +11,10 @@
 <li>Multiple queues</li>
 <li>Synchronized lyrics, including word by word and karaoke lyrics (LRC, TTML)</li>
 <li>Audio normalization, tempo and pitch adjustment, and other audio effects</li>
-<li>Choose whether Quick picks comes from YouTube Music or is built from what you have already played</li>
+<li>Choose where Quick picks comes from: YouTube Music, Your library, or Best recommendations, which builds the row on your phone from how you listen</li>
+<li>What's playing? names the song around you, using Shazam, and can fill a playlist with what it hears</li>
+<li>A home screen widget that takes the shape of its size</li>
+<li>Spatial audio on any headphones, with head tracking on supported ones</li>
 <li>Android Auto support</li>
 </ul>
 

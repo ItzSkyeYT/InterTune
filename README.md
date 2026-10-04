@@ -78,18 +78,19 @@ OuterTune 0.10.1 already had local files, downloads, account sync, synced lyrics
 - **Best recommendations (experimental)**, a Quick picks source built on the phone from how you listen: what you finish, skip, search for, like and come back to. It learns from the cards you play and the ones you pass over. A new install starts on it; an update keeps the source you had.
 - **Why these?** Tap the Quick picks heading to see the songs the row was built around. A line under each card (on by default) says what put it there, and a long press offers Not this song, Less of this artist or Never this artist.
 - **Adventurousness and Familiarity dials**, New songs only, and context chips for Discover, Favourites, Focus, Chill and Party. They steer the row while Quick picks is on Best recommendations or Try both.
+- **Quick picks leans toward**: Auto, or most of the row for one kind of song: songs you have never heard, artists you keep coming back to, things you loved and forgot about, or what you are playing now.
 - **Try both (experimental)** mixes Best recommendations with the YouTube Music or library row, card for card, so you can compare them.
 - **Discover something new** (on by default) is a second row of songs you have never played.
 - **Similar songs from Last.fm** as well as YouTube, if you say yes when asked. Until you answer, nothing is sent to Last.fm.
 - **How it's doing**, under Settings > Recommendations, shows how often you play what each source puts in front of you, and what the engine has learned against where it started. Learning can be paused, reset or exported.
-- **Quick picks that behaves.** It is YouTube's real Quick picks shelf rather than a shelf of hour-long mixes, pull to refresh brings songs that were not there before, and it never shows previews or more than two songs by one artist.
+- **Quick picks that behaves.** It is YouTube's real Quick picks shelf rather than a shelf of hour-long mixes, pull to refresh brings songs that were not there before, and it never shows previews or, unless you lean it toward your artists, more than two songs by one artist.
 - **Rank with your listening** and **Tidy Home rows** (both on by default) order the YouTube Music and library rows by what you tend to finish, and keep out what you just heard and other versions of one song.
 
 ### Song recognition
 
 - **What's playing?** Tap the waveform in the search bar: Shazam names the song and InterTune finds it on YouTube Music to play or add. No account needed, and on headphones your own music keeps playing while it listens.
 - **Keep listening** carries on in the background with the screen off, lists everything it hears, and can put every song it hears into one playlist. Your playlists also have a listen button to fill them with what is playing around you.
-- **It knows which version is playing**: a sped-up or slowed edit by how fast it plays, and, in Keep listening, a mashup or remix rather than its pieces.
+- **In Keep listening it knows which version is playing**: a sped-up or slowed edit by how fast it plays, and a mashup or remix rather than its pieces.
 
 ### Sound
 
@@ -103,7 +104,8 @@ OuterTune 0.10.1 already had local files, downloads, account sync, synced lyrics
 - **A landscape player built for the shape of the screen.** Bigger artwork and controls, no system bars, and a queue arrow that stops swallowing the transport buttons ([#1133](https://github.com/OuterTune/OuterTune/issues/1133)). On tablets in landscape the queue sits beside the player.
 - **Sharp artwork on the player.** YouTube covers there were fetched at 120px and stretched ([#1247](https://github.com/OuterTune/OuterTune/issues/1247)).
 - **Liquid glass** (off by default): the bottom bar, mini player and player controls become frosted glass over whatever scrolls beneath them. The refraction half needs Android 13 or newer.
-- **Player buttons**: Classic, or Connected in one frosted row. The seekbar is the M3E one, and top bars float the way One UI 8 draws them.
+- **Player buttons**: Classic, or Connected, which puts share and like together by the title and adds a row under the controls for lyrics, the sleep timer and the menu. The seekbar is the M3E one, and top bars float the way One UI 8 draws them.
+- **Keypad phones and small screens.** The D-pad reaches every list, the player and the queue, and the player has a layout for a small screen or a floating window.
 
 ### Library
 
@@ -112,6 +114,7 @@ OuterTune 0.10.1 already had local files, downloads, account sync, synced lyrics
 - **Save the queue as a playlist**, export every playlist as M3U in one go, and remove several songs from a playlist at once ([#1172](https://github.com/OuterTune/OuterTune/issues/1172)). M3U import finds the right track again ([#679](https://github.com/OuterTune/OuterTune/issues/679)).
 - **Sync that does not lose things.** Read only sync no longer changes your YouTube Music account, a failed or partial sync no longer removes songs or playlists, and signing in no longer takes back likes you made while signed out.
 - **Last.fm scrobbling.** You sign in on Last.fm's own page, so InterTune never sees your password.
+- **History** lists every song you heard for 5 seconds or more, by day, with the time each play started.
 - **Stats that say something**: how much you listened against the period before, the hours you listen at, and the song you played most in one day. Nothing leaves the phone.
 
 ### Home screen and Android Auto
