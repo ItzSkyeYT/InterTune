@@ -140,7 +140,7 @@ fun UpdateSettings(
                 onCheckedChange = {
                     onEnabledChange(it)
                     // Check straight away on opt in, otherwise the switch appears to do nothing
-                    // for up to six hours.
+                    // until the app is next opened.
                     if (it) coroutineScope.launch { updateChecker.check(force = true) }
                 }
             )
@@ -148,8 +148,8 @@ fun UpdateSettings(
             // Off by default. It cannot make installing silent, because Android will not allow
             // that, so it is worded as what it actually does: fetch it ahead of time.
             // Hidden entirely on F-Droid rather than merely disabled. Fetching an apk ahead of
-            // time is useless there: F-Droid signs its own builds, so Android refuses to install
-            // the GitHub one over it, and the download would be ten megabytes spent on a failure.
+            // time is useless there: an F-Droid copy is sent to F-Droid for its update, so the
+            // download would be spent on a file nobody installs.
             if (!fromFdroid) SwitchPreference(
                 title = { Text(stringResource(R.string.update_auto)) },
                 description = stringResource(R.string.update_auto_description),
@@ -223,9 +223,8 @@ fun UpdateSettings(
                 // Download and install, matching the progress-row idiom used by the loudness
                 // repair and the liked-songs catch up: the description carries the state and a tap
                 // stops it while it runs.
-                // An F-Droid install is F-Droid's to update. Downloading a differently signed
-                // apk over it is not merely redundant, Android refuses it, so this row becomes a
-                // way out to the store instead of a way to fail.
+                // An F-Droid install is F-Droid's to update, so this row becomes a way out to the
+                // store instead of a download.
                 if (fromFdroid) PreferenceEntry(
                     title = { Text(stringResource(R.string.update_prompt_fdroid)) },
                     description = stringResource(R.string.update_fdroid_note),

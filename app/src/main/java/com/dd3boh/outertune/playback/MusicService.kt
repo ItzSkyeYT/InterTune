@@ -779,8 +779,8 @@ class MusicService : MediaLibraryService(),
             // without asking: the service can outlive the switch by days, and a song resumed at
             // launch can settle before this first read. Switched to Both or Last.fm only while
             // running, it also catches up on the songs rows are built around, and it does so once
-            // for a listener who has never caught up, since Both is the default and nobody
-            // switches to a default. Switched back to YouTube only, the catch-up stops.
+            // for a listener who said yes but has never caught up. Switched back to YouTube only,
+            // the catch-up stops.
             var similarRead = false
             dataStore.data.map { similarSourceOf(it) }.distinctUntilChanged()
                 .collectLatest(scope) { mode ->

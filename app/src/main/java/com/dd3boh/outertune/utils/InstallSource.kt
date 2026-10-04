@@ -14,9 +14,9 @@ import android.util.Log
  * Where this copy of the app came from, so it can point at the right place for the next one.
  *
  * The update checker reads GitHub releases and, until now, did so regardless of how the app was
- * installed. For anyone who got it from F-Droid that is the wrong answer twice over: they would be
- * told to sideload an apk by a copy of the app their store is already responsible for updating,
- * and the store would then refuse to update over a differently signed install.
+ * installed. For anyone who got it from F-Droid that is the wrong answer: they would be told to
+ * sideload an apk by a copy of the app their store is already responsible for updating, outside
+ * the checks and timing they chose F-Droid for.
  */
 enum class InstallSource {
     /** F-Droid, or one of the other clients that installs from an F-Droid repository. */

@@ -158,9 +158,9 @@ fun UpdateOptInCard() {
             // A dependent row rather than a card of its own, the same shape Settings > Updates
             // uses. Offering to download updates automatically to somebody who has just declined
             // update checking is incoherent, so it only exists once they have said yes. Hidden on
-            // F-Droid too, the same as Settings > Updates hides it there: F-Droid signs its own
-            // builds, so a GitHub apk downloaded here can never install, and Settings would offer
-            // no switch to turn it off again.
+            // F-Droid too, the same as Settings > Updates hides it there: an F-Droid copy is
+            // F-Droid's to update, so a GitHub apk fetched here is never the one installed, and
+            // Settings would offer no switch to turn it off again.
             AnimatedVisibility(visible = answered && !fromFdroid) {
                 SwitchPreference(
                     title = { Text(stringResource(R.string.update_auto)) },

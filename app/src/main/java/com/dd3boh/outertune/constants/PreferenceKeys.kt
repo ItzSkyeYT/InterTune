@@ -199,7 +199,7 @@ val FamiliarityKey = intPreferencesKey("familiarity")
  * keeps Last.fm only. See SimilarSources.stored.
  */
 val SimilarFromLastFmKey = booleanPreferencesKey("similarFromLastFm")
-/** Where the engine's similar songs come from, a SimilarSource name. Unset means the old switch decides, and Both without it. */
+/** Where the engine's similar songs come from, a SimilarSource name. Unset means the old switch decides, and YouTube only without it. */
 val SimilarSourceKey = stringPreferencesKey("similarSource")
 /** When the Last.fm catch-up last finished, so it runs once even for a listener who never changes the setting. */
 val LastFmCaughtUpAtKey = longPreferencesKey("lastFmCaughtUpAt")
@@ -374,7 +374,7 @@ val LastDownloadUrlKey = stringPreferencesKey("lastDownloadUrl")
 val LastAssetSizeKey = longPreferencesKey("lastAssetSize")
 val LastChangelogKey = stringPreferencesKey("lastChangelog")
 
-/** Download and open the install prompt without asking first. Off by default. */
+/** Download a found update ahead of time. Installing still asks. Off by default. */
 val AutoInstallUpdatesKey = booleanPreferencesKey("autoInstallUpdates")
 
 /** Epoch millis before which the update prompt stays quiet, set by "remind me later". */

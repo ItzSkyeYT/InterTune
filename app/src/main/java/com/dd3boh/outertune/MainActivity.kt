@@ -601,8 +601,8 @@ class MainActivity : ComponentActivity() {
 
 
             LaunchedEffect(Unit) {
-                // Look for a newer release. Does nothing unless the user opted in, and rate limits
-                // itself to once every few hours, so this is cheap to call on every open. Failure
+                // Look for a newer release. Does nothing unless the user opted in, and never asks
+                // more than once in two minutes, so this is cheap to call on every open. Failure
                 // is silent on purpose: nobody opened a music player to be told GitHub is down.
                 coroutineScope.launch { updateChecker.check() }
 

@@ -9,11 +9,11 @@ Checked on 12 September 2026, against the published 0.10.7 apk and the tree it w
 - **Licence.** GPL-3.0, with the full text in `LICENSE` and an SPDX header on every file this fork wrote.
 - **No proprietary dependencies.** Nothing from Google Play services, Firebase, billing or crash reporting, in the gradle files or in the apk.
 - **No prebuilt binaries in the source.** `media/` is ignored and untracked; the only jar in git is the gradle wrapper's. The one native library, `libtaglib.so`, is built by the NDK from the C++ in the `taglib` submodule.
-- **The build needs no secrets.** Last.fm credentials and the poll endpoints are read from `local.properties`, which is not in the repository, and every one of them is optional: the Last.fm setting hides itself and the poll checker does nothing. An F-Droid build is an InterTune with no scrobbling login and no questions.
+- **The build needs no secrets.** The Last.fm API key and the poll endpoints are in the committed `services.properties`, so a build from source is the published APK. They only work in an APK signed with the release key (`utils/BuiltInKeys.kt`), which F-Droid's reproducible build is.
 - **The screen shots carry nobody's library.** They were taken on a second, clean install of the app, package `dev.skye.intertune` beside the maintainer's own `dev.skye.intertune.debug`, whose library is thirteen well-known albums added by hand. No playlists, no recommendations, no listening history belonging to anyone.
 - **Store metadata is in the repository** at `fastlane/metadata/android/en-US`: title, short and full descriptions, an icon, six phone screen shots, five tablet screen shots, and a changelog for the current version code.
 - **Releases are tagged.** `v0.10.7` and the rest are real tags on the default branch, which is what a build recipe points at.
-- **An F-Droid install already updates through F-Droid.** `utils/InstallSource.kt` recognises the F-Droid clients and Droidify and Neo Store; the in-app updater then stands aside and points at the F-Droid page instead of offering an apk that would refuse to install over a differently signed one.
+- **An F-Droid install already updates through F-Droid.** `utils/InstallSource.kt` recognises the F-Droid clients and Droidify and Neo Store; the in-app updater then stands aside and points at the F-Droid page instead of offering the GitHub apk.
 
 The signing certificate of the GitHub builds, for anyone verifying an apk or pinning it:
 

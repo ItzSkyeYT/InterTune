@@ -87,9 +87,9 @@ class UpdateChecker @Inject constructor(
     /**
      * Looks for a newer release.
      *
-     * [force] skips the rate limit, for the manual "check now" button. The automatic call on app
-     * open does not, because the GitHub API allows 60 unauthenticated requests an hour per IP and
-     * everyone behind one carrier NAT shares that budget.
+     * [force] skips the opt in and the rate limit, for the manual "check now" button. The automatic
+     * call on app open does not, because the GitHub API allows 60 unauthenticated requests an hour
+     * per IP and everyone behind one carrier NAT shares that budget.
      */
     suspend fun check(force: Boolean = false): Update? = withContext(Dispatchers.IO) {
         val store = context.dataStore
@@ -152,7 +152,8 @@ class UpdateChecker @Inject constructor(
         }
 
         // The whole result, not just the name. Without the code and the url a restart cannot
-        // rebuild what it found, and the rate limit below then reports "no update" for six hours.
+        // rebuild what it found, and the rate limit below then reports "no update" until the next
+        // check.
         context.dataStore.edit {
             it[UpdateAvailableKey] = true
             it[LastVersionKey] = update.versionName
