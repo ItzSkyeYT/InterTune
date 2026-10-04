@@ -107,7 +107,7 @@ After the update, a few quick questions come up once, for what needs your say-so
 - The proxy fields carry working examples.
 - Recommendation engine data can be imported as well as exported.
 - Back buttons on the screens that were missing one, including the Last.fm login.
-- Android's own cloud backup no longer carries the settings file, which holds your YouTube Music sign-in. Your library is still backed up, and InterTune's own backup carries everything as before.
+- Android's own cloud backup no longer carries your YouTube Music sign-in. A library small enough for Android's 25 MB limit is still backed up there, and InterTune's own backup carries the library and settings as before.
 
 ## Battery
 

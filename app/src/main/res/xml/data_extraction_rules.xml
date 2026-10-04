@@ -1,13 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?><!--
    Android 12 and later. The settings file holds the YouTube Music sign-in and the Last.fm session,
-   so it stays out of the cloud backup. A transfer straight from one phone to another still carries
-   it. The library is backed up either way; the app's own backup carries everything.
+   the web view the sign-in pages open in keeps their cookies in app_webview, and the liked songs
+   snapshot names the account, so all three stay out of the cloud backup. A transfer straight from
+   one phone to another still carries them. The library goes in the cloud backup while the app's
+   data fits Android's 25 MB limit; the app's own backup carries the library and the settings.
 -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude
             domain="file"
             path="datastore/" />
+        <exclude
+            domain="root"
+            path="app_webview/" />
+        <exclude
+            domain="file"
+            path="liked_sync/" />
         <exclude
             domain="file"
             path="./exoplayer" />
