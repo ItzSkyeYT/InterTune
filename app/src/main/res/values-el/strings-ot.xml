@@ -151,7 +151,7 @@
     <string name="polls_one_waiting">Υπάρχει μια ερώτηση που περιμένει</string>
     <string name="polls_forget">Να μπορούν να με ρωτήσουν ξανά</string>
     <string name="polls_forget_description">Καθαρίζει το ιστορικό όσων απαντήσατε και απορρίψατε, ώστε παλιότερες ερωτήσεις να μπορούν να επανέλθουν.</string>
-    <string name="catch_up_title">Δύο σύντομες ερωτήσεις</string>
+    <string name="catch_up_title">Μερικές σύντομες ερωτήσεις</string>
     <string name="catch_up_body">Αυτές οι ρυθμίσεις χρειάζονται τη συγκατάθεσή σας και αυτή η εγκατάσταση δεν ρωτήθηκε ποτέ.</string>
     <string name="catch_up_done">Τέλος</string>
     <string name="polls_opt_in_title">Να σας κάνουμε πού και πού μια ερώτηση;</string>
@@ -198,7 +198,7 @@
     <string name="song_cache_max_size">Μέγιστο μέγεθος προσωρινής μνήμης τραγουδιών</string>
     <string name="image_cache_max_size">Μέγιστο μέγεθος προσωρινής μνήμης εξωφύλλων</string>
     <string name="max_queues_description">Πόσες λίστες αναπαραγωγής κρατά η εφαρμογή ταυτόχρονα. Η παλαιότερη απορρίπτεται όταν το ξεπεράσετε.</string>
-    <string name="enable_proxy_description">Να περνούν όλα όσα λαμβάνει η εφαρμογή πρώτα από άλλον διακομιστή. Αφήστε το ανενεργό εκτός αν ξέρετε ότι το χρειάζεστε.</string>
+    <string name="enable_proxy_description">Να περνούν τα αιτήματα και οι ροές του YouTube Music πρώτα από άλλον διακομιστή. Οι εικόνες, οι στίχοι και οι άλλες υπηρεσίες που χρησιμοποιεί η εφαρμογή συνδέονται ακόμη απευθείας. Αφήστε το ανενεργό εκτός αν ξέρετε ότι το χρειάζεστε.</string>
     <string name="show_liked_and_downloaded_playlist_description">Εμφάνιση των Αγαπημένων και των Ληφθέντων τραγουδιών ως λίστες στη βιβλιοθήκη σας.</string>
     <string name="pause_listen_history_description">Να σταματήσει η προσθήκη τραγουδιών στο ιστορικό σας. Τίποτα από όσα υπάρχουν ήδη δεν αφαιρείται.</string>
     <string name="pause_remote_listen_history_description">Να σταματήσει η ενημέρωση του YouTube Music για ό,τι παίζετε. Το ιστορικό μέσα σε αυτή την εφαρμογή συνεχίζεται ούτως ή άλλως.</string>

@@ -317,7 +317,7 @@
     <string name="polls_one_waiting">Hay una pregunta esperando</string>
     <string name="polls_forget">Permitir que me vuelvan a preguntar</string>
     <string name="polls_forget_description">Borra el registro de lo que has respondido y descartado, para que las preguntas anteriores puedan volver.</string>
-    <string name="catch_up_title">Dos preguntas rápidas</string>
+    <string name="catch_up_title">Unas preguntas rápidas</string>
     <string name="catch_up_body">Estos ajustes necesitan tu consentimiento y nunca se ha preguntado en esta instalación.</string>
     <string name="catch_up_done">Hecho</string>
     <string name="polls_opt_in_title">¿Hacerte alguna pregunta de vez en cuando?</string>
@@ -364,7 +364,7 @@
     <string name="song_cache_max_size">Tamaño máximo de la caché de canciones</string>
     <string name="image_cache_max_size">Tamaño máximo de la caché de carátulas</string>
     <string name="max_queues_description">Cuántas colas mantiene la aplicación a la vez. La más antigua se descarta al pasar de este número.</string>
-    <string name="enable_proxy_description">Enviar todo lo que descarga la aplicación a través de otro servidor primero. Déjalo desactivado salvo que sepas que lo necesitas.</string>
+    <string name="enable_proxy_description">Enviar las solicitudes y las transmisiones de YouTube Music a través de otro servidor primero. Las imágenes, las letras y los demás servicios que usa la aplicación siguen conectándose directamente. Déjalo desactivado salvo que sepas que lo necesitas.</string>
     <string name="show_liked_and_downloaded_playlist_description">Mostrar Canciones que me gustan y Canciones descargadas como listas en tu biblioteca.</string>
     <string name="pause_listen_history_description">Dejar de añadir canciones a tu historial. No se elimina nada de lo que ya hay en él.</string>
     <string name="pause_remote_listen_history_description">Dejar de decirle a YouTube Music qué reproduces. Tu historial dentro de esta aplicación continúa igualmente.</string>

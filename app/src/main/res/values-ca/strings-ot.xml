@@ -33,7 +33,7 @@
     <string name="m3u_export">Exportar com arxiu M3U</string>
     <string name="import_success_songs">Importat correctament</string>
     <string name="import_failed_songs">No s\'ha pogut importar</string>
-    <string name="oobe_complete">OverTune està configurat i llest per utilitzar. Explora la teva música, descobreix noves pustes i disfruta de la experiència!</string>
+    <string name="oobe_complete">InterTune està configurat i llest per utilitzar. Explora la teva música, descobreix noves pistes i gaudeix de l\'experiència!</string>
     <string name="oobe_complete_title">Tot a punt!</string>
     <string name="oobe_downloads_subtitle">Escull la carpeta en la que es guardaran les cançons descareegades.</string>
     <string name="oobe_downloads_title">Cançons descarregades</string>
@@ -117,8 +117,8 @@
     <string name="polls_one_waiting">Hi ha una pregunta esperant</string>
     <string name="polls_forget">Permet que em tornin a preguntar</string>
     <string name="polls_forget_description">Esborra el registre del que has respost i descartat, perquè les preguntes anteriors puguin tornar.</string>
-    <string name="catch_up_title">Dues preguntes ràpides</string>
-    <string name="catch_up_body">Aquests paràmetres necessiten el vostre consentiment i mai no s\'ha preguntat en aquesta instal·lació.</string>
+    <string name="catch_up_title">Unes quantes preguntes ràpides</string>
+    <string name="catch_up_body">Aquests paràmetres necessiten el teu consentiment i mai no s\'ha preguntat en aquesta instal·lació.</string>
     <string name="catch_up_done">Fet</string>
     <string name="polls_opt_in_title">Et fem alguna pregunta de tant en tant?</string>
     <string name="polls_opt_in_body">De tant en tant InterTune pot mostrar una pregunta curta a dalt de l’inici, sobre què construir o canviar. Respondre és opcional i anònim, i pots desactivar-ho quan vulguis a la configuració. Mentre estigui desactivat no es baixa res ni s’envia res.</string>
@@ -164,7 +164,7 @@
     <string name="song_cache_max_size">Mida màxima de la memòria cau de cançons</string>
     <string name="image_cache_max_size">Mida màxima de la memòria cau de cobertes</string>
     <string name="max_queues_description">Quantes cues manté l’aplicació alhora. La més antiga es descarta quan passes d’aquest nombre.</string>
-    <string name="enable_proxy_description">Fes passar tot el que l’aplicació obté primer per un altre servidor. Deixa-ho desactivat si no saps que ho necessites.</string>
+    <string name="enable_proxy_description">Fes passar les peticions i els fluxos de YouTube Music primer per un altre servidor. Les imatges, les lletres i els altres serveis que fa servir l’aplicació continuen connectant-se directament. Deixa-ho desactivat si no saps que ho necessites.</string>
     <string name="show_liked_and_downloaded_playlist_description">Mostra Cançons que m’agraden i Cançons baixades com a llistes a la teva biblioteca.</string>
     <string name="pause_listen_history_description">Deixa d’afegir cançons al teu historial. No s’elimina res del que ja hi ha.</string>
     <string name="pause_remote_listen_history_description">Deixa de dir a YouTube Music què reprodueixes. L’historial dins d’aquesta aplicació continua igualment.</string>

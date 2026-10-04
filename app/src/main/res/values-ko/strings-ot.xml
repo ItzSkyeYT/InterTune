@@ -288,7 +288,7 @@
     <string name="polls_one_waiting">기다리는 질문이 있습니다</string>
     <string name="polls_forget">다시 질문받기</string>
     <string name="polls_forget_description">답하거나 닫은 기록을 지워, 지난 질문이 다시 나올 수 있게 합니다.</string>
-    <string name="catch_up_title">간단한 질문 두 가지</string>
+    <string name="catch_up_title">간단한 질문 몇 가지</string>
     <string name="catch_up_body">이 설정에는 사용자의 동의가 필요하지만 이 설치본에서는 한 번도 묻지 않았습니다.</string>
     <string name="catch_up_done">완료</string>
     <string name="polls_opt_in_title">가끔 질문해도 될까요?</string>
@@ -335,7 +335,7 @@
     <string name="song_cache_max_size">곡 캐시 최대 크기</string>
     <string name="image_cache_max_size">앨범 아트 캐시 최대 크기</string>
     <string name="max_queues_description">앱이 한 번에 유지하는 대기열 수입니다. 이 수를 넘으면 가장 오래된 것이 사라집니다.</string>
-    <string name="enable_proxy_description">앱이 받아오는 모든 것을 먼저 다른 서버를 거치게 합니다. 필요하다고 확신하지 않는다면 꺼 두세요.</string>
+    <string name="enable_proxy_description">YouTube Music 요청과 스트림을 먼저 다른 서버를 거치게 합니다. 이미지, 가사, 앱이 사용하는 다른 서비스는 여전히 직접 연결됩니다. 필요하다고 확신하지 않는다면 꺼 두세요.</string>
     <string name="show_liked_and_downloaded_playlist_description">좋아요 표시한 곡과 다운로드한 곡을 라이브러리에 재생목록으로 표시합니다.</string>
     <string name="pause_listen_history_description">기록에 곡을 더 이상 추가하지 않습니다. 이미 있는 항목은 지워지지 않습니다.</string>
     <string name="pause_remote_listen_history_description">무엇을 재생하는지 YouTube Music에 알리지 않습니다. 이 앱 안의 기록은 어느 쪽이든 계속됩니다.</string>

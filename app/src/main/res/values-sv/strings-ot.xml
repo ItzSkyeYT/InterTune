@@ -73,7 +73,7 @@
     <string name="polls_one_waiting">Det väntar en fråga</string>
     <string name="polls_forget">Låt mig tillfrågas igen</string>
     <string name="polls_forget_description">Rensar noteringen om vad du har svarat på och avfärdat, så att tidigare frågor kan komma tillbaka.</string>
-    <string name="catch_up_title">Två snabba frågor</string>
+    <string name="catch_up_title">Några snabba frågor</string>
     <string name="catch_up_body">De här inställningarna behöver ditt godkännande, och den här installationen har aldrig blivit tillfrågad.</string>
     <string name="catch_up_done">Klar</string>
     <string name="polls_opt_in_title">Ställa en fråga till dig då och då?</string>
@@ -120,7 +120,7 @@
     <string name="song_cache_max_size">Största storlek för låtcachen</string>
     <string name="image_cache_max_size">Största storlek för omslagscachen</string>
     <string name="max_queues_description">Hur många köer appen håller samtidigt. Den äldsta slängs när du går över det här antalet.</string>
-    <string name="enable_proxy_description">Skicka allt appen hämtar genom en annan server först. Låt det vara av om du inte vet att du behöver det.</string>
+    <string name="enable_proxy_description">Skicka YouTube Musics förfrågningar och strömmar genom en annan server först. Bilder, låttexter och de andra tjänster appen använder ansluter fortfarande direkt. Låt det vara av om du inte vet att du behöver det.</string>
     <string name="show_liked_and_downloaded_playlist_description">Visa Gillade låtar och Nedladdade låtar som spellistor i ditt bibliotek.</string>
     <string name="pause_listen_history_description">Sluta lägga till låtar i din historik. Inget som redan finns där tas bort.</string>
     <string name="pause_remote_listen_history_description">Sluta berätta för YouTube Music vad du spelar. Historiken inne i den här appen fortsätter oavsett.</string>

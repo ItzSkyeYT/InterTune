@@ -248,7 +248,7 @@
     <string name="download_on_wifi_only_title">仅在 Wi-Fi 下下载</string>
     <string name="download_waiting_for_wifi">已排队。有 Wi-Fi 时将自动下载</string>
     <string name="err_copy_details">复制错误详情</string>
-    <string name="err_youtube_busy">YouTube 暂时停止向此网络连接提供音乐。这不是您的手机、账号或这首歌曲的问题，过一会儿会自行恢复。换用其他网络（例如移动数据）通常可以播放。否则请稍等片刻再试。</string>
+    <string name="err_youtube_busy">YouTube 暂时停止向此网络连接提供音乐。这不是您的手机、账号或这首歌曲的问题，过一会儿会自行恢复。换用其他网络（例如移动数据）往往可以播放。否则请稍等片刻再试。</string>
     <string name="grouped_player_controls">合并播放器按钮</string>
     <string name="grouped_player_controls_description">将随机播放、切歌、播放和循环按钮放进同一条玻璃条中。关闭后，按钮会各自单独浮在封面上。需要开启“液态玻璃”。</string>
     <string name="grp_updates">更新</string>
@@ -311,7 +311,7 @@
     <string name="polls_one_waiting">有一个问题在等你</string>
     <string name="polls_forget">让我可以再次被询问</string>
     <string name="polls_forget_description">清除你已回答和已忽略的记录，让过去的问题可以再次出现。</string>
-    <string name="catch_up_title">两个简短的问题</string>
+    <string name="catch_up_title">几个简短的问题</string>
     <string name="catch_up_body">这些设置需要你同意，而这次安装从未询问过。</string>
     <string name="catch_up_done">完成</string>
     <string name="polls_opt_in_title">偶尔问你一个问题？</string>
@@ -358,7 +358,7 @@
     <string name="song_cache_max_size">歌曲缓存上限</string>
     <string name="image_cache_max_size">封面缓存上限</string>
     <string name="max_queues_description">应用同时保留多少个播放队列。超出后最旧的会被丢弃。</string>
-    <string name="enable_proxy_description">让应用获取的所有内容先经过另一台服务器。除非你确定需要，否则请保持关闭。</string>
+    <string name="enable_proxy_description">让 YouTube Music 的请求和音频流先经过另一台服务器。图片、歌词以及应用使用的其他服务仍会直接连接。除非你确定需要，否则请保持关闭。</string>
     <string name="show_liked_and_downloaded_playlist_description">在音乐库中把“喜欢的歌曲”和“已下载的歌曲”显示为播放列表。</string>
     <string name="pause_listen_history_description">不再把歌曲加入你的收听记录。已在其中的内容不会被删除。</string>
     <string name="pause_remote_listen_history_description">不再把你播放的内容告诉 YouTube Music。此应用内的记录不受影响，照常继续。</string>

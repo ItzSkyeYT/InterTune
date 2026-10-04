@@ -321,7 +321,7 @@
     <string name="polls_one_waiting">На вас чекає питання</string>
     <string name="polls_forget">Дозволити питати знову</string>
     <string name="polls_forget_description">Очищає записи про те, на що ви відповіли та що приховали, щоб минулі питання могли повернутися.</string>
-    <string name="catch_up_title">Два швидкі запитання</string>
+    <string name="catch_up_title">Кілька швидких запитань</string>
     <string name="catch_up_body">Ці налаштування потребують вашої згоди, а цю встановлену копію ніколи не запитували.</string>
     <string name="catch_up_done">Готово</string>
     <string name="polls_opt_in_title">Інколи ставити вам питання?</string>
@@ -368,7 +368,7 @@
     <string name="song_cache_max_size">Максимальний розмір кешу треків</string>
     <string name="image_cache_max_size">Максимальний розмір кешу обкладинок</string>
     <string name="max_queues_description">Скільки черг застосунок тримає водночас. Найстаріша відкидається, коли ви виходите за це число.</string>
-    <string name="enable_proxy_description">Пропускати все, що завантажує застосунок, спершу через інший сервер. Залиште вимкненим, якщо не впевнені, що вам це потрібно.</string>
+    <string name="enable_proxy_description">Пропускати запити й потоки YouTube Music спершу через інший сервер. Зображення, тексти пісень та інші сервіси, якими користується застосунок, і далі підключаються напряму. Залиште вимкненим, якщо не впевнені, що вам це потрібно.</string>
     <string name="show_liked_and_downloaded_playlist_description">Показувати «Уподобані» та «Завантажені» як плейлисти у вашій бібліотеці.</string>
     <string name="pause_listen_history_description">Перестати додавати треки до вашої історії. Нічого з того, що вже там є, не видаляється.</string>
     <string name="pause_remote_listen_history_description">Перестати повідомляти YouTube Music, що ви слухаєте. Історія всередині цього застосунку ведеться далі в будь-якому разі.</string>

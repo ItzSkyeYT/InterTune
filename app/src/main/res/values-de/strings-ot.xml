@@ -306,7 +306,7 @@
     <string name="polls_one_waiting">Es wartet eine Frage</string>
     <string name="polls_forget">Mich erneut fragen lassen</string>
     <string name="polls_forget_description">Löscht die Aufzeichnung darüber, was du beantwortet und ausgeblendet hast, damit frühere Fragen wiederkommen können.</string>
-    <string name="catch_up_title">Zwei kurze Fragen</string>
+    <string name="catch_up_title">Ein paar kurze Fragen</string>
     <string name="catch_up_body">Diese Einstellungen brauchen deine Zustimmung, und diese Installation wurde nie gefragt.</string>
     <string name="catch_up_done">Fertig</string>
     <string name="polls_opt_in_title">Dir gelegentlich eine Frage stellen?</string>
@@ -353,7 +353,7 @@
     <string name="song_cache_max_size">Maximale Größe des Titel-Caches</string>
     <string name="image_cache_max_size">Maximale Größe des Cover-Caches</string>
     <string name="max_queues_description">Wie viele Warteschlangen die App gleichzeitig behält. Die älteste fällt weg, wenn du darüber hinausgehst.</string>
-    <string name="enable_proxy_description">Alles, was die App abruft, zuerst über einen anderen Server leiten. Lass dies aus, sofern du nicht weißt, dass du es brauchst.</string>
+    <string name="enable_proxy_description">Anfragen und Streams von YouTube Music zuerst über einen anderen Server leiten. Bilder, Songtexte und die anderen Dienste, die die App nutzt, verbinden sich weiterhin direkt. Lass dies aus, sofern du nicht weißt, dass du es brauchst.</string>
     <string name="show_liked_and_downloaded_playlist_description">Mit „Gefällt mir“ markierte und heruntergeladene Titel als Playlists in deiner Bibliothek anzeigen.</string>
     <string name="pause_listen_history_description">Keine Titel mehr zu deinem Verlauf hinzufügen. Nichts, was bereits darin ist, wird entfernt.</string>
     <string name="pause_remote_listen_history_description">YouTube Music nicht mehr mitteilen, was du hörst. Dein Verlauf innerhalb dieser App läuft so oder so weiter.</string>

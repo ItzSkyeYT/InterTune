@@ -62,7 +62,7 @@
     <string name="download_on_wifi_only_title">Yalnız Wi-Fi ilə yüklə</string>
     <string name="download_waiting_for_wifi">Növbəyə alındı. Wi-Fi əlçatan olanda yüklənəcək</string>
     <string name="err_copy_details">Xəta təfərrüatlarını kopyala</string>
-    <string name="err_youtube_busy">YouTube bu internet bağlantısına müvəqqəti olaraq musiqi verməyi dayandırıb. Səbəb nə telefonunuz, nə hesabınız, nə də bu mahnıdır — bu, öz-özünə keçib gedir. Başqa bir şəbəkə, məsələn mobil internet, çox vaxt işləyir. Yoxsa bir az gözləyib yenidən cəhd edin.</string>
+    <string name="err_youtube_busy">YouTube bu internet bağlantısına müvəqqəti olaraq musiqi verməyi dayandırıb. Səbəb nə telefonunuz, nə hesabınız, nə də bu mahnıdır — bu, öz-özünə keçib gedir. Başqa bir şəbəkə, məsələn, mobil internet, çox vaxt işləyir. Yoxsa bir az gözləyib yenidən cəhd edin.</string>
     <string name="grouped_player_controls">Səsləndirici düymələrini qruplaşdır</string>
     <string name="grouped_player_controls_description">Qarışdırma, keçid, oxutma və təkrar düymələrini bir şüşə zolaqda birləşdirir. Söndürsəniz, düymələr albom şəklinin üzərində ayrıca dayanır. Maye şüşə aktiv olmalıdır.</string>
     <string name="grp_updates">Yeniləmələr</string>
@@ -125,7 +125,7 @@
     <string name="polls_one_waiting">Sizi bir sual gözləyir</string>
     <string name="polls_forget">Yenidən soruşulmağa icazə ver</string>
     <string name="polls_forget_description">Nəyi cavabladığınız və nəyi ləğv etdiyiniz barədə qeydi təmizləyir ki, keçmiş suallar geri qayıda bilsin.</string>
-    <string name="catch_up_title">İki qısa sual</string>
+    <string name="catch_up_title">Bir neçə qısa sual</string>
     <string name="catch_up_body">Bu parametrlər sizin razılığınızı tələb edir və bu quraşdırma heç vaxt soruşulmayıb.</string>
     <string name="catch_up_done">Hazırdır</string>
     <string name="polls_opt_in_title">Ara-sıra sizə bir sual verək?</string>
@@ -172,7 +172,7 @@
     <string name="song_cache_max_size">Mahnı keşinin maksimum həcmi</string>
     <string name="image_cache_max_size">Üz qabığı keşinin maksimum həcmi</string>
     <string name="max_queues_description">Tətbiqin eyni anda saxladığı növbələrin sayı. Bu saydan keçdikdə ən köhnəsi atılır.</string>
-    <string name="enable_proxy_description">Tətbiqin gətirdiyi hər şeyi əvvəlcə başqa serverdən keçir. Ehtiyacınız olduğunu bilmirsinizsə, sönülü saxlayın.</string>
+    <string name="enable_proxy_description">YouTube Music sorğularını və yayımlarını əvvəlcə başqa serverdən keçir. Şəkillər, mahnı sözləri və tətbiqin istifadə etdiyi digər xidmətlər yenə birbaşa qoşulur. Ehtiyacınız olduğunu bilmirsinizsə, sönülü saxlayın.</string>
     <string name="show_liked_and_downloaded_playlist_description">Bəyənilən mahnıları və endirilmiş mahnıları kitabxananızda pleylist kimi göstər.</string>
     <string name="pause_listen_history_description">Tarixçənizə mahnı əlavə etməyi dayandır. Orada artıq olan heç nə silinmir.</string>
     <string name="pause_remote_listen_history_description">YouTube Music-ə nə oxutduğunuzu bildirməyi dayandır. Bu tətbiqin daxilindəki tarixçə hər halda davam edir.</string>

@@ -68,7 +68,7 @@
     <string name="polls_one_waiting">May tanong na naghihintay</string>
     <string name="polls_forget">Payagang tanungin ako ulit</string>
     <string name="polls_forget_description">Binubura ang tala ng sinagot at ni-dismiss mo, para makabalik ang mga dating tanong.</string>
-    <string name="catch_up_title">Dalawang mabilis na tanong</string>
+    <string name="catch_up_title">Ilang mabilis na tanong</string>
     <string name="catch_up_body">Kailangan ng pahintulot mo para sa mga setting na ito, at hindi pa natatanong ang pag-install na ito.</string>
     <string name="catch_up_done">Tapos na</string>
     <string name="polls_opt_in_title">Tatanungin ka namin paminsan-minsan?</string>
@@ -115,7 +115,7 @@
     <string name="song_cache_max_size">Pinakamalaking laki ng cache ng kanta</string>
     <string name="image_cache_max_size">Pinakamalaking laki ng cache ng artwork</string>
     <string name="max_queues_description">Ilang queue ang itinatago ng app nang sabay-sabay. Itinatapon ang pinakaluma kapag lumampas ka rito.</string>
-    <string name="enable_proxy_description">Padaanin muna sa ibang server ang lahat ng kinukuha ng app. Iwanang naka-off maliban kung alam mong kailangan mo ito.</string>
+    <string name="enable_proxy_description">Padaanin muna sa ibang server ang mga request at stream ng YouTube Music. Direkta pa ring kumokonekta ang mga larawan, lyrics at iba pang serbisyong ginagamit ng app. Iwanang naka-off maliban kung alam mong kailangan mo ito.</string>
     <string name="show_liked_and_downloaded_playlist_description">Ipakita ang Mga nagustuhang kanta at Mga na-download na kanta bilang playlist sa aklatan mo.</string>
     <string name="pause_listen_history_description">Itigil ang pagdaragdag ng kanta sa kasaysayan mo. Walang inaalis sa mga naroon na.</string>
     <string name="pause_remote_listen_history_description">Itigil ang pagsasabi sa YouTube Music kung ano ang pinapatugtog mo. Tuloy pa rin ang kasaysayan sa loob ng app na ito.</string>

@@ -288,7 +288,7 @@
     <string name="polls_one_waiting">Чека вас питање</string>
     <string name="polls_forget">Дозволи да ме поново питају</string>
     <string name="polls_forget_description">Брише запис о томе шта сте одговорили и одбацили, да би се ранија питања могла вратити.</string>
-    <string name="catch_up_title">Два кратка питања</string>
+    <string name="catch_up_title">Неколико кратких питања</string>
     <string name="catch_up_body">Ова подешавања захтевају вашу сагласност, а ова инсталација никада није упитана.</string>
     <string name="catch_up_done">Готово</string>
     <string name="polls_opt_in_title">Да вас понекад питамо?</string>
@@ -335,7 +335,7 @@
     <string name="song_cache_max_size">Највећа величина кеша песама</string>
     <string name="image_cache_max_size">Највећа величина кеша омота</string>
     <string name="max_queues_description">Колико редова апликација чува истовремено. Најстарији се одбацује када пређете овај број.</string>
-    <string name="enable_proxy_description">Пропусти све што апликација преузима прво кроз други сервер. Оставите искључено осим ако знате да вам треба.</string>
+    <string name="enable_proxy_description">Пропусти захтеве и стримове YouTube Music-а прво кроз други сервер. Слике, текстови песама и остале услуге које апликација користи и даље се повезују директно. Оставите искључено осим ако знате да вам треба.</string>
     <string name="show_liked_and_downloaded_playlist_description">Прикажи Омиљене песме и Преузете песме као листе у вашој библиотеци.</string>
     <string name="pause_listen_history_description">Престани да додајеш песме у вашу историју. Ништа што је већ у њој се не уклања.</string>
     <string name="pause_remote_listen_history_description">Престани да јављаш YouTube Music-у шта пуштате. Историја унутар ове апликације наставља у сваком случају.</string>

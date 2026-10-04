@@ -318,7 +318,7 @@
     <string name="polls_one_waiting">C\'è una domanda in attesa</string>
     <string name="polls_forget">Fammi chiedere di nuovo</string>
     <string name="polls_forget_description">Cancella la memoria di ciò che hai risposto e ignorato, così le domande passate possono tornare.</string>
-    <string name="catch_up_title">Due domande veloci</string>
+    <string name="catch_up_title">Alcune domande veloci</string>
     <string name="catch_up_body">Queste impostazioni richiedono il tuo consenso e a questa installazione non è mai stato chiesto.</string>
     <string name="catch_up_done">Fatto</string>
     <string name="polls_opt_in_title">Farti qualche domanda ogni tanto?</string>
@@ -365,7 +365,7 @@
     <string name="song_cache_max_size">Dimensione massima della cache dei brani</string>
     <string name="image_cache_max_size">Dimensione massima della cache delle copertine</string>
     <string name="max_queues_description">Quante code tiene l\'app contemporaneamente. La più vecchia viene eliminata quando superi questo numero.</string>
-    <string name="enable_proxy_description">Fai passare prima da un altro server tutto ciò che l\'app scarica. Lascialo disattivato a meno che tu non sappia di averne bisogno.</string>
+    <string name="enable_proxy_description">Fai passare prima da un altro server le richieste e gli stream di YouTube Music. Le immagini, i testi e gli altri servizi usati dall\'app continuano a collegarsi direttamente. Lascialo disattivato a meno che tu non sappia di averne bisogno.</string>
     <string name="show_liked_and_downloaded_playlist_description">Mostra Brani che ti piacciono e Brani scaricati come playlist nella tua libreria.</string>
     <string name="pause_listen_history_description">Smetti di aggiungere brani alla cronologia. Nulla di ciò che è già presente viene rimosso.</string>
     <string name="pause_remote_listen_history_description">Smetti di comunicare a YouTube Music cosa ascolti. La cronologia dentro questa app continua comunque.</string>

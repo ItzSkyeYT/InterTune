@@ -316,7 +316,7 @@
     <string name="polls_one_waiting">Czeka na Ciebie pytanie</string>
     <string name="polls_forget">Pozwól pytać mnie ponownie</string>
     <string name="polls_forget_description">Czyści zapis tego, na co odpowiedziałeś i co odrzuciłeś, aby dawne pytania mogły wrócić.</string>
-    <string name="catch_up_title">Dwa krótkie pytania</string>
+    <string name="catch_up_title">Kilka krótkich pytań</string>
     <string name="catch_up_body">Te ustawienia wymagają twojej zgody, a ta instalacja nigdy nie została o nią zapytana.</string>
     <string name="catch_up_done">Gotowe</string>
     <string name="polls_opt_in_title">Zadawać Ci od czasu do czasu pytanie?</string>
@@ -363,7 +363,7 @@
     <string name="song_cache_max_size">Maksymalny rozmiar pamięci podręcznej utworów</string>
     <string name="image_cache_max_size">Maksymalny rozmiar pamięci podręcznej okładek</string>
     <string name="max_queues_description">Ile kolejek aplikacja trzyma naraz. Najstarsza jest usuwana, gdy przekroczysz tę liczbę.</string>
-    <string name="enable_proxy_description">Przepuszczaj wszystko, co aplikacja pobiera, najpierw przez inny serwer. Zostaw to wyłączone, chyba że wiesz, że tego potrzebujesz.</string>
+    <string name="enable_proxy_description">Przepuszczaj żądania i strumienie YouTube Music najpierw przez inny serwer. Obrazy, teksty piosenek i pozostałe usługi, z których korzysta aplikacja, nadal łączą się bezpośrednio. Zostaw to wyłączone, chyba że wiesz, że tego potrzebujesz.</string>
     <string name="show_liked_and_downloaded_playlist_description">Pokazuj Polubione i Pobrane jako playlisty w Twojej bibliotece.</string>
     <string name="pause_listen_history_description">Przestań dodawać utwory do historii. Nic z tego, co już w niej jest, nie zostanie usunięte.</string>
     <string name="pause_remote_listen_history_description">Przestań przekazywać YouTube Music, czego słuchasz. Historia wewnątrz tej aplikacji działa dalej tak czy inaczej.</string>

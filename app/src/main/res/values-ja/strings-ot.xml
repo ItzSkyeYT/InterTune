@@ -307,7 +307,7 @@
     <string name="polls_one_waiting">質問があります</string>
     <string name="polls_forget">もう一度質問できるようにする</string>
     <string name="polls_forget_description">回答済み・非表示にした記録を消去し、過去の質問がもう一度表示されるようにします。</string>
-    <string name="catch_up_title">簡単な質問が2つ</string>
+    <string name="catch_up_title">簡単な質問がいくつか</string>
     <string name="catch_up_body">これらの設定にはあなたの同意が必要ですが、このインストールでは一度も尋ねていません。</string>
     <string name="catch_up_done">完了</string>
     <string name="polls_opt_in_title">ときどき質問してもよいですか？</string>
@@ -354,7 +354,7 @@
     <string name="song_cache_max_size">曲キャッシュの上限</string>
     <string name="image_cache_max_size">アートワークキャッシュの上限</string>
     <string name="max_queues_description">アプリが同時に保持するキューの数です。これを超えると古いものから削除されます。</string>
-    <string name="enable_proxy_description">アプリが取得するものをすべて、まず別のサーバー経由にします。必要だと分かっている場合を除き、オフのままにしてください。</string>
+    <string name="enable_proxy_description">YouTube Music へのリクエストとストリームを、まず別のサーバー経由にします。画像、歌詞、アプリが使うその他のサービスは、これまでどおり直接接続します。必要だと分かっている場合を除き、オフのままにしてください。</string>
     <string name="show_liked_and_downloaded_playlist_description">高く評価した曲とダウンロードした曲を、ライブラリにプレイリストとして表示します。</string>
     <string name="pause_listen_history_description">履歴への曲の追加を止めます。すでに入っているものは削除されません。</string>
     <string name="pause_remote_listen_history_description">再生内容を YouTube Music に伝えるのを止めます。このアプリ内の履歴はどちらの場合も続きます。</string>

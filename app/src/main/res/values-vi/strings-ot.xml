@@ -175,7 +175,7 @@
     <string name="polls_one_waiting">Có một câu hỏi đang chờ</string>
     <string name="polls_forget">Cho phép hỏi tôi lại</string>
     <string name="polls_forget_description">Xóa ghi nhận về những gì bạn đã trả lời và đã bỏ qua, để các câu hỏi cũ có thể quay lại.</string>
-    <string name="catch_up_title">Hai câu hỏi nhanh</string>
+    <string name="catch_up_title">Vài câu hỏi nhanh</string>
     <string name="catch_up_body">Các cài đặt này cần bạn đồng ý, và bản cài đặt này chưa từng được hỏi.</string>
     <string name="catch_up_done">Xong</string>
     <string name="polls_opt_in_title">Thỉnh thoảng hỏi bạn một câu nhé?</string>
@@ -222,7 +222,7 @@
     <string name="song_cache_max_size">Dung lượng tối đa cho bộ nhớ đệm bài hát</string>
     <string name="image_cache_max_size">Dung lượng tối đa cho bộ nhớ đệm ảnh bìa</string>
     <string name="max_queues_description">Ứng dụng giữ bao nhiêu hàng đợi cùng lúc. Cái cũ nhất bị bỏ khi bạn vượt quá con số này.</string>
-    <string name="enable_proxy_description">Cho mọi thứ ứng dụng tải về đi qua một máy chủ khác trước. Cứ để tắt trừ khi bạn biết mình cần.</string>
+    <string name="enable_proxy_description">Cho các yêu cầu và luồng phát của YouTube Music đi qua một máy chủ khác trước. Hình ảnh, lời bài hát và các dịch vụ khác mà ứng dụng dùng vẫn kết nối trực tiếp. Cứ để tắt trừ khi bạn biết mình cần.</string>
     <string name="show_liked_and_downloaded_playlist_description">Hiện Bài hát đã thích và Bài hát đã tải như danh sách phát trong thư viện của bạn.</string>
     <string name="pause_listen_history_description">Ngừng thêm bài hát vào lịch sử của bạn. Những gì đã có trong đó không bị xóa.</string>
     <string name="pause_remote_listen_history_description">Ngừng báo cho YouTube Music biết bạn đang nghe gì. Lịch sử bên trong ứng dụng này vẫn tiếp tục.</string>

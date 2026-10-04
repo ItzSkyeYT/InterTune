@@ -312,7 +312,7 @@
     <string name="polls_one_waiting">Ada pertanyaan yang menunggu</string>
     <string name="polls_forget">Izinkan saya ditanya lagi</string>
     <string name="polls_forget_description">Menghapus catatan tentang apa yang sudah Anda jawab dan abaikan, sehingga pertanyaan lama bisa muncul lagi.</string>
-    <string name="catch_up_title">Dua pertanyaan singkat</string>
+    <string name="catch_up_title">Beberapa pertanyaan singkat</string>
     <string name="catch_up_body">Pengaturan ini memerlukan persetujuan Anda, dan pemasangan ini belum pernah ditanya.</string>
     <string name="catch_up_done">Selesai</string>
     <string name="polls_opt_in_title">Sesekali menanyakan sesuatu kepada Anda?</string>
@@ -359,7 +359,7 @@
     <string name="song_cache_max_size">Ukuran maksimum singgahan lagu</string>
     <string name="image_cache_max_size">Ukuran maksimum singgahan sampul</string>
     <string name="max_queues_description">Berapa banyak antrean yang disimpan aplikasi sekaligus. Yang terlama dibuang saat Anda melewati angka ini.</string>
-    <string name="enable_proxy_description">Lewatkan semua yang diambil aplikasi melalui server lain lebih dulu. Biarkan mati kecuali Anda tahu Anda membutuhkannya.</string>
+    <string name="enable_proxy_description">Lewatkan permintaan dan streaming YouTube Music melalui server lain lebih dulu. Gambar, lirik, dan layanan lain yang dipakai aplikasi tetap terhubung langsung. Biarkan mati kecuali Anda tahu Anda membutuhkannya.</string>
     <string name="show_liked_and_downloaded_playlist_description">Tampilkan Lagu yang disukai dan Lagu yang diunduh sebagai daftar putar di pustaka Anda.</string>
     <string name="pause_listen_history_description">Berhenti menambahkan lagu ke riwayat Anda. Yang sudah ada di dalamnya tidak dihapus.</string>
     <string name="pause_remote_listen_history_description">Berhenti memberi tahu YouTube Music apa yang Anda putar. Riwayat di dalam aplikasi ini tetap berjalan.</string>

@@ -100,7 +100,7 @@
     <string name="polls_one_waiting">มีคำถามรออยู่</string>
     <string name="polls_forget">ให้ถามฉันได้อีก</string>
     <string name="polls_forget_description">ล้างบันทึกว่าคุณตอบอะไรและปิดอะไรไป เพื่อให้คำถามเดิมกลับมาได้</string>
-    <string name="catch_up_title">คำถามสั้น ๆ สองข้อ</string>
+    <string name="catch_up_title">คำถามสั้น ๆ สองสามข้อ</string>
     <string name="catch_up_body">การตั้งค่าเหล่านี้ต้องได้รับความยินยอมจากคุณ และการติดตั้งนี้ยังไม่เคยถูกถาม</string>
     <string name="catch_up_done">เสร็จสิ้น</string>
     <string name="polls_opt_in_title">ขอถามคุณสักคำถามเป็นครั้งคราวไหม</string>
@@ -147,7 +147,7 @@
     <string name="song_cache_max_size">ขนาดแคชเพลงสูงสุด</string>
     <string name="image_cache_max_size">ขนาดแคชปกอัลบั้มสูงสุด</string>
     <string name="max_queues_description">แอปเก็บคิวไว้พร้อมกันกี่คิว คิวที่เก่าที่สุดจะถูกทิ้งเมื่อเกินจำนวนนี้</string>
-    <string name="enable_proxy_description">ให้ทุกอย่างที่แอปดึงมาผ่านเซิร์ฟเวอร์อื่นก่อน ปล่อยปิดไว้เว้นแต่คุณรู้ว่าจำเป็นต้องใช้</string>
+    <string name="enable_proxy_description">ให้คำขอและสตรีมของ YouTube Music ผ่านเซิร์ฟเวอร์อื่นก่อน รูปภาพ เนื้อเพลง และบริการอื่นที่แอปใช้ยังคงเชื่อมต่อโดยตรง ปล่อยปิดไว้เว้นแต่คุณรู้ว่าจำเป็นต้องใช้</string>
     <string name="show_liked_and_downloaded_playlist_description">แสดงเพลงที่ถูกใจและเพลงที่ดาวน์โหลดเป็นเพลย์ลิสต์ในคลังของคุณ</string>
     <string name="pause_listen_history_description">หยุดเพิ่มเพลงลงในประวัติของคุณ สิ่งที่อยู่ในนั้นแล้วจะไม่ถูกลบ</string>
     <string name="pause_remote_listen_history_description">หยุดบอก YouTube Music ว่าคุณเล่นอะไร ประวัติภายในแอปนี้ยังทำงานต่อไปไม่ว่ากรณีใด</string>

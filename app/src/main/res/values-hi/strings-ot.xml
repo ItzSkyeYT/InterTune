@@ -239,7 +239,7 @@
     <string name="polls_one_waiting">एक प्रश्न प्रतीक्षा में है</string>
     <string name="polls_forget">मुझसे दोबारा पूछा जा सकता है</string>
     <string name="polls_forget_description">आपने क्या जवाब दिया और क्या हटाया, उसका रिकॉर्ड मिटा देता है, ताकि पुराने प्रश्न फिर आ सकें।</string>
-    <string name="catch_up_title">दो छोटे सवाल</string>
+    <string name="catch_up_title">कुछ छोटे सवाल</string>
     <string name="catch_up_body">इन सेटिंग्स के लिए आपकी सहमति चाहिए, और इस इंस्टॉल से कभी नहीं पूछा गया।</string>
     <string name="catch_up_done">हो गया</string>
     <string name="polls_opt_in_title">आपसे कभी-कभी एक प्रश्न पूछें?</string>
@@ -286,7 +286,7 @@
     <string name="song_cache_max_size">गानों के कैश का अधिकतम आकार</string>
     <string name="image_cache_max_size">कवर कैश का अधिकतम आकार</string>
     <string name="max_queues_description">ऐप एक साथ कितनी कतारें रखता है। इससे आगे जाने पर सबसे पुरानी हट जाती है।</string>
-    <string name="enable_proxy_description">ऐप जो कुछ लाता है, उसे पहले किसी दूसरे सर्वर से गुज़ारें। जब तक आपको पक्का पता न हो कि ज़रूरत है, इसे बंद रहने दें।</string>
+    <string name="enable_proxy_description">YouTube Music के अनुरोध और स्ट्रीम पहले किसी दूसरे सर्वर से गुज़ारें। तस्वीरें, गीत के बोल और ऐप की बाक़ी सेवाएँ अब भी सीधे जुड़ती हैं। जब तक आपको पक्का पता न हो कि ज़रूरत है, इसे बंद रहने दें।</string>
     <string name="show_liked_and_downloaded_playlist_description">पसंद किए गए गाने और डाउनलोड किए गए गाने आपकी लाइब्रेरी में प्लेलिस्ट के रूप में दिखाएँ।</string>
     <string name="pause_listen_history_description">आपके इतिहास में गाने जोड़ना बंद करें। जो पहले से उसमें है, वह नहीं हटता।</string>
     <string name="pause_remote_listen_history_description">YouTube Music को यह बताना बंद करें कि आप क्या चला रहे हैं। इस ऐप के भीतर का इतिहास दोनों ही स्थिति में चलता रहता है।</string>

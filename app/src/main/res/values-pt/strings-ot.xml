@@ -318,7 +318,7 @@
     <string name="polls_one_waiting">Há uma pergunta à espera</string>
     <string name="polls_forget">Deixar que me perguntem de novo</string>
     <string name="polls_forget_description">Limpa o registo do que respondeu e dispensou, para que perguntas anteriores possam voltar.</string>
-    <string name="catch_up_title">Duas perguntas rápidas</string>
+    <string name="catch_up_title">Algumas perguntas rápidas</string>
     <string name="catch_up_body">Estas definições precisam da sua autorização, e esta instalação nunca foi questionada.</string>
     <string name="catch_up_done">Concluído</string>
     <string name="polls_opt_in_title">Fazer-lhe uma pergunta de vez em quando?</string>
@@ -365,7 +365,7 @@
     <string name="song_cache_max_size">Tamanho máximo da cache de músicas</string>
     <string name="image_cache_max_size">Tamanho máximo da cache de capas</string>
     <string name="max_queues_description">Quantas filas a aplicação mantém ao mesmo tempo. A mais antiga é descartada quando passa deste número.</string>
-    <string name="enable_proxy_description">Enviar tudo o que a aplicação obtém primeiro através de outro servidor. Deixe isto desativado a menos que saiba que precisa.</string>
+    <string name="enable_proxy_description">Enviar os pedidos e as transmissões do YouTube Music primeiro através de outro servidor. As imagens, as letras e os outros serviços que a aplicação usa continuam a ligar-se diretamente. Deixe isto desativado a menos que saiba que precisa.</string>
     <string name="show_liked_and_downloaded_playlist_description">Mostrar Músicas que gostou e Músicas transferidas como listas na sua biblioteca.</string>
     <string name="pause_listen_history_description">Deixar de adicionar músicas ao seu histórico. Nada do que já lá está é removido.</string>
     <string name="pause_remote_listen_history_description">Deixar de dizer ao YouTube Music o que reproduz. O histórico dentro desta aplicação continua na mesma.</string>

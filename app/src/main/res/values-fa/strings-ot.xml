@@ -298,7 +298,7 @@
     <string name="polls_one_waiting">پرسشی در انتظار شماست</string>
     <string name="polls_forget">بگذار دوباره از من بپرسند</string>
     <string name="polls_forget_description">سابقهٔ آنچه پاسخ داده‌اید و نادیده گرفته‌اید را پاک می‌کند تا پرسش‌های گذشته بتوانند برگردند.</string>
-    <string name="catch_up_title">دو پرسش کوتاه</string>
+    <string name="catch_up_title">چند پرسش کوتاه</string>
     <string name="catch_up_body">این تنظیمات به تأیید شما نیاز دارند و تا کنون از این نصب پرسیده نشده است.</string>
     <string name="catch_up_done">انجام شد</string>
     <string name="polls_opt_in_title">گاهی پرسشی از شما بپرسیم؟</string>
@@ -345,7 +345,7 @@
     <string name="song_cache_max_size">بیشینهٔ اندازهٔ حافظهٔ موقت آهنگ‌ها</string>
     <string name="image_cache_max_size">بیشینهٔ اندازهٔ حافظهٔ موقت کاورها</string>
     <string name="max_queues_description">برنامه هم‌زمان چند صف نگه می‌دارد. وقتی از این عدد بگذرید، قدیمی‌ترین حذف می‌شود.</string>
-    <string name="enable_proxy_description">هر چه برنامه دریافت می‌کند ابتدا از سرور دیگری بگذرد. اگر مطمئن نیستید لازمش دارید، خاموش بگذارید.</string>
+    <string name="enable_proxy_description">درخواست‌ها و پخش‌های YouTube Music ابتدا از سرور دیگری بگذرند. تصویرها، متن ترانه‌ها و سرویس‌های دیگری که برنامه استفاده می‌کند همچنان مستقیم وصل می‌شوند. اگر مطمئن نیستید لازمش دارید، خاموش بگذارید.</string>
     <string name="show_liked_and_downloaded_playlist_description">آهنگ‌های پسندیده و آهنگ‌های دانلودشده را به‌صورت فهرست پخش در کتابخانه‌تان نشان بده.</string>
     <string name="pause_listen_history_description">دیگر آهنگی به تاریخچهٔ شما اضافه نشود. چیزی که از قبل در آن است حذف نمی‌شود.</string>
     <string name="pause_remote_listen_history_description">دیگر به YouTube Music نگو چه پخش می‌کنی. تاریخچهٔ داخل این برنامه در هر صورت ادامه می‌یابد.</string>

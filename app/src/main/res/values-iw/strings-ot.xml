@@ -299,7 +299,7 @@
     <string name="polls_one_waiting">יש שאלה שמחכה</string>
     <string name="polls_forget">אפשר לשאול אותי שוב</string>
     <string name="polls_forget_description">מוחק את הרישום של מה שענית ומה שדחית, כדי ששאלות קודמות יוכלו לחזור.</string>
-    <string name="catch_up_title">שתי שאלות קצרות</string>
+    <string name="catch_up_title">כמה שאלות קצרות</string>
     <string name="catch_up_body">ההגדרות האלה דורשות את אישורך, וההתקנה הזאת מעולם לא נשאלה.</string>
     <string name="catch_up_done">סיום</string>
     <string name="polls_opt_in_title">לשאול אותך שאלה מדי פעם?</string>
@@ -346,7 +346,7 @@
     <string name="song_cache_max_size">גודל מרבי למטמון השירים</string>
     <string name="image_cache_max_size">גודל מרבי למטמון העטיפות</string>
     <string name="max_queues_description">כמה תורים האפליקציה שומרת בו זמנית. הישן ביותר נמחק כשעוברים את המספר הזה.</string>
-    <string name="enable_proxy_description">העבר את כל מה שהאפליקציה טוענת דרך שרת אחר קודם. השאר כבוי אלא אם אתה יודע שאתה צריך את זה.</string>
+    <string name="enable_proxy_description">העבר את הבקשות והזרמים של YouTube Music דרך שרת אחר קודם. תמונות, מילות שירים ושאר השירותים שהאפליקציה משתמשת בהם עדיין מתחברים ישירות. השאר כבוי אלא אם אתה יודע שאתה צריך את זה.</string>
     <string name="show_liked_and_downloaded_playlist_description">הצג שירים שאהבת ושירים שהורדת כפלייליסטים בספרייה שלך.</string>
     <string name="pause_listen_history_description">הפסק להוסיף שירים להיסטוריה שלך. שום דבר שכבר נמצא בה לא נמחק.</string>
     <string name="pause_remote_listen_history_description">הפסק לספר ל-YouTube Music מה אתה מנגן. ההיסטוריה בתוך האפליקציה הזו ממשיכה כך או כך.</string>

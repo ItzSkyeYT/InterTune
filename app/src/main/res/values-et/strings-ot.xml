@@ -200,8 +200,8 @@
     <string name="polls_one_waiting">Üks küsimus ootab</string>
     <string name="polls_forget">Luba minult uuesti küsida</string>
     <string name="polls_forget_description">Kustutab märke sellest, millele oled vastanud ja mille kõrvale jätnud, et varasemad küsimused saaksid tagasi tulla.</string>
-    <string name="catch_up_title">Kaks kiiret küsimust</string>
-    <string name="catch_up_body">Need seaded vajavad sinu nõusolekut ja seda paigaldust pole kunagi küsitud.</string>
+    <string name="catch_up_title">Mõned kiired küsimused</string>
+    <string name="catch_up_body">Need seaded vajavad sinu nõusolekut ja sellelt paigalduselt pole kunagi küsitud.</string>
     <string name="catch_up_done">Valmis</string>
     <string name="polls_opt_in_title">Kas küsime sinult aeg-ajalt midagi?</string>
     <string name="polls_opt_in_body">Aeg-ajalt võib InterTune näidata avakuva ülaosas lühikest küsimust selle kohta, mida ehitada või muuta. Vastamine on vabatahtlik ja anonüümne ning saad selle igal ajal seadetes välja lülitada. Kuni see on väljas, ei laadita ega saadeta midagi.</string>
@@ -247,7 +247,7 @@
     <string name="song_cache_max_size">Lugude vahemälu suurim maht</string>
     <string name="image_cache_max_size">Kaanepiltide vahemälu suurim maht</string>
     <string name="max_queues_description">Mitu järjekorda rakendus korraga hoiab. Vanim visatakse ära, kui sellest arvust üle lähed.</string>
-    <string name="enable_proxy_description">Suuna kõik, mida rakendus tõmbab, kõigepealt läbi teise serveri. Jäta välja, kui sa ei tea, et seda vajad.</string>
+    <string name="enable_proxy_description">Suuna YouTube Musicu päringud ja vood kõigepealt läbi teise serveri. Pildid, laulusõnad ja muud teenused, mida rakendus kasutab, ühenduvad endiselt otse. Jäta välja, kui sa ei tea, et seda vajad.</string>
     <string name="show_liked_and_downloaded_playlist_description">Näita meeldinud lugusid ja alla laaditud lugusid oma teegis esitusloenditena.</string>
     <string name="pause_listen_history_description">Lõpeta lugude lisamine ajalukku. Midagi juba seal olevat ei eemaldata.</string>
     <string name="pause_remote_listen_history_description">Lõpeta YouTube Musicule teatamine, mida esitad. Ajalugu selle rakenduse sees jätkub niikuinii.</string>
