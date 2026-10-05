@@ -45,10 +45,14 @@ From 0.10.4 onward you only need this page once. Turn update checking on and Int
 
 | | | |
 |:-:|:-:|:-:|
-| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01.jpg" width="240" alt="Player"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/04.jpg" width="240" alt="Lyrics"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/05.jpg" width="240" alt="Queue"> |
-| Player | Lyrics | Queue |
-| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/02.jpg" width="240" alt="Library"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03.jpg" width="240" alt="Album"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/06.jpg" width="240" alt="Artist"> |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/01.jpg" width="240" alt="Home"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/02.jpg" width="240" alt="Player"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/03.jpg" width="240" alt="Lyrics"> |
+| Home | Player | Lyrics |
+| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/04.jpg" width="240" alt="Library"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/05.jpg" width="240" alt="Album"> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/06.jpg" width="240" alt="Artist"> |
 | Library | Album | Artist |
+
+Shown with Liquid glass on, which is a setting. Without it and with it:
+
+<img src="fastlane/metadata/android/en-US/images/phoneScreenshots/07.jpg" width="240" alt="Liquid glass, off and on">
 
 <img src="fastlane/metadata/android/en-US/images/tenInchScreenshots/01.jpg" width="720" alt="Tablet layout">
 

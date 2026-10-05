@@ -251,3 +251,4 @@ After the update, a few quick questions come up once, for what needs your say-so
 - The times on History and Stats could close the app in languages whose clock names the part of the day.
 - **Most played songs** in Stats could show its heading over an empty list.
 - The settings buttons on Home and Account are named for screen readers.
+- With Liquid glass on, the text of rows behind the mini player and the bottom bar came through sharp on Home, the Library tab and artist pages, and ran into the bar's own labels. It is frosted now, as it already was on album pages.
