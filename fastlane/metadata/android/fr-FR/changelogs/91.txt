@@ -1,0 +1,11 @@
+Version 0.11
+
+- Une Sélection Rapide qui apprend votre façon d'écouter : Meilleures recommandations, pastilles d'ambiance, rangée Découverte.
+- Quel est ce titre ? reconnaît le titre autour de vous, avec Shazam.
+- Un widget d'écran d'accueil.
+- Audio spatial, avec suivi de la tête sur les casques compatibles.
+- Historique par jour.
+- Téléphones à clavier et petits écrans.
+- De nombreuses corrections.
+
+Journal complet : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.11
