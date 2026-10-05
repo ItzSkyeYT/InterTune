@@ -98,16 +98,41 @@ object AnnouncementParser {
      */
     private const val SECONDS_BEFORE = 100_000_000_000L
 
-    fun parse(document: String, versionCode: Int, now: Long): List<Announcement> {
+    fun parse(
+        document: String,
+        versionCode: Int,
+        now: Long,
+        phone: DeviceFacts = DeviceFacts.current(),
+    ): List<Announcement> {
         val root = runCatching { Json.parseToJsonElement(document) }.getOrNull() as? JsonObject
             ?: return emptyList()
         val list = root["announcements"] as? JsonArray ?: return emptyList()
         return list.mapNotNull { entry ->
-            runCatching { (entry as? JsonObject)?.let { read(it, versionCode, now) } }.getOrNull()
+            runCatching { (entry as? JsonObject)?.let { read(it, versionCode, now, phone) } }.getOrNull()
         }
     }
 
-    private fun read(o: JsonObject, versionCode: Int, now: Long): Announcement? {
+    /**
+     * "minSdk", "maxSdk" and "devices": who an entry is for. Null when one of them is there and
+     * cannot be read, which hides the entry: an audience nobody can parse must not turn into
+     * everybody.
+     */
+    internal fun audience(o: JsonObject): Audience? {
+        val min = o.number("minSdk", 0) ?: return null
+        val max = o.number("maxSdk", Int.MAX_VALUE) ?: return null
+        val devices = when (val list = o["devices"]) {
+            null, is JsonNull -> emptyList()
+            is JsonArray -> list.map { (it as? JsonPrimitive)?.string() ?: return null }
+            else -> return null
+        }
+        return Audience(min, max, devices)
+    }
+
+    /** The audience of one entry given as text, for the questions, which are read with org.json. */
+    fun audienceOfEntry(entry: String): Audience? =
+        (runCatching { Json.parseToJsonElement(entry) }.getOrNull() as? JsonObject)?.let(::audience)
+
+    private fun read(o: JsonObject, versionCode: Int, now: Long, phone: DeviceFacts): Announcement? {
         // A number is taken as written, since "id": 3 is an easy thing to type.
         val id = (o["id"] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.content?.trim()?.ifEmpty { null }
             ?: return null
@@ -115,6 +140,7 @@ object AnnouncementParser {
         val min = o.number("minVersionCode", 0) ?: return null
         val max = o.number("maxVersionCode", Int.MAX_VALUE) ?: return null
         if (versionCode < min || versionCode > max) return null
+        if (audience(o)?.includes(phone) != true) return null
 
         // Absent is no bound. Present and unreadable throws, which drops the entry.
         val starts = o.time("startsAt", endOfDay = false)

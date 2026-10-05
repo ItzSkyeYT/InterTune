@@ -235,6 +235,7 @@ class PollChecker @Inject constructor(
      * makes no sense to somebody on a build that does not have it.
      */
     private fun parse(json: String): List<Poll> {
+        val phone = DeviceFacts.current()
         val root = JSONObject(json)
         val arr = root.optJSONArray("polls") ?: JSONArray()
         val now = System.currentTimeMillis()
@@ -246,6 +247,8 @@ class PollChecker @Inject constructor(
                 val min = o.optInt("minVersionCode", 0)
                 val max = o.optInt("maxVersionCode", Int.MAX_VALUE)
                 if (BuildConfig.VERSION_CODE < min || BuildConfig.VERSION_CODE > max) return@runCatching null
+                // Android versions and devices, the same three fields an announcement takes.
+                if (AnnouncementParser.audienceOfEntry(o.toString())?.includes(phone) != true) return@runCatching null
 
                 // Epoch millis. A poll that outlives its usefulness stops asking on its own, so
                 // somebody who has not opened the app in months is not met with a stale question.
