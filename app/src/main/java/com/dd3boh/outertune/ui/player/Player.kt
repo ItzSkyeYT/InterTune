@@ -12,6 +12,8 @@ package com.dd3boh.outertune.ui.player
 import com.dd3boh.outertune.playback.PlayerConnection
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.runtime.snapshotFlow
+import com.dd3boh.outertune.ui.menu.rememberShareLink
+import com.dd3boh.outertune.utils.ShareLinks
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberUpdatedState
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
@@ -22,7 +24,6 @@ import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
 import com.dd3boh.outertune.constants.QueueButtonKey
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.foundation.shape.CircleShape
-import android.content.Intent
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.foundation.shape.CornerSize
@@ -811,15 +812,11 @@ fun BottomSheetPlayer(
             // they are separate buttons either way.
             val buttonBackdrop = if (liquidGlass) playerBackdrop else null
 
+            val shareLink = rememberShareLink()
             val shareSong: () -> Unit = {
                 mediaMetadata?.let { song ->
                     ActivityLog.note(context, database, song.id, SignalKind.SHARE)
-                    val intent = Intent().apply {
-                        action = Intent.ACTION_SEND
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, "https://music.youtube.com/watch?v=${song.id}")
-                    }
-                    context.startActivity(Intent.createChooser(intent, null))
+                    shareLink(ShareLinks.song(song.id, song.title, song.artists.map { it.name }, song.duration, song.album != null)) {}
                 }
             }
 

@@ -1585,4 +1585,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="chip_lean_similar">Playing now</string>
     <string name="why_these_lean">Leaning toward: %1$s, %2$d of the %3$d cards on screen</string>
     <string name="adventurousness_description_lean_new">Set by Quick picks leaning toward songs you have never heard: %1$d of 20 cards.</string>
+    <string name="share_link_kind_title">Links you share</string>
+    <string name="share_link_youtube_music">YouTube Music link</string>
+    <string name="share_link_page">A page for any music app</string>
+    <string name="share_link_ask">Ask each time</string>
+    <string name="share_link_choice_title">Which link?</string>
+    <string name="share_link_youtube_music_description">Opens in YouTube Music or in InterTune</string>
+    <string name="share_link_page_description">They pick their own app: Spotify, Apple Music, Deezer and others</string>
 </resources>

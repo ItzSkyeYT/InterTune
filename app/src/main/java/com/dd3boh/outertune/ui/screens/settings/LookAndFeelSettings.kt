@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -30,6 +31,7 @@ import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.screens.settings.fragments.AppearanceMiscFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlayerButtonsFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.ShareLinksFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SwipeGesturesFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.TabArrangementFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.TabExtrasFrag
@@ -101,6 +103,7 @@ fun LookAndFeelSettings(
             modifier = Modifier.fillMaxWidth()
         ) {
             SwipeGesturesFrag()
+            if (Unreleased.SHARE_PAGE) ShareLinksFrag()
         }
     }
 

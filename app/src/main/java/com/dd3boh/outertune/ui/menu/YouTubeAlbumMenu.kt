@@ -1,6 +1,5 @@
 package com.dd3boh.outertune.ui.menu
 
-import android.content.Intent
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -46,6 +45,7 @@ import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
+import com.dd3boh.outertune.utils.ShareLinks
 import com.dd3boh.outertune.utils.albumWithOrderedSongs
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.reportException
@@ -60,6 +60,7 @@ fun YouTubeAlbumMenu(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val shareLink = rememberShareLink()
     val database = LocalDatabase.current
     val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -200,13 +201,7 @@ fun YouTubeAlbumMenu(
             icon = Icons.Rounded.Share,
             title = R.string.share
         ) {
-            val intent = Intent().apply {
-                action = Intent.ACTION_SEND
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, albumItem.shareLink)
-            }
-            context.startActivity(Intent.createChooser(intent, null))
-            onDismiss()
+            shareLink(ShareLinks.album(albumItem.shareLink, albumItem.playlistId, albumItem.title, albumItem.artists?.map { it.name }.orEmpty()), onDismiss)
         }
     }
 

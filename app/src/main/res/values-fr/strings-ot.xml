@@ -1489,4 +1489,11 @@
     <string name="chip_lean_similar">En ce moment</string>
     <string name="why_these_lean">Privilégie : %1$s, %2$d des %3$d cartes affichées</string>
     <string name="adventurousness_description_lean_new">Fixé par la Sélection Rapide, qui privilégie les titres que vous n\'avez jamais écoutés : %1$d cartes sur 20.</string>
+    <string name="share_link_kind_title">Liens que vous partagez</string>
+    <string name="share_link_youtube_music">Lien YouTube Music</string>
+    <string name="share_link_page">Une page pour toutes les applis de musique</string>
+    <string name="share_link_ask">Demander à chaque fois</string>
+    <string name="share_link_choice_title">Quel lien ?</string>
+    <string name="share_link_youtube_music_description">S\'ouvre dans YouTube Music ou dans InterTune</string>
+    <string name="share_link_page_description">La personne choisit son appli : Spotify, Apple Music, Deezer et d\'autres</string>
 </resources>

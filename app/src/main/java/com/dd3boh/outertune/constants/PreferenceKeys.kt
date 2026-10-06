@@ -289,6 +289,9 @@ val SwipeToSkipKey = booleanPreferencesKey("swipeToSkip")
  */
 val SwipeToDismissPlayerKey = booleanPreferencesKey("swipeToDismissPlayer")
 
+/** What Share sends for a song or an album: a ShareLinkKind, the YouTube Music link unless chosen otherwise. */
+val ShareLinkKindKey = stringPreferencesKey("shareLinkKind")
+
 /**
  * Whether the transport controls sit inside one shared panel, or stand on their own.
  *

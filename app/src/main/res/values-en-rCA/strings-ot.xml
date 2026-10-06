@@ -244,4 +244,11 @@
     <string name="adventurousness_description_lean_new">Set by Quick picks leaning toward songs you have never heard: %1$d of 20 cards.</string>
     <string name="recommendations_summary_too_early_choice">Too early to tell which way it is going since you changed what Quick picks leans toward.</string>
     <string name="context_chips_info">The first chip is your usual row: Auto, or the short name of what you chose under Quick picks leans toward. Discover gives at least half the row to songs new to you. Favourites starts only from songs you have liked, and leans toward your artists and old favourites.\n\nFocus, Chill and Party start from what song titles say about the recording, such as slowed or nightcore. They learn from what you play while each is on, and after eight plays heard well they follow those alone. New songs only gives the whole row to songs you have not heard well. A chip stays on until you change it.</string>
+    <string name="share_link_kind_title">Links you share</string>
+    <string name="share_link_youtube_music">YouTube Music link</string>
+    <string name="share_link_page">A page for any music app</string>
+    <string name="share_link_ask">Ask each time</string>
+    <string name="share_link_choice_title">Which link?</string>
+    <string name="share_link_youtube_music_description">Opens in YouTube Music or in InterTune</string>
+    <string name="share_link_page_description">They pick their own app: Spotify, Apple Music, Deezer and others</string>
 </resources>

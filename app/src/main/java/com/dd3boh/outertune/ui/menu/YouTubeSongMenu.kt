@@ -5,7 +5,6 @@ import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material.icons.rounded.Block
 import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.utils.ActivityLog
-import android.content.Intent
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -59,6 +58,7 @@ import com.dd3boh.outertune.ui.component.items.ListItem
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
+import com.dd3boh.outertune.utils.ShareLinks
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.syncCoroutine
@@ -75,6 +75,7 @@ fun YouTubeSongMenu(
     onExclude: ((kind: Int, reason: Int) -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val shareLink = rememberShareLink()
     val coroutineScope = rememberCoroutineScope()
     val downloadUtil = LocalDownloadUtil.current
     val database = LocalDatabase.current
@@ -243,13 +244,7 @@ fun YouTubeSongMenu(
             title = R.string.share
         ) {
             ActivityLog.note(context, database, song.id, SignalKind.SHARE)
-            val intent = Intent().apply {
-                action = Intent.ACTION_SEND
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, song.shareLink)
-            }
-            context.startActivity(Intent.createChooser(intent, null))
-            onDismiss()
+            shareLink(ShareLinks.song(song.id, song.title, song.artists.map { it.name }, song.duration ?: 0, song.album != null), onDismiss)
         }
     }
 

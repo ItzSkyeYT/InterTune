@@ -74,6 +74,7 @@ import com.dd3boh.outertune.ui.component.items.ListItem
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Playlist
+import com.dd3boh.outertune.utils.ShareLinks
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
 import androidx.compose.material.icons.rounded.PlaylistRemove
@@ -114,6 +115,7 @@ fun PlayerMenu(
 ) {
     mediaMetadata ?: return
     val context = LocalContext.current
+    val shareLink = rememberShareLink()
     val database = LocalDatabase.current
     val downloadUtil = LocalDownloadUtil.current
     val clipboardManager = LocalClipboard.current
@@ -323,13 +325,7 @@ fun PlayerMenu(
                 title = R.string.share
             ) {
                 ActivityLog.note(context, database, mediaMetadata.id, SignalKind.SHARE)
-                val intent = Intent().apply {
-                    action = Intent.ACTION_SEND
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, "https://music.youtube.com/watch?v=${mediaMetadata.id}")
-                }
-                context.startActivity(Intent.createChooser(intent, null))
-                onDismiss()
+                shareLink(ShareLinks.song(mediaMetadata.id, mediaMetadata.title, mediaMetadata.artists.map { it.name }, mediaMetadata.duration, mediaMetadata.album != null), onDismiss)
             }
         GridMenuItem(
             icon = Icons.Rounded.Lyrics,

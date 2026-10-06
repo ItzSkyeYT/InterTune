@@ -1,6 +1,5 @@
 package com.dd3boh.outertune.ui.menu
 
-import android.content.Intent
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.PaddingValues
@@ -52,6 +51,7 @@ import com.dd3boh.outertune.ui.component.items.AlbumListItem
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
+import com.dd3boh.outertune.utils.ShareLinks
 import com.dd3boh.outertune.utils.getDownloadState
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.Dispatchers
@@ -65,6 +65,7 @@ fun AlbumMenu(
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
+    val shareLink = rememberShareLink()
     val database = LocalDatabase.current
     val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -249,13 +250,7 @@ fun AlbumMenu(
             icon = Icons.Rounded.Share,
             title = R.string.share
         ) {
-            onDismiss()
-            val intent = Intent().apply {
-                action = Intent.ACTION_SEND
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, "https://music.youtube.com/browse/${album.album.id}")
-            }
-            context.startActivity(Intent.createChooser(intent, null))
+            shareLink(ShareLinks.album("https://music.youtube.com/browse/${album.album.id}", album.album.playlistId, album.album.title, album.artists.map { it.name }), onDismiss)
         }
 
     }
