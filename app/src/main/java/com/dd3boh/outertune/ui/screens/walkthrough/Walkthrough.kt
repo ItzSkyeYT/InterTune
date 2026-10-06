@@ -125,6 +125,10 @@ enum class NewThingAction {
  * @param release the version it came with, as people know it. The page groups by it.
  * @param stops where it lives, as the way there: for a setting, the row to open in Settings and
  *   then the setting itself, because half of explaining a setting is showing which menu it is in.
+ *   Each of those bubbles says what the setting does, in a sentence, unless what it points at
+ *   already says so on screen: the row in Settings lists other things than this one, and most
+ *   settings are a name and a value with no description under them. A bubble that only says
+ *   "it is in here" or "choose it here" leaves somebody at a switch they cannot place.
  * @param there false where this build or this phone does not have it, and it is then not listed.
  */
 class NewThing(
