@@ -407,15 +407,12 @@
     <string name="pure_black_description">Utiliser du vrai noir au lieu du gris foncé. Sur un écran OLED, cela économise aussi un peu de batterie.</string>
     <string name="min_playback_duration_short">La part d\'un titre qui doit être lue pour compter comme une lecture. La page Historique affiche chaque titre écouté au moins 5 secondes, que la lecture compte ou non.</string>
     <string name="throttle_banner_title">YouTube a suspendu cette connexion</string>
-
     <!-- General -->
     <string name="back">Retour</string>
-
     <!-- Queue -->
     <string name="queue_default_name">File d\'attente</string>
     <string name="save_queue_as_playlist">Enregistrer la file d\'attente comme playlist</string>
     <string name="saved_as_playlist">Enregistrée comme playlist : %1$s</string>
-
     <!-- Player -->
     <string name="spatial_audio">Audio spatial</string>
     <string name="spatial_audio_description">Sort la musique de la ligne entre vos oreilles.</string>
@@ -494,22 +491,17 @@
     <string name="playback_auth_when_refused">Seulement quand un titre est refusé</string>
     <string name="playback_auth_always">Toujours</string>
     <string name="err_age_restricted">YouTube ne lira pas ce titre sans un compte ayant l\'âge requis. Les autres titres ne sont pas concernés.</string>
-
     <!-- Dialog -->
     <string name="create_sync_playlist_failed">Impossible de créer la playlist sur YouTube Music. Rien n\'a été créé ; réessayez une fois en ligne.</string>
-
     <!-- Sync -->
     <string name="sync_progress_failed">La synchronisation n\'a pas abouti. Rien n\'a été supprimé ; réessayez plus tard.</string>
     <string name="sync_progress_nothing">Rien à synchroniser. Vérifiez que la synchronisation est activée pour au moins un type de contenu.</string>
     <string name="playlist_sync_failed">Impossible de synchroniser cette playlist. Elle a été laissée telle quelle.</string>
-
     <!-- Settings -->
     <string name="proxy_examples">Le format est hôte:port, par exemple 127.0.0.1:8118.\n\nTor sur ce téléphone via Orbot vous donne 127.0.0.1:8118 pour HTTP ou 127.0.0.1:9050 pour SOCKS. Un client Shadowsocks ou WireGuard sur le téléphone fonctionne de la même façon, sur le port qu\'il vous indique.\n\nLes listes de proxys publics ne valent pas la peine : celui qui en gère un voit tout ce que vous récupérez, et la plupart sont lents ou ont disparu une semaine plus tard. Utilisez le vôtre, celui de votre VPN, ou aucun.</string>
-
     <!-- About settings -->
     <string name="help_discord">Discussion de la communauté (via Discord)</string>
     <string name="help_translate">Aider à traduire InterTune (via Weblate)</string>
-
     <!-- Player settings -->
     <string name="player_buttons_style">Boutons du lecteur</string>
     <string name="player_buttons_style_description">L\'option Connectés regroupe partager et j\'aime près du titre, avec les paroles, la minuterie de sommeil et le menu sur une rangée sous les commandes.</string>
@@ -545,7 +537,6 @@
         <item quantity="many">%1$d secondes</item>
         <item quantity="other">%1$d secondes</item>
     </plurals>
-
     <!-- Storage setting -->
     <string name="clear_downloads_confirm">Supprimer tous les téléchargements internes ? Les téléchargements externes et les importations supplémentaires ne sont pas touchés.</string>
     <string name="player_glass_preview_needs_13">L\'aperçu en direct du verre nécessite Android 13 ou plus récent</string>
@@ -553,10 +544,8 @@
     <string name="liked_autodownload_running_failed">Téléchargement de %1$d sur %2$d, %3$d en échec. Appuyez pour arrêter.</string>
     <string name="liked_autodownload_finished_failed">%1$d sur %2$d titres aimés téléchargés. %3$d en échec.</string>
     <string name="liked_autodownload_stopped_failed">Arrêté. %1$d téléchargés et %2$d en échec, le reste a été annulé.</string>
-
     <!-- Setup wizard -->
     <string name="oobe_update_check_description_fdroid">Votre copie vient de F-Droid : F-Droid la tient à jour et vous n\'avez pas besoin de ceci. InterTune peut quand même consulter GitHub et vous prévenir quand une version sort, en général un peu avant que F-Droid l\'ait compilée. Rien n\'est installé sans votre confirmation, et vous pourrez changer cela plus tard dans les paramètres.</string>
-
     <!-- M3U -->
     <string name="export_playlists_m3u">Exporter les playlists en M3U</string>
     <string name="export_playlists_m3u_description">Chaque playlist de votre bibliothèque dans un fichier lisible partout.</string>
@@ -566,10 +555,8 @@
         <item quantity="other">%1$d playlists exportées</item>
     </plurals>
     <string name="no_playlists_to_export">Aucune playlist à exporter</string>
-
     <!-- Settings index: one line per entry. -->
     <string name="settings_backup_description">Enregistrer votre bibliothèque, vos playlists et vos paramètres dans un fichier, les restaurer, ou sauvegarder automatiquement à intervalles réguliers.</string>
-
     <!-- Descriptions for rows whose titles alone did not say what they do -->
     <plurals name="throttle_banner_body">
         <item quantity="one">Les recommandations, les téléchargements et la synchronisation sont en pause pendant environ %1$d minute. Toucher un titre tente quand même de le lire.</item>
@@ -588,7 +575,6 @@
     </plurals>
     <string name="grp_lastfm">Last.fm</string>
     <string name="lastfm_login_title">Last.fm</string>
-
     <!-- Song recognition -->
     <string name="recognise">Quel est ce titre ?</string>
     <string name="recognise_no_match">Impossible d\'identifier celui-ci. Réessayez dans un endroit plus calme, ou plus près du haut-parleur.</string>
@@ -601,7 +587,6 @@
     <string name="recognise_history_title">Reconnus pendant cette session</string>
     <string name="recognise_clear_history">Effacer</string>
     <string name="recognise_settings">Reconnaissance musicale</string>
-
     <!-- Walkthrough -->
     <string name="walkthrough_title_first">Bienvenue sur InterTune</string>
     <string name="walkthrough_description">Un rapide tour de l\'application, et de tout ce qui a été ajouté depuis votre dernière visite.</string>
@@ -789,7 +774,6 @@
     <string name="cached_songs_note">Ces titres sont gardés parce que vous les avez écoutés, ils fonctionnent donc sans connexion. L\'application efface les plus anciens quand le cache se remplit ; téléchargez un titre pour le garder pour de bon.</string>
     <string name="cached_songs_empty">Rien n\'est en cache pour l\'instant. Les titres apparaissent ici une fois écoutés.</string>
     <string name="cached_songs_disabled">Le cache des titres est désactivé, donc rien n\'est gardé. Définissez une taille dans Stockage et téléchargements pour utiliser ceci.</string>
-
     <!-- Moved out of strings.xml, which holds upstream InnerTune strings only. -->
     <string name="back_animations">Animations de retour</string>
     <string name="back_animations_description">Le geste retour suit votre doigt et dévoile l\'écran en dessous, au lieu d\'un fondu entre les deux. Désactivez pour revenir à l\'ancien comportement.</string>
@@ -1208,7 +1192,6 @@
     <string name="audio_quality_now">Qualité de lecture actuelle</string>
     <string name="audio_quality_no_lossless">Aucun flux sans perte n\'est proposé ici, donc ceci prend le plus gros flux disponible.</string>
     <string name="audio_quality_now_nothing">Pas encore connue</string>
-
     <!-- The home screen widget and its settings. -->
     <string name="widget_label">En cours de lecture</string>
     <string name="widget_description">Ce qui joue, ses commandes et la Sélection Rapide.</string>
@@ -1249,7 +1232,6 @@
     <string name="widget_show_artist">Les noms des artistes</string>
     <string name="widget_show_heading">Le titre de la liste</string>
     <string name="widget_rounded_corners">Coins arrondis</string>
-
     <!-- Recommendations: the little "i" beside every item, and what it opens -->
     <string name="recommendations_home_title_info">Épurer les rangées de l\'accueil et Classer selon votre écoute agissent sur les titres une fois arrivés, quelle que soit la source de la Sélection Rapide. Aucun des deux ne choisit quels titres arrivent. Épurer les rangées de l\'accueil agit sur toutes les rangées de recommandations. Classer selon votre écoute ne fait que remettre la Sélection Rapide dans l\'ordre, et la laisse telle quelle quand Meilleures recommandations ou Essayer les deux la remplit, puisqu\'ils ordonnent leurs propres cartes.\n\nLe groupe suivant concerne Meilleures recommandations, et Essayer les deux aussi. Pas ce titre, Moins de cet artiste et Jamais cet artiste écartent des titres de toutes les rangées, quelle que soit la source, tant qu\'Épurer les rangées de l\'accueil est activé. Un titre mis au repos après avoir été passé peut aussi être écarté de toutes les rangées.</string>
     <string name="tidy_home_rows_info">Un seul passage parcourt l\'accueil : Sélection Rapide, Favoris oubliés, Continuez d\'écouter, Similaire à, puis le flux, et aucune rangée ne montre un titre déjà présent dans une rangée précédente. Deux cartes comptent pour une quand leurs noms concordent une fois retirés les parenthèses et un suffixe placé après un tiret entouré d\'espaces, donc live, remasterisé et vidéo se fondent dans l\'original, mais seulement si le premier artiste correspond.\n\nLa Sélection Rapide retire aussi les titres de cette session et tout ce dont vous avez écouté 30 secondes et 45 pour cent dans la dernière journée. Rien ne comble les trous, donc une rangée peut être plus courte. Activé par défaut. Si c\'est désactivé, les bannissements et les mises en sourdine ne filtrent plus ces rangées, mais Meilleures recommandations les refuse quand même de son côté.</string>
@@ -1292,7 +1274,6 @@
     <string name="quick_picks_source_info">YouTube Music affiche l\'étagère que YouTube construit pour votre compte, et se replie sur la rangée de la bibliothèque quand un chargement ne trouve pas d\'étagère, hors ligne par exemple. Votre bibliothèque classe les titres liés à vos cinq dernières lectures, à vos cinq titres les plus écoutés de la semaine et à vos dix derniers j\'aime. Meilleures recommandations construit la rangée à partir de votre journal d\'écoute ; avec moins de huit cartes à placer, il le signale et affiche l\'une des deux autres.\n\nEssayer les deux pioche en alternance, une carte du moteur puis une de l\'autre source, jamais deux versions d\'un titre, et note de quel côté vient chaque carte. Désactivée retire la rangée. Seule cette rangée change, rien d\'autre sur l\'accueil.</string>
     <string name="context_chips_info">La première pastille est votre rangée habituelle : Auto, ou le nom court de ce que vous avez choisi pour ce que la Sélection Rapide privilégie. Découverte donne au moins la moitié de la rangée à des titres nouveaux pour vous. Favoris ne part que des titres que vous avez aimés, et penche vers vos artistes et vos anciens favoris.\n\nConcentration, Détente et Fête partent de ce que les titres disent de l\'enregistrement, comme slowed ou nightcore. Elles apprennent de ce que vous écoutez quand chacune est activée, et après huit titres bien écoutés, elles ne suivent plus que ceux-ci. Nouveaux titres uniquement donne toute la rangée à des titres que vous n\'avez pas bien écoutés. Une pastille reste activée jusqu\'à ce que vous la changiez.</string>
     <string name="context_chips">Pastilles de contexte</string>
-
     <!-- 0.10.8 only: the Quick picks source text without Best recommendations and Try both. -->
     <string name="quick_picks_source_description_basic">D\'où viennent les titres de la rangée Sélection Rapide. YouTube Music les choisit pour votre compte. Votre bibliothèque construit plutôt la rangée à partir de titres liés à ce que vous avez déjà écouté. Cela ne change que cette rangée ; le reste de l\'accueil est identique dans les deux cas.</string>
     <string name="quick_picks_source_info_basic">YouTube Music affiche l\'étagère que YouTube construit pour votre compte, et se replie sur la rangée de la bibliothèque quand un chargement ne trouve pas d\'étagère, hors ligne par exemple. Votre bibliothèque classe les titres liés à vos cinq dernières lectures, à vos cinq titres les plus écoutés de la semaine et à vos dix derniers j\'aime. Désactivée retire la rangée.\n\nSeule cette rangée change, rien d\'autre sur l\'accueil : les carrousels, les rangées Similaire à et les tuiles d\'humeur viennent de YouTube dans tous les cas.</string>
@@ -1301,7 +1282,6 @@
         <item quantity="many">%1$d titres de plus en attente, choisis d\'après ce que vous écoutez ensuite</item>
         <item quantity="other">%1$d titres de plus en attente, choisis d\'après ce que vous écoutez ensuite</item>
     </plurals>
-
     <!-- Stats: what the page says about your listening, above the Most played lists. -->
     <string name="stats_duration_hours_minutes">%1$s\u00A0h %2$d\u00A0min</string>
     <string name="stats_duration_hours">%1$s\u00A0h</string>
@@ -1409,7 +1389,6 @@
         <item quantity="other">Afficher %1$s de plus</item>
     </plurals>
     <string name="stats_show_fewer">Afficher moins</string>
-
     <!-- Import from another service. Behind Unreleased.LIBRARY_IMPORT, debug builds only for now. -->
     <string name="import_library_title">Importer depuis un autre service</string>
     <string name="import_library_entry">Récupérez vos playlists de Spotify, Apple Music et d\'autres, grâce à un fichier d\'export</string>
@@ -1482,7 +1461,6 @@
         <item quantity="many">%1$d encore à vérifier. Ils sont écartés sauf si vous en choisissez un.</item>
         <item quantity="other">%1$d encore à vérifier. Ils sont écartés sauf si vous en choisissez un.</item>
     </plurals>
-
     <!-- Ce que la Sélection Rapide privilégie : un choix permanent pour Meilleures recommandations. Les options sont les réponses du sondage. -->
     <string name="quick_picks_lean">La Sélection Rapide privilégie</string>
     <string name="quick_picks_lean_auto">Auto</string>
