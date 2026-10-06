@@ -65,6 +65,8 @@ import com.dd3boh.outertune.constants.LivingSmoothingKey
 import com.dd3boh.outertune.constants.LivingStrengthKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.player.LivingField
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.constants.BackAnimationsKey
 import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
@@ -166,6 +168,7 @@ fun ColumnScope.ThemePlayerFrag() {
     )
 
     EnumListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_PLAYER_BACKGROUND),
         title = { Text(stringResource(R.string.player_background_style)) },
         icon = { Icon(Icons.Rounded.BlurOn, null) },
         selectedValue = playerBackground,

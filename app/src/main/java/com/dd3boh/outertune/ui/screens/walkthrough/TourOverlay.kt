@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.ui.screens.walkthrough
 
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
@@ -42,6 +44,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -94,6 +97,12 @@ private val HOLE_RADIUS = 12.dp
 private val BEAK_WIDTH = 16.dp
 private val BEAK_DEPTH = 8.dp
 
+/**
+ * How much room is kept above and below what a stop points at when it is scrolled into view: the
+ * bubble has to stand on one side of it, and the mini player and the bar sit over the bottom.
+ */
+private val BRING_ROOM = 190.dp
+
 /** How far short of the cut-out the tip stops. Systems that look right land within 0 to 4. */
 private val BEAK_TIP_GAP = 2.dp
 
@@ -144,6 +153,17 @@ fun TourOverlay(
     val stop = state.current ?: return
 
     val target = stop.targetId?.let { TourTargets[it] }
+
+    // What the stop points at may be further down its screen, and on another screen it is not
+    // there at all until that screen is. Waited for, then scrolled to with room round it. Given
+    // up on after three seconds, and the bubble then stands in the middle, as it does for a stop
+    // with nothing to point at.
+    val bringRoomPx = with(LocalDensity.current) { BRING_ROOM.toPx() }
+    LaunchedEffect(stop.id) {
+        val id = stop.targetId ?: return@LaunchedEffect
+        withTimeoutOrNull(3000) { snapshotFlow { TourTargets.known(id) }.first { it } } ?: return@LaunchedEffect
+        TourTargets.bring(id, bringRoomPx)
+    }
 
     BackHandler {
         if (state.index > 0) state.back() else { state.stop(); onFinish() }

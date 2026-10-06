@@ -609,7 +609,7 @@ fun HomeScreen(
                         title = stringResource(R.string.history),
                         icon = Icons.Rounded.History,
                         onClick = { navController.navigate("history") },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).tourTarget(Tour.HISTORY)
                     )
 
                     NavigationTile(

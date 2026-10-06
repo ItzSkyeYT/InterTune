@@ -15,6 +15,8 @@ import android.app.NotificationManager
 import android.app.SearchManager
 import android.content.Intent
 import android.os.Build
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
@@ -177,6 +179,16 @@ import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.ui.screens.walkthrough.TourOverlay
 import com.dd3boh.outertune.ui.screens.walkthrough.TourState
 import com.dd3boh.outertune.ui.screens.walkthrough.tourFor
+import kotlinx.coroutines.withTimeoutOrNull
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.screens.walkthrough.NewThingAction
+import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_TOUR
+import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_WALK
+import com.dd3boh.outertune.ui.screens.walkthrough.TourStop
+import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
+import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBack
+import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
+import com.dd3boh.outertune.widget.MusicWidgetReceiver
 import com.dd3boh.outertune.constants.WalkthroughSeenVersionKey
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
 import com.dd3boh.outertune.constants.SimilarSourceKey
@@ -1122,17 +1134,102 @@ class MainActivity : ComponentActivity() {
                         // upgrader would have met, since none has answered the usage count yet.
                         val wizardThisLaunch = rememberSaveable { oobeStatus < OOBE_VERSION }
 
-                        LaunchedEffect(oobeStatus, catchUpOpen, pendingStops, updatePromptVisible) {
+                        /*
+                         * The welcome back page (WelcomeBack.kt): for somebody who has been here
+                         * before, what is new since, each thing with a way to it. It takes the
+                         * tour's place for them and starts tours of its own, which come back to it.
+                         *
+                         * welcomeEverything is the page asked for from Settings: it lists all
+                         * there is, and closing it marks nothing as seen.
+                         */
+                        var welcomeOpen by rememberSaveable { mutableStateOf(false) }
+                        var welcomeEverything by rememberSaveable { mutableStateOf(false) }
+                        var welcomeLookedAt by rememberSaveable { mutableStateOf(emptyList<String>()) }
+                        var tourFromWelcome by rememberSaveable { mutableStateOf(false) }
+                        val newThings = remember(walkthroughSeen, welcomeEverything) {
+                            newThingsFor(walkthroughSeen, everything = welcomeEverything)
+                        }
+                        val welcomeOwed = Unreleased.WELCOME_BACK && walkthroughSeen > 0 && newThings.isNotEmpty()
+
+                        LaunchedEffect(oobeStatus, catchUpOpen, pendingStops, welcomeOwed, updatePromptVisible) {
                             if (!catchUpOpen && !catchUpDone && !wizardThisLaunch && !updatePromptVisible &&
-                                oobeStatus >= OOBE_VERSION && pendingStops.isNotEmpty() &&
-                                !tourState.running
+                                oobeStatus >= OOBE_VERSION && (pendingStops.isNotEmpty() || welcomeOwed) &&
+                                !tourState.running && !welcomeOpen && !tourFromWelcome
                             ) {
                                 // A beat after the first frame, so the controls it points at have
                                 // reported where they are. Pointing at a target that has not been
                                 // measured yet puts the hole in the top left corner.
                                 delay(600)
-                                tourState.start(pendingStops)
+                                if (welcomeOwed) welcomeOpen = true else tourState.start(pendingStops)
                             }
+                        }
+
+                        // Asked for from Settings, under About.
+                        LaunchedEffect(tourState.welcomeAsked) {
+                            if (tourState.welcomeAsked) {
+                                tourState.welcomeAsked = false
+                                welcomeEverything = true
+                                welcomeLookedAt = emptyList()
+                                welcomeOpen = true
+                            }
+                        }
+
+                        // A tour from the page: to the screen its first stop is on, and started once
+                        // what it points at is there. If nothing of it is on this install (Quick
+                        // picks has no chips while it is not drawing from the engine), the page
+                        // comes back and says so, rather than a button that did nothing.
+                        val showFromWelcome: (List<TourStop>) -> Unit = { stops ->
+                            welcomeOpen = false
+                            tourFromWelcome = true
+                            coroutineScope.launch {
+                                val first = stops.firstOrNull()
+                                val route = first?.route
+                                if (route == null) {
+                                    navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
+                                } else if (navController.currentDestination?.route != route) {
+                                    navController.navigate(route)
+                                }
+                                val target = first?.targetId
+                                if (target != null) withTimeoutOrNull(3000) { while (!TourTargets.known(target)) delay(50) }
+                                delay(150)
+                                tourState.start(stops)
+                                if (!tourState.running) {
+                                    tourFromWelcome = false
+                                    navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
+                                    welcomeOpen = true
+                                    Toast.makeText(this@MainActivity, R.string.welcome_back_not_here, Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+
+                        if (welcomeOpen && !tourState.running) {
+                            WelcomeBack(
+                                things = newThings,
+                                seen = welcomeLookedAt.toSet(),
+                                returning = !welcomeEverything,
+                                onShow = { thing ->
+                                    welcomeLookedAt = welcomeLookedAt + thing.id
+                                    if (thing.action == NewThingAction.ADD_WIDGET) {
+                                        val widgets = AppWidgetManager.getInstance(this@MainActivity)
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && widgets.isRequestPinAppWidgetSupported) {
+                                            widgets.requestPinAppWidget(ComponentName(this@MainActivity, MusicWidgetReceiver::class.java), null, null)
+                                        } else {
+                                            Toast.makeText(this@MainActivity, R.string.welcome_back_no_widget_host, Toast.LENGTH_LONG).show()
+                                        }
+                                    } else {
+                                        showFromWelcome(thing.stops)
+                                    }
+                                },
+                                onShowSettings = {
+                                    welcomeLookedAt = welcomeLookedAt + SETTINGS_WALK
+                                    showFromWelcome(SETTINGS_TOUR)
+                                },
+                                onDone = {
+                                    welcomeOpen = false
+                                    if (!welcomeEverything) setWalkthroughSeen(BuildConfig.VERSION_CODE)
+                                    welcomeEverything = false
+                                },
+                            )
                         }
 
                         if (catchUpOpen) {
@@ -1619,8 +1716,20 @@ class MainActivity : ComponentActivity() {
                             // layer, which it has no business being refracted by.
                             TourOverlay(
                                 state = tourState,
-                                onNavigate = { navController.navigate(it) },
-                                onFinish = { setWalkthroughSeen(BuildConfig.VERSION_CODE) },
+                                // Two stops in a row on one screen are one screen, not two of it.
+                                onNavigate = { route -> if (navController.currentDestination?.route != route) navController.navigate(route) },
+                                onFinish = {
+                                    if (tourFromWelcome) {
+                                        // Back to the page it was started from, and to Home under
+                                        // it, so that closing the page leaves somebody where they
+                                        // were and not in whichever setting was shown last.
+                                        tourFromWelcome = false
+                                        navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
+                                        welcomeOpen = true
+                                    } else {
+                                        setWalkthroughSeen(BuildConfig.VERSION_CODE)
+                                    }
+                                },
                             )
 
                             SnackbarHost(

@@ -696,6 +696,51 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="tour_settings_body">Nothing here is compulsory. All of it can be turned off in these settings.</string>
 
 
+    <!-- Welcome back: the page after an update, and the walk round Settings. A prototype shown in
+         debug builds only (Unreleased.WELCOME_BACK): not for translators until it ships. -->
+    <string name="welcome_back_title" translatable="false">Welcome back</string>
+    <string name="welcome_back_body" translatable="false">Here is what is new since you were last here.</string>
+    <string name="welcome_back_everything" translatable="false">What has been added lately, and where to find it.</string>
+    <string name="welcome_back_release" translatable="false">New in %1$s</string>
+    <string name="welcome_back_show" translatable="false">Show me</string>
+    <string name="welcome_back_add_widget" translatable="false">Add it</string>
+    <string name="welcome_back_seen" translatable="false">Seen</string>
+    <string name="welcome_back_settings_title" translatable="false">Find your way round Settings</string>
+    <string name="welcome_back_settings_body" translatable="false">Four groups, and what lives in each.</string>
+    <string name="welcome_back_settings_show" translatable="false">Show me round</string>
+    <string name="welcome_back_done" translatable="false">Done</string>
+    <string name="welcome_back_entry" translatable="false">What is new</string>
+    <string name="welcome_back_not_here" translatable="false">That is not on screen in this setup, so there is nothing to point at.</string>
+    <string name="welcome_back_no_widget_host" translatable="false">This home screen does not take widgets from apps. Add it from the home screen\'s own widget list.</string>
+
+    <string name="new_living_blur_title" translatable="false">A background that moves with the music</string>
+    <string name="new_living_blur_body" translatable="false">Living blur: the player\'s background breathes with the song and glows round the cover on every beat.</string>
+    <string name="new_living_blur_way" translatable="false">The player\'s background is one of the things in here.</string>
+    <string name="new_living_blur_here" translatable="false">Choose Living blur here. Two sliders appear under it: how strongly it moves, and how softly.</string>
+    <string name="new_share_links_title" translatable="false">Links for any music app</string>
+    <string name="new_share_links_body" translatable="false">Share can send a page where whoever opens it picks their own music app, instead of a YouTube Music link.</string>
+    <string name="new_share_links_way" translatable="false">What Share sends is set in here.</string>
+    <string name="new_share_links_here" translatable="false">The YouTube Music link as before, the page for any app, or be asked each time.</string>
+    <string name="new_quick_picks_title" translatable="false">Quick picks you can steer</string>
+    <string name="new_recognise_body" translatable="false">A button beside the search bar listens for a few seconds and names the song.</string>
+    <string name="new_widget_title" translatable="false">A widget for your home screen</string>
+    <string name="new_widget_body" translatable="false">What is playing, its controls and Quick picks, without opening the app.</string>
+    <string name="new_history_title" translatable="false">Your history, day by day</string>
+    <string name="new_history_body" translatable="false">Every song you heard for five seconds or more, by day, with the time.</string>
+    <string name="new_history_here" translatable="false">It opens from here.</string>
+    <string name="new_spatial_body" translatable="false">Puts the music in front of you instead of inside your head. It is done in the app, so it works on any phone.</string>
+    <string name="new_spatial_way" translatable="false">Everything about the sound is in here.</string>
+    <string name="new_spatial_here" translatable="false">Headphones is the one that works everywhere. The button beside it explains the other.</string>
+
+    <string name="tour_settings_you_title" translatable="false">You and your music</string>
+    <string name="tour_settings_you_body" translatable="false">Signing in and what gets synced, what Home is built from, and the music files on this phone.</string>
+    <string name="tour_settings_look_title" translatable="false">How it looks and sounds</string>
+    <string name="tour_settings_look_body" translatable="false">Theme and the player\'s background, sound quality and spatial audio, naming a song, lyrics.</string>
+    <string name="tour_settings_kept_title" translatable="false">What is kept</string>
+    <string name="tour_settings_kept_body" translatable="false">Downloads and the space they take, backups, your listening history, and whether InterTune may ask you a question or count this install.</string>
+    <string name="tour_settings_rest_title" translatable="false">Updates and the rest</string>
+    <string name="tour_settings_rest_body" translatable="false">New versions, how Quick picks chooses, the switches most people never need, and this walk again under About.</string>
+
     <string name="walkthrough_recognition_title">Name what is playing</string>
     <string name="walkthrough_settings_title">All of it is a setting</string>
     <string name="recognise_settings_description">What happens when you ask InterTune to name what is playing.</string>

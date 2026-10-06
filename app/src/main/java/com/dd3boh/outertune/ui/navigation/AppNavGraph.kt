@@ -322,6 +322,17 @@ fun NavGraphBuilder.appDestinations(
                 }
             }
         }
+        screen("whatsnew", floating = false) {
+            // The welcome back page is drawn over the app by the activity, and the tours it
+            // starts want Home underneath. So this goes back there and asks for the page.
+            LaunchedEffect(Unit) {
+                navController.popBackStack(
+                    navController.graph.startDestinationId,
+                    inclusive = false,
+                )
+                tourState.welcomeAsked = true
+            }
+        }
         screen("recognition") {
             RecognitionScreen(navController, scrollBehavior)
         }

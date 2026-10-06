@@ -10,6 +10,7 @@
 package com.dd3boh.outertune.ui.screens.settings
 
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.constants.Unreleased
 
 import android.content.ClipData
 import android.os.Build
@@ -200,6 +201,14 @@ fun AboutScreen(
                         navController.navigate("walkthrough")
                     }
                 )
+                if (Unreleased.WELCOME_BACK) {
+                    PreferenceEntry(
+                        title = { Text(stringResource(R.string.welcome_back_entry)) },
+                        onClick = {
+                            navController.navigate("whatsnew")
+                        }
+                    )
+                }
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_bug_report_action)) },
                     onClick = {

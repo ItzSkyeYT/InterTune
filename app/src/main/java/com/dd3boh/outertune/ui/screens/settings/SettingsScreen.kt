@@ -54,6 +54,8 @@ import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -87,7 +89,7 @@ fun SettingsScreen(
             .padding(horizontal = 16.dp)
     ) {
         ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().tourTarget(Tour.SETTINGS_YOU)
         ) {
             PreferenceEntry(
                 title = { Text(stringResource(R.string.grp_account_sync)) },
@@ -111,15 +113,17 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().tourTarget(Tour.SETTINGS_LOOK_AND_SOUND)
         ) {
             PreferenceEntry(
+                modifier = Modifier.tourTarget(Tour.ROW_LOOK_AND_FEEL),
                 title = { Text(stringResource(R.string.look_and_feel)) },
                 description = stringResource(R.string.settings_look_and_feel_description),
                 icon = { Icon(Icons.Rounded.Palette, null) },
                 onClick = { navController.navigate("settings/appearance") }
             )
             PreferenceEntry(
+                modifier = Modifier.tourTarget(Tour.ROW_PLAYER),
                 title = { Text(stringResource(R.string.player_and_audio)) },
                 description = stringResource(R.string.settings_player_description),
                 icon = { Icon(Icons.Rounded.PlayArrow, null) },
@@ -141,7 +145,7 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().tourTarget(Tour.SETTINGS_KEPT)
         ) {
             PreferenceEntry(
                 title = { Text(stringResource(R.string.grp_storage_and_downloads)) },
@@ -165,7 +169,7 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         ElevatedCard(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().tourTarget(Tour.SETTINGS_REST)
         ) {
             PreferenceEntry(
                 title = { Text(stringResource(R.string.grp_updates)) },

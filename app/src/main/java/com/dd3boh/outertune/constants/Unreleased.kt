@@ -66,4 +66,13 @@ object Unreleased {
      * it, in Player.kt and ThemeFrag, and make player_background_living translatable.
      */
     val LIVING_BACKGROUND = BuildConfig.DEBUG
+
+    /**
+     * The welcome back page: after an update, what is new since the version somebody came from,
+     * each thing with a "Show me" that leads to where it lives, and a walk round Settings
+     * (WelcomeBack.kt, Walkthrough.kt). Without it a returning user gets the tour's new stops, as
+     * before. Not agreed for a release yet. When it is: set this to true or delete it with the
+     * checks that read it, in MainActivity and AboutScreen, and make its strings translatable.
+     */
+    val WELCOME_BACK = BuildConfig.DEBUG
 }

@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.ui.screens.walkthrough
 
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.Composable
@@ -14,11 +16,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.runtime.mutableStateMapOf
 
 /**
@@ -36,16 +40,43 @@ object TourTargets {
 
     private val bounds = mutableStateMapOf<String, Rect>()
 
-    fun put(id: String, rect: Rect) {
-        bounds[id] = rect
+    /** Everything that is there to be pointed at, in view or scrolled out of it. */
+    private val there = mutableStateMapOf<String, Place>()
+
+    private class Place(val bringer: BringIntoViewRequester) {
+        var size = IntSize.Zero
+    }
+
+    internal fun arrive(id: String, bringer: BringIntoViewRequester) {
+        there[id] = Place(bringer)
+    }
+
+    internal fun put(id: String, rect: Rect, size: IntSize) {
+        there[id]?.size = size
+        // Scrolled out of view, what is left of it inside the root is nothing, and a hole cut
+        // there would be a hole over something else.
+        if (rect.isEmpty) bounds.remove(id) else bounds[id] = rect
     }
 
     fun forget(id: String) {
         bounds.remove(id)
+        there.remove(id)
     }
 
     /** Null when the element is not on screen, which is the tour's cue to move the user first. */
     operator fun get(id: String): Rect? = bounds[id]
+
+    /** Whether the element exists on the screen that is showing, even if it has to be scrolled to. */
+    fun known(id: String): Boolean = id in there
+
+    /**
+     * Scrolls the element into view, with [room] pixels to spare above and below it: the bubble
+     * needs somewhere to stand, and the bottom of a list sits under the mini player and the bar.
+     */
+    suspend fun bring(id: String, room: Float) {
+        val place = there[id] ?: return
+        place.bringer.bringIntoView(Rect(0f, -room, place.size.width.toFloat(), place.size.height + room))
+    }
 }
 
 /**
@@ -54,11 +85,18 @@ object TourTargets {
  * Root coordinates, not window ones, so the hole lands in the same space the overlay draws in.
  * Cleared when the composable leaves, because a stale rectangle is worse than a missing one: the
  * tour would happily cut a hole over empty screen and swear the button was there.
+ *
+ * It can also be scrolled to, since the tour now goes into Settings, where what it points at is
+ * as often below the fold as above it.
  */
 @Composable
 fun Modifier.tourTarget(id: String): Modifier {
-    DisposableEffect(id) { onDispose { TourTargets.forget(id) } }
-    return onGloballyPositioned { TourTargets.put(id, it.boundsInRoot()) }
+    val bringer = remember { BringIntoViewRequester() }
+    DisposableEffect(id) {
+        TourTargets.arrive(id, bringer)
+        onDispose { TourTargets.forget(id) }
+    }
+    return bringIntoViewRequester(bringer).onGloballyPositioned { TourTargets.put(id, it.boundsInRoot(), it.size) }
 }
 
 /**
@@ -91,6 +129,23 @@ object Tour {
     const val SETTINGS = "settings_button"
     const val QUICK_PICKS_CHIPS = "quick_picks_chips"
     const val NAV_LIBRARY = "nav_library"
+    const val HISTORY = "home_history"
+
+    // Settings: its four groups, the rows the welcome back leads through, and the settings themselves.
+    const val SETTINGS_YOU = "settings_group_you"
+    const val SETTINGS_LOOK_AND_SOUND = "settings_group_look_and_sound"
+    const val SETTINGS_KEPT = "settings_group_kept"
+    const val SETTINGS_REST = "settings_group_rest"
+    const val ROW_LOOK_AND_FEEL = "settings_row_look_and_feel"
+    const val ROW_PLAYER = "settings_row_player"
+    const val SETTING_PLAYER_BACKGROUND = "setting_player_background"
+    const val SETTING_SHARE_LINKS = "setting_share_links"
+    const val SETTING_SPATIAL_AUDIO = "setting_spatial_audio"
+
+    /** The routes those live on. Null on a stop means Home. */
+    const val ROUTE_SETTINGS = "settings"
+    const val ROUTE_LOOK_AND_FEEL = "settings/appearance"
+    const val ROUTE_PLAYER = "settings/player"
 }
 
 /** The running tour, or nothing. Hoisted here so the overlay and the launcher share one. */
@@ -104,6 +159,12 @@ class TourState {
     var running by mutableStateOf(false)
         private set
 
+    /**
+     * Set when somebody asks for the welcome back page from Settings, and cleared by whoever
+     * shows it. Here because this is the one thing the navigation graph and the activity share.
+     */
+    var welcomeAsked by mutableStateOf(false)
+
     val current: TourStop? get() = stops.getOrNull(index)
 
     /**
@@ -115,7 +176,9 @@ class TourState {
      * control that is not there, with a counter claiming it is one of five.
      */
     fun start(stops: List<TourStop>) {
-        val visible = stops.filter { it.targetId == null || TourTargets[it.targetId] != null }
+        // A stop on another screen is taken on trust: what it points at does not exist until the
+        // tour has gone there.
+        val visible = stops.filter { it.targetId == null || it.route != null || TourTargets.known(it.targetId) }
         // An offer to be shown around, with nothing left to show.
         if (visible.none { it.targetId != null }) return
         this.stops = visible
@@ -142,13 +205,13 @@ class TourState {
          * Keeps a running tour, and the stop it is on, across the activity being recreated. A
          * rotation recreates it, and a plain remember then lost the tour, which the launcher saw as
          * never started and began again from the first stop. The stops are saved by id and come
-         * back from [TOUR_STOPS].
+         * back from [ALL_TOUR_STOPS].
          */
         val Saver: Saver<TourState, Any> = listSaver(
             save = { state -> if (state.running) listOf<Any>(state.index) + state.stops.map { it.id } else emptyList() },
             restore = { saved ->
                 TourState().apply {
-                    val stops = saved.drop(1).mapNotNull { id -> TOUR_STOPS.firstOrNull { it.id == id } }
+                    val stops = saved.drop(1).mapNotNull { id -> ALL_TOUR_STOPS.firstOrNull { it.id == id } }
                     if (stops.isNotEmpty()) {
                         this.stops = stops
                         index = (saved[0] as Int).coerceIn(0, stops.lastIndex)

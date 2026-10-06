@@ -6,8 +6,10 @@
 
 package com.dd3boh.outertune.ui.screens.walkthrough
 
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.runtime.saveable.SaverScope
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.unit.IntSize
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -30,10 +32,16 @@ class TourStateSaverTest {
         return TourState.Saver.restore(saved)!!
     }
 
+    /** As the control would say of itself once it is drawn. */
+    private fun onScreen(id: String) {
+        TourTargets.arrive(id, BringIntoViewRequester())
+        TourTargets.put(id, Rect(0f, 0f, 10f, 10f), IntSize(10, 10))
+    }
+
     @Test
     fun `a rotation keeps the tour on the stop it had reached`() {
-        TourTargets.put(Tour.SEARCH_BAR, Rect(0f, 0f, 10f, 10f))
-        TourTargets.put(Tour.RECOGNISE, Rect(0f, 0f, 10f, 10f))
+        onScreen(Tour.SEARCH_BAR)
+        onScreen(Tour.RECOGNISE)
         val state = TourState()
         state.start(TOUR_STOPS)
         state.next()
@@ -44,6 +52,17 @@ class TourStateSaverTest {
         assertTrue(restored.running)
         assertEquals(state.stops.map { it.id }, restored.stops.map { it.id })
         assertEquals(before, restored.current!!.id)
+    }
+
+    @Test
+    fun `a tour that has gone into Settings comes back there too`() {
+        val state = TourState()
+        state.start(SETTINGS_TOUR)
+        state.next()
+        val restored = roundTrip(state)
+        assertTrue(restored.running)
+        assertEquals("settings_look_and_sound", restored.current!!.id)
+        assertEquals(SETTINGS_TOUR.size, restored.stops.size)
     }
 
     @Test

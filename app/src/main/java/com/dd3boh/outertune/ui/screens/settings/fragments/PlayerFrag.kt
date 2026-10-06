@@ -74,6 +74,8 @@ import com.dd3boh.outertune.constants.TransitionFadeSecondsKey
 import androidx.compose.runtime.LaunchedEffect
 import kotlinx.coroutines.delay
 import com.dd3boh.outertune.ui.component.ExplainLink
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.ui.component.ExplainedPreference
 import androidx.compose.material3.Slider
 import com.dd3boh.outertune.constants.StageWidthKey
@@ -246,6 +248,7 @@ fun ColumnScope.SpatialAudioModeFrag() {
     val title = stringResource(R.string.spatial_audio)
 
     EnumListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_SPATIAL_AUDIO),
         title = { Text(title) },
         icon = { Icon(Icons.Rounded.SurroundSound, null) },
         trailingContent = {

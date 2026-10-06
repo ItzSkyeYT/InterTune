@@ -68,6 +68,8 @@ import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.Screens.LibraryFilter
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.utils.ShareLinkKind
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
@@ -488,6 +490,7 @@ fun ColumnScope.ShareLinksFrag() {
     val (kind, onKindChange) = rememberEnumPreference(ShareLinkKindKey, defaultValue = ShareLinkKind.YOUTUBE_MUSIC)
 
     EnumListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_SHARE_LINKS),
         title = { Text(stringResource(R.string.share_link_kind_title)) },
         icon = { Icon(Icons.Rounded.Share, null) },
         selectedValue = kind,
