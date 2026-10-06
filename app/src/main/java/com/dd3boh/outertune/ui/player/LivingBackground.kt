@@ -13,6 +13,8 @@ import android.graphics.RectF
 import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -37,7 +39,6 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Constraints
 import androidx.core.graphics.createBitmap
 import androidx.lifecycle.Lifecycle
@@ -78,6 +79,8 @@ import kotlin.math.min
  * @param onScreen false while the player is closed to its mini player
  * @param strength how strongly it answers the music, 0 to 1: the setting (LivingField.reach)
  * @param smoothing how softly, 0 to 1: the other setting (LivingField.ease)
+ * @param coverPlace where the cover it stands behind is, in the root's measure, or null for none.
+ *   The player's own by default; the sample in Settings has a small cover of its own.
  */
 @Composable
 fun LivingBackground(
@@ -88,6 +91,26 @@ fun LivingBackground(
     strength: Float,
     smoothing: Float,
     modifier: Modifier = Modifier,
+    coverPlace: () -> Rect? = { PlayerCoverPlace.bounds },
+) {
+    // The grid is made for the room the picture is given, not for the window: in the player the
+    // two are the same, in the Settings sample the picture is a strip.
+    BoxWithConstraints(modifier) {
+        LivingPicture(cover, tap, playing, onScreen, strength, smoothing, coverPlace, constraints.maxWidth, constraints.maxHeight)
+    }
+}
+
+@Composable
+private fun LivingPicture(
+    cover: Any?,
+    tap: LevelTap?,
+    playing: Boolean,
+    onScreen: Boolean,
+    strength: Float,
+    smoothing: Float,
+    coverPlace: () -> Rect?,
+    wide: Int,
+    tall: Int,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -97,19 +120,15 @@ fun LivingBackground(
     var origin by remember { mutableStateOf(Offset.Zero) }
     val stretch = remember { mutableStateOf(Offset(1f, 1f)) }
 
-    // Three patches along the short side of the window and as many along the long side as keeps
-    // them round. A window that changes shape starts over with the new grid.
-    val window = LocalWindowInfo.current.containerSize
-    val upright = window.height >= window.width
-    val along = LivingField.along(
-        long = max(window.width, window.height).toFloat(),
-        short = min(window.width, window.height).toFloat(),
-    )
+    // Three patches along the short side and as many along the long side as keeps them round. A
+    // picture that changes shape starts over with the new grid.
+    val upright = tall >= wide
+    val along = LivingField.along(long = max(wide, tall).toFloat(), short = min(wide, tall).toFloat())
     val motion = remember(upright, along) {
         if (upright) LivingMotion(LivingField.ACROSS, along) else LivingMotion(along, LivingField.ACROSS)
     }
 
-    val coverThere = PlayerCoverPlace.bounds != null
+    val coverThere = coverPlace() != null
     motion.strength = strength
     motion.smoothing = smoothing
     motion.coverThere = coverThere
@@ -173,11 +192,11 @@ fun LivingBackground(
         }
     }
 
-    Canvas(modifier.onGloballyPositioned { origin = it.positionInRoot() }.drawnSmall(stretch)) {
+    Canvas(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }.drawnSmall(stretch)) {
         @Suppress("UNUSED_VARIABLE")
         val redrawnAt = frame
         // The cover's place, or where it last was while the aura fades out after it.
-        val coverPlace = PlayerCoverPlace.bounds?.also { look.lastCover = it } ?: look.lastCover
+        val coverAt = coverPlace()?.also { look.lastCover = it } ?: look.lastCover
         drawIntoCanvas { canvas ->
             val native = canvas.nativeCanvas
             native.drawColor(motion.under)
@@ -190,12 +209,12 @@ fun LivingBackground(
             // the glow sits on the bottom edge, so half of it is below the screen
             look.disc(native, size.width / 2, size.height, size.width * 0.8f, size.height * motion.glowHeight(), motion.glow, motion.glowStrength())
 
-            if (coverPlace != null && motion.auraPresence > 0.004f) {
+            if (coverAt != null && motion.auraPresence > 0.004f) {
                 val by = stretch.value
-                val left = (coverPlace.left - origin.x) / by.x
-                val top = (coverPlace.top - origin.y) / by.y
-                val width = coverPlace.width / by.x
-                val height = coverPlace.height / by.y
+                val left = (coverAt.left - origin.x) / by.x
+                val top = (coverAt.top - origin.y) / by.y
+                val width = coverAt.width / by.x
+                val height = coverAt.height / by.y
                 val side = min(width, height)
                 for (i in motion.aura.indices) {
                     val point = motion.aura[i]

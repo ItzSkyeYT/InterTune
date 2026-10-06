@@ -212,6 +212,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_living_strength" translatable="false">Living blur strength</string>
     <string name="player_living_strength_description" translatable="false">How much the background and the glow round the cover move with the music. At 0 it only drifts.</string>
     <string name="player_living_smoothing" translatable="false">Living blur smoothing</string>
+    <string name="player_living_sample_playing" translatable="false">Move the sliders while it plays.</string>
+    <string name="player_living_sample_silent" translatable="false">Nothing is playing, so it has nothing to move to.</string>
+    <string name="player_living_sample_play" translatable="false">Play a song to tune by</string>
+    <string name="player_living_sample_queue" translatable="false">Tuning Living blur</string>
+    <string name="player_living_sample_nothing" translatable="false">There is no song of yours to play yet. Play one, then come back.</string>
     <string name="player_living_smoothing_description" translatable="false">How softly it follows the music. Low jumps with every hit, high swells and lingers.</string>
     <string name="player_background_style">Player background style</string>
     <string name="show_liked_and_downloaded_playlist">Show playlists for liked and downloaded songs in library</string>
