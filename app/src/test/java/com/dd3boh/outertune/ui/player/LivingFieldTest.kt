@@ -294,6 +294,34 @@ class LivingFieldTest {
     }
 
     @Test
+    fun `whatever the cover, there are three colours, no two the same and none see-through`() {
+        fun check(what: String, pixels: IntArray, width: Int, height: Int) {
+            val mains = LivingField.mainColours(pixels, width, height)
+            assertEquals(what, 3, mains.size)
+            assertEquals("$what: ${mains.map(Integer::toHexString)}", 3, mains.toSet().size)
+            assertTrue(what, mains.all { it ushr 24 == 0xff })
+        }
+        check("all black", IntArray(32 * 32) { 0xff000000.toInt() }, 32, 32)
+        check("all white", IntArray(32 * 32) { 0xffffffff.toInt() }, 32, 32)
+        check("one pixel", intArrayOf(red), 1, 1)
+        check("see-through pixels count by their colour", IntArray(32 * 32) { 0x00cc2211 }, 32, 32)
+        check("a very large one is not read pixel by pixel", IntArray(1500 * 1500) { if (it % 3 == 0) red else blue }, 1500, 1500)
+        val random = java.util.Random(7)
+        repeat(300) { n ->
+            // a few plain colours in blocks, some covers nearly grey, some of one hue
+            val side = 8 + random.nextInt(24)
+            val colours = IntArray(1 + random.nextInt(5)) {
+                when (n % 3) {
+                    0 -> random.nextInt(0x1000000)
+                    1 -> (random.nextInt(256)).let { v -> (v shl 16) or ((v + random.nextInt(9) - 4).coerceIn(0, 255) shl 8) or v }
+                    else -> (random.nextInt(256) shl 16) or (random.nextInt(40) shl 8) or random.nextInt(40)
+                } or (0xff shl 24)
+            }
+            check("cover $n", IntArray(side * side) { colours[(it / side * colours.size / side + it % 3) % colours.size] }, side, side)
+        }
+    }
+
+    @Test
     fun `a hue is turned round the wheel and stays as light and as colourful`() {
         assertTrue("red a third of the way round is green", apart(LivingField.turned(0xffcc2020.toInt(), 120f), 0xff20cc20.toInt()) < 2)
         assertEquals(0xff20cc20.toInt(), LivingField.turned(0xffcc2020.toInt(), 120f))
