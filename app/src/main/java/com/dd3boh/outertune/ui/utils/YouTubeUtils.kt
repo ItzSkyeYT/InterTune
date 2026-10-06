@@ -72,3 +72,14 @@ fun String.resize(
 
     return this
 }
+
+/**
+ * The addresses to try for artwork wanted at [px], best first: the image host asked for that size,
+ * then the address as it is [stored].
+ *
+ * Never the stored address alone. A song is stored with the thumbnail of the list it was first
+ * seen in, 120 pixels more often than not, and whatever draws that any larger draws it blurred:
+ * that was the cover in the system's media player and in the home screen widget. It stays as the
+ * second try because it is what is on disk when there is no connection.
+ */
+fun coverAddresses(stored: String, px: Int): List<String> = listOf(stored.resize(px, px), stored).distinct()

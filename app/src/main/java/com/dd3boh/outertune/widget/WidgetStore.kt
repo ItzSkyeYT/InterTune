@@ -14,7 +14,6 @@ import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.scale
-import androidx.core.net.toUri
 import androidx.glance.appwidget.updateAll
 import coil3.imageLoader
 import coil3.request.ImageRequest
@@ -25,6 +24,7 @@ import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.ui.theme.extractThemeColor
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.ui.utils.coverAddresses
 import com.dd3boh.outertune.utils.LocalArtworkPath
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
@@ -143,7 +143,24 @@ object WidgetStore {
         path?.let { File(it) }?.takeIf { it.exists() }?.let { BitmapFactory.decodeFile(path) }
     }.getOrNull()
 
-    private fun bigArtPath(context: Context, id: String) = File(artDir(context), hash(id) + "_" + ART_BIG_PX + ".png").absolutePath
+    /**
+     * The file a song's artwork is kept in at [px]: the cover fetched at that size.
+     *
+     * The "c" is there because files without it exist on every phone that had a widget before: they
+     * were made from the address the song is stored with, a 120 pixel thumbnail for most songs,
+     * scaled up to the size in their name. Under the old name they would be taken for the real
+     * thing and never replaced.
+     */
+    private fun artFile(context: Context, id: String, px: Int) = File(artDir(context), "${hash(id)}_${px}c.png")
+
+    /**
+     * Artwork made from the stored address because the cover at its size could not be had, which
+     * means no connection. The name every artwork file had before, so the ones already on the phone
+     * are found here and serve as exactly that.
+     */
+    private fun lesserArtFile(context: Context, id: String, px: Int) = File(artDir(context), "${hash(id)}_$px.png")
+
+    private fun bigArtPath(context: Context, id: String) = artFile(context, id, ART_BIG_PX).absolutePath
 
     private suspend fun write(context: Context, snapshot: WidgetSnapshot) = withContext(Dispatchers.IO) {
         runCatching {
@@ -325,39 +342,48 @@ object WidgetStore {
     private suspend fun pickArt(context: Context, song: WidgetSong): String? =
         artFor(context, song.id, artModel(song, ART_PICK_PX), ART_PICK_PX) ?: song.artPath
 
-    private fun artModel(song: MediaMetadata, px: Int = ART_NOW_PX): Any? = when {
-        song.isLocal -> song.localPath?.let { LocalArtworkPath(it, px, px) }
-        else -> song.thumbnailUrl?.toUri()
+    /** What to ask Coil for a song's artwork at [px], best first (see coverAddresses). */
+    private fun artModel(song: MediaMetadata, px: Int = ART_NOW_PX): List<Any> = when {
+        song.isLocal -> listOfNotNull(song.localPath?.let { LocalArtworkPath(it, px, px) })
+        else -> song.thumbnailUrl?.let { coverAddresses(it, px) }.orEmpty()
     }
 
     /** The same, for a song read back from the snapshot, where a local file is all that was kept. */
-    private fun artModel(song: WidgetSong, px: Int = ART_NOW_PX): Any? = when {
-        song.isLocal -> song.thumbnailUrl?.let { LocalArtworkPath(it, px, px) }
-        else -> song.thumbnailUrl?.toUri()
+    private fun artModel(song: WidgetSong, px: Int = ART_NOW_PX): List<Any> = when {
+        song.isLocal -> listOfNotNull(song.thumbnailUrl?.let { LocalArtworkPath(it, px, px) })
+        else -> song.thumbnailUrl?.let { coverAddresses(it, px) }.orEmpty()
     }
 
     /**
      * The song's artwork as a small square PNG on disk, or null if it could not be had. Cached by
      * song and size, so a song that comes round again costs nothing.
+     *
+     * [models] are tried in order. Only the first gives the cover at its size; what a later one
+     * gives is kept under another name (see lesserArtFile) and handed out for now, so the real
+     * cover is still fetched the next time the song comes round with a connection.
      */
-    private suspend fun artFor(context: Context, id: String, model: Any?, px: Int): String? {
-        model ?: return null
-        val out = File(artDir(context), "${hash(id)}_$px.png")
-        if (out.exists()) return out.absolutePath
+    private suspend fun artFor(context: Context, id: String, models: List<Any>, px: Int): String? {
+        val sharp = artFile(context, id, px)
+        if (sharp.exists()) return sharp.absolutePath
         return runCatching {
             withContext(Dispatchers.IO) {
-                val result = context.imageLoader.execute(
-                    ImageRequest.Builder(context).data(model).allowHardware(false).size(px, px).build()
-                )
-                val bitmap = result.image?.toBitmap() ?: return@withContext null
-                // Cropped to the middle before it is scaled: a lot of YouTube's artwork is wide,
-                // and squashing a wide picture into a square is the one thing a cover must not do.
-                val side = minOf(bitmap.width, bitmap.height)
-                val cropped = if (bitmap.width == bitmap.height) bitmap
-                else Bitmap.createBitmap(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side)
-                val square = if (cropped.width > px) cropped.scale(px, px) else cropped
-                out.outputStream().use { square.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                out.absolutePath
+                for ((nth, model) in models.withIndex()) {
+                    val out = if (nth == 0) sharp else lesserArtFile(context, id, px)
+                    if (out.exists()) return@withContext out.absolutePath
+                    val result = context.imageLoader.execute(
+                        ImageRequest.Builder(context).data(model).allowHardware(false).size(px, px).build()
+                    )
+                    val bitmap = result.image?.toBitmap() ?: continue
+                    // Cropped to the middle before it is scaled: a lot of YouTube's artwork is wide,
+                    // and squashing a wide picture into a square is the one thing a cover must not do.
+                    val side = minOf(bitmap.width, bitmap.height)
+                    val cropped = if (bitmap.width == bitmap.height) bitmap
+                    else Bitmap.createBitmap(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side)
+                    val square = if (cropped.width > px) cropped.scale(px, px) else cropped
+                    out.outputStream().use { square.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                    return@withContext out.absolutePath
+                }
+                null
             }
         }.onFailure { Log.w(TAG, "Could not cache the widget artwork", it) }.getOrNull()
     }

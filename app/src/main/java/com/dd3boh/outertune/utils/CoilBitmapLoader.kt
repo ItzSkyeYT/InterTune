@@ -37,7 +37,7 @@ import coil3.size.Precision
 import coil3.toBitmap
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.ui.utils.artSizeBucket
-import com.dd3boh.outertune.ui.utils.resize
+import com.dd3boh.outertune.ui.utils.coverAddresses
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -233,10 +233,7 @@ fun sessionArtPx(density: Float): Int = (SESSION_ART_DP * density + 0.5f).toInt(
  * The stored address stays as a second try. With no connection the large cover cannot be fetched,
  * while the small one is on disk for every song played before this change.
  */
-fun sessionArtwork(stored: String, px: Int): List<String> {
-    val asked = artSizeBucket(px)
-    return listOf(stored.resize(asked, asked), stored).distinct()
-}
+fun sessionArtwork(stored: String, px: Int): List<String> = coverAddresses(stored, artSizeBucket(px))
 
 class LocalArtworkPathKeyer : Keyer<LocalArtworkPath> {
     override fun key(
