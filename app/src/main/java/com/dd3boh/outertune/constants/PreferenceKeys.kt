@@ -23,6 +23,9 @@ val LivingStrengthKey = floatPreferencesKey("livingBlurStrength")
 
 /** How softly it follows the music, 0 to 1 (LivingField.ease). */
 val LivingSmoothingKey = floatPreferencesKey("livingBlurSmoothing")
+
+/** What it is coloured from: a LivingColours. */
+val LivingColoursKey = stringPreferencesKey("livingBlurColours")
 val PlayerLiquidGlassKey = booleanPreferencesKey("playerLiquidGlass")
 val DarkModeKey = stringPreferencesKey("darkMode")
 val PureBlackKey = booleanPreferencesKey("pureBlack")

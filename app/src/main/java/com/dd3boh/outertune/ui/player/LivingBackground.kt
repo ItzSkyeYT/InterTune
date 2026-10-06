@@ -48,6 +48,7 @@ import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
+import com.dd3boh.outertune.constants.LivingColours
 import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.playback.LevelTap
 import com.dd3boh.outertune.playback.MusicLevels
@@ -79,6 +80,7 @@ import kotlin.math.min
  * @param onScreen false while the player is closed to its mini player
  * @param strength how strongly it answers the music, 0 to 1: the setting (LivingField.reach)
  * @param smoothing how softly, 0 to 1: the other setting (LivingField.ease)
+ * @param colours what it is coloured from: the cover's main colours, or the cover itself
  * @param coverPlace where the cover it stands behind is, in the root's measure, or null for none.
  *   The player's own by default; the sample in Settings has a small cover of its own.
  */
@@ -90,13 +92,14 @@ fun LivingBackground(
     onScreen: Boolean,
     strength: Float,
     smoothing: Float,
+    colours: LivingColours,
     modifier: Modifier = Modifier,
     coverPlace: () -> Rect? = { PlayerCoverPlace.bounds },
 ) {
     // The grid is made for the room the picture is given, not for the window: in the player the
     // two are the same, in the Settings sample the picture is a strip.
     BoxWithConstraints(modifier) {
-        LivingPicture(cover, tap, playing, onScreen, strength, smoothing, coverPlace, constraints.maxWidth, constraints.maxHeight)
+        LivingPicture(cover, tap, playing, onScreen, strength, smoothing, colours, coverPlace, constraints.maxWidth, constraints.maxHeight)
     }
 }
 
@@ -108,6 +111,7 @@ private fun LivingPicture(
     onScreen: Boolean,
     strength: Float,
     smoothing: Float,
+    colours: LivingColours,
     coverPlace: () -> Rect?,
     wide: Int,
     tall: Int,
@@ -138,7 +142,7 @@ private fun LivingPicture(
     // Counts the covers, so a cover that changes while nothing moves starts the frames again.
     var covers by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(cover, motion) {
+    LaunchedEffect(cover, motion, colours) {
         val patches = withContext(coilCoroutine) {
             val bitmap = context.imageLoader.execute(
                 ImageRequest.Builder(context)
@@ -148,7 +152,10 @@ private fun LivingPicture(
             ).image?.toBitmap() ?: return@withContext null
             val pixels = IntArray(bitmap.width * bitmap.height)
             bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-            LivingField.patches(pixels, bitmap.width, bitmap.height, motion.columns, motion.rows)
+            when (colours) {
+                LivingColours.MAIN -> LivingField.mainPatches(pixels, bitmap.width, bitmap.height, motion.columns, motion.rows)
+                LivingColours.COVER -> LivingField.patches(pixels, bitmap.width, bitmap.height, motion.columns, motion.rows)
+            }
         } ?: return@LaunchedEffect
         motion.turnTo(patches)
         covers++
@@ -206,8 +213,10 @@ private fun LivingPicture(
                 val radius = motion.radius(i)
                 look.disc(native, motion.x(i) * size.width, motion.y(i) * size.height, radius * cellWidth, radius * cellHeight, motion.color(i), 1f)
             }
-            // the glow sits on the bottom edge, so half of it is below the screen
+            // A glow on the bottom edge and one on the top, half of each off the screen: the bass
+            // has both ends of the picture.
             look.disc(native, size.width / 2, size.height, size.width * 0.8f, size.height * motion.glowHeight(), motion.glow, motion.glowStrength())
+            look.disc(native, size.width / 2, 0f, size.width * 0.8f, size.height * motion.glowHeight() * 0.7f, motion.glow, motion.glowStrength() * 0.8f)
 
             if (coverAt != null && motion.auraPresence > 0.004f) {
                 val by = stretch.value

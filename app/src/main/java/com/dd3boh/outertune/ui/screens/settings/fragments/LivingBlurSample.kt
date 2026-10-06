@@ -46,6 +46,7 @@ import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.LivingColours
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
@@ -66,7 +67,7 @@ import kotlinx.coroutines.withContext
  * movement. Not begun by itself: opening a settings screen must not start music.
  */
 @Composable
-fun LivingBlurSample(strength: Float, smoothing: Float, modifier: Modifier = Modifier) {
+fun LivingBlurSample(strength: Float, smoothing: Float, colours: LivingColours, modifier: Modifier = Modifier) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -94,6 +95,7 @@ fun LivingBlurSample(strength: Float, smoothing: Float, modifier: Modifier = Mod
             onScreen = true,
             strength = strength,
             smoothing = smoothing,
+            colours = colours,
             modifier = Modifier.matchParentSize(),
             coverPlace = { coverAt },
         )

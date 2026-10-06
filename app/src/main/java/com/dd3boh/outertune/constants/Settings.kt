@@ -22,6 +22,15 @@ enum class PlayerBackgroundStyle {
 }
 
 /**
+ * What Living blur is coloured from. MAIN is the cover's main colours, one to each range of the
+ * music: the cover is a palette. COVER is the cover itself, each patch the colour of its part of
+ * it: the cover is the picture, blurred.
+ */
+enum class LivingColours {
+    MAIN, COVER
+}
+
+/**
  * The buttons around the player's title and transport controls.
  *
  * CLASSIC is the three round buttons beside the title: sleep timer, like and the menu. CONNECTED

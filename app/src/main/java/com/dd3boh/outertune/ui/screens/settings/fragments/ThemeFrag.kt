@@ -64,6 +64,8 @@ import com.dd3boh.outertune.constants.HighContrastKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
+import com.dd3boh.outertune.constants.LivingColours
+import com.dd3boh.outertune.constants.LivingColoursKey
 import com.dd3boh.outertune.constants.LivingSmoothingKey
 import com.dd3boh.outertune.constants.LivingStrengthKey
 import com.dd3boh.outertune.constants.Unreleased
@@ -197,12 +199,29 @@ fun ColumnScope.ThemePlayerFrag() {
         LivingSmoothingKey,
         defaultValue = LivingField.DEFAULT_SMOOTHING
     )
+    val (livingColours, onLivingColoursChange) = rememberEnumPreference(
+        LivingColoursKey,
+        defaultValue = LivingColours.MAIN
+    )
     AnimatedVisibility(playerBackground == PlayerBackgroundStyle.LIVING && Unreleased.LIVING_BACKGROUND) {
         Column {
             LivingBlurSample(
                 strength = livingStrength,
                 smoothing = livingSmoothing,
+                colours = livingColours,
                 modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 8.dp)
+            )
+            EnumListPreference(
+                title = { Text(stringResource(R.string.player_living_colours)) },
+                icon = { Icon(Icons.Rounded.Palette, null) },
+                selectedValue = livingColours,
+                onValueSelected = onLivingColoursChange,
+                valueText = {
+                    when (it) {
+                        LivingColours.MAIN -> stringResource(R.string.player_living_colours_main)
+                        LivingColours.COVER -> stringResource(R.string.player_living_colours_cover)
+                    }
+                }
             )
             PreferenceEntry(
                 title = { Text(stringResource(R.string.player_living_strength)) },
@@ -353,10 +372,15 @@ fun ColumnScope.ThemePlayerFrag() {
 }
 
 /**
- * A strip of made-up artwork with the player's five buttons floating on it, drawn as the app draws
- * them right now: glass at the current intensity when glass is on, the flat surfaces when it is
- * off, and in one bar or each on its own as "Group the player buttons" says. The slider means "how much glass", and people have read it
- * backwards before, so it is worth letting them see which way it goes.
+ * A strip of made-up artwork with controls floating on it, drawn as the app draws its floating
+ * controls right now: glass at the current intensity when glass is on, the flat surfaces when it
+ * is off. The slider means "how much glass", and people have read it backwards before, so it is
+ * worth letting them see which way it goes.
+ *
+ * Two rows. The player's five buttons, inside one glass bar or each on its own as "Group the player
+ * buttons" has them, since that switch is right above and what it does could not be seen without
+ * going to the player and back. And under them a button, an icon button and a seek bar, which are
+ * the other shapes glass comes in: a tinted pill, a plain circle, a long thin track.
  *
  * For looking at only. Nothing in it takes a touch, so a drag that starts on it still scrolls the
  * page, and accessibility services skip it rather than announce a Play button that does nothing.
@@ -364,7 +388,7 @@ fun ColumnScope.ThemePlayerFrag() {
  * It cannot use the app's or the screen's backdrop, since it sits inside both (see TopBarGlass.kt),
  * so it records one of its own from just this strip. The controls are beside that recording, not
  * in it, so nothing reads a layer it is part of. Kept small because blur costs by area: one short
- * strip recorded once, and three small shapes blurring only what is under them.
+ * strip recorded once, and a handful of small shapes blurring only what is under them.
  */
 @Composable
 private fun GlassSample(intensity: Float, grouped: Boolean, modifier: Modifier = Modifier) {
@@ -378,7 +402,7 @@ private fun GlassSample(intensity: Float, grouped: Boolean, modifier: Modifier =
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .height(124.dp)
             .clip(RoundedCornerShape(16.dp))
             .clearAndSetSemantics { }
     ) {
@@ -400,9 +424,9 @@ private fun GlassSample(intensity: Float, grouped: Boolean, modifier: Modifier =
             // survive the lightest blur, so they show through at high intensity and melt away at
             // low, which is the difference the slider makes.
             val h = size.height
-            drawCircle(colors.tertiaryContainer, radius = h * 0.62f, center = Offset(size.width * 0.12f, h * 0.1f))
-            drawCircle(colors.primaryContainer, radius = h * 0.5f, center = Offset(size.width * 0.52f, h * 1.02f))
-            drawCircle(colors.secondaryContainer, radius = h * 0.4f, center = Offset(size.width * 0.84f, h * 0.18f))
+            drawCircle(colors.tertiaryContainer, radius = h * 0.5f, center = Offset(size.width * 0.12f, h * 0.1f))
+            drawCircle(colors.primaryContainer, radius = h * 0.42f, center = Offset(size.width * 0.52f, h * 1.02f))
+            drawCircle(colors.secondaryContainer, radius = h * 0.34f, center = Offset(size.width * 0.84f, h * 0.2f))
             val stripe = colors.onPrimary.copy(alpha = 0.3f)
             val gap = 18.dp.toPx()
             var x = -h
@@ -412,50 +436,121 @@ private fun GlassSample(intensity: Float, grouped: Boolean, modifier: Modifier =
             }
         }
 
-        // The player's own five buttons, as "Group the player buttons" has them: inside one glass
-        // bar, or each on its own. The switch is right above, and what it does could not be seen
-        // without going to the player and back.
-        val buttons = listOf(Icons.Rounded.Shuffle, Icons.Rounded.SkipPrevious, Icons.Rounded.PlayArrow, Icons.Rounded.SkipNext, Icons.Rounded.Repeat)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
+        Column(
+            verticalArrangement = Arrangement.SpaceEvenly,
             modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .height(46.dp)
-                .then(
-                    if (grouped && glass != null) Modifier.floatingGlass(glass, CircleShape)
-                    else Modifier
-                )
-                .padding(horizontal = 6.dp)
+                .matchParentSize()
+                .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
-            buttons.forEach { icon ->
-                val play = icon == Icons.Rounded.PlayArrow
+            // The player's own five buttons, in one glass bar or each on its own.
+            val buttons = listOf(Icons.Rounded.Shuffle, Icons.Rounded.SkipPrevious, Icons.Rounded.PlayArrow, Icons.Rounded.SkipNext, Icons.Rounded.Repeat)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .then(
+                        if (grouped && glass != null) Modifier.floatingGlass(glass, CircleShape)
+                        else Modifier
+                    )
+                    .padding(horizontal = 6.dp)
+            ) {
+                buttons.forEach { icon ->
+                    val play = icon == Icons.Rounded.PlayArrow
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(if (play) 38.dp else 36.dp)
+                            .then(
+                                when {
+                                    // Play is the filled one in the player too, grouped or not.
+                                    play && glass != null && !grouped -> Modifier.floatingGlass(glass, CircleShape, glass.buttonTint())
+                                    play -> Modifier.background(colors.primaryContainer, CircleShape)
+                                    grouped && glass != null -> Modifier
+                                    glass != null -> Modifier.floatingGlass(glass, CircleShape)
+                                    else -> Modifier.background(flat, CircleShape)
+                                }
+                            )
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = if (play) colors.onPrimaryContainer else colors.onSurface,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // A button, made as the floating buttons are: their own colour over the glass.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .height(40.dp)
+                        .then(
+                            if (glass != null) Modifier.floatingGlass(glass, CircleShape, glass.buttonTint())
+                            else Modifier.background(colors.primaryContainer, CircleShape)
+                        )
+                        .padding(start = 12.dp, end = 16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        tint = colors.onPrimaryContainer,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.play),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = colors.onPrimaryContainer,
+                        maxLines = 1
+                    )
+                }
+
+                // An icon button, made as the top bar's back circle is.
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(if (play) 38.dp else 36.dp)
+                        .size(40.dp)
                         .then(
-                            when {
-                                // Play is the filled one in the player too, grouped or not.
-                                play && glass != null && !grouped -> Modifier.floatingGlass(glass, CircleShape, glass.buttonTint())
-                                play -> Modifier.background(colors.primaryContainer, CircleShape)
-                                grouped && glass != null -> Modifier
-                                glass != null -> Modifier.floatingGlass(glass, CircleShape)
-                                else -> Modifier.background(flat, CircleShape)
-                            }
+                            if (glass != null) Modifier.floatingGlass(glass, CircleShape)
+                            else Modifier.background(flat, CircleShape)
                         )
                 ) {
                     Icon(
-                        imageVector = icon,
+                        imageVector = Icons.Rounded.SkipNext,
                         contentDescription = null,
-                        tint = if (play) colors.onPrimaryContainer else colors.onSurface,
+                        tint = colors.onSurface,
                         modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                // A seek bar: the track made as the top bar's pills are, the played part filled in.
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(20.dp)
+                        .then(
+                            if (glass != null) Modifier.floatingGlass(glass, CircleShape)
+                            else Modifier.background(flat, CircleShape)
+                        )
+                        .padding(6.dp)
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(0.45f)
+                            .background(colors.primary, CircleShape)
                     )
                 }
             }
         }
     }
 }
-

@@ -110,12 +110,11 @@ object LivingField {
         if (smoothing.isNaN()) 1f else Math.pow(4.0, 2.0 * smoothing.coerceIn(0f, 1f) - 1.0).toFloat()
 
     /**
-     * Every patch takes this much of the bass, whatever range its row breathes with. The cover
-     * hides the middle of the screen, and with the bass kept to the bottom rows the top of the
-     * screen and the strips beside the cover hardly moved: a kick has to show wherever there is
-     * screen to see it on.
+     * Every patch takes this much of the bass, whatever range its row breathes with. The bass has
+     * the top and the bottom of the screen to itself; the rows between are the voice's, and take
+     * just enough of a kick that the whole picture is felt to move as one.
      */
-    const val KICK_EVERYWHERE = 0.65f
+    const val KICK_EVERYWHERE = 0.3f
 
     /**
      * The cover takes up most of the player, and what goes on behind it is not seen. So most of
@@ -135,27 +134,31 @@ object LivingField {
      * @param x where on the cover it sits, in parts of the cover's width and height: always on an edge
      * @param patch the patch whose colour it takes, which is the part of the cover beside it
      * @param band the range it answers besides the bass: the top edge the top of the spectrum, the sides the middle
-     * @param far how far round the cover it is from the middle of the bottom edge, 0 to 1. A kick
-     *   starts there and runs up both sides, which is what makes the halo look pushed rather than switched on.
+     * @param far how far round the cover it is from where a kick lands, 0 to 1. A kick lands in the
+     *   middle of the top and of the bottom edge and runs round from there, which is what makes
+     *   the halo look pushed rather than switched on.
      */
     class AuraPoint(val x: Float, val y: Float, val patch: Int, val band: Int, val far: Float)
 
     /** The aura for a grid of [columns] by [rows]: one point for every patch on the grid's rim. */
     fun aura(columns: Int, rows: Int): List<AuraPoint> {
-        // The way round the rim from the middle of the bottom edge, the cover's side being 1: half a
-        // side to the corner, a side up, half a side to the middle of the top. Two in all.
+        // As the rows have it: the bass along the cover's top and bottom, the voice down its sides
+        // and the top of the spectrum at the middle of each side. A kick lands in the middle of
+        // the top and of the bottom edge and runs round to meet half way down the sides, which is
+        // one cover side away: half a side to the corner, half a side down.
         val points = ArrayList<AuraPoint>(2 * (columns + rows))
         for (row in 0 until rows) {
             val y = (row + 0.5f) / rows
-            val far = (0.5f + (1f - y)) / 2f
-            points += AuraPoint(0f, y, row * columns, MusicLevels.MID, far)
-            points += AuraPoint(1f, y, row * columns + columns - 1, MusicLevels.MID, far)
+            val band = if (kotlin.math.abs(y - 0.5f) < 1f / 6f) MusicLevels.HIGH else MusicLevels.MID
+            val far = 0.5f + min(y, 1f - y)
+            points += AuraPoint(0f, y, row * columns, band, far)
+            points += AuraPoint(1f, y, row * columns + columns - 1, band, far)
         }
         for (column in 0 until columns) {
             val x = (column + 0.5f) / columns
-            val fromMiddle = kotlin.math.abs(x - 0.5f)
-            points += AuraPoint(x, 0f, column, MusicLevels.HIGH, (2f - fromMiddle) / 2f)
-            points += AuraPoint(x, 1f, (rows - 1) * columns + column, MusicLevels.BASS, fromMiddle / 2f)
+            val far = kotlin.math.abs(x - 0.5f)
+            points += AuraPoint(x, 0f, column, MusicLevels.BASS, far)
+            points += AuraPoint(x, 1f, (rows - 1) * columns + column, MusicLevels.BASS, far)
         }
         return points
     }
@@ -167,11 +170,19 @@ object LivingField {
     fun along(long: Float, short: Float): Int =
         if (short <= 0f || long <= 0f) ACROSS else Math.round(ACROSS * long / short).coerceIn(ACROSS, MOST_ALONG)
 
-    /** The range a row breathes with, rows counted from the top: the top row the top, the bottom third the bass. */
-    fun bandOfRow(row: Int, rows: Int): Int = when {
-        row >= rows - max(1, rows / 3) -> MusicLevels.BASS
-        row == 0 -> MusicLevels.HIGH
-        else -> MusicLevels.MID
+    /**
+     * The range a row breathes with, rows counted from the top: the rows at the top and at the
+     * bottom of the screen the bass, the rows between them the voice, and the very middle the top
+     * of the spectrum. The bass is what is felt, and it frames the picture; what is sung and
+     * played over it sits inside that frame, where the eye already is.
+     */
+    fun bandOfRow(row: Int, rows: Int): Int {
+        if (rows <= 2) return MusicLevels.BASS
+        val outer = max(1, (rows + 1) / 4)
+        if (row < outer || row >= rows - outer) return MusicLevels.BASS
+        val between = rows - 2 * outer
+        val inMiddle = if (between % 2 == 1) row == rows / 2 else row == rows / 2 - 1 || row == rows / 2
+        return if (between >= 3 && inMiddle) MusicLevels.HIGH else MusicLevels.MID
     }
 
     /**
@@ -180,6 +191,60 @@ object LivingField {
      * [pixels] is the cover, [width] by [height], row by row.
      */
     fun patches(pixels: IntArray, width: Int, height: Int, columns: Int, rows: Int): IntArray {
+        val cells = cells(pixels, width, height, columns, rows)
+        return IntArray(cells.size) { colourful(cells[it], COLOUR) }
+    }
+
+    /** How many main colours a cover is reduced to: one for each range. */
+    const val MAINS = MusicLevels.BANDS
+
+    /** Two colours count as unlike when their channels differ by this much in all, of 765. */
+    private const val UNLIKE = 90
+
+    /**
+     * The cover's main colours, strongest first: [MAINS] of them, each unlike the others. The
+     * other way of colouring the picture, for which the cover is a palette and not a picture: the
+     * strongest colour goes to the bass, the next to the voice, the third to the top.
+     *
+     * Strongest is the most colourful that is not nearly black, as for the glow, and not the most
+     * common: on most covers the most common colour is the black round the subject. A cover with
+     * fewer than three colours to tell apart is filled up with shades of its first, so the ranges
+     * can still be told from each other.
+     */
+    fun mainColours(pixels: IntArray, width: Int, height: Int): IntArray {
+        if (width <= 0 || height <= 0 || pixels.size < width * height) return IntArray(MAINS) { GREY }
+        val picked = ArrayList<Int>(MAINS)
+        for (cell in cells(pixels, width, height, 8, 8).sortedByDescending { strength(it) }) {
+            if (picked.size == MAINS) break
+            if (picked.none { unlike(it, cell) < UNLIKE }) picked += cell
+        }
+        val first = picked[0]
+        if (picked.size < 2) picked += lit(first, 0.62f)
+        if (picked.size < 3) picked += lit(first, 1.45f).let { if (unlike(it, first) < 12) lit(first, 0.35f) else it }
+        return IntArray(MAINS) { colourful(picked[it], COLOUR) }
+    }
+
+    /**
+     * The patches of a grid of [columns] by [rows] coloured from [mainColours]: each row takes the
+     * colour of the range it breathes with, a little lighter or darker from patch to patch so that
+     * a row is not one flat band.
+     */
+    fun mainPatches(pixels: IntArray, width: Int, height: Int, columns: Int, rows: Int): IntArray {
+        val mains = mainColours(pixels, width, height)
+        return IntArray(columns * rows) {
+            val row = it / columns
+            val column = it % columns
+            lit(mains[bandOfRow(row, rows)], 0.90f + 0.05f * ((column * 2 + row) % 5))
+        }
+    }
+
+    private fun unlike(a: Int, b: Int): Int =
+        kotlin.math.abs(((a shr 16) and 0xff) - ((b shr 16) and 0xff)) +
+            kotlin.math.abs(((a shr 8) and 0xff) - ((b shr 8) and 0xff)) +
+            kotlin.math.abs((a and 0xff) - (b and 0xff))
+
+    /** The plain average colour of each cell, row by row from the top left. */
+    private fun cells(pixels: IntArray, width: Int, height: Int, columns: Int, rows: Int): IntArray {
         val out = IntArray(columns * rows)
         if (width <= 0 || height <= 0 || pixels.size < width * height) return out.also { it.fill(GREY) }
         for (row in 0 until rows) {
@@ -201,8 +266,7 @@ object LivingField {
                         n++
                     }
                 }
-                out[row * columns + column] =
-                    if (n == 0) GREY else colourful(argb((r / n).toInt(), (g / n).toInt(), (b / n).toInt()), COLOUR)
+                out[row * columns + column] = if (n == 0) GREY else argb((r / n).toInt(), (g / n).toInt(), (b / n).toInt())
             }
         }
         return out
@@ -230,18 +294,23 @@ object LivingField {
         var best = GREY
         var bestScore = -1f
         for (p in patches) {
-            val r = ((p shr 16) and 0xff) / 255f
-            val g = ((p shr 8) and 0xff) / 255f
-            val b = (p and 0xff) / 255f
-            val most = max(r, max(g, b))
-            val least = min(r, min(g, b))
-            val score = (most - least) * (0.35f + 0.65f * most) + 0.02f * most
+            val score = strength(p)
             if (score > bestScore) {
                 bestScore = score
                 best = p
             }
         }
         return best
+    }
+
+    /** How strong a colour is: how colourful, counted for more the lighter it is, with light alone breaking a tie between greys. */
+    private fun strength(color: Int): Float {
+        val r = ((color shr 16) and 0xff) / 255f
+        val g = ((color shr 8) and 0xff) / 255f
+        val b = (color and 0xff) / 255f
+        val most = max(r, max(g, b))
+        val least = min(r, min(g, b))
+        return (most - least) * (0.35f + 0.65f * most) + 0.02f * most
     }
 
     /** [color] with its light multiplied by [light], which may be above 1; no channel overflows. */
