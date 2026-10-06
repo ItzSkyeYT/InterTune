@@ -15,6 +15,7 @@ import android.provider.Settings
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -23,8 +24,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TileMode
@@ -33,6 +34,8 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Constraints
@@ -66,9 +69,15 @@ import kotlin.math.min
  * picture and costs what the plain blurred cover costs. With battery saver on, or animations
  * turned off in the system, it does not move at all.
  *
+ * The cover takes up most of the player and hides what is behind it, so most of what answers the
+ * music is an aura on the cover's own edge ([PlayerCoverPlace] says where that is), half of it
+ * behind the cover and half spilling out round it.
+ *
  * @param cover what Coil is given for the cover; the small one the blurred background uses
  * @param tap where the levels come from, or null to drift without them
  * @param onScreen false while the player is closed to its mini player
+ * @param strength how strongly it answers the music, 0 to 1: the setting (LivingField.reach)
+ * @param smoothing how softly, 0 to 1: the other setting (LivingField.ease)
  */
 @Composable
 fun LivingBackground(
@@ -76,11 +85,17 @@ fun LivingBackground(
     tap: LevelTap?,
     playing: Boolean,
     onScreen: Boolean,
+    strength: Float,
+    smoothing: Float,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val look = remember { Look() }
+    // Where this picture itself is, and how far it is stretched, to bring the cover's place into
+    // the small picture's own measure.
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    val stretch = remember { mutableStateOf(Offset(1f, 1f)) }
 
     // Three patches along the short side of the window and as many along the long side as keeps
     // them round. A window that changes shape starts over with the new grid.
@@ -93,6 +108,11 @@ fun LivingBackground(
     val motion = remember(upright, along) {
         if (upright) LivingMotion(LivingField.ACROSS, along) else LivingMotion(along, LivingField.ACROSS)
     }
+
+    val coverThere = PlayerCoverPlace.bounds != null
+    motion.strength = strength
+    motion.smoothing = smoothing
+    motion.coverThere = coverThere
 
     // Read by the drawing alone, so a new frame redraws the canvas and recomposes nothing.
     var frame by remember { mutableLongStateOf(0L) }
@@ -115,7 +135,9 @@ fun LivingBackground(
         covers++
     }
 
-    LaunchedEffect(onScreen, playing, covers, motion, lifecycleOwner) {
+    // coverThere is a key because the aura comes and goes with the cover, and has to be seen to
+    // do it even while nothing else moves.
+    LaunchedEffect(onScreen, playing, covers, coverThere, motion, lifecycleOwner) {
         if (!onScreen) return@LaunchedEffect
         if (context.wantsStillness()) {
             motion.settle()
@@ -132,7 +154,7 @@ fun LivingBackground(
                     withFrameNanos { now ->
                         val seconds = if (last == 0L) 0f else (now - last) / 1e9f
                         last = now
-                        val heard = levels.takeIf { playing && tap?.now(it) == true }
+                        val heard = levels.takeIf { playing && tap?.now(it, (motion.lead() * 1_000_000).toLong()) == true }
                         motion.step(seconds, heard, playing)
                         // The picture is soft and slow: it is redrawn at most FRAMES_A_SECOND times,
                         // whatever the screen can do, because everything drawn over it that looks
@@ -151,9 +173,11 @@ fun LivingBackground(
         }
     }
 
-    Canvas(modifier.drawnSmall()) {
+    Canvas(modifier.onGloballyPositioned { origin = it.positionInRoot() }.drawnSmall(stretch)) {
         @Suppress("UNUSED_VARIABLE")
         val redrawnAt = frame
+        // The cover's place, or where it last was while the aura fades out after it.
+        val coverPlace = PlayerCoverPlace.bounds?.also { look.lastCover = it } ?: look.lastCover
         drawIntoCanvas { canvas ->
             val native = canvas.nativeCanvas
             native.drawColor(motion.under)
@@ -165,12 +189,40 @@ fun LivingBackground(
             }
             // the glow sits on the bottom edge, so half of it is below the screen
             look.disc(native, size.width / 2, size.height, size.width * 0.8f, size.height * motion.glowHeight(), motion.glow, motion.glowStrength())
+
+            if (coverPlace != null && motion.auraPresence > 0.004f) {
+                val by = stretch.value
+                val left = (coverPlace.left - origin.x) / by.x
+                val top = (coverPlace.top - origin.y) / by.y
+                val width = coverPlace.width / by.x
+                val height = coverPlace.height / by.y
+                val side = min(width, height)
+                for (i in motion.aura.indices) {
+                    val point = motion.aura[i]
+                    val radius = motion.auraRadius(i) * side
+                    look.disc(native, left + point.x * width, top + point.y * height, radius, radius, motion.auraColor(i), motion.auraStrength(i))
+                }
+            }
         }
     }
 }
 
+/**
+ * Where the cover of the song that plays is on screen, in the root's measure, or null while there
+ * is none to be seen (the lyrics are up, the song failed, the window is too small for a cover).
+ * The cover says so itself, in Thumbnail; the living background reads it.
+ *
+ * One for the app, like the tour's targets and for the same reason: there is one full player on
+ * screen at a time, and the two ends are too far apart in the tree to hand it down.
+ */
+object PlayerCoverPlace {
+    var bounds by mutableStateOf<Rect?>(null)
+}
+
 /** What the drawing keeps between frames, so that a frame allocates nothing. */
 private class Look {
+    var lastCover: Rect? = null
+
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val into = RectF()
 
@@ -199,8 +251,13 @@ private class Look {
     }
 }
 
-/** The picture is redrawn at most this often. A little under the 33.3 ms of every second frame at 60 Hz, so that one is not missed by a hair. */
-private const val FRAMES_A_SECOND = 30
+/**
+ * The picture is redrawn at most this often: every frame of a 60 Hz screen, every second one at
+ * 120 Hz. It was 30, which is cheaper, and a kick could then wait 33 ms to be drawn at all, which
+ * is the difference between on the beat and after it. A little under the frame's own time, so that
+ * one is not missed by a hair.
+ */
+private const val FRAMES_A_SECOND = 60
 private const val FRAME_NANOS = 1_000_000_000L / FRAMES_A_SECOND - 2_000_000L
 
 /** The picture is drawn at one part in this many of its size, each way. */
@@ -212,10 +269,10 @@ private const val SMOOTHING = 2.5f
 /**
  * Lays the content out [SHRINK] times smaller than the room it is given and stretches it back to
  * fill that room, through a layer of its own so that it is the small picture that gets stretched
- * and not its drawing that gets scaled.
+ * and not its drawing that gets scaled. [stretched] is told by how much, each way.
  */
-private fun Modifier.drawnSmall(): Modifier = composed {
-    var stretch by remember { mutableStateOf(Offset(1f, 1f)) }
+private fun Modifier.drawnSmall(stretched: MutableState<Offset>): Modifier = run {
+    var stretch by stretched
     layout { measurable, constraints ->
         if (!constraints.hasBoundedWidth || !constraints.hasBoundedHeight) {
             val placeable = measurable.measure(constraints)

@@ -209,6 +209,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_background_gradient">Gradient</string>
     <!-- A prototype shown in debug builds only (Unreleased.LIVING_BACKGROUND): not for translators until it ships. -->
     <string name="player_background_living" translatable="false">Living blur</string>
+    <string name="player_living_strength" translatable="false">Living blur strength</string>
+    <string name="player_living_strength_description" translatable="false">How much the background and the glow round the cover move with the music. At 0 it only drifts.</string>
+    <string name="player_living_smoothing" translatable="false">Living blur smoothing</string>
+    <string name="player_living_smoothing_description" translatable="false">How softly it follows the music. Low jumps with every hit, high swells and lingers.</string>
     <string name="player_background_style">Player background style</string>
     <string name="show_liked_and_downloaded_playlist">Show playlists for liked and downloaded songs in library</string>
     <string name="slim_navbar_title">Slim navbar</string>

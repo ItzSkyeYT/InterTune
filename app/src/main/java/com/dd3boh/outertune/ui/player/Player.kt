@@ -208,6 +208,8 @@ import com.dd3boh.outertune.constants.DarkModeKey
 import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
+import com.dd3boh.outertune.constants.LivingSmoothingKey
+import com.dd3boh.outertune.constants.LivingStrengthKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.PlayerHorizontalPadding
 import com.dd3boh.outertune.constants.QueuePeekHeight
@@ -345,6 +347,8 @@ fun BottomSheetPlayer(
     )
 
     val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
+    val livingStrength by rememberPreference(LivingStrengthKey, defaultValue = LivingField.DEFAULT_STRENGTH)
+    val livingSmoothing by rememberPreference(LivingSmoothingKey, defaultValue = LivingField.DEFAULT_SMOOTHING)
 
     val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
     val swipeToDismissPlayer by rememberPreference(SwipeToDismissPlayerKey, defaultValue = true)
@@ -694,6 +698,8 @@ fun BottomSheetPlayer(
                         tap = playerConnection.service.levelTap,
                         playing = isPlaying,
                         onScreen = !state.isCollapsed && !state.isDismissed,
+                        strength = livingStrength,
+                        smoothing = livingSmoothing,
                         modifier = Modifier
                             .fillMaxSize()
                             .alpha(artworkAlpha)

@@ -31,12 +31,14 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Contrast
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SwipeLeft
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.ViewAgenda
+import androidx.compose.material.icons.rounded.Waves
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
@@ -59,7 +61,10 @@ import com.dd3boh.outertune.constants.HighContrastKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
+import com.dd3boh.outertune.constants.LivingSmoothingKey
+import com.dd3boh.outertune.constants.LivingStrengthKey
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.player.LivingField
 import com.dd3boh.outertune.constants.BackAnimationsKey
 import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
@@ -175,6 +180,64 @@ fun ColumnScope.ThemePlayerFrag() {
         },
         values = availableBackgroundStyles
     )
+
+    // Only there with the style it belongs to, and right under it. Shown through the same reveal
+    // the glass slider further down uses.
+    val (livingStrength, onLivingStrengthChange) = rememberPreference(
+        LivingStrengthKey,
+        defaultValue = LivingField.DEFAULT_STRENGTH
+    )
+    val (livingSmoothing, onLivingSmoothingChange) = rememberPreference(
+        LivingSmoothingKey,
+        defaultValue = LivingField.DEFAULT_SMOOTHING
+    )
+    AnimatedVisibility(playerBackground == PlayerBackgroundStyle.LIVING && Unreleased.LIVING_BACKGROUND) {
+        Column {
+            PreferenceEntry(
+                title = { Text(stringResource(R.string.player_living_strength)) },
+                description = stringResource(R.string.player_living_strength_description),
+                icon = { Icon(Icons.Rounded.GraphicEq, null) },
+                // A label for the slider underneath, not a button.
+                onClick = null
+            )
+            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                Text(
+                    text = stringResource(
+                        R.string.player_glass_intensity_value,
+                        (livingStrength * 100).roundToInt()
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                Slider(
+                    value = livingStrength,
+                    onValueChange = onLivingStrengthChange,
+                    valueRange = 0f..1f
+                )
+            }
+            PreferenceEntry(
+                title = { Text(stringResource(R.string.player_living_smoothing)) },
+                description = stringResource(R.string.player_living_smoothing_description),
+                icon = { Icon(Icons.Rounded.Waves, null) },
+                onClick = null
+            )
+            Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                Text(
+                    text = stringResource(
+                        R.string.player_glass_intensity_value,
+                        (livingSmoothing * 100).roundToInt()
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                Slider(
+                    value = livingSmoothing,
+                    onValueChange = onLivingSmoothingChange,
+                    valueRange = 0f..1f
+                )
+            }
+        }
+    }
 
     // Glass has nothing to act on when the background follows the theme: there is no artwork blur
     // and no gradient to make translucent.

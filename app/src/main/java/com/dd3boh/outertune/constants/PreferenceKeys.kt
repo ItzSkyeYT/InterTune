@@ -17,6 +17,12 @@ val PlayerBackgroundStyleKey = stringPreferencesKey("playerBackgroundStyle")
 // PlayerLiquidGlassKey. The stored value is left alone rather than migrated: it is a boolean
 // nobody reads now, and deleting user data to tidy a key is not worth it.
 val PlayerGlassIntensityKey = floatPreferencesKey("playerGlassIntensity")
+
+/** How strongly the Living blur background answers the music, 0 to 1 (LivingField.reach). */
+val LivingStrengthKey = floatPreferencesKey("livingBlurStrength")
+
+/** How softly it follows the music, 0 to 1 (LivingField.ease). */
+val LivingSmoothingKey = floatPreferencesKey("livingBlurSmoothing")
 val PlayerLiquidGlassKey = booleanPreferencesKey("playerLiquidGlass")
 val DarkModeKey = stringPreferencesKey("darkMode")
 val PureBlackKey = booleanPreferencesKey("pureBlack")

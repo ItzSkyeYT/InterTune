@@ -90,6 +90,22 @@ class LevelTapTest {
     }
 
     @Test
+    fun `asked a little ahead, it answers with what is about to be heard`() {
+        give(bassBetween(400, 700, totalMs = 1000))
+        tap.position(start + 350_000L)
+        assertTrue(tap.now(got))
+        assertTrue("50 ms before the note there is nothing yet: ${got[MusicLevels.BASS]}", got[MusicLevels.BASS] < 0.05f)
+        assertTrue(tap.now(got, aheadUs = 70_000L))
+        assertTrue("but 70 ms on there will be: ${got[MusicLevels.BASS]}", got[MusicLevels.BASS] > 0.8f)
+        assertTrue(tap.now(got, aheadUs = -5_000_000L))
+        assertTrue("it is never asked backwards", got[MusicLevels.BASS] < 0.05f)
+        // more than was measured: the last there is, which here is the silence after the note
+        tap.position(start + 950_000L)
+        assertTrue(tap.now(got, aheadUs = 120_000L))
+        assertTrue(got[MusicLevels.BASS] < 0.05f)
+    }
+
+    @Test
     fun `a buffer the output is offered twice is measured once`() {
         give(bassBetween(400, 700, totalMs = 1000), offerTwice = true)
         // measured twice, the note would sit at twice its time

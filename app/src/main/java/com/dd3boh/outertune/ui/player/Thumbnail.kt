@@ -33,10 +33,17 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -161,9 +168,23 @@ fun Thumbnail(
                     val artPx = with(LocalDensity.current) {
                         artSizeBucket(minOf(maxWidth, maxHeight).roundToPx())
                     }
+                    // The living background puts its aura round the cover, so the cover says where it
+                    // is: the one showing the song that plays, not a neighbour in the swipe strip.
+                    // Told again whenever that changes hands, since a cover that has not moved is
+                    // not placed again, and taken back when this one leaves, which is when the
+                    // lyrics or an error take its place.
+                    var place by remember { mutableStateOf<Rect?>(null) }
+                    val showsWhatPlays by rememberUpdatedState(ownsError)
+                    LaunchedEffect(ownsError, place) {
+                        if (ownsError && place != null) PlayerCoverPlace.bounds = place
+                    }
+                    DisposableEffect(Unit) {
+                        onDispose { if (showsWhatPlays) PlayerCoverPlace.bounds = null }
+                    }
                     Box(
                         modifier = Modifier
                             .aspectRatio(1f)
+                            .onGloballyPositioned { place = Rect(it.positionInRoot(), it.size.toSize()) }
                             .clip(RoundedCornerShape(ThumbnailCornerRadius * 2))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },

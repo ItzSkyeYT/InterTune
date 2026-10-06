@@ -140,15 +140,20 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
      * The levels of what is being heard now, into [into] ([MusicLevels.BANDS] values). False when
      * there is nothing to go by: nothing playing, not [wanted] until a moment ago, or audio that
      * cannot be read here.
+     *
+     * [aheadUs] asks for what will be heard that much later instead, which is known, since the
+     * samples are measured before they are heard. Whoever draws them asks ahead by the time its
+     * drawing takes to reach the screen. Asked for more than has been measured, it answers with
+     * the latest there is.
      */
-    fun now(into: FloatArray): Boolean {
+    fun now(into: FloatArray, aheadUs: Long = 0): Boolean {
         val at = heardUs
         if (at == C.TIME_UNSET || !playing) return false
         val since = (nanoTime() - heardAtNanos) / 1000
         // While it plays the output is asked where it is every few milliseconds. Not asked for this
         // long, it is not playing, whatever was said last.
         if (since < 0 || since > ASKED_LATELY_US) return false
-        return timeline.read(at + since, into)
+        return timeline.read(at + since + aheadUs.coerceAtLeast(0), into)
     }
 
     companion object {

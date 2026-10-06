@@ -144,21 +144,6 @@ class LivingFieldTest {
     }
 
     @Test
-    fun `a colour stepped towards another gets there`() {
-        var shown = red
-        var steps = 0
-        while (shown != blue) {
-            val next = LivingField.nearer(shown, blue, 0.03f)
-            assertTrue("step $steps moved nothing from ${Integer.toHexString(shown)}", next != shown)
-            shown = next
-            assertTrue("still not there after 400 steps", ++steps < 400)
-        }
-        // and never past it
-        assertEquals(blue, LivingField.nearer(blue, blue, 0.5f))
-        assertEquals(0xff0a0b0c.toInt(), LivingField.nearer(0xff090c0c.toInt(), 0xff0a0b0c.toInt(), 0.9f))
-    }
-
-    @Test
     fun `the bottom third breathes with the bass and the top row with the cymbals`() {
         fun bands(rows: Int) = (0 until rows).map { LivingField.bandOfRow(it, rows) }
         val (b, m, h) = Triple(MusicLevels.BASS, MusicLevels.MID, MusicLevels.HIGH)
@@ -203,27 +188,31 @@ class LivingFieldTest {
     private fun LivingMotion.patches() = colors.take(count)
 
     @Test
-    fun `the bottom row swells on a kick and a row in the middle does not`() {
+    fun `a kick is seen over the whole screen, and most along the bottom`() {
         val motion = motion()
         val bottom = columns * (rows - 1)
         val middle = columns * 2
-        val restBottom = motion.radius(bottom)
-        val restMiddle = motion.radius(middle)
+        val top = 0
+        val rest = listOf(bottom, middle, top).associateWith { motion.radius(it) }
         motion.run(0.1f, bass = 1f)
-        assertTrue("bottom ${motion.radius(bottom)} from $restBottom", motion.radius(bottom) > restBottom * 1.25f)
-        assertTrue("middle ${motion.radius(middle)} from $restMiddle", motion.radius(middle) < restMiddle * 1.15f)
+        fun grew(i: Int) = motion.radius(i) / rest.getValue(i) - 1
+        assertTrue("bottom ${grew(bottom)}", grew(bottom) > 0.4f)
+        // the cover hides the middle of the screen: what is left to see beside and above it has to move too
+        assertTrue("beside the cover ${grew(middle)}", grew(middle) > 0.25f)
+        assertTrue("above the cover ${grew(top)}", grew(top) > 0.25f)
+        assertTrue("and the bottom most of all", grew(bottom) > grew(middle) * 1.2f && grew(bottom) > grew(top) * 1.2f)
     }
 
     @Test
-    fun `the top row shows half of what the bottom row shows`() {
-        val motion = motion()
-        val top = motion.radius(0)
-        val bottom = motion.radius(columns * (rows - 1))
-        motion.run(1f, bass = 1f, high = 1f)
-        val topGrew = motion.radius(0) / top - 1
-        val bottomGrew = motion.radius(columns * (rows - 1)) / bottom - 1
-        // both also take a little of the bass, the bottom row all of it
-        assertTrue("top grew $topGrew, bottom $bottomGrew", topGrew < bottomGrew * 0.75f && topGrew > bottomGrew * 0.3f)
+    fun `the top of the spectrum alone moves the top row, at half`() {
+        val cymbals = motion().apply { run(0.25f, high = 1f) }
+        val kick = motion().apply { run(0.25f, bass = 1f) }
+        val rest = motion()
+        val bottom = columns * (rows - 1)
+        val topGrew = cymbals.radius(0) / rest.radius(0) - 1
+        val bottomGrew = kick.radius(bottom) / rest.radius(bottom) - 1
+        assertTrue("top grew $topGrew, bottom $bottomGrew", topGrew > 0.15f && topGrew < bottomGrew * 0.6f)
+        assertEquals("and leaves the bottom row alone", rest.radius(bottom), cymbals.radius(bottom), 0.08f)
     }
 
     @Test
@@ -236,7 +225,8 @@ class LivingFieldTest {
         val lit = motion.color(bottom) and 0xff
         assertTrue("at rest $rest, on a kick $lit", lit > rest * 1.3f)
         motion.turnTo(IntArray(motion.count) { 0xfff0f0f0.toInt() })
-        motion.run(2f, bass = 1f)
+        motion.run(2.5f)
+        motion.run(0.1f, bass = 1f)
         assertEquals(0xffffffff.toInt(), motion.color(bottom))
     }
 
@@ -248,12 +238,285 @@ class LivingFieldTest {
             for (i in 0 until motion.count) {
                 val homeX = (i % columns + 0.5f) / columns
                 val homeY = (i / columns + 0.5f) / rows
-                // a quarter of a cell of wandering, and the lean of a kick on top
-                assertTrue("patch $i x ${motion.x(i)}", abs(motion.x(i) - homeX) < (LivingField.WANDER + 0.1f) / columns)
-                assertTrue("patch $i y ${motion.y(i)}", abs(motion.y(i) - homeY) < (LivingField.WANDER + 0.2f) / rows)
-                assertTrue("patch $i radius ${motion.radius(i)}", motion.radius(i) in 0.8f..1.6f)
+                // a quarter of a cell of wandering, and the lean of a full kick on top: at most half the
+                // screen away from the middle, pushed out by the lean
+                val lean = LivingField.LEAN * LivingField.reach(motion.strength) * 0.6f
+                assertTrue("patch $i x ${motion.x(i)}", abs(motion.x(i) - homeX) < LivingField.WANDER / columns + lean)
+                assertTrue("patch $i y ${motion.y(i)}", abs(motion.y(i) - homeY) < LivingField.WANDER / rows + lean)
+                assertTrue("patch $i radius ${motion.radius(i)}", motion.radius(i) in 0.8f..(0.95f * (1.05f + LivingField.MOST_SWELL)))
             }
         }
+    }
+
+    // Hits and levels
+
+    @Test
+    fun `a steady loud bass is a glow, and the kick on top of it is what jumps`() {
+        val motion = motion()
+        motion.run(3f, bass = 0.7f)
+        val glow = motion.shown[MusicLevels.BASS]
+        assertTrue("held, but well short of full: $glow", glow in 0.2f..0.4f)
+        motion.run(0.07f, bass = 1f)
+        val kick = motion.shown[MusicLevels.BASS]
+        assertTrue("the kick: $kick against $glow", kick > glow + 0.35f)
+        motion.run(0.5f, bass = 0.7f)
+        assertTrue("and back to the glow: ${motion.shown[MusicLevels.BASS]}", motion.shown[MusicLevels.BASS] < glow + 0.12f)
+    }
+
+    @Test
+    fun `a loud note held for seconds does not hold the picture at full`() {
+        val motion = motion()
+        motion.run(0.2f, bass = 1f)
+        assertTrue("at first it is a hit: ${motion.shown[MusicLevels.BASS]}", motion.shown[MusicLevels.BASS] > 0.9f)
+        motion.run(4f, bass = 1f)
+        assertEquals("then it is only loud", LivingField.LEVEL_SHARE, motion.shown[MusicLevels.BASS], 0.05f)
+    }
+
+    @Test
+    fun `out of silence a kick is a kick`() {
+        val motion = motion()
+        repeat(6) {
+            motion.run(0.42f)
+            motion.run(0.08f, bass = 1f)
+            assertTrue("kick $it: ${motion.shown[MusicLevels.BASS]}", motion.shown[MusicLevels.BASS] > 0.85f)
+        }
+    }
+
+    // In time
+
+    @Test
+    fun `the picture is started early by what it takes to be seen`() {
+        val plain = motion()
+        assertEquals(0.063f, plain.lead(), 0.001f)
+        val sharp = motion().apply { smoothing = 0f }
+        val soft = motion().apply { smoothing = 1f }
+        assertTrue("a slow rise is started earlier still: ${sharp.lead()} ${plain.lead()} ${soft.lead()}", sharp.lead() < plain.lead() && plain.lead() < soft.lead())
+        assertTrue("never by more than the output holds in its low latency setting, 90 ms, or so little that it lands late",
+            sharp.lead() >= 0.045f && soft.lead() <= 0.125f)
+    }
+
+    // Changing song
+
+    @Test
+    fun `a new cover is turned into slowly at first, then faster, then slowly`() {
+        assertEquals(0f, LivingField.eased(0f), 0f)
+        assertEquals(1f, LivingField.eased(1f), 0f)
+        assertEquals(0.5f, LivingField.eased(0.5f), 0.0001f)
+        assertTrue(LivingField.eased(0.1f) < 0.03f && LivingField.eased(0.9f) > 0.97f)
+        assertEquals(1f, LivingField.eased(4f), 0f)
+
+        val black = 0xff000000.toInt()
+        val white = 0xffffffff.toInt()
+        val motion = motion()
+        motion.turnTo(IntArray(motion.count) { black })
+        motion.turnTo(IntArray(motion.count) { white })
+        fun shade() = motion.colors[0] and 0xff
+        val whole = LivingField.COVER_TURN
+        motion.run(whole * 0.1f)
+        assertTrue("a tenth of the time in, hardly begun: ${shade()}", shade() in 1..12)
+        motion.run(whole * 0.4f)
+        assertTrue("half way through, half way there: ${shade()}", shade() in 110..145)
+        motion.run(whole * 0.4f)
+        assertTrue("nearly there, and slowing: ${shade()}", shade() in 243..254)
+        assertFalse(motion.colors[0] == white)
+        motion.run(whole * 0.15f)
+        assertEquals(white, motion.colors[0])
+    }
+
+    @Test
+    fun `a cover arriving while another is being turned into starts from what is on screen`() {
+        val motion = motion()
+        motion.turnTo(IntArray(motion.count) { red })
+        motion.turnTo(IntArray(motion.count) { blue })
+        motion.run(LivingField.COVER_TURN / 2)
+        val onScreen = motion.colors[0]
+        assertTrue(onScreen != red && onScreen != blue)
+        motion.turnTo(IntArray(motion.count) { green })
+        motion.step(0f, null, true)
+        assertEquals("no jump", onScreen, motion.colors[0])
+        motion.run(LivingField.COVER_TURN + 0.1f)
+        assertEquals(green, motion.colors[0])
+    }
+
+    // How strongly
+
+    private fun kicked(strength: Float) = motion().apply {
+        this.strength = strength
+        turnTo(IntArray(count) { 0xff806040.toInt() })
+        run(0.3f, bass = 1f, mid = 1f, high = 1f)
+    }
+
+    @Test
+    fun `the setting starts in the middle, where the picture answers half again as much as it first did`() {
+        assertEquals(1.5f, LivingField.reach(LivingField.DEFAULT_STRENGTH), 0f)
+        assertEquals(3f, LivingField.reach(1f), 0f)
+        assertEquals(0f, LivingField.reach(0f), 0f)
+        assertEquals("nothing above the top", 3f, LivingField.reach(7f), 0f)
+        assertEquals("nothing below the bottom", 0f, LivingField.reach(-1f), 0f)
+        assertEquals("a setting that is not a number is the middle", 1.5f, LivingField.reach(Float.NaN), 0f)
+        assertEquals(LivingField.DEFAULT_STRENGTH, LivingMotion().strength, 0f)
+    }
+
+    @Test
+    fun `turned right down, a kick moves nothing`() {
+        val still = motion().apply { turnTo(IntArray(count) { 0xff806040.toInt() }) }
+        val bottom = columns * (rows - 1)
+        val rest = Triple(still.radius(bottom), still.color(bottom), still.x(bottom))
+        val restGlow = still.glowStrength()
+        val restAura = still.auraRadius(0)
+        val off = kicked(0f)
+        // the ripple and the wander still run with the music, so compared loosely
+        assertEquals(rest.first, off.radius(bottom), 0.08f)
+        assertEquals(rest.second, off.color(bottom))
+        assertEquals(restGlow, off.glowStrength(), 0f)
+        assertEquals(restAura, off.auraRadius(0), 0f)
+    }
+
+    @Test
+    fun `turned up, the same kick swells, lights and pushes more`() {
+        val bottom = columns * (rows - 1)
+        val low = kicked(0.25f)
+        val middle = kicked(0.5f)
+        val high = kicked(1f)
+        assertTrue(low.radius(bottom) < middle.radius(bottom) && middle.radius(bottom) < high.radius(bottom))
+        assertTrue((low.color(bottom) shr 16 and 0xff) < (middle.color(bottom) shr 16 and 0xff))
+        assertTrue(low.glowStrength() < middle.glowStrength() && middle.glowStrength() < high.glowStrength())
+        assertTrue(low.auraRadius(0) < middle.auraRadius(0) && middle.auraRadius(0) < high.auraRadius(0))
+        // a corner patch is pushed further out
+        assertTrue(abs(low.x(bottom) - 0.5f) < abs(high.x(bottom) - 0.5f))
+    }
+
+    @Test
+    fun `turned all the way up it still stays inside its limits`() {
+        val most = kicked(1f)
+        for (i in 0 until most.count) {
+            assertTrue("radius ${most.radius(i)}", most.radius(i) <= LivingField.REST_RADIUS * (1.05f + LivingField.MOST_SWELL))
+            assertTrue("x ${most.x(i)}", most.x(i) in -0.15f..1.15f)
+            assertTrue("y ${most.y(i)}", most.y(i) in -0.15f..1.15f)
+        }
+        for (i in most.aura.indices) {
+            assertTrue("aura radius ${most.auraRadius(i)}", most.auraRadius(i) <= LivingField.AURA_MOST)
+            assertTrue("aura strength ${most.auraStrength(i)}", most.auraStrength(i) in 0f..1f)
+        }
+        assertTrue(most.glowStrength() <= 1f && most.glowHeight() <= 0.8f)
+    }
+
+    @Test
+    fun `a beat makes a colour stronger, not paler`() {
+        val orange = 0xffc06020.toInt()
+        val motion = motion().apply { strength = 1f; turnTo(IntArray(count) { orange }) }
+        val bottom = columns * (rows - 1)
+        motion.run(0.3f, bass = 1f)
+        val lit = motion.color(bottom)
+        val (r, g, b) = Triple(lit shr 16 and 0xff, lit shr 8 and 0xff, lit and 0xff)
+        assertTrue("brighter: $r", r > 0xc0)
+        assertTrue("and still orange, with blue well under red: $r $g $b", b < r / 2 && g < r)
+    }
+
+    // How softly
+
+    @Test
+    fun `the smoothing setting starts in the middle, where times are what they are`() {
+        assertEquals(1f, LivingField.ease(LivingField.DEFAULT_SMOOTHING), 0.0001f)
+        assertEquals(0.25f, LivingField.ease(0f), 0.0001f)
+        assertEquals(4f, LivingField.ease(1f), 0.0001f)
+        assertEquals(4f, LivingField.ease(9f), 0.0001f)
+        assertEquals(0.25f, LivingField.ease(-2f), 0.0001f)
+        assertEquals(1f, LivingField.ease(Float.NaN), 0f)
+        assertEquals(LivingField.DEFAULT_SMOOTHING, LivingMotion().smoothing, 0f)
+    }
+
+    @Test
+    fun `turned down it jumps with a kick and drops it at once, turned up it swells and lingers`() {
+        fun after(smoothing: Float, kick: Float, gap: Float) = motion().apply {
+            this.smoothing = smoothing
+            run(kick, bass = 1f)
+            if (gap > 0f) run(gap)
+        }.shown[MusicLevels.BASS]
+
+        // one frame and a bit into a kick
+        val sharp = after(0f, 0.035f, 0f)
+        val plain = after(0.5f, 0.035f, 0f)
+        val soft = after(1f, 0.035f, 0f)
+        assertTrue("sharp $sharp, plain $plain, soft $soft", sharp > 0.9f && plain in 0.5f..0.9f && soft < 0.35f)
+
+        // a kick held for a third of a second, then a fifth of a second of nothing
+        val sharpLeft = after(0f, 0.3f, 0.2f)
+        val plainLeft = after(0.5f, 0.3f, 0.2f)
+        val softLeft = after(1f, 0.3f, 0.2f)
+        assertTrue("sharp $sharpLeft, plain $plainLeft, soft $softLeft", sharpLeft < 0.1f && plainLeft in 0.35f..0.65f && softLeft > 0.7f)
+    }
+
+    @Test
+    fun `the aura is smoothed with the rest`() {
+        fun underCover(smoothing: Float) = motion().apply {
+            this.smoothing = smoothing
+            run(0.05f, bass = 1f)
+        }.let { m -> m.auraShown[m.aura.indexOfFirst { it.y == 1f && it.x == 0.5f }] }
+        assertTrue(underCover(0f) > underCover(0.5f) && underCover(0.5f) > underCover(1f))
+    }
+
+    // Round the cover
+
+    @Test
+    fun `the aura has a point for every patch on the rim, each on the cover's edge`() {
+        val aura = LivingField.aura(columns, rows)
+        assertEquals(2 * rows + 2 * columns, aura.size)
+        for (point in aura) {
+            assertTrue("on an edge: ${point.x}, ${point.y}", point.x == 0f || point.x == 1f || point.y == 0f || point.y == 1f)
+            assertTrue(point.x in 0f..1f && point.y in 0f..1f)
+            val column = point.patch % columns
+            val row = point.patch / columns
+            assertTrue("a rim patch", column == 0 || column == columns - 1 || row == 0 || row == rows - 1)
+            // and the one beside it: the left edge takes the left column, the top edge the top row
+            if (point.x == 0f) assertEquals(0, column)
+            if (point.x == 1f) assertEquals(columns - 1, column)
+            if (point.y == 0f) assertEquals(0, row)
+            if (point.y == 1f) assertEquals(rows - 1, row)
+        }
+    }
+
+    @Test
+    fun `a kick lands under the cover and runs up its sides`() {
+        val aura = LivingField.aura(columns, rows)
+        val bottomMiddle = aura.indexOfFirst { it.y == 1f && it.x == 0.5f }
+        val topMiddle = aura.indexOfFirst { it.y == 0f && it.x == 0.5f }
+        assertEquals(0f, aura[bottomMiddle].far, 0.001f)
+        assertEquals(1f, aura[topMiddle].far, 0.001f)
+        assertTrue(aura.all { it.far in 0f..1f })
+
+        val motion = motion()
+        motion.run(0.05f, bass = 1f)
+        assertTrue("under the cover first: ${motion.auraShown[bottomMiddle]} against ${motion.auraShown[topMiddle]}",
+            motion.auraShown[bottomMiddle] > motion.auraShown[topMiddle] + 0.25f)
+        motion.run(0.25f, bass = 1f)
+        assertTrue("then all the way round: ${motion.auraShown[topMiddle]}", motion.auraShown[topMiddle] > 0.75f)
+    }
+
+    @Test
+    fun `at rest the aura is a thin halo, and on a kick it reaches out`() {
+        val motion = motion().apply { coverThere = true; settle() }
+        assertEquals(LivingField.AURA_REST, motion.auraRadius(0), 0f)
+        assertTrue("it is there at rest: ${motion.auraStrength(0)}", motion.auraStrength(0) in 0.2f..0.4f)
+        motion.run(0.4f, bass = 1f)
+        assertTrue("${motion.auraRadius(0)}", motion.auraRadius(0) > LivingField.AURA_REST * 2.5f)
+        assertTrue(motion.auraStrength(0) > 0.7f)
+    }
+
+    @Test
+    fun `the aura goes with the cover and comes back with it`() {
+        val motion = motion().apply { coverThere = true; settle() }
+        assertEquals(1f, motion.auraPresence, 0f)
+        motion.coverThere = false                              // the lyrics are up, there is no cover to stand round
+        assertFalse("it has to be seen to go", motion.atRest())
+        motion.run(1f, playing = false, measured = false)
+        assertTrue("${motion.auraPresence}", motion.auraPresence < 0.01f)
+        assertEquals(0f, motion.auraStrength(0), 0.01f)
+        assertTrue(motion.atRest())
+        motion.coverThere = true
+        assertFalse(motion.atRest())
+        motion.run(1f, playing = false, measured = false)
+        assertTrue(motion.auraPresence > 0.99f && motion.atRest())
     }
 
     @Test
