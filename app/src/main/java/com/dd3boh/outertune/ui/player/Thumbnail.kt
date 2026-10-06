@@ -56,6 +56,7 @@ import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.extensions.tabMode
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.Lyrics
+import com.dd3boh.outertune.ui.utils.artSizeBucket
 import com.dd3boh.outertune.utils.rememberPreference
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -158,8 +159,7 @@ fun Thumbnail(
                     // device, which is two full copies of one cover for no visible gain. Bucketing
                     // makes a rotation reuse what portrait already fetched.
                     val artPx = with(LocalDensity.current) {
-                        val exact = minOf(maxWidth, maxHeight).roundToPx()
-                        ((exact + ART_SIZE_BUCKET - 1) / ART_SIZE_BUCKET) * ART_SIZE_BUCKET
+                        artSizeBucket(minOf(maxWidth, maxHeight).roundToPx())
                     }
                     Box(
                         modifier = Modifier
@@ -240,22 +240,6 @@ fun Thumbnail(
         }
     }
 }
-
-/**
- * Granularity for artwork requests, in pixels.
- *
- * The requested size ends up in the url, and the url is the cache key, so every distinct width is a
- * separate fetch, disk entry and decode.
- *
- * 256 rather than something finer, because the point is to make the common pair collide. A device
- * measuring 1152 in portrait and 1248 in landscape still lands on two different buckets at 64 or
- * 128; at 256 both round to 1280 and a rotation reuses what portrait already fetched. The cost is
- * up to 255px of over-fetch on one axis, which is cheaper than a second copy of the whole cover.
- *
- * Only the full-size player artwork goes through this. The mini player and the palette source ask
- * for their own much smaller sizes and are better off unrounded.
- */
-private const val ART_SIZE_BUCKET = 256
 
 /**
  * Size of the low resolution cover drawn underneath the real one, in pixels.

@@ -18,6 +18,27 @@ private val GOOGLE_ART_SIZE =
 private val GGPHT_ART_SIZE = "^https://yt3\\.ggpht\\.com/.*=s(\\d+)$".toRegex()
 
 /**
+ * Granularity for artwork requests, in pixels.
+ *
+ * The requested size ends up in the url, and the url is the cache key, so every distinct width is a
+ * separate fetch, disk entry and decode.
+ *
+ * 256 rather than something finer, because the point is to make the common pair collide. A device
+ * measuring 1152 in portrait and 1248 in landscape still lands on two different buckets at 64 or
+ * 128; at 256 both round to 1280 and a rotation reuses what portrait already fetched. The cost is
+ * up to 255px of over-fetch on one axis, which is cheaper than a second copy of the whole cover.
+ *
+ * The full-size player artwork goes through this, and so does the cover handed to the system
+ * (sessionArtwork): on a phone 1080 pixels wide the system keeps 900 of them and the player draws
+ * its cover 900 wide, so both ask for 1024 and whichever comes second finds it on disk. The mini
+ * player and the palette source ask for their own much smaller sizes and are better off unrounded.
+ */
+private const val ART_SIZE_BUCKET = 256
+
+/** [px] rounded up to the next size a whole cover is asked for at. */
+fun artSizeBucket(px: Int): Int = ((px + ART_SIZE_BUCKET - 1) / ART_SIZE_BUCKET) * ART_SIZE_BUCKET
+
+/**
  * Asks the CDN for artwork at the size it is actually going to be drawn at.
  *
  * Passing only one dimension derives the other from the source's aspect ratio.
