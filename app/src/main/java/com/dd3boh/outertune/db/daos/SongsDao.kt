@@ -19,9 +19,7 @@ import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.extensions.reversed
 import com.dd3boh.outertune.utils.fixFilePath
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
@@ -439,18 +437,19 @@ interface SongsDao {
 
     /**
      * Increment by one the play count with today's year and month.
+     *
+     * Two plain statements and no reading first: the insert leaves a month that already has its
+     * row alone. This runs inside the transaction that counts a play, on the thread holding the
+     * write connection, and it used to read the old count there by waiting on a Flow. Starting a
+     * Flow makes Room bring its triggers up to date on another thread, under a lock, and when
+     * there was a trigger to add or drop that thread wanted the write connection too. Neither
+     * ever let go: the database stayed shut until the process died, every song after it sat
+     * buffering and the app would not open past its splash screen.
      */
+    @Transaction
     fun incrementPlayCount(songId: String) {
         val time = LocalDateTime.now().atOffset(ZoneOffset.UTC)
-        var oldCount: Int
-        runBlocking {
-            oldCount = getPlayCountByMonth(songId, time.year, time.monthValue).first()
-        }
-
-        // add new
-        if (oldCount <= 0) {
-            insert(PlayCountEntity(songId, time.year, time.monthValue, 0))
-        }
+        insert(PlayCountEntity(songId, time.year, time.monthValue, 0))
         incrementPlayCount(songId, time.year, time.monthValue)
     }
 
