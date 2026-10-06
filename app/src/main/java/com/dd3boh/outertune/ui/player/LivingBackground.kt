@@ -136,6 +136,7 @@ private fun LivingPicture(
     motion.strength = strength
     motion.smoothing = smoothing
     motion.coverThere = coverThere
+    motion.separate = colours == LivingColours.MAIN
 
     // Read by the drawing alone, so a new frame redraws the canvas and recomposes nothing.
     var frame by remember { mutableLongStateOf(0L) }
@@ -143,7 +144,8 @@ private fun LivingPicture(
     var covers by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(cover, motion, colours) {
-        val patches = withContext(coilCoroutine) {
+        // the patches, and for the main colours the bass's own, which the glow on the edges takes
+        val (patches, glow) = withContext(coilCoroutine) {
             val bitmap = context.imageLoader.execute(
                 ImageRequest.Builder(context)
                     .data(cover)
@@ -153,11 +155,13 @@ private fun LivingPicture(
             val pixels = IntArray(bitmap.width * bitmap.height)
             bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
             when (colours) {
-                LivingColours.MAIN -> LivingField.mainPatches(pixels, bitmap.width, bitmap.height, motion.columns, motion.rows)
-                LivingColours.COVER -> LivingField.patches(pixels, bitmap.width, bitmap.height, motion.columns, motion.rows)
+                LivingColours.MAIN -> LivingField.mainColours(pixels, bitmap.width, bitmap.height).let { mains ->
+                    LivingField.mainPatches(mains, motion.columns, motion.rows) to mains[MusicLevels.BASS]
+                }
+                LivingColours.COVER -> LivingField.patches(pixels, bitmap.width, bitmap.height, motion.columns, motion.rows) to null
             }
         } ?: return@LaunchedEffect
-        motion.turnTo(patches)
+        motion.turnTo(patches, glow)
         covers++
     }
 
@@ -209,7 +213,7 @@ private fun LivingPicture(
             native.drawColor(motion.under)
             val cellWidth = size.width / motion.columns
             val cellHeight = size.height / motion.rows
-            for (i in 0 until motion.count) {
+            for (i in motion.order) {
                 val radius = motion.radius(i)
                 look.disc(native, motion.x(i) * size.width, motion.y(i) * size.height, radius * cellWidth, radius * cellHeight, motion.color(i), 1f)
             }
@@ -225,6 +229,7 @@ private fun LivingPicture(
                 val width = coverAt.width / by.x
                 val height = coverAt.height / by.y
                 val side = min(width, height)
+                motion.coverAt(left / size.width, top / size.height, (left + width) / size.width, (top + height) / size.height)
                 for (i in motion.aura.indices) {
                     val point = motion.aura[i]
                     val radius = motion.auraRadius(i) * side

@@ -163,42 +163,149 @@ class LivingFieldTest {
             abs((a shr 8 and 0xff) - (b shr 8 and 0xff)) <= within &&
             abs((a and 0xff) - (b and 0xff)) <= within
 
+    /** Where on the colour wheel a colour is, in degrees. */
+    private fun hue(color: Int): Float {
+        val r = color shr 16 and 0xff
+        val g = color shr 8 and 0xff
+        val b = color and 0xff
+        val most = maxOf(r, g, b)
+        val chroma = most - minOf(r, g, b)
+        if (chroma == 0) return Float.NaN
+        val sixth = when (most) {
+            r -> ((g - b).toFloat() / chroma).let { if (it < 0) it + 6 else it }
+            g -> (b - r).toFloat() / chroma + 2
+            else -> (r - g).toFloat() / chroma + 4
+        }
+        return sixth * 60
+    }
+
+    private fun apart(a: Int, b: Int): Float = abs(hue(a) - hue(b)).let { minOf(it, 360 - it) }
+
+    private fun isGrey(color: Int) = abs((color shr 16 and 0xff) - (color shr 8 and 0xff)) < 8 && abs((color shr 8 and 0xff) - (color and 0xff)) < 8
+
+    /** A cover of plain parts: [parts] of [colors], left to right, by how many columns of 100 each takes. */
+    private fun stripes(vararg parts: Pair<Int, Int>): IntArray {
+        val row = parts.flatMap { (color, columns) -> List(columns) { color } }
+        check(row.size == 100) { "the parts make ${row.size} columns" }
+        return IntArray(100 * 100) { row[it % 100] }
+    }
+
     @Test
-    fun `the main colours are the cover's strongest, each unlike the others`() {
+    fun `the main colours are the cover's hues, the heaviest for the bass and the lighter of the rest for the top`() {
         val mains = LivingField.mainColours(quarters(100), 100, 100)
         assertEquals(3, mains.size)
-        val quartersColours = listOf(red, green, blue).map { LivingField.colourful(it, LivingField.COLOUR) }
-        for (main in mains) assertTrue("${Integer.toHexString(main)} is one of the cover's three colours", quartersColours.any { near(it, main) })
-        assertEquals("no two the same", 3, mains.toSet().size)
+        // a quarter each, and the blue is the most colourful of the three
+        assertTrue("the bass ${Integer.toHexString(mains[0])} is the blue", apart(mains[MusicLevels.BASS], blue) < 12)
+        assertTrue("the voice ${Integer.toHexString(mains[1])} is the red, the darker of the other two", apart(mains[MusicLevels.MID], red) < 12)
+        assertTrue("the top ${Integer.toHexString(mains[2])} is the green", apart(mains[MusicLevels.HIGH], green) < 12)
         assertFalse("the dark quarter is not a main colour", mains.any { near(it, dark, 20) })
     }
 
     @Test
-    fun `a cover of one colour gives that colour and two shades of it`() {
+    fun `two shades of one hue are one colour, however unlike they are channel for channel`() {
+        // Magenta, pink and green, as on the cover this was got wrong for: it took the magenta
+        // and the pink for two colours and gave the green the row behind the cover.
+        val magenta = 0xffd01fb8.toInt()
+        val pink = 0xffff7fe0.toInt()
+        val leaf = 0xff3fd43a.toInt()
+        val mains = LivingField.mainColours(stripes(magenta to 40, pink to 35, leaf to 25), 100, 100)
+        assertTrue("the bass ${Integer.toHexString(mains[0])} is the magenta and the pink together", apart(mains[MusicLevels.BASS], magenta) < 20)
+        val others = listOf(mains[MusicLevels.MID], mains[MusicLevels.HIGH])
+        assertTrue("one of the others is the green: ${others.map(Integer::toHexString)}", others.any { apart(it, leaf) < 15 })
+        assertFalse("and neither is the pink: ${others.map(Integer::toHexString)}", others.any { near(it, pink, 40) || near(it, magenta, 40) })
+        for (i in 0 until 3) for (j in i + 1 until 3) {
+            assertFalse("${Integer.toHexString(mains[i])} and ${Integer.toHexString(mains[j])} are told apart", near(mains[i], mains[j], 40))
+        }
+    }
+
+    @Test
+    fun `of the cover's colours the two furthest from the bass's and from each other are taken`() {
+        // Magenta, a rose close to it, green and white, by how much of the cover each has. The
+        // rose is the second most of it, and is the one left out: it is the magenta's neighbour.
+        val magenta = 0xffd01fb8.toInt()
+        val rose = 0xffe64b78.toInt()
+        val leaf = 0xff3fd43a.toInt()
+        val white = 0xfff2f2f2.toInt()
+        val mains = LivingField.mainColours(stripes(magenta to 40, rose to 25, leaf to 20, white to 15), 100, 100)
+        assertTrue("the bass ${Integer.toHexString(mains[0])}", apart(mains[MusicLevels.BASS], magenta) < 20)
+        assertTrue("the voice ${Integer.toHexString(mains[1])} is the green", apart(mains[MusicLevels.MID], leaf) < 15)
+        assertTrue("the top ${Integer.toHexString(mains[2])} is the white", isGrey(mains[MusicLevels.HIGH]) && LivingField.luma(mains[MusicLevels.HIGH]) > 200)
+    }
+
+    @Test
+    fun `a speck of another colour is not a main colour`() {
+        val mains = LivingField.mainColours(stripes(blue to 99, red to 1), 100, 100)
+        assertTrue(apart(mains[MusicLevels.BASS], blue) < 12)
+        assertFalse("the red speck is none of them: ${mains.map(Integer::toHexString)}", mains.any { apart(it, red) < 20 })
+    }
+
+    @Test
+    fun `the cover's white is one of its colours, and the lightest goes to the top of the spectrum`() {
+        val white = 0xfff4f4f0.toInt()
+        val mains = LivingField.mainColours(stripes(red to 50, green to 30, white to 20), 100, 100)
+        assertTrue(apart(mains[MusicLevels.BASS], red) < 12)
+        assertTrue(apart(mains[MusicLevels.MID], green) < 12)
+        assertTrue("the top ${Integer.toHexString(mains[2])} is the white, a little short of full", isGrey(mains[MusicLevels.HIGH]) && LivingField.luma(mains[MusicLevels.HIGH]) in 200..235)
+    }
+
+    @Test
+    fun `a cover of one colour gives that colour and two neighbours of it`() {
         val plain = IntArray(64 * 64) { red }
         val mains = LivingField.mainColours(plain, 64, 64)
-        assertTrue(near(mains[0], LivingField.colourful(red, LivingField.COLOUR), 8))
+        assertTrue(apart(mains[MusicLevels.BASS], red) < 8)
         assertEquals("three different ones, or the screen would be one flat colour", 3, mains.toSet().size)
-        // shades: redder than they are green or blue, all three
+        assertTrue("the voice is a little way round the wheel: ${apart(mains[MusicLevels.MID], red)}", apart(mains[MusicLevels.MID], red) in 25f..50f)
+        assertTrue("the top is lighter than both", LivingField.luma(mains[MusicLevels.HIGH]) > LivingField.luma(mains[MusicLevels.BASS]) + 40)
+        // still the red's family: redder than they are green or blue, all three
         for (main in mains) assertTrue(Integer.toHexString(main), (main shr 16 and 0xff) > (main shr 8 and 0xff) && (main shr 16 and 0xff) > (main and 0xff))
     }
 
     @Test
-    fun `a grey cover gives greys, and no cover gives the stand-in grey`() {
+    fun `a dark colour is given enough light to be seen moving`() {
+        val navy = 0xff0c1440.toInt()
+        val mains = LivingField.mainColours(IntArray(64 * 64) { navy }, 64, 64)
+        val bass = mains[MusicLevels.BASS]
+        assertTrue("still a blue: ${Integer.toHexString(bass)}", apart(bass, navy) < 12)
+        assertTrue("and no longer nearly black", (bass and 0xff) >= 150)
+    }
+
+    @Test
+    fun `a grey cover with an accent keeps its grey for the bass and the accent for one of the others`() {
+        val black = 0xff050505.toInt()
+        val mains = LivingField.mainColours(stripes(black to 92, red to 8), 100, 100)
+        assertTrue("the bass ${Integer.toHexString(mains[0])} is a grey, darker than the stand-in one", isGrey(mains[MusicLevels.BASS]) && LivingField.luma(mains[MusicLevels.BASS]) in 80..120)
+        assertTrue("the red is there: ${mains.map(Integer::toHexString)}", listOf(mains[MusicLevels.MID], mains[MusicLevels.HIGH]).any { !isGrey(it) && apart(it, red) < 12 })
+        assertEquals(3, mains.toSet().size)
+    }
+
+    @Test
+    fun `a grey cover gives greys that can be told apart, and no cover gives the stand-in grey`() {
         val greys = IntArray(64 * 64) { if (it % 64 < 32) 0xff303030.toInt() else 0xffa0a0a0.toInt() }
-        for (main in LivingField.mainColours(greys, 64, 64)) {
-            val (r, g, b) = Triple(main shr 16 and 0xff, main shr 8 and 0xff, main and 0xff)
-            assertTrue(Integer.toHexString(main), abs(r - g) < 6 && abs(g - b) < 6)
-        }
+        val mains = LivingField.mainColours(greys, 64, 64)
+        for (main in mains) assertTrue(Integer.toHexString(main), isGrey(main))
+        val lights = mains.map(LivingField::luma).sorted()
+        assertTrue("three greys a step apart: $lights", lights[1] - lights[0] >= 20 && lights[2] - lights[1] >= 20)
+        val whiteOnBlack = IntArray(64 * 64) { if (it % 64 < 50) 0xff000000.toInt() else 0xffffffff.toInt() }
+        val drawn = LivingField.mainColours(whiteOnBlack, 64, 64)
+        assertEquals("black, white and something between: ${drawn.map(Integer::toHexString)}", 3, drawn.toSet().size)
+        assertTrue(drawn.all(::isGrey))
         assertTrue(LivingField.mainColours(IntArray(0), 0, 0).all { it == LivingField.GREY })
-        assertTrue(LivingField.mainPatches(IntArray(0), 0, 0, 3, 7).all { near(it, LivingField.GREY, 30) })
+        assertTrue(LivingField.mainPatches(LivingField.mainColours(IntArray(0), 0, 0), 3, 7).all { near(it, LivingField.GREY, 30) })
+    }
+
+    @Test
+    fun `a hue is turned round the wheel and stays as light and as colourful`() {
+        assertTrue("red a third of the way round is green", apart(LivingField.turned(0xffcc2020.toInt(), 120f), 0xff20cc20.toInt()) < 2)
+        assertEquals(0xff20cc20.toInt(), LivingField.turned(0xffcc2020.toInt(), 120f))
+        assertEquals("and all the way round is itself", 0xffcc2020.toInt(), LivingField.turned(0xffcc2020.toInt(), 360f))
+        assertEquals("backwards too", 0xff2020cc.toInt(), LivingField.turned(0xffcc2020.toInt(), -120f))
+        assertEquals("a grey has no hue to turn", 0xff808080.toInt(), LivingField.turned(0xff808080.toInt(), 90f))
     }
 
     @Test
     fun `in main colours the top and the bottom take the first, the middle the others`() {
-        val pixels = quarters(100)
-        val mains = LivingField.mainColours(pixels, 100, 100)
-        val patches = LivingField.mainPatches(pixels, 100, 100, 3, 7)
+        val mains = LivingField.mainColours(quarters(100), 100, 100)
+        val patches = LivingField.mainPatches(mains, 3, 7)
         assertEquals(21, patches.size)
         for (row in 0 until 7) for (column in 0 until 3) {
             val want = mains[LivingField.bandOfRow(row, 7)]
@@ -206,6 +313,19 @@ class LivingFieldTest {
         }
         // not one flat band: the patches of a row differ a little
         assertTrue(patches.slice(0..2).toSet().size > 1)
+    }
+
+    @Test
+    fun `a wide picture has no row for the top of the spectrum, so the middle of the voice's row is its`() {
+        val (b, m, h) = Triple(MusicLevels.BASS, MusicLevels.MID, MusicLevels.HIGH)
+        fun row(row: Int, columns: Int, rows: Int) = (0 until columns).map { LivingField.bandOfCell(it, row, columns, rows) }
+        assertEquals("the strip in Settings", listOf(m, m, h, h, h, m, m), row(1, 7, 3))
+        assertEquals(listOf(b, b, b, b, b, b, b), row(0, 7, 3))
+        assertEquals(listOf(b, b, b, b, b, b, b), row(2, 7, 3))
+        assertEquals("a tablet on its side", listOf(m, m, h, m, m), row(1, 5, 3))
+        assertEquals("a square has nowhere to put it", listOf(m, m, m), row(1, 3, 3))
+        // upright, a patch goes by its row and nothing else
+        for (r in 0 until 7) assertEquals(List(3) { LivingField.bandOfRow(r, 7) }, row(r, 3, 7))
     }
 
     // Moving
@@ -586,6 +706,127 @@ class LivingFieldTest {
         assertFalse(motion.atRest())
         motion.run(1f, playing = false, measured = false)
         assertTrue(motion.auraPresence > 0.99f && motion.atRest())
+    }
+
+    // A colour to each range: each moves its own part of the picture and no other
+
+    private fun apart() = motion().apply { separate = true }
+    private val grey = 0xff808080.toInt()
+
+    /** Where the player has the cover on a phone held upright, in parts of the screen. */
+    private fun LivingMotion.coverAsInThePlayer() = apply { coverThere = true; coverAt(0.083f, 0.097f, 0.917f, 0.48f) }
+
+    @Test
+    fun `with a colour to each range a kick moves the bass's rows and leaves the others where they are`() {
+        val rest = apart().apply { turnTo(IntArray(count) { grey }) }
+        val kick = apart().apply { turnTo(IntArray(count) { grey }); run(0.1f, bass = 1f) }
+        val bottom = columns * (rows - 1)
+        val voice = columns * 2
+        val middle = columns * 3
+        fun grew(i: Int) = kick.radius(i) / rest.radius(i) - 1
+        assertTrue("bottom ${grew(bottom)}", grew(bottom) > 0.4f)
+        assertTrue("top ${grew(0)}", grew(0) > 0.4f)
+        assertEquals("the voice's row does not stir", 0f, grew(voice), 0.01f)
+        assertEquals("nor the top's", 0f, grew(middle), 0.01f)
+        assertEquals("and neither lights up", rest.color(voice), kick.color(voice))
+        assertEquals(rest.color(middle), kick.color(middle))
+        assertTrue("the bass's do", (kick.color(bottom) and 0xff) > (rest.color(bottom) and 0xff) * 1.3f)
+    }
+
+    @Test
+    fun `the bass pushes, the voice glows and the top glints`() {
+        val rest = apart().apply { turnTo(IntArray(count) { grey }) }
+        fun heard(bass: Float = 0f, mid: Float = 0f, high: Float = 0f) = apart().apply { turnTo(IntArray(count) { grey }); run(0.25f, bass, mid, high) }
+        val kick = heard(bass = 1f)
+        val voice = heard(mid = 1f)
+        val cymbals = heard(high = 1f)
+        val bottom = columns * (rows - 1)
+        val beside = columns * 2
+        val middle = columns * 3
+        fun grew(m: LivingMotion, i: Int) = m.radius(i) / rest.radius(i) - 1
+        fun lit(m: LivingMotion, i: Int) = (m.color(i) and 0xff) / (rest.color(i) and 0xff).toFloat()
+        assertTrue("a voice moves its own rows: ${grew(voice, beside)}", grew(voice, beside) > 0.2f)
+        assertEquals("and not the bass's", 0f, grew(voice, bottom), 0.02f)
+        assertEquals("nor the top's", 0f, grew(voice, middle), 0.02f)
+        assertEquals("cymbals leave the voice's alone", 0f, grew(cymbals, beside), 0.02f)
+        assertTrue("each swells less than the one below it: ${grew(kick, bottom)}, ${grew(voice, beside)}, ${grew(cymbals, middle)}",
+            grew(kick, bottom) > grew(voice, beside) * 1.2f && grew(voice, beside) > grew(cymbals, middle) * 1.2f)
+        assertTrue("the top still moves: ${grew(cymbals, middle)}", grew(cymbals, middle) > 0.05f)
+        assertTrue("and each is lit more than the one below it: ${lit(kick, bottom)}, ${lit(voice, beside)}, ${lit(cymbals, middle)}",
+            lit(cymbals, middle) > lit(voice, beside) && lit(voice, beside) > lit(kick, bottom))
+    }
+
+    @Test
+    fun `a range that is quiet sits darker than the bass does, so that it is seen to come in`() {
+        val quiet = apart().apply { turnTo(IntArray(count) { grey }) }
+        val (bass, voice, top) = Triple(quiet.color(0) and 0xff, quiet.color(columns * 2) and 0xff, quiet.color(columns * 3) and 0xff)
+        assertTrue("$bass, $voice, $top", bass > voice && voice > top)
+        assertTrue("not dark, only darker", top > bass * 0.8f)
+        val whole = motion().apply { turnTo(IntArray(count) { grey }) }
+        assertEquals("a picture of the cover is lit alike all over", whole.color(0), whole.color(columns * 3))
+    }
+
+    @Test
+    fun `a held voice is seen for as long as it is held`() {
+        val kept = apart().apply { run(4f, mid = 0.8f) }
+        val whole = motion().apply { run(4f, mid = 0.8f) }
+        assertEquals(LivingField.OWN_LEVEL[MusicLevels.MID] * 0.8f, kept.shown[MusicLevels.MID], 0.03f)
+        assertEquals(LivingField.LEVEL_SHARE * 0.8f, whole.shown[MusicLevels.MID], 0.03f)
+        assertTrue(kept.shown[MusicLevels.MID] > whole.shown[MusicLevels.MID] * 1.3f)
+    }
+
+    @Test
+    fun `the bass is drawn first, the voice over it and the top of the spectrum last`() {
+        val order = apart().order.toList()
+        assertEquals("every patch, once", (0 until columns * rows).toList(), order.sorted())
+        val ranges = order.map { LivingField.bandOfRow(it / columns, rows) }
+        assertEquals(ranges.sorted(), ranges)
+        assertEquals("a picture of the cover is drawn as it comes", (0 until columns * rows).toList(), motion().order.toList())
+    }
+
+    @Test
+    fun `the halo takes the colour and the range of the row it stands on`() {
+        val motion = apart().coverAsInThePlayer()
+        val rowGreys = IntArray(motion.count) { (40 + 25 * (it / columns)).let { v -> (0xff shl 24) or (v shl 16) or (v shl 8) or v } }
+        motion.turnTo(rowGreys)
+        val aura = motion.aura
+        val topMiddle = aura.indexOfFirst { it.y == 0f && it.x == 0.5f }
+        val bottomMiddle = aura.indexOfFirst { it.y == 1f && it.x == 0.5f }
+        assertEquals("the cover's top edge stands on the top row", 0, motion.auraPatch(topMiddle) / columns)
+        assertEquals("its bottom edge on the middle one", 3, motion.auraPatch(bottomMiddle) / columns)
+        for (i in aura.indices) {
+            val row = ((0.097f + aura[i].y * (0.48f - 0.097f)) * rows).toInt().coerceIn(0, rows - 1)
+            assertEquals("point at ${aura[i].x}, ${aura[i].y}", row, motion.auraPatch(i) / columns)
+        }
+        // each point lights in its row's grey: the halo runs through the ranges down the cover's sides
+        assertTrue((motion.auraColor(bottomMiddle) and 0xff) > (motion.auraColor(topMiddle) and 0xff))
+
+        motion.run(0.3f, bass = 1f)
+        assertTrue("a kick reaches out above the cover: ${motion.auraShown[topMiddle]}", motion.auraShown[topMiddle] > 0.7f)
+        assertEquals("and not below it, which is the top of the spectrum's", 0f, motion.auraShown[bottomMiddle], 0.02f)
+        val cymbals = apart().coverAsInThePlayer().apply { run(0.3f, high = 1f) }
+        assertTrue("cymbals the other way round: ${cymbals.auraShown[bottomMiddle]}", cymbals.auraShown[bottomMiddle] > 0.6f)
+        assertEquals(0f, cymbals.auraShown[topMiddle], 0.02f)
+
+        val whole = motion().coverAsInThePlayer()
+        for (i in aura.indices) assertEquals("a picture of the cover: the part of the cover beside it", aura[i].patch, whole.auraPatch(i))
+    }
+
+    @Test
+    fun `a cover that fills the picture or is off it still gives the halo a patch`() {
+        val motion = apart().apply { coverThere = true; coverAt(-0.4f, -0.2f, 1.6f, 1.3f) }
+        for (i in motion.aura.indices) assertTrue(motion.auraPatch(i) in 0 until motion.count)
+        motion.run(0.2f, bass = 1f, mid = 1f, high = 1f)
+        assertTrue(motion.auraShown.all { it.isFinite() })
+    }
+
+    @Test
+    fun `the glow takes the bass's own colour when it is given one`() {
+        val patches = IntArray(columns * rows) { 0xff202020.toInt() }.also { it[4] = 0xff10c040.toInt() }
+        val given = motion().apply { turnTo(patches, glow = 0xffc01030.toInt()) }
+        assertEquals(LivingField.lit(0xffc01030.toInt(), LivingField.GLOW_LIGHT), given.glow)
+        val left = motion().apply { turnTo(patches) }
+        assertEquals("left out, the strongest patch", LivingField.lit(0xff10c040.toInt(), LivingField.GLOW_LIGHT), left.glow)
     }
 
     @Test

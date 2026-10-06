@@ -213,7 +213,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_living_strength_description" translatable="false">How much the background and the glow round the cover move with the music. At 0 it only drifts.</string>
     <string name="player_living_smoothing" translatable="false">Living blur smoothing</string>
     <string name="player_living_colours" translatable="false">Living blur colours</string>
-    <string name="player_living_colours_main" translatable="false">The cover\'s main colours</string>
+    <string name="player_living_colours_main" translatable="false">Three of the cover\'s colours: one each for the bass, the voice and the highs</string>
     <string name="player_living_colours_cover" translatable="false">The cover itself, blurred</string>
     <string name="player_living_sample_playing" translatable="false">Move the sliders while it plays.</string>
     <string name="player_living_sample_silent" translatable="false">Nothing is playing, so it has nothing to move to.</string>

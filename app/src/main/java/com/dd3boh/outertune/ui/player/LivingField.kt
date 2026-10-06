@@ -8,21 +8,29 @@ package com.dd3boh.outertune.ui.player
 
 import com.dd3boh.outertune.playback.MusicLevels
 import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * The living background's picture, with nothing of Android in it: what the cover is reduced to,
  * and how that moves to the music. LivingBackground.kt draws it.
  *
- * The cover becomes a few patches of colour, the way it reads when it is blurred until nothing
- * else is left of it, each patch where that colour sits on the cover. Still, it looks like the
- * blurred cover the player already has. Then the patches breathe: the bottom rows with the bass,
- * the top row with the cymbals, the rows between with everything else, and all of them lean out a
- * little on a kick. A glow in the cover's strongest colour rises from the bottom edge with the bass.
+ * The cover becomes a few patches of colour, and the patches breathe with the music: the rows at
+ * the top and the bottom of the screen with the bass, the rows between them with the voice, the
+ * very middle with the top of the spectrum ([bandOfRow]). A glow rises from the top and bottom
+ * edges with the bass, and an aura stands round the cover, which hides most of the rest.
+ *
+ * There are two ways of colouring it. As a picture of the cover: each patch is the colour of its
+ * part of the cover, the way the cover reads when it is blurred until nothing else is left of it
+ * ([patches]), and every patch takes a share of the kick, so that the picture moves as one. Or
+ * with the cover as a palette: three of its colours, picked to be told apart, one to a range
+ * ([mainColours]), and each range moves its own colour and no other ([OWN_SHARE]).
  */
 object LivingField {
     /** Patches along the short side of the screen. Three is about what a 150 dp blur leaves of a cover on a phone. */
@@ -117,6 +125,28 @@ object LivingField {
     const val KICK_EVERYWHERE = 0.3f
 
     /**
+     * Coloured from the cover's main colours, every range has a colour of its own, and the point
+     * of that is to tell the ranges apart. So there each one moves its own part of the picture
+     * and nothing else: the voice's rows take no share of the kick, and the top of the spectrum
+     * is shown nearly in full, where it has a colour to itself and is no longer a flicker on
+     * somebody else's. The three are told apart by how they move as well. The bass pushes: it
+     * swells the most. The voice glows: it swells less and lights more. The top glints: it hardly
+     * swells and lights the most. And a range that is quiet sits a little darker than the bass
+     * does, so that it is seen to come in. Bass, middle, top.
+     */
+    val OWN_SHARE = floatArrayOf(1f, 1f, 0.85f)
+    val OWN_SWELL = floatArrayOf(1f, 0.7f, 0.4f)
+    val OWN_LIGHT = floatArrayOf(0.9f, 1.15f, 1.4f)
+    val OWN_REST = floatArrayOf(0.80f, 0.74f, 0.68f)
+
+    /**
+     * How much of a range's plain loudness shows when the ranges are kept apart ([LEVEL_SHARE]
+     * when they are not). A voice is held notes more than it is hits, and at the bass's share a
+     * sung line barely lit its rows.
+     */
+    val OWN_LEVEL = floatArrayOf(0.4f, 0.6f, 0.45f)
+
+    /**
      * The cover takes up most of the player, and what goes on behind it is not seen. So most of
      * the reaction is put where it shows: an aura on the cover's edge, half of it hidden behind the
      * cover and half spilling out round it, in the colours the cover has along that edge.
@@ -186,6 +216,18 @@ object LivingField {
     }
 
     /**
+     * The range a patch breathes with: its row's ([bandOfRow]), in a picture taller than it is
+     * wide. A wide one, a phone on its side or the strip in Settings, has too few rows to give
+     * the top of the spectrum one, so there the middle third of the voice's row is the top's:
+     * still the very middle of the picture.
+     */
+    fun bandOfCell(column: Int, row: Int, columns: Int, rows: Int): Int {
+        val band = bandOfRow(row, rows)
+        if (band != MusicLevels.MID || rows >= 5 || columns < 5) return band
+        return if (abs((column + 0.5f) / columns - 0.5f) < 1f / 6f) MusicLevels.HIGH else MusicLevels.MID
+    }
+
+    /**
      * The colour of each cell of a grid of [columns] by [rows] laid over the cover, row by row
      * from the top left, as opaque ARGB: the cell's average, made [COLOUR] times as colourful.
      * [pixels] is the cover, [width] by [height], row by row.
@@ -198,50 +240,264 @@ object LivingField {
     /** How many main colours a cover is reduced to: one for each range. */
     const val MAINS = MusicLevels.BANDS
 
-    /** Two colours count as unlike when their channels differ by this much in all, of 765. */
-    private const val UNLIKE = 90
+    /** The colour wheel is cut into this many parts to find a cover's hues: fifteen degrees each. */
+    private const val HUES = 24
+
+    /** A hue counts when it weighs this much of the heaviest. Less is a speck, or the fringe where two colours meet. */
+    private const val WORTH = 0.08f
+
+    /** A pixel has a hue when it is at least this colourful, in OKLab's measure (a pure red is 0.26). Under it, it is a grey. */
+    private const val HUED = 0.02f
+
+    /** The cover is a coloured one when this much of it has a hue at all. Less, and it is a grey cover with an accent. */
+    private const val COLOURED = 0.15f
+
+    /** White, or nearly, is a colour of the cover's when this much of the cover is that. */
+    private const val LIGHT_WORTH = 0.06f
 
     /**
-     * The cover's main colours, strongest first: [MAINS] of them, each unlike the others. The
-     * other way of colouring the picture, for which the cover is a palette and not a picture: the
-     * strongest colour goes to the bass, the next to the voice, the third to the top.
+     * A main colour's lightest channel is at least this, of 255: a navy is shown as a blue, or
+     * its range could not be seen to light up. A grey is held to less, so that a black cover
+     * still looks like one.
+     */
+    private const val BODY = 150
+    private const val GREY_BODY = 96
+
+    /** Two colours this far apart or less ([apart]) cannot be told from each other once they are blurred and moving. */
+    private const val TOO_ALIKE = 0.07f
+
+    /** One colour a cover could be told by: how much of the cover's colour it is, and where it lies in OKLab. */
+    private class Candidate(val color: Int, val weight: Float) {
+        val lab = FloatArray(3).also { oklab((color shr 16) and 0xff, (color shr 8) and 0xff, color and 0xff, it) }
+    }
+
+    /**
+     * How far apart two colours look, with their light counting for half. The picture lights
+     * every colour up and down with the music, so a dark red on a kick is a light red at rest:
+     * what tells two ranges apart for good is their hue and how colourful they are.
+     */
+    private fun apart(x: Candidate, y: Candidate): Float {
+        val light = 0.5f * (x.lab[0] - y.lab[0])
+        val a = x.lab[1] - y.lab[1]
+        val b = x.lab[2] - y.lab[2]
+        return sqrt(light * light + a * a + b * b)
+    }
+
+    /**
+     * The cover's main colours, one for each range: the bass's, the voice's, the top's. The other
+     * way of colouring the picture, for which the cover is a palette and not a picture.
      *
-     * Strongest is the most colourful that is not nearly black, as for the glow, and not the most
-     * common: on most covers the most common colour is the black round the subject. A cover with
-     * fewer than three colours to tell apart is filled up with shades of its first, so the ranges
-     * can still be told from each other.
+     * The cover's hues are weighed round a colour wheel on which equal steps look equally far
+     * apart (OKLab's), a vivid pixel for more than a dull one. The heaviest is the bass's, which
+     * has the most of the screen, so that the picture as a whole is the cover's colour. The other
+     * two are the pair, out of the cover's other hues and its white if it has any, that leaves
+     * the three furthest apart from each other ([apart]): they are there to tell three parts of
+     * the sound from each other, and that is all they are chosen for. Of that pair the lighter
+     * goes to the top of the spectrum and the other to the voice.
+     *
+     * It used to take the strongest of an eight by eight grid's averages that differed by so much
+     * in their channels, which on a cover of magenta and green gave a magenta, a pink and a
+     * green, and nobody could tell which of the first two was moving.
+     *
+     * A cover with too few colours for that is filled up with neighbours of its own hue. One with
+     * hardly any hue is a grey cover: its grey takes the bass and whatever colour it has is the
+     * accent. One with none gives three greys.
      */
     fun mainColours(pixels: IntArray, width: Int, height: Int): IntArray {
         if (width <= 0 || height <= 0 || pixels.size < width * height) return IntArray(MAINS) { GREY }
-        val picked = ArrayList<Int>(MAINS)
-        for (cell in cells(pixels, width, height, 8, 8).sortedByDescending { strength(it) }) {
-            if (picked.size == MAINS) break
-            if (picked.none { unlike(it, cell) < UNLIKE }) picked += cell
+        val weight = FloatArray(HUES)
+        val reds = FloatArray(HUES)
+        val greens = FloatArray(HUES)
+        val blues = FloatArray(HUES)
+        var seen = 0
+        var coloured = 0
+        var lights = 0
+        val light = LongArray(3)
+        var greys = 0
+        val grey = LongArray(3)
+        val lab = FloatArray(3)
+        // some four thousand pixels say as much as all of them
+        val stride = max(1, sqrt(width.toFloat() * height / 4096f).toInt())
+        var y = 0
+        while (y < height) {
+            var x = 0
+            while (x < width) {
+                val p = pixels[y * width + x]
+                val r = (p shr 16) and 0xff
+                val g = (p shr 8) and 0xff
+                val b = p and 0xff
+                oklab(r, g, b, lab)
+                val chroma = sqrt(lab[1] * lab[1] + lab[2] * lab[2])
+                seen++
+                if (chroma >= HUED) {
+                    val degrees = Math.toDegrees(atan2(lab[2].toDouble(), lab[1].toDouble())).toFloat().let { if (it < 0f) it + 360f else it }
+                    val bin = Math.round(degrees * HUES / 360f) % HUES
+                    weight[bin] += chroma
+                    reds[bin] += chroma * r
+                    greens[bin] += chroma * g
+                    blues[bin] += chroma * b
+                    coloured++
+                } else if (lab[0] >= 0.82f) {
+                    lights++
+                    light[0] += r.toLong(); light[1] += g.toLong(); light[2] += b.toLong()
+                } else {
+                    greys++
+                    grey[0] += r.toLong(); grey[1] += g.toLong(); grey[2] += b.toLong()
+                }
+                x += stride
+            }
+            y += stride
         }
-        val first = picked[0]
-        if (picked.size < 2) picked += lit(first, 0.62f)
-        if (picked.size < 3) picked += lit(first, 1.45f).let { if (unlike(it, first) < 12) lit(first, 0.35f) else it }
-        return IntArray(MAINS) { colourful(picked[it], COLOUR) }
+
+        // A hue's weight and colour take in the parts of the wheel either side of it.
+        fun around(bin: Int) = weight[bin] + 0.6f * (weight[(bin + HUES - 1) % HUES] + weight[(bin + 1) % HUES])
+        fun colourOf(bin: Int): Int {
+            var w = 0f
+            var r = 0f
+            var g = 0f
+            var b = 0f
+            for (near in intArrayOf((bin + HUES - 1) % HUES, bin, (bin + 1) % HUES)) {
+                w += weight[near]; r += reds[near]; g += greens[near]; b += blues[near]
+            }
+            return withBody(colourful(argb((r / w).toInt(), (g / w).toInt(), (b / w).toInt()), 1.15f), BODY)
+        }
+        val heaviest = (0 until HUES).maxByOrNull { around(it) }?.takeIf { around(it) > 0f }
+        val hues = if (heaviest == null) emptyList() else
+            (0 until HUES).filter { weight[it] > 0f && around(it) >= WORTH * around(heaviest) }.map { Candidate(colourOf(it), around(it)) }
+        // White weighs as a colour a third as vivid as a pure one would: a cover that is a fifth white has a white.
+        val white = if (lights >= LIGHT_WORTH * seen) {
+            Candidate(argb(min(232, (light[0] / lights).toInt()), min(232, (light[1] / lights).toInt()), min(232, (light[2] / lights).toInt())), lights * 0.08f)
+        } else null
+        val dull = if (greys > 0) withBody(colourful(argb((grey[0] / greys).toInt(), (grey[1] / greys).toInt(), (grey[2] / greys).toInt()), 0f), GREY_BODY) else null
+
+        val bass: Int
+        val others: List<Candidate>
+        if (heaviest == null || coloured < COLOURED * seen) {
+            // A grey cover: its grey, or its white when there is more of that, and what else it has.
+            val whiter = white != null && (dull == null || lights > greys)
+            bass = if (whiter) white!!.color else dull ?: GREY
+            others = hues + listOfNotNull(white.takeUnless { whiter }, dull?.takeIf { whiter }?.let { Candidate(it, greys * 0.08f) })
+        } else {
+            bass = colourOf(heaviest)
+            others = hues.filter { it.color != bass } + listOfNotNull(white)
+        }
+        val first = Candidate(bass, 0f)
+
+        // The pair that leaves the three furthest apart; of pairs about as far apart, the heavier.
+        var pair: Pair<Candidate, Candidate>? = null
+        var pairScore = 0f
+        for (i in others.indices) for (j in i + 1 until others.size) {
+            val least = min(apart(first, others[i]), min(apart(first, others[j]), apart(others[i], others[j])))
+            val score = Math.round(least / 0.03f) + 0.5f * min(1f, (others[i].weight + others[j].weight) / (others.maxOf { it.weight } * 2f))
+            if (least > TOO_ALIKE && score > pairScore) {
+                pairScore = score
+                pair = others[i] to others[j]
+            }
+        }
+        val a: Int
+        val b: Int
+        if (pair != null) {
+            a = pair.first.color
+            b = pair.second.color
+        } else {
+            // One other colour worth the name at most. The rest are the bass's neighbours: a grey's
+            // are greys a step lighter or darker, a hue's a little way round the wheel one way and
+            // lighter the other.
+            val other = others.filter { apart(first, it) > TOO_ALIKE }.maxByOrNull { apart(first, it) }?.color
+            fun step(from: Int, by: Float) = if (luma(from) > 150) lit(from, 1f / by) else lit(from, by)
+            if (isGrey(bass)) {
+                a = other ?: step(bass, 1.6f)
+                b = if (other != null && isGrey(other)) between(bass, other, 0.5f) else step(bass, if (other == null) 1.3f else 1.6f)
+            } else {
+                a = other ?: turned(bass, 40f)
+                b = between(turned(bass, -30f), 0xffffffff.toInt(), 0.45f)
+            }
+        }
+        return if (luma(a) >= luma(b)) intArrayOf(bass, b, a) else intArrayOf(bass, a, b)
+    }
+
+    private fun isGrey(color: Int): Boolean {
+        val r = (color shr 16) and 0xff
+        val g = (color shr 8) and 0xff
+        val b = color and 0xff
+        return max(r, max(g, b)) - min(r, min(g, b)) < 12
+    }
+
+    /** What an sRGB channel is in light, 0 to 1, for each of its 256 values. */
+    private val LINEAR = FloatArray(256) {
+        val c = it / 255.0
+        (if (c <= 0.04045) c / 12.92 else Math.pow((c + 0.055) / 1.055, 2.4)).toFloat()
     }
 
     /**
-     * The patches of a grid of [columns] by [rows] coloured from [mainColours]: each row takes the
-     * colour of the range it breathes with, a little lighter or darker from patch to patch so that
-     * a row is not one flat band.
+     * A colour in OKLab, into [into]: how light it is from 0 to 1, then its two colour axes. The
+     * angle of those two is its hue and their length how colourful it is, and both go by what is
+     * seen: equal steps look equally far apart, which the hue of red, green and blue does not do.
      */
-    fun mainPatches(pixels: IntArray, width: Int, height: Int, columns: Int, rows: Int): IntArray {
-        val mains = mainColours(pixels, width, height)
-        return IntArray(columns * rows) {
+    private fun oklab(r: Int, g: Int, b: Int, into: FloatArray) {
+        val red = LINEAR[r]
+        val green = LINEAR[g]
+        val blue = LINEAR[b]
+        val l = Math.cbrt(0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue)
+        val m = Math.cbrt(0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue)
+        val s = Math.cbrt(0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue)
+        into[0] = (0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s).toFloat()
+        into[1] = (1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s).toFloat()
+        into[2] = (0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s).toFloat()
+    }
+
+    /**
+     * The patches of a grid of [columns] by [rows] coloured from [mains] (see [mainColours]): each
+     * takes the colour of the range it breathes with, a little lighter or darker from patch to
+     * patch so that a row is not one flat band.
+     */
+    fun mainPatches(mains: IntArray, columns: Int, rows: Int): IntArray =
+        IntArray(columns * rows) {
             val row = it / columns
             val column = it % columns
-            lit(mains[bandOfRow(row, rows)], 0.90f + 0.05f * ((column * 2 + row) % 5))
+            lit(mains[bandOfCell(column, row, columns, rows)], 0.92f + 0.04f * ((column * 2 + row) % 5))
+        }
+
+    /** [color] made lighter, hue and all, until its lightest channel is [body]. One that is lighter already is left alone, and black is a grey. */
+    private fun withBody(color: Int, body: Int): Int {
+        val most = max((color shr 16) and 0xff, max((color shr 8) and 0xff, color and 0xff))
+        return when {
+            most >= body -> color
+            most == 0 -> argb(body, body, body)
+            else -> lit(color, body / most.toFloat())
         }
     }
 
-    private fun unlike(a: Int, b: Int): Int =
-        kotlin.math.abs(((a shr 16) and 0xff) - ((b shr 16) and 0xff)) +
-            kotlin.math.abs(((a shr 8) and 0xff) - ((b shr 8) and 0xff)) +
-            kotlin.math.abs((a and 0xff) - (b and 0xff))
+    /** [color] with its hue turned [degrees] round the wheel, as light and as colourful as it was. */
+    fun turned(color: Int, degrees: Float): Int {
+        val r = (color shr 16) and 0xff
+        val g = (color shr 8) and 0xff
+        val b = color and 0xff
+        val most = max(r, max(g, b))
+        val chroma = most - min(r, min(g, b))
+        if (chroma == 0) return color
+        val was = when (most) {
+            r -> ((g - b).toFloat() / chroma).let { if (it < 0f) it + 6f else it }
+            g -> (b - r).toFloat() / chroma + 2f
+            else -> (r - g).toFloat() / chroma + 4f
+        }
+        val sixth = ((was + degrees / 60f) % 6f + 6f) % 6f
+        // the three channels of a hue: full, none, and one on its way between them
+        val part = chroma * (1f - abs(sixth % 2f - 1f))
+        val least = (most - chroma).toFloat()
+        val (red, green, blue) = when (sixth.toInt()) {
+            0 -> Triple(chroma.toFloat(), part, 0f)
+            1 -> Triple(part, chroma.toFloat(), 0f)
+            2 -> Triple(0f, chroma.toFloat(), part)
+            3 -> Triple(0f, part, chroma.toFloat())
+            4 -> Triple(part, 0f, chroma.toFloat())
+            else -> Triple(chroma.toFloat(), 0f, part)
+        }
+        return argb((red + least + 0.5f).toInt(), (green + least + 0.5f).toInt(), (blue + least + 0.5f).toInt())
+    }
+
+    /** How light a colour looks, 0 to 255. */
+    fun luma(color: Int): Int = (299 * ((color shr 16) and 0xff) + 587 * ((color shr 8) and 0xff) + 114 * (color and 0xff)) / 1000
 
     /** The plain average colour of each cell, row by row from the top left. */
     private fun cells(pixels: IntArray, width: Int, height: Int, columns: Int, rows: Int): IntArray {
@@ -376,9 +632,58 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     /** The other setting, 0 to 1 (see [LivingField.ease]). */
     var smoothing = LivingField.DEFAULT_SMOOTHING
 
+    /**
+     * True when the picture is coloured from the cover's main colours, one to a range: each range
+     * then moves its own part of the picture and no other (see [LivingField.OWN_SHARE]).
+     */
+    var separate = false
+
+    /** The range each patch breathes with. */
+    private val bands = IntArray(count) { LivingField.bandOfCell(it % columns, it / columns, columns, rows) }
+
+    /**
+     * The patches in the order they are drawn. As they come, for a picture of the cover. With a
+     * colour to each range the bass goes down first, the voice over it and the top of the spectrum
+     * last: a kick swells the bass's patches to nearly twice their size, and drawn in rows they
+     * rolled over the voice's and the top's, so that on every beat the whole picture was the bass.
+     */
+    private val asTheyCome = IntArray(count) { it }
+    private val bassFirst = asTheyCome.sortedBy { bands[it] }.toIntArray()
+    val order: IntArray get() = if (separate) bassFirst else asTheyCome
+
     /** The aura round the cover, and how far each of its points is taken, 0 to 1. */
     val aura = LivingField.aura(columns, rows)
     val auraShown = FloatArray(aura.size)
+
+    // Where the cover is in the picture, in parts of its width and height. Only the aura asks.
+    private var coverLeft = 0f
+    private var coverTop = 0f
+    private var coverRight = 1f
+    private var coverBottom = 1f
+
+    /** Says where the cover is, in parts of the picture's width and height. */
+    fun coverAt(left: Float, top: Float, right: Float, bottom: Float) {
+        coverLeft = left
+        coverTop = top
+        coverRight = right
+        coverBottom = bottom
+    }
+
+    /**
+     * The patch a point of the aura takes its colour and its range from. For a picture of the
+     * cover, the part of the cover beside it. With a colour to each range, the patch it sits on:
+     * the cover hides most of the rows it stands in front of, and its edge is where they can be
+     * seen, so down the cover's sides the halo runs through the ranges as the rows behind it do.
+     */
+    fun auraPatch(i: Int): Int {
+        val point = aura[i]
+        if (!separate) return point.patch
+        val column = ((coverLeft + point.x * (coverRight - coverLeft)) * columns).toInt().coerceIn(0, columns - 1)
+        val row = ((coverTop + point.y * (coverBottom - coverTop)) * rows).toInt().coerceIn(0, rows - 1)
+        return row * columns + column
+    }
+
+    private fun auraBand(i: Int): Int = if (separate) bands[auraPatch(i)] else aura[i].band
 
     /** Whether there is a cover on screen to put the aura round. Without one it fades away. */
     var coverThere = false
@@ -406,14 +711,18 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     /** The colour of the glow on the bottom edge: the cover's strongest. */
     val glow get() = colors[count + 1]
 
-    /** The next cover's patches. The first cover is shown at once, later ones are turned into. */
-    fun turnTo(patches: IntArray) {
+    /**
+     * The next cover's patches. The first cover is shown at once, later ones are turned into.
+     * [glow] is the colour the glow on the top and bottom edges is made from: the bass's own when
+     * the ranges each have one, and left out, the strongest of the patches.
+     */
+    fun turnTo(patches: IntArray, glow: Int? = null) {
         val next = IntArray(count + 2)
         patches.copyInto(next, endIndex = minOf(count, patches.size))
         for (i in patches.size until count) next[i] = LivingField.GREY
         val cover = next.copyOf(count)
         next[count] = LivingField.lit(LivingField.average(cover), LivingField.REST_LIGHT)
-        next[count + 1] = LivingField.lit(LivingField.strongest(cover), LivingField.GLOW_LIGHT)
+        next[count + 1] = LivingField.lit(glow ?: LivingField.strongest(cover), LivingField.GLOW_LIGHT)
         wanted = next
         if (!coverKnown) {
             wanted.copyInto(colors)
@@ -439,15 +748,20 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
             val level = levels?.get(band)?.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0f
             val hit = max(0f, level - usual[band])
             usual[band] += (level - usual[band]) * part(dt, LivingField.USUAL_OVER)
-            val to = min(1f, LivingField.LEVEL_SHARE * level + LivingField.HIT_SHARE * hit)
+            val steady = if (separate) LivingField.OWN_LEVEL[band] else LivingField.LEVEL_SHARE
+            val to = min(1f, steady * level + LivingField.HIT_SHARE * hit)
             val within = if (to > shown[band]) LivingField.RISE[band] else LivingField.FALL[band]
             shown[band] += (to - shown[band]) * part(dt, within * ease)
         }
         for (i in aura.indices) {
             val point = aura[i]
-            val to = max(shown[MusicLevels.BASS], 0.6f * shown[point.band] * LivingField.SHARE[point.band])
-            // later and softer the further round the cover from where the kick lands
-            val within = if (to > auraShown[i]) 0.012f + 0.11f * point.far else 0.20f + 0.16f * point.far
+            val band = auraBand(i)
+            val to = if (separate) shown[band] * LivingField.OWN_SHARE[band]
+            else max(shown[MusicLevels.BASS], 0.6f * shown[band] * LivingField.SHARE[band])
+            // Later and softer the further round the cover from where the kick lands. The voice
+            // and the top have no place they land: they come all along their stretch at once.
+            val far = if (separate && band != MusicLevels.BASS) 0.15f else point.far
+            val within = if (to > auraShown[i]) 0.012f + 0.11f * far else 0.20f + 0.16f * far
             auraShown[i] += (to - auraShown[i]) * part(dt, within * ease)
         }
         auraPresence += ((if (coverThere) 1f else 0f) - auraPresence) * part(dt, 0.12f)
@@ -504,22 +818,35 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     /** Pushed away from the middle on a kick. */
     private fun lean(at: Float) = 0.5f + (at - 0.5f) * (1f + LivingField.LEAN * reach * shown[MusicLevels.BASS])
 
-    /** How far patch [i] is taken, 0 to 1: by the range its row breathes with, and by the bass wherever it is. */
+    /**
+     * How far patch [i] is taken, 0 to 1: by the range it breathes with, and by the bass wherever
+     * it is. Or by its own range and nothing else, when each range has a colour to be told by.
+     */
     private fun taken(i: Int): Float {
-        val band = LivingField.bandOfRow(i / columns, rows)
-        return max(shown[band] * LivingField.SHARE[band], LivingField.KICK_EVERYWHERE * shown[MusicLevels.BASS])
+        val band = bands[i]
+        return if (separate) shown[band] * LivingField.OWN_SHARE[band]
+        else max(shown[band] * LivingField.SHARE[band], LivingField.KICK_EVERYWHERE * shown[MusicLevels.BASS])
     }
 
     fun radius(i: Int): Float {
-        val swell = min(LivingField.MOST_SWELL, reach * (LivingField.SWELL * taken(i) + 0.08f * shown[MusicLevels.BASS]))
+        val band = bands[i]
+        val swell = if (separate) {
+            // the push of a kick is the bass's own patches' to show
+            LivingField.SWELL * LivingField.OWN_SWELL[band] * taken(i) + (if (band == MusicLevels.BASS) 0.08f * shown[MusicLevels.BASS] else 0f)
+        } else {
+            LivingField.SWELL * taken(i) + 0.08f * shown[MusicLevels.BASS]
+        }
         val ripple = 0.04f * sin(drift * 0.31f + i * (2f * PI.toFloat() / 5f))
-        return LivingField.REST_RADIUS * (1f + swell + ripple)
+        return LivingField.REST_RADIUS * (1f + min(LivingField.MOST_SWELL, reach * swell) + ripple)
     }
 
     /** Lighter on a beat, and more colourful with it: light alone washes a colour out towards white. */
     fun color(i: Int): Int {
+        val band = bands[i]
         val by = reach * taken(i)
-        val light = min(LivingField.MOST_LIGHT, LivingField.REST_LIGHT + LivingField.FULL_LIGHT * by)
+        val rest = if (separate) LivingField.OWN_REST[band] else LivingField.REST_LIGHT
+        val full = if (separate) LivingField.FULL_LIGHT * LivingField.OWN_LIGHT[band] else LivingField.FULL_LIGHT
+        val light = min(LivingField.MOST_LIGHT, rest + full * by)
         return LivingField.lit(LivingField.colourful(colors[i], 1f + 0.18f * min(by, 3f)), light)
     }
 
@@ -536,6 +863,6 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
 
     fun auraColor(i: Int): Int {
         val by = min(reach * auraShown[i], 3f)
-        return LivingField.lit(LivingField.colourful(colors[aura[i].patch], 1.15f + 0.15f * by), min(LivingField.MOST_LIGHT, 1f + 0.30f * by))
+        return LivingField.lit(LivingField.colourful(colors[auraPatch(i)], 1.15f + 0.15f * by), min(LivingField.MOST_LIGHT, 1f + 0.30f * by))
     }
 }
