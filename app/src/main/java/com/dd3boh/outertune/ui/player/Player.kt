@@ -208,6 +208,7 @@ import com.dd3boh.outertune.constants.DarkModeKey
 import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.PlayerHorizontalPadding
 import com.dd3boh.outertune.constants.QueuePeekHeight
 import com.dd3boh.outertune.constants.SeekIncrement
@@ -415,10 +416,15 @@ fun BottomSheetPlayer(
      * colours, so it still feels like the album, and it cannot pixelate because there are no pixels
      * to stretch. The preference is left alone, so a phone keeps whatever was chosen.
      */
-    val effectivePlayerBackground = if (playerBackground == PlayerBackgroundStyle.BLUR && context.supportsWideScreen()) {
+    // LIVING is a prototype: a build that does not offer it does not draw it either, wherever the
+    // preference came from (a backup made on a build that does).
+    val chosenPlayerBackground =
+        if (playerBackground == PlayerBackgroundStyle.LIVING && !Unreleased.LIVING_BACKGROUND) DEFAULT_PLAYER_BACKGROUND
+        else playerBackground
+    val effectivePlayerBackground = if (chosenPlayerBackground == PlayerBackgroundStyle.BLUR && context.supportsWideScreen()) {
         PlayerBackgroundStyle.GRADIENT
     } else {
-        playerBackground
+        chosenPlayerBackground
     }
 
     // gradient colours
@@ -680,6 +686,25 @@ fun BottomSheetPlayer(
                 val artworkAlpha = lerp(1f, 0.5f, glassT)
                 val gradientAlpha = lerp(0.8f, 0.4f, glassT)
                 val blurRadius = lerp(if (useDarkTheme) 150f else 100f, 100f, glassT).dp
+                if (effectivePlayerBackground == PlayerBackgroundStyle.LIVING) {
+                    // Not inside the AnimatedContent below: it turns one cover's colours into the
+                    // next one's by itself, and a crossfade would restart its motion at every song.
+                    LivingBackground(
+                        cover = mediaMetadata?.getThumbnailModel(100, 100),
+                        tap = playerConnection.service.levelTap,
+                        playing = isPlaying,
+                        onScreen = !state.isCollapsed && !state.isDismissed,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .alpha(artworkAlpha)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(overlayColor)
+                    )
+                }
+
                 AnimatedContent(
                     targetState = mediaMetadata,
                     transitionSpec = {

@@ -59,6 +59,7 @@ import com.dd3boh.outertune.constants.HighContrastKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.BackAnimationsKey
 import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
@@ -140,7 +141,11 @@ fun ColumnScope.ThemePlayerFrag() {
         defaultValue = DEFAULT_PLAYER_BACKGROUND
     )
     val availableBackgroundStyles = PlayerBackgroundStyle.entries.filter {
-        it != PlayerBackgroundStyle.BLUR || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        when (it) {
+            PlayerBackgroundStyle.BLUR -> Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+            PlayerBackgroundStyle.LIVING -> Unreleased.LIVING_BACKGROUND
+            else -> true
+        }
     }
     val (glassIntensity, onGlassIntensityChange) = rememberPreference(
         PlayerGlassIntensityKey,
@@ -165,6 +170,7 @@ fun ColumnScope.ThemePlayerFrag() {
                 PlayerBackgroundStyle.FOLLOW_THEME -> stringResource(R.string.player_background_default)
                 PlayerBackgroundStyle.GRADIENT -> stringResource(R.string.player_background_gradient)
                 PlayerBackgroundStyle.BLUR -> stringResource(R.string.player_background_blur)
+                PlayerBackgroundStyle.LIVING -> stringResource(R.string.player_background_living)
             }
         },
         values = availableBackgroundStyles

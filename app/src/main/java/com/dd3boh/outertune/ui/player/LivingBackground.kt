@@ -1,0 +1,242 @@
+/*
+ * Copyright (C) 2026 InterTune
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+package com.dd3boh.outertune.ui.player
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Paint
+import android.graphics.RectF
+import android.os.Build
+import android.provider.Settings
+import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.Constraints
+import androidx.core.graphics.createBitmap
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import coil3.imageLoader
+import coil3.request.ImageRequest
+import coil3.request.allowHardware
+import coil3.toBitmap
+import com.dd3boh.outertune.extensions.isPowerSaver
+import com.dd3boh.outertune.playback.LevelTap
+import com.dd3boh.outertune.playback.MusicLevels
+import com.dd3boh.outertune.utils.coilCoroutine
+import kotlinx.coroutines.withContext
+import kotlin.math.max
+import kotlin.math.min
+
+/**
+ * The player's living background: the cover reduced to patches of colour that breathe with the
+ * music. LivingField.kt says what is drawn where; this draws it.
+ *
+ * It is drawn an eighth of the size and stretched, with a slight blur where the system has one.
+ * There is nothing in the picture finer than a patch, so nothing is lost, and some twenty soft
+ * discs over a whole phone screen at every frame would be several times the screen in fill for no
+ * gain.
+ *
+ * Frames are asked for only while there is something to move: the player open, the app in view,
+ * and music playing or the picture still settling after it stopped. A paused player is a still
+ * picture and costs what the plain blurred cover costs. With battery saver on, or animations
+ * turned off in the system, it does not move at all.
+ *
+ * @param cover what Coil is given for the cover; the small one the blurred background uses
+ * @param tap where the levels come from, or null to drift without them
+ * @param onScreen false while the player is closed to its mini player
+ */
+@Composable
+fun LivingBackground(
+    cover: Any?,
+    tap: LevelTap?,
+    playing: Boolean,
+    onScreen: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val look = remember { Look() }
+
+    // Three patches along the short side of the window and as many along the long side as keeps
+    // them round. A window that changes shape starts over with the new grid.
+    val window = LocalWindowInfo.current.containerSize
+    val upright = window.height >= window.width
+    val along = LivingField.along(
+        long = max(window.width, window.height).toFloat(),
+        short = min(window.width, window.height).toFloat(),
+    )
+    val motion = remember(upright, along) {
+        if (upright) LivingMotion(LivingField.ACROSS, along) else LivingMotion(along, LivingField.ACROSS)
+    }
+
+    // Read by the drawing alone, so a new frame redraws the canvas and recomposes nothing.
+    var frame by remember { mutableLongStateOf(0L) }
+    // Counts the covers, so a cover that changes while nothing moves starts the frames again.
+    var covers by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(cover, motion) {
+        val patches = withContext(coilCoroutine) {
+            val bitmap = context.imageLoader.execute(
+                ImageRequest.Builder(context)
+                    .data(cover)
+                    .allowHardware(false)
+                    .build()
+            ).image?.toBitmap() ?: return@withContext null
+            val pixels = IntArray(bitmap.width * bitmap.height)
+            bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+            LivingField.patches(pixels, bitmap.width, bitmap.height, motion.columns, motion.rows)
+        } ?: return@LaunchedEffect
+        motion.turnTo(patches)
+        covers++
+    }
+
+    LaunchedEffect(onScreen, playing, covers, motion, lifecycleOwner) {
+        if (!onScreen) return@LaunchedEffect
+        if (context.wantsStillness()) {
+            motion.settle()
+            frame++
+            return@LaunchedEffect
+        }
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            if (playing) tap?.watch()
+            try {
+                val levels = FloatArray(MusicLevels.BANDS)
+                var last = 0L
+                var shownAt = 0L
+                while (playing || !motion.atRest()) {
+                    withFrameNanos { now ->
+                        val seconds = if (last == 0L) 0f else (now - last) / 1e9f
+                        last = now
+                        val heard = levels.takeIf { playing && tap?.now(it) == true }
+                        motion.step(seconds, heard, playing)
+                        // The picture is soft and slow: it is redrawn at most FRAMES_A_SECOND times,
+                        // whatever the screen can do, because everything drawn over it that looks
+                        // through it (the glass panels) is redrawn with it.
+                        if (now - shownAt >= FRAME_NANOS) {
+                            shownAt = now
+                            frame = now
+                        }
+                    }
+                }
+                // where it came to rest, in case the last step fell between two redraws
+                frame = last + 1
+            } finally {
+                if (playing) tap?.unwatch()
+            }
+        }
+    }
+
+    Canvas(modifier.drawnSmall()) {
+        @Suppress("UNUSED_VARIABLE")
+        val redrawnAt = frame
+        drawIntoCanvas { canvas ->
+            val native = canvas.nativeCanvas
+            native.drawColor(motion.under)
+            val cellWidth = size.width / motion.columns
+            val cellHeight = size.height / motion.rows
+            for (i in 0 until motion.count) {
+                val radius = motion.radius(i)
+                look.disc(native, motion.x(i) * size.width, motion.y(i) * size.height, radius * cellWidth, radius * cellHeight, motion.color(i), 1f)
+            }
+            // the glow sits on the bottom edge, so half of it is below the screen
+            look.disc(native, size.width / 2, size.height, size.width * 0.8f, size.height * motion.glowHeight(), motion.glow, motion.glowStrength())
+        }
+    }
+}
+
+/** What the drawing keeps between frames, so that a frame allocates nothing. */
+private class Look {
+    private val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+    private val into = RectF()
+
+    /**
+     * A disc that fades to nothing at its rim, as transparency alone: drawn through a paint, it
+     * takes the paint's colour. One small bitmap stretched to every size, where a gradient would
+     * be a new shader for each of some twenty discs sixty times a second.
+     */
+    private val soft: Bitmap = run {
+        val side = 64
+        val alphas = IntArray(side * side) {
+            val x = (it % side + 0.5f) / side * 2 - 1
+            val y = (it / side + 0.5f) / side * 2 - 1
+            val inside = max(0f, 1f - (x * x + y * y))
+            // level in the middle and at the rim, steepest half way
+            ((inside * inside * 255).toInt() shl 24)
+        }
+        createBitmap(side, side, Bitmap.Config.ALPHA_8).apply { setPixels(alphas, 0, side, 0, 0, side, side) }
+    }
+
+    fun disc(canvas: android.graphics.Canvas, x: Float, y: Float, halfWidth: Float, halfHeight: Float, color: Int, strength: Float) {
+        paint.color = color
+        paint.alpha = (strength.coerceIn(0f, 1f) * 255).toInt()
+        into.set(x - halfWidth, y - halfHeight, x + halfWidth, y + halfHeight)
+        canvas.drawBitmap(soft, null, into, paint)
+    }
+}
+
+/** The picture is redrawn at most this often. A little under the 33.3 ms of every second frame at 60 Hz, so that one is not missed by a hair. */
+private const val FRAMES_A_SECOND = 30
+private const val FRAME_NANOS = 1_000_000_000L / FRAMES_A_SECOND - 2_000_000L
+
+/** The picture is drawn at one part in this many of its size, each way. */
+private const val SHRINK = 8
+
+/** How much the small picture is blurred before it is stretched, in its own pixels. Hides the steps of the stretching. */
+private const val SMOOTHING = 2.5f
+
+/**
+ * Lays the content out [SHRINK] times smaller than the room it is given and stretches it back to
+ * fill that room, through a layer of its own so that it is the small picture that gets stretched
+ * and not its drawing that gets scaled.
+ */
+private fun Modifier.drawnSmall(): Modifier = composed {
+    var stretch by remember { mutableStateOf(Offset(1f, 1f)) }
+    layout { measurable, constraints ->
+        if (!constraints.hasBoundedWidth || !constraints.hasBoundedHeight) {
+            val placeable = measurable.measure(constraints)
+            return@layout layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+        }
+        val width = constraints.maxWidth
+        val height = constraints.maxHeight
+        val small = measurable.measure(Constraints.fixed(max(1, width / SHRINK), max(1, height / SHRINK)))
+        stretch = Offset(width / small.width.toFloat(), height / small.height.toFloat())
+        layout(width, height) { small.place(0, 0) }
+    }.graphicsLayer {
+        scaleX = stretch.x
+        scaleY = stretch.y
+        transformOrigin = TransformOrigin(0f, 0f)
+        compositingStrategy = CompositingStrategy.Offscreen
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            renderEffect = BlurEffect(SMOOTHING, SMOOTHING, TileMode.Clamp)
+        }
+    }
+}
+
+/** Battery saver, or animations turned off in the system's accessibility or developer settings. */
+private fun Context.wantsStillness(): Boolean =
+    isPowerSaver() || Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f

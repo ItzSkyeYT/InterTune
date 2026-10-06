@@ -13,8 +13,12 @@ enum class DarkMode {
     ON, OFF, AUTO
 }
 
+/**
+ * LIVING is the blurred cover moving with the music (ui/player/LivingBackground.kt). It is offered
+ * and drawn only where Unreleased.LIVING_BACKGROUND says so; anywhere else it counts as the default.
+ */
 enum class PlayerBackgroundStyle {
-    FOLLOW_THEME, GRADIENT, BLUR
+    FOLLOW_THEME, GRADIENT, BLUR, LIVING
 }
 
 /**

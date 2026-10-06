@@ -409,6 +409,12 @@ class MusicService : MediaLibraryService(),
     private val sleepTimerNotification by lazy { SleepTimerNotification(this) }
 
     /**
+     * Measures the music for the player's living background, on its way into the audio output. It
+     * looks at nothing unless that background is on screen (LevelTap.wanted).
+     */
+    val levelTap = LevelTap()
+
+    /**
      * Applies gain on the PCM stream, which is the only way to exceed unity: player.volume is
      * clamped to [0,1]. Shared by both sink builders below so there is one instance whichever
      * decoder path is in use.
@@ -1974,6 +1980,7 @@ class MusicService : MediaLibraryService(),
                         )
                         .setAudioOffloadSupportProvider(if (!gaplessOffloadAllowed) OtOffloadSupportProvider(context) else DefaultAudioOffloadSupportProvider(context))
                         .build()
+                        .let { LevelTapAudioSink(it, levelTap) }
                 }
             }
                 .setEnableDecoderFallback(true)
@@ -2014,6 +2021,7 @@ class MusicService : MediaLibraryService(),
                         )
                         .setAudioOffloadSupportProvider(if (!gaplessOffloadAllowed) OtOffloadSupportProvider(context) else DefaultAudioOffloadSupportProvider(context))
                         .build()
+                        .let { LevelTapAudioSink(it, levelTap) }
                 }
             }.setEnableAudioFloatOutput(highPrecisionAudio)
         }

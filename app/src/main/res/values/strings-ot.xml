@@ -207,6 +207,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_background_blur">Blur</string>
     <string name="player_background_default">Follow theme</string>
     <string name="player_background_gradient">Gradient</string>
+    <!-- A prototype shown in debug builds only (Unreleased.LIVING_BACKGROUND): not for translators until it ships. -->
+    <string name="player_background_living" translatable="false">Living blur</string>
     <string name="player_background_style">Player background style</string>
     <string name="show_liked_and_downloaded_playlist">Show playlists for liked and downloaded songs in library</string>
     <string name="slim_navbar_title">Slim navbar</string>

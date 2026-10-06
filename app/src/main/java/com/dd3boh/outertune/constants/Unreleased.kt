@@ -58,4 +58,12 @@ object Unreleased {
      * along with the two checks that read it, in LookAndFeelSettings and rememberShareLink.
      */
     val SHARE_PAGE = BuildConfig.DEBUG
+
+    /**
+     * "Living blur" among the player background styles: the cover reduced to patches of colour
+     * that breathe with the music (LivingBackground, LevelTap). A prototype to look at, not agreed
+     * for any release. When it is: set this to true or delete it with the two checks that read
+     * it, in Player.kt and ThemeFrag, and make player_background_living translatable.
+     */
+    val LIVING_BACKGROUND = BuildConfig.DEBUG
 }
