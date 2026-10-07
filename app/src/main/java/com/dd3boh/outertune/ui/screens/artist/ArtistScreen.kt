@@ -9,16 +9,19 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -102,7 +105,11 @@ import com.dd3boh.outertune.ui.menu.YouTubeAlbumMenu
 import com.dd3boh.outertune.ui.menu.YouTubeArtistMenu
 import com.dd3boh.outertune.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
+import com.dd3boh.outertune.ui.utils.HeaderBesideList
+import com.dd3boh.outertune.ui.utils.Landscape
 import com.dd3boh.outertune.ui.utils.fadingEdge
+import com.dd3boh.outertune.ui.utils.paneInsets
+import com.dd3boh.outertune.ui.utils.rememberHeaderBeside
 import com.dd3boh.outertune.ui.utils.resize
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.ArtistViewModel
@@ -159,6 +166,9 @@ fun ArtistScreen(
         if (isLocalArtist) showLocal = true
     }
 
+    // On a phone on its side the head is not the first row of the list, where its picture was
+    // taller than the window, but stands beside the list in a half of its own (Landscape.kt).
+    val twoPanes = rememberHeaderBeside()
     val artistHead = @Composable {
         if (artistPage != null || libraryArtist != null) {
             val thumbnail = artistPage?.artist?.thumbnail ?: libraryArtist?.artist?.thumbnailUrl
@@ -169,7 +179,8 @@ fun ArtistScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .then(
-                            if (thumbnail != null) Modifier.aspectRatio(4f / 3) else Modifier
+                            if (thumbnail == null) Modifier
+                            else Modifier.aspectRatio(if (twoPanes) Landscape.HeaderPictureRatio else 4f / 3)
                         )
                 ) {
                     if (thumbnail != null) {
@@ -291,24 +302,16 @@ fun ArtistScreen(
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        LazyColumn(
-            state = lazyListState,
-            contentPadding = LocalPlayerAwareWindowInsets.current
-                .add(
-                    WindowInsets(
-                        top = -WindowInsets.systemBars.asPaddingValues()
-                            .calculateTopPadding() - AppBarHeight
-                    )
-                )
-                .asPaddingValues()
-        ) {
+        val listContent: LazyListScope.() -> Unit = {
             if (isLoading && artistPage == null && !showLocal) {
                 item(key = "shimmer") {
                     ArtistPagePlaceholder()
                 }
             } else {
-                item(key = "header") {
-                    artistHead()
+                if (!twoPanes) {
+                    item(key = "header") {
+                        artistHead()
+                    }
                 }
 
                 if (showLocal) {
@@ -561,6 +564,33 @@ fun ArtistScreen(
                 }
             }
         }
+        if (twoPanes) {
+            // The picture runs up under the status bar, as it does upright.
+            HeaderBesideList(
+                header = if (isLoading && artistPage == null && !showLocal) null else artistHead,
+                headerInsets = LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom),
+            ) { half ->
+                LazyColumn(
+                    state = lazyListState,
+                    contentPadding = paneInsets().asPaddingValues(),
+                    modifier = half,
+                    content = listContent,
+                )
+            }
+        } else {
+            LazyColumn(
+                state = lazyListState,
+                contentPadding = LocalPlayerAwareWindowInsets.current
+                    .add(
+                        WindowInsets(
+                            top = -WindowInsets.systemBars.asPaddingValues()
+                                .calculateTopPadding() - AppBarHeight
+                        )
+                    )
+                    .asPaddingValues(),
+                content = listContent,
+            )
+        }
         LazyColumnScrollbar(
             state = lazyListState,
         )
@@ -576,7 +606,8 @@ fun ArtistScreen(
         )
 
         FloatingTopBar(
-            title = if (!transparentAppBar) artistPage?.artist?.title else null,
+            // Not beside the head, which says the name already and never scrolls away.
+            title = if (!transparentAppBar && !twoPanes) artistPage?.artist?.title else null,
             navController = navController,
             actions = {
                 TopBarActions {

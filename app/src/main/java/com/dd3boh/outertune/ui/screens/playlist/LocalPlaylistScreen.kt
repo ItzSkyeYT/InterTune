@@ -153,6 +153,10 @@ import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import kotlin.math.roundToInt
+import androidx.compose.foundation.lazy.LazyListScope
+import com.dd3boh.outertune.ui.utils.HeaderBesideList
+import com.dd3boh.outertune.ui.utils.paneInsets
+import com.dd3boh.outertune.ui.utils.rememberHeaderBeside
 
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
@@ -458,11 +462,10 @@ fun LocalPlaylistScreen(
     ) {
         Log.v("LocalPlaylistScreen", "P_RC-2.1")
         ScrollToTopManager(navController, lazyListState)
-        LazyColumn(
-            state = lazyListState,
-            contentPadding = LocalPlayerAwareWindowInsets.current.union(WindowInsets.ime).asPaddingValues(),
-            modifier = Modifier.padding(bottom = if (inSelectMode) 64.dp else 0.dp)
-        ) {
+        // On a phone on its side the header is not the first row of the list, where it was all
+        // the window showed, but stands beside the list in a half of its own (Landscape.kt).
+        val twoPanes = rememberHeaderBeside()
+        val listContent: LazyListScope.() -> Unit = {
             Log.v("LocalPlaylistScreen", "P_RC-2.2")
             playlistWithSongs.first?.let { playlist ->
                 if (playlist.songCount == 0 || addMode) {
@@ -470,7 +473,7 @@ fun LocalPlaylistScreen(
                     // not even drawn, so it did not say which playlist you had just made and
                     // offered no way to put anything in it. The header stays, and the rest of the
                     // screen becomes the search for the first song.
-                    item(
+                    if (!twoPanes) item(
                         key = "playlist header",
                         contentType = CONTENT_TYPE_HEADER
                     ) {
@@ -597,7 +600,7 @@ fun LocalPlaylistScreen(
                     }
                 } else {
                     // playlist header
-                    if (!isSearching) {
+                    if (!isSearching && !twoPanes) {
                         item(
                             key = "playlist header",
                             contentType = CONTENT_TYPE_HEADER
@@ -709,6 +712,40 @@ fun LocalPlaylistScreen(
                 }
             }
         }
+        if (twoPanes) {
+            // Not while searching in the playlist: the list has the whole width then, as its
+            // header is gone from above it upright.
+            val playlist = playlistWithSongs.first?.takeIf { it.songCount == 0 || addMode || !isSearching }
+            HeaderBesideList(
+                header = playlist?.let {
+                    {
+                        LocalPlaylistHeader(
+                            onIdentifySong = { showRecognition = true },
+                            playlist = it,
+                            songs = playlistWithSongs.second,
+                            onShowEditDialog = { showEditDialog = true },
+                            onShowRemoveDownloadDialog = { showRemoveDownloadDialog = true },
+                            snackbarHostState = snackbarHostState,
+                            modifier = Modifier,
+                        )
+                    }
+                },
+            ) { half ->
+                LazyColumn(
+                    state = lazyListState,
+                    contentPadding = paneInsets().union(WindowInsets.ime).asPaddingValues(),
+                    modifier = half.padding(bottom = if (inSelectMode) 64.dp else 0.dp),
+                    content = listContent,
+                )
+            }
+        } else {
+            LazyColumn(
+                state = lazyListState,
+                contentPadding = LocalPlayerAwareWindowInsets.current.union(WindowInsets.ime).asPaddingValues(),
+                modifier = Modifier.padding(bottom = if (inSelectMode) 64.dp else 0.dp),
+                content = listContent,
+            )
+        }
 
         LazyColumnScrollbar(
             state = lazyListState,
@@ -722,7 +759,8 @@ fun LocalPlaylistScreen(
                         onValueChange = { query = it },
                         modifier = Modifier.focusRequester(focusRequester),
                     )
-                } else if (showTopBarTitle) {
+                } else if (showTopBarTitle && !twoPanes) {
+                    // Not beside the header, which says the name already and never scrolls away.
                     TopBarTitle(playlistWithSongs.first?.playlist?.name.orEmpty())
                 }
             },
