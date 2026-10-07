@@ -30,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
+import com.dd3boh.outertune.ui.utils.Landscape
+import com.dd3boh.outertune.ui.utils.LocalLandscape
 
 /**
  * The container every settings screen is built on.
@@ -40,6 +42,9 @@ import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
  *
  * This also owns the vertical scroll. It used to live on [columnModifier] at each call site, which
  * meant only the capped column scrolled and a fling in the wide empty margin did nothing.
+ *
+ * On a phone on its side the cap is lower still, [Landscape.readingWidth]: the window is as wide
+ * as a small tablet and the rows are read from as close as a phone.
  */
 @Composable
 fun ColumnWithContentPadding(
@@ -64,7 +69,7 @@ fun ColumnWithContentPadding(
         // widthIn goes first. AboutScreen passes fillMaxWidth, which would otherwise hand down a
         // fixed width and swallow a cap applied after it.
         modifier = Modifier
-            .widthIn(max = maxContentWidth)
+            .widthIn(max = LocalLandscape.current.readingWidth(maxContentWidth))
             .then(columnModifier),
         verticalArrangement = verticalArrangement,
         horizontalAlignment = horizontalAlignment

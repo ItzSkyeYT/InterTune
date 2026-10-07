@@ -61,6 +61,11 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.backButtonSurface
 import com.dd3boh.outertune.ui.utils.backToMain
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.unit.Dp
+import com.dd3boh.outertune.ui.utils.LocalLandscape
 
 val SETTINGS_TAG = "Settings"
 
@@ -83,11 +88,8 @@ fun SettingsScreen(
     val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
     val updateBadgeLabel = stringResource(R.string.update_available_title)
 
-    ColumnWithContentPadding(
-        modifier = Modifier.fillMaxHeight(),
-        columnModifier = Modifier
-            .padding(horizontal = 16.dp)
-    ) {
+    // The four cards, each a thing of its own so that they can be stacked or set two by two.
+    val you: @Composable () -> Unit = {
         ElevatedCard(
             modifier = Modifier.fillMaxWidth().tourTarget(Tour.SETTINGS_YOU)
         ) {
@@ -110,8 +112,8 @@ fun SettingsScreen(
                 onClick = { navController.navigate("settings/local") }
             )
         }
-        Spacer(modifier = Modifier.height(16.dp))
-
+    }
+    val lookAndSound: @Composable () -> Unit = {
         ElevatedCard(
             modifier = Modifier.fillMaxWidth().tourTarget(Tour.SETTINGS_LOOK_AND_SOUND)
         ) {
@@ -142,8 +144,8 @@ fun SettingsScreen(
                 onClick = { navController.navigate("settings/library/lyrics") }
             )
         }
-        Spacer(modifier = Modifier.height(16.dp))
-
+    }
+    val kept: @Composable () -> Unit = {
         ElevatedCard(
             modifier = Modifier.fillMaxWidth().tourTarget(Tour.SETTINGS_KEPT)
         ) {
@@ -166,8 +168,8 @@ fun SettingsScreen(
                 onClick = { navController.navigate("settings/privacy") }
             )
         }
-        Spacer(modifier = Modifier.height(16.dp))
-
+    }
+    val rest: @Composable () -> Unit = {
         ElevatedCard(
             modifier = Modifier.fillMaxWidth().tourTarget(Tour.SETTINGS_REST)
         ) {
@@ -215,6 +217,43 @@ fun SettingsScreen(
                 icon = { Icon(Icons.Rounded.Info, null) },
                 onClick = { navController.navigate("settings/about") }
             )
+        }
+    
+    }
+
+    // On its side the window shows three rows of a list of eleven, so the cards go two by two:
+    // the two about the music on one side, the two about the app on the other.
+    val twoByTwo = LocalLandscape.current.active
+    ColumnWithContentPadding(
+        modifier = Modifier.fillMaxHeight(),
+        columnModifier = Modifier
+            .padding(horizontal = 16.dp),
+        maxContentWidth = if (twoByTwo) Dp.Unspecified else 720.dp,
+    ) {
+        if (twoByTwo) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(Modifier.weight(1f)) {
+                    you()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    kept()
+                }
+                Column(Modifier.weight(1f)) {
+                    lookAndSound()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    rest()
+                }
+            }
+        } else {
+            you()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            lookAndSound()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            kept()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            rest()
         }
     }
 
