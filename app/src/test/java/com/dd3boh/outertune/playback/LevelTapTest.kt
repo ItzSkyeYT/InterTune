@@ -8,6 +8,7 @@ package com.dd3boh.outertune.playback
 
 import androidx.media3.common.C
 import androidx.media3.exoplayer.audio.AudioSink
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -130,6 +131,76 @@ class LevelTapTest {
         give(ShortArray(rate / 1000 * 2 * 300), firstUs = start + 505_000L)
         // the first measure after looking again: 505 to 525 ms, or with 5 ms of the old note in it were that kept
         assertTrue("silence, with nothing of the old note in it: ${bassAt(522)}", bassAt(522)!! == 0f)
+    }
+
+    /** [hz] at [loud] of full scale for as long as [on] says so, by the millisecond, as 16 bit stereo. */
+    private fun sound(hz: Double, loud: Double, totalMs: Int, on: (Int) -> Boolean = { true }): ShortArray {
+        val out = ShortArray(totalMs * rate / 1000 * 2)
+        for (frame in 0 until totalMs * rate / 1000) {
+            if (!on(frame * 1000 / rate)) continue
+            val x = (loud * sin(2 * PI * hz * frame / rate) * 32767).toInt().toShort()
+            out[frame * 2] = x
+            out[frame * 2 + 1] = x
+        }
+        return out
+    }
+
+    /** A kick for 80 ms at every half second. */
+    private fun kicks(loud: Double, totalMs: Int) = sound(55.0, loud, totalMs) { it % 500 < 80 }
+
+    /** How loud the first of some quiet kicks reads, [idleNanos] after four seconds of loud ones. */
+    private fun quietKickAfter(idleNanos: Long): Float {
+        give(kicks(0.9, totalMs = 4000))
+        tap.unwatch()
+        nanos += idleNanos
+        tap.watch()
+        val there = start + 4_000_000L
+        give(kicks(0.05, totalMs = 1000), firstUs = there)
+        tap.position(there + 50_000L)
+        assertTrue(tap.now(got))
+        return got[MusicLevels.BASS]
+    }
+
+    @Test
+    fun `straight after a loud song a quiet one is small against it`() {
+        assertTrue(quietKickAfter(0L) < 0.15f)
+    }
+
+    @Test
+    fun `looked at again hours later, the quiet song is its own measure from its first kick`() {
+        val bass = quietKickAfter(3 * 3600 * 1_000_000_000L)
+        assertTrue("$bass", bass > 0.85f)
+    }
+
+    @Test
+    fun `a pause counts as time nothing was measured in, too`() {
+        give(kicks(0.9, totalMs = 4000))
+        nanos += 600 * 1_000_000_000L                          // ten minutes, with the player open all the while
+        val there = start + 4_000_000L
+        give(kicks(0.05, totalMs = 1000), firstUs = there)
+        tap.position(there + 50_000L)
+        assertTrue(tap.now(got))
+        assertTrue("${got[MusicLevels.BASS]}", got[MusicLevels.BASS] > 0.85f)
+    }
+
+    @Test
+    fun `where the song is in its shape comes with the levels, and the next song starts with nothing building`() {
+        val all = FloatArray(MusicLevels.VALUES)
+        // a line in the middle and no bass under it, for long enough to be a build-up
+        give(sound(700.0, 0.25, totalMs = 8000))
+        tap.position(start + 7_900_000L)
+        assertTrue(tap.now(all))
+        assertTrue("tension ${all[MusicLevels.TENSION]}", all[MusicLevels.TENSION] > 0.5f)
+        assertTrue("and it is all there: ${all[MusicLevels.PRESENCE]}", all[MusicLevels.PRESENCE] > 0.9f)
+        // the same goes on, but as another song: the output is not emptied, the times run on
+        tap.discontinuity()
+        give(sound(700.0, 0.25, totalMs = 1000), firstUs = start + 8_000_000L)
+        tap.position(start + 7_950_000L)
+        assertTrue(tap.now(all))
+        assertTrue("the end of the old song is still to be heard as it was: ${all[MusicLevels.TENSION]}", all[MusicLevels.TENSION] > 0.5f)
+        tap.position(start + 8_500_000L)
+        assertTrue(tap.now(all))
+        assertEquals("half a second into the new one", 0f, all[MusicLevels.TENSION], 0f)
     }
 
     @Test

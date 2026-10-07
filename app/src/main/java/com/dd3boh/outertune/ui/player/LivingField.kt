@@ -148,6 +148,56 @@ object LivingField {
     val OWN_LEVEL = floatArrayOf(0.4f, 0.6f, 0.45f)
 
     /**
+     * The song's shape, on top of its levels: a build-up, the drop and the part the drop sets off
+     * (MusicLevels.TENSION, DROP and DRIVE). Bar for bar the part after the drop is no louder
+     * than the part before the breakdown was, so the levels alone show the two alike, and the
+     * drop itself as one more kick.
+     *
+     * A build-up gathers the picture. The patches draw in towards the middle and shrink
+     * ([GATHER_IN], [GATHER_SHRINK]: by that much at full tension and a reach of 1), the picture's
+     * own time runs faster, so that everything in it flows and wanders quicker ([GATHER_PACE],
+     * added to its pace), and the top of the spectrum, which is what a build-up is made of,
+     * charges: it is shown as if it were that much louder ([GATHER_CHARGE]). All of it comes on
+     * over [GATHER_RISE] seconds, with the tension, and is let go of in [GATHER_FALL], which is
+     * the drop.
+     */
+    const val GATHER_IN = 0.05f
+    const val GATHER_SHRINK = 0.06f
+    const val GATHER_PACE = 0.8f
+    const val GATHER_CHARGE = 0.5f
+    const val GATHER_RISE = 0.6f
+    const val GATHER_FALL = 0.12f
+
+    /**
+     * The drop is one burst. Everything is pushed outwards ([BURST_PUSH], as [LEAN] is for a
+     * kick), every patch takes it as a full kick whatever range it breathes with, the halo round
+     * the cover reaches out by a full kick's worth more, the bass floods in over the voice as far
+     * as the top's line where each has its colour ([BURST_FLOOD]: the bass is taken that much
+     * further), and the whole picture is lit once ([BURST_LIGHT], on top of a kick's light). It is
+     * the one flash that is wanted. It is held for [BURST_HOLD] seconds, long enough to get there
+     * at a kick's pace, and gone over [BURST_FALL]. However hard, nothing is pushed out by more
+     * than [MOST_PUSH] of its distance from the middle.
+     */
+    const val BURST_PUSH = 0.08f
+    const val BURST_FLOOD = 1.2f
+    const val BURST_LIGHT = 0.3f
+    const val BURST_HOLD = 0.1f
+    const val BURST_FALL = 0.45f
+    const val MOST_PUSH = 0.35f
+
+    /**
+     * While the drive lasts everything answers the music that much more ([DRIVE_MORE]: the reach
+     * is 1 and that times what the setting makes it), the patches are bigger even between two
+     * kicks ([DRIVE_SWELL] at a reach of 1) and the picture's time runs faster ([DRIVE_PACE]). It
+     * is there with the drop, over [DRIVE_RISE] seconds, and goes over [DRIVE_FALL].
+     */
+    const val DRIVE_MORE = 0.35f
+    const val DRIVE_SWELL = 0.05f
+    const val DRIVE_PACE = 0.5f
+    const val DRIVE_RISE = 0.1f
+    const val DRIVE_FALL = 0.8f
+
+    /**
      * The cover takes up most of the player, and what goes on behind it is not seen. So most of
      * the reaction is put where it shows: an aura on the cover's edge, half of it hidden behind the
      * cover and half spilling out round it, in the colours the cover has along that edge.
@@ -257,10 +307,11 @@ object LivingField {
     /**
      * Where the bass begins at [x], as a distance from the top's line: the voice's own reach
      * ([flowVoice]), but never so little that the voice has no room left between the top's ribbon
-     * and the bass, however hard the kick.
+     * and the bass, however hard the kick. Only a drop takes that room ([flood], 0 to 1): for
+     * that moment the bass comes in as far as the top's ribbon.
      */
-    fun flowReach(x: Float, time: Float, above: Boolean, voice: Float, bass: Float, top: Float): Float =
-        max(flowTop(x, time, top) + FLOW_EDGE + 0.02f, flowVoice(x, time, above, voice, bass))
+    fun flowReach(x: Float, time: Float, above: Boolean, voice: Float, bass: Float, top: Float, flood: Float = 0f): Float =
+        max(flowTop(x, time, top) + (FLOW_EDGE + 0.02f) * (1f - flood.coerceIn(0f, 1f)), flowVoice(x, time, above, voice, bass))
 
     /**
      * How much of the point at [x], [y] (parts of the width and height) is each range's, into
@@ -273,13 +324,14 @@ object LivingField {
      * picture's own, which runs with the music: nothing in the picture is a straight line, and
      * nothing stays where it was. Rows of colour were what this replaced, and they looked ruled.
      *
-     * [bass], [voice] and [top] are how far each range is taken by the music at this moment.
+     * [bass], [voice] and [top] are how far each range is taken by the music at this moment, and
+     * [flood] how much of a drop there is ([flowReach]).
      */
-    fun flowShares(x: Float, y: Float, time: Float, bass: Float, voice: Float, top: Float, into: FloatArray) {
+    fun flowShares(x: Float, y: Float, time: Float, bass: Float, voice: Float, top: Float, into: FloatArray, flood: Float = 0f) {
         val line = flowLine(x, time)
         val away = abs(y - line)
         val thick = flowTop(x, time, top)
-        val reach = flowReach(x, time, y < line, voice, bass, top)
+        val reach = flowReach(x, time, y < line, voice, bass, top, flood)
         val ofTop = 1f - eased((away - (thick - FLOW_EDGE / 2f)) / FLOW_EDGE)
         val ofBass = eased((away - (reach - FLOW_EDGE / 2f)) / FLOW_EDGE)
         into[MusicLevels.BASS] = ofBass
@@ -756,7 +808,26 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
 
     /** The setting, 0 to 1 (see [LivingField.reach]). */
     var strength = LivingField.DEFAULT_STRENGTH
-    private val reach get() = LivingField.reach(strength)
+
+    /** What every reaction is multiplied by: the setting's, and more of it while a drop drives the song on. */
+    private val reach get() = LivingField.reach(strength) * (1f + LivingField.DRIVE_MORE * driven)
+
+    /**
+     * The song's shape as the picture shows it, each 0 to 1: how gathered it is by a build-up,
+     * the burst of a drop, and how driven it is by one (see [LivingField.GATHER_IN] and after).
+     */
+    var gathered = 0f
+        private set
+    var burst = 0f
+        private set
+    var driven = 0f
+        private set
+
+    // A drop is said once. From there the burst is the picture's own: held at what the drop was
+    // for a moment, then let go.
+    private var dropHeard = 0f
+    private var burstTo = 0f
+    private var burstFor = 0f
 
     /** The other setting, 0 to 1 (see [LivingField.ease]). */
     var smoothing = LivingField.DEFAULT_SMOOTHING
@@ -771,14 +842,24 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     /** The range each patch breathes with, in a picture of the cover. */
     private val bands = IntArray(count) { LivingField.bandOfCell(it % columns, it / columns, columns, rows) }
 
-    /** How far the music takes range [band] when each has its own colour: what moves its edge and lights it. */
-    private fun own(band: Int): Float = reach * shown[band] * LivingField.OWN_SHARE[band]
+    /**
+     * How far the music takes range [band] when each has its own colour: what moves its edge and
+     * lights it. A build-up charges the top's, and on a drop the bass floods in.
+     */
+    private fun own(band: Int): Float = reach * (shown[band] * LivingField.OWN_SHARE[band] + ofShape(band))
+
+    /** What the song's shape adds to how far range [band] is taken. */
+    private fun ofShape(band: Int): Float = when (band) {
+        MusicLevels.HIGH -> LivingField.GATHER_CHARGE * gathered
+        MusicLevels.BASS -> LivingField.BURST_FLOOD * burst
+        else -> 0f
+    }
 
     private val share = FloatArray(MusicLevels.BANDS)
 
     /** How much of the point at [x], [y] is each range's at this moment, left in [share]. */
     private fun sharesAt(x: Float, y: Float) =
-        LivingField.flowShares(x, y, drift, own(MusicLevels.BASS), own(MusicLevels.MID), own(MusicLevels.HIGH), share)
+        LivingField.flowShares(x, y, drift, own(MusicLevels.BASS), own(MusicLevels.MID), own(MusicLevels.HIGH), share, flood = min(1f, reach * burst))
 
     /** The same for patch [i], where it lives: the patches wander a little, the ribbons do not wander with them. */
     private fun sharesOf(i: Int) = sharesAt((i % columns + 0.5f) / columns, (i / columns + 0.5f) / rows)
@@ -789,7 +870,7 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
         share.copyInto(into)
     }
 
-    /** The aura round the cover, and how far each of its points is taken, 0 to 1. */
+    /** The aura round the cover, and how far each of its points is taken: 0 to 1, and beyond for a drop. */
     val aura = LivingField.aura(columns, rows)
     val auraShown = FloatArray(aura.size)
 
@@ -873,8 +954,9 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
 
     /**
      * Moves on by [seconds]. [levels] is what is being heard (the three ranges, and after them how
-     * much is going on, if it is there), or null when there is nothing to go by (paused, or audio
-     * that cannot be measured); [playing] says whether the music runs at all.
+     * much is going on and where the song is in its shape, as far as it goes), or null when there
+     * is nothing to go by (paused, or audio that cannot be measured); [playing] says whether the
+     * music runs at all.
      * With music but no levels the picture still drifts, it just does not breathe.
      */
     fun step(seconds: Float, levels: FloatArray?, playing: Boolean) {
@@ -892,6 +974,26 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
             val within = if (to > shown[band]) LivingField.RISE[band] else LivingField.FALL[band]
             shown[band] += (to - shown[band]) * part(dt, within * ease)
         }
+        // The song's shape, when the levels say: like them, it counts for as much as is going on.
+        val tension = going * shapeIn(levels, MusicLevels.TENSION)
+        val drop = going * shapeIn(levels, MusicLevels.DROP)
+        val drive = going * shapeIn(levels, MusicLevels.DRIVE)
+        gathered += (tension - gathered) * part(dt, (if (tension > gathered) LivingField.GATHER_RISE else LivingField.GATHER_FALL) * ease)
+        driven += (drive - driven) * part(dt, (if (drive > driven) LivingField.DRIVE_RISE else LivingField.DRIVE_FALL) * ease)
+        // What is heard of a drop fades from its first frame. Coming up is the drop itself, and
+        // what the burst goes to is the most that is heard of it while it is held.
+        if (drop > dropHeard + 0.05f) {
+            burstTo = 0f
+            burstFor = LivingField.BURST_HOLD * ease
+        }
+        dropHeard = drop
+        if (burstFor > 0f) {
+            burstFor -= dt
+            burstTo = max(burstTo, drop)
+        } else {
+            burstTo = 0f
+        }
+        burst += (burstTo - burst) * part(dt, (if (burstTo > burst) LivingField.RISE[MusicLevels.BASS] else LivingField.BURST_FALL) * ease)
         for (i in aura.indices) {
             val point = aura[i]
             val to: Float
@@ -908,14 +1010,18 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
                 to = max(shown[MusicLevels.BASS], 0.6f * shown[point.band] * LivingField.SHARE[point.band])
                 far = point.far
             }
-            // later and softer the further round the cover from where the kick lands
-            val within = if (to > auraShown[i]) 0.012f + 0.11f * far else 0.20f + 0.16f * far
-            auraShown[i] += (to - auraShown[i]) * part(dt, within * ease)
+            // a drop reaches out all the way round, beyond what any kick does, and later and
+            // softer the further round the cover from where the kick lands
+            val out = to + burst
+            val within = if (out > auraShown[i]) 0.012f + 0.11f * far else 0.20f + 0.16f * far
+            auraShown[i] += (out - auraShown[i]) * part(dt, within * ease)
         }
         auraPresence += ((if (coverThere) 1f else 0f) - auraPresence) * part(dt, 0.12f)
         pace += ((if (playing) 1f else 0f) - pace) * part(dt, 0.7f)
-        // quicker when the music is loud, never still while it plays
-        drift += dt * pace * (0.55f + 0.9f * max(shown[MusicLevels.BASS], shown[MusicLevels.MID]))
+        // quicker when the music is loud, quicker still while it builds up and while a drop drives
+        // it, never still while it plays
+        val hurry = min(1f, reach) * (LivingField.GATHER_PACE * gathered + LivingField.DRIVE_PACE * driven)
+        drift += dt * pace * (0.55f + 0.9f * max(shown[MusicLevels.BASS], shown[MusicLevels.MID]) + hurry)
         if (turn < 1f) {
             turn = min(1f, turn + dt / LivingField.COVER_TURN)
             val by = LivingField.eased(turn)
@@ -931,23 +1037,43 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
      */
     fun lead(): Float = 0.045f + 0.6f * LivingField.RISE[MusicLevels.BASS] * LivingField.ease(smoothing)
 
-    /** Straight to rest, with the cover's colours as they are: for when nothing is to move at all. */
-    fun settle() {
+    /**
+     * The colours as the last cover wants them, at once: for when the picture comes back on
+     * screen. Covers go on arriving while it is off ([turnTo]) and nothing steps, so it used to
+     * come back in the colours of whatever song it was showing when it left, and then turn.
+     */
+    fun arrive() {
         wanted.copyInto(colors)
         turn = 1f
+    }
+
+    /** Straight to rest, with the cover's colours as they are: for when nothing is to move at all. */
+    fun settle() {
+        arrive()
         usual.fill(0f)
         shown.fill(0f)
         auraShown.fill(0f)
         auraPresence = if (coverThere) 1f else 0f
         pace = 0f
+        gathered = 0f
+        driven = 0f
+        burst = 0f
+        burstTo = 0f
+        burstFor = 0f
+        dropHeard = 0f
     }
 
     /** True when nothing would change on another [step] without music: the frames can stop. */
     fun atRest(): Boolean = pace < 0.01f && shown.all { it < 0.005f } && auraShown.all { it < 0.005f } &&
+        gathered < 0.005f && burst < 0.005f && driven < 0.005f &&
         kotlin.math.abs(auraPresence - (if (coverThere) 1f else 0f)) < 0.01f && turn >= 1f && colors.contentEquals(wanted)
 
     /** The share of the way covered in [dt] by something that takes [within] seconds to get most of the way. */
     private fun part(dt: Float, within: Float) = 1f - exp(-dt / within)
+
+    /** One of the values that say where the song is in its shape, or nothing when the levels do not go that far. */
+    private fun shapeIn(levels: FloatArray?, value: Int): Float =
+        levels?.getOrNull(value)?.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0f
 
     // Where patch [i] is drawn. x and y in parts of the width and height, the radius in cells.
 
@@ -963,13 +1089,23 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
         return lean(home + wander)
     }
 
-    /** Pushed away from the middle on a kick. */
-    private fun lean(at: Float) = 0.5f + (at - 0.5f) * (1f + LivingField.LEAN * reach * shown[MusicLevels.BASS])
+    /** Pushed away from the middle on a kick and further on a drop, drawn in towards it by a build-up. */
+    private fun lean(at: Float) = 0.5f + (at - 0.5f) * push()
+
+    /**
+     * How far from the middle everything stands, against where it stands at rest: above 1 pushed
+     * out, below 1 drawn in.
+     */
+    fun push(): Float =
+        1f + min(LivingField.MOST_PUSH, reach * (LivingField.LEAN * shown[MusicLevels.BASS] + LivingField.BURST_PUSH * burst)) -
+            LivingField.GATHER_IN * reach * gathered
 
     /** How far patch [i] is taken in a picture of the cover, 0 to 1: by the range it breathes with, and by the bass wherever it is. */
     private fun taken(i: Int): Float {
         val band = bands[i]
-        return max(shown[band] * LivingField.SHARE[band], LivingField.KICK_EVERYWHERE * shown[MusicLevels.BASS])
+        val charge = if (band == MusicLevels.HIGH) LivingField.GATHER_CHARGE * gathered else 0f
+        // a drop is everybody's, in full
+        return max(max(shown[band] * LivingField.SHARE[band] + charge, LivingField.KICK_EVERYWHERE * shown[MusicLevels.BASS]), burst)
     }
 
     fun radius(i: Int): Float {
@@ -980,13 +1116,16 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
             for (band in 0 until MusicLevels.BANDS) {
                 sum += share[band] * LivingField.SWELL * LivingField.OWN_SWELL[band] * shown[band] * LivingField.OWN_SHARE[band]
             }
-            sum
+            // and a drop swells every patch, whoever's it is, as a kick does the bass's
+            sum + LivingField.SWELL * burst
         } else {
             LivingField.SWELL * taken(i) + 0.08f * shown[MusicLevels.BASS]
         }
         val ripple = 0.04f * sin(drift * 0.31f + i * (2f * PI.toFloat() / 5f))
         val rest = if (separate) LivingField.FLOW_RADIUS else LivingField.REST_RADIUS
-        return rest * (1f + min(LivingField.MOST_SWELL, reach * swell) + ripple)
+        // bigger all the while a drop drives the song, smaller while it gathers for one
+        val grown = min(LivingField.MOST_SWELL, reach * (swell + LivingField.DRIVE_SWELL * driven))
+        return rest * (1f + grown + ripple - LivingField.GATHER_SHRINK * reach * gathered)
     }
 
     /** How much lighter or darker patch [i] is than the colour of its place, so that a ribbon is not one flat colour. */
@@ -995,7 +1134,7 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     /** Range [band]'s own colour as the music has it now: lighter on a beat, and more colourful with it. */
     private fun mainNow(band: Int): Int {
         val by = own(band)
-        val light = min(LivingField.MOST_LIGHT, LivingField.OWN_REST[band] + LivingField.FULL_LIGHT * LivingField.OWN_LIGHT[band] * by)
+        val light = min(LivingField.MOST_LIGHT, LivingField.OWN_REST[band] + LivingField.FULL_LIGHT * LivingField.OWN_LIGHT[band] * by + flash())
         return LivingField.lit(LivingField.colourful(colors[mainsAt + band], 1f + 0.18f * min(by, 3f)), light)
     }
 
@@ -1012,13 +1151,16 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
             return LivingField.lit(LivingField.mixed(mainsNow, 0, share), grain(i))
         }
         val by = reach * taken(i)
-        val light = min(LivingField.MOST_LIGHT, LivingField.REST_LIGHT + LivingField.FULL_LIGHT * by)
+        val light = min(LivingField.MOST_LIGHT, LivingField.REST_LIGHT + LivingField.FULL_LIGHT * by + flash())
         return LivingField.lit(LivingField.colourful(colors[i], 1f + 0.18f * min(by, 3f)), light)
     }
 
+    /** The light a drop throws over the whole picture, once. */
+    private fun flash(): Float = LivingField.BURST_LIGHT * reach * burst
+
     /** The glow at the bottom edge: how tall it stands in parts of the height, and how strong it is, 0 to 1. */
-    fun glowHeight(): Float = 0.30f + min(0.5f, 0.25f * reach * shown[MusicLevels.BASS])
-    fun glowStrength(): Float = min(1f, 0.05f + 0.43f * reach * shown[MusicLevels.BASS])
+    fun glowHeight(): Float = 0.30f + min(0.5f, 0.25f * reach * (shown[MusicLevels.BASS] + burst))
+    fun glowStrength(): Float = min(1f, 0.05f + 0.43f * reach * (shown[MusicLevels.BASS] + burst))
 
     // The aura's point [i]: its radius in parts of the cover's side, how strong it is from 0 to 1, its colour.
 
@@ -1036,5 +1178,51 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
             colors[aura[i].patch]
         }
         return LivingField.lit(LivingField.colourful(from, 1.15f + 0.15f * by), min(LivingField.MOST_LIGHT, 1f + 0.30f * by))
+    }
+}
+
+/**
+ * Which of the screen's frames the picture is redrawn on.
+ *
+ * The picture is soft and slow, and everything drawn over it that looks through it (the glass
+ * panels) is redrawn with it, so it is redrawn no more often than it takes to look smooth, which
+ * is about [SMOOTH] times a second. But no less often either, where the screen can do that. It
+ * used to wait until a sixtieth of a second had passed: every frame at 60 Hz and every second one
+ * at 120 Hz as meant, but every second one at 90 Hz too, 45 a second, and every third at 144 Hz,
+ * 48 a second, and that is a kick drawn a frame late every so often.
+ *
+ * So the step is taken from the screen's own frame time, measured from the frames as they come:
+ * every frame up to 90 Hz and a little over, every second one at 120 and at 144, every third at 180.
+ */
+class RedrawPace {
+    /** The screen's frame time as far as it is known, in nanoseconds: the shortest step from one frame to the next lately. */
+    var frameNanos = 0L
+        private set
+    private var last = 0L
+    private var shown = 0L
+
+    /** A frame of the screen's, at [nanos]: true when the picture is to be redrawn on it. */
+    fun due(nanos: Long): Boolean {
+        val step = nanos - last
+        if (last != 0L && step > 0L) {
+            // The shortest step is the screen's own, a longer one has a missed frame in it. What is
+            // known is let grow a little at every frame, or a screen that slowed down would never
+            // be found out.
+            frameNanos = if (frameNanos == 0L) step else min(step, frameNanos + frameNanos / 50)
+        }
+        last = nanos
+        // half a frame early, so that a frame is not let go by for a hair
+        if (shown != 0L && nanos - shown < everyNth(frameNanos) * frameNanos - frameNanos / 2) return false
+        shown = nanos
+        return true
+    }
+
+    companion object {
+        /** How many redraws a second look smooth. */
+        const val SMOOTH = 60
+
+        /** On a screen whose frames are [frameNanos] apart, every which one is redrawn on: as few as give [SMOOTH] a second, or all but. */
+        fun everyNth(frameNanos: Long): Int =
+            if (frameNanos <= 0L) 1 else max(1, (1e9 / SMOOTH / frameNanos + 0.1).toInt())
     }
 }

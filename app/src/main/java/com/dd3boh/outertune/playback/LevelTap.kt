@@ -60,6 +60,8 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
     private var lastBufferTimeUs = C.TIME_UNSET
     private var nextBufferTimeUs = C.TIME_UNSET
     private var measuring = false
+    private var measuredBefore = false
+    private var measuredAtNanos = 0L
 
     // Written by the thread that plays, read by the one that draws.
     @Volatile
@@ -109,6 +111,14 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
         if (!measuring || nextBufferTimeUs == C.TIME_UNSET || abs(timeUs - nextBufferTimeUs) > JUMP_US) analyser.jump()
         measuring = true
 
+        // Buffers come every few milliseconds while there is something to measure. When none has
+        // come for a while, nobody was looking or nothing played, and what the analyser remembers
+        // is older by that much: it only forgets by the frame.
+        val nanos = nanoTime()
+        if (measuredBefore && nanos - measuredAtNanos > IDLE_NANOS) analyser.aged((nanos - measuredAtNanos) / 1e9)
+        measuredBefore = true
+        measuredAtNanos = nanos
+
         val frames = (buffer.limit() - buffer.position()) / ((if (sixteenBit) 2 else 4) * channels)
         bufferTimeUs = timeUs
         bufferFirstSample = samplesGiven
@@ -128,6 +138,15 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
         playing = isPlaying
     }
 
+    /**
+     * What comes next is another stream: the next song, played on from the last without a gap, so
+     * that the output is not emptied and the times run on. What was building in the old song is
+     * not building in the new one. What is still to be heard of the old one stays.
+     */
+    fun discontinuity() {
+        nextBufferTimeUs = C.TIME_UNSET
+    }
+
     /** The output was emptied: a seek, another song, a stop. Nothing kept is about to be heard any more. */
     fun flushed() {
         timeline.clear()
@@ -137,7 +156,8 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
     }
 
     /**
-     * The levels of what is being heard now, into [into] (the three ranges, and with room for [MusicLevels.VALUES] how much is going on). False when
+     * The levels of what is being heard now, into [into] (the three ranges, and with room for
+     * [MusicLevels.VALUES] how much is going on and where the song is in its shape). False when
      * there is nothing to go by: nothing playing, not [wanted] until a moment ago, or audio that
      * cannot be read here.
      *
@@ -159,6 +179,7 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
     companion object {
         private const val JUMP_US = 100_000L
         private const val ASKED_LATELY_US = 500_000L
+        private const val IDLE_NANOS = 1_000_000_000L
     }
 }
 
@@ -201,6 +222,11 @@ class LevelTapAudioSink(sink: AudioSink, private val tap: LevelTap) : Forwarding
     override fun pause() {
         super.pause()
         tap.playing(false)
+    }
+
+    override fun handleDiscontinuity() {
+        super.handleDiscontinuity()
+        tap.discontinuity()
     }
 
     override fun flush() {
