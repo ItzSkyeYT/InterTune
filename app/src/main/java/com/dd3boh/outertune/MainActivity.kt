@@ -1189,6 +1189,23 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
+                        // Home's own screen, at its top. Not the start destination, which is the
+                        // tab the app opens on and need not be Home. And the top, because what a
+                        // stop on Home points at is an item of a lazy list, which is not there at
+                        // all once Home has been scrolled away from it. Home listens for
+                        // scrollToTop, as it does when its tab is tapped again.
+                        val goHome = {
+                            if (navController.currentDestination?.route != Tour.ROUTE_HOME &&
+                                !navController.popBackStack(Tour.ROUTE_HOME, inclusive = false)
+                            ) {
+                                navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
+                                if (navController.currentDestination?.route != Tour.ROUTE_HOME) {
+                                    navigateToNavTab(navController, Tour.ROUTE_HOME, navigationItems, navController.currentBackStackEntry)
+                                }
+                            }
+                            navController.currentBackStackEntry?.savedStateHandle?.set("scrollToTop", true)
+                        }
+
                         // A tour from the page: to the screen its first stop is on, and started once
                         // what it points at is there. If nothing of it is on screen (Quick picks
                         // has no chips while the engine has fallen back to another row), the page
@@ -1218,7 +1235,7 @@ class MainActivity : ComponentActivity() {
                             } == true
                             if (screensThere && first != null) {
                                 val route = first.route
-                                if (route == null) navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
+                                if (route == null) goHome()
                                 else if (navController.currentDestination?.route != route) navController.navigate(route)
                                 val target = first.targetId
                                 if (target != null) withTimeoutOrNull(3000) { while (!TourTargets.known(target)) delay(50) }
@@ -1757,7 +1774,7 @@ class MainActivity : ComponentActivity() {
                                 // If it is not, it is opened the way a step forward opens it.
                                 onNavigateBack = { route ->
                                     if (route == null) {
-                                        navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
+                                        goHome()
                                     } else if (navController.currentDestination?.route != route && !navController.popBackStack(route, inclusive = false)) {
                                         navController.navigate(route)
                                     }

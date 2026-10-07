@@ -7,11 +7,13 @@
 package com.dd3boh.outertune.ui.screens.walkthrough
 
 import androidx.compose.runtime.saveable.SaverScope
+import com.dd3boh.outertune.ui.screens.Screens
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * What the welcome back page has asked the tour for, between "Show me" and the first bubble. That
@@ -126,5 +128,22 @@ class WelcomeShowTest {
     @Test
     fun `nothing asked and nothing looked at saves nothing`() {
         assertNull(with(WelcomeShow.Saver) { scope.save(WelcomeShow()) })
+    }
+
+    // Where a stop on Home is
+
+    @Test
+    fun `a stop on Home is gone to on Home's own screen and at its top`() {
+        assertEquals(Screens.Home.route, Tour.ROUTE_HOME)
+
+        // The fault: the page went to the screen the app opens on, which is the default tab and
+        // need not be Home, and left Home scrolled where it was, where what is pointed at, an
+        // item of a lazy list, does not exist. Both are a line each in MainActivity, so this
+        // reads them there.
+        val activity = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
+        val goHome = activity.substringAfter("val goHome = {").substringBefore("// A tour from the page")
+        assertTrue("going Home does not go to Home's route", "navigateToNavTab(navController, Tour.ROUTE_HOME" in goHome)
+        assertTrue("going Home does not send it to the top", "set(\"scrollToTop\", true)" in goHome)
+        assertTrue("a stop with no route is not sent Home", "if (route == null) goHome()" in activity)
     }
 }

@@ -142,7 +142,11 @@ object Tour {
     const val SETTING_SHARE_LINKS = "setting_share_links"
     const val SETTING_SPATIAL_AUDIO = "setting_spatial_audio"
 
-    /** The routes those live on. Null on a stop means Home. */
+    /**
+     * The routes those live on. Null on a stop means Home, and Home's own screen at that: not the
+     * one the app opens on, which is whichever tab was chosen as the default.
+     */
+    const val ROUTE_HOME = "home"
     const val ROUTE_SETTINGS = "settings"
     const val ROUTE_LOOK_AND_FEEL = "settings/appearance"
     const val ROUTE_PLAYER = "settings/player"
