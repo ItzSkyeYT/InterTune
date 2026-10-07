@@ -13,6 +13,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.media3.common.PlaybackException
 import com.dd3boh.outertune.constants.AudioQuality
+import com.dd3boh.outertune.playback.ListenReporting
 import com.dd3boh.outertune.utils.YTPlayerUtils.MAIN_CLIENT
 import com.dd3boh.outertune.utils.YTPlayerUtils.STREAM_FALLBACK_CLIENTS
 import com.dd3boh.outertune.utils.YTPlayerUtils.streamStatus
@@ -219,8 +220,12 @@ object YTPlayerUtils {
      * One /player request over the family [FamilyChoice] picks, and over the other one when the
      * first is refused with the bot check. For the single requests outside the stream chain, which
      * would otherwise go over a family the chain already knows is refused and trip the throttle.
+     *
+     * [remember] false leaves [familyMemory] as it was: for a request whose client the chain never
+     * asks, so that what one odd client was told does not change the family every song starts on.
      */
     private suspend fun playerOverBestFamily(
+        remember: Boolean = true,
         request: suspend (AddressPolicy?) -> Result<PlayerResponse>,
     ): Result<PlayerResponse> {
         val outcome = FamilyChoice.resolve(currentNetwork(null), familyMemory, SystemClock.elapsedRealtime()) { policy ->
@@ -231,7 +236,7 @@ object YTPlayerUtils {
                 refused = Throttle.looksLikeBlock(answer.getOrNull()?.playabilityStatus?.reason),
             )
         }
-        familyMemory = outcome.memory
+        if (remember) familyMemory = outcome.memory
         return outcome.chosen.value
     }
 
@@ -664,6 +669,31 @@ object YTPlayerUtils {
         playerOverBestFamily { policy ->
             YouTube.player(videoId, playlistId, client = VISIONOS, hlOverride = "en", addressPolicy = policy)
         }.noteThrottle()
+
+    /**
+     * /player asked as the account, for the address a play is reported to and for nothing else.
+     * Only while Unreleased.HISTORY_AS_ACCOUNT is tried: see [ListenReporting.addressRequests].
+     *
+     * The request above is a visitor's, VISIONOS taking no cookie, so the address it hands back
+     * names nobody, and a brand account's channel is named nowhere in the report that follows.
+     * [ListenReporting.ACCOUNT_ADDRESS_CLIENT] carries the cookie and onBehalfOfUser, so its
+     * address is issued to the channel that is signed in. Whether YouTube answers it, and whether
+     * the play then lands in that channel's history, has not been tried.
+     *
+     * It is kept away from what the stream chain has learned, because its client is one the chain
+     * never asks:
+     * - No signature timestamp. It costs an extraction, and only the streams need it, which are
+     *   not used.
+     * - The throttle is not told. One client's refusal is not YouTube's, and the visitor's
+     *   request that follows a refusal tells the throttle what it always has.
+     * - It goes over the address family the chain found to work, and what it finds is forgotten.
+     */
+    suspend fun playerResponseAsAccount(videoId: String): Result<PlayerResponse> =
+        playerOverBestFamily(remember = false) { policy ->
+            YouTube.player(
+                videoId, client = ListenReporting.ACCOUNT_ADDRESS_CLIENT, hlOverride = "en", addressPolicy = policy,
+            )
+        }
 
     /** Outcome of a loudness lookup. Distinguishes "no value exists" from "the request failed". */
     sealed interface LoudnessResult {
