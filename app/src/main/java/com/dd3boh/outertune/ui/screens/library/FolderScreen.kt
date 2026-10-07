@@ -111,6 +111,8 @@ import com.dd3boh.outertune.ui.component.shimmer.ListItemPlaceHolder
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerHost
 import com.dd3boh.outertune.ui.menu.FolderMenu
 import com.dd3boh.outertune.ui.screens.Screens
+import com.dd3boh.outertune.ui.utils.LocalLandscape
+import com.dd3boh.outertune.ui.utils.SideBySide
 import com.dd3boh.outertune.ui.utils.MEDIA_PERMISSION_LEVEL
 import com.dd3boh.outertune.ui.utils.STORAGE_ROOT
 import com.dd3boh.outertune.ui.utils.backToMain
@@ -274,6 +276,7 @@ fun FolderScreen(
         modifier = Modifier.fillMaxSize()
     ) {
         ScrollToTopManager(navController, lazyListState)
+        val oneHeaderLine = LocalLandscape.current.active
         LazyColumn(
             state = lazyListState,
             contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
@@ -286,33 +289,9 @@ fun FolderScreen(
                 Column(
                     modifier = Modifier.background(MaterialTheme.colorScheme.background)
                 ) {
-                    Column {
-                        if (libraryFilterContent == null) {
-                            var showStoragePerm by remember {
-                                mutableStateOf(context.checkSelfPermission(MEDIA_PERMISSION_LEVEL) != PackageManager.PERMISSION_GRANTED)
-                            }
-                            if (localLibEnable && showStoragePerm) {
-                                TextButton(
-                                    onClick = {
-                                        // allow user to hide error when clicked. This also makes the code a lot nicer too.
-                                        showStoragePerm = false
-                                        (context as MainActivity).permissionLauncher.launch(MEDIA_PERMISSION_LEVEL)
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(MaterialTheme.colorScheme.error)
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.missing_media_permission_warning),
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                }
-                            }
-                        } else {
-                            libraryFilterContent()
-                        }
-
+                    // The search and the scanner, and under them the sort row. On a phone on its
+                    // side the two share a line, a half each (Landscape.kt).
+                    val tools = @Composable {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -379,61 +358,94 @@ fun FolderScreen(
                             }
                         }
                     }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(start = 16.dp, end = 8.dp)
-                    ) {
-                        SortHeader(
-                            sortType = sortType,
-                            sortDescending = sortDescending,
-                            onSortTypeChange = onSortTypeChange,
-                            onSortDescendingChange = onSortDescendingChange,
-                            sortTypeText = { sortType ->
-                                when (sortType) {
-                                    FolderSongSortType.CREATE_DATE -> R.string.sort_by_create_date
-                                    FolderSongSortType.MODIFIED_DATE -> R.string.sort_by_date_modified
-                                    FolderSongSortType.RELEASE_DATE -> R.string.sort_by_date_released
-                                    FolderSongSortType.NAME -> R.string.sort_by_name
-                                    FolderSongSortType.ARTIST -> R.string.sort_by_artist
-                                    FolderSongSortType.PLAY_COUNT -> R.string.sort_by_play_count
-                                    FolderSongSortType.TRACK_NUMBER -> R.string.sort_by_track_number
-                                }
-                            }
-                        )
-
-                        Spacer(Modifier.weight(1f))
-
+                    val sort = @Composable {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(start = 16.dp, end = 8.dp)
                         ) {
-                            Text(
-                                text = pluralStringResource(R.plurals.n_song, subDirSongCount, subDirSongCount),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            IconButton(
-                                onClick = {
-                                    menuState.show {
-                                        FolderMenu(
-                                            folder = currDir,
-                                            coroutineScope = coroutineScope,
-                                            navController = navController,
-                                            onDismiss = menuState::dismiss
-                                        )
+                            SortHeader(
+                                sortType = sortType,
+                                sortDescending = sortDescending,
+                                onSortTypeChange = onSortTypeChange,
+                                onSortDescendingChange = onSortDescendingChange,
+                                sortTypeText = { sortType ->
+                                    when (sortType) {
+                                        FolderSongSortType.CREATE_DATE -> R.string.sort_by_create_date
+                                        FolderSongSortType.MODIFIED_DATE -> R.string.sort_by_date_modified
+                                        FolderSongSortType.RELEASE_DATE -> R.string.sort_by_date_released
+                                        FolderSongSortType.NAME -> R.string.sort_by_name
+                                        FolderSongSortType.ARTIST -> R.string.sort_by_artist
+                                        FolderSongSortType.PLAY_COUNT -> R.string.sort_by_play_count
+                                        FolderSongSortType.TRACK_NUMBER -> R.string.sort_by_track_number
                                     }
-                                    haptic.performHapticFeedback(HapticFeedbackType.Companion.ContextClick)
                                 }
+                            )
+
+                            Spacer(Modifier.weight(1f))
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    Icons.Rounded.MoreVert,
-                                    contentDescription = null
+                                Text(
+                                    text = pluralStringResource(R.plurals.n_song, subDirSongCount, subDirSongCount),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.padding(end = 8.dp)
                                 )
+                                Spacer(Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = {
+                                        menuState.show {
+                                            FolderMenu(
+                                                folder = currDir,
+                                                coroutineScope = coroutineScope,
+                                                navController = navController,
+                                                onDismiss = menuState::dismiss
+                                            )
+                                        }
+                                        haptic.performHapticFeedback(HapticFeedbackType.Companion.ContextClick)
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.MoreVert,
+                                        contentDescription = null
+                                    )
+                                }
                             }
                         }
                     }
+
+                    Column {
+                        if (libraryFilterContent == null) {
+                            var showStoragePerm by remember {
+                                mutableStateOf(context.checkSelfPermission(MEDIA_PERMISSION_LEVEL) != PackageManager.PERMISSION_GRANTED)
+                            }
+                            if (localLibEnable && showStoragePerm) {
+                                TextButton(
+                                    onClick = {
+                                        // allow user to hide error when clicked. This also makes the code a lot nicer too.
+                                        showStoragePerm = false
+                                        (context as MainActivity).permissionLauncher.launch(MEDIA_PERMISSION_LEVEL)
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.error)
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.missing_media_permission_warning),
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                }
+                            }
+                        } else {
+                            libraryFilterContent()
+                        }
+
+                        if (!oneHeaderLine) tools()
+                    }
+
+                    if (oneHeaderLine) SideBySide(tools, sort) else sort()
                 }
             }
             if (!isSearching) {

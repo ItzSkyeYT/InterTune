@@ -6,15 +6,28 @@
 
 package com.dd3boh.outertune.ui.utils
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -102,6 +115,12 @@ data class Landscape(
         /** A settings row upright on a large phone, with a little to spare. */
         val ReadingMaxWidth = 600.dp
 
+        /**
+         * The shape of a header's picture (an artist's) in its half of the window, where the 4:3
+         * it has upright would be as tall as the window and push the buttons under the mini player.
+         */
+        const val HeaderPictureRatio = 16f / 9
+
         /** A window nothing is done for: what previews and tests get, and release builds. */
         val Upright = Landscape(0.dp, 0.dp, enabled = false)
     }
@@ -126,6 +145,14 @@ fun rememberListColumns(): Int {
         )
     }
 }
+
+/**
+ * Whether a page's header stands beside its list ([HeaderBesideList]) and not above it: where
+ * the window has two upright widths to give, which is the test for two rows abreast. A small
+ * phone on its side has not, and keeps its header above its list.
+ */
+@Composable
+fun rememberHeaderBeside(): Boolean = rememberListColumns() > 1
 
 /**
  * The rows of a list, [columns] abreast.
@@ -163,5 +190,82 @@ inline fun <T> LazyListScope.itemsInColumns(
                 }
             }
         }
+    }
+}
+
+/**
+ * Two things that each ask for the whole width, on one line with a half each: the filter chips
+ * and the sort row of a library screen, which upright are two lines one above the other.
+ */
+@Composable
+fun SideBySide(first: @Composable () -> Unit, second: @Composable () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Box(Modifier.weight(1f)) { first() }
+        Box(Modifier.weight(1f)) { second() }
+    }
+}
+
+/**
+ * A page under a header (an album, a playlist, an artist) on a phone on its side. Upright the
+ * header is the first row of the list. In a short window that row is all the window shows, and
+ * the songs start below its edge, so here it stands in the left half, scrolling by itself where it
+ * is taller than the window, and the list has the right half to itself.
+ *
+ * With no [header] the list has the whole width: a playlist being searched, whose header is gone
+ * from above it upright too. [list] is handed the modifier that makes it its half, and pads its
+ * own content with [paneInsets]. [headerInsets] is what the header keeps clear of.
+ */
+@Composable
+fun HeaderBesideList(
+    header: (@Composable () -> Unit)?,
+    headerInsets: WindowInsets = paneInsets(),
+    list: @Composable (Modifier) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal))
+    ) {
+        if (header != null) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .verticalScroll(rememberScrollState())
+                    .windowInsetsPadding(headerInsets)
+            ) { header() }
+        }
+        list(Modifier.weight(1f))
+    }
+}
+
+/**
+ * What a half of [HeaderBesideList] keeps clear of above and below: the mini player, and the top
+ * bar. With [underTopBar] false it is the status bar alone above, for a half the bar has nothing
+ * floating over: an album's songs, whose bar is the back button and stands over the other half.
+ * Such a list starts with [paneTop].
+ */
+@Composable
+fun paneInsets(underTopBar: Boolean = true): WindowInsets {
+    val insets = LocalPlayerAwareWindowInsets.current
+    return if (underTopBar) {
+        insets.only(WindowInsetsSides.Vertical)
+    } else {
+        WindowInsets.systemBars.only(WindowInsetsSides.Top).add(insets.only(WindowInsetsSides.Bottom))
+    }
+}
+
+/**
+ * The first row of a list whose first row would otherwise be a song: a small gap under the
+ * status bar, and the row the list holds on to. A lazy list keeps its first visible row where it
+ * is when rows arrive above it. Upright that row is the header. With a song there instead, an
+ * album whose first songs were the last to load opened scrolled down to the one that came first.
+ */
+fun LazyListScope.paneTop() {
+    item(key = "pane top", contentType = "pane top") {
+        Spacer(Modifier.height(8.dp))
     }
 }
