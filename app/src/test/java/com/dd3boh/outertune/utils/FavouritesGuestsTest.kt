@@ -142,6 +142,29 @@ class FavouritesGuestsTest {
         }
     }
 
+    @Test
+    fun `held as the screen holds it, a mix that grows moves nothing and stays a mix`() {
+        // What the view model does on every emission: deal again, then keep what was shown where
+        // it was and append the rest. Ten favourites are three whole threes and one over, which
+        // is the case a plain re-deal gets wrong: the fourth three is completed by the newcomers
+        // and its guest may be due between two songs already on screen.
+        val before = artist("A", 10)
+        val guests = artist("x", 20)
+
+        for (seed in 1..200) {
+            val shown = dealGuests(before, guests, Random(seed))
+            val dealtAgain = dealGuests(before + artist("B", 8), guests, Random(seed))
+            val held = holdOrderAppendingNewcomers(shown, dealtAgain, { it }, { it })
+
+            assertEquals("seed $seed: what was on screen moved", shown, held.take(shown.size))
+            assertEquals("seed $seed: a song was lost or doubled", dealtAgain.toSet(), held.toSet())
+            assertEquals(dealtAgain.size, held.size)
+            for (i in 1 until held.size) {
+                assertFalse("seed $seed: ${held[i - 1]} then ${held[i]}", isGuest(held[i - 1]) && isGuest(held[i]))
+            }
+        }
+    }
+
     // Who is invited
 
     @Test

@@ -75,4 +75,14 @@ object Unreleased {
      * checks that read it, in MainActivity and AboutScreen, and make its strings translatable.
      */
     val WELCOME_BACK = BuildConfig.DEBUG
+
+    /**
+     * Similar artists in the Favourite artists mix, and the "Favourites only" switch on that page
+     * that keeps them out (FavouritesGuests, FavouritesSql.SIMILAR_TO_BOOKMARKED_ARTISTS). Built
+     * for 0.11.5 and tested as logic, but never looked at on a phone, and whether the switch
+     * starts on or off is not decided. Without it the mix is the bookmarked artists only, as
+     * before. When it is agreed: set this to true or delete it with the two checks that read it,
+     * in AutoPlaylistViewModel and AutoPlaylistScreen, and make its strings translatable.
+     */
+    val FAVOURITES_GUESTS = BuildConfig.DEBUG
 }

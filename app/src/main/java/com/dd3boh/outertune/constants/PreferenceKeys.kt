@@ -210,6 +210,12 @@ val FamiliarityKey = intPreferencesKey("familiarity")
 val SimilarFromLastFmKey = booleanPreferencesKey("similarFromLastFm")
 /** Where the engine's similar songs come from, a SimilarSource name. Unset means the old switch decides, and YouTube only without it. */
 val SimilarSourceKey = stringPreferencesKey("similarSource")
+/**
+ * Whether the Favourite artists mix keeps to the bookmarked artists. Off, and artists YouTube lists
+ * beside them join in as guests (FavouritesGuests). On unless turned off, which is the mix as it
+ * was before there were guests.
+ */
+val FavouritesStrictKey = booleanPreferencesKey("favouritesStrict")
 /** When the Last.fm catch-up last finished, so it runs once even for a listener who never changes the setting. */
 val LastFmCaughtUpAtKey = longPreferencesKey("lastFmCaughtUpAt")
 /** Build the engine row in the background while another source is showing, to compare a day later. */

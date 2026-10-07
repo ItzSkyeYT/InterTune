@@ -1651,4 +1651,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="share_link_choice_title">Which link?</string>
     <string name="share_link_youtube_music_description">Opens in YouTube Music or in InterTune</string>
     <string name="share_link_page_description">They pick their own app: Spotify, Apple Music, Deezer and others</string>
+    <string name="favourites_strict" translatable="false">Favourites only</string>
+    <string name="favourites_strict_on" translatable="false">Turn off to let similar artists join in.</string>
+    <string name="favourites_strict_off" translatable="false">Similar artists join in, one song in four at most.</string>
+    <string name="favourites_strict_off_none" translatable="false">No similar artists yet. They come from what YouTube lists beside the songs you play.</string>
 </resources>
