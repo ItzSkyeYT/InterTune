@@ -13,6 +13,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
+import kotlin.math.exp
 
 /**
  * The living background: the cover as a few patches of colour that breathe with the music. Still,
@@ -1148,6 +1149,251 @@ class LivingFieldTest {
         motion.settle()
         assertTrue(motion.atRest())
         assertTrue(motion.patches().all { it == blue })
+    }
+
+    // The song's shape: gathered by a build-up, one burst on the drop, more of everything after it
+
+    /** Steps on with nothing but a kick or none in the levels, all there, and this much of the song's shape. */
+    private fun LivingMotion.shaped(seconds: Float, tension: Float = 0f, drop: Float = 0f, drive: Float = 0f, bass: Float = 0f, going: Float = 1f) {
+        val levels = floatArrayOf(bass, 0f, 0f, going, tension, drop, drive)
+        repeat(Math.round(seconds / frame)) { step(frame, levels, true) }
+    }
+
+    /**
+     * The first [seconds] of a drop as the analyser gives it: a kick of 80 ms, the drop at
+     * [strength] in its first frame and fading from there, and the drive on. Returns the burst at
+     * every step.
+     */
+    private fun LivingMotion.dropped(seconds: Float, strength: Float = 1f, drive: Float = 1f, going: Float = 1f): List<Float> =
+        List(Math.round(seconds / frame)) { n ->
+            val drop = (strength * exp(-n * frame / 0.15f)).let { if (it < 0.01f) 0f else it }
+            step(frame, floatArrayOf(if (n * frame < 0.08f) 1f else 0f, 0f, 0f, going, 0f, drop, drive), true)
+            burst
+        }
+
+    private fun LivingMotion.meanRadius() = (0 until count).map { radius(it) }.average().toFloat()
+
+    @Test
+    fun `a build-up gathers the picture, in either way of colouring`() {
+        for (ribbons in listOf(false, true)) {
+            fun fresh() = if (ribbons) apart() else motion().apply { turnTo(IntArray(count) { 0xff806040.toInt() }) }
+            val calm = fresh().apply { shaped(4f) }
+            val tense = fresh().apply { shaped(4f, tension = 1f) }
+            assertEquals("ribbons $ribbons", 1f, tense.gathered, 0.01f)
+            assertEquals(0f, calm.gathered, 0f)
+            val reach = LivingField.reach(tense.strength)
+            assertEquals("everything stands nearer the middle", 1f - LivingField.GATHER_IN * reach, tense.push(), 0.002f)
+            assertEquals(1f, calm.push(), 0f)
+            assertTrue("and is smaller: ${tense.meanRadius()} against ${calm.meanRadius()}", tense.meanRadius() < calm.meanRadius() * 0.96f)
+            assertTrue("and flows faster: ${tense.drift} against ${calm.drift}", tense.drift > calm.drift * 1.5f)
+            assertEquals("no burst, no drive", 0f, tense.burst + tense.driven, 0f)
+        }
+    }
+
+    @Test
+    fun `tension comes on slowly and is let go of at once`() {
+        val motion = motion()
+        motion.shaped(0.2f, tension = 1f)
+        assertTrue("a fifth of a second in: ${motion.gathered}", motion.gathered in 0.15f..0.4f)
+        motion.shaped(3f, tension = 1f)
+        motion.shaped(0.2f)
+        assertTrue("a fifth of a second after the drop took it: ${motion.gathered}", motion.gathered < 0.25f)
+    }
+
+    @Test
+    fun `a build-up charges the top of the spectrum`() {
+        // with a colour to each range: the top's ribbon is thicker and lit
+        val calm = apart().apply { shaped(4f) }
+        val tense = apart().apply { shaped(4f, tension = 1f) }
+        fun ofTheTop(m: LivingMotion) = (0 until m.count).sumOf { m.sharesOfPatch(it)[MusicLevels.HIGH].toDouble() }
+        assertTrue("the top has more of the picture: ${ofTheTop(tense)} against ${ofTheTop(calm)}", ofTheTop(tense) > ofTheTop(calm) * 1.15)
+        val lit = tense.lightOf(MusicLevels.HIGH, tense.patchOf(MusicLevels.HIGH)) / calm.lightOf(MusicLevels.HIGH, calm.patchOf(MusicLevels.HIGH))
+        assertTrue("and its colour is lit: $lit", lit > 1.3f)
+        assertEquals("the bass's is not", calm.lightOf(MusicLevels.BASS, 0), tense.lightOf(MusicLevels.BASS, 0), 2f)
+
+        // as a picture of the cover: the very middle row, which is the top's
+        val grey = IntArray(columns * rows) { 0xff606060.toInt() }
+        val still = motion().apply { turnTo(grey); shaped(4f) }
+        val charged = motion().apply { turnTo(grey); shaped(4f, tension = 1f) }
+        val middle = columns * 3
+        assertTrue("${charged.color(middle) and 0xff} against ${still.color(middle) and 0xff}", (charged.color(middle) and 0xff) > (still.color(middle) and 0xff) * 1.2f)
+        assertEquals("the bass's rows are as they were", still.color(0), charged.color(0))
+    }
+
+    @Test
+    fun `the drop is one burst, on the beat`() {
+        val motion = motion().apply { shaped(3f, tension = 1f) }
+        val burst = motion.dropped(2f)
+        val peak = burst.indices.maxBy { burst[it] }
+        assertTrue("it is there within a tenth of a second: ${burst.take(7)}", burst[5] > 0.8f)
+        assertTrue("at its most ${peak * frame} s in: ${burst[peak]}", peak <= 7 && burst[peak] > 0.9f)
+        assertTrue("then it only goes", burst.drop(peak).zipWithNext().all { (a, b) -> b <= a })
+        assertTrue("half a second on, most of it has: ${burst[30 + peak]}", burst[30 + peak] in 0.15f..0.5f)
+        assertTrue("two seconds on, all of it: ${burst.last()}", burst.last() < 0.02f)
+        // the part it set off goes on, kick after kick, and there is no second burst
+        repeat(8) {
+            motion.shaped(0.08f, drive = 1f, bass = 1f)
+            motion.shaped(0.42f, drive = 1f)
+            assertTrue("kick $it: ${motion.burst}", motion.burst < 0.02f)
+        }
+        assertEquals(1f, motion.driven, 0.01f)
+    }
+
+    @Test
+    fun `a drop pushes everything out, lights everything and reaches round the cover, as a kick alone does not`() {
+        val kick = motion().coverAsInThePlayer().apply { turnTo(IntArray(count) { 0xff606060.toInt() }); shaped(0.08f, bass = 1f) }
+        val drop = motion().coverAsInThePlayer().apply { turnTo(IntArray(count) { 0xff606060.toInt() }); dropped(0.08f, drive = 0f) }
+        assertTrue("pushed out: ${drop.push()} against ${kick.push()}", drop.push() - 1f > (kick.push() - 1f) * 1.8f)
+        val middle = columns * 2                                  // a row of the voice's, which a kick only stirs
+        assertTrue("the voice's rows swell: ${drop.radius(middle)} against ${kick.radius(middle)}", drop.radius(middle) > kick.radius(middle) * 1.2f)
+        assertTrue("and are lit: ${drop.color(middle) and 0xff} against ${kick.color(middle) and 0xff}", (drop.color(middle) and 0xff) > (kick.color(middle) and 0xff) * 1.3f)
+        assertTrue("the bass's own rows are lit more than by the kick", (drop.color(0) and 0xff) > (kick.color(0) and 0xff))
+        assertTrue("the glow stands taller and stronger", drop.glowHeight() > kick.glowHeight() && drop.glowStrength() > kick.glowStrength())
+        val side = drop.aura.indexOfFirst { it.x == 0f && abs(it.y - 0.5f) < 0.1f }
+        kick.shaped(0.1f)
+        drop.dropped(0.1f, strength = 0.5f, drive = 0f)           // what is left of it by then, more or less
+        assertTrue("the halo reaches out half way down the cover's sides: ${drop.auraShown[side]} against ${kick.auraShown[side]}", drop.auraShown[side] > kick.auraShown[side] + 0.2f)
+    }
+
+    @Test
+    fun `on a drop the bass floods in over the other two`() {
+        val kick = apart().apply { shaped(0.08f, bass = 1f) }
+        val drop = apart().apply { dropped(0.08f, drive = 0f) }
+        fun ofTheBass(m: LivingMotion) = (0 until m.count).sumOf { m.sharesOfPatch(it)[MusicLevels.BASS].toDouble() }
+        assertTrue("it has more of the picture than on a kick: ${ofTheBass(drop)} against ${ofTheBass(kick)}", ofTheBass(drop) > ofTheBass(kick) + 2.0)
+        val top = drop.patchOf(MusicLevels.HIGH)
+        assertTrue("the top keeps its line: ${drop.sharesOfPatch(top)}", drop.sharesOfPatch(top)[MusicLevels.HIGH] > 0.9f)
+        assertTrue("and that line is lit with the rest, this once: ${drop.lightOf(MusicLevels.HIGH, top)} against ${kick.lightOf(MusicLevels.HIGH, kick.patchOf(MusicLevels.HIGH))}",
+            drop.lightOf(MusicLevels.HIGH, top) > kick.lightOf(MusicLevels.HIGH, kick.patchOf(MusicLevels.HIGH)) * 1.3f)
+        assertTrue("every patch swells", (0 until drop.count).all { drop.radius(it) > kick.radius(it) })
+    }
+
+    @Test
+    fun `a stronger drop is a bigger burst`() {
+        val small = motion().apply { dropped(0.1f, strength = 0.5f) }
+        val big = motion().apply { dropped(0.1f, strength = 1f) }
+        assertEquals(2f, big.burst / small.burst, 0.1f)
+        assertTrue(big.push() > small.push())
+    }
+
+    @Test
+    fun `while the drive lasts everything is bigger and answers more, and when it goes it is as it was`() {
+        for (ribbons in listOf(false, true)) {
+            fun fresh() = if (ribbons) apart() else motion().apply { turnTo(IntArray(count) { 0xff604030.toInt() }) }
+            val plain = fresh().apply { shaped(3f) }
+            val driven = fresh().apply { shaped(3f, drive = 1f) }
+            assertEquals(1f, driven.driven, 0.01f)
+            assertTrue("ribbons $ribbons, bigger between two kicks: ${driven.meanRadius()} against ${plain.meanRadius()}", driven.meanRadius() > plain.meanRadius() * 1.05f)
+            assertTrue("flowing faster: ${driven.drift} against ${plain.drift}", driven.drift > plain.drift * 1.3f)
+            val (restPlain, restDriven) = plain.radius(0) to driven.radius(0)
+            val (glowPlain, glowDriven) = plain.glowStrength() to driven.glowStrength()
+            plain.shaped(0.08f, bass = 1f)
+            driven.shaped(0.08f, drive = 1f, bass = 1f)
+            assertTrue("a kick swells its patch more: ${driven.radius(0) - restDriven} against ${plain.radius(0) - restPlain}",
+                driven.radius(0) - restDriven > (plain.radius(0) - restPlain) * 1.2f)
+            assertTrue("pushes more", driven.push() - 1f > (plain.push() - 1f) * 1.2f)
+            assertTrue("lights more", (driven.color(0) shr 16 and 0xff) > (plain.color(0) shr 16 and 0xff))
+            assertTrue("and the glow answers more", driven.glowStrength() - glowDriven > (plain.glowStrength() - glowPlain) * 1.2f)
+
+            driven.shaped(4f)
+            assertTrue("the drive has gone: ${driven.driven}", driven.driven < 0.01f)
+            plain.shaped(4f)
+            driven.shaped(0.08f, bass = 1f)
+            plain.shaped(0.08f, bass = 1f)
+            assertEquals("and a kick is a kick again", plain.push(), driven.push(), 0.002f)
+        }
+    }
+
+    @Test
+    fun `turned right down, the song's shape moves nothing either`() {
+        for (ribbons in listOf(false, true)) {
+            fun fresh() = (if (ribbons) apart() else motion().apply { turnTo(IntArray(count) { 0xff806040.toInt() }) }).coverAsInThePlayer().apply { strength = 0f }
+            val plain = fresh()
+            val shaped = fresh()
+            // a build-up, the drop, and the part after it, against the same kicks with no word of any of it
+            fun both(seconds: Float, bass: Float = 0f, tension: Float = 0f, drop: Float = 0f, drive: Float = 0f) {
+                plain.shaped(seconds, bass = bass)
+                shaped.shaped(seconds, bass = bass, tension = tension, drop = drop, drive = drive)
+                assertEquals("ribbons $ribbons", plain.drift, shaped.drift, 0f)
+                for (i in 0 until plain.count) {
+                    assertEquals(plain.x(i), shaped.x(i), 0f)
+                    assertEquals(plain.y(i), shaped.y(i), 0f)
+                    assertEquals(plain.radius(i), shaped.radius(i), 0f)
+                    assertEquals(plain.color(i), shaped.color(i))
+                }
+                for (i in plain.aura.indices) {
+                    assertEquals(plain.auraRadius(i), shaped.auraRadius(i), 0f)
+                    assertEquals(plain.auraColor(i), shaped.auraColor(i))
+                }
+                assertEquals(plain.glowStrength(), shaped.glowStrength(), 0f)
+                assertEquals(plain.glowHeight(), shaped.glowHeight(), 0f)
+            }
+            both(3f, tension = 1f)
+            both(0.05f, bass = 1f, drop = 1f, drive = 1f)
+            both(0.05f, bass = 1f, drop = 0.6f, drive = 1f)
+            both(2f, drive = 1f)
+        }
+    }
+
+    @Test
+    fun `turned up, the song's shape shows more, and stays inside the picture's limits`() {
+        fun at(strength: Float) = motion().coverAsInThePlayer().apply { this.strength = strength; turnTo(IntArray(count) { 0xff806040.toInt() }) }
+        val (low, middle, high) = Triple(at(0.25f), at(0.5f), at(1f))
+        for (m in listOf(low, middle, high)) m.shaped(3f, tension = 1f)
+        assertTrue("drawn in more: ${low.push()} ${middle.push()} ${high.push()}", low.push() > middle.push() && middle.push() > high.push())
+        assertTrue("never by much: ${high.push()}", high.push() > 0.8f)
+        for (m in listOf(low, middle, high)) m.dropped(0.1f)
+        assertTrue("pushed out more: ${low.push()} ${middle.push()} ${high.push()}", low.push() < middle.push() && middle.push() <= high.push())
+        assertTrue("never by more than so much: ${high.push()}", high.push() <= 1f + LivingField.MOST_PUSH)
+        for (i in 0 until high.count) {
+            assertTrue("radius ${high.radius(i)}", high.radius(i) <= LivingField.REST_RADIUS * (1.05f + LivingField.MOST_SWELL))
+            assertTrue("x ${high.x(i)}", high.x(i) in -0.15f..1.15f)
+            assertTrue("y ${high.y(i)}", high.y(i) in -0.15f..1.15f)
+        }
+        for (i in high.aura.indices) {
+            assertTrue(high.auraRadius(i) <= LivingField.AURA_MOST)
+            assertTrue(high.auraStrength(i) in 0f..1f)
+        }
+        assertTrue(high.glowStrength() <= 1f && high.glowHeight() <= 0.8f)
+    }
+
+    @Test
+    fun `when not much is going on, the song's shape hardly shows`() {
+        val motion = motion()
+        motion.shaped(4f, tension = 1f, going = 0.15f)
+        assertEquals("a build-up in a quiet passage", 0.15f, motion.gathered, 0.02f)
+        motion.shaped(4f, drive = 1f, going = 0.15f)
+        assertEquals(0.15f, motion.driven, 0.02f)
+        val quiet = motion().apply { dropped(0.1f, going = 0.15f) }
+        val loud = motion().apply { dropped(0.1f) }
+        assertTrue("a drop there is no flash: ${quiet.burst} against ${loud.burst}", quiet.burst < loud.burst * 0.2f)
+        motion.shaped(1f, tension = 1f, drop = 1f, drive = 1f, going = 0f)
+        assertTrue("nothing going on, nothing of it", motion.gathered < 0.01f && motion.burst < 0.01f)
+    }
+
+    @Test
+    fun `levels that say nothing of the song's shape move the picture as they always did`() {
+        val motion = motion()
+        repeat(120) { motion.step(frame, floatArrayOf(1f, 0.5f, 0.5f), true) }
+        repeat(120) { motion.step(frame, floatArrayOf(1f, 0.5f, 0.5f, 1f), true) }
+        repeat(30) { motion.step(frame, floatArrayOf(1f, 0.5f, 0.5f, 1f, Float.NaN, Float.NaN, Float.NaN), true) }
+        assertEquals(0f, motion.gathered + motion.burst + motion.driven, 0f)
+        motion.step(frame, floatArrayOf(0f, 0f, 0f, 1f, 9f, -2f, 9f), true)
+        assertTrue("and what is out of range is held to it", motion.gathered in 0f..1f && motion.burst == 0f && motion.driven in 0f..1f)
+    }
+
+    @Test
+    fun `with the music stopped the song's shape lets go too, and the picture comes to rest`() {
+        val motion = motion()
+        motion.shaped(3f, tension = 1f)
+        motion.dropped(0.2f)
+        assertFalse(motion.atRest())
+        motion.run(8f, playing = false, measured = false)
+        assertTrue("gathered ${motion.gathered}, burst ${motion.burst}, driven ${motion.driven}", motion.atRest())
+        motion.shaped(1f, tension = 1f, drive = 1f)
+        motion.settle()
+        assertEquals("told to be still, it is", 0f, motion.gathered + motion.burst + motion.driven, 0f)
+        assertEquals(1f, motion.push(), 0f)
     }
 
     @Test
