@@ -13,6 +13,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.File
@@ -271,6 +272,28 @@ class FavouritesSqlTest {
         related("f1", "near2"); related("f1", "far1"); related("f1", "else1")
 
         assertEquals(listOf("near1" to 2, "else1" to 1), similar(limit = 2))
+    }
+
+    @Test
+    fun `the lists are reached from the favourites, never by reading every list there is`() {
+        // The answer is the same either way, so nothing else here would notice. Left to choose,
+        // SQLite walked all of related_song_map and looked up the artists of every edge: 1.4
+        // seconds against a real library, where starting from the bookmarked artists takes 12 ms.
+        val plan = db.prepareStatement("EXPLAIN QUERY PLAN " + FavouritesSql.SIMILAR_TO_BOOKMARKED_ARTISTS).use { ps ->
+            ps.setLong(1, now)
+            ps.setInt(2, 100)
+            ps.executeQuery().use { rs -> buildList { while (rs.next()) add(rs.getString("detail")) } }
+        }
+        // "SCAN r" in a newer SQLite and "SCAN TABLE related_song_map AS r" in an older one.
+        val edges = Regex("""\br\b""")
+        val steps = plan.joinToString("\n")
+
+        assertTrue("the edges are scanned:\n$steps", plan.none { it.startsWith("SCAN") && edges.containsMatchIn(it) })
+        assertTrue(
+            "the edges are not looked up by the song they belong to:\n$steps",
+            plan.any { it.startsWith("SEARCH") && edges.containsMatchIn(it) && "songId" in it }
+        )
+        assertTrue("it does not start from the artists:\n$steps", plan.any { it.startsWith("SCAN") && "fave" in it })
     }
 
     @Test

@@ -70,9 +70,12 @@ object FavouritesSql {
      * two favourites is reached once through each of them.
      *
      * The inner query starts from the bookmarked artists and walks out to their songs and those
-     * songs' lists, all three steps on an index. Written the other way round, as "every edge whose
-     * seed has a bookmarked artist", it would look at every edge there is, and the table grows by
-     * a list for each new song played.
+     * songs' lists, and the CROSS JOINs are what hold it to that order, as in
+     * StatsSql.MOST_PLAYED_ARTISTS. With plain joins SQLite chose to walk every edge there is, in
+     * the order of the GROUP BY, and look up the artists of each one. Against a real library,
+     * 49,833 songs and 97,955 edges with ten artists bookmarked, that took 1.4 seconds on a desktop
+     * and this takes 12 milliseconds for the same 427 rows. The table grows by a list for each new
+     * song played, so the slow way only gets slower.
      *
      * Three things are kept out. A song with any bookmarked artist on it, wherever they are
      * billed, since that is a favourite's song and the query above already hands it over. Last.fm's
@@ -90,8 +93,8 @@ object FavouritesSql {
         JOIN (
             SELECT r.relatedSongId AS id, COUNT(DISTINCT r.songId) AS refs
             FROM artist fave
-                JOIN song_artist_map theirs ON theirs.artistId = fave.id
-                JOIN related_song_map r ON r.songId = theirs.songId
+                CROSS JOIN song_artist_map theirs ON theirs.artistId = fave.id
+                CROSS JOIN related_song_map r ON r.songId = theirs.songId
             WHERE fave.bookmarkedAt IS NOT NULL AND r.source = 0
             GROUP BY r.relatedSongId
         ) rel ON rel.id = song.id
