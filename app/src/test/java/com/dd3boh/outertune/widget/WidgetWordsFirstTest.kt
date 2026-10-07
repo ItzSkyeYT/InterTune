@@ -25,6 +25,10 @@ class WidgetWordsFirstTest {
         .substringAfter("suspend fun setNowPlaying(")
         .substringBefore("private suspend fun picturesFor(")
 
+    private val hydrate = store
+        .substringAfter("suspend fun hydrate(")
+        .substringBefore("private suspend fun artFor(")
+
     private val setList = store
         .substringAfter("suspend fun setList(")
         .substringBefore("private suspend fun rowPicturesFor(")
@@ -57,5 +61,19 @@ class WidgetWordsFirstTest {
             assertFalse("$download under the lock holds up the title and the play button", download in rows)
         }
         assertTrue(setList.indexOf("updateAll(context)") in 0 until setList.indexOf("rowPicturesFor("))
+    }
+
+    @Test
+    fun `a widget that has just appeared is drawn before its pictures are fetched`() {
+        val filling = hydrate.substringAfter("mutex.withLock {").substringBefore("\n        }\n")
+        assertTrue("write(context" in filling)
+        for (download in listOf("artFor(", "artInSizes(", "imageLoader")) {
+            assertFalse("$download under the lock holds up the title and the play button", download in filling)
+        }
+        assertTrue(hydrate.indexOf("updateAll(context)") in 0 until hydrate.indexOf("artInSizes("))
+        // the rows it reads from the library are read under that lock
+        val fromLibrary = hydrate.substringAfter("private suspend fun fromLibrary(")
+        assertFalse("artFor(" in fromLibrary)
+        assertFalse("imageLoader" in fromLibrary)
     }
 }

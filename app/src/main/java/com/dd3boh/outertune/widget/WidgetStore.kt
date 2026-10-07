@@ -352,37 +352,73 @@ object WidgetStore {
 
     /**
      * A widget has appeared. Whatever the snapshot is missing because there was no widget to want
-     * it, fetch now: the artwork of what it already knows, and Quick picks from the library when
-     * Home has not filled them in. Then draw.
+     * it, get now: Quick picks from the library when Home has not filled them in, and the artwork
+     * of what it already knows.
+     *
+     * Words first, as everywhere else here. What the snapshot and the library know is written with
+     * the artwork the phone has and the widget is drawn; the rest of the artwork is fetched after
+     * that, outside the lock, and written when it is all there. It used to be fetched first, under
+     * the lock, so a new widget on a slow connection stayed empty until the last cover of every
+     * list was in, and a song change in that stretch waited as well.
      */
     suspend fun hydrate(context: Context) {
         if (!hasWidgets(context)) return
+        var playing: WidgetSong? = null
+        var bare = emptyList<WidgetSong>()
         mutex.withLock {
             var snapshot = read(context)
-            val now = snapshot.nowPlaying
-            if (now != null && (now.artPath == null || now.colour == null)) {
-                val art = now.artPath ?: artFor(context, now.id, artModel(now), ART_NOW_PX)
-                snapshot = snapshot.copy(nowPlaying = now.copy(artPath = art, colour = now.colour ?: artColour(art)))
+            snapshot.nowPlaying?.let { now ->
+                if (now.artPath == null || now.colour == null) {
+                    val art = now.artPath ?: artOnPhone(context, now.id, ART_NOW_PX)
+                    snapshot = snapshot.copy(nowPlaying = now.copy(artPath = art, colour = now.colour ?: artColour(art)))
+                }
             }
-            if (now != null) artFor(context, now.id, artModel(now, ART_BIG_PX), ART_BIG_PX)
             // Every list, not only the one this widget shows: a second widget, or the same one
             // set to another list, then has something to draw the moment it is asked.
             for (which in WidgetList.entries) {
                 val filled = snapshot.list(which).ifEmpty { fromLibrary(context, which) }
                 snapshot = snapshot.withList(which, filled.map { song ->
                     if (song.artPath != null) song
-                    else song.copy(artPath = artFor(context, song.id, artModel(song, ART_PICK_PX), ART_PICK_PX))
+                    else song.copy(artPath = artOnPhone(context, song.id, ART_PICK_PX))
                 })
             }
             write(context, snapshot)
             prune(context, read(context))
+            playing = snapshot.nowPlaying
+            bare = WidgetList.entries.flatMap { snapshot.list(it) }.filter { it.artPath == null }.distinctBy { it.id }
+        }
+        MusicWidget().updateAll(context)
+
+        val now = playing
+        val made = now != null && artMutex.withLock {
+            artInSizes(context, now.id, listOf(ART_BIG_PX, ART_NOW_PX)) { px -> artModel(now, px) }
+        }
+        val rows = HashMap<String, String>()
+        for (song in bare) {
+            artMutex.withLock {
+                artFor(context, song.id, artModel(song, ART_PICK_PX), ART_PICK_PX)?.let { rows[song.id] = it }
+            }
+        }
+        if (!made && rows.isEmpty()) return
+        mutex.withLock {
+            var snapshot = read(context)
+            // Only if it is still the song that plays; a row is its own wherever it still is.
+            snapshot.nowPlaying?.takeIf { it.id == now?.id }?.let { song ->
+                val art = artOnPhone(context, song.id, ART_NOW_PX) ?: song.artPath
+                snapshot = snapshot.copy(nowPlaying = song.copy(artPath = art, colour = song.colour ?: artColour(art)))
+            }
+            for (which in WidgetList.entries) {
+                snapshot = snapshot.withList(which, snapshot.list(which).map { if (it.artPath == null) it.copy(artPath = rows[it.id]) else it })
+            }
+            write(context, snapshot)
         }
         MusicWidget().updateAll(context)
     }
 
     /**
      * A row straight from the library, for a widget added before Home has ever filled that row.
-     * The same queries Home uses, so the widget is never emptier than the app.
+     * The same queries Home uses, so the widget is never emptier than the app. With the artwork
+     * the phone has and no more: this runs under the lock (see [hydrate]).
      */
     private suspend fun fromLibrary(context: Context, which: WidgetList): List<WidgetSong> = runCatching {
         val database = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java).database()
@@ -402,7 +438,7 @@ object WidgetStore {
                 id = meta.id,
                 title = meta.title,
                 artist = meta.artists.joinToString(", ") { it.name },
-                artPath = artFor(context, meta.id, artModel(meta, ART_PICK_PX), ART_PICK_PX),
+                artPath = artOnPhone(context, meta.id, ART_PICK_PX),
                 thumbnailUrl = meta.thumbnailUrl,
                 durationSec = meta.duration,
                 isLocal = meta.isLocal,
