@@ -111,6 +111,18 @@ data class Landscape(
     fun readingWidth(upright: Dp): Dp =
         if (active && upright.isSpecified) min(upright, ReadingMaxWidth) else upright
 
+    /**
+     * The side of the cover in a header that stands beside its list, with [room] left for it in
+     * the header's half once the column next to it has what it needs (a playlist's row of five
+     * buttons is 240dp). The cover gives way to the column: kept at its size it was the whole
+     * first line of a half 360dp wide, the column went under it, and in a window 400dp tall that
+     * put Play and Shuffle below the edge. Under [HeaderCoverMin] it would be a thumbnail, so
+     * with less [room] than that it keeps its size and the column goes under it as before.
+     * Upright, and with no [room] named, it is [upright].
+     */
+    fun headerCover(upright: Dp, room: Dp): Dp =
+        if (active && room.isSpecified && room >= min(HeaderCoverMin, upright)) min(room, upright) else upright
+
     companion object {
         /** Under this the window is short: Material's compact height class. */
         val ShortHeight = 480.dp
@@ -126,6 +138,9 @@ data class Landscape(
 
         /** A settings row upright on a large phone, with a little to spare. */
         val ReadingMaxWidth = 600.dp
+
+        /** The smallest a header's cover is drawn: two thirds of what it is upright. */
+        val HeaderCoverMin = 96.dp
 
         /**
          * The shape of a header's picture (an artist's) in its half of the window, where the 4:3
@@ -165,6 +180,21 @@ fun rememberListColumns(): Int {
  */
 @Composable
 fun rememberHeaderBeside(): Boolean = rememberListColumns() > 1
+
+/**
+ * The width of the header's half of [HeaderBesideList], for a header that fits itself to it
+ * ([Landscape.headerCover]). Unspecified where the header is above its list, as it is upright.
+ */
+@Composable
+fun rememberHeaderPaneWidth(): Dp {
+    if (!rememberHeaderBeside()) return Dp.Unspecified
+    val landscape = LocalLandscape.current
+    val insets = LocalPlayerAwareWindowInsets.current
+    val direction = LocalLayoutDirection.current
+    return with(LocalDensity.current) {
+        (landscape.windowWidth - insets.getLeft(this, direction).toDp() - insets.getRight(this, direction).toDp()) / 2
+    }
+}
 
 /**
  * The rows of a list, [columns] abreast.

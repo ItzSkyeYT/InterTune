@@ -158,6 +158,22 @@ class LandscapeTest {
     }
 
     @Test
+    fun `a header's cover gives way to the column beside it, and only on its side`() {
+        // Half of 897dp less the rail is 385dp: less the paddings and five buttons, 109dp.
+        assertEquals(109.dp, window(897, 403).headerCover(upright = 144.dp, room = 109.dp))
+        // Room to spare: the size it has upright, and never more.
+        assertEquals(144.dp, large.headerCover(upright = 144.dp, room = 156.dp))
+        // Down to two thirds of its size, and with less room than that it is not made smaller
+        // still: it keeps its size and the column goes under it as before.
+        assertEquals(96.dp, window(855, 384).headerCover(upright = 144.dp, room = 96.dp))
+        assertEquals(144.dp, window(800, 360).headerCover(upright = 144.dp, room = 61.dp))
+        // Upright, with the flag off, and where the header is above its list, nothing changes.
+        assertEquals(144.dp, upright.headerCover(upright = 144.dp, room = 109.dp))
+        assertEquals(144.dp, window(897, 403, enabled = false).headerCover(upright = 144.dp, room = 109.dp))
+        assertEquals(144.dp, window(897, 403).headerCover(upright = 144.dp, room = Dp.Unspecified))
+    }
+
+    @Test
     fun `where the page is one column the mini player is in the middle of it`() {
         // A 640dp phone on its side has 560dp beside the rail: no halves, as for its lists.
         val (left, width) = window(640, 360).panelSpan(left = 80.dp, right = 0.dp)
