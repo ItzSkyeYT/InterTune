@@ -113,6 +113,7 @@ import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
 import com.dd3boh.outertune.constants.AdaptiveQueueMode
 import com.dd3boh.outertune.constants.PlaybackAuthModeKey
 import com.dd3boh.outertune.constants.PlaybackAuthMode
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.ResumePlaybackOnLaunchKey
 import com.dd3boh.outertune.constants.PlayerVolumeKey
 import com.dd3boh.outertune.constants.ProximityVolumeKey
@@ -153,6 +154,7 @@ import com.dd3boh.outertune.models.HybridCacheDataSinkFactory
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.playback.ListenReporting.AddressFrom
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
@@ -178,7 +180,9 @@ import com.google.common.util.concurrent.MoreExecutors
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
+import com.zionhuang.innertube.models.response.PlayerResponse
 import dagger.hilt.android.AndroidEntryPoint
+import io.ktor.client.plugins.ResponseException
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
 import com.dd3boh.outertune.widget.WidgetStore
 import kotlinx.coroutines.CoroutineScope
@@ -2972,23 +2976,50 @@ class MusicService : MediaLibraryService(),
                 // TODO: support playlist id
                 // Throttle names history pings as work to drop while blocked, and this one costs a
                 // whole extra /player per finished song. Nobody asked for it and nobody sees it fail.
+                val loggedIn = isUserLoggedIn()
                 val ytHist = ListenReporting.pingsYouTubeHistory(
                     isLocal = mediaItem.metadata?.isLocal == true,
-                    loggedIn = isUserLoggedIn(),
+                    loggedIn = loggedIn,
                     remoteHistoryPaused = dataStore.get(PauseRemoteListenHistoryKey, false),
                     throttled = Throttle.isBlocked,
                 )
                 Log.d(TAG, "Trying to register remote history: $ytHist")
                 if (ytHist) {
-                    val playbackUrl = YTPlayerUtils.playerResponseForMetadata(mediaItem.mediaId, null)
-                        .getOrNull()?.playbackTracking?.videostatsPlaybackUrl?.baseUrl
+                    // The visitor's request alone, as it has always been, unless the trial puts the
+                    // account's before it.
+                    val requests = ListenReporting.addressRequests(
+                        asAccountTrial = Unreleased.HISTORY_AS_ACCOUNT,
+                        loggedIn = loggedIn,
+                        authMode = YTPlayerUtils.authMode,
+                    )
+                    var accountAnswer: Result<PlayerResponse>? = null
+                    val found = ListenReporting.firstAddress(requests) { from ->
+                        when (from) {
+                            AddressFrom.ACCOUNT ->
+                                YTPlayerUtils.playerResponseAsAccount(mediaItem.mediaId).also { accountAnswer = it }
+                            AddressFrom.VISITOR -> YTPlayerUtils.playerResponseForMetadata(mediaItem.mediaId, null)
+                        }.getOrNull()?.playbackTracking?.videostatsPlaybackUrl?.baseUrl
+                    }
+                    val playbackUrl = found?.second
+                    // Whose request the address came from, said only when the account was asked.
+                    val addressFrom = found?.first?.takeIf { AddressFrom.ACCOUNT in requests }
+                    accountAnswer?.let { answer ->
+                        val failure = answer.exceptionOrNull()
+                        val line = ListenReporting.addressSourceLine(
+                            used = found?.first,
+                            accountStatus = answer.getOrNull()?.playabilityStatus?.status,
+                            accountFailure = failure,
+                            httpStatus = (failure as? ResponseException)?.response?.status?.value,
+                        )
+                        Log.d(TAG, line)
+                    }
                     // Never the address itself, nor a failure's own words, which can quote it: its
                     // parameters name the video, the session and the player.
                     Log.d(TAG, "Got playback url: ${ListenReporting.trackingAddressForLog(playbackUrl)}")
                     playbackUrl?.let {
                         YouTube.registerPlayback(null, playbackUrl)
                             .onSuccess { status ->
-                                val line = ListenReporting.historyAnswerLine(status)
+                                val line = ListenReporting.historyAnswerLine(status, addressFrom)
                                 if (ListenReporting.historyReportTaken(status)) Log.d(TAG, line) else Log.w(TAG, line)
                             }
                             .onFailure { Log.w(TAG, ListenReporting.historyFailureLine(it)) }

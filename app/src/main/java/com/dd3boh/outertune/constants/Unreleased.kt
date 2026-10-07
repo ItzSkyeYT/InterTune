@@ -104,4 +104,17 @@ object Unreleased {
      * to true, or delete it with the one check that reads it, the default of Landscape.enabled.
      */
     val LANDSCAPE = BuildConfig.DEBUG
+
+    /**
+     * A play reported to YouTube's history with an address that was asked for as the account. The
+     * address has always come from a visitor's /player request, which cannot name a brand
+     * account's channel, and somebody with such an account says nothing reaches the history
+     * (ListenReporting.addressRequests, YTPlayerUtils.playerResponseAsAccount). With this on, a
+     * signed-in listener whose playback may use the account asks as the account first and falls
+     * back to the visitor's address when that gives none. Never tried against YouTube: whether the
+     * TV client answers a cookie here, and whether its address changes whose history the play
+     * lands in, is what a brand account has to show. When it is agreed: set this to true, or
+     * delete it with the one check that reads it, in MusicService.onPlaybackStatsReady.
+     */
+    val HISTORY_AS_ACCOUNT = BuildConfig.DEBUG
 }
