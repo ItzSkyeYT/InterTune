@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -67,6 +66,8 @@ import com.dd3boh.outertune.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.OnlineSearchSuggestionViewModel
+import com.dd3boh.outertune.ui.utils.itemsInColumns
+import com.dd3boh.outertune.ui.utils.rememberListColumns
 import com.zionhuang.innertube.models.AlbumItem
 import com.zionhuang.innertube.models.ArtistItem
 import com.zionhuang.innertube.models.PlaylistItem
@@ -121,14 +122,17 @@ fun OnlineSearchScreen(
         }
     }
 
+    // Two rows abreast when the phone is on its side, one otherwise (Landscape.kt).
+    val columns = rememberListColumns()
     LazyColumn(
         state = lazyListState,
         contentPadding = LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start).asPaddingValues(),
     ) {
-        items(
+        itemsInColumns(
             items = viewState.history,
-            key = { it.query }
-        ) { history ->
+            columns = columns,
+            key = { _, history -> history.query }
+        ) { _, history ->
             SuggestionItem(
                 query = history.query,
                 online = false,
@@ -153,10 +157,11 @@ fun OnlineSearchScreen(
             )
         }
 
-        items(
+        itemsInColumns(
             items = viewState.suggestions,
-            key = { it }
-        ) { query ->
+            columns = columns,
+            key = { _, query -> query }
+        ) { _, query ->
             SuggestionItem(
                 query = query,
                 online = true,
@@ -182,10 +187,11 @@ fun OnlineSearchScreen(
             }
         }
 
-        items(
+        itemsInColumns(
             items = viewState.items,
-            key = { it.id }
-        ) { item ->
+            columns = columns,
+            key = { _, item -> item.id }
+        ) { _, item ->
             val content: @Composable () -> Unit = {
                 YouTubeListItem(
                     item = item,

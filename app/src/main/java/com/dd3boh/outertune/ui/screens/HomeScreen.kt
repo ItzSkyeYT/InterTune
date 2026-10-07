@@ -140,6 +140,7 @@ import com.dd3boh.outertune.ui.component.ExplainButton
 import com.dd3boh.outertune.ui.component.HideOnScrollFAB
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.NavigationTile
+import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.component.NavigationTitle
 import com.dd3boh.outertune.ui.component.ScrollToTopManager
 import com.dd3boh.outertune.ui.component.items.AlbumGridItem
@@ -594,6 +595,7 @@ fun HomeScreen(
         }
 
         ScrollToTopManager(navController, lazylistState)
+        val tilesBeside = LocalLandscape.current.active
         LazyColumn(
             state = lazylistState,
             contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()
@@ -606,18 +608,24 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .animateItem()
                 ) {
+                    // Upright each tile has a quarter of the row, its title under its icon. On
+                    // its side a quarter of the row is 200dp, and the row a quarter of the
+                    // height: there they are four pills at the start, title beside icon.
+                    val tile = if (tilesBeside) Modifier else Modifier.weight(1f)
                     NavigationTile(
                         title = stringResource(R.string.history),
                         icon = Icons.Rounded.History,
                         onClick = { navController.navigate("history") },
-                        modifier = Modifier.weight(1f).tourTarget(Tour.HISTORY)
+                        modifier = tile.tourTarget(Tour.HISTORY),
+                        beside = tilesBeside,
                     )
 
                     NavigationTile(
                         title = stringResource(R.string.stats),
                         icon = Icons.AutoMirrored.Rounded.TrendingUp,
                         onClick = { navController.navigate("stats") },
-                        modifier = Modifier.weight(1f)
+                        modifier = tile,
+                        beside = tilesBeside,
                     )
 
                     if (localLibEnable) {
@@ -627,7 +635,8 @@ fun HomeScreen(
                             onClick = {
                                 navController.navigate("settings/local")
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = tile,
+                            beside = tilesBeside,
                         )
                     }
 
@@ -637,7 +646,8 @@ fun HomeScreen(
                         onClick = {
                             navController.navigate("account")
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = tile,
+                        beside = tilesBeside,
                     )
                 }
             }

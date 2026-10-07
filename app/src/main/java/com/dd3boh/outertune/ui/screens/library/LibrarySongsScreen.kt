@@ -85,11 +85,15 @@ import com.dd3boh.outertune.ui.component.SortHeader
 import com.dd3boh.outertune.ui.component.items.SongListItem
 import com.dd3boh.outertune.ui.menu.ActionDropdown
 import com.dd3boh.outertune.ui.menu.DropdownItem
+import com.dd3boh.outertune.ui.utils.itemsInColumns
+import com.dd3boh.outertune.ui.utils.rememberListColumns
 import com.dd3boh.outertune.ui.utils.MEDIA_PERMISSION_LEVEL
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.LibrarySongsViewModel
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.ui.utils.LocalLandscape
+import com.dd3boh.outertune.ui.utils.SideBySide
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -153,6 +157,8 @@ fun LibrarySongsScreen(
         }
     }
 
+    // On a phone on its side the chips and the sort row share a line, a half each (Landscape.kt).
+    val oneHeaderLine = LocalLandscape.current.active
     val filterContent = @Composable {
         ChipsRow(
             chips = listOf(
@@ -282,6 +288,8 @@ fun LibrarySongsScreen(
             ),
     ) {
         ScrollToTopManager(navController, lazyListState)
+        // Two rows abreast when the phone is on its side, one otherwise (Landscape.kt).
+        val columns = rememberListColumns()
         LazyColumn(
             state = lazyListState,
             contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
@@ -315,11 +323,15 @@ fun LibrarySongsScreen(
                             )
                         }
                     }
-                    libraryFilterContent?.let { it() } ?: filterContent()
+                    if (oneHeaderLine) {
+                        SideBySide({ libraryFilterContent?.let { it() } ?: filterContent() }, { headerContent() })
+                    } else {
+                        libraryFilterContent?.let { it() } ?: filterContent()
+                    }
                 }
             }
 
-            item(
+            if (!oneHeaderLine) item(
                 key = "header",
                 contentType = CONTENT_TYPE_HEADER
             ) {
@@ -337,8 +349,9 @@ fun LibrarySongsScreen(
                     }
                 }
                 val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
-                itemsIndexed(
+                itemsInColumns(
                     items = songs,
+                    columns = columns,
                     key = { _, item -> item.id },
                     contentType = { _, _ -> CONTENT_TYPE_SONG }
                 ) { index, song ->

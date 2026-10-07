@@ -249,6 +249,9 @@ import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.dd3boh.outertune.ui.utils.LocalAppBackdropAvailable
+import com.dd3boh.outertune.ui.utils.Landscape
+import com.dd3boh.outertune.ui.utils.LocalLandscape
+import androidx.compose.ui.platform.LocalWindowInfo
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
 import com.dd3boh.outertune.ui.utils.LocalGlassIntensity
 import com.dd3boh.outertune.ui.component.LocalSearchBarGlass
@@ -582,10 +585,19 @@ class MainActivity : ComponentActivity() {
             }
 
             val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
+            // The window, measured once for everything that is laid out differently when a phone
+            // is on its side (Landscape.kt).
+            val windowPx = LocalWindowInfo.current.containerSize
+            val windowDensity = LocalDensity.current
+            val landscape = remember(windowPx, windowDensity) {
+                with(windowDensity) { Landscape(windowPx.width.toDp(), windowPx.height.toDp()) }
+            }
 //            val tabMode = this@MainActivity.tabMode()
-            val useNavRail by remember {
+            // The rail for a wide window, and for a short one: a phone on its side that is not
+            // 840dp wide used to keep the bar along the bottom, a sixth of the height it had.
+            val useNavRail by remember(landscape) {
                 derivedStateOf {
-                    windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.EXPANDED
+                    windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.EXPANDED || landscape.active
                 }
             }
 
@@ -867,8 +879,11 @@ class MainActivity : ComponentActivity() {
                 // TIRAMISU because lens() needs a RuntimeShader and the settings toggle is only
                 // offered at 33+. !useNavRail because playerAwareWindowInsets reserves left = 80dp
                 // on tablets, so nothing ever scrolls behind the rail and a glass rail would be a
-                // full offscreen pass refracting the flat surface fill.
-                val backdropAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !useNavRail
+                // full offscreen pass refracting the flat surface fill. A phone on its side has
+                // the rail too, and still has the page scrolling behind its search pill and its
+                // mini player, so those two keep their glass there; the rail itself stays solid.
+                val backdropAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        (!useNavRail || landscape.active)
                 val navGlass = liquidGlass && backdropAvailable
                 val appBackdrop = rememberLayerBackdrop()
 
@@ -893,7 +908,11 @@ class MainActivity : ComponentActivity() {
                     Log.v(MAIN_TAG, "RC-2.2")
 
                     fun getNavPadding(): Dp {
-                        return if (!useNavRail) (if (slimNav) 52.dp else 68.dp) else MinMiniPlayerHeight
+                        return if (!useNavRail) (if (slimNav) 52.dp else 68.dp)
+                        // On its side the mini player is a panel floating over the page, and the
+                        // gap under it is the gesture bar's, or a small one where there is none.
+                        else if (landscape.active) (if (bottomInset >= 16.dp) 0.dp else 8.dp)
+                        else MinMiniPlayerHeight
                     }
 
                     val playerBottomSheetState = rememberBottomSheetState(
@@ -1062,6 +1081,7 @@ class MainActivity : ComponentActivity() {
                         LocalSnackbarHostState provides snackbarHostState,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
                         LocalAppBackdropAvailable provides backdropAvailable,
+                        LocalLandscape provides landscape,
                         LocalGlassIntensity provides glassIntensity,
                         dpadBringIntoView(),
                     ) {

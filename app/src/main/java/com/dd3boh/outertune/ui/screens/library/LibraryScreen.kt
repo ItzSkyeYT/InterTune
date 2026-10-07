@@ -100,6 +100,8 @@ import com.dd3boh.outertune.ui.utils.MEDIA_PERMISSION_LEVEL
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.LibraryViewModel
+import com.dd3boh.outertune.ui.utils.LocalLandscape
+import com.dd3boh.outertune.ui.utils.SideBySide
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -199,6 +201,8 @@ fun LibraryScreen(
         }
     }
 
+    // On a phone on its side the chips and the sort row share a line, a half each (Landscape.kt).
+    val oneHeaderLine = LocalLandscape.current.active
     val filterContent = @Composable {
         var showStoragePerm by remember {
             mutableStateOf(context.checkSelfPermission(MEDIA_PERMISSION_LEVEL) != PackageManager.PERMISSION_GRANTED)
@@ -363,10 +367,14 @@ fun LibraryScreen(
                                 key = "filter",
                                 contentType = CONTENT_TYPE_HEADER
                             ) {
-                                filterContent()
+                                if (oneHeaderLine) {
+                                    SideBySide({ filterContent() }, { headerContent() })
+                                } else {
+                                    filterContent()
+                                }
                             }
 
-                            item(
+                            if (!oneHeaderLine) item(
                                 key = "header",
                                 contentType = CONTENT_TYPE_HEADER
                             ) {
@@ -492,10 +500,14 @@ fun LibraryScreen(
                                 span = { GridItemSpan(maxLineSpan) },
                                 contentType = CONTENT_TYPE_HEADER
                             ) {
-                                filterContent()
+                                if (oneHeaderLine) {
+                                    SideBySide({ filterContent() }, { headerContent() })
+                                } else {
+                                    filterContent()
+                                }
                             }
 
-                            item(
+                            if (!oneHeaderLine) item(
                                 key = "header",
                                 span = { GridItemSpan(maxLineSpan) },
                                 contentType = CONTENT_TYPE_HEADER

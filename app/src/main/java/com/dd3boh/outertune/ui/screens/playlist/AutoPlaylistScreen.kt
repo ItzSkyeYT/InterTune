@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.toggleable
@@ -109,6 +110,7 @@ import com.dd3boh.outertune.ui.component.AutoResizeText
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.utils.HeaderBesideList
 import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.ui.component.FontSizeRange
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
@@ -133,6 +135,8 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.ui.utils.paneInsets
+import com.dd3boh.outertune.ui.utils.rememberHeaderBeside
 
 enum class PlaylistType {
     LIKE, DOWNLOAD, FAVOURITES, OTHER
@@ -334,12 +338,10 @@ fun AutoPlaylistScreen(
             ),
     ) {
         ScrollToTopManager(navController, lazyListState)
-        LazyColumn(
-            state = lazyListState,
-            contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
-            modifier = Modifier.padding(bottom = if (inSelectMode) 64.dp else 0.dp)
-        ) {
-            item {
+        // On a phone on its side the header is not the first row of the list, where it was all
+        // the window showed, but stands beside the list in a half of its own (Landscape.kt).
+        val twoPanes = rememberHeaderBeside()
+        val header = @Composable {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.padding(12.dp)
@@ -564,6 +566,12 @@ fun AutoPlaylistScreen(
                     }
                 }
             }
+        val listContent: LazyListScope.() -> Unit = {
+            if (!twoPanes) {
+                item {
+                    header()
+                }
+            }
 
             if (songs.isNotEmpty()) {
                 stickyHeader(
@@ -635,6 +643,23 @@ fun AutoPlaylistScreen(
                         .background(MaterialTheme.colorScheme.background),
                 )
             }
+        }
+        if (twoPanes) {
+            HeaderBesideList(header = header) { half ->
+                LazyColumn(
+                    state = lazyListState,
+                    contentPadding = paneInsets().asPaddingValues(),
+                    modifier = half.padding(bottom = if (inSelectMode) 64.dp else 0.dp),
+                    content = listContent,
+                )
+            }
+        } else {
+            LazyColumn(
+                state = lazyListState,
+                contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
+                modifier = Modifier.padding(bottom = if (inSelectMode) 64.dp else 0.dp),
+                content = listContent,
+            )
         }
         LazyColumnScrollbar(
             state = lazyListState,
