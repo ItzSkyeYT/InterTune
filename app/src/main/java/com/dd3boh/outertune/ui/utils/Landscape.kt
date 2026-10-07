@@ -116,6 +116,14 @@ data class Landscape(
         if (active && upright.isSpecified) min(upright, ReadingMaxWidth) else upright
 
     /**
+     * The widest a card that has a line of the page to itself is drawn (the summary on Stats in
+     * a week too thin for the card that stands beside it). On its side that is the width a page
+     * of settings has: the card ran from the rail to the far edge with its three lines of text
+     * in one corner. Upright it has no cap, as before.
+     */
+    fun cardWidth(): Dp = readingWidth(Dp.Infinity)
+
+    /**
      * The side of the cover in a header that stands beside its list, with [room] left for it in
      * the header's half once the column next to it has what it needs (a playlist's row of five
      * buttons is 240dp). The cover gives way to the column: kept at its size it was the whole

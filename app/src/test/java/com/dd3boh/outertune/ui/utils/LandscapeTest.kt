@@ -207,4 +207,13 @@ class LandscapeTest {
         assertEquals(600.dp, large.readingWidth(720.dp))
         assertEquals(480.dp, large.readingWidth(480.dp))
     }
+
+    @Test
+    fun `a card alone on its line is a page of settings wide on its side, and uncapped anywhere else`() {
+        assertEquals(600.dp, large.cardWidth())
+        assertEquals(600.dp, window(897, 403).cardWidth())
+        assertEquals(Dp.Infinity, upright.cardWidth())
+        assertEquals(Dp.Infinity, window(1280, 800).cardWidth())
+        assertEquals(Dp.Infinity, window(997, 448, enabled = false).cardWidth())
+    }
 }
