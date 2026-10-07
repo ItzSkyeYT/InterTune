@@ -23,8 +23,10 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -83,6 +85,9 @@ import com.dd3boh.outertune.constants.SNACKBAR_VERY_SHORT
 import com.dd3boh.outertune.db.entities.FormatEntity
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.button.IconButton
+import com.dd3boh.outertune.ui.utils.DialogAboveKeyboard
+import com.dd3boh.outertune.ui.utils.Landscape
+import com.dd3boh.outertune.ui.utils.LocalLandscape
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
@@ -101,10 +106,13 @@ fun DefaultDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
+        // On a phone on its side the dialog keeps to what the keyboard leaves of the window.
+        DialogAboveKeyboard()
         Surface(
             // usePlatformDefaultWidth is off above, so without a cap these run the full window
             // width. On a tablet that turns a one-word picker into a slab.
             modifier = Modifier
+                .then(if (LocalLandscape.current.active) Modifier.imePadding() else Modifier)
                 .padding(24.dp)
                 .sizeIn(minWidth = 280.dp, maxWidth = 560.dp),
             shape = AlertDialogDefaults.shape,
@@ -226,30 +234,26 @@ fun TextFieldDialog(
         focusRequester.requestFocus()
     }
 
-    DefaultDialog(
-        onDismiss = onDismiss,
-        modifier = modifier,
-        icon = icon,
-        title = title,
-        buttons = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(android.R.string.cancel))
-            }
-
-            TextButton(
-                enabled = isInputValid(textFieldValue.text),
-                onClick = {
-                    onDismiss()
-                    onDone(textFieldValue.text)
-                }
-            ) {
-                Text(text = stringResource(android.R.string.ok))
-            }
+    val buttons: @Composable RowScope.() -> Unit = {
+        TextButton(onClick = onDismiss) {
+            Text(text = stringResource(android.R.string.cancel))
         }
-    ) {
+
+        TextButton(
+            enabled = isInputValid(textFieldValue.text),
+            onClick = {
+                onDismiss()
+                onDone(textFieldValue.text)
+            }
+        ) {
+            Text(text = stringResource(android.R.string.ok))
+        }
+    }
+    val field: @Composable (Modifier, (@Composable () -> Unit)?) -> Unit = { fieldModifier, label ->
         TextField(
             value = textFieldValue,
             onValueChange = onTextFieldValueChange,
+            label = label,
             placeholder = placeholder,
             singleLine = singleLine,
             maxLines = maxLines,
@@ -268,10 +272,41 @@ fun TextFieldDialog(
                     }
                 }
             ),
-            modifier = Modifier
-                .weight(weight = 1f, fill = false)
-                .focusRequester(focusRequester)
+            modifier = fieldModifier.focusRequester(focusRequester)
         )
+    }
+
+    if (LocalLandscape.current.active) {
+        // On a phone on its side the keyboard leaves about 130dp of the window, and the dialog as
+        // it is upright (icon, title, field, buttons, one under the other) is 280dp. So it is one
+        // line there: the field, with the title as its label, and the buttons beside it. What
+        // still does not fit (a field of several lines, the switch under a new playlist's name)
+        // scrolls.
+        DefaultDialog(
+            onDismiss = onDismiss,
+            modifier = modifier.verticalScroll(rememberScrollState()),
+        ) {
+            Row(
+                verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Bottom,
+                modifier = Modifier.widthIn(max = Landscape.PanelMaxWidth)
+            ) {
+                field(Modifier.weight(1f), title)
+                buttons()
+            }
+
+            extraContent?.invoke()
+        }
+        return
+    }
+
+    DefaultDialog(
+        onDismiss = onDismiss,
+        modifier = modifier,
+        icon = icon,
+        title = title,
+        buttons = buttons
+    ) {
+        field(Modifier.weight(weight = 1f, fill = false), null)
 
         extraContent?.invoke()
     }
