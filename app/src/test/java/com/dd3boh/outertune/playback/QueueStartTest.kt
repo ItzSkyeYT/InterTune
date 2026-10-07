@@ -9,6 +9,7 @@ package com.dd3boh.outertune.playback
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.playback.queues.Queue
+import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -18,12 +19,19 @@ import org.junit.Assert.fail
 import org.junit.Test
 
 /**
- * What playQueue asks of the queue board and of the player, and in which order, for each way a
- * queue's answer can come.
+ * A tapped song starts loading at once, and the rest of its queue joins when the network answers.
  *
- * The board is what decides what ends up in the queue, its order, its shuffle and what is saved,
- * so what it is asked is written out in full for each case: anything that moves a step of
- * playQueue has these lists to answer to.
+ * Measured on 7 Oct 2026: the first song tapped after a cold start sounded 5.0 and 6.5 s after
+ * the tap where later ones took 2.1 to 3.0 s, and 1.7 s of that was the player waiting for the
+ * radio's answer before it asked for the stream. playQueue had always put the tapped song in the
+ * player first, but prepared the player only after the answer: a player that had played before
+ * was prepared already and loaded at once, a new one sat idle.
+ *
+ * The first tests hold the start to that. The rest hold everything else as it was: what the queue
+ * board is asked, and in which order, is written out for each way the answer can come, and is the
+ * same list whether the player was started early or not. The board is what decides what ends up
+ * in the queue, its order, its shuffle and what is saved, and it reads the player only for the
+ * song it holds, never for whether it is prepared.
  *
  * QueueStart is the code under test, not a copy of it. The queue's answer is the test's to give
  * (the network), and the service is a stand-in that writes down what it is asked.
@@ -130,6 +138,50 @@ class QueueStartTest {
     private val started = "player: prepare, playWhenReady true"
     private val tags = "(origin 3, slot 2, run 7)"
 
+    // The start
+
+    @Test
+    fun `the tapped song is in the player and loading before the queue has answered`() = runBlocking {
+        val service = Service()
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio) }
+
+        radio.asked.await()
+        assertEquals(
+            listOf("add '$temp' [A] at 0 replace", "load '$temp' [A] at 0 resuming $tags", started),
+            service.asked,
+        )
+
+        radio.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("B"), song("C")), 0))
+        job.join()
+        assertEquals(
+            listOf(
+                "add '$temp' [A] at 0 replace",
+                "load '$temp' [A] at 0 resuming $tags",
+                started,
+                "rename '$temp' to 'A Mix'",
+                "add 'A Mix' [A, B, C] at 0 replace",
+                "load 'A Mix' [A, B, C] at 0 $tags",
+                started,
+            ),
+            service.asked,
+        )
+    }
+
+    @Test
+    fun `a paused start is asked for as paused, early and late`() = runBlocking {
+        val service = Service()
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio, playWhenReady = false) }
+
+        radio.asked.await()
+        assertEquals("player: prepare, playWhenReady false", service.asked.last())
+
+        radio.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("B")), 0))
+        job.join()
+        assertEquals(listOf("player: prepare, playWhenReady false").repeat(2), service.asked.filter { it.startsWith("player") })
+    }
+
     @Test
     fun `a queue that names no song leaves the player alone until it answers`() = runBlocking {
         // An album, a playlist, an artist's radio. The player still holds the queue before this
@@ -149,7 +201,8 @@ class QueueStartTest {
         )
     }
 
-    // The answer, each way it can come.
+    // The answer, each way it can come. What the board is asked is the same list as before the
+    // song was started early.
 
     @Test
     fun `an answer that starts on another song keeps the tapped one where playback starts`() = runBlocking {
@@ -172,6 +225,26 @@ class QueueStartTest {
             ),
             service.board(),
         )
+    }
+
+    @Test
+    fun `an answer that fails leaves the tapped song playing alone`() = runBlocking {
+        val service = Service()
+        val radio = LateQueue(song("A"))
+        val failure = CompletableDeferred<Throwable?>()
+        val job = launch {
+            failure.complete(runCatching { QueueStart(service).play(radio) }.exceptionOrNull())
+        }
+        radio.asked.await()
+        radio.answer.completeExceptionally(IOException("no network"))
+        job.join()
+
+        // The caller reports it, as it did.
+        assertEquals("no network", failure.await()?.message)
+        assertEquals(listOf("add '$temp' [A] at 0 replace", "load '$temp' [A] at 0 resuming $tags"), service.board())
+        // It used to be left in a player that was never prepared: after a cold start a failed
+        // answer meant no music at all, and after any other start the song played on by chance.
+        assertEquals(listOf(started), service.asked.filter { it.startsWith("player") })
     }
 
     @Test
@@ -336,4 +409,6 @@ class QueueStartTest {
             service.board(),
         )
     }
+
+    private fun <T> List<T>.repeat(times: Int) = List(times) { this }.flatten()
 }
