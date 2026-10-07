@@ -415,6 +415,47 @@ class MusicLevelsTest {
         }
     }
 
+    // Nothing is measured while nobody looks, and what was remembered must not stay as it was.
+
+    /** The frames of two seconds of quiet kicks, heard [idle] seconds after ten of loud ones. */
+    private fun quietAfterLoud(idle: Double): List<FloatArray> {
+        val out = mutableListOf<FloatArray>()
+        val analyser = LevelAnalyser(rate) { _, levels -> out += levels.copyOf() }
+        kicks(10.0, loud = 0.9f).forEach(analyser::sample)
+        out.clear()
+        analyser.aged(idle)
+        kicks(2.0, loud = 0.05f).forEach(analyser::sample)
+        return out
+    }
+
+    @Test
+    fun `what is remembered ages by the time nothing was measured`() {
+        val atOnce = quietAfterLoud(0.0)
+        assertTrue("straight after the loud one it is small against it: ${atOnce.maxOf { it[MusicLevels.BASS] }}", atOnce.maxOf { it[MusicLevels.BASS] } < 0.15f)
+        assertTrue("and, once the loud one has rung out, hardly there: ${atOnce.takeLast(10).presence().max()}", atOnce.takeLast(10).presence().max() < 0.2f)
+
+        val hoursOn = quietAfterLoud(3 * 3600.0)
+        assertTrue("hours later it is its own measure from its first kick: ${hoursOn.take(10).maxOf { it[MusicLevels.BASS] }}", hoursOn.take(10).maxOf { it[MusicLevels.BASS] } > 0.85f)
+        assertTrue("and all there: ${hoursOn.take(10).presence().max()}", hoursOn.take(10).presence().max() > 0.9f)
+
+        // eight seconds unmeasured count as eight seconds of silence would have
+        val silent = mutableListOf<FloatArray>()
+        LevelAnalyser(rate) { _, levels -> silent += levels.copyOf() }.let { (kicks(10.0, loud = 0.9f) + FloatArray(8 * rate) + kicks(2.0, loud = 0.05f)).forEach(it::sample) }
+        assertEquals(silent.takeLast(100).maxOf { it[MusicLevels.BASS] }, quietAfterLoud(8.0).maxOf { it[MusicLevels.BASS] }, 0.02f)
+    }
+
+    @Test
+    fun `whatever was building when the measuring stopped is not carried over the gap`() {
+        val out = mutableListOf<FloatArray>()
+        val analyser = LevelAnalyser(rate) { _, levels -> out += levels.copyOf() }
+        (full(6.0) + line(8.0)).forEach(analyser::sample)
+        out.clear()
+        analyser.aged(60.0)
+        full(3.0).forEach(analyser::sample)
+        assertTrue(out.tensions().all { it == 0f })
+        assertTrue("${out.dropping().max()}", out.dropping().all { it == 0f })
+    }
+
     @Test
     fun `a frame is 20 ms whatever the sample rate`() {
         for (sampleRate in listOf(44_100, 48_000, 96_000)) {

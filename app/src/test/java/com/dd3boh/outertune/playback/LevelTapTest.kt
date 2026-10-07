@@ -145,6 +145,44 @@ class LevelTapTest {
         return out
     }
 
+    /** A kick for 80 ms at every half second. */
+    private fun kicks(loud: Double, totalMs: Int) = sound(55.0, loud, totalMs) { it % 500 < 80 }
+
+    /** How loud the first of some quiet kicks reads, [idleNanos] after four seconds of loud ones. */
+    private fun quietKickAfter(idleNanos: Long): Float {
+        give(kicks(0.9, totalMs = 4000))
+        tap.unwatch()
+        nanos += idleNanos
+        tap.watch()
+        val there = start + 4_000_000L
+        give(kicks(0.05, totalMs = 1000), firstUs = there)
+        tap.position(there + 50_000L)
+        assertTrue(tap.now(got))
+        return got[MusicLevels.BASS]
+    }
+
+    @Test
+    fun `straight after a loud song a quiet one is small against it`() {
+        assertTrue(quietKickAfter(0L) < 0.15f)
+    }
+
+    @Test
+    fun `looked at again hours later, the quiet song is its own measure from its first kick`() {
+        val bass = quietKickAfter(3 * 3600 * 1_000_000_000L)
+        assertTrue("$bass", bass > 0.85f)
+    }
+
+    @Test
+    fun `a pause counts as time nothing was measured in, too`() {
+        give(kicks(0.9, totalMs = 4000))
+        nanos += 600 * 1_000_000_000L                          // ten minutes, with the player open all the while
+        val there = start + 4_000_000L
+        give(kicks(0.05, totalMs = 1000), firstUs = there)
+        tap.position(there + 50_000L)
+        assertTrue(tap.now(got))
+        assertTrue("${got[MusicLevels.BASS]}", got[MusicLevels.BASS] > 0.85f)
+    }
+
     @Test
     fun `where the song is in its shape comes with the levels, and the next song starts with nothing building`() {
         val all = FloatArray(MusicLevels.VALUES)

@@ -60,6 +60,8 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
     private var lastBufferTimeUs = C.TIME_UNSET
     private var nextBufferTimeUs = C.TIME_UNSET
     private var measuring = false
+    private var measuredBefore = false
+    private var measuredAtNanos = 0L
 
     // Written by the thread that plays, read by the one that draws.
     @Volatile
@@ -108,6 +110,14 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
         // Starting to listen, or the audio is not where the last buffer ended: a seek, a skipped silence.
         if (!measuring || nextBufferTimeUs == C.TIME_UNSET || abs(timeUs - nextBufferTimeUs) > JUMP_US) analyser.jump()
         measuring = true
+
+        // Buffers come every few milliseconds while there is something to measure. When none has
+        // come for a while, nobody was looking or nothing played, and what the analyser remembers
+        // is older by that much: it only forgets by the frame.
+        val nanos = nanoTime()
+        if (measuredBefore && nanos - measuredAtNanos > IDLE_NANOS) analyser.aged((nanos - measuredAtNanos) / 1e9)
+        measuredBefore = true
+        measuredAtNanos = nanos
 
         val frames = (buffer.limit() - buffer.position()) / ((if (sixteenBit) 2 else 4) * channels)
         bufferTimeUs = timeUs
@@ -169,6 +179,7 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
     companion object {
         private const val JUMP_US = 100_000L
         private const val ASKED_LATELY_US = 500_000L
+        private const val IDLE_NANOS = 1_000_000_000L
     }
 }
 

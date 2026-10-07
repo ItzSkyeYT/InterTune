@@ -473,6 +473,22 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
         driveTo = 0f
     }
 
+    /**
+     * Nothing was measured for [seconds], because nobody was looking or nothing played. What is
+     * remembered is aged as that much silence would have aged it, and the song's shape starts
+     * over. The yardsticks only ever came down while frames were measured: opened on a quiet song
+     * hours after a loud one, the picture sat nearly still for a minute, measuring the one
+     * against the other.
+     */
+    fun aged(seconds: Double) {
+        if (!(seconds > 0.0)) return
+        val kept = exp(-seconds / MusicLevels.YARDSTICK_SECONDS).toFloat()
+        for (band in 0 until MusicLevels.BANDS) yardstick[band] *= kept
+        now *= exp(-seconds / MusicLevels.NOW_SECONDS).toFloat()
+        song *= exp(-seconds / MusicLevels.SONG_SECONDS).toFloat()
+        startOver()
+    }
+
     /** 16 bit samples from [buffer]'s position to its limit, [channels] interleaved. The buffer is left as it was. */
     fun pcm16(buffer: ByteBuffer, channels: Int) {
         val from = buffer.position()
