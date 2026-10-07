@@ -264,8 +264,8 @@ class ListenReportingTest {
             .map { it.name }.toList()
         assertEquals(listOf("MusicService.kt"), readers)
 
-        // Debug builds only, like the other things held back.
+        // Never in a release: off, or debug builds only like the other things held back.
         val flags = File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readText()
-        assertTrue(Regex("""val HISTORY_AS_ACCOUNT = BuildConfig\.DEBUG\b""").containsMatchIn(flags))
+        assertTrue(Regex("""val HISTORY_AS_ACCOUNT = (false|BuildConfig\.DEBUG)\b""").containsMatchIn(flags))
     }
 }

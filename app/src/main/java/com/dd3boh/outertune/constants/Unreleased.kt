@@ -115,6 +115,11 @@ object Unreleased {
      * TV client answers a cookie here, and whether its address changes whose history the play
      * lands in, is what a brand account has to show. When it is agreed: set this to true, or
      * delete it with the one check that reads it, in MusicService.onPlaybackStatsReady.
+     *
+     * Off in debug builds too until somebody tries it on purpose. The debug build is the one used
+     * for daily listening, and a report YouTube takes without writing it down would leave that
+     * history quiet with only the log to say so. To try it: BuildConfig.DEBUG here, one counted
+     * play, the two "Remote history" lines in the log, and a look at the history.
      */
-    val HISTORY_AS_ACCOUNT = BuildConfig.DEBUG
+    val HISTORY_AS_ACCOUNT = false
 }
