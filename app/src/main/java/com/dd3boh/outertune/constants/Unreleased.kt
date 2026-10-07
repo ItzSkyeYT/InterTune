@@ -75,4 +75,14 @@ object Unreleased {
      * checks that read it, in MainActivity and AboutScreen, and make its strings translatable.
      */
     val WELCOME_BACK = BuildConfig.DEBUG
+
+    /**
+     * The widget's settings with the home screen's wallpaper behind the preview instead of a patch
+     * of colour, so a see-through widget can be judged against what it will sit on
+     * (WidgetConfigActivity.showWallpaperBehind). Written without a phone to look at it on: how
+     * One UI draws it, in light and dark, is not known yet. When it is agreed: set this to true,
+     * or delete it with the check that reads it and move the three window settings into
+     * Theme.InterTune.WidgetConfig.
+     */
+    val WIDGET_ON_WALLPAPER = BuildConfig.DEBUG
 }

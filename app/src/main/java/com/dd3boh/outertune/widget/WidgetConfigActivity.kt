@@ -16,6 +16,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
+import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.RemoteViews
 import androidx.activity.ComponentActivity
@@ -46,6 +47,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -60,18 +62,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.graphics.drawable.toDrawable
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.lifecycleScope
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
@@ -104,6 +109,9 @@ class WidgetConfigActivity : ComponentActivity() {
             return
         }
 
+        val onWallpaper = Unreleased.WIDGET_ON_WALLPAPER
+        if (onWallpaper) showWallpaperBehind()
+
         setContent {
             val context = LocalContext.current
             val dark = isSystemInDarkTheme()
@@ -114,15 +122,34 @@ class WidgetConfigActivity : ComponentActivity() {
                 else -> lightColorScheme()
             }
             MaterialTheme(colorScheme = colors) {
-                Surface {
+                // On the wallpaper this paints nothing: what is under the preview paints its own.
+                // The words keep the colour they have on the surface either way.
+                val surface = MaterialTheme.colorScheme.surface
+                Surface(
+                    color = if (onWallpaper) Color.Transparent else surface,
+                    contentColor = contentColorFor(surface),
+                ) {
                     // Reopened from the launcher, this is an edit rather than a fresh question, so
                     // it opens on what the widget is already set to.
                     var initial by remember { mutableStateOf<WidgetSettings?>(null) }
                     LaunchedEffect(Unit) { initial = current() }
-                    initial?.let { Config(it, widgetSize(), onDone = ::save) }
+                    initial?.let { Config(it, widgetSize(), onWallpaper, onDone = ::save) }
                 }
             }
         }
+    }
+
+    /**
+     * The home screen's own wallpaper behind this window, with nothing of the window's over it, so
+     * a widget set to be see-through is judged against what it will sit on. The system draws the
+     * wallpaper there: nothing is read from it, so no permission is asked, which reading it
+     * through WallpaperManager would need. The dialog's panel and the dimming behind it both go,
+     * or the preview would sit on a darkened wallpaper.
+     */
+    private fun showWallpaperBehind() {
+        window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
+        window.setBackgroundDrawable(android.graphics.Color.TRANSPARENT.toDrawable())
+        window.setDimAmount(0f)
     }
 
     /**
@@ -170,19 +197,24 @@ class WidgetConfigActivity : ComponentActivity() {
 }
 
 @Composable
-private fun Config(initial: WidgetSettings, size: IntSize?, onDone: (WidgetSettings) -> Unit) {
+private fun Config(initial: WidgetSettings, size: IntSize?, onWallpaper: Boolean, onDone: (WidgetSettings) -> Unit) {
     var s by remember { mutableStateOf(initial) }
+    // On the wallpaper the window paints nothing, so the settings paint a sheet of their own.
+    val sheet = MaterialTheme.colorScheme.surface
     Column(modifier = Modifier.fillMaxWidth()) {
         // The widget itself, above everything that changes it, so each choice shows as it is made.
-        Preview(s, size, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp))
+        Preview(s, size, onWallpaper, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp))
 
         Column(
             modifier = Modifier
                 .weight(1f, fill = false)
+                .then(if (onWallpaper) Modifier.padding(top = 16.dp).background(sheet, SheetTop) else Modifier)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 12.dp),
         ) {
+            // Under the preview there is only wallpaper, where small words cannot be read.
+            if (onWallpaper) PreviewHint(known = size != null, modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
             Section(stringResource(R.string.widget_config_shows))
             Choice(stringResource(R.string.widget_content_both), s.content == WidgetContent.BOTH) { s = s.copy(content = WidgetContent.BOTH) }
             Choice(stringResource(R.string.widget_content_now), s.content == WidgetContent.NOW_PLAYING) { s = s.copy(content = WidgetContent.NOW_PLAYING) }
@@ -253,7 +285,10 @@ private fun Config(initial: WidgetSettings, size: IntSize?, onDone: (WidgetSetti
 
         HorizontalDivider()
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (onWallpaper) Modifier.background(sheet, SheetBottom) else Modifier)
+                .padding(horizontal = 24.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -265,6 +300,13 @@ private fun Config(initial: WidgetSettings, size: IntSize?, onDone: (WidgetSetti
     }
 }
 
+/**
+ * The sheet the settings sit on when the window itself paints nothing: its top under the preview,
+ * its bottom under the buttons.
+ */
+private val SheetTop = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+private val SheetBottom = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+
 /** The tallest the preview is drawn, so a big widget leaves the settings room on a small screen. */
 private val PreviewMaxHeight = 220.dp
 
@@ -273,10 +315,12 @@ private val UsualSize = IntSize(360, 170)
 
 /**
  * The widget on a patch of colour standing in for a home screen, with a line saying what it is:
- * this widget at its size, or, before the launcher has said what that is, a usual one.
+ * this widget at its size, or, before the launcher has said what that is, a usual one. With
+ * [onWallpaper] there is no patch and no line: the window lets the real wallpaper through behind
+ * the widget, and the line is the first thing on the sheet under it.
  */
 @Composable
-private fun Preview(settings: WidgetSettings, known: IntSize?, modifier: Modifier = Modifier) {
+private fun Preview(settings: WidgetSettings, known: IntSize?, onWallpaper: Boolean, modifier: Modifier = Modifier) {
     val size = known ?: UsualSize
     val colors = MaterialTheme.colorScheme
     Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -284,20 +328,29 @@ private fun Preview(settings: WidgetSettings, known: IntSize?, modifier: Modifie
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
-                .background(Brush.linearGradient(listOf(colors.primaryContainer, colors.tertiaryContainer)))
+                .then(
+                    if (onWallpaper) Modifier
+                    else Modifier.background(Brush.linearGradient(listOf(colors.primaryContainer, colors.tertiaryContainer)))
+                )
                 .padding(16.dp),
             contentAlignment = Alignment.Center,
         ) {
             LiveWidget(settings, size)
         }
-        Text(
-            stringResource(if (known != null) R.string.widget_config_preview_hint else R.string.widget_config_preview_hint_guess),
-            style = MaterialTheme.typography.bodySmall,
-            color = colors.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp),
-        )
+        if (!onWallpaper) PreviewHint(known != null, modifier = Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp))
     }
+}
+
+/** The line that says what the preview is. */
+@Composable
+private fun PreviewHint(known: Boolean, modifier: Modifier = Modifier) {
+    Text(
+        stringResource(if (known) R.string.widget_config_preview_hint else R.string.widget_config_preview_hint_guess),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = modifier,
+    )
 }
 
 /**
