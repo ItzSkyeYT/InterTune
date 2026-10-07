@@ -290,10 +290,17 @@ object WidgetStore {
         return true
     }
 
-    /** One of Home's rows as Home is showing it. The widget and the app then hold the same songs. */
+    /**
+     * One of Home's rows as Home is showing it. The widget and the app then hold the same songs.
+     *
+     * Words first here too: a row is written with the artwork the phone already has, and what is
+     * missing is fetched outside the lock (see [rowPicturesFor]). Fetched under it, a row of new
+     * songs on a slow connection kept the next song's title and the play button waiting.
+     */
     suspend fun setList(context: Context, which: WidgetList, songs: List<MediaMetadata>) {
         val widgets = hasWidgets(context)
         var changed = false
+        var owed = emptyList<MediaMetadata>()
         mutex.withLock {
             val old = read(context)
             val wanted = songs.take(WidgetLayout.MAX_PICKS)
@@ -304,7 +311,7 @@ object WidgetStore {
                     id = song.id,
                     title = song.title,
                     artist = song.artists.joinToString(", ") { it.name },
-                    artPath = byId[song.id]?.artPath ?: if (widgets) artFor(context, song.id, artModel(song, ART_PICK_PX), ART_PICK_PX) else null,
+                    artPath = byId[song.id]?.artPath ?: if (widgets) artOnPhone(context, song.id, ART_PICK_PX) else null,
                     thumbnailUrl = song.thumbnailUrl,
                     durationSec = song.duration,
                     isLocal = song.isLocal,
@@ -313,8 +320,34 @@ object WidgetStore {
             write(context, old.withList(which, list).copy(updatedAt = System.currentTimeMillis()))
             prune(context, read(context))
             changed = true
+            if (widgets) {
+                val bare = list.filter { it.artPath == null }.mapTo(HashSet()) { it.id }
+                owed = wanted.filter { it.id in bare }
+            }
         }
         if (widgets && changed) MusicWidget().updateAll(context)
+        if (owed.isNotEmpty() && rowPicturesFor(context, which, owed)) MusicWidget().updateAll(context)
+    }
+
+    /**
+     * The artwork of rows written without any, fetched outside the lock and then written into the
+     * list, for the rows that are still in it. True when the widget has something new to draw.
+     */
+    private suspend fun rowPicturesFor(context: Context, which: WidgetList, songs: List<MediaMetadata>): Boolean {
+        val made = HashMap<String, String>()
+        for (song in songs) {
+            // One at a time with the now playing artwork, which takes its turn between two rows.
+            artMutex.withLock {
+                artFor(context, song.id, artModel(song, ART_PICK_PX), ART_PICK_PX)?.let { made[song.id] = it }
+            }
+        }
+        if (made.isEmpty()) return false
+        mutex.withLock {
+            val snapshot = read(context)
+            val rows = snapshot.list(which).map { if (it.artPath == null) it.copy(artPath = made[it.id]) else it }
+            write(context, snapshot.withList(which, rows).copy(updatedAt = System.currentTimeMillis()))
+        }
+        return true
     }
 
     /**
@@ -427,8 +460,7 @@ object WidgetStore {
                     val cropped = if (bitmap.width == bitmap.height) bitmap
                     else Bitmap.createBitmap(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side)
                     val square = if (cropped.width > px) cropped.scale(px, px) else cropped
-                    out.outputStream().use { square.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                    return@withContext out.absolutePath
+                    return@withContext if (save(square, out)) out.absolutePath else null
                 }
                 null
             }
@@ -461,15 +493,27 @@ object WidgetStore {
                     var square = if (bitmap.width == bitmap.height) bitmap
                     else Bitmap.createBitmap(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side)
                     // Largest first, each made from the one before: no step is more than a halving.
+                    var saved = false
                     for (px in missing) {
                         if (square.width > px) square = square.scale(px, px)
-                        file(px).outputStream().use { square.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                        saved = save(square, file(px)) || saved
                     }
-                    return@withContext true
+                    return@withContext saved
                 }
                 false
             }
         }.onFailure { Log.w(TAG, "Could not cache the widget artwork", it) }.getOrDefault(false)
+    }
+
+    /**
+     * Written beside the file and moved over it. Artwork is fetched outside the lock now, so a
+     * snapshot may be written, and this file looked for and read, while it is being made: it has to
+     * be there whole or not at all, and two fetches of one cover must not end up as a mix of both.
+     */
+    private fun save(artwork: Bitmap, out: File): Boolean {
+        val tmp = File.createTempFile("art", ".tmp", out.parentFile)
+        tmp.outputStream().use { artwork.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        return tmp.renameTo(out).also { moved -> if (!moved) tmp.delete() }
     }
 
     /**

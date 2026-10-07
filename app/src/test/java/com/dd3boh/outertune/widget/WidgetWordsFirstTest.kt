@@ -19,9 +19,15 @@ import java.io.File
  */
 class WidgetWordsFirstTest {
 
-    private val setNowPlaying = File("src/main/java/com/dd3boh/outertune/widget/WidgetStore.kt").readText()
+    private val store = File("src/main/java/com/dd3boh/outertune/widget/WidgetStore.kt").readText()
+
+    private val setNowPlaying = store
         .substringAfter("suspend fun setNowPlaying(")
         .substringBefore("private suspend fun picturesFor(")
+
+    private val setList = store
+        .substringAfter("suspend fun setList(")
+        .substringBefore("private suspend fun rowPicturesFor(")
 
     /** What runs under the lock: up to the first brace that closes at the lock's own depth. */
     private val locked = setNowPlaying.substringAfter("mutex.withLock {").substringBefore("\n        }\n")
@@ -40,5 +46,16 @@ class WidgetWordsFirstTest {
         val fetches = setNowPlaying.indexOf("picturesFor(")
         assertTrue(draws in 0 until fetches)
         assertTrue("the fetch is after the lock is let go", fetches > setNowPlaying.indexOf(locked) + locked.length)
+    }
+
+    @Test
+    fun `a row of Home is written without waiting for its pictures either`() {
+        // the same lock: a download under it here holds up the next song's title just the same
+        val rows = setList.substringAfter("mutex.withLock {").substringBefore("\n        }\n")
+        assertTrue("write(context" in rows)
+        for (download in listOf("artFor(", "artInSizes(", "rowPicturesFor(", "imageLoader")) {
+            assertFalse("$download under the lock holds up the title and the play button", download in rows)
+        }
+        assertTrue(setList.indexOf("updateAll(context)") in 0 until setList.indexOf("rowPicturesFor("))
     }
 }
