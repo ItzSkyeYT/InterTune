@@ -148,6 +148,81 @@ object Tour {
     const val ROUTE_PLAYER = "settings/player"
 }
 
+/**
+ * What the welcome back page has asked the tour for, and which cards have been looked at.
+ *
+ * "Show me" cannot start the tour at once: the screen has to be gone to, and what is pointed at
+ * has to arrive on it first. That wait used to live only in a coroutine started by the tap, while
+ * the note that a tour was on its way was saved. A rotation in that moment ended the coroutine
+ * and kept the note, and what came back had neither a tour nor the page for the rest of the run.
+ * So what is kept now is the request itself. Whoever comes back after the rotation finds it still
+ * asked for and starts it again.
+ *
+ * It is also why a card is ticked here and not at the tap: only when the tour is up is there
+ * anything that has been seen.
+ */
+class WelcomeShow {
+    private var asked by mutableStateOf(emptyList<String>())
+    private var askedFrom by mutableStateOf<String?>(null)
+
+    /** The cards looked at this time round: ids of new things, and [SETTINGS_WALK]. */
+    var lookedAt by mutableStateOf(emptyList<String>())
+        private set
+
+    /** Whether a tour has been asked for and has not started yet. */
+    val waiting: Boolean get() = asked.isNotEmpty()
+
+    /** The stops asked for, saved by id like a running tour's. Empty when nothing is waiting. */
+    val stops: List<TourStop> get() = asked.mapNotNull { id -> ALL_TOUR_STOPS.firstOrNull { it.id == id } }
+
+    /** "Show me" on [card], a new thing's id or [SETTINGS_WALK]. */
+    fun ask(card: String, stops: List<TourStop>) {
+        askedFrom = card
+        asked = stops.map { it.id }
+    }
+
+    /** The tour that was asked for is up: its card is ticked. */
+    fun shown() {
+        askedFrom?.let(::looked)
+        notShown()
+    }
+
+    /** There was nothing to point at: the card stays as it was. */
+    fun notShown() {
+        asked = emptyList()
+        askedFrom = null
+    }
+
+    /** A card that is looked at without a tour, as the widget is. */
+    fun looked(card: String) {
+        if (card !in lookedAt) lookedAt = lookedAt + card
+    }
+
+    /** The page opened afresh. */
+    fun startOver() {
+        notShown()
+        lookedAt = emptyList()
+    }
+
+    companion object {
+        /** The card asked from, how many stops were asked for, those stops, then the cards looked at. */
+        val Saver: Saver<WelcomeShow, Any> = listSaver(
+            save = { show ->
+                if (!show.waiting && show.lookedAt.isEmpty()) emptyList()
+                else listOf<Any>(show.askedFrom.orEmpty(), show.asked.size) + show.asked + show.lookedAt
+            },
+            restore = { saved ->
+                WelcomeShow().apply {
+                    val count = saved[1] as Int
+                    asked = saved.subList(2, 2 + count).map { it as String }
+                    askedFrom = (saved[0] as String).takeIf { asked.isNotEmpty() }
+                    lookedAt = saved.drop(2 + count).map { it as String }
+                }
+            }
+        )
+    }
+}
+
 /** The running tour, or nothing. Hoisted here so the overlay and the launcher share one. */
 class TourState {
     var stops by mutableStateOf<List<TourStop>>(emptyList())

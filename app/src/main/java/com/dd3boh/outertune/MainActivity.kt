@@ -192,6 +192,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_WALK
 import com.dd3boh.outertune.ui.screens.walkthrough.TourStop
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBack
+import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
 import com.dd3boh.outertune.widget.MusicWidgetReceiver
 import com.dd3boh.outertune.constants.WalkthroughSeenVersionKey
@@ -1149,7 +1150,10 @@ class MainActivity : ComponentActivity() {
                          */
                         var welcomeOpen by rememberSaveable { mutableStateOf(false) }
                         var welcomeEverything by rememberSaveable { mutableStateOf(false) }
-                        var welcomeLookedAt by rememberSaveable { mutableStateOf(emptyList<String>()) }
+                        // What "Show me" has asked for and which cards were looked at. Saved, so
+                        // that a rotation between the tap and the first bubble starts the tour
+                        // again instead of leaving neither it nor the page: see WelcomeShow.
+                        val welcomeShow = rememberSaveable(saver = WelcomeShow.Saver) { WelcomeShow() }
                         var tourFromWelcome by rememberSaveable { mutableStateOf(false) }
                         // Quick picks is only listed where it has chips to be shown: see Install.
                         val quickPicksSource by rememberEnumPreference(QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE)
@@ -1180,61 +1184,80 @@ class MainActivity : ComponentActivity() {
                             if (tourState.welcomeAsked) {
                                 tourState.welcomeAsked = false
                                 welcomeEverything = true
-                                welcomeLookedAt = emptyList()
+                                welcomeShow.startOver()
                                 welcomeOpen = true
                             }
                         }
 
                         // A tour from the page: to the screen its first stop is on, and started once
-                        // what it points at is there. If nothing of it is on this install (Quick
-                        // picks has no chips while it is not drawing from the engine), the page
-                        // comes back and says so, rather than a button that did nothing.
-                        val showFromWelcome: (List<TourStop>) -> Unit = { stops ->
-                            welcomeOpen = false
-                            tourFromWelcome = true
-                            coroutineScope.launch {
-                                val first = stops.firstOrNull()
-                                val route = first?.route
-                                if (route == null) {
-                                    navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
-                                } else if (navController.currentDestination?.route != route) {
-                                    navController.navigate(route)
-                                }
-                                val target = first?.targetId
+                        // what it points at is there. If nothing of it is on screen (Quick picks
+                        // has no chips while the engine has fallen back to another row), the page
+                        // comes back and says so, rather than a button that did nothing, and the
+                        // card is not ticked.
+                        val showFromWelcome: (String, List<TourStop>) -> Unit = { card, stops ->
+                            if (stops.isEmpty()) {
+                                Toast.makeText(this@MainActivity, R.string.welcome_back_not_here, Toast.LENGTH_LONG).show()
+                            } else {
+                                welcomeOpen = false
+                                tourFromWelcome = true
+                                welcomeShow.ask(card, stops)
+                            }
+                        }
+
+                        // Started by an effect of what was asked, not by a coroutine of the tap.
+                        // A rotation ends either, but what was asked is saved, so the effect runs
+                        // again on the other side of it and the tour still starts.
+                        LaunchedEffect(welcomeShow.waiting) {
+                            if (!welcomeShow.waiting) return@LaunchedEffect
+                            val stops = welcomeShow.stops
+                            val first = stops.firstOrNull()
+                            // After a rotation this can run before the screens are back.
+                            val screensThere = withTimeoutOrNull(3000) {
+                                while (navController.currentDestination == null) delay(50)
+                                true
+                            } == true
+                            if (screensThere && first != null) {
+                                val route = first.route
+                                if (route == null) navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
+                                else if (navController.currentDestination?.route != route) navController.navigate(route)
+                                val target = first.targetId
                                 if (target != null) withTimeoutOrNull(3000) { while (!TourTargets.known(target)) delay(50) }
                                 delay(150)
                                 tourState.start(stops)
-                                if (!tourState.running) {
-                                    tourFromWelcome = false
-                                    navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
-                                    welcomeOpen = true
-                                    Toast.makeText(this@MainActivity, R.string.welcome_back_not_here, Toast.LENGTH_LONG).show()
-                                }
+                            }
+                            if (tourState.running) {
+                                welcomeShow.shown()
+                            } else {
+                                tourFromWelcome = false
+                                if (screensThere) navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
+                                welcomeOpen = true
+                                Toast.makeText(this@MainActivity, R.string.welcome_back_not_here, Toast.LENGTH_LONG).show()
+                                welcomeShow.notShown()
                             }
                         }
 
                         if (welcomeOpen && !tourState.running) {
                             WelcomeBack(
                                 things = newThings,
-                                seen = welcomeLookedAt.toSet(),
+                                seen = welcomeShow.lookedAt.toSet(),
                                 returning = !welcomeEverything,
+                                // A card is ticked once there has been something to see: the
+                                // launcher's sheet for the widget, the tour's first bubble for
+                                // the rest. Not at the tap, which ticked cards that led nowhere.
                                 onShow = { thing ->
-                                    welcomeLookedAt = welcomeLookedAt + thing.id
                                     if (thing.action == NewThingAction.ADD_WIDGET) {
                                         val widgets = AppWidgetManager.getInstance(this@MainActivity)
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && widgets.isRequestPinAppWidgetSupported) {
                                             widgets.requestPinAppWidget(ComponentName(this@MainActivity, MusicWidgetReceiver::class.java), null, null)
+                                            welcomeShow.looked(thing.id)
                                         } else {
                                             Toast.makeText(this@MainActivity, R.string.welcome_back_no_widget_host, Toast.LENGTH_LONG).show()
                                         }
                                     } else {
-                                        showFromWelcome(thing.stops)
+                                        showFromWelcome(thing.id, thing.stops)
                                     }
                                 },
-                                onShowSettings = {
-                                    welcomeLookedAt = welcomeLookedAt + SETTINGS_WALK
-                                    showFromWelcome(SETTINGS_TOUR)
-                                },
+                                onShowSettings = { showFromWelcome(SETTINGS_WALK, SETTINGS_TOUR) },
                                 onDone = {
                                     welcomeOpen = false
                                     if (!welcomeEverything) setWalkthroughSeen(BuildConfig.VERSION_CODE)
