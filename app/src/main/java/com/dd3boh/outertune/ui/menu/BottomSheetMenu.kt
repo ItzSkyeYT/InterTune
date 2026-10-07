@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ShapeDefaults
@@ -35,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.top
 
 
@@ -77,6 +79,8 @@ fun BottomSheetMenu(
                 state.isVisible = false
             },
             sheetState = state.sheetState,
+            // On a phone on its side a menu is the width it is upright and no wider (Landscape.kt).
+            sheetMaxWidth = LocalLandscape.current.panelWidth(BottomSheetDefaults.SheetMaxWidth),
             dragHandle = null,
             contentWindowInsets = { WindowInsets.safeDrawing },
             modifier = modifier
