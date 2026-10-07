@@ -381,6 +381,42 @@ class MusicLevelsTest {
         assertEquals("driven as it was", all[first + 5][MusicLevels.DRIVE], all[second + 50][MusicLevels.DRIVE], 0.01f)
     }
 
+    /** A bass note [note] seconds long every [every] seconds under the line: the low end of a slow song. */
+    private fun slowBass(seconds: Double, every: Double, note: Double = 0.3, loud: Float = 0.6f, under: Float = 0f) = mixed(
+        FloatArray((seconds * rate).toInt()) {
+            val at = it % (rate * every).toInt()
+            (if (at < rate * note) loud else under) * sin(2 * PI * 55.0 * at / rate).toFloat()
+        },
+        line(seconds),
+    )
+
+    @Test
+    fun `a bass that comes once a bar in a slow song is not a drop at every note`() {
+        // more than two seconds from the end of one note to the start of the next, for two minutes
+        for (every in listOf(2.5, 4.0)) {
+            val all = frames(slowBass(120.0, every))
+            assertTrue("a note every $every s: drops at ${all.drops().map { it / 50 }}", all.drops().isEmpty())
+            assertTrue("and nothing is driven", all.driven().all { it == 0f })
+        }
+    }
+
+    @Test
+    fun `nor is a big note now and then over a murmur of bass, after the first`() {
+        // the first one is the bass arriving, which is a drop; the ones after it are how the song is
+        val all = frames(mixed(slowBass(120.0, 8.0, under = 0.05f), FloatArray(0)).let { song -> FloatArray(song.size) { song[it] * 0.8f } })
+        assertTrue("drops at ${all.drops().map { it / 50 }}", all.drops().size <= 1)
+        val stray = frames(slowBass(120.0, 20.0))
+        assertTrue("one low note every twenty seconds: drops at ${stray.drops().map { it / 50 }}", stray.drops().size <= 1)
+    }
+
+    @Test
+    fun `bass that had stayed and comes back after a break is a drop every time`() {
+        // three parts of the song with its kick, two breaks: a drop after each break, as before
+        val all = frames(full(10.0) + line(6.0) + full(10.0) + line(6.0) + full(6.0))
+        assertEquals("drops at ${all.drops().map { it / 50 }}", 2, all.drops().size)
+        assertTrue(all.drops()[0] - frameAt(16.0) in 0..5 && all.drops()[1] - frameAt(32.0) in 0..5)
+    }
+
     @Test
     fun `a seek starts over`() {
         val out = mutableListOf<FloatArray>()
@@ -389,7 +425,7 @@ class MusicLevelsTest {
         assertTrue("well into a build-up: ${out.last()[MusicLevels.TENSION]}", out.last()[MusicLevels.TENSION] > 0.5f)
         out.clear()
         analyser.jump()
-        full(4.0).forEach(analyser::sample)
+        full(6.0).forEach(analyser::sample)
         assertTrue("what was building is gone", out.tensions().all { it == 0f })
         assertTrue("and the kick it lands on is no drop: ${out.dropping().max()}", out.dropping().all { it == 0f })
         assertTrue(out.driven().all { it == 0f })
