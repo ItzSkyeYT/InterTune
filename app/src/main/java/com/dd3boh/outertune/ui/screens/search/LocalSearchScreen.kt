@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.NavigateNext
@@ -63,6 +62,8 @@ import com.dd3boh.outertune.ui.component.items.SongListItem
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.LocalFilter
 import com.dd3boh.outertune.viewmodels.LocalSearchViewModel
+import com.dd3boh.outertune.ui.utils.itemsInColumns
+import com.dd3boh.outertune.ui.utils.rememberListColumns
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
@@ -122,6 +123,8 @@ fun LocalSearchScreen(
             onValueUpdate = { viewModel.filter.value = it }
         )
 
+        // Two rows abreast when the phone is on its side, one otherwise (Landscape.kt).
+        val columns = rememberListColumns()
         LazyColumn(
             state = lazyListState,
 //            contentPadding = LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom + WindowInsetsSides.Start).asPaddingValues(),
@@ -164,11 +167,12 @@ fun LocalSearchScreen(
                 }
 
                 val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
-                items(
+                itemsInColumns(
                     items = items,
-                    key = { it.id },
-                    contentType = { CONTENT_TYPE_LIST }
-                ) { item ->
+                    columns = columns,
+                    key = { _, item -> item.id },
+                    contentType = { _, _ -> CONTENT_TYPE_LIST }
+                ) { _, item ->
                     when (item) {
                         is Song -> {
                             SongListItem(
