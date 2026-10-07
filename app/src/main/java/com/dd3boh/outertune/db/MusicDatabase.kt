@@ -2,6 +2,7 @@ package com.dd3boh.outertune.db
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.util.Log
 import androidx.core.content.contentValuesOf
 import androidx.room.AutoMigration
 import androidx.room.Database
@@ -68,6 +69,19 @@ class MusicDatabase(
             block(this@MusicDatabase)
         }
     }
+
+    private val boundedRead = BoundedRead(onStall = { ms ->
+        Log.w("MusicDatabase", "A read had not come back after $ms ms, so its caller went on without it")
+    })
+
+    /**
+     * Runs a read for a caller that can go on without the answer, and waits for it for two
+     * seconds at most: null when the row is not there, and null when the database did not answer.
+     * [block] should be one of the queries that return a row, not a Flow's first value: starting a
+     * Flow has Room bring its triggers up to date, under a lock and sometimes on the write
+     * connection, and that is the wait this is here to avoid. See [BoundedRead].
+     */
+    fun <T : Any> readOrNull(block: MusicDatabase.() -> T?): T? = boundedRead.orNull { block(this) }
 
     fun transaction(block: MusicDatabase.() -> Unit) = with(delegate) {
         transactionExecutor.execute {

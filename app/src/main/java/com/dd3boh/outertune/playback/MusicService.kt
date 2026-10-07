@@ -1756,15 +1756,22 @@ class MusicService : MediaLibraryService(),
             val mediaId = dataSpec.key ?: error("No media id")
             Log.d(TAG, "PLAYING: song id = $mediaId")
 
-            var song = queueBoard.getCurrentQueue()?.findSong(dataSpec.key ?: "")
-            if (song == null) { // in the case of resumption, queueBoard may not be ready yet
-                song = runBlocking { database.song(dataSpec.key).first()?.toMediaMetadata() }
-            }
+            val queued = queueBoard.getCurrentQueue()?.findSong(dataSpec.key ?: "")
+            // in the case of resumption, queueBoard may not be ready yet
+            //
+            // Then the song's own row says where its file is. A database that does not answer is
+            // taken as having no row, and the song is played from the cache or streamed, as one
+            // the library has never seen. Given up for that one load: a file in a download folder
+            // is not looked for, and a local file, which is nowhere else, fails as an unknown
+            // video does instead of holding the player at buffering for good.
+            val stored = if (queued == null) database.readOrNull { songRow(dataSpec.key) } else null
+            val localPath = queued?.localPath ?: stored?.localPath
+            val isLocal = queued?.isLocal ?: (stored?.isLocal == true)
             // local song
-            if (song?.localPath != null) {
-                if (song.isLocal) {
+            if (localPath != null) {
+                if (isLocal) {
                     Log.d(TAG, "PLAYING: local song")
-                    val file = File(song.localPath)
+                    val file = File(localPath)
                     if (!file.exists()) {
                         throw PlaybackException(
                             "File not found",
@@ -1884,10 +1891,10 @@ class MusicService : MediaLibraryService(),
                 runCatching { playerCache.removeResource(mediaId) }
                     .onFailure { Log.w(TAG, "Could not drop the lower-quality copy of $mediaId", it) }
             } else if (partialCopy) {
-                // The format row was written by the fetch that filled the copy.
-                val copyItag = runCatching {
-                    runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
-                }.getOrNull()?.itag
+                // The format row was written by the fetch that filled the copy. A database that
+                // does not answer is taken as a row that does not match: the part is given up and
+                // the song fetched from its start, since nothing says the part is of this stream.
+                val copyItag = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()?.itag
                 if (copyItag != format.itag) {
                     Log.d(TAG, "PLAYING: remote song (partial copy was itag $copyItag, the stream is ${format.itag}, starting over)")
                     runCatching { playerCache.removeResource(mediaId) }
@@ -1938,9 +1945,10 @@ class MusicService : MediaLibraryService(),
      * resolver uses to decide whether to copy a cached file or fetch fresh.
      */
     private fun shouldUpgradeCached(mediaId: String): Boolean {
-        val stored = runCatching {
-            runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
-        }.getOrNull()?.qualityTier
+        // A database that does not answer is taken as a copy of unknown quality, so the copy plays
+        // as it is. Given up: the better copy, until the song is next started with the database
+        // answering.
+        val stored = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()?.qualityTier
         return isStaleQualityTier(stored, audioQualityNow())
     }
 

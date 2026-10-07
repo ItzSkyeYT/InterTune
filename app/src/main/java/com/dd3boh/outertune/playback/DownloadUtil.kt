@@ -138,9 +138,11 @@ class DownloadUtil @Inject constructor(
                 // the new stream is in hand, as MusicService does for playback: if the fetch fails
                 // or the stream is not checked, the download takes the old copy as before rather
                 // than losing the one copy that plays offline.
-                val storedTier = runCatching {
-                    runBlocking(Dispatchers.IO) { database.format(mediaId).first() }
-                }.getOrNull()?.qualityTier
+                //
+                // A database that does not answer is taken as a copy of unknown quality, and the
+                // download takes it as it is. Given up: the better copy for this download, where
+                // the wait used to hold one of the three download threads for good.
+                val storedTier = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()?.qualityTier
                 if (!isStaleQualityTier(storedTier, audioQuality)) return@Factory dataSpec
                 staleCopy = true
             }

@@ -57,6 +57,15 @@ interface SongsDao {
     @Query("SELECT * FROM song WHERE id = :songId")
     fun song(songId: String?): Flow<Song?>
 
+    /**
+     * The song's own row, read once and returned, without its artists, album, genres and play
+     * counts. For the player's loader, which only asks where the file is. No @Transaction, and
+     * none wanted: on Android versions where Room cannot begin a read-only one it begins an
+     * exclusive one, and that waits for the write connection.
+     */
+    @Query("SELECT * FROM song WHERE id = :songId")
+    fun songRow(songId: String?): SongEntity?
+
     @Transaction
     @Query("SELECT * FROM song WHERE title LIKE '%' || :query || '%' AND (inLibrary IS NOT NULL OR dateDownload IS NOT NULL) LIMIT :previewSize")
     fun searchSongs(query: String, previewSize: Int = Int.MAX_VALUE): Flow<List<Song>>

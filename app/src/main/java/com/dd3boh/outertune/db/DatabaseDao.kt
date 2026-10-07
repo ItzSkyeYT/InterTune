@@ -55,6 +55,14 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
     @Query("SELECT * FROM format WHERE id = :id")
     fun format(id: String?): Flow<FormatEntity?>
 
+    /**
+     * The same row as [format], read once and returned. For the player's loader and the
+     * downloader, which want the row as it is now and nothing after: a Flow's first value costs
+     * Room a look at its triggers before anything is read, and this does not.
+     */
+    @Query("SELECT * FROM format WHERE id = :id")
+    fun formatRow(id: String?): FormatEntity?
+
     @Query("SELECT * FROM lyrics WHERE id = :id")
     fun lyrics(id: String?): Flow<LyricsEntity?>
 
