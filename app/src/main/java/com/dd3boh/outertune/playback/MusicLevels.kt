@@ -21,6 +21,11 @@ import kotlin.math.sqrt
  * picture as much as a loud one, and turning the volume down does not flatten it (the samples are
  * read before the volume is applied).
  *
+ * With them goes a fourth value, how much is going on ([MusicLevels.PRESENCE]): "lately" is a few
+ * seconds, so a quiet passage becomes its own yardstick and by its levels alone moves the picture
+ * as much as the loudest part of the song. The fourth value says how the passage compares with
+ * the song at full tilt, and whoever draws takes that much of the levels.
+ *
  * Nothing here knows about Android or the player: [LevelAnalyser] turns samples into levels,
  * [LevelTimeline] keeps a few seconds of them by time. The samples reach the output a good
  * fraction of a second after they are measured, so a level must be looked up by the time that is
@@ -31,6 +36,12 @@ object MusicLevels {
     const val MID = 1
     const val HIGH = 2
     const val BANDS = 3
+
+    /** After the three ranges: how much is going on, 0 to 1 ([presence]). */
+    const val PRESENCE = 3
+
+    /** How many values a frame is: the three ranges and [PRESENCE]. */
+    const val VALUES = 4
 
     /** Where the bass ends and where the top begins, in Hz. */
     const val BASS_TOP_HZ = 140.0
@@ -54,6 +65,36 @@ object MusicLevels {
      * at full swing.
      */
     const val LEAST_SHARE = 0.125f
+
+    /**
+     * How long the loudness of this moment is held, and how long the song's loudest stays what
+     * "loud" means, in seconds. The first is short enough that a passage is known to be quiet a
+     * second or two in and long enough to bridge the gaps between drum hits; the second is long
+     * enough to outlast a breakdown, and short enough that a quiet song after a loud one is its
+     * own measure within a minute or two.
+     */
+    const val NOW_SECONDS = 1.2
+    const val SONG_SECONDS = 40.0
+
+    /**
+     * A passage this loud against the song's loudest, as amplitude, has hardly anything going on;
+     * from [FULLY] up everything is. Hardly anything is still [LEAST_PRESENCE]: while there is
+     * sound the picture is never quite still.
+     */
+    const val HARDLY = 0.15f
+    const val FULLY = 0.65f
+    const val LEAST_PRESENCE = 0.1f
+
+    /**
+     * How much is going on, 0 to 1, when the passage is as loud as [now] and the song gets as
+     * loud as [song]. It was the levels alone that moved the picture, and they are measured
+     * against the last few seconds: a lone voice in a quiet passage flashed as hard as the drop.
+     */
+    fun presence(now: Float, song: Float): Float {
+        if (song <= 0f || now <= 0f) return 0f
+        val t = ((now / song - HARDLY) / (FULLY - HARDLY)).coerceIn(0f, 1f)
+        return LEAST_PRESENCE + (1f - LEAST_PRESENCE) * t * t * (3f - 2f * t)
+    }
 }
 
 /**
@@ -88,7 +129,14 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
 
     /** The loudest each range has been lately, as an amplitude. Starts at an ordinary song's, so the first note is not the loudest ever. */
     private val yardstick = floatArrayOf(0.18f, 0.12f, 0.05f)
-    private val levels = FloatArray(MusicLevels.BANDS)
+    private val levels = FloatArray(MusicLevels.VALUES)
+
+    private val nowKeeps = exp(-MusicLevels.FRAME_SECONDS / MusicLevels.NOW_SECONDS).toFloat()
+    private val songKeeps = exp(-MusicLevels.FRAME_SECONDS / MusicLevels.SONG_SECONDS).toFloat()
+
+    /** How loud it is now, all ranges together, and the loudest the song has been: for [MusicLevels.presence]. The song starts as an ordinary one. */
+    private var now = 0f
+    private var song = sqrt(0.18f * 0.18f + 0.12f * 0.12f + 0.05f * 0.05f)
 
     /** How loud each range was in the frame just finished, against full scale. For whoever wants the measure before it is set against the song. */
     val raw = FloatArray(MusicLevels.BANDS)
@@ -129,12 +177,18 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
             onFrame(samplesSeen, levels)
             return
         }
+        var power = 0.0
         for (band in 0 until MusicLevels.BANDS) {
+            power += sum[band] / frameLength
             raw[band] = sqrt(sum[band] / frameLength).toFloat()
             sum[band] = 0.0
             yardstick[band] = max(yardstick[band] * yardstickKeeps, raw[band])
             loudest = max(loudest, yardstick[band])
         }
+        val all = sqrt(power).toFloat()
+        now = max(now * nowKeeps, all)
+        song = max(song * songKeeps, all)
+        levels[MusicLevels.PRESENCE] = if (now <= MusicLevels.SILENCE) 0f else MusicLevels.presence(now, song)
         // A range with next to nothing in it is not stretched to full: its yardstick is never
         // taken to be less than a small part of the loudest range's.
         val least = max(MusicLevels.SILENCE, loudest * MusicLevels.LEAST_SHARE)
@@ -197,14 +251,16 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
  */
 class LevelTimeline(private val capacity: Int = 512) {
     private val times = LongArray(capacity)
-    private val values = FloatArray(capacity * MusicLevels.BANDS)
+    private val values = FloatArray(capacity * MusicLevels.VALUES)
     private var next = 0
     private var held = 0
 
     @Synchronized
     fun add(timeUs: Long, levels: FloatArray) {
         times[next] = timeUs
-        System.arraycopy(levels, 0, values, next * MusicLevels.BANDS, MusicLevels.BANDS)
+        // levels with no word on how much is going on count as all there
+        values[next * MusicLevels.VALUES + MusicLevels.PRESENCE] = 1f
+        System.arraycopy(levels, 0, values, next * MusicLevels.VALUES, minOf(levels.size, MusicLevels.VALUES))
         next = (next + 1) % capacity
         if (held < capacity) held++
     }
@@ -216,7 +272,8 @@ class LevelTimeline(private val capacity: Int = 512) {
     }
 
     /**
-     * The levels being heard at [timeUs], into [into]. False when nothing is known for that moment:
+     * The levels being heard at [timeUs], into [into]: the three ranges, and how much is going
+     * on if [into] has room for a fourth. False when nothing is known for that moment:
      * nothing measured yet, or the newest level before it is more than [staleUs] old.
      */
     @Synchronized
@@ -225,7 +282,7 @@ class LevelTimeline(private val capacity: Int = 512) {
             val at = (next - back + capacity) % capacity
             if (times[at] <= timeUs) {
                 if (timeUs - times[at] > staleUs) return false
-                System.arraycopy(values, at * MusicLevels.BANDS, into, 0, MusicLevels.BANDS)
+                System.arraycopy(values, at * MusicLevels.VALUES, into, 0, minOf(into.size, MusicLevels.VALUES))
                 return true
             }
         }

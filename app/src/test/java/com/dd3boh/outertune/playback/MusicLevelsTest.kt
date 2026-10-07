@@ -120,10 +120,11 @@ class MusicLevelsTest {
 
     @Test
     fun `silence is still`() {
-        frames(FloatArray(rate * 2)).forEach { assertArrayEquals(floatArrayOf(0f, 0f, 0f), it, 0f) }
+        // the three ranges, and nothing going on
+        frames(FloatArray(rate * 2)).forEach { assertArrayEquals(floatArrayOf(0f, 0f, 0f, 0f), it, 0f) }
         // and so is the hiss before a song: about -60 dB
         val hiss = FloatArray(rate * 2) { if (it % 2 == 0) 0.001f else -0.001f }
-        frames(hiss).forEach { assertArrayEquals(floatArrayOf(0f, 0f, 0f), it, 0f) }
+        frames(hiss).forEach { assertArrayEquals(floatArrayOf(0f, 0f, 0f, 0f), it, 0f) }
     }
 
     @Test
@@ -141,6 +142,62 @@ class MusicLevelsTest {
         val bass = frames(loudThenSoft).map { it[MusicLevels.BASS] }
         val soft = bass.takeLast(bass.size / 4).average()
         assertTrue("a third as loud reads as about a third: $soft", soft > 0.25 && soft < 0.5)
+    }
+
+    // How much is going on. A quiet passage is measured against itself like any other, so by its
+    // levels alone it moves the picture as much as the loudest part of the song does.
+
+    private fun List<FloatArray>.presence() = map { it[MusicLevels.PRESENCE] }
+
+    @Test
+    fun `a passage as loud as the song gets is all there`() {
+        val there = frames(kicks(6.0)).settled().presence()
+        assertTrue("${there.min()}", there.min() > 0.9f)
+        assertTrue(frames(tone(220.0, 3.0)).settled().presence().min() > 0.9f)
+    }
+
+    @Test
+    fun `a quiet passage after a loud one is hardly there, though its own levels have come back up`() {
+        val all = frames(tone(220.0, 12.0, loud = 0.5f) + tone(220.0, 12.0, loud = 0.08f))
+        val quiet = all.takeLast(100)
+        assertTrue("set against the last few seconds, its level is most of the way back: ${quiet.mean(MusicLevels.MID)}", quiet.mean(MusicLevels.MID) > 0.6f)
+        assertTrue("but next to what the song was, not much is going on: ${quiet.presence().max()}", quiet.presence().max() < 0.2f)
+        assertTrue("it is never nothing while there is sound", quiet.presence().min() >= MusicLevels.LEAST_PRESENCE)
+    }
+
+    @Test
+    fun `the first loud note after a quiet passage is there at once`() {
+        val all = frames(tone(220.0, 10.0, loud = 0.5f) + tone(220.0, 10.0, loud = 0.06f) + tone(220.0, 0.2, loud = 0.5f))
+        assertTrue("the last quiet frame: ${all[all.size - 11][MusicLevels.PRESENCE]}", all[all.size - 11][MusicLevels.PRESENCE] < 0.2f)
+        assertTrue("and the loud ones after it: ${all.takeLast(9).presence()}", all.takeLast(9).presence().all { it > 0.9f })
+    }
+
+    @Test
+    fun `a loud passage lets go over a second or so, not at its last note`() {
+        val all = frames(tone(220.0, 6.0, loud = 0.5f) + tone(220.0, 4.0, loud = 0.05f)).presence()
+        val end = 6 * 50
+        assertTrue("a fifth of a second after: ${all[end + 10]}", all[end + 10] > 0.8f)
+        assertTrue("three seconds after: ${all[end + 150]}", all[end + 150] < 0.25f)
+    }
+
+    @Test
+    fun `a recording that is quiet all the way through comes to count in full`() {
+        val all = frames(tone(220.0, 150.0, loud = 0.03f)).presence()
+        assertTrue("at first it is set against an ordinary song: ${all[50]}", all[50] < 0.5f)
+        assertTrue("two minutes on it is its own measure: ${all.last()}", all.last() > 0.9f)
+    }
+
+    @Test
+    fun `in silence nothing is going on, and how much is runs from hardly to fully`() {
+        assertTrue(frames(FloatArray(rate)).presence().all { it == 0f })
+        assertEquals(MusicLevels.LEAST_PRESENCE, MusicLevels.presence(0.05f, 1f), 0f)
+        assertEquals(MusicLevels.LEAST_PRESENCE, MusicLevels.presence(MusicLevels.HARDLY, 1f), 0.001f)
+        assertEquals(1f, MusicLevels.presence(MusicLevels.FULLY, 1f), 0.001f)
+        assertEquals(1f, MusicLevels.presence(3f, 1f), 0f)
+        assertEquals("the same share of a quieter song", MusicLevels.presence(0.4f, 1f), MusicLevels.presence(0.04f, 0.1f), 0.001f)
+        val rising = (0..20).map { MusicLevels.presence(it / 20f, 1f) }
+        assertEquals(rising.sorted(), rising)
+        assertEquals("nothing to set it against", 0f, MusicLevels.presence(0.5f, 0f), 0f)
     }
 
     @Test
@@ -227,6 +284,21 @@ class MusicLevelsTest {
         // between two frames it is the one already heard, not the one to come
         assertTrue(timeline.read(1_000_000L + 40 * 20_000L + 19_999L, got))
         assertArrayEquals(levels(0.40f), got, 0f)
+    }
+
+    @Test
+    fun `how much is going on is kept with the levels, and three levels alone count as all there`() {
+        val timeline = LevelTimeline()
+        timeline.add(1_000_000, floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f))
+        timeline.add(1_020_000, floatArrayOf(0.5f, 0.6f, 0.7f))
+        val four = FloatArray(MusicLevels.VALUES)
+        assertTrue(timeline.read(1_005_000, four))
+        assertEquals(listOf(0.1f, 0.2f, 0.3f, 0.4f), four.toList())
+        assertTrue(timeline.read(1_025_000, four))
+        assertEquals(listOf(0.5f, 0.6f, 0.7f, 1f), four.toList())
+        val three = FloatArray(MusicLevels.BANDS)
+        assertTrue("whoever asks for the three ranges alone gets those", timeline.read(1_005_000, three))
+        assertEquals(listOf(0.1f, 0.2f, 0.3f), three.toList())
     }
 
     @Test

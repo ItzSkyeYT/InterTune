@@ -184,7 +184,7 @@ private fun LivingPicture(
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             if (playing) tap?.watch()
             try {
-                val levels = FloatArray(MusicLevels.BANDS)
+                val levels = FloatArray(MusicLevels.VALUES)
                 var last = 0L
                 var shownAt = 0L
                 while (playing || !motion.atRest()) {

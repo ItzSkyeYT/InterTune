@@ -137,7 +137,7 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
     }
 
     /**
-     * The levels of what is being heard now, into [into] ([MusicLevels.BANDS] values). False when
+     * The levels of what is being heard now, into [into] (the three ranges, and with room for [MusicLevels.VALUES] how much is going on). False when
      * there is nothing to go by: nothing playing, not [wanted] until a moment ago, or audio that
      * cannot be read here.
      *

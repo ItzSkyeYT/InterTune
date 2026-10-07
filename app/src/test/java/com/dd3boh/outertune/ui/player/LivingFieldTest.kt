@@ -563,6 +563,23 @@ class LivingFieldTest {
     }
 
     @Test
+    fun `when not much is going on the picture hardly answers`() {
+        fun after(vararg levels: Float) = motion().apply { repeat(30) { step(frame, levels, true) } }
+        val full = after(1f, 1f, 1f, 1f)
+        val hardly = after(1f, 1f, 1f, 0.15f)
+        for (band in 0 until MusicLevels.BANDS) {
+            assertEquals("range $band", full.shown[band] * 0.15f, hardly.shown[band], 0.03f)
+        }
+        val bottom = columns * (rows - 1)
+        assertTrue("so a kick in a quiet passage swells a patch a little, not a lot: ${hardly.radius(bottom)} against ${full.radius(bottom)}",
+            hardly.radius(bottom) - LivingField.REST_RADIUS < (full.radius(bottom) - LivingField.REST_RADIUS) * 0.3f)
+        assertEquals("three levels and no fourth: taken as all there, as it always was", full.shown.toList(), after(1f, 1f, 1f).shown.toList())
+        assertEquals("a fourth that is not a number likewise", full.shown.toList(), after(1f, 1f, 1f, Float.NaN).shown.toList())
+        val none = after(1f, 1f, 1f, 0f)
+        assertTrue("nothing going on, nothing shown", none.shown.all { it == 0f })
+    }
+
+    @Test
     fun `a patch on a kick is brighter than at rest, and never brighter than white`() {
         val motion = motion()
         motion.turnTo(IntArray(motion.count) { 0xff808080.toInt() })

@@ -872,19 +872,23 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     }
 
     /**
-     * Moves on by [seconds]. [levels] is what is being heard, or null when there is nothing to go
-     * by (paused, or audio that cannot be measured); [playing] says whether the music runs at all.
+     * Moves on by [seconds]. [levels] is what is being heard (the three ranges, and after them how
+     * much is going on, if it is there), or null when there is nothing to go by (paused, or audio
+     * that cannot be measured); [playing] says whether the music runs at all.
      * With music but no levels the picture still drifts, it just does not breathe.
      */
     fun step(seconds: Float, levels: FloatArray?, playing: Boolean) {
         val dt = seconds.coerceIn(0f, 0.1f)          // a long gap between frames is not a leap in the picture
         val ease = LivingField.ease(smoothing)
+        // How much is going on, when the levels say: a quiet passage is measured against itself,
+        // and shown in full it flashed as hard as the loudest part of the song.
+        val going = levels?.getOrNull(MusicLevels.PRESENCE)?.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 1f
         for (band in 0 until MusicLevels.BANDS) {
             val level = levels?.get(band)?.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0f
             val hit = max(0f, level - usual[band])
             usual[band] += (level - usual[band]) * part(dt, LivingField.USUAL_OVER)
             val steady = if (separate) LivingField.OWN_LEVEL[band] else LivingField.LEVEL_SHARE
-            val to = min(1f, steady * level + LivingField.HIT_SHARE * hit)
+            val to = going * min(1f, steady * level + LivingField.HIT_SHARE * hit)
             val within = if (to > shown[band]) LivingField.RISE[band] else LivingField.FALL[band]
             shown[band] += (to - shown[band]) * part(dt, within * ease)
         }
