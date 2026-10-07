@@ -291,7 +291,6 @@ class LivingFieldTest {
         assertEquals("black, white and something between: ${drawn.map(Integer::toHexString)}", 3, drawn.toSet().size)
         assertTrue(drawn.all(::isGrey))
         assertTrue(LivingField.mainColours(IntArray(0), 0, 0).all { it == LivingField.GREY })
-        assertTrue(LivingField.mainPatches(LivingField.mainColours(IntArray(0), 0, 0), 3, 7).all { near(it, LivingField.GREY, 30) })
     }
 
     private fun rgb(r: Int, g: Int, b: Int) = (0xff shl 24) or (r shl 16) or (g shl 8) or b
@@ -386,17 +385,104 @@ class LivingFieldTest {
         assertEquals("a grey has no hue to turn", 0xff808080.toInt(), LivingField.turned(0xff808080.toInt(), 90f))
     }
 
+    // With a colour to each range the ranges lie in ribbons with curved edges, not in rows
+
+    private val shares = FloatArray(3)
+    private fun sharesAt(x: Float, y: Float, time: Float = 0f, bass: Float = 0f, voice: Float = 0f, top: Float = 0f): List<Float> {
+        LivingField.flowShares(x, y, time, bass, voice, top, shares)
+        return shares.toList()
+    }
+
     @Test
-    fun `in main colours the top and the bottom take the first, the middle the others`() {
-        val mains = LivingField.mainColours(quarters(100), 100, 100)
-        val patches = LivingField.mainPatches(mains, 3, 7)
-        assertEquals(21, patches.size)
-        for (row in 0 until 7) for (column in 0 until 3) {
-            val want = mains[LivingField.bandOfRow(row, 7)]
-            assertTrue("row $row column $column: ${Integer.toHexString(patches[row * 3 + column])} for ${Integer.toHexString(want)}", near(patches[row * 3 + column], want, 45))
+    fun `the top and the bottom of the picture are the bass's, the middle line the top's, and the voice lies between`() {
+        for (time in listOf(0f, 3.7f, 11f, 42f)) for (x in listOf(0.05f, 0.3f, 0.5f, 0.77f, 0.95f)) {
+            assertEquals("the top edge at $x, $time", listOf(1f, 0f, 0f), sharesAt(x, 0.02f, time))
+            assertEquals("the bottom edge at $x, $time", listOf(1f, 0f, 0f), sharesAt(x, 0.98f, time))
+            val line = LivingField.flowLine(x, time)
+            assertTrue("the line stays about the middle: $line", line in 0.42f..0.64f)
+            assertEquals("on the line at $x, $time", listOf(0f, 0f, 1f), sharesAt(x, line, time))
+            for (above in listOf(true, false)) {
+                val half = (LivingField.flowTop(x, time, 0f) + LivingField.flowReach(x, time, above, 0f, 0f, 0f)) / 2
+                assertEquals("half way to the bass at $x, $time", listOf(0f, 1f, 0f), sharesAt(x, if (above) line - half else line + half, time))
+            }
         }
-        // not one flat band: the patches of a row differ a little
-        assertTrue(patches.slice(0..2).toSet().size > 1)
+    }
+
+    @Test
+    fun `wherever and whenever, and whatever the music does, a place is shared out whole`() {
+        val random = java.util.Random(3)
+        repeat(4000) {
+            val got = sharesAt(random.nextFloat(), random.nextFloat(), random.nextFloat() * 500, random.nextFloat() * 3, random.nextFloat() * 3, random.nextFloat() * 3)
+            assertTrue("$got", got.all { it in 0f..1f })
+            assertEquals("$got", 1f, got.sum(), 0.001f)
+        }
+    }
+
+    @Test
+    fun `no edge is a straight line, and the two sides are not each other's mirror`() {
+        val across = (0..20).map { it / 20f }
+        for (time in listOf(0f, 9f, 31f)) {
+            val line = across.map { LivingField.flowLine(it, time) }
+            assertTrue("the top's line rises and falls across the picture: ${line.max() - line.min()}", line.max() - line.min() > 0.05f)
+            val upper = across.map { LivingField.flowLine(it, time) - LivingField.flowVoice(it, time, true, 0f, 0f) }
+            val lower = across.map { LivingField.flowLine(it, time) + LivingField.flowVoice(it, time, false, 0f, 0f) }
+            assertTrue("the bass's edge above it curves: ${upper.max() - upper.min()}", upper.max() - upper.min() > 0.05f)
+            assertTrue("and the one below", lower.max() - lower.min() > 0.05f)
+            val unlike = across.maxOf { abs(LivingField.flowVoice(it, time, true, 0f, 0f) - LivingField.flowVoice(it, time, false, 0f, 0f)) }
+            assertTrue("the voice reaches further on one side than the other somewhere: $unlike", unlike > 0.04f)
+        }
+        // so one height is one range at the left of the picture and another at the right
+        val heights = (0..100).map { it / 100f }
+        assertTrue(heights.any { y -> sharesAt(0.1f, y).indexOfFirst { it > 0.9f }.let { left -> left >= 0 && sharesAt(0.9f, y).indexOfFirst { it > 0.9f }.let { right -> right >= 0 && right != left } } })
+    }
+
+    @Test
+    fun `the ribbons flow with the picture's time`() {
+        val places = (1..9).flatMap { x -> (1..19).map { y -> x / 10f to y / 20f } }
+        val moved = places.maxOf { (x, y) -> sharesAt(x, y, 0f).zip(sharesAt(x, y, 6f)).maxOf { (a, b) -> abs(a - b) } }
+        assertTrue("six seconds on, somewhere has changed hands: $moved", moved > 0.5f)
+        val little = places.maxOf { (x, y) -> sharesAt(x, y, 0f).zip(sharesAt(x, y, 0.1f)).maxOf { (a, b) -> abs(a - b) } }
+        assertTrue("but nowhere in a tenth of a second: $little", little < 0.25f)
+        val frame = places.maxOf { (x, y) -> sharesAt(x, y, 20f).zip(sharesAt(x, y, 20f + 1f / 60)).maxOf { (a, b) -> abs(a - b) } }
+        assertTrue("and from one frame to the next it cannot be seen to step: $frame", frame < 0.05f)
+    }
+
+    @Test
+    fun `a kick pushes the bass in, a voice pushes it back out, and cymbals thicken the top's ribbon`() {
+        for (x in listOf(0.1f, 0.5f, 0.9f)) for (above in listOf(true, false)) {
+            val still = LivingField.flowVoice(x, 0f, above, 0f, 0f)
+            assertTrue(LivingField.flowVoice(x, 0f, above, 0f, 1f) < still - 0.05f)
+            assertTrue(LivingField.flowVoice(x, 0f, above, 1f, 0f) > still + 0.05f)
+            assertTrue(LivingField.flowTop(x, 0f, 1f) > LivingField.flowTop(x, 0f, 0f) + 0.03f)
+        }
+        // however hard the kick, the voice keeps some room between the top's ribbon and the bass
+        for (x in listOf(0.1f, 0.5f, 0.9f)) {
+            val line = LivingField.flowLine(x, 0f)
+            val beside = LivingField.flowTop(x, 0f, 0f) + LivingField.FLOW_EDGE / 2 + 0.01f
+            assertEquals(listOf(0f, 1f, 0f), sharesAt(x, line + beside, bass = 3f))
+            assertEquals(listOf(0f, 1f, 0f), sharesAt(x, line - beside, bass = 3f))
+        }
+    }
+
+    @Test
+    fun `five patches across where the ranges lie in ribbons, and as many along as keeps them round`() {
+        assertEquals("a phone upright", 11, LivingField.along(997f, 448f, LivingField.FLOW_ACROSS, LivingField.FLOW_MOST_ALONG))
+        assertEquals("the strip in Settings", 11, LivingField.along(380f, 168f, LivingField.FLOW_ACROSS, LivingField.FLOW_MOST_ALONG))
+        assertEquals("a square", 5, LivingField.along(600f, 600f, LivingField.FLOW_ACROSS, LivingField.FLOW_MOST_ALONG))
+        assertEquals("a picture of the cover keeps its three", 7, LivingField.along(997f, 448f))
+        // the top's ribbon is never thinner than a row is tall, so some patch always stands in it
+        for (time in listOf(0f, 5f, 17f)) for (x in listOf(0f, 0.25f, 0.5f, 0.75f, 1f)) {
+            assertTrue(2 * (LivingField.flowTop(x, time, 0f) - LivingField.FLOW_EDGE / 2) + LivingField.FLOW_EDGE >= 1f / LivingField.FLOW_MOST_ALONG)
+        }
+    }
+
+    @Test
+    fun `colours are mixed by their shares`() {
+        val three = intArrayOf(0xff200000.toInt(), 0xff004000.toInt(), 0xff000080.toInt())
+        assertEquals(0xff200000.toInt(), LivingField.mixed(three, 0, floatArrayOf(1f, 0f, 0f)))
+        assertEquals(0xff102000.toInt(), LivingField.mixed(three, 0, floatArrayOf(0.5f, 0.5f, 0f)))
+        assertEquals(0xff081020.toInt(), LivingField.mixed(three, 0, floatArrayOf(0.25f, 0.25f, 0.25f)))
+        assertEquals("from further along", 0xff000080.toInt(), LivingField.mixed(intArrayOf(0, 0) + three, 2, floatArrayOf(0f, 0f, 1f)))
     }
 
     @Test
@@ -792,62 +878,97 @@ class LivingFieldTest {
         assertTrue(motion.auraPresence > 0.99f && motion.atRest())
     }
 
-    // A colour to each range: each moves its own part of the picture and no other
+    // A colour to each range: each moves its own colour and no other
 
-    private fun apart() = motion().apply { separate = true }
-    private val grey = 0xff808080.toInt()
+    private val ofBass = 0xff780000.toInt()
+    private val ofVoice = 0xff007800.toInt()
+    private val ofTop = 0xff000078.toInt()
+
+    /**
+     * A picture in ribbons, the bass's colour all red, the voice's all green and the top's all
+     * blue: a patch's red is then the bass's doing and nobody else's, and so on.
+     */
+    private fun apart() = LivingMotion(LivingField.FLOW_ACROSS, LivingField.FLOW_MOST_ALONG).apply {
+        separate = true
+        turnTo(IntArray(count) { ofBass }, glow = ofBass, mains = intArrayOf(ofBass, ofVoice, ofTop))
+    }
+
+    private fun LivingMotion.sharesOfPatch(i: Int): List<Float> =
+        FloatArray(3).also { sharesAt((i % columns + 0.5f) / columns, (i / columns + 0.5f) / rows, it) }.toList()
+
+    /** The patch that is most [band]'s. */
+    private fun LivingMotion.patchOf(band: Int): Int = (0 until count).maxBy { sharesOfPatch(it)[band] }
+
+    /** How brightly [band]'s own colour is lit at patch [i], whatever share of the patch it has. */
+    private fun LivingMotion.lightOf(band: Int, i: Int): Float {
+        val channel = (color(i) shr (16 - 8 * band)) and 0xff
+        return channel / (sharesOfPatch(i)[band] * grain(i))
+    }
 
     /** Where the player has the cover on a phone held upright, in parts of the screen. */
     private fun LivingMotion.coverAsInThePlayer() = apply { coverThere = true; coverAt(0.083f, 0.097f, 0.917f, 0.48f) }
 
     @Test
-    fun `with a colour to each range a kick moves the bass's rows and leaves the others where they are`() {
-        val rest = apart().apply { turnTo(IntArray(count) { grey }) }
-        val kick = apart().apply { turnTo(IntArray(count) { grey }); run(0.1f, bass = 1f) }
-        val bottom = columns * (rows - 1)
-        val voice = columns * 2
-        val middle = columns * 3
+    fun `at rest a patch is its place's mix of the three colours`() {
+        val motion = apart()
+        val (bass, voice, top) = Triple(motion.patchOf(MusicLevels.BASS), motion.patchOf(MusicLevels.MID), motion.patchOf(MusicLevels.HIGH))
+        assertEquals("a corner is all the bass's", listOf(1f, 0f, 0f), motion.sharesOfPatch(0))
+        assertEquals(listOf(1f, 0f, 0f), motion.sharesOfPatch(motion.count - 1))
+        assertTrue("some patch is nearly all the voice's: ${motion.sharesOfPatch(voice)}", motion.sharesOfPatch(voice)[1] > 0.9f)
+        assertTrue("and one nearly all the top's: ${motion.sharesOfPatch(top)}", motion.sharesOfPatch(top)[2] > 0.9f)
+        fun channels(i: Int) = motion.color(i).let { listOf(it shr 16 and 0xff, it shr 8 and 0xff, it and 0xff) }
+        assertTrue("red and nothing else: ${channels(bass)}", channels(bass).let { it[0] > 60 && it[1] == 0 && it[2] == 0 })
+        assertTrue("mostly green: ${channels(voice)}", channels(voice).let { it[1] > 4 * it[0] && it[1] > 4 * it[2] })
+        assertTrue("mostly blue: ${channels(top)}", channels(top).let { it[2] > 4 * it[0] && it[2] > 4 * it[1] })
+        // a ribbon is not one flat colour
+        assertTrue((0 until motion.columns).map { motion.color(it) }.toSet().size > 1)
+    }
+
+    @Test
+    fun `a kick moves what is the bass's and leaves the top's line alone`() {
+        val rest = apart()
+        val kick = apart().apply { run(0.1f, bass = 1f) }
+        val top = rest.patchOf(MusicLevels.HIGH)
         fun grew(i: Int) = kick.radius(i) / rest.radius(i) - 1
-        assertTrue("bottom ${grew(bottom)}", grew(bottom) > 0.4f)
-        assertTrue("top ${grew(0)}", grew(0) > 0.4f)
-        assertEquals("the voice's row does not stir", 0f, grew(voice), 0.01f)
-        assertEquals("nor the top's", 0f, grew(middle), 0.01f)
-        assertEquals("and neither lights up", rest.color(voice), kick.color(voice))
-        assertEquals(rest.color(middle), kick.color(middle))
-        assertTrue("the bass's do", (kick.color(bottom) and 0xff) > (rest.color(bottom) and 0xff) * 1.3f)
+        assertTrue("a corner swells: ${grew(0)}", grew(0) > 0.4f)
+        assertTrue("so does the one opposite: ${grew(rest.count - 1)}", grew(rest.count - 1) > 0.4f)
+        assertEquals("the top's own patch does not stir", 0f, grew(top), 0.03f)
+        assertEquals("nor light up", rest.lightOf(MusicLevels.HIGH, top), kick.lightOf(MusicLevels.HIGH, top), 2f)
+        assertTrue("the bass's colour does: ${kick.lightOf(MusicLevels.BASS, 0)} from ${rest.lightOf(MusicLevels.BASS, 0)}",
+            kick.lightOf(MusicLevels.BASS, 0) > rest.lightOf(MusicLevels.BASS, 0) * 1.3f)
+        // and it comes in: the patches on the edge of the voice's ribbon turn the bass's
+        val before = (0 until rest.count).sumOf { rest.sharesOfPatch(it)[0].toDouble() }
+        val after = (0 until kick.count).sumOf { kick.sharesOfPatch(it)[0].toDouble() }
+        assertTrue("the bass has more of the picture on a kick: $after against $before", after > before + 2.0)
     }
 
     @Test
     fun `the bass pushes, the voice glows and the top glints`() {
-        val rest = apart().apply { turnTo(IntArray(count) { grey }) }
-        fun heard(bass: Float = 0f, mid: Float = 0f, high: Float = 0f) = apart().apply { turnTo(IntArray(count) { grey }); run(0.25f, bass, mid, high) }
+        val rest = apart()
+        fun heard(bass: Float = 0f, mid: Float = 0f, high: Float = 0f) = apart().apply { run(0.25f, bass, mid, high) }
         val kick = heard(bass = 1f)
         val voice = heard(mid = 1f)
         val cymbals = heard(high = 1f)
-        val bottom = columns * (rows - 1)
-        val beside = columns * 2
-        val middle = columns * 3
+        val (ofTheBass, ofTheVoice, ofTheTop) = Triple(0, rest.patchOf(MusicLevels.MID), rest.patchOf(MusicLevels.HIGH))
         fun grew(m: LivingMotion, i: Int) = m.radius(i) / rest.radius(i) - 1
-        fun lit(m: LivingMotion, i: Int) = (m.color(i) and 0xff) / (rest.color(i) and 0xff).toFloat()
-        assertTrue("a voice moves its own rows: ${grew(voice, beside)}", grew(voice, beside) > 0.2f)
-        assertEquals("and not the bass's", 0f, grew(voice, bottom), 0.02f)
-        assertEquals("nor the top's", 0f, grew(voice, middle), 0.02f)
-        assertEquals("cymbals leave the voice's alone", 0f, grew(cymbals, beside), 0.02f)
-        assertTrue("each swells less than the one below it: ${grew(kick, bottom)}, ${grew(voice, beside)}, ${grew(cymbals, middle)}",
-            grew(kick, bottom) > grew(voice, beside) * 1.2f && grew(voice, beside) > grew(cymbals, middle) * 1.2f)
-        assertTrue("the top still moves: ${grew(cymbals, middle)}", grew(cymbals, middle) > 0.05f)
-        assertTrue("and each is lit more than the one below it: ${lit(kick, bottom)}, ${lit(voice, beside)}, ${lit(cymbals, middle)}",
-            lit(cymbals, middle) > lit(voice, beside) && lit(voice, beside) > lit(kick, bottom))
+        fun lit(m: LivingMotion, band: Int, i: Int) = m.lightOf(band, i) / rest.lightOf(band, i)
+        assertTrue("each swells less than the one below it: ${grew(kick, ofTheBass)}, ${grew(voice, ofTheVoice)}, ${grew(cymbals, ofTheTop)}",
+            grew(kick, ofTheBass) > grew(voice, ofTheVoice) * 1.2f && grew(voice, ofTheVoice) > grew(cymbals, ofTheTop) * 1.2f)
+        assertTrue("the top still moves: ${grew(cymbals, ofTheTop)}", grew(cymbals, ofTheTop) > 0.05f)
+        val lights = listOf(lit(kick, MusicLevels.BASS, ofTheBass), lit(voice, MusicLevels.MID, ofTheVoice), lit(cymbals, MusicLevels.HIGH, ofTheTop))
+        assertTrue("and each is lit more than the one below it: $lights", lights[2] > lights[1] && lights[1] > lights[0] && lights[0] > 1.3f)
+        assertEquals("a voice does not light the bass's colour", 1f, lit(voice, MusicLevels.BASS, ofTheBass), 0.03f)
+        assertEquals("nor cymbals the voice's", 1f, lit(cymbals, MusicLevels.MID, ofTheVoice), 0.06f)
     }
 
     @Test
     fun `a range that is quiet sits darker than the bass does, so that it is seen to come in`() {
-        val quiet = apart().apply { turnTo(IntArray(count) { grey }) }
-        val (bass, voice, top) = Triple(quiet.color(0) and 0xff, quiet.color(columns * 2) and 0xff, quiet.color(columns * 3) and 0xff)
-        assertTrue("$bass, $voice, $top", bass > voice && voice > top)
+        val quiet = apart()
+        val bass = quiet.lightOf(MusicLevels.BASS, 0)
+        val voice = quiet.lightOf(MusicLevels.MID, quiet.patchOf(MusicLevels.MID))
+        val top = quiet.lightOf(MusicLevels.HIGH, quiet.patchOf(MusicLevels.HIGH))
+        assertTrue("$bass, $voice, $top", bass > voice + 2 && voice > top + 2)
         assertTrue("not dark, only darker", top > bass * 0.8f)
-        val whole = motion().apply { turnTo(IntArray(count) { grey }) }
-        assertEquals("a picture of the cover is lit alike all over", whole.color(0), whole.color(columns * 3))
     }
 
     @Test
@@ -860,48 +981,61 @@ class LivingFieldTest {
     }
 
     @Test
-    fun `the bass is drawn first, the voice over it and the top of the spectrum last`() {
-        val order = apart().order.toList()
-        assertEquals("every patch, once", (0 until columns * rows).toList(), order.sorted())
-        val ranges = order.map { LivingField.bandOfRow(it / columns, rows) }
-        assertEquals(ranges.sorted(), ranges)
-        assertEquals("a picture of the cover is drawn as it comes", (0 until columns * rows).toList(), motion().order.toList())
+    fun `the ribbons flow while the music plays and stand still when it has stopped`() {
+        val motion = apart()
+        val places = (0 until motion.count)
+        fun now() = places.map { motion.sharesOfPatch(it) }
+        val first = now()
+        motion.run(8f, bass = 0.3f, mid = 0.3f, high = 0.3f)
+        val later = now()
+        assertTrue("eight seconds of music on, patches have changed hands", first.zip(later).maxOf { (a, b) -> a.zip(b).maxOf { (x, y) -> abs(x - y) } } > 0.4f)
+        motion.run(6f, playing = false, measured = false)
+        val stopped = now()
+        motion.run(3f, playing = false, measured = false)
+        assertTrue("three seconds of nothing on, none has", stopped.zip(now()).all { (a, b) -> a.zip(b).all { (x, y) -> abs(x - y) < 0.001f } })
+        assertTrue(motion.atRest())
     }
 
     @Test
-    fun `the halo takes the colour and the range of the row it stands on`() {
+    fun `the halo takes its colour and its range from the ribbons it stands on`() {
         val motion = apart().coverAsInThePlayer()
-        val rowGreys = IntArray(motion.count) { (40 + 25 * (it / columns)).let { v -> (0xff shl 24) or (v shl 16) or (v shl 8) or v } }
-        motion.turnTo(rowGreys)
         val aura = motion.aura
-        val topMiddle = aura.indexOfFirst { it.y == 0f && it.x == 0.5f }
-        val bottomMiddle = aura.indexOfFirst { it.y == 1f && it.x == 0.5f }
-        assertEquals("the cover's top edge stands on the top row", 0, motion.auraPatch(topMiddle) / columns)
-        assertEquals("its bottom edge on the middle one", 3, motion.auraPatch(bottomMiddle) / columns)
+        val topMiddle = aura.indexOfFirst { it.y == 0f && abs(it.x - 0.5f) < 0.11f }
+        fun channels(color: Int) = listOf(color shr 16 and 0xff, color shr 8 and 0xff, color and 0xff)
+        // each point lights in the mix of the place it stands on
+        val place = FloatArray(3)
         for (i in aura.indices) {
-            val row = ((0.097f + aura[i].y * (0.48f - 0.097f)) * rows).toInt().coerceIn(0, rows - 1)
-            assertEquals("point at ${aura[i].x}, ${aura[i].y}", row, motion.auraPatch(i) / columns)
+            motion.sharesAt(0.083f + aura[i].x * 0.834f, 0.097f + aura[i].y * 0.383f, place)
+            val most = place.indices.maxBy { place[it] }
+            if (place[most] > 0.8f) assertEquals("point at ${aura[i].x}, ${aura[i].y}: ${channels(motion.auraColor(i))}", most, channels(motion.auraColor(i)).let { c -> c.indices.maxBy { c[it] } })
         }
-        // each point lights in its row's grey: the halo runs through the ranges down the cover's sides
-        assertTrue((motion.auraColor(bottomMiddle) and 0xff) > (motion.auraColor(topMiddle) and 0xff))
+        assertEquals("the cover's top edge stands in the bass", 0, channels(motion.auraColor(topMiddle)).let { c -> c.indices.maxBy { c[it] } })
+        assertTrue("and somewhere down its sides or along its bottom the halo is another range's",
+            aura.indices.any { i -> channels(motion.auraColor(i)).let { c -> c.indices.maxBy { c[it] } } != 0 })
 
-        motion.run(0.3f, bass = 1f)
-        assertTrue("a kick reaches out above the cover: ${motion.auraShown[topMiddle]}", motion.auraShown[topMiddle] > 0.7f)
-        assertEquals("and not below it, which is the top of the spectrum's", 0f, motion.auraShown[bottomMiddle], 0.02f)
-        val cymbals = apart().coverAsInThePlayer().apply { run(0.3f, high = 1f) }
-        assertTrue("cymbals the other way round: ${cymbals.auraShown[bottomMiddle]}", cymbals.auraShown[bottomMiddle] > 0.6f)
-        assertEquals(0f, cymbals.auraShown[topMiddle], 0.02f)
+        // long enough at one level, a point is taken as far as the ranges it stands on are, each for its share
+        motion.run(4f, bass = 0.6f, mid = 0.2f, high = 0.9f)
+        for (i in aura.indices) {
+            motion.sharesAt(0.083f + aura[i].x * 0.834f, 0.097f + aura[i].y * 0.383f, place)
+            val want = (0 until 3).sumOf { (place[it] * motion.shown[it] * LivingField.OWN_SHARE[it]).toDouble() }.toFloat()
+            assertEquals("point at ${aura[i].x}, ${aura[i].y}", want, motion.auraShown[i], 0.06f)
+        }
+        val kick = apart().coverAsInThePlayer().apply { run(0.3f, bass = 1f) }
+        assertTrue("a kick reaches out above the cover: ${kick.auraShown[topMiddle]}", kick.auraShown[topMiddle] > 0.7f)
 
-        val whole = motion().coverAsInThePlayer()
-        for (i in aura.indices) assertEquals("a picture of the cover: the part of the cover beside it", aura[i].patch, whole.auraPatch(i))
+        val whole = motion().coverAsInThePlayer().apply { turnTo(IntArray(count) { 0xff000000.toInt() or (it * 9) }) }
+        for (i in whole.aura.indices) {
+            val want = LivingField.lit(LivingField.colourful(whole.colors[whole.aura[i].patch], 1.15f), 1f)
+            assertEquals("a picture of the cover: the colour of the part of the cover beside it", want, whole.auraColor(i))
+        }
     }
 
     @Test
-    fun `a cover that fills the picture or is off it still gives the halo a patch`() {
+    fun `a cover that fills the picture or is off it still gives the halo a colour`() {
         val motion = apart().apply { coverThere = true; coverAt(-0.4f, -0.2f, 1.6f, 1.3f) }
-        for (i in motion.aura.indices) assertTrue(motion.auraPatch(i) in 0 until motion.count)
         motion.run(0.2f, bass = 1f, mid = 1f, high = 1f)
-        assertTrue(motion.auraShown.all { it.isFinite() })
+        assertTrue(motion.auraShown.all { it.isFinite() && it in 0f..1.01f })
+        for (i in motion.aura.indices) assertTrue(motion.auraColor(i) ushr 24 == 0xff)
     }
 
     @Test
@@ -911,6 +1045,19 @@ class LivingFieldTest {
         assertEquals(LivingField.lit(0xffc01030.toInt(), LivingField.GLOW_LIGHT), given.glow)
         val left = motion().apply { turnTo(patches) }
         assertEquals("left out, the strongest patch", LivingField.lit(0xff10c040.toInt(), LivingField.GLOW_LIGHT), left.glow)
+    }
+
+    @Test
+    fun `the three colours turn into the next cover's as the rest does`() {
+        val motion = apart()
+        val next = intArrayOf(0xff004080.toInt(), 0xff808000.toInt(), 0xffe0e0e0.toInt())
+        motion.turnTo(IntArray(motion.count) { next[0] }, glow = next[0], mains = next)
+        val at = motion.count + 2
+        assertEquals("not at once", ofBass, motion.colors[at])
+        motion.run(LivingField.COVER_TURN / 2)
+        assertTrue("half way there: ${Integer.toHexString(motion.colors[at])}", (motion.colors[at] shr 16 and 0xff) in 0x20..0x58 && (motion.colors[at] and 0xff) in 0x28..0x60)
+        motion.run(LivingField.COVER_TURN)
+        assertEquals(next.toList(), motion.colors.slice(at until at + 3))
     }
 
     @Test

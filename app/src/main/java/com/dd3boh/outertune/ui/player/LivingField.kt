@@ -30,7 +30,8 @@ import kotlin.math.sqrt
  * part of the cover, the way the cover reads when it is blurred until nothing else is left of it
  * ([patches]), and every patch takes a share of the kick, so that the picture moves as one. Or
  * with the cover as a palette: three of its colours, picked to be told apart, one to a range
- * ([mainColours]), and each range moves its own colour and no other ([OWN_SHARE]).
+ * ([mainColours]), and each range moves its own colour and no other ([OWN_SHARE]). The ranges
+ * then do not lie in rows but in ribbons with curved edges that flow with the music ([flowShares]).
  */
 object LivingField {
     /** Patches along the short side of the screen. Three is about what a 150 dp blur leaves of a cover on a phone. */
@@ -197,8 +198,108 @@ object LivingField {
      * How many patches along a side [long] when the other side is [short], so that a patch is
      * about as wide as it is tall: round, where a square grid on a phone made tall pillars.
      */
-    fun along(long: Float, short: Float): Int =
-        if (short <= 0f || long <= 0f) ACROSS else Math.round(ACROSS * long / short).coerceIn(ACROSS, MOST_ALONG)
+    fun along(long: Float, short: Float, across: Int = ACROSS, most: Int = MOST_ALONG): Int =
+        if (short <= 0f || long <= 0f) across else Math.round(across * long / short).coerceIn(across, most)
+
+    /**
+     * Patches along the short side, and no more than so many along the long one, when the ranges
+     * lie in ribbons ([flowShares]): the ribbons' edges are curves, and three patches across
+     * cannot draw a curve.
+     */
+    const val FLOW_ACROSS = 5
+    const val FLOW_MOST_ALONG = 11
+
+    /**
+     * A patch's radius at rest where the ranges lie in ribbons, in cells. More than [REST_RADIUS]:
+     * there are more and smaller patches, each a sample of a colour that changes smoothly from
+     * place to place, and at the cover's radius they showed as dots.
+     */
+    const val FLOW_RADIUS = 1.35f
+
+    /** An edge between two ranges is this soft, in parts of the picture's height. */
+    const val FLOW_EDGE = 0.055f
+
+    private fun wave(turns: Float) = sin(2f * PI.toFloat() * turns)
+
+    /**
+     * Where the top of the spectrum's line is at [x], in parts of the height. It wanders across
+     * the middle of the picture, a little under half way down, which on a phone is just under
+     * the cover: one slow wave and a quicker, smaller one, each flowing its own way with [time].
+     */
+    fun flowLine(x: Float, time: Float): Float =
+        0.53f + 0.055f * wave(0.55f * x + 0.050f * time) + 0.030f * wave(1.25f * x - 0.071f * time + 0.21f)
+
+    /**
+     * Half the thickness of the top's ribbon at [x]: thicker and thinner along its length, and
+     * thicker with the cymbals ([top], 0 and up). Never thinner than a row of patches is tall, or
+     * there would be stretches of it that no patch stood in.
+     */
+    fun flowTop(x: Float, time: Float, top: Float): Float =
+        0.068f + 0.020f * wave(0.9f * x + 0.063f * time + 0.1f) + 0.045f * top
+
+    /**
+     * How far the voice reaches from the top's line at [x], above it or below: an edge with a
+     * curve of its own on each side, so that the two are never each other's mirror. No wave here
+     * or in [flowLine] has more than about one and a quarter turns across the picture: five
+     * patches across cannot draw a tighter one, and it came out as steps. A voice
+     * ([voice], 0 and up) pushes the edge out, a kick ([bass]) pushes it in: the bass comes in
+     * from both ends of the screen along a curved front.
+     */
+    fun flowVoice(x: Float, time: Float, above: Boolean, voice: Float, bass: Float): Float {
+        val still = if (above) {
+            0.21f + 0.055f * wave(0.7f * x - 0.045f * time + 0.33f) + 0.025f * wave(1.15f * x + 0.080f * time + 0.70f)
+        } else {
+            0.23f + 0.065f * wave(0.85f * x + 0.057f * time + 0.62f) + 0.025f * wave(1.3f * x - 0.090f * time + 0.15f)
+        }
+        return still + 0.06f * voice - 0.07f * bass
+    }
+
+    /**
+     * Where the bass begins at [x], as a distance from the top's line: the voice's own reach
+     * ([flowVoice]), but never so little that the voice has no room left between the top's ribbon
+     * and the bass, however hard the kick.
+     */
+    fun flowReach(x: Float, time: Float, above: Boolean, voice: Float, bass: Float, top: Float): Float =
+        max(flowTop(x, time, top) + FLOW_EDGE + 0.02f, flowVoice(x, time, above, voice, bass))
+
+    /**
+     * How much of the point at [x], [y] (parts of the width and height) is each range's, into
+     * [into]: bass, voice, top, adding up to one.
+     *
+     * With a colour to each range the ranges do not lie in rows. The top of the spectrum runs
+     * along a line that wanders across the middle ([flowLine]); the voice lies either side of it
+     * as far as an edge that curves ([flowVoice]); the bass has everything beyond, which is the
+     * top and the bottom of the screen. Line and edges are waves and flow with [time], the
+     * picture's own, which runs with the music: nothing in the picture is a straight line, and
+     * nothing stays where it was. Rows of colour were what this replaced, and they looked ruled.
+     *
+     * [bass], [voice] and [top] are how far each range is taken by the music at this moment.
+     */
+    fun flowShares(x: Float, y: Float, time: Float, bass: Float, voice: Float, top: Float, into: FloatArray) {
+        val line = flowLine(x, time)
+        val away = abs(y - line)
+        val thick = flowTop(x, time, top)
+        val reach = flowReach(x, time, y < line, voice, bass, top)
+        val ofTop = 1f - eased((away - (thick - FLOW_EDGE / 2f)) / FLOW_EDGE)
+        val ofBass = eased((away - (reach - FLOW_EDGE / 2f)) / FLOW_EDGE)
+        into[MusicLevels.BASS] = ofBass
+        into[MusicLevels.HIGH] = ofTop
+        into[MusicLevels.MID] = max(0f, 1f - ofBass - ofTop)
+    }
+
+    /** [colors] mixed by [shares], channel by channel: as many of each as there are ranges. */
+    fun mixed(colors: IntArray, from: Int, shares: FloatArray): Int {
+        var r = 0f
+        var g = 0f
+        var b = 0f
+        for (k in shares.indices) {
+            val c = colors[from + k]
+            r += shares[k] * ((c shr 16) and 0xff)
+            g += shares[k] * ((c shr 8) and 0xff)
+            b += shares[k] * (c and 0xff)
+        }
+        return argb((r + 0.5f).toInt().coerceIn(0, 255), (g + 0.5f).toInt().coerceIn(0, 255), (b + 0.5f).toInt().coerceIn(0, 255))
+    }
 
     /**
      * The range a row breathes with, rows counted from the top: the rows at the top and at the
@@ -486,18 +587,6 @@ object LivingField {
         into[2] = (0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s).toFloat()
     }
 
-    /**
-     * The patches of a grid of [columns] by [rows] coloured from [mains] (see [mainColours]): each
-     * takes the colour of the range it breathes with, a little lighter or darker from patch to
-     * patch so that a row is not one flat band.
-     */
-    fun mainPatches(mains: IntArray, columns: Int, rows: Int): IntArray =
-        IntArray(columns * rows) {
-            val row = it / columns
-            val column = it % columns
-            lit(mains[bandOfCell(column, row, columns, rows)], 0.92f + 0.04f * ((column * 2 + row) % 5))
-        }
-
     /** [color] made lighter, hue and all, until its lightest channel is [body]. One that is lighter already is left alone, and black is a grey. */
     private fun withBody(color: Int, body: Int): Int {
         val most = max((color shr 16) and 0xff, max((color shr 8) and 0xff, color and 0xff))
@@ -674,22 +763,31 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
 
     /**
      * True when the picture is coloured from the cover's main colours, one to a range: each range
-     * then moves its own part of the picture and no other (see [LivingField.OWN_SHARE]).
+     * then moves its own colour and no other (see [LivingField.OWN_SHARE]), and the ranges lie in
+     * ribbons with curved edges that flow ([LivingField.flowShares]), not in rows.
      */
     var separate = false
 
-    /** The range each patch breathes with. */
+    /** The range each patch breathes with, in a picture of the cover. */
     private val bands = IntArray(count) { LivingField.bandOfCell(it % columns, it / columns, columns, rows) }
 
-    /**
-     * The patches in the order they are drawn. As they come, for a picture of the cover. With a
-     * colour to each range the bass goes down first, the voice over it and the top of the spectrum
-     * last: a kick swells the bass's patches to nearly twice their size, and drawn in rows they
-     * rolled over the voice's and the top's, so that on every beat the whole picture was the bass.
-     */
-    private val asTheyCome = IntArray(count) { it }
-    private val bassFirst = asTheyCome.sortedBy { bands[it] }.toIntArray()
-    val order: IntArray get() = if (separate) bassFirst else asTheyCome
+    /** How far the music takes range [band] when each has its own colour: what moves its edge and lights it. */
+    private fun own(band: Int): Float = reach * shown[band] * LivingField.OWN_SHARE[band]
+
+    private val share = FloatArray(MusicLevels.BANDS)
+
+    /** How much of the point at [x], [y] is each range's at this moment, left in [share]. */
+    private fun sharesAt(x: Float, y: Float) =
+        LivingField.flowShares(x, y, drift, own(MusicLevels.BASS), own(MusicLevels.MID), own(MusicLevels.HIGH), share)
+
+    /** The same for patch [i], where it lives: the patches wander a little, the ribbons do not wander with them. */
+    private fun sharesOf(i: Int) = sharesAt((i % columns + 0.5f) / columns, (i / columns + 0.5f) / rows)
+
+    /** How much of the point at [x], [y] is each range's: bass, voice, top. For whoever wants to know where the ribbons are. */
+    fun sharesAt(x: Float, y: Float, into: FloatArray) {
+        sharesAt(x, y)
+        share.copyInto(into)
+    }
 
     /** The aura round the cover, and how far each of its points is taken, 0 to 1. */
     val aura = LivingField.aura(columns, rows)
@@ -710,20 +808,14 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     }
 
     /**
-     * The patch a point of the aura takes its colour and its range from. For a picture of the
-     * cover, the part of the cover beside it. With a colour to each range, the patch it sits on:
-     * the cover hides most of the rows it stands in front of, and its edge is where they can be
-     * seen, so down the cover's sides the halo runs through the ranges as the rows behind it do.
+     * The ranges at the place a point of the aura stands on, left in [share]. With a colour to
+     * each range the halo takes its colour and its range from the ribbons behind it: the cover
+     * hides most of what it stands in front of, and its edge is where that can be seen.
      */
-    fun auraPatch(i: Int): Int {
+    private fun sharesOfAura(i: Int) {
         val point = aura[i]
-        if (!separate) return point.patch
-        val column = ((coverLeft + point.x * (coverRight - coverLeft)) * columns).toInt().coerceIn(0, columns - 1)
-        val row = ((coverTop + point.y * (coverBottom - coverTop)) * rows).toInt().coerceIn(0, rows - 1)
-        return row * columns + column
+        sharesAt(coverLeft + point.x * (coverRight - coverLeft), coverTop + point.y * (coverBottom - coverTop))
     }
-
-    private fun auraBand(i: Int): Int = if (separate) bands[auraPatch(i)] else aura[i].band
 
     /** Whether there is a cover on screen to put the aura round. Without one it fades away. */
     var coverThere = false
@@ -734,11 +826,12 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
 
     /**
      * The colours on screen, turning into [turnTo]'s cover: the [count] patches, then [under],
-     * then [glow].
+     * then [glow], then the three main colours, the bass's first.
      */
-    val colors = IntArray(count + 2) { LivingField.GREY }
-    private var wanted = IntArray(count + 2) { LivingField.GREY }
-    private val turnedFrom = IntArray(count + 2) { LivingField.GREY }
+    val colors = IntArray(count + 2 + LivingField.MAINS) { LivingField.GREY }
+    private var wanted = IntArray(count + 2 + LivingField.MAINS) { LivingField.GREY }
+    private val turnedFrom = IntArray(count + 2 + LivingField.MAINS) { LivingField.GREY }
+    private val mainsAt = count + 2
     private var turn = 1f
     private var coverKnown = false
 
@@ -754,15 +847,17 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     /**
      * The next cover's patches. The first cover is shown at once, later ones are turned into.
      * [glow] is the colour the glow on the top and bottom edges is made from: the bass's own when
-     * the ranges each have one, and left out, the strongest of the patches.
+     * the ranges each have one, and left out, the strongest of the patches. [mains] are the three
+     * colours of the ranges ([LivingField.mainColours]), for a picture made of those.
      */
-    fun turnTo(patches: IntArray, glow: Int? = null) {
-        val next = IntArray(count + 2)
+    fun turnTo(patches: IntArray, glow: Int? = null, mains: IntArray? = null) {
+        val next = IntArray(count + 2 + LivingField.MAINS)
         patches.copyInto(next, endIndex = minOf(count, patches.size))
         for (i in patches.size until count) next[i] = LivingField.GREY
         val cover = next.copyOf(count)
         next[count] = LivingField.lit(LivingField.average(cover), LivingField.REST_LIGHT)
         next[count + 1] = LivingField.lit(glow ?: LivingField.strongest(cover), LivingField.GLOW_LIGHT)
+        for (k in 0 until LivingField.MAINS) next[mainsAt + k] = mains?.getOrNull(k) ?: LivingField.GREY
         wanted = next
         if (!coverKnown) {
             wanted.copyInto(colors)
@@ -795,12 +890,21 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
         }
         for (i in aura.indices) {
             val point = aura[i]
-            val band = auraBand(i)
-            val to = if (separate) shown[band] * LivingField.OWN_SHARE[band]
-            else max(shown[MusicLevels.BASS], 0.6f * shown[band] * LivingField.SHARE[band])
-            // Later and softer the further round the cover from where the kick lands. The voice
-            // and the top have no place they land: they come all along their stretch at once.
-            val far = if (separate && band != MusicLevels.BASS) 0.15f else point.far
+            val to: Float
+            val far: Float
+            if (separate) {
+                // by the ranges it stands on, each for its share
+                sharesOfAura(i)
+                var sum = 0f
+                for (band in 0 until MusicLevels.BANDS) sum += share[band] * shown[band] * LivingField.OWN_SHARE[band]
+                to = sum
+                // The voice and the top have no place they land: they come all along their stretch at once.
+                far = share[MusicLevels.BASS] * point.far + (1f - share[MusicLevels.BASS]) * 0.15f
+            } else {
+                to = max(shown[MusicLevels.BASS], 0.6f * shown[point.band] * LivingField.SHARE[point.band])
+                far = point.far
+            }
+            // later and softer the further round the cover from where the kick lands
             val within = if (to > auraShown[i]) 0.012f + 0.11f * far else 0.20f + 0.16f * far
             auraShown[i] += (to - auraShown[i]) * part(dt, within * ease)
         }
@@ -858,35 +962,53 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     /** Pushed away from the middle on a kick. */
     private fun lean(at: Float) = 0.5f + (at - 0.5f) * (1f + LivingField.LEAN * reach * shown[MusicLevels.BASS])
 
-    /**
-     * How far patch [i] is taken, 0 to 1: by the range it breathes with, and by the bass wherever
-     * it is. Or by its own range and nothing else, when each range has a colour to be told by.
-     */
+    /** How far patch [i] is taken in a picture of the cover, 0 to 1: by the range it breathes with, and by the bass wherever it is. */
     private fun taken(i: Int): Float {
         val band = bands[i]
-        return if (separate) shown[band] * LivingField.OWN_SHARE[band]
-        else max(shown[band] * LivingField.SHARE[band], LivingField.KICK_EVERYWHERE * shown[MusicLevels.BASS])
+        return max(shown[band] * LivingField.SHARE[band], LivingField.KICK_EVERYWHERE * shown[MusicLevels.BASS])
     }
 
     fun radius(i: Int): Float {
-        val band = bands[i]
         val swell = if (separate) {
-            // the push of a kick is the bass's own patches' to show
-            LivingField.SWELL * LivingField.OWN_SWELL[band] * taken(i) + (if (band == MusicLevels.BASS) 0.08f * shown[MusicLevels.BASS] else 0f)
+            // each range swells what is its own, and the push of a kick is the bass's to show
+            sharesOf(i)
+            var sum = share[MusicLevels.BASS] * 0.08f * shown[MusicLevels.BASS]
+            for (band in 0 until MusicLevels.BANDS) {
+                sum += share[band] * LivingField.SWELL * LivingField.OWN_SWELL[band] * shown[band] * LivingField.OWN_SHARE[band]
+            }
+            sum
         } else {
             LivingField.SWELL * taken(i) + 0.08f * shown[MusicLevels.BASS]
         }
         val ripple = 0.04f * sin(drift * 0.31f + i * (2f * PI.toFloat() / 5f))
-        return LivingField.REST_RADIUS * (1f + min(LivingField.MOST_SWELL, reach * swell) + ripple)
+        val rest = if (separate) LivingField.FLOW_RADIUS else LivingField.REST_RADIUS
+        return rest * (1f + min(LivingField.MOST_SWELL, reach * swell) + ripple)
     }
+
+    /** How much lighter or darker patch [i] is than the colour of its place, so that a ribbon is not one flat colour. */
+    fun grain(i: Int): Float = 0.97f + 0.015f * ((i % columns * 2 + i / columns) % 5)
+
+    /** Range [band]'s own colour as the music has it now: lighter on a beat, and more colourful with it. */
+    private fun mainNow(band: Int): Int {
+        val by = own(band)
+        val light = min(LivingField.MOST_LIGHT, LivingField.OWN_REST[band] + LivingField.FULL_LIGHT * LivingField.OWN_LIGHT[band] * by)
+        return LivingField.lit(LivingField.colourful(colors[mainsAt + band], 1f + 0.18f * min(by, 3f)), light)
+    }
+
+    private val mainsNow = IntArray(MusicLevels.BANDS)
 
     /** Lighter on a beat, and more colourful with it: light alone washes a colour out towards white. */
     fun color(i: Int): Int {
-        val band = bands[i]
+        if (separate) {
+            // The three colours as they are lit now, mixed by how much of this place is each
+            // range's, and a little lighter or darker from patch to patch so that a ribbon is
+            // not one flat colour.
+            for (band in 0 until MusicLevels.BANDS) mainsNow[band] = mainNow(band)
+            sharesOf(i)
+            return LivingField.lit(LivingField.mixed(mainsNow, 0, share), grain(i))
+        }
         val by = reach * taken(i)
-        val rest = if (separate) LivingField.OWN_REST[band] else LivingField.REST_LIGHT
-        val full = if (separate) LivingField.FULL_LIGHT * LivingField.OWN_LIGHT[band] else LivingField.FULL_LIGHT
-        val light = min(LivingField.MOST_LIGHT, rest + full * by)
+        val light = min(LivingField.MOST_LIGHT, LivingField.REST_LIGHT + LivingField.FULL_LIGHT * by)
         return LivingField.lit(LivingField.colourful(colors[i], 1f + 0.18f * min(by, 3f)), light)
     }
 
@@ -903,6 +1025,12 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
 
     fun auraColor(i: Int): Int {
         val by = min(reach * auraShown[i], 3f)
-        return LivingField.lit(LivingField.colourful(colors[auraPatch(i)], 1.15f + 0.15f * by), min(LivingField.MOST_LIGHT, 1f + 0.30f * by))
+        val from = if (separate) {
+            sharesOfAura(i)
+            LivingField.mixed(colors, mainsAt, share)
+        } else {
+            colors[aura[i].patch]
+        }
+        return LivingField.lit(LivingField.colourful(from, 1.15f + 0.15f * by), min(LivingField.MOST_LIGHT, 1f + 0.30f * by))
     }
 }

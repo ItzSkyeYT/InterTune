@@ -28,6 +28,8 @@ class LivingPaletteTrial {
 
     private val columns = LivingField.ACROSS
     private val rows = 7
+    private val flowColumns = LivingField.FLOW_ACROSS
+    private val flowRows = LivingField.FLOW_MOST_ALONG
     private val wide = 132
     private val tall = 286
 
@@ -58,10 +60,10 @@ class LivingPaletteTrial {
                     floatArrayOf(0.1f, 0.1f, 1f), floatArrayOf(1f, 1f, 1f),
                 )
                 states.forEachIndexed { i, levels ->
-                    val motion = motion(separate = true, LivingField.mainPatches(mains, columns, rows), mains[MusicLevels.BASS], levels)
+                    val motion = motion(separate = true, IntArray(flowColumns * flowRows) { mains[MusicLevels.BASS] }, mains, levels, after = 4f + 3f * i)
                     paste(sheet, picture(motion, cover), gap + tall + 70 + i * (wide + gap), top)
                 }
-                val asCover = motion(separate = false, LivingField.patches(pixels, cover.width, cover.height, columns, rows), null, floatArrayOf(1f, 0.1f, 0.1f))
+                val asCover = motion(separate = false, LivingField.patches(pixels, cover.width, cover.height, columns, rows), null, floatArrayOf(1f, 0.1f, 0.1f), after = 0.5f)
                 paste(sheet, picture(asCover, cover), gap + tall + 70 + 5 * (wide + gap), top)
             }
             write(sheet, File(folder, "_sheet-${at + 1}.ppm"))
@@ -70,16 +72,17 @@ class LivingPaletteTrial {
 
     private fun hex(color: Int) = "#%06x".format(color and 0xffffff)
 
-    /** The picture after half a second of quiet and then a tenth of a second of [levels]. */
-    private fun motion(separate: Boolean, patches: IntArray, glow: Int?, levels: FloatArray) = LivingMotion(columns, rows).apply {
-        this.separate = separate
-        coverThere = true
-        coverAt(coverLeft, coverTop, coverLeft + coverSide, coverTop + coverSide * wide / tall)
-        turnTo(patches, glow)
-        val quiet = floatArrayOf(0.05f, 0.05f, 0.05f)
-        repeat(30) { step(1f / 60, quiet, true) }
-        if (levels.any { it > 0f }) repeat(6) { step(1f / 60, levels, true) }
-    }
+    /** The picture after [after] seconds of quiet music and then a tenth of a second of [levels]. */
+    private fun motion(separate: Boolean, patches: IntArray, mains: IntArray?, levels: FloatArray, after: Float) =
+        (if (separate) LivingMotion(flowColumns, flowRows) else LivingMotion(columns, rows)).apply {
+            this.separate = separate
+            coverThere = true
+            coverAt(coverLeft, coverTop, coverLeft + coverSide, coverTop + coverSide * wide / tall)
+            turnTo(patches, glow = mains?.get(MusicLevels.BASS), mains = mains)
+            val quiet = floatArrayOf(0.05f, 0.05f, 0.05f)
+            repeat((after * 60).toInt()) { step(1f / 60, quiet, true) }
+            if (levels.any { it > 0f }) repeat(6) { step(1f / 60, levels, true) }
+        }
 
     private fun picture(motion: LivingMotion, cover: Picture): Picture {
         val red = FloatArray(wide * tall)
@@ -107,7 +110,7 @@ class LivingPaletteTrial {
         fill(motion.under)
         val cellWidth = wide.toFloat() / motion.columns
         val cellHeight = tall.toFloat() / motion.rows
-        for (i in motion.order) {
+        for (i in 0 until motion.count) {
             val radius = motion.radius(i)
             disc(motion.x(i) * wide, motion.y(i) * tall, radius * cellWidth, radius * cellHeight, motion.color(i), 1f)
         }
@@ -120,6 +123,23 @@ class LivingPaletteTrial {
             val point = motion.aura[i]
             val radius = motion.auraRadius(i) * side
             disc(left + point.x * side, top + point.y * side, radius, radius, motion.auraColor(i), motion.auraStrength(i))
+        }
+        // The phone draws this an eighth of its size, blurs that a little and stretches it: here, three passes of a small box.
+        for (channel in listOf(red, green, blue)) repeat(3) {
+            val was = channel.copyOf()
+            for (y in 0 until tall) for (x in 0 until wide) {
+                var sum = 0f
+                var n = 0
+                for (dy in -2..2) for (dx in -2..2) {
+                    val px = x + dx
+                    val py = y + dy
+                    if (px in 0 until wide && py in 0 until tall) {
+                        sum += was[py * wide + px]
+                        n++
+                    }
+                }
+                channel[y * wide + x] = sum / n
+            }
         }
         val out = Picture(wide, tall)
         // Liquid glass on: the picture at half strength over the dark theme's surface

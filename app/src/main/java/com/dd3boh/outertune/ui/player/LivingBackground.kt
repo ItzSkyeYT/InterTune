@@ -124,19 +124,25 @@ private fun LivingPicture(
     var origin by remember { mutableStateOf(Offset.Zero) }
     val stretch = remember { mutableStateOf(Offset(1f, 1f)) }
 
-    // Three patches along the short side and as many along the long side as keeps them round. A
-    // picture that changes shape starts over with the new grid.
+    // Three patches along the short side and as many along the long side as keeps them round, or
+    // five where the ranges lie in ribbons, whose edges are curves and want more to be drawn with.
+    // A picture that changes shape, or the way it is coloured, starts over with the new grid.
     val upright = tall >= wide
-    val along = LivingField.along(long = max(wide, tall).toFloat(), short = min(wide, tall).toFloat())
-    val motion = remember(upright, along) {
-        if (upright) LivingMotion(LivingField.ACROSS, along) else LivingMotion(along, LivingField.ACROSS)
+    val ribbons = colours == LivingColours.MAIN
+    val across = if (ribbons) LivingField.FLOW_ACROSS else LivingField.ACROSS
+    val along = LivingField.along(
+        long = max(wide, tall).toFloat(), short = min(wide, tall).toFloat(),
+        across = across, most = if (ribbons) LivingField.FLOW_MOST_ALONG else LivingField.MOST_ALONG,
+    )
+    val motion = remember(upright, along, across) {
+        if (upright) LivingMotion(across, along) else LivingMotion(along, across)
     }
 
     val coverThere = coverPlace() != null
     motion.strength = strength
     motion.smoothing = smoothing
     motion.coverThere = coverThere
-    motion.separate = colours == LivingColours.MAIN
+    motion.separate = ribbons
 
     // Read by the drawing alone, so a new frame redraws the canvas and recomposes nothing.
     var frame by remember { mutableLongStateOf(0L) }
@@ -144,8 +150,8 @@ private fun LivingPicture(
     var covers by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(cover, motion, colours) {
-        // the patches, and for the main colours the bass's own, which the glow on the edges takes
-        val (patches, glow) = withContext(coilCoroutine) {
+        // the patches, or for the main colours those three, the bass's first
+        val (patches, mains) = withContext(coilCoroutine) {
             val bitmap = context.imageLoader.execute(
                 ImageRequest.Builder(context)
                     .data(cover)
@@ -155,13 +161,14 @@ private fun LivingPicture(
             val pixels = IntArray(bitmap.width * bitmap.height)
             bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
             when (colours) {
-                LivingColours.MAIN -> LivingField.mainColours(pixels, bitmap.width, bitmap.height).let { mains ->
-                    LivingField.mainPatches(mains, motion.columns, motion.rows) to mains[MusicLevels.BASS]
+                // what is under the ribbons, should they leave anything uncovered, is the bass's
+                LivingColours.MAIN -> LivingField.mainColours(pixels, bitmap.width, bitmap.height).let { three ->
+                    IntArray(motion.count) { three[MusicLevels.BASS] } to three
                 }
                 LivingColours.COVER -> LivingField.patches(pixels, bitmap.width, bitmap.height, motion.columns, motion.rows) to null
             }
         } ?: return@LaunchedEffect
-        motion.turnTo(patches, glow)
+        motion.turnTo(patches, glow = mains?.get(MusicLevels.BASS), mains = mains)
         covers++
     }
 
@@ -213,7 +220,7 @@ private fun LivingPicture(
             native.drawColor(motion.under)
             val cellWidth = size.width / motion.columns
             val cellHeight = size.height / motion.rows
-            for (i in motion.order) {
+            for (i in 0 until motion.count) {
                 val radius = motion.radius(i)
                 look.disc(native, motion.x(i) * size.width, motion.y(i) * size.height, radius * cellWidth, radius * cellHeight, motion.color(i), 1f)
             }
