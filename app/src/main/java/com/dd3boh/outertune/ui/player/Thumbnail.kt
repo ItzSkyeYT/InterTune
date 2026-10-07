@@ -36,13 +36,13 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.node.Ref
 import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -173,10 +173,16 @@ fun Thumbnail(
                     // Told again whenever that changes hands, since a cover that has not moved is
                     // not placed again, and taken back when this one leaves, which is when the
                     // lyrics or an error take its place.
-                    var place by remember { mutableStateOf<Rect?>(null) }
+                    //
+                    // The place is kept out of composition. It changes on every frame while the
+                    // player sheet or the swipe strip moves, and held in a state that was read here
+                    // it had every cover recompose on each of those frames. So it goes straight
+                    // from where it is measured to PlayerCoverPlace, and what is remembered here is
+                    // only for the handover.
+                    val place = remember { Ref<Rect>() }
                     val showsWhatPlays by rememberUpdatedState(ownsError)
-                    LaunchedEffect(ownsError, place) {
-                        if (ownsError && place != null) PlayerCoverPlace.bounds = place
+                    LaunchedEffect(ownsError) {
+                        if (ownsError) place.value?.let { PlayerCoverPlace.bounds = it }
                     }
                     DisposableEffect(Unit) {
                         onDispose { if (showsWhatPlays) PlayerCoverPlace.bounds = null }
@@ -184,7 +190,11 @@ fun Thumbnail(
                     Box(
                         modifier = Modifier
                             .aspectRatio(1f)
-                            .onGloballyPositioned { place = Rect(it.positionInRoot(), it.size.toSize()) }
+                            .onGloballyPositioned {
+                                val at = Rect(it.positionInRoot(), it.size.toSize())
+                                place.value = at
+                                if (showsWhatPlays) PlayerCoverPlace.bounds = at
+                            }
                             .clip(RoundedCornerShape(ThumbnailCornerRadius * 2))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
