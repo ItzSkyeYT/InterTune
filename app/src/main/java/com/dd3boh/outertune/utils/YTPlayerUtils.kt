@@ -610,7 +610,9 @@ object YTPlayerUtils {
             throw Exception("Could not find stream url")
         }
 
-        Log.d(TAG, "[$videoId] stream url: $streamUrl")
+        // Never the url itself: its query carries the address it was issued to, which is the
+        // listener's own, and logcat gets pasted into issues as it is. See StreamCheck.urlForLog.
+        Log.d(TAG, "[$videoId] stream url: ${StreamCheck.urlForLog(streamUrl)}")
 
         /**
          * Loudness for volume normalisation.

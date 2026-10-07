@@ -130,4 +130,31 @@ object StreamCheck {
         lastFallbackFailure != null -> ChainFailure.LastFailure(lastFallbackFailure)
         else -> ChainFailure.Unknown
     }
+
+    private val HOST_NAME = Regex("""[A-Za-z0-9.-]{1,253}""")
+    private val NUMBER = Regex("""\d{1,12}""")
+    private val MIME_TYPE = Regex("""[A-Za-z]{1,12}/[A-Za-z0-9-]{1,16}""")
+
+    /**
+     * What the log may say about a stream url: its host, the itag, mime and expire it names, and
+     * how many parameters it carries. Never the url itself. Logcat is pasted whole into issues and
+     * chats, Log.d is not stripped from a release build here, and the query says who is listening:
+     * ip is the address the url was issued to, beside the signature that makes it play.
+     *
+     * The three values are repeated only as a number, a type and a number, so nothing else gets
+     * into the log under their names.
+     */
+    fun urlForLog(url: String): String {
+        val host = url.substringAfter("://", "").substringBefore('/').substringBefore('?').substringBefore('#')
+            .substringAfterLast('@').substringBefore(':')
+        val parameters = url.substringAfter('?', "").substringBefore('#').split('&').filter { it.isNotEmpty() }
+        fun value(name: String) = parameters.firstOrNull { it.substringBefore('=') == name }?.substringAfter('=', "")
+        return listOfNotNull(
+            host.takeIf { HOST_NAME.matches(it) } ?: "no host",
+            value("itag")?.takeIf { NUMBER.matches(it) }?.let { "itag $it" },
+            value("mime")?.replace("%2F", "/", ignoreCase = true)?.takeIf { MIME_TYPE.matches(it) }?.let { "mime $it" },
+            value("expire")?.takeIf { NUMBER.matches(it) }?.let { "expire $it" },
+            "parameters: ${parameters.size}",
+        ).joinToString(", ")
+    }
 }
