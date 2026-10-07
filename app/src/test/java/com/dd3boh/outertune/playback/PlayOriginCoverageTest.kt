@@ -47,12 +47,13 @@ class PlayOriginCoverageTest {
      * the list, in every song, album, playlist, folder, queue and player menu, builds the queue with
      * QueueBoard.addQueue and loads it into the player without going through playQueue, so the
      * test above never saw it, and its listens read "not recorded". Every addQueue call has to name
-     * an origin, except the two that set one on the queue themselves straight after: playQueue in
-     * MusicService, and a list handed over by a car or another app in MediaLibrarySessionCallback.
+     * an origin, except the two that set one on the queue themselves straight after: playQueue,
+     * whose steps are in QueueStart and reach the board through MusicService, and a list handed
+     * over by a car or another app in MediaLibrarySessionCallback.
      */
     @Test
     fun `every queue made outside playQueue carries an origin`() {
-        val setByCaller = setOf("MusicService.kt", "MediaLibrarySessionCallback.kt")
+        val setByCaller = setOf("MusicService.kt", "QueueStart.kt", "MediaLibrarySessionCallback.kt")
         val untagged = mutableListOf<String>()
         sources.walkTopDown().filter { it.extension == "kt" && it.name !in setByCaller }.forEach { file ->
             val text = file.readText()

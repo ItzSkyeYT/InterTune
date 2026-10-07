@@ -1417,81 +1417,76 @@ class MusicService : MediaLibraryService(),
         pendingTap = tappedAt
         val runId = System.currentTimeMillis()
 
-        var queueTitle = title
         queuePlaylistId = queue.playlistId
-        var q: MultiQueueObject? = null
-        val preloadItem = queue.preloadItem
         // do not use scope.launch ... it breaks randomly... why is this bug back???
         CoroutineScope(Dispatchers.Main).launch {
             // This coroutine is not a child of anything onDestroy cancels, so it checks
             // `destroyed` itself before touching the queue board or the player: here, because the
-            // body runs on a later turn of the main loop than the launch, and after each point
-            // where it suspends.
+            // body runs on a later turn of the main loop than the launch, and QueueStart does
+            // after each point where it suspends.
             if (destroyed) return@launch
             Log.d(TAG, "playQueue: Resolving additional queue data...")
             try {
-                // Suspends here instead of blocking the caller, usually a click handler on the
-                // main thread; ahead of the preload addQueue so the board exists before anything
-                // is added to it.
-                if (!qbInit.value) initQueue(onlyIfNeeded = true)
-                // initQueue can wait for another caller's load or for a pending queue save, and
-                // the service can be torn down meanwhile.
-                if (destroyed) return@launch
-                if (preloadItem != null) {
-                    q = queueBoard.addQueue(
-                        queueTitle ?: "Radio\u2060temp",
-                        listOf(preloadItem),
-                        shuffled = queue.startShuffled,
-                        replace = replace,
-                        continuationEndpoint = null // fulfilled later on after initial status
-                    )
-                    q?.origin = playOrigin.code
-                    q?.originSlot = originSlot
-                    q?.runId = runId
-                    queueBoard.setCurrQueue(q, true)
-                }
-
-                val initialStatus = withContext(Dispatchers.IO) { queue.getInitialStatus() }
-                // The same after the network wait. Nothing below suspends, and onDestroy runs on
-                // this same main thread, so it cannot slip in between.
-                if (destroyed) return@launch
-                // do not find a title if an override is provided
-                if ((title == null) && initialStatus.title != null) {
-                    queueTitle = initialStatus.title
-
-                    if (preloadItem != null && q != null) {
-                        queueBoard.renameQueue(q!!, queueTitle)
-                    }
-                }
-
-                Log.d(TAG, "playQueue: Queue initial status item count: ${initialStatus.items.size}")
-                if (!initialStatus.items.isEmpty()) {
-                    val (items, start) = initialStatus.withPreload(preloadItem)
-                    val q = queueBoard.addQueue(
-                        queueTitle ?: getString(R.string.queue),
-                        items,
-                        shuffled = queue.startShuffled,
-                        startIndex = start,
-                        replace = replace || preloadItem != null,
-                        continuationEndpoint = if (isRadio) items.takeLast(4).shuffled().first().id else null // yq?.getContinuationEndpoint()
-                    )
-                    q?.origin = playOrigin.code
-                    q?.originSlot = originSlot
-                    q?.runId = runId
-                    queueBoard.setCurrQueue(q, shouldResume)
-                }
-
-                player.prepare()
-                player.playWhenReady = playWhenReady
+                queueStart.run(
+                    queue = queue,
+                    playWhenReady = playWhenReady,
+                    shouldResume = shouldResume,
+                    replace = replace,
+                    isRadio = isRadio,
+                    title = title,
+                    origin = playOrigin.code,
+                    originSlot = originSlot,
+                    runId = runId,
+                )
             } catch (e: Exception) {
                 reportException(e)
                 Toast.makeText(this@MusicService, "plr: ${e.message}", Toast.LENGTH_LONG)
                     .show()
             }
+            // The steps stop where they are when the service is torn down under them.
+            if (destroyed) return@launch
 
             Log.d(TAG, "playQueue: Queue additional data resolution complete")
         }
     }
+
+    /** The queue board and the player as the steps of playQueue use them. See [QueueStart]. */
+    private val queueStart = QueueStart(object : QueueStart.Target {
+        override val destroyed get() = this@MusicService.destroyed
+
+        override val untitled get() = getString(R.string.queue)
+
+        override suspend fun boardReady() {
+            if (!qbInit.value) initQueue(onlyIfNeeded = true)
+        }
+
+        override fun addQueue(
+            title: String,
+            items: List<MediaMetadata>,
+            shuffled: Boolean,
+            replace: Boolean,
+            startIndex: Int,
+            continuationEndpoint: String?,
+        ) = queueBoard.addQueue(
+            title,
+            items,
+            shuffled = shuffled,
+            replace = replace,
+            continuationEndpoint = continuationEndpoint,
+            startIndex = startIndex,
+        )
+
+        override fun renameQueue(queue: MultiQueueObject, title: String) = queueBoard.renameQueue(queue, title)
+
+        override fun setCurrQueue(queue: MultiQueueObject?, shouldResume: Boolean) {
+            queueBoard.setCurrQueue(queue, shouldResume)
+        }
+
+        override fun start(playWhenReady: Boolean) {
+            player.prepare()
+            player.playWhenReady = playWhenReady
+        }
+    })
 
     /**
      * Add items to queue, right after current playing item
