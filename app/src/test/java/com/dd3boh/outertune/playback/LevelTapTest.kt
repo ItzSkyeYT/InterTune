@@ -8,6 +8,7 @@ package com.dd3boh.outertune.playback
 
 import androidx.media3.common.C
 import androidx.media3.exoplayer.audio.AudioSink
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -130,6 +131,38 @@ class LevelTapTest {
         give(ShortArray(rate / 1000 * 2 * 300), firstUs = start + 505_000L)
         // the first measure after looking again: 505 to 525 ms, or with 5 ms of the old note in it were that kept
         assertTrue("silence, with nothing of the old note in it: ${bassAt(522)}", bassAt(522)!! == 0f)
+    }
+
+    /** [hz] at [loud] of full scale for as long as [on] says so, by the millisecond, as 16 bit stereo. */
+    private fun sound(hz: Double, loud: Double, totalMs: Int, on: (Int) -> Boolean = { true }): ShortArray {
+        val out = ShortArray(totalMs * rate / 1000 * 2)
+        for (frame in 0 until totalMs * rate / 1000) {
+            if (!on(frame * 1000 / rate)) continue
+            val x = (loud * sin(2 * PI * hz * frame / rate) * 32767).toInt().toShort()
+            out[frame * 2] = x
+            out[frame * 2 + 1] = x
+        }
+        return out
+    }
+
+    @Test
+    fun `where the song is in its shape comes with the levels, and the next song starts with nothing building`() {
+        val all = FloatArray(MusicLevels.VALUES)
+        // a line in the middle and no bass under it, for long enough to be a build-up
+        give(sound(700.0, 0.25, totalMs = 8000))
+        tap.position(start + 7_900_000L)
+        assertTrue(tap.now(all))
+        assertTrue("tension ${all[MusicLevels.TENSION]}", all[MusicLevels.TENSION] > 0.5f)
+        assertTrue("and it is all there: ${all[MusicLevels.PRESENCE]}", all[MusicLevels.PRESENCE] > 0.9f)
+        // the same goes on, but as another song: the output is not emptied, the times run on
+        tap.discontinuity()
+        give(sound(700.0, 0.25, totalMs = 1000), firstUs = start + 8_000_000L)
+        tap.position(start + 7_950_000L)
+        assertTrue(tap.now(all))
+        assertTrue("the end of the old song is still to be heard as it was: ${all[MusicLevels.TENSION]}", all[MusicLevels.TENSION] > 0.5f)
+        tap.position(start + 8_500_000L)
+        assertTrue(tap.now(all))
+        assertEquals("half a second into the new one", 0f, all[MusicLevels.TENSION], 0f)
     }
 
     @Test

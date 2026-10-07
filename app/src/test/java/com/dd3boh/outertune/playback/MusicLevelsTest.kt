@@ -36,10 +36,10 @@ class MusicLevelsTest {
     private fun tone(hz: Double, seconds: Double, loud: Float = 0.5f, sampleRate: Int = rate) =
         FloatArray((seconds * sampleRate).toInt()) { loud * sin(2 * PI * hz * it / sampleRate).toFloat() }
 
-    /** A kick drum of sorts: [hz] for 80 ms at every half second. */
-    private fun kicks(seconds: Double, hz: Double = 55.0, loud: Float = 0.8f) =
+    /** A kick drum of sorts: [hz] for 80 ms at every half second, or [every] so many seconds. */
+    private fun kicks(seconds: Double, hz: Double = 55.0, loud: Float = 0.8f, every: Double = 0.5) =
         FloatArray((seconds * rate).toInt()) {
-            val inBeat = it % (rate / 2)
+            val inBeat = it % (rate * every).toInt()
             if (inBeat < rate * 0.08) loud * sin(2 * PI * hz * inBeat / rate).toFloat() else 0f
         }
 
@@ -120,11 +120,11 @@ class MusicLevelsTest {
 
     @Test
     fun `silence is still`() {
-        // the three ranges, and nothing going on
-        frames(FloatArray(rate * 2)).forEach { assertArrayEquals(floatArrayOf(0f, 0f, 0f, 0f), it, 0f) }
+        // the three ranges, nothing going on, and nothing building or dropping
+        frames(FloatArray(rate * 2)).forEach { assertArrayEquals(FloatArray(MusicLevels.VALUES), it, 0f) }
         // and so is the hiss before a song: about -60 dB
         val hiss = FloatArray(rate * 2) { if (it % 2 == 0) 0.001f else -0.001f }
-        frames(hiss).forEach { assertArrayEquals(floatArrayOf(0f, 0f, 0f, 0f), it, 0f) }
+        frames(hiss).forEach { assertArrayEquals(FloatArray(MusicLevels.VALUES), it, 0f) }
     }
 
     @Test
@@ -198,6 +198,221 @@ class MusicLevelsTest {
         val rising = (0..20).map { MusicLevels.presence(it / 20f, 1f) }
         assertEquals(rising.sorted(), rising)
         assertEquals("nothing to set it against", 0f, MusicLevels.presence(0.5f, 0f), 0f)
+    }
+
+    // The build-up and the drop. In the music this is made for the bass leaves for the build-up,
+    // and the drop is the bass back at once with the whole thing at the loudest the song gets.
+
+    /** The line in the middle that never stops: alone, it is an intro, a breakdown or a build-up. */
+    private fun line(seconds: Double, by: Float = 1f) = tone(700.0, seconds, loud = 0.25f * by)
+
+    /** A section at full tilt: the kick under that line. */
+    private fun full(seconds: Double, by: Float = 1f) = mixed(kicks(seconds, loud = 0.8f * by), line(seconds, by))
+
+    private fun mixed(a: FloatArray, b: FloatArray) = FloatArray(maxOf(a.size, b.size)) { a.getOrElse(it) { 0f } + b.getOrElse(it) { 0f } }
+
+    private fun List<FloatArray>.tensions() = map { it[MusicLevels.TENSION] }
+    private fun List<FloatArray>.dropping() = map { it[MusicLevels.DROP] }
+    private fun List<FloatArray>.driven() = map { it[MusicLevels.DRIVE] }
+
+    /** The frames at which a drop is found: where [MusicLevels.DROP] comes up from nothing. */
+    private fun List<FloatArray>.drops() = indices.filter { this[it][MusicLevels.DROP] > 0f && (it == 0 || this[it - 1][MusicLevels.DROP] == 0f) }
+
+    /** The frame that begins [seconds] in. */
+    private fun frameAt(seconds: Double) = Math.round(seconds / MusicLevels.FRAME_SECONDS).toInt()
+
+    @Test
+    fun `a beat that never stops builds nothing and drops nothing`() {
+        for (signal in listOf(kicks(20.0), full(20.0))) {
+            val all = frames(signal)
+            assertTrue("tension ${all.tensions().max()}", all.tensions().all { it == 0f })
+            assertTrue("drops at ${all.drops()}", all.drops().isEmpty())
+            assertTrue("drive ${all.driven().max()}", all.driven().all { it == 0f })
+        }
+    }
+
+    @Test
+    fun `an intro without bass that kicks in is a drop, found on its first kick, and what follows is driven`() {
+        val all = frames(line(10.0) + full(10.0))
+        val kick = frameAt(10.0)
+        val tension = all.take(kick).tensions()
+        assertEquals("the first seconds are not yet a build-up", 0f, tension[frameAt(1.5)], 0f)
+        assertTrue("then it only grows", tension.zipWithNext().all { (a, b) -> b >= a })
+        assertTrue("and is nearly all there by the end: ${tension.last()}", tension.last() > 0.95f)
+
+        assertEquals("one drop: ${all.drops()}", 1, all.drops().size)
+        val found = all.drops().single()
+        assertTrue("found ${(found - kick + 1) * 20} ms after the kick began", found - kick in 0..5)
+        assertTrue("ten seconds of waiting make it a strong one: ${all[found][MusicLevels.DROP]}", all[found][MusicLevels.DROP] > 0.9f)
+        assertEquals("it is a moment and passes", 0f, all[found + 50][MusicLevels.DROP], 0f)
+        assertEquals("the tension is spent on it", 0f, all[found][MusicLevels.TENSION], 0f)
+        assertTrue("no drive before it", all.take(found).driven().all { it == 0f })
+        assertTrue("and from it on a drive that holds: ${all.drop(found).driven().min()}", all.drop(found).driven().min() > 0.9f)
+    }
+
+    @Test
+    fun `the bass leaves, tension grows, and the longer it grew the stronger the drop`() {
+        val all = frames(full(8.0) + line(12.0) + full(8.0))
+        val left = frameAt(8.0)
+        val back = frameAt(20.0)
+        assertTrue("none while the bass is there: ${all.take(left).tensions().max()}", all.take(left).tensions().all { it == 0f })
+        val tension = all.subList(left, back).tensions()
+        assertEquals("a second without bass is a gap between kicks, not a build-up", 0f, tension[frameAt(1.0)], 0f)
+        assertTrue("it only grows", tension.zipWithNext().all { (a, b) -> b >= a })
+        assertTrue("half way after six seconds: ${tension[frameAt(6.0)]}", tension[frameAt(6.0)] in 0.4f..0.7f)
+        assertEquals("all the way by the end", 1f, tension.last(), 0.001f)
+
+        val found = all.drops().single()
+        assertTrue("found ${(found - back + 1) * 20} ms after the kick came back", found - back in 0..5)
+        assertEquals("as strong as a drop gets", 1f, all[found][MusicLevels.DROP], 0.01f)
+        assertTrue("driven from there on: ${all.drop(found).driven().min()}", all.drop(found).driven().min() > 0.9f)
+        assertTrue("and no tension left", all.drop(found).tensions().all { it == 0f })
+
+        val short = frames(full(8.0) + line(4.0) + full(8.0))
+        val sooner = short.drops().single()
+        assertTrue("frame $sooner", sooner - frameAt(12.0) in 0..5)
+        assertTrue("four seconds without bass: a drop, a smaller one: ${short[sooner][MusicLevels.DROP]}",
+            short[sooner][MusicLevels.DROP] in MusicLevels.LEAST_DROP..0.75f)
+    }
+
+    @Test
+    fun `kicks a second apart are a slow song, not a build-up`() {
+        val all = frames(mixed(kicks(30.0, every = 1.0), line(30.0)))
+        assertTrue("tension ${all.tensions().max()}", all.tensions().all { it == 0f })
+        assertTrue("drops at ${all.drops()}", all.drops().isEmpty())
+        assertTrue(all.driven().all { it == 0f })
+    }
+
+    @Test
+    fun `one bass note in the breakdown is not the drop`() {
+        // a note a third as loud as the kick, three seconds into ten without it
+        val note = FloatArray(3 * rate) + tone(55.0, 0.3, loud = 0.25f)
+        val all = frames(full(8.0) + mixed(line(10.0), note) + full(6.0))
+        val back = frameAt(18.0)
+        val found = all.drops().single()
+        assertTrue("the only drop is where the kick comes back, frame $back: $found", found - back in 0..5)
+        assertTrue("nothing is driven before it", all.take(back).driven().all { it == 0f })
+        assertTrue("and it counts for what built up after the note: ${all[found][MusicLevels.DROP]}", all[found][MusicLevels.DROP] > 0.6f)
+    }
+
+    @Test
+    fun `a song that fades out builds nothing and drops nothing`() {
+        val fading = full(15.0).let { whole -> FloatArray(whole.size) { whole[it] * (1f - it.toFloat() / whole.size) } }
+        val all = frames(full(10.0) + fading + FloatArray(4 * rate))
+        assertTrue("tension ${all.tensions().max()}", all.tensions().all { it == 0f })
+        assertTrue("drops at ${all.drops()}", all.drops().isEmpty())
+        assertTrue(all.driven().all { it == 0f })
+    }
+
+    @Test
+    fun `silence builds nothing, and a beat of it before the drop spends nothing`() {
+        val built = frames(full(8.0) + line(8.0)).last()[MusicLevels.TENSION]
+        assertTrue("$built", built > 0.7f)
+        val held = frames(full(8.0) + line(8.0) + FloatArray(rate / 2) + full(4.0))
+        val back = frameAt(16.5)
+        assertEquals("held through the beat of silence", built, held[back - 1][MusicLevels.TENSION], 0.01f)
+        val found = held.drops().single()
+        assertTrue("frame $found", found - back in 0..5)
+        assertTrue("${held[found][MusicLevels.DROP]}", held[found][MusicLevels.DROP] > 0.8f)
+
+        // silence long enough to be the end of something is the end of what was building
+        val over = frames(full(8.0) + line(8.0) + FloatArray(5 * rate) + full(4.0))
+        assertEquals(0f, over[frameAt(20.9)][MusicLevels.TENSION], 0f)
+        assertTrue("drops at ${over.drops()}", over.drops().isEmpty())
+    }
+
+    @Test
+    fun `the drive lets go when the section falls away`() {
+        val drive = frames(line(6.0) + full(8.0) + line(8.0)).driven()
+        val ends = frameAt(14.0)
+        assertTrue("held to the last kick: ${drive[ends - 1]}", drive[ends - 1] > 0.6f)
+        assertEquals("and a moment longer", drive[ends - 1], drive[ends + 15], 0f)
+        assertEquals("four seconds without the bass and it has gone", 0f, drive[ends + 200], 0f)
+        assertTrue("it goes down, not out", drive.subList(ends, ends + 200).zipWithNext().all { (a, b) -> b <= a && a - b < 0.05f })
+    }
+
+    @Test
+    fun `a drive does not last for ever`() {
+        val drive = frames(line(6.0) + full(100.0)).driven()
+        val dropped = frameAt(6.0)
+        val whole = drive[dropped + 5]
+        assertTrue("$whole", whole > 0.6f)
+        assertEquals("a minute after the drop it is all there", whole, drive[dropped + frameAt(59.0)], 0f)
+        assertEquals("a quarter of a minute later half of it is", whole / 2, drive[dropped + frameAt(75.0)], 0.02f)
+        assertEquals("and half a minute later none, though the beat goes on", 0f, drive[dropped + frameAt(92.0)], 0f)
+        assertTrue("nothing drops for that", frames(line(6.0) + full(100.0)).drops().size == 1)
+    }
+
+    @Test
+    fun `a murmur of bass now and then in the intro takes the tension but not the drop`() {
+        // a quiet line, and under it every second and a bit a moment of something low. Each of
+        // them is bass while it lasts, and none is the bass the song is about to have.
+        val murmur = FloatArray(12 * rate) {
+            val at = it % (rate * 1.3).toInt()
+            if (at < rate * 0.04) 0.03f * sin(2 * PI * 55.0 * at / rate).toFloat() else 0f
+        }
+        val all = frames(mixed(tone(700.0, 12.0, loud = 0.03f), murmur) + full(6.0))
+        val kick = frameAt(12.0)
+        assertTrue("the murmur keeps the tension down: ${all.take(kick).tensions().max()}", all.take(kick).tensions().max() < 0.3f)
+        assertEquals("and is no drop itself: ${all.drops()}", 1, all.drops().size)
+        val found = all.drops().single()
+        assertTrue("frame $found for $kick", found - kick in 0..5)
+        assertTrue("the bass that comes towers over it, and the drop is a strong one: ${all[found][MusicLevels.DROP]}", all[found][MusicLevels.DROP] > 0.9f)
+    }
+
+    @Test
+    fun `a fill just before the drop does not take the drop away`() {
+        // half a second before the kick comes back, 40 ms of something low and soft
+        val fill = FloatArray((7.5 * rate).toInt()) + tone(55.0, 0.04, loud = 0.12f)
+        val all = frames(full(8.0) + mixed(line(8.0), fill) + full(6.0))
+        val back = frameAt(16.0)
+        val found = all.drops().single()
+        assertTrue("frame $found for $back", found - back in 0..5)
+        assertTrue("${all[found][MusicLevels.DROP]}", all[found][MusicLevels.DROP] > 0.8f)
+    }
+
+    @Test
+    fun `a smaller drop inside a driven part is a burst and leaves the drive as it is`() {
+        // twelve seconds of intro, the drop, and twenty seconds on a break of a bar
+        val all = frames(line(12.0) + full(20.0) + line(2.5) + full(10.0))
+        assertEquals("${all.drops()}", 2, all.drops().size)
+        val (first, second) = all.drops()
+        assertTrue("${all[first][MusicLevels.DROP]} and ${all[second][MusicLevels.DROP]}", all[second][MusicLevels.DROP] < all[first][MusicLevels.DROP] - 0.3f)
+        assertEquals("driven as it was", all[first + 5][MusicLevels.DRIVE], all[second + 50][MusicLevels.DRIVE], 0.01f)
+    }
+
+    @Test
+    fun `a seek starts over`() {
+        val out = mutableListOf<FloatArray>()
+        val analyser = LevelAnalyser(rate) { _, levels -> out += levels.copyOf() }
+        (full(6.0) + line(8.0)).forEach(analyser::sample)
+        assertTrue("well into a build-up: ${out.last()[MusicLevels.TENSION]}", out.last()[MusicLevels.TENSION] > 0.5f)
+        out.clear()
+        analyser.jump()
+        full(4.0).forEach(analyser::sample)
+        assertTrue("what was building is gone", out.tensions().all { it == 0f })
+        assertTrue("and the kick it lands on is no drop: ${out.dropping().max()}", out.dropping().all { it == 0f })
+        assertTrue(out.driven().all { it == 0f })
+
+        // and out of a driven part, the drive does not come along
+        (line(6.0) + full(4.0)).forEach(analyser::sample)
+        assertTrue("${out.last()[MusicLevels.DRIVE]}", out.last()[MusicLevels.DRIVE] > 0.6f)
+        out.clear()
+        analyser.jump()
+        line(2.0).forEach(analyser::sample)
+        assertTrue(out.driven().all { it == 0f })
+    }
+
+    @Test
+    fun `a quiet recording builds and drops as a loud one does`() {
+        fun song(by: Float) = frames(line(6.0, by) + full(8.0, by) + line(12.0, by) + full(6.0, by))
+        val loud = song(1f)
+        val quiet = song(0.1f)
+        assertEquals("the intro's drop and the one after the break: ${loud.drops()}", 2, loud.drops().size)
+        assertEquals(loud.drops(), quiet.drops())
+        for (value in listOf(MusicLevels.TENSION, MusicLevels.DROP, MusicLevels.DRIVE)) {
+            for (i in loud.indices) assertEquals("value $value, frame $i", loud[i][value], quiet[i][value], 0.02f)
+        }
     }
 
     @Test
@@ -291,7 +506,7 @@ class MusicLevelsTest {
         val timeline = LevelTimeline()
         timeline.add(1_000_000, floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f))
         timeline.add(1_020_000, floatArrayOf(0.5f, 0.6f, 0.7f))
-        val four = FloatArray(MusicLevels.VALUES)
+        val four = FloatArray(MusicLevels.PRESENCE + 1)
         assertTrue(timeline.read(1_005_000, four))
         assertEquals(listOf(0.1f, 0.2f, 0.3f, 0.4f), four.toList())
         assertTrue(timeline.read(1_025_000, four))
@@ -299,6 +514,28 @@ class MusicLevelsTest {
         val three = FloatArray(MusicLevels.BANDS)
         assertTrue("whoever asks for the three ranges alone gets those", timeline.read(1_005_000, three))
         assertEquals(listOf(0.1f, 0.2f, 0.3f), three.toList())
+    }
+
+    @Test
+    fun `what the song is doing is kept with the levels, and levels that do not say are building nothing`() {
+        val timeline = LevelTimeline(capacity = 3)
+        timeline.add(1_000_000, floatArrayOf(0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f))
+        timeline.add(1_020_000, floatArrayOf(0.5f, 0.6f, 0.7f, 0.8f))
+        timeline.add(1_040_000, floatArrayOf(0.5f, 0.6f, 0.7f))
+        val all = FloatArray(MusicLevels.VALUES)
+        assertTrue(timeline.read(1_005_000, all))
+        assertEquals(listOf(0.1f, 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f), all.toList())
+        assertTrue(timeline.read(1_025_000, all))
+        assertEquals("four values: no tension, no drop, no drive", listOf(0.5f, 0.6f, 0.7f, 0.8f, 0f, 0f, 0f), all.toList())
+        assertTrue(timeline.read(1_045_000, all))
+        assertEquals("three: all there, and the same", listOf(0.5f, 0.6f, 0.7f, 1f, 0f, 0f, 0f), all.toList())
+        // a place in the timeline used again keeps nothing of what was in it
+        timeline.add(1_060_000, floatArrayOf(0.9f, 0.9f, 0.9f))
+        assertTrue(timeline.read(1_065_000, all))
+        assertEquals(listOf(0.9f, 0.9f, 0.9f, 1f, 0f, 0f, 0f), all.toList())
+        val four = FloatArray(MusicLevels.PRESENCE + 1)
+        assertTrue("whoever asks for four values gets the four it always got", timeline.read(1_025_000, four))
+        assertEquals(listOf(0.5f, 0.6f, 0.7f, 0.8f), four.toList())
     }
 
     @Test

@@ -128,6 +128,15 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
         playing = isPlaying
     }
 
+    /**
+     * What comes next is another stream: the next song, played on from the last without a gap, so
+     * that the output is not emptied and the times run on. What was building in the old song is
+     * not building in the new one. What is still to be heard of the old one stays.
+     */
+    fun discontinuity() {
+        nextBufferTimeUs = C.TIME_UNSET
+    }
+
     /** The output was emptied: a seek, another song, a stop. Nothing kept is about to be heard any more. */
     fun flushed() {
         timeline.clear()
@@ -137,7 +146,8 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
     }
 
     /**
-     * The levels of what is being heard now, into [into] (the three ranges, and with room for [MusicLevels.VALUES] how much is going on). False when
+     * The levels of what is being heard now, into [into] (the three ranges, and with room for
+     * [MusicLevels.VALUES] how much is going on and where the song is in its shape). False when
      * there is nothing to go by: nothing playing, not [wanted] until a moment ago, or audio that
      * cannot be read here.
      *
@@ -201,6 +211,11 @@ class LevelTapAudioSink(sink: AudioSink, private val tap: LevelTap) : Forwarding
     override fun pause() {
         super.pause()
         tap.playing(false)
+    }
+
+    override fun handleDiscontinuity() {
+        super.handleDiscontinuity()
+        tap.discontinuity()
     }
 
     override fun flush() {
