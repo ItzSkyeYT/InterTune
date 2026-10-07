@@ -159,9 +159,14 @@ object MusicLevels {
      * remembered of the bass by as much as [KICK_GAP_SECONDS] without any make it
      * ([BASS_MEMORY_SECONDS]). From its first frame of bass it has this long to get there, in
      * seconds: a frame rarely begins where a kick does.
+     *
+     * The loudest the song has been is often its intro, a melody alone and at full blast, and
+     * the drums that come in under it are less, frame for frame. So [DROP_LOUD] is well short of
+     * all of it: at 0.7 such a song never dropped. It is the bass standing above what was there
+     * that tells a drop, and the loudness only keeps out what is plainly not one.
      */
     const val DROP_BASS = 0.5f
-    const val DROP_LOUD = 0.7f
+    const val DROP_LOUD = 0.4f
     const val DROP_WITHIN_SECONDS = 0.12f
 
     /** How strong a drop is that had no tension to spend, where one with all of it is 1. */
@@ -371,8 +376,8 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
      *
      * While there is music and no bass, [gap] runs. Once it has run for longer than two kicks are
      * ever apart, [away] runs with it, and that is the tension. Bass that comes while there is
-     * tension has a few frames to prove a drop: hard for this song's bass, with everything near
-     * the song's loudest. A drop is as strong as the bass was long away, and starts the drive,
+     * tension has a few frames to prove a drop: hard for this song's bass and well above what
+     * bass there was, with everything loud for this song. A drop is as strong as the bass was long away, and starts the drive,
      * which holds for as long as the passage stays loud and keeps its bass. Bass that proves
      * nothing takes the tension back bit by bit.
      */
@@ -475,10 +480,11 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
 
     /**
      * Nothing was measured for [seconds], because nobody was looking or nothing played. What is
-     * remembered is aged as that much silence would have aged it, and the song's shape starts
-     * over. The yardsticks only ever came down while frames were measured: opened on a quiet song
-     * hours after a loud one, the picture sat nearly still for a minute, measuring the one
-     * against the other.
+     * remembered is aged as that much silence would have aged it, and after longer than a silence
+     * may last inside a song ([MusicLevels.SILENCE_ENDS_SECONDS]) the song's shape starts over.
+     * The yardsticks only ever came down while frames were measured: opened on a quiet song hours
+     * after a loud one, the picture sat nearly still for a minute, measuring the one against the
+     * other.
      */
     fun aged(seconds: Double) {
         if (!(seconds > 0.0)) return
@@ -486,7 +492,7 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
         for (band in 0 until MusicLevels.BANDS) yardstick[band] *= kept
         now *= exp(-seconds / MusicLevels.NOW_SECONDS).toFloat()
         song *= exp(-seconds / MusicLevels.SONG_SECONDS).toFloat()
-        startOver()
+        if (seconds > MusicLevels.SILENCE_ENDS_SECONDS) startOver()
     }
 
     /** 16 bit samples from [buffer]'s position to its limit, [channels] interleaved. The buffer is left as it was. */

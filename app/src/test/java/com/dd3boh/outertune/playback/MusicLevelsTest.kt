@@ -449,11 +449,27 @@ class MusicLevelsTest {
         val out = mutableListOf<FloatArray>()
         val analyser = LevelAnalyser(rate) { _, levels -> out += levels.copyOf() }
         (full(6.0) + line(8.0)).forEach(analyser::sample)
+        val built = out.last()[MusicLevels.TENSION]
+        out.clear()
+        analyser.aged(2.0)
+        line(0.5).forEach(analyser::sample)
+        assertTrue("a pause of two seconds is not the end of a build-up: ${out.last()[MusicLevels.TENSION]} after $built", out.last()[MusicLevels.TENSION] >= built)
         out.clear()
         analyser.aged(60.0)
         full(3.0).forEach(analyser::sample)
-        assertTrue(out.tensions().all { it == 0f })
+        assertTrue("a minute is", out.tensions().all { it == 0f })
         assertTrue("${out.dropping().max()}", out.dropping().all { it == 0f })
+    }
+
+    @Test
+    fun `an intro louder than the drums that come in under it still drops`() {
+        // a melody alone and at full blast, then the kick under it at half the level, which is
+        // less than the melody was, frame for frame
+        val all = frames(tone(700.0, 8.0, loud = 0.9f) + mixed(kicks(8.0, loud = 0.5f), tone(700.0, 8.0, loud = 0.3f)))
+        val kick = frameAt(8.0)
+        val found = all.drops().single()
+        assertTrue("frame $found for $kick", found - kick in 0..5)
+        assertTrue("${all[found][MusicLevels.DROP]}", all[found][MusicLevels.DROP] > 0.8f)
     }
 
     @Test
