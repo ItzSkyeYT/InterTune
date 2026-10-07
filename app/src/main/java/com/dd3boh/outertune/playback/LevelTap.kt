@@ -63,6 +63,9 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
     private var measuredBefore = false
     private var measuredAtNanos = 0L
 
+    /** True when the output was emptied or another stream began since the last buffer measured: what comes may be another song. */
+    private var parted = false
+
     // Written by the thread that plays, read by the one that draws.
     @Volatile
     private var heardUs = C.TIME_UNSET
@@ -100,22 +103,31 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
      */
     fun buffer(buffer: ByteBuffer, timeUs: Long) {
         val analyser = analyser
-        if (!wanted || analyser == null) {
+        if (analyser == null) {
             measuring = false
             return
         }
+        // Offered again, which also happens once a second all through a pause. It was measured
+        // once, and it is not music that went by unmeasured, whoever is looking at this moment:
+        // asked the other way round, every pause started the song's shape over.
         if (timeUs == lastBufferTimeUs) return
+        if (!wanted) {
+            measuring = false
+            return
+        }
         lastBufferTimeUs = timeUs
 
         // Starting to listen, or the audio is not where the last buffer ended: a seek, a skipped silence.
-        if (!measuring || nextBufferTimeUs == C.TIME_UNSET || abs(timeUs - nextBufferTimeUs) > JUMP_US) analyser.jump()
-        measuring = true
-
-        // Buffers come every few milliseconds while there is something to measure. When none has
-        // come for a while, nobody was looking or nothing played, and what the analyser remembers
-        // is older by that much: it only forgets by the frame.
         val nanos = nanoTime()
-        if (measuredBefore && nanos - measuredAtNanos > IDLE_NANOS) analyser.aged((nanos - measuredAtNanos) / 1e9)
+        if (!measuring || nextBufferTimeUs == C.TIME_UNSET || abs(timeUs - nextBufferTimeUs) > JUMP_US) {
+            analyser.jump()
+            // Then music went by unmeasured, or this is other music, and what the analyser
+            // remembers is older by the time that has passed: it only forgets by the frame. A
+            // pause is not that. The audio goes on where it stopped, and nothing has aged.
+            if (measuredBefore && nanos - measuredAtNanos > IDLE_NANOS) analyser.aged((nanos - measuredAtNanos) / 1e9, sameSong = !parted)
+        }
+        parted = false
+        measuring = true
         measuredBefore = true
         measuredAtNanos = nanos
 
@@ -145,6 +157,7 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
      */
     fun discontinuity() {
         nextBufferTimeUs = C.TIME_UNSET
+        parted = true
     }
 
     /** The output was emptied: a seek, another song, a stop. Nothing kept is about to be heard any more. */
@@ -153,6 +166,7 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
         lastBufferTimeUs = C.TIME_UNSET
         nextBufferTimeUs = C.TIME_UNSET
         heardUs = C.TIME_UNSET
+        parted = true
     }
 
     /**

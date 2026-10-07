@@ -169,6 +169,17 @@ object MusicLevels {
     const val DROP_LOUD = 0.4f
     const val DROP_WITHIN_SECONDS = 0.12f
 
+    /**
+     * A drop has to be rare. Bass that comes back is one only where bass as strong as this song's
+     * ([DROP_BASS]) had been there for [STAYED_SECONDS] before it left, which is a part of the
+     * song and then a break, or where it stands this far above the loudest bass the song has had
+     * ([NEW_HEIGHT]), which is the bass arriving. Without that every note of a bass that comes
+     * once a bar was a drop, and a slow song got a burst and a flash on each: more than two
+     * seconds from one note to the next is all the rest asks for.
+     */
+    const val STAYED_SECONDS = 4f
+    const val NEW_HEIGHT = 1.65f
+
     /** How strong a drop is that had no tension to spend, where one with all of it is 1. */
     const val LEAST_DROP = 0.35f
 
@@ -285,6 +296,17 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
      * is measured against.
      */
     private var lately = 0f
+
+    /** The loudest the song's bass has been, as it was before those same few frames: what a new height is a height above. */
+    private var height = 0f
+
+    /**
+     * Seconds of music since bass that is strong for this song, how long such bass has been
+     * around since it last came back, and the longest it had been around when it last left.
+     */
+    private var strongGap = MusicLevels.GAP_MOST_SECONDS
+    private var stay = 0f
+    private var stayed = 0f
     private val onset = FloatArray(max(1, Math.round(MusicLevels.DROP_WITHIN_SECONDS / MusicLevels.FRAME_SECONDS).toInt()))
     private var onsetAt = 0
 
@@ -377,7 +399,8 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
      * While there is music and no bass, [gap] runs. Once it has run for longer than two kicks are
      * ever apart, [away] runs with it, and that is the tension. Bass that comes while there is
      * tension has a few frames to prove a drop: hard for this song's bass and well above what
-     * bass there was, with everything loud for this song. A drop is as strong as the bass was long away, and starts the drive,
+     * bass there was, with everything loud for this song, and either back after it had stayed
+     * or higher than the song's bass has been. A drop is as strong as the bass was long away, and starts the drive,
      * which holds for as long as the passage stays loud and keeps its bass. Bass that proves
      * nothing takes the tension back bit by bit.
      */
@@ -393,6 +416,7 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
             silent = 0f
             if (heard < MusicLevels.SHAPE_SECONDS) heard += frameSeconds
             lately = max(lately * latelyKeeps, onset[onsetAt])
+            height = max(height * shapeKeeps, onset[onsetAt])
             onset[onsetAt] = bass
             onsetAt = (onsetAt + 1) % onset.size
             if (bass >= MusicLevels.BASS_THERE * all && bass >= MusicLevels.BASS_FAINT * now) {
@@ -414,9 +438,19 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
                     spent += frameSeconds
                 }
             }
+            // How long strong bass has been around. A kick every beat stays; one note a bar comes
+            // and is gone again, however often.
+            if (bass >= MusicLevels.DROP_BASS * bassTop) strongGap = 0f else if (strongGap < MusicLevels.GAP_MOST_SECONDS) strongGap += frameSeconds
+            if (strongGap < MusicLevels.KICK_GAP_SECONDS) {
+                stay += frameSeconds
+            } else if (stay > 0f) {
+                stayed = max(stayed, stay - MusicLevels.KICK_GAP_SECONDS)
+                stay = 0f
+            }
             if (proving > 0f) {
                 proving -= frameSeconds
-                if (bass >= MusicLevels.DROP_BASS * bassTop && all >= MusicLevels.DROP_LOUD * top && bass >= returns * lately) dropped(bass)
+                val hard = bass >= MusicLevels.DROP_BASS * bassTop && all >= MusicLevels.DROP_LOUD * top && bass >= returns * lately
+                if (hard && (max(stayed, stay) >= MusicLevels.STAYED_SECONDS || bass >= MusicLevels.NEW_HEIGHT * height)) dropped(bass)
             }
         }
         if (driveTo > 0f) {
@@ -457,6 +491,7 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
         away = 0f
         spent = 0f
         heard = 0f
+        stayed = 0f
     }
 
     /** Nothing building, nothing dropped, and no song to tell a drop by: as at the first sample. */
@@ -467,6 +502,10 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
         silent = 0f
         heard = 0f
         lately = 0f
+        height = 0f
+        strongGap = MusicLevels.GAP_MOST_SECONDS
+        stay = 0f
+        stayed = 0f
         onset.fill(0f)
         drivenFor = 0f
         away = 0f
@@ -479,20 +518,24 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
     }
 
     /**
-     * Nothing was measured for [seconds], because nobody was looking or nothing played. What is
-     * remembered is aged as that much silence would have aged it, and after longer than a silence
-     * may last inside a song ([MusicLevels.SILENCE_ENDS_SECONDS]) the song's shape starts over.
-     * The yardsticks only ever came down while frames were measured: opened on a quiet song hours
+     * Music went by unmeasured for [seconds], because nobody was looking, or what comes now is
+     * other music. What is remembered is aged as that much silence would have aged it. The
+     * yardsticks only ever came down while frames were measured: opened on a quiet song hours
      * after a loud one, the picture sat nearly still for a minute, measuring the one against the
      * other.
+     *
+     * In the [sameSong] the loudest the song has been is left as it is. Aged with the rest, a
+     * quiet part come back to a minute later counted as all there until the song got loud again.
+     *
+     * The song's shape is not touched here: it starts over on a [jump]. A pause is neither, the
+     * audio goes on where it stopped, and it keeps everything however long it lasts.
      */
-    fun aged(seconds: Double) {
+    fun aged(seconds: Double, sameSong: Boolean = false) {
         if (!(seconds > 0.0)) return
         val kept = exp(-seconds / MusicLevels.YARDSTICK_SECONDS).toFloat()
         for (band in 0 until MusicLevels.BANDS) yardstick[band] *= kept
         now *= exp(-seconds / MusicLevels.NOW_SECONDS).toFloat()
-        song *= exp(-seconds / MusicLevels.SONG_SECONDS).toFloat()
-        if (seconds > MusicLevels.SILENCE_ENDS_SECONDS) startOver()
+        if (!sameSong) song *= exp(-seconds / MusicLevels.SONG_SECONDS).toFloat()
     }
 
     /** 16 bit samples from [buffer]'s position to its limit, [channels] interleaved. The buffer is left as it was. */

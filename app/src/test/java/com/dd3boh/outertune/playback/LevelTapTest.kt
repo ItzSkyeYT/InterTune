@@ -148,39 +148,78 @@ class LevelTapTest {
     /** A kick for 80 ms at every half second. */
     private fun kicks(loud: Double, totalMs: Int) = sound(55.0, loud, totalMs) { it % 500 < 80 }
 
-    /** How loud the first of some quiet kicks reads, [idleNanos] after four seconds of loud ones. */
-    private fun quietKickAfter(idleNanos: Long): Float {
+    /**
+     * How loud the first of some quiet kicks reads, and how much is going on then, when nobody
+     * looked for [idleNanos] after four seconds of loud ones while the music went on, or, with
+     * [anotherSong], while another song began.
+     */
+    private fun quietKickAfter(idleNanos: Long, anotherSong: Boolean = false): Pair<Float, Float> {
         give(kicks(0.9, totalMs = 4000))
         tap.unwatch()
+        // what plays while nobody looks is offered to the output all the same
+        give(kicks(0.9, totalMs = 300), firstUs = start + 4_000_000L)
+        if (anotherSong) tap.flushed()
         nanos += idleNanos
         tap.watch()
-        val there = start + 4_000_000L
+        val there = start + 4_300_000L
         give(kicks(0.05, totalMs = 1000), firstUs = there)
         tap.position(there + 50_000L)
-        assertTrue(tap.now(got))
-        return got[MusicLevels.BASS]
+        val all = FloatArray(MusicLevels.VALUES)
+        assertTrue(tap.now(all))
+        return all[MusicLevels.BASS] to all[MusicLevels.PRESENCE]
     }
 
     @Test
     fun `straight after a loud song a quiet one is small against it`() {
-        assertTrue(quietKickAfter(0L) < 0.15f)
+        assertTrue(quietKickAfter(0L).first < 0.15f)
     }
 
     @Test
-    fun `looked at again hours later, the quiet song is its own measure from its first kick`() {
-        val bass = quietKickAfter(3 * 3600 * 1_000_000_000L)
+    fun `looked at again hours later, a quiet part is its own measure from its first kick, and of the same song still hardly there`() {
+        val (bass, going) = quietKickAfter(3 * 3600 * 1_000_000_000L)
         assertTrue("$bass", bass > 0.85f)
+        assertTrue("it is set against the song at its loudest, which has not changed: $going", going < 0.2f)
     }
 
     @Test
-    fun `a pause counts as time nothing was measured in, too`() {
-        give(kicks(0.9, totalMs = 4000))
-        nanos += 600 * 1_000_000_000L                          // ten minutes, with the player open all the while
-        val there = start + 4_000_000L
-        give(kicks(0.05, totalMs = 1000), firstUs = there)
-        tap.position(there + 50_000L)
-        assertTrue(tap.now(got))
-        assertTrue("${got[MusicLevels.BASS]}", got[MusicLevels.BASS] > 0.85f)
+    fun `another song, looked at hours later, is all there`() {
+        val (bass, going) = quietKickAfter(3 * 3600 * 1_000_000_000L, anotherSong = true)
+        assertTrue("$bass", bass > 0.85f)
+        assertTrue("$going", going > 0.9f)
+    }
+
+    @Test
+    fun `a pause ages nothing and starts nothing over, however long it lasts`() {
+        val all = FloatArray(MusicLevels.VALUES)
+        // a build-up, paused for ten minutes with the player open, and played on from where it stopped
+        give(sound(700.0, 0.25, totalMs = 6000))
+        tap.position(start + 5_900_000L)
+        assertTrue(tap.now(all))
+        val built = all[MusicLevels.TENSION]
+        assertTrue("$built", built > 0.3f)
+        // all through a pause the output is offered the buffer it has not finished taking
+        val again = ByteBuffer.allocateDirect(rate / 100 * 4).order(ByteOrder.nativeOrder())
+        tap.buffer(again, start + 5_990_000L)
+        nanos += 600 * 1_000_000_000L
+        tap.buffer(again, start + 5_990_000L)
+        give(sound(700.0, 0.25, totalMs = 1000), firstUs = start + 6_000_000L)
+        tap.position(start + 6_900_000L)
+        assertTrue(tap.now(all))
+        assertTrue("the build-up goes on from where it was: ${all[MusicLevels.TENSION]} after $built", all[MusicLevels.TENSION] > built)
+    }
+
+    @Test
+    fun `a buffer offered again while nobody looks for a moment is not music that was missed`() {
+        val all = FloatArray(MusicLevels.VALUES)
+        give(sound(700.0, 0.25, totalMs = 6000))
+        // nobody looks for a moment, and in that moment the output is offered the buffer it had
+        tap.unwatch()
+        tap.buffer(ByteBuffer.allocateDirect(rate / 100 * 4).order(ByteOrder.nativeOrder()), start + 5_990_000L)
+        tap.watch()
+        give(sound(700.0, 0.25, totalMs = 1000), firstUs = start + 6_000_000L)
+        tap.position(start + 6_900_000L)
+        assertTrue(tap.now(all))
+        assertTrue("${all[MusicLevels.TENSION]}", all[MusicLevels.TENSION] > 0.5f)
     }
 
     @Test

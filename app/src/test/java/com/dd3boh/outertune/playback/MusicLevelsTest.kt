@@ -381,6 +381,42 @@ class MusicLevelsTest {
         assertEquals("driven as it was", all[first + 5][MusicLevels.DRIVE], all[second + 50][MusicLevels.DRIVE], 0.01f)
     }
 
+    /** A bass note [note] seconds long every [every] seconds under the line: the low end of a slow song. */
+    private fun slowBass(seconds: Double, every: Double, note: Double = 0.3, loud: Float = 0.6f, under: Float = 0f) = mixed(
+        FloatArray((seconds * rate).toInt()) {
+            val at = it % (rate * every).toInt()
+            (if (at < rate * note) loud else under) * sin(2 * PI * 55.0 * at / rate).toFloat()
+        },
+        line(seconds),
+    )
+
+    @Test
+    fun `a bass that comes once a bar in a slow song is not a drop at every note`() {
+        // more than two seconds from the end of one note to the start of the next, for two minutes
+        for (every in listOf(2.5, 4.0)) {
+            val all = frames(slowBass(120.0, every))
+            assertTrue("a note every $every s: drops at ${all.drops().map { it / 50 }}", all.drops().isEmpty())
+            assertTrue("and nothing is driven", all.driven().all { it == 0f })
+        }
+    }
+
+    @Test
+    fun `nor is a big note now and then over a murmur of bass, after the first`() {
+        // the first one is the bass arriving, which is a drop; the ones after it are how the song is
+        val all = frames(mixed(slowBass(120.0, 8.0, under = 0.05f), FloatArray(0)).let { song -> FloatArray(song.size) { song[it] * 0.8f } })
+        assertTrue("drops at ${all.drops().map { it / 50 }}", all.drops().size <= 1)
+        val stray = frames(slowBass(120.0, 20.0))
+        assertTrue("one low note every twenty seconds: drops at ${stray.drops().map { it / 50 }}", stray.drops().size <= 1)
+    }
+
+    @Test
+    fun `bass that had stayed and comes back after a break is a drop every time`() {
+        // three parts of the song with its kick, two breaks: a drop after each break, as before
+        val all = frames(full(10.0) + line(6.0) + full(10.0) + line(6.0) + full(6.0))
+        assertEquals("drops at ${all.drops().map { it / 50 }}", 2, all.drops().size)
+        assertTrue(all.drops()[0] - frameAt(16.0) in 0..5 && all.drops()[1] - frameAt(32.0) in 0..5)
+    }
+
     @Test
     fun `a seek starts over`() {
         val out = mutableListOf<FloatArray>()
@@ -389,7 +425,7 @@ class MusicLevelsTest {
         assertTrue("well into a build-up: ${out.last()[MusicLevels.TENSION]}", out.last()[MusicLevels.TENSION] > 0.5f)
         out.clear()
         analyser.jump()
-        full(4.0).forEach(analyser::sample)
+        full(6.0).forEach(analyser::sample)
         assertTrue("what was building is gone", out.tensions().all { it == 0f })
         assertTrue("and the kick it lands on is no drop: ${out.dropping().max()}", out.dropping().all { it == 0f })
         assertTrue(out.driven().all { it == 0f })
@@ -445,20 +481,24 @@ class MusicLevelsTest {
     }
 
     @Test
-    fun `whatever was building when the measuring stopped is not carried over the gap`() {
+    fun `ageing leaves the song's shape alone, and in the same song its loudest too`() {
         val out = mutableListOf<FloatArray>()
         val analyser = LevelAnalyser(rate) { _, levels -> out += levels.copyOf() }
         (full(6.0) + line(8.0)).forEach(analyser::sample)
         val built = out.last()[MusicLevels.TENSION]
         out.clear()
-        analyser.aged(2.0)
+        analyser.aged(600.0, sameSong = true)
         line(0.5).forEach(analyser::sample)
-        assertTrue("a pause of two seconds is not the end of a build-up: ${out.last()[MusicLevels.TENSION]} after $built", out.last()[MusicLevels.TENSION] >= built)
+        assertTrue("what was building is for a jump to end, not for the time that passed: ${out.last()[MusicLevels.TENSION]} after $built", out.last()[MusicLevels.TENSION] >= built)
+        // a quiet part of the same song: still set against the song at its loudest
         out.clear()
-        analyser.aged(60.0)
-        full(3.0).forEach(analyser::sample)
-        assertTrue("a minute is", out.tensions().all { it == 0f })
-        assertTrue("${out.dropping().max()}", out.dropping().all { it == 0f })
+        tone(700.0, 3.0, loud = 0.03f).forEach(analyser::sample)
+        assertTrue("${out.takeLast(10).presence().max()}", out.takeLast(10).presence().max() < 0.2f)
+        // another song after as long is its own measure
+        out.clear()
+        analyser.aged(600.0, sameSong = false)
+        tone(700.0, 2.0, loud = 0.03f).forEach(analyser::sample)
+        assertTrue("${out.takeLast(50).presence().min()}", out.takeLast(50).presence().min() > 0.9f)
     }
 
     @Test
