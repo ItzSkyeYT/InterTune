@@ -66,6 +66,18 @@ class TourStateSaverTest {
     }
 
     @Test
+    fun `after a rotation Back still knows which screen the stop before is on`() {
+        val state = TourState()
+        state.start(NEW_THINGS.first { it.id == "spatial_audio" }.stops)
+        state.next()
+
+        val restored = roundTrip(state)
+        assertEquals(Tour.ROUTE_PLAYER, restored.current!!.route)
+        assertEquals(Tour.ROUTE_SETTINGS, restored.back()?.route)
+        assertEquals("spatial_row", restored.current!!.id)
+    }
+
+    @Test
     fun `no tour running saves nothing, so a fresh one comes back`() {
         // listSaver saves an empty list as null, and rememberSaveable then runs its own initialiser.
         val saved = with(TourState.Saver) { scope.save(TourState()) }

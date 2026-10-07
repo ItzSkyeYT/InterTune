@@ -195,6 +195,59 @@ class WelcomeBackTest {
         assertTrue(state.running)
     }
 
+    // Back, in a tour that has left the screen it started on
+
+    @Test
+    fun `Back from a setting to the row it is under says which screen to go back to`() {
+        val state = TourState()
+        state.start(NEW_THINGS.first { it.id == "living_blur" }.stops)
+        state.next()
+        assertEquals(Tour.ROUTE_LOOK_AND_FEEL, state.current!!.route)
+
+        val backTo = state.back()
+
+        assertEquals("the tour is on the row again", "living_blur_row", state.current!!.id)
+        assertEquals("and the screen has to follow it", Tour.ROUTE_SETTINGS, backTo?.route)
+    }
+
+    @Test
+    fun `Back between two stops on one screen leaves the screen alone`() {
+        val state = TourState()
+        state.start(SETTINGS_TOUR)
+        state.next()
+        state.next()
+
+        assertNull(state.back())
+        assertEquals("settings_look_and_sound", state.current!!.id)
+    }
+
+    @Test
+    fun `Back from another screen to a stop on Home goes Home`() {
+        // No tour does this today, but a stop with no route means Home, and going back to one
+        // must say so and not read as nothing to do.
+        onScreen(Tour.HISTORY)
+        val home = NEW_THINGS.first { it.id == "history" }.stops.single()
+        val inSettings = SETTINGS_TOUR.first()
+        val state = TourState()
+        state.start(listOf(home, inSettings))
+        state.next()
+
+        val backTo = state.back()
+
+        assertEquals(home, backTo)
+        assertNull("Home is the stop with no route", backTo!!.route)
+    }
+
+    @Test
+    fun `Back on the first stop is no step and no move`() {
+        val state = TourState()
+        state.start(SETTINGS_TOUR)
+
+        assertNull(state.back())
+        assertEquals(0, state.index)
+        assertTrue(state.running)
+    }
+
     @Test
     fun `scrolled out of view it is still there to be scrolled to, and has no place to cut a hole at`() {
         TourTargets.arrive(Tour.SETTINGS_YOU, BringIntoViewRequester())

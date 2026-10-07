@@ -1729,6 +1729,16 @@ class MainActivity : ComponentActivity() {
                                 state = tourState,
                                 // Two stops in a row on one screen are one screen, not two of it.
                                 onNavigate = { route -> if (navController.currentDestination?.route != route) navController.navigate(route) },
+                                // Back out of a stop's screen to the one the stop before it is
+                                // on. That screen is underneath, since the tour came through it.
+                                // If it is not, it is opened the way a step forward opens it.
+                                onNavigateBack = { route ->
+                                    if (route == null) {
+                                        navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
+                                    } else if (navController.currentDestination?.route != route && !navController.popBackStack(route, inclusive = false)) {
+                                        navController.navigate(route)
+                                    }
+                                },
                                 onFinish = {
                                     if (tourFromWelcome) {
                                         // Back to the page it was started from, and to Home under

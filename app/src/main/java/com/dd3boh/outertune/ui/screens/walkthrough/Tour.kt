@@ -190,8 +190,19 @@ class TourState {
         if (index < stops.lastIndex) index++ else stop()
     }
 
-    fun back() {
-        if (index > 0) index--
+    /**
+     * Steps back one stop.
+     *
+     * @return the stop it stepped back to when that one lives on another screen than the stop
+     *   just left, so that whoever owns the screens can go back there too: a tour that has gone
+     *   from the list of settings into one of them and is stepped back would otherwise describe
+     *   a row that is a screen behind. Null when the screen can stay where it is.
+     */
+    fun back(): TourStop? {
+        if (index == 0) return null
+        val left = stops[index]
+        index--
+        return current?.takeIf { it.route != left.route }
     }
 
     fun stop() {
