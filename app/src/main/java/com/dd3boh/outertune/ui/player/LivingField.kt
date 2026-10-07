@@ -1037,10 +1037,19 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
      */
     fun lead(): Float = 0.045f + 0.6f * LivingField.RISE[MusicLevels.BASS] * LivingField.ease(smoothing)
 
-    /** Straight to rest, with the cover's colours as they are: for when nothing is to move at all. */
-    fun settle() {
+    /**
+     * The colours as the last cover wants them, at once: for when the picture comes back on
+     * screen. Covers go on arriving while it is off ([turnTo]) and nothing steps, so it used to
+     * come back in the colours of whatever song it was showing when it left, and then turn.
+     */
+    fun arrive() {
         wanted.copyInto(colors)
         turn = 1f
+    }
+
+    /** Straight to rest, with the cover's colours as they are: for when nothing is to move at all. */
+    fun settle() {
+        arrive()
         usual.fill(0f)
         shown.fill(0f)
         auraShown.fill(0f)

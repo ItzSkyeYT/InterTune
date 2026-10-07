@@ -1396,6 +1396,37 @@ class LivingFieldTest {
         assertEquals(1f, motion.push(), 0f)
     }
 
+    // Coming back on screen
+
+    @Test
+    fun `back on screen it is in the colours of the song that plays, not turning into them from an older one's`() {
+        val motion = motion()
+        motion.turnTo(IntArray(motion.count) { red })
+        motion.run(1f)
+        // closed to the mini player: two more songs go by, and nothing steps
+        motion.turnTo(IntArray(motion.count) { blue })
+        motion.turnTo(IntArray(motion.count) { green })
+        assertTrue("still showing the song it left on", motion.patches().all { it == red })
+        motion.arrive()
+        assertTrue("there at once", motion.patches().all { it == green })
+        assertEquals(LivingField.lit(green, LivingField.GLOW_LIGHT), motion.glow)
+        motion.run(0.5f)
+        assertTrue("and not turning any more", motion.patches().all { it == green })
+        // while it is on screen a new cover is still turned into
+        motion.turnTo(IntArray(motion.count) { blue })
+        motion.run(0.3f)
+        assertTrue(motion.colors[0] != green && motion.colors[0] != blue)
+    }
+
+    @Test
+    fun `the background settles its colours when its frames start again`() {
+        val source = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/LivingBackground.kt").readText()
+        val frames = source.substringAfter("repeatOnLifecycle(Lifecycle.State.STARTED) {").substringBefore("withFrameNanos")
+        assertTrue("before the first frame of a new run", frames.contains("motion.arrive()"))
+        assertTrue("told that it was off screen by the player closing", source.substringAfter("if (!onScreen) {").substringBefore("}").contains("look.unseen = true"))
+        assertTrue("and by the app leaving the screen", source.substringAfter("} finally {").substringBefore("PlayerCoverPlace").contains("look.unseen = true"))
+    }
+
     // How often it is redrawn
 
     /** How many redraws a screen of [hz] gets in its third second, with every [missEvery]th frame missed if that is not 0. */

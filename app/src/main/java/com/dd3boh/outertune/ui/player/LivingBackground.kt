@@ -175,13 +175,23 @@ private fun LivingPicture(
     // coverThere is a key because the aura comes and goes with the cover, and has to be seen to
     // do it even while nothing else moves.
     LaunchedEffect(onScreen, playing, covers, coverThere, motion, lifecycleOwner) {
-        if (!onScreen) return@LaunchedEffect
+        if (!onScreen) {
+            look.unseen = true
+            return@LaunchedEffect
+        }
         if (context.wantsStillness()) {
             motion.settle()
             frame++
             return@LaunchedEffect
         }
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            // While nothing was drawn (the player closed to its mini player, the app out of view)
+            // the covers went on arriving and nothing turned into them. It comes back in the
+            // colours of the song that plays, not turning into them from an older one's.
+            if (look.unseen) {
+                look.unseen = false
+                motion.arrive()
+            }
             if (playing) tap?.watch()
             try {
                 val levels = FloatArray(MusicLevels.VALUES)
@@ -201,6 +211,7 @@ private fun LivingPicture(
                 frame = last + 1
             } finally {
                 if (playing) tap?.unwatch()
+                if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) look.unseen = true
             }
         }
     }
@@ -257,6 +268,9 @@ object PlayerCoverPlace {
 /** What the drawing keeps between frames, so that a frame allocates nothing. */
 private class Look {
     var lastCover: Rect? = null
+
+    /** True from when the picture stops being drawn, off screen, until its frames start again. */
+    var unseen = false
 
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val into = RectF()
