@@ -10,12 +10,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -61,6 +66,12 @@ import com.dd3boh.outertune.R
  * A dialog over the app and not a destination, like the questions screen it comes after: the tour
  * it starts needs the real screens underneath, and a destination would be one of them.
  *
+ * Its window is laid out over the whole screen (decorFitsSystemWindows = false). Left to fit
+ * inside the system bars it stopped at the top of the navigation bar, and the app's own bar, which
+ * is drawn under that, showed through below the page. So the page now reaches the bottom edge and
+ * keeps its content clear of the bars itself. The top is left as it was, starting under the status
+ * bar, so that nothing changes behind the status bar's icons.
+ *
  * @param things what to list, newest first (newThingsFor)
  * @param seen the ids already looked at this time round
  * @param returning false when it was opened from Settings by somebody who has not just updated,
@@ -77,14 +88,25 @@ fun WelcomeBack(
 ) {
     Dialog(
         onDismissRequest = onDone,
-        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnClickOutside = false,
+            decorFitsSystemWindows = false,
+        )
     ) {
-    Surface(modifier = Modifier.fillMaxSize()) {
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+    ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
+                // Inside the scroll, so the page's colour runs to the edge and under the
+                // navigation bar while the last button can still be brought clear of it.
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
                 .padding(vertical = 32.dp)
         ) {
             Icon(
