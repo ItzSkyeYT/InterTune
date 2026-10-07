@@ -713,6 +713,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="welcome_back_show" translatable="false">Show me</string>
     <string name="welcome_back_add_widget" translatable="false">Add it</string>
     <string name="welcome_back_seen" translatable="false">Seen</string>
+    <string name="welcome_back_action_for" translatable="false">%1$s: %2$s</string>
     <string name="welcome_back_settings_title" translatable="false">Find your way round Settings</string>
     <string name="welcome_back_settings_body" translatable="false">Four groups, and what lives in each.</string>
     <string name="welcome_back_settings_show" translatable="false">Show me round</string>

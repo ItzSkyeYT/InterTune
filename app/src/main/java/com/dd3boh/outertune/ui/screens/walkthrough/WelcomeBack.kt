@@ -39,8 +39,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -72,6 +74,9 @@ import com.dd3boh.outertune.R
  * keeps its content clear of the bars itself. The top is left as it was, starting under the status
  * bar, so that nothing changes behind the status bar's icons.
  *
+ * For a screen reader the window is named, each button says which thing it is for, since seven
+ * buttons all reading "Show me" tell nobody apart, and the titles that head a group are headings.
+ *
  * @param things what to list, newest first (newThingsFor)
  * @param seen the ids already looked at this time round
  * @param returning false when it was opened from Settings by somebody who has not just updated,
@@ -92,6 +97,7 @@ fun WelcomeBack(
             usePlatformDefaultWidth = false,
             dismissOnClickOutside = false,
             decorFitsSystemWindows = false,
+            windowTitle = stringResource(R.string.welcome_back_title),
         )
     ) {
     Surface(
@@ -168,6 +174,8 @@ fun WelcomeBack(
                 body = stringResource(R.string.welcome_back_settings_body),
                 action = stringResource(R.string.welcome_back_settings_show),
                 done = SETTINGS_WALK in seen,
+                // Not under any release's heading: it is a group of its own, of one.
+                heading = true,
                 onClick = onShowSettings,
             )
 
@@ -190,6 +198,9 @@ const val SETTINGS_WALK = "settings_walk"
 /**
  * One thing: what it is, a sentence, and the one button that leads to it. Ticked once it has been
  * looked at, and the button stays, since looking twice is allowed.
+ *
+ * The button shows only [action], and is read out with the [title] after it. The tick is read as
+ * the button's state and not as a picture inside it.
  */
 @Composable
 private fun ThingCard(
@@ -198,8 +209,11 @@ private fun ThingCard(
     body: String,
     action: String,
     done: Boolean,
+    heading: Boolean = false,
     onClick: () -> Unit,
 ) {
+    val actionForThis = stringResource(R.string.welcome_back_action_for, action, title)
+    val seenState = stringResource(R.string.welcome_back_seen)
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -220,7 +234,11 @@ private fun ThingCard(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Text(text = title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = if (heading) Modifier.semantics { heading() } else Modifier,
+                )
                 Text(
                     text = body,
                     style = MaterialTheme.typography.bodyMedium,
@@ -228,11 +246,19 @@ private fun ThingCard(
                 )
             }
             Spacer(Modifier.width(8.dp))
-            FilledTonalButton(onClick = onClick, modifier = Modifier.widthIn(min = 64.dp)) {
+            FilledTonalButton(
+                onClick = onClick,
+                modifier = Modifier
+                    .widthIn(min = 64.dp)
+                    .semantics {
+                        contentDescription = actionForThis
+                        if (done) stateDescription = seenState
+                    }
+            ) {
                 if (done) {
                     Icon(
                         imageVector = Icons.Rounded.Check,
-                        contentDescription = stringResource(R.string.welcome_back_seen),
+                        contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.width(6.dp))
