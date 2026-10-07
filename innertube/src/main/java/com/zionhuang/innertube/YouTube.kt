@@ -55,6 +55,7 @@ import com.zionhuang.innertube.pages.SearchSummary
 import com.zionhuang.innertube.pages.SearchSummaryPage
 import com.zionhuang.innertube.utils.runCatchingCancellable
 import io.ktor.client.call.body
+import io.ktor.client.plugins.ResponseException
 import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
@@ -818,7 +819,13 @@ object YouTube {
             .body<PlayerResponse>()
     }
 
-    suspend fun registerPlayback(playlistId: String? = null, playbackTracking: String) = runCatching {
+    /**
+     * Reports a play to the account's history. The value is the HTTP status YouTube answered with,
+     * a refusal included: this client throws on anything but a 2xx, and a play YouTube turned away
+     * used to end as a stack trace that quoted the whole address. A failure is a report that got
+     * no answer at all.
+     */
+    suspend fun registerPlayback(playlistId: String? = null, playbackTracking: String): Result<Int> = runCatching {
         val cpn = (1..16).map {
             "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"[Random.Default.nextInt(
                 0,
@@ -831,11 +838,15 @@ object YouTube {
             "https://music.youtube.com",
         )
 
-        innerTube.registerPlayback(
-            url = playbackUrl,
-            playlistId = playlistId,
-            cpn = cpn
-        )
+        try {
+            innerTube.registerPlayback(
+                url = playbackUrl,
+                playlistId = playlistId,
+                cpn = cpn
+            ).status.value
+        } catch (e: ResponseException) {
+            e.response.status.value
+        }
     }
 
     /**

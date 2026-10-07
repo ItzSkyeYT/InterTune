@@ -2979,12 +2979,16 @@ class MusicService : MediaLibraryService(),
                 if (ytHist) {
                     val playbackUrl = YTPlayerUtils.playerResponseForMetadata(mediaItem.mediaId, null)
                         .getOrNull()?.playbackTracking?.videostatsPlaybackUrl?.baseUrl
-                    Log.d(TAG, "Got playback url: $playbackUrl")
+                    // Never the address itself, nor a failure's own words, which can quote it: its
+                    // parameters name the video, the session and the player.
+                    Log.d(TAG, "Got playback url: ${ListenReporting.trackingAddressForLog(playbackUrl)}")
                     playbackUrl?.let {
                         YouTube.registerPlayback(null, playbackUrl)
-                            .onFailure {
-                                reportException(it)
+                            .onSuccess { status ->
+                                val line = ListenReporting.historyAnswerLine(status)
+                                if (ListenReporting.historyReportTaken(status)) Log.d(TAG, line) else Log.w(TAG, line)
                             }
+                            .onFailure { Log.w(TAG, ListenReporting.historyFailureLine(it)) }
                     }
                 }
             }
