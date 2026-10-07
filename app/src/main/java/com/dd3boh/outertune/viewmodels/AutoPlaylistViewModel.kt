@@ -97,13 +97,15 @@ class AutoPlaylistViewModel @Inject constructor(
     private val guestIds by lazy {
         viewModelScope.async(Dispatchers.IO) {
             val queue = try {
-                val favouriteArtists = database.songsByBookmarkedArtists().first()
+                val favourites = database.songsByBookmarkedArtists().first()
+                val favouriteArtists = favourites
                     .flatMap { it.artists }
                     .filter { it.bookmarkedAt != null }
                     .distinctBy { it.id }
                     .size
                 guestQueue(
                     candidates = database.songsSimilarToBookmarkedArtists(System.currentTimeMillis(), GUEST_CANDIDATES),
+                    favouriteSongs = favourites.size,
                     favouriteArtists = favouriteArtists,
                     random = Random(mixSeed + 1),
                     id = { it.song.id },

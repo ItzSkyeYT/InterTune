@@ -22,20 +22,27 @@ import kotlin.random.Random
 const val FAVOURITES_PER_GUEST = 3
 
 /**
- * The fewest similar artists invited. With one or two favourites, as many guests as favourites
- * would be the same stranger in every guest place.
+ * The fewest similar artists invited, when there are that many. A mix small enough to have one or
+ * two guest places would otherwise give them to the same stranger on every visit.
  */
 const val FEWEST_GUEST_ARTISTS = 3
 
+/** How many guests a mix of this many favourites' songs has room for: one for every whole three. */
+fun guestPlaces(favouriteSongs: Int): Int = favouriteSongs.coerceAtLeast(0) / FAVOURITES_PER_GUEST
+
 /**
- * How many similar artists join: as many as there are favourites.
+ * The most songs any one guest is given: a third of what a favourite holds on average, rounded up.
  *
- * The guests share a third as many places as the favourites have, so with equal numbers each
- * guest is heard about a third as often as each favourite. The favourites lead artist for artist
- * as well as song for song, and nobody who was not chosen becomes a regular.
+ * The guests share a third as many places as the favourites have songs. Held to this, no guest is
+ * heard more than a third as often as the average favourite, however many of their songs YouTube
+ * lists. So the favourites lead artist for artist as well as song for song, and nobody who was
+ * not chosen becomes a regular.
  */
-fun guestArtistsInvited(favouriteArtists: Int): Int =
-    if (favouriteArtists <= 0) 0 else maxOf(FEWEST_GUEST_ARTISTS, favouriteArtists)
+fun songsPerGuest(favouriteSongs: Int, favouriteArtists: Int): Int {
+    if (favouriteSongs <= 0 || favouriteArtists <= 0) return 0
+    val shared = favouriteArtists * FAVOURITES_PER_GUEST
+    return (favouriteSongs + shared - 1) / shared
+}
 
 /**
  * The guests in the order they will be dealt in, from everything that might be one.
@@ -43,25 +50,35 @@ fun guestArtistsInvited(favouriteArtists: Int): Int =
  * [candidates] are songs YouTube lists beside the favourites' songs (FavouritesSql has the query
  * and where they come from), each with a [strength]: how many of the favourites' songs list it.
  * An artist's strength is the sum over their songs, which is how often YouTube has put them next
- * to the favourites, and the strongest [guestArtistsInvited] are the ones invited. A tie falls by
- * the artist's key, so the same library invites the same guests every time.
+ * to the favourites. A tie falls by the artist's key, so the same library invites the same guests
+ * every time.
+ *
+ * Artists are invited strongest first, each bringing the songs listed most up to [songsPerGuest],
+ * until there are enough songs for every guest place, and at least [FEWEST_GUEST_ARTISTS] of them.
+ * This was first written as "as many guests as there are favourites", which read well and was
+ * wrong against a real library. Ten bookmarked artists, 283 songs, so 94 places: the eight
+ * strongest similar artists had 29 songs listed between them, two to five each. The guests ran
+ * out a third of the way down and the rest of the mix had none. Filling the places took 21 artists
+ * there, none with more than eleven songs against a favourite's thirty-five on average.
  *
  * Then the same dealing as for the favourites, [interleaveByArtist], and for the same reason: one
- * similar artist with forty songs known would otherwise hold every guest place.
+ * similar artist with a dozen songs would otherwise sit in a dozen places running.
  *
  * A candidate whose [artist] is null is left out, as interleaveBy leaves out a song with no
  * artist, and a song listed twice is queued once.
  */
 fun <T, K> guestQueue(
     candidates: List<T>,
+    favouriteSongs: Int,
     favouriteArtists: Int,
     random: Random = Random.Default,
     id: (T) -> String,
     strength: (T) -> Int,
     artist: (T) -> K?,
 ): List<T> {
-    val invited = guestArtistsInvited(favouriteArtists)
-    if (invited == 0) return emptyList()
+    val places = guestPlaces(favouriteSongs)
+    val each = songsPerGuest(favouriteSongs, favouriteArtists)
+    if (places == 0 || each == 0) return emptyList()
 
     val seen = HashSet<String>()
     val byArtist = LinkedHashMap<K, MutableList<T>>()
@@ -69,13 +86,20 @@ fun <T, K> guestQueue(
         val key = artist(candidate) ?: continue
         if (seen.add(id(candidate))) byArtist.getOrPut(key) { mutableListOf() } += candidate
     }
-    val strongest = byArtist.entries
+    val strongestFirst = byArtist.entries
         .sortedWith(compareByDescending<Map.Entry<K, List<T>>> { (_, songs) -> songs.sumOf(strength) }.thenBy { it.key.toString() })
-        .take(invited)
-        // Sorted within the artist too, so that the shuffle below starts from the same order
-        // whichever way the query happened to return the rows.
-        .map { (_, songs) -> songs.sortedBy(id) }
-    return interleaveByArtist(strongest, random)
+
+    val invited = ArrayList<List<T>>()
+    var songs = 0
+    for ((_, theirs) in strongestFirst) {
+        if (songs >= places && invited.size >= FEWEST_GUEST_ARTISTS) break
+        // By id after strength, so that the cut, and the shuffle that follows, start from the
+        // same order whichever way the query happened to return the rows.
+        val brought = theirs.sortedWith(compareByDescending(strength).thenBy(id)).take(each)
+        invited += brought
+        songs += brought.size
+    }
+    return interleaveByArtist(invited, random)
 }
 
 /**

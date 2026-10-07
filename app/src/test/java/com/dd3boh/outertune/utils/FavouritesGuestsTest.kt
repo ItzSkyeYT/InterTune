@@ -31,8 +31,9 @@ class FavouritesGuestsTest {
 
     private fun candidates(name: String, count: Int, refs: Int) = artist(name, count).map { Candidate(it, refs) }
 
-    private fun queue(candidates: List<Candidate>, favouriteArtists: Int, seed: Int = 1) =
-        guestQueue(candidates, favouriteArtists, Random(seed), { it.song }, { it.refs }) { artistOf(it.song).ifEmpty { null } }
+    /** The queue for a mix of [songs] by [artists] favourites: a third as many places, shared as songsPerGuest says. */
+    private fun queue(candidates: List<Candidate>, songs: Int, artists: Int, seed: Int = 1) =
+        guestQueue(candidates, songs, artists, Random(seed), { it.song }, { it.refs }) { artistOf(it.song).ifEmpty { null } }
             .map { it.song }
 
     // The dealing
@@ -168,11 +169,21 @@ class FavouritesGuestsTest {
     // Who is invited
 
     @Test
-    fun `as many similar artists as favourites, and never fewer than three`() {
-        assertEquals(0, guestArtistsInvited(0))
-        assertEquals(3, guestArtistsInvited(1))
-        assertEquals(3, guestArtistsInvited(3))
-        assertEquals(10, guestArtistsInvited(10))
+    fun `a mix has a guest place for every whole three of the favourites' songs`() {
+        assertEquals(0, guestPlaces(0))
+        assertEquals(0, guestPlaces(2))
+        assertEquals(1, guestPlaces(3))
+        assertEquals(94, guestPlaces(283))
+    }
+
+    @Test
+    fun `no guest is given more than a third of what a favourite holds on average`() {
+        assertEquals(0, songsPerGuest(0, 0))
+        assertEquals(0, songsPerGuest(10, 0))
+        assertEquals(1, songsPerGuest(5, 2))
+        assertEquals(10, songsPerGuest(30, 1))
+        // The library this was measured on: 283 songs by 8 artists is 35 each, so 12.
+        assertEquals(12, songsPerGuest(283, 8))
     }
 
     @Test
@@ -180,10 +191,48 @@ class FavouritesGuestsTest {
         val pool = candidates("weak", 6, refs = 1) + candidates("strong", 2, refs = 9) +
             candidates("middle", 3, refs = 4) + candidates("faint", 1, refs = 1) + candidates("also", 2, refs = 5)
 
-        // Three are invited for one favourite: strong (18), middle (12) and also (10), not weak (6).
-        val invited = queue(pool, favouriteArtists = 1).map(::artistOf).toSet()
+        // Six places: strong (18) brings two songs, middle (12) three, also (10) two. That is
+        // enough, so weak (6) and faint (1) stay at home.
+        val invited = queue(pool, songs = 18, artists = 1).map(::artistOf).toSet()
 
         assertEquals(setOf("strong", "middle", "also"), invited)
+    }
+
+    @Test
+    fun `enough similar artists are invited to fill the guest places`() {
+        // The fault this pins. As many guests as favourites, three songs each, is nine songs for
+        // thirty places: the guests ran out a third of the way down the mix.
+        val pool = (1..30).flatMap { n -> candidates(('a' + n % 26).toString() + ('a' + n / 26), 3, refs = 40 - n) }
+        val out = queue(pool, songs = 90, artists = 3)
+
+        assertEquals("thirty places", 30, out.size)
+        assertEquals("the ten strongest, three songs each", 10, out.map(::artistOf).toSet().size)
+        val strongest = pool.map { artistOf(it.song) }.distinct().take(10).toSet()
+        assertEquals(strongest, out.map(::artistOf).toSet())
+    }
+
+    @Test
+    fun `a guest with a great many songs listed is held to their share`() {
+        // 300 songs by 3 favourites is 100 each, so a guest brings 34 at most, however many more
+        // YouTube lists, and it is the ones listed most that come.
+        val pool = (1..60).map { Candidate("x$it", refs = it) } + candidates("y", 4, refs = 3) + candidates("z", 4, refs = 3)
+        val out = queue(pool, songs = 300, artists = 3)
+
+        val fromX = out.filter { artistOf(it) == "x" }
+        assertEquals(34, fromX.size)
+        assertEquals((27..60).map { "x$it" }.toSet(), fromX.toSet())
+        assertEquals(34 + 4 + 4, out.size)
+    }
+
+    @Test
+    fun `a small mix still invites three, so its one place is not always the same stranger's`() {
+        val pool = candidates("p", 2, refs = 9) + candidates("q", 2, refs = 5) + candidates("r", 2, refs = 4) +
+            candidates("s", 2, refs = 1)
+
+        // Three favourites' songs are one place. p alone would fill it, on every visit.
+        val firsts = (1..40).map { seed -> artistOf(queue(pool, songs = 3, artists = 1, seed = seed).first()) }.toSet()
+
+        assertEquals(setOf("p", "q", "r"), firsts)
     }
 
     @Test
@@ -191,17 +240,28 @@ class FavouritesGuestsTest {
         val pool = candidates("p", 2, refs = 2) + candidates("q", 2, refs = 2) + candidates("r", 2, refs = 2) +
             candidates("s", 2, refs = 2)
 
-        val first = queue(pool, favouriteArtists = 1, seed = 1).map(::artistOf).toSet()
+        val first = queue(pool, songs = 9, artists = 1, seed = 1).map(::artistOf).toSet()
+        assertEquals(setOf("p", "q", "r"), first)
         for (seed in 2..30) {
-            assertEquals(first, queue(pool.shuffled(Random(seed)), favouriteArtists = 1, seed = seed).map(::artistOf).toSet())
+            assertEquals(first, queue(pool.shuffled(Random(seed)), songs = 9, artists = 1, seed = seed).map(::artistOf).toSet())
+        }
+    }
+
+    @Test
+    fun `the same library and the same seed give the same queue, whatever order the rows came in`() {
+        val pool = candidates("x", 9, refs = 3) + candidates("y", 4, refs = 3) + candidates("z", 6, refs = 2)
+
+        val first = queue(pool, songs = 60, artists = 4, seed = 7)
+        for (shuffle in 1..20) {
+            assertEquals(first, queue(pool.shuffled(Random(shuffle)), songs = 60, artists = 4, seed = 7))
         }
     }
 
     @Test
     fun `the guests take turns like the favourites do`() {
-        // One similar artist with forty songs known must not hold every guest place.
+        // One similar artist with forty songs listed must not sit in every guest place.
         val pool = candidates("x", 40, refs = 3) + candidates("y", 4, refs = 3) + candidates("z", 4, refs = 3)
-        val out = queue(pool, favouriteArtists = 3)
+        val out = queue(pool, songs = 300, artists = 3)
 
         assertEquals(setOf("x", "y", "z"), out.take(3).map(::artistOf).toSet())
         for (i in 1 until 8) assertTrue("${out[i - 1]} then ${out[i]}", artistOf(out[i - 1]) != artistOf(out[i]))
@@ -211,13 +271,14 @@ class FavouritesGuestsTest {
     fun `a candidate with no artist is left out and one song is queued once`() {
         val pool = listOf(Candidate("x1", 2), Candidate("x1", 2), Candidate("7", 5), Candidate("y1", 1))
 
-        assertEquals(setOf("x1", "y1"), queue(pool, favouriteArtists = 2).toSet())
-        assertEquals(2, queue(pool, favouriteArtists = 2).size)
+        assertEquals(setOf("x1", "y1"), queue(pool, songs = 6, artists = 2).toSet())
+        assertEquals(2, queue(pool, songs = 6, artists = 2).size)
     }
 
     @Test
-    fun `no favourites means nobody is invited`() {
-        assertEquals(emptyList<String>(), queue(candidates("x", 5, refs = 3), favouriteArtists = 0))
+    fun `no favourites, or too few songs for one place, means nobody is invited`() {
+        assertEquals(emptyList<String>(), queue(candidates("x", 5, refs = 3), songs = 0, artists = 0))
+        assertEquals(emptyList<String>(), queue(candidates("x", 5, refs = 3), songs = 2, artists = 1))
     }
 
     // A favourite is never handed over as similar
