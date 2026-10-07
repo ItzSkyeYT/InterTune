@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.Icons
@@ -102,6 +101,8 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.LibraryViewModel
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.SideBySide
+import com.dd3boh.outertune.ui.utils.itemsInColumns
+import com.dd3boh.outertune.ui.utils.rememberListColumns
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -140,6 +141,13 @@ fun LibraryScreen(
     val likedPlaylist = PlaylistEntity(id = "liked", name = stringResource(id = R.string.liked_songs))
     val downloadedPlaylist = PlaylistEntity(id = "downloaded", name = stringResource(id = R.string.downloaded_songs))
     val favouritesPlaylist = PlaylistEntity(id = "favourites", name = stringResource(id = R.string.favorite_artists))
+    // The three in the order they are listed, and the picture of each, for the list view on its side.
+    val autoPlaylists = listOf(likedPlaylist, downloadedPlaylist, favouritesPlaylist)
+    val autoPlaylistIcons = mapOf(
+        likedPlaylist.id to Icons.Rounded.Favorite,
+        downloadedPlaylist.id to Icons.Rounded.CloudDownload,
+        favouritesPlaylist.id to Icons.Rounded.Shuffle,
+    )
 
     val lazyListState = rememberLazyListState()
     var showCreatePlaylistDialog by rememberSaveable { mutableStateOf(false) }
@@ -203,6 +211,8 @@ fun LibraryScreen(
 
     // On a phone on its side the chips and the sort row share a line, a half each (Landscape.kt).
     val oneHeaderLine = LocalLandscape.current.active
+    // The list view runs two rows abreast there, as Songs does.
+    val columns = rememberListColumns()
     val filterContent = @Composable {
         var showStoragePerm by remember {
             mutableStateOf(context.checkSelfPermission(MEDIA_PERMISSION_LEVEL) != PackageManager.PERMISSION_GRANTED)
@@ -381,7 +391,9 @@ fun LibraryScreen(
                                 headerContent()
                             }
 
-                            if (showLikedAndDownloadedPlaylist) {
+                            // On its side these three are gathered into the list below, so that
+                            // they run two abreast with it and not one to a line above it.
+                            if (showLikedAndDownloadedPlaylist && columns == 1) {
                                 item(
                                     key = likedPlaylist.id,
                                     contentType = { CONTENT_TYPE_PLAYLIST }
@@ -442,12 +454,31 @@ fun LibraryScreen(
                                     }
                                 }
 
-                                items(
-                                    items = allItems.distinctBy { it.hashCode() },
-                                    key = { it.hashCode() },
-                                    contentType = { CONTENT_TYPE_LIST }
-                                ) { item ->
+                                val gathered: List<Any> =
+                                    if (showLikedAndDownloadedPlaylist && columns > 1) {
+                                        autoPlaylists + allItems.distinctBy { it.hashCode() }
+                                    } else {
+                                        allItems.distinctBy { it.hashCode() }
+                                    }
+                                itemsInColumns(
+                                    items = gathered,
+                                    columns = columns,
+                                    key = { _, item -> if (item is PlaylistEntity) item.id else item.hashCode() },
+                                    contentType = { _, _ -> CONTENT_TYPE_LIST }
+                                ) { _, item ->
                                     when (item) {
+                                        is PlaylistEntity -> {
+                                            AutoPlaylistListItem(
+                                                playlist = item,
+                                                thumbnail = autoPlaylistIcons.getValue(item.id),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable {
+                                                        navController.navigate("auto_playlist/${item.id}")
+                                                    }
+                                            )
+                                        }
+
                                         is Album -> {
                                             LibraryAlbumListItem(
                                                 navController = navController,

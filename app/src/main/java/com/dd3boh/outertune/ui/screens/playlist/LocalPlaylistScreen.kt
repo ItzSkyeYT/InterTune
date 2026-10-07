@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -77,6 +78,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastAny
 import androidx.compose.ui.util.fastSumBy
@@ -155,8 +157,10 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 import kotlin.math.roundToInt
 import androidx.compose.foundation.lazy.LazyListScope
 import com.dd3boh.outertune.ui.utils.HeaderBesideList
+import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.paneInsets
 import com.dd3boh.outertune.ui.utils.rememberHeaderBeside
+import com.dd3boh.outertune.ui.utils.rememberHeaderPaneWidth
 
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
@@ -886,6 +890,18 @@ fun LocalPlaylistHeader(
 //        }
 //    }
 
+    // Beside its list (Landscape.kt) the header has half the page, and on most phones that is
+    // less than the cover and the row of buttons take together. The cover gives way there and
+    // the column keeps to what is left, so that the two stay on one line and Play stays in
+    // sight. Upright there is no such width, and both are what they were.
+    val paneWidth = rememberHeaderPaneWidth()
+    val buttons = 2 + (if (playlist.playlist.browseId != null) 1 else 0) +
+            (if (songs.any { !it.song.song.isLocal }) 2 else 0)
+    // The paddings either side and the gap between the two come to 36dp.
+    val coverRoom = paneWidth - 36.dp - 48.dp * buttons
+    val coverSize = LocalLandscape.current.headerCover(upright = AlbumThumbnailSize, room = coverRoom)
+    val onOneLine = coverRoom.isSpecified && coverSize <= coverRoom
+
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = modifier.padding(12.dp)
@@ -898,14 +914,15 @@ fun LocalPlaylistHeader(
             PlaylistThumbnail(
                 playlist = playlist.playlist,
                 thumbnails = playlist.thumbnails,
-                size = AlbumThumbnailSize,
+                size = coverSize,
                 shape = RoundedCornerShape(AlbumCornerRadius),
-                iconPadding = AlbumThumbnailSize / 16,
+                iconPadding = coverSize / 16,
                 iconTint = LocalContentColor.current.copy(alpha = 0.8f),
             )
 
             Column(
                 verticalArrangement = Arrangement.Center,
+                modifier = if (onOneLine) Modifier.widthIn(max = paneWidth - 36.dp - coverSize) else Modifier,
             ) {
                 AutoResizeText(
                     text = playlist.playlist.name,

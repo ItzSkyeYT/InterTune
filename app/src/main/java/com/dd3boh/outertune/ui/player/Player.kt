@@ -661,8 +661,9 @@ fun BottomSheetPlayer(
     }
 
 
-    // On its side the mini player is a panel of its upright width in the middle of the page, not
-    // a bar the width of the screen. Null upright, where the sheet is the whole width as before.
+    // On its side the mini player is a panel of its upright width under the second half of the
+    // page, not a bar the width of the screen. Null upright, where the sheet is the whole width
+    // as before.
     val landscapeWindow = LocalLandscape.current
     val miniPlayerSpan = if (landscapeWindow.active) {
         val insets = LocalPlayerAwareWindowInsets.current
@@ -670,6 +671,7 @@ fun BottomSheetPlayer(
             landscapeWindow.panelSpan(
                 left = insets.getLeft(this, sheetLayoutDirection).toDp(),
                 right = insets.getRight(this, sheetLayoutDirection).toDp(),
+                rtl = sheetLayoutDirection == LayoutDirection.Rtl,
             )
         }
     } else null

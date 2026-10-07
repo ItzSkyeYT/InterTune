@@ -111,13 +111,74 @@ class LandscapeTest {
     }
 
     @Test
-    fun `the mini player sits in the middle of what the rail and the cutout leave`() {
-        // The rail and the cutout take 133dp on the left: 864dp are left, of which it takes 440.
+    fun `the mini player sits under the second half of the page`() {
+        // The rail and the cutout take 133dp on the left: 864dp are left, and it has half of them.
         val (left, width) = large.panelSpan(left = 133.dp, right = 0.dp)
+        assertEquals(432.dp, width)
+        assertEquals(565.dp, left)
+        // Up against the far edge.
+        assertEquals(997.dp, left + width)
+    }
+
+    @Test
+    fun `read from the right, the second half is the left one`() {
+        // The rail is on the right then, and the page's first half beside it.
+        val (left, width) = large.panelSpan(left = 0.dp, right = 133.dp, rtl = true)
+        assertEquals(432.dp, width)
+        assertEquals(0.dp, left)
+    }
+
+    @Test
+    fun `the mini player keeps off the first half of the page on every phone`() {
+        // A header stands in the first half (HeaderBesideList) with its buttons at the bottom,
+        // where a panel in the middle of the page covered them on any phone under 430dp tall.
+        for (windowWidth in 780..1000 step 11) {
+            for (left in listOf(80, 120, 133)) {
+                val (start, width) = window(windowWidth, 384).panelSpan(left.dp, 0.dp)
+                val half = (windowWidth - left).dp / 2
+                val label = "$windowWidth, $left"
+                assertTrue(label, start >= left.dp + half - Dp.Hairline)
+                assertTrue(label, width <= half + Dp.Hairline)
+                assertTrue(label, width <= Landscape.PanelMaxWidth)
+            }
+        }
+    }
+
+    @Test
+    fun `the mini player is over the list's half alone at the two sizes it was drawn on`() {
+        // What the rail and the cutout take is 80dp and the cutout's 159 pixels: 133dp on the
+        // large phone, 128dp at 897 x 403dp, about a Galaxy S25 Ultra, where a panel in the
+        // middle lay over Shuffle and a corner of Play.
+        for ((phone, rail) in listOf(large to 133f, window(897, 403) to 127.6f, window(855, 384) to 125.4f)) {
+            val (start, width) = phone.panelSpan(left = rail.dp, right = 0.dp)
+            val join = rail.dp + (phone.windowWidth - rail.dp) / 2
+            assertEquals(join.value, start.value, 0.01f)
+            assertEquals(phone.windowWidth.value, (start + width).value, 0.01f)
+        }
+    }
+
+    @Test
+    fun `a header's cover gives way to the column beside it, and only on its side`() {
+        // Half of 897dp less the rail is 385dp: less the paddings and five buttons, 109dp.
+        assertEquals(109.dp, window(897, 403).headerCover(upright = 144.dp, room = 109.dp))
+        // Room to spare: the size it has upright, and never more.
+        assertEquals(144.dp, large.headerCover(upright = 144.dp, room = 156.dp))
+        // Down to two thirds of its size, and with less room than that it is not made smaller
+        // still: it keeps its size and the column goes under it as before.
+        assertEquals(96.dp, window(855, 384).headerCover(upright = 144.dp, room = 96.dp))
+        assertEquals(144.dp, window(800, 360).headerCover(upright = 144.dp, room = 61.dp))
+        // Upright, with the flag off, and where the header is above its list, nothing changes.
+        assertEquals(144.dp, upright.headerCover(upright = 144.dp, room = 109.dp))
+        assertEquals(144.dp, window(897, 403, enabled = false).headerCover(upright = 144.dp, room = 109.dp))
+        assertEquals(144.dp, window(897, 403).headerCover(upright = 144.dp, room = Dp.Unspecified))
+    }
+
+    @Test
+    fun `where the page is one column the mini player is in the middle of it`() {
+        // A 640dp phone on its side has 560dp beside the rail: no halves, as for its lists.
+        val (left, width) = window(640, 360).panelSpan(left = 80.dp, right = 0.dp)
         assertEquals(440.dp, width)
-        assertEquals(345.dp, left)
-        // As much room either side of it.
-        assertEquals(left - 133.dp, 997.dp - (left + width))
+        assertEquals(140.dp, left)
     }
 
     @Test
