@@ -1171,3 +1171,49 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
         return LivingField.lit(LivingField.colourful(from, 1.15f + 0.15f * by), min(LivingField.MOST_LIGHT, 1f + 0.30f * by))
     }
 }
+
+/**
+ * Which of the screen's frames the picture is redrawn on.
+ *
+ * The picture is soft and slow, and everything drawn over it that looks through it (the glass
+ * panels) is redrawn with it, so it is redrawn no more often than it takes to look smooth, which
+ * is about [SMOOTH] times a second. But no less often either, where the screen can do that. It
+ * used to wait until a sixtieth of a second had passed: every frame at 60 Hz and every second one
+ * at 120 Hz as meant, but every second one at 90 Hz too, 45 a second, and every third at 144 Hz,
+ * 48 a second, and that is a kick drawn a frame late every so often.
+ *
+ * So the step is taken from the screen's own frame time, measured from the frames as they come:
+ * every frame up to 90 Hz and a little over, every second one at 120 and at 144, every third at 180.
+ */
+class RedrawPace {
+    /** The screen's frame time as far as it is known, in nanoseconds: the shortest step from one frame to the next lately. */
+    var frameNanos = 0L
+        private set
+    private var last = 0L
+    private var shown = 0L
+
+    /** A frame of the screen's, at [nanos]: true when the picture is to be redrawn on it. */
+    fun due(nanos: Long): Boolean {
+        val step = nanos - last
+        if (last != 0L && step > 0L) {
+            // The shortest step is the screen's own, a longer one has a missed frame in it. What is
+            // known is let grow a little at every frame, or a screen that slowed down would never
+            // be found out.
+            frameNanos = if (frameNanos == 0L) step else min(step, frameNanos + frameNanos / 50)
+        }
+        last = nanos
+        // half a frame early, so that a frame is not let go by for a hair
+        if (shown != 0L && nanos - shown < everyNth(frameNanos) * frameNanos - frameNanos / 2) return false
+        shown = nanos
+        return true
+    }
+
+    companion object {
+        /** How many redraws a second look smooth. */
+        const val SMOOTH = 60
+
+        /** On a screen whose frames are [frameNanos] apart, every which one is redrawn on: as few as give [SMOOTH] a second, or all but. */
+        fun everyNth(frameNanos: Long): Int =
+            if (frameNanos <= 0L) 1 else max(1, (1e9 / SMOOTH / frameNanos + 0.1).toInt())
+    }
+}

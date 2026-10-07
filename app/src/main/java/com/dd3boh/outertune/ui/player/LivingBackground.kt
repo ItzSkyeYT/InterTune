@@ -185,21 +185,16 @@ private fun LivingPicture(
             if (playing) tap?.watch()
             try {
                 val levels = FloatArray(MusicLevels.VALUES)
+                val pace = RedrawPace()
                 var last = 0L
-                var shownAt = 0L
                 while (playing || !motion.atRest()) {
                     withFrameNanos { now ->
                         val seconds = if (last == 0L) 0f else (now - last) / 1e9f
                         last = now
                         val heard = levels.takeIf { playing && tap?.now(it, (motion.lead() * 1_000_000).toLong()) == true }
                         motion.step(seconds, heard, playing)
-                        // The picture is soft and slow: it is redrawn at most FRAMES_A_SECOND times,
-                        // whatever the screen can do, because everything drawn over it that looks
-                        // through it (the glass panels) is redrawn with it.
-                        if (now - shownAt >= FRAME_NANOS) {
-                            shownAt = now
-                            frame = now
-                        }
+                        // not on every frame of a fast screen: see RedrawPace
+                        if (pace.due(now)) frame = now
                     }
                 }
                 // where it came to rest, in case the last step fell between two redraws
@@ -290,15 +285,6 @@ private class Look {
         canvas.drawBitmap(soft, null, into, paint)
     }
 }
-
-/**
- * The picture is redrawn at most this often: every frame of a 60 Hz screen, every second one at
- * 120 Hz. It was 30, which is cheaper, and a kick could then wait 33 ms to be drawn at all, which
- * is the difference between on the beat and after it. A little under the frame's own time, so that
- * one is not missed by a hair.
- */
-private const val FRAMES_A_SECOND = 60
-private const val FRAME_NANOS = 1_000_000_000L / FRAMES_A_SECOND - 2_000_000L
 
 /** The picture is drawn at one part in this many of its size, each way. */
 private const val SHRINK = 8

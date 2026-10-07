@@ -1396,6 +1396,42 @@ class LivingFieldTest {
         assertEquals(1f, motion.push(), 0f)
     }
 
+    // How often it is redrawn
+
+    /** How many redraws a screen of [hz] gets in its third second, with every [missEvery]th frame missed if that is not 0. */
+    private fun redraws(hz: Double, missEvery: Int = 0, pace: RedrawPace = RedrawPace(), from: Long = 1_000_000_000L): Int {
+        var count = 0
+        for (n in 0 until (3 * hz).toInt()) {
+            if (missEvery > 0 && n % missEvery == missEvery - 1) continue
+            if (pace.due(from + Math.round(n * 1e9 / hz)) && n >= 2 * hz) count++
+        }
+        return count
+    }
+
+    @Test
+    fun `it is redrawn about sixty times a second, and never less where the screen can do sixty`() {
+        assertEquals("every frame at 60 Hz", 60, redraws(60.0))
+        assertEquals("and at 90 Hz, where it used to be every second one", 90, redraws(90.0))
+        assertEquals("every second one at 120 Hz", 60, redraws(120.0))
+        assertEquals("and at 144 Hz, where it used to be every third", 72, redraws(144.0))
+        assertEquals(60, redraws(180.0))
+        assertEquals(60, redraws(240.0))
+        assertEquals("a slow screen gets what it has", 30, redraws(30.0))
+        assertEquals(listOf(1, 1, 1, 2, 2, 3, 4), listOf(30.0, 60.0, 90.0, 120.0, 144.0, 180.0, 240.0).map { RedrawPace.everyNth(Math.round(1e9 / it)) })
+        assertEquals("a screen a hair slow of its number is still that screen", 2, RedrawPace.everyNth(Math.round(1e9 / 119.88)))
+        assertEquals(1, RedrawPace.everyNth(0L))
+    }
+
+    @Test
+    fun `a missed frame does not slow it down, and a screen that changes its speed is followed`() {
+        assertTrue("120 Hz with every tenth frame missed: ${redraws(120.0, missEvery = 10)}", redraws(120.0, missEvery = 10) in 54..60)
+        assertTrue("60 Hz with every tenth missed: ${redraws(60.0, missEvery = 10)}", redraws(60.0, missEvery = 10) == 54)
+        val pace = RedrawPace()
+        redraws(120.0, pace = pace)
+        assertEquals("three seconds at 120 Hz, then 60: every frame again within the second", 60, redraws(60.0, pace = pace, from = 4_000_000_000L))
+        assertEquals("and back", 60, redraws(120.0, pace = pace, from = 7_000_000_000L))
+    }
+
     @Test
     fun `a level that is not a number is no level`() {
         val motion = motion()
