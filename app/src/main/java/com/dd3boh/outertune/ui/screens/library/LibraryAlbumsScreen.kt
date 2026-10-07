@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
@@ -83,6 +82,8 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.LibraryAlbumsViewModel
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.SideBySide
+import com.dd3boh.outertune.ui.utils.itemsInColumns
+import com.dd3boh.outertune.ui.utils.rememberListColumns
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,6 +120,8 @@ fun LibraryAlbumsScreen(
 
     // On a phone on its side the chips and the sort row share a line, a half each (Landscape.kt).
     val oneHeaderLine = LocalLandscape.current.active
+    // The list view runs two rows abreast there, as Songs does.
+    val columns = rememberListColumns()
     val filterContent = @Composable {
         var showStoragePerm by remember {
             mutableStateOf(context.checkSelfPermission(MEDIA_PERMISSION_LEVEL) != PackageManager.PERMISSION_GRANTED)
@@ -291,11 +294,12 @@ fun LibraryAlbumsScreen(
                                 )
                             }
                         }
-                        items(
+                        itemsInColumns(
                             items = albums,
-                            key = { it.id },
-                            contentType = { CONTENT_TYPE_ALBUM }
-                        ) { album ->
+                            columns = columns,
+                            key = { _, album -> album.id },
+                            contentType = { _, _ -> CONTENT_TYPE_ALBUM }
+                        ) { _, album ->
                             LibraryAlbumListItem(
                                 navController = navController,
                                 menuState = menuState,
