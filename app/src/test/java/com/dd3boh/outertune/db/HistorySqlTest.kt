@@ -113,16 +113,16 @@ class HistorySqlTest {
     }
 
     @Test
-    fun `a skip heard for five seconds is in History, a shorter one is not`() {
-        listen("a", t, playedMs = 5 * second, endReason = 2)
-        listen("b", t + minute, playedMs = 5 * second - 1, endReason = 2)
+    fun `a skip heard for two seconds is in History, a shorter one is not`() {
+        listen("a", t, playedMs = 2 * second, endReason = 2)
+        listen("b", t + minute, playedMs = 2 * second - 1, endReason = 2)
         listen("c", t + 2 * minute, playedMs = 0, endReason = 2)
         assertEquals(listOf("a"), songsInHistory())
     }
 
     @Test
     fun `the SQL keeps exactly the plays HistoryRule keeps`() {
-        val cases = listOf(0L, 1L, 4_999L, 5_000L, 5_001L, 3 * minute).flatMap { ms -> listOf(ms to false, ms to true) }
+        val cases = listOf(0L, 1L, 1_999L, 2_000L, 2_001L, 4_999L, 5_000L, 3 * minute).flatMap { ms -> listOf(ms to false, ms to true) }
         val ids = cases.mapIndexed { i, (ms, counted) -> listen("a", t + i * minute, playedMs = ms, counted = counted, endReason = 2) }
         val shown = plays().mapNotNull { it.listenId }.toSet()
         cases.forEachIndexed { i, (ms, counted) ->
@@ -137,8 +137,8 @@ class HistorySqlTest {
     }
 
     @Test
-    fun `a counted play under five seconds stays in History`() {
-        countedPlay("a", t, playedMs = 3 * second)
+    fun `a counted play under two seconds stays in History`() {
+        countedPlay("a", t, playedMs = 1_500L)
         assertEquals(listOf("a"), songsInHistory())
     }
 
@@ -181,9 +181,9 @@ class HistorySqlTest {
 
     @Test
     fun `pieces too short alone are one play long enough together`() {
-        val first = listen("a", t, playedMs = 3 * second, endReason = 4)
-        listen("a", t + minute, playedMs = 3 * second, endReason = 2, continues = first)
-        assertEquals(listOf(first to 6 * second), plays().map { it.listenId to it.playedMs })
+        val first = listen("a", t, playedMs = 1_200L, endReason = 4)
+        listen("a", t + minute, playedMs = 1_200L, endReason = 2, continues = first)
+        assertEquals(listOf(first to 2_400L), plays().map { it.listenId to it.playedMs })
     }
 
     @Test
@@ -371,7 +371,7 @@ class HistorySqlTest {
         // that stopped, with its event, and that the same song followed within a second (a skip
         // started 500 ms after it here), is a play, and so is the resume that continues it.
         val stopped = countedPlay("a", t, playedMs = minute, endReason = 4)
-        listen("a", t + 500, playedMs = 2 * second, endReason = 2)
+        listen("a", t + 500, playedMs = second, endReason = 2)
         val resume = listen("a", t + 30 * minute, playedMs = 2 * minute, continues = stopped, endPosition = 3 * minute)
         assertEquals(listOf(stopped to 3 * minute), plays().map { it.listenId to it.playedMs })
         assertEquals(listOf(stopped, resume), history.chain(stopped).map { it.id })

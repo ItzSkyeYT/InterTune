@@ -27,7 +27,7 @@ interface HistoryRemovalIo {
  * because the engine learns from them, as it did when History was the event table and removing a
  * play left its listen alone.
  *
- * A skip heard for five seconds has no event, play count, YouTube or Last.fm entry to undo, so
+ * A skip heard for two seconds has no event, play count, YouTube or Last.fm entry to undo, so
  * removing one only takes it out of History. Leaving its listen for the engine keeps one rule for
  * every row: History's own control never changes what recommendations learn from, which is what
  * Forget the last session and Forget today's listening, under Recommendations, are for.

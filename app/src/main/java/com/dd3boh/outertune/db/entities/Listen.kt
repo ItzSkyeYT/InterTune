@@ -21,7 +21,7 @@ import androidx.room.PrimaryKey
  * is the complete record underneath: the twenty second skip, the song abandoned at the chorus,
  * the one played to the end, each with how it ended and where it was started from. It is what the
  * recommendation engine learns from and what the Stats page reads, and History lists every play
- * in it heard for five seconds or more (see [com.dd3boh.outertune.history.HistoryRule]).
+ * in it heard for two seconds or more (see [com.dd3boh.outertune.history.HistoryRule]).
  *
  * Times are true UTC epoch milliseconds, unlike [Event.timestamp], which is the wall clock stored
  * as if it were UTC. [tzOffsetMin] is kept so time-of-day can still be recovered.

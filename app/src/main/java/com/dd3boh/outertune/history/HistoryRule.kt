@@ -27,10 +27,10 @@ import java.time.temporal.ChronoUnit
  * HistorySql.PLAYS applies the same rule in SQL; HistoryRuleTest and HistorySqlTest hold both to it.
  */
 object HistoryRule {
-    const val MIN_HEARD_MS = 5_000L
+    const val MIN_HEARD_MS = 2_000L
 
     /**
-     * Whether a play goes in History. A counted play always does, even under five seconds (most of
+     * Whether a play goes in History. A counted play always does, even under two seconds (most of
      * a short jingle): every counted play was in History before, and none drops out of it now.
      */
     fun shows(playedMs: Long, counted: Boolean): Boolean = counted || playedMs >= MIN_HEARD_MS

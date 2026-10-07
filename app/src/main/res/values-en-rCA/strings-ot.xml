@@ -124,7 +124,7 @@
     <string name="stop_music_on_task_clear_description">Stop the music when you swipe the app away from your recent apps.</string>
     <string name="enable_dynamic_theme_description">Take the app\'s colours from your wallpaper.</string>
     <string name="pure_black_description">Use true black instead of dark grey. On an OLED screen this also saves a little battery.</string>
-    <string name="min_playback_duration_short">How much of a song has to play to count as a play. History shows every song heard for 5 seconds or more, counted or not.</string>
+    <string name="min_playback_duration_short">How much of a song has to play to count as a play. History shows every song heard for 2 seconds or more, counted or not.</string>
     <string name="throttle_banner_title">YouTube has paused this connection</string>
     <plurals name="throttle_banner_body">
         <item quantity="one">Recommendations, downloads and sync are on hold for about a minute. Songs you tap still try to play.</item>

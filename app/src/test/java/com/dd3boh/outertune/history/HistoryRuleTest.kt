@@ -20,17 +20,17 @@ class HistoryRuleTest {
     private fun utc(local: LocalDateTime) = local.toInstant(ZoneOffset.UTC).toEpochMilli()
 
     @Test
-    fun `five seconds heard is enough, whatever share of the song`() {
-        assertTrue(HistoryRule.shows(playedMs = 5_000, counted = false))
+    fun `two seconds heard is enough, whatever share of the song`() {
+        assertTrue(HistoryRule.shows(playedMs = 2_000, counted = false))
         assertTrue(HistoryRule.shows(playedMs = 60_000, counted = false))
-        assertFalse(HistoryRule.shows(playedMs = 4_999, counted = false))
+        assertFalse(HistoryRule.shows(playedMs = 1_999, counted = false))
         assertFalse(HistoryRule.shows(playedMs = 0, counted = false))
     }
 
     @Test
-    fun `a counted play stays in History even under five seconds`() {
-        // Most of a four second jingle passes 30%; it was in History before and still is.
-        assertTrue(HistoryRule.shows(playedMs = 3_000, counted = true))
+    fun `a counted play stays in History even under two seconds`() {
+        // Most of a two second jingle passes 30%; it was in History before and still is.
+        assertTrue(HistoryRule.shows(playedMs = 1_500, counted = true))
     }
 
     @Test
