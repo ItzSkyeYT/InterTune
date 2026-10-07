@@ -53,6 +53,7 @@ import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.playback.LevelTap
 import com.dd3boh.outertune.playback.MusicLevels
 import com.dd3boh.outertune.utils.coilCoroutine
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 import kotlin.math.min
@@ -144,6 +145,9 @@ private fun LivingPicture(
     motion.coverThere = coverThere
     motion.separate = ribbons
 
+    // Battery saver, or animations turned off: nothing moves, and nothing is measured for it.
+    val still = context.wantsStillness()
+
     // Read by the drawing alone, so a new frame redraws the canvas and recomposes nothing.
     var frame by remember { mutableLongStateOf(0L) }
     // Counts the covers, so a cover that changes while nothing moves starts the frames again.
@@ -179,7 +183,7 @@ private fun LivingPicture(
             look.unseen = true
             return@LaunchedEffect
         }
-        if (context.wantsStillness()) {
+        if (still) {
             motion.settle()
             frame++
             return@LaunchedEffect
@@ -192,7 +196,6 @@ private fun LivingPicture(
                 look.unseen = false
                 motion.arrive()
             }
-            if (playing) tap?.watch()
             try {
                 val levels = FloatArray(MusicLevels.VALUES)
                 val pace = RedrawPace()
@@ -210,8 +213,24 @@ private fun LivingPicture(
                 // where it came to rest, in case the last step fell between two redraws
                 frame = last + 1
             } finally {
-                if (playing) tap?.unwatch()
                 if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) look.unseen = true
+            }
+        }
+    }
+
+    // The music is watched for as long as the picture is on screen, playing or not, and not from
+    // the effect above, which starts again at every pause, every cover and when the lyrics come
+    // up. Each of those took the last watcher away for a moment, the tap took the moment for
+    // music it had missed, and the song's shape started over: a pause in a build-up cost the
+    // drop. Nothing is offered to measure while nothing plays, so watching a pause costs nothing.
+    LaunchedEffect(tap, onScreen, still, lifecycleOwner) {
+        if (tap == null || !onScreen || still) return@LaunchedEffect
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            tap.watch()
+            try {
+                awaitCancellation()
+            } finally {
+                tap.unwatch()
             }
         }
     }

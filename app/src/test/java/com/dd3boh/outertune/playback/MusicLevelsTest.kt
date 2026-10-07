@@ -481,20 +481,24 @@ class MusicLevelsTest {
     }
 
     @Test
-    fun `whatever was building when the measuring stopped is not carried over the gap`() {
+    fun `ageing leaves the song's shape alone, and in the same song its loudest too`() {
         val out = mutableListOf<FloatArray>()
         val analyser = LevelAnalyser(rate) { _, levels -> out += levels.copyOf() }
         (full(6.0) + line(8.0)).forEach(analyser::sample)
         val built = out.last()[MusicLevels.TENSION]
         out.clear()
-        analyser.aged(2.0)
+        analyser.aged(600.0, sameSong = true)
         line(0.5).forEach(analyser::sample)
-        assertTrue("a pause of two seconds is not the end of a build-up: ${out.last()[MusicLevels.TENSION]} after $built", out.last()[MusicLevels.TENSION] >= built)
+        assertTrue("what was building is for a jump to end, not for the time that passed: ${out.last()[MusicLevels.TENSION]} after $built", out.last()[MusicLevels.TENSION] >= built)
+        // a quiet part of the same song: still set against the song at its loudest
         out.clear()
-        analyser.aged(60.0)
-        full(3.0).forEach(analyser::sample)
-        assertTrue("a minute is", out.tensions().all { it == 0f })
-        assertTrue("${out.dropping().max()}", out.dropping().all { it == 0f })
+        tone(700.0, 3.0, loud = 0.03f).forEach(analyser::sample)
+        assertTrue("${out.takeLast(10).presence().max()}", out.takeLast(10).presence().max() < 0.2f)
+        // another song after as long is its own measure
+        out.clear()
+        analyser.aged(600.0, sameSong = false)
+        tone(700.0, 2.0, loud = 0.03f).forEach(analyser::sample)
+        assertTrue("${out.takeLast(50).presence().min()}", out.takeLast(50).presence().min() > 0.9f)
     }
 
     @Test

@@ -518,20 +518,24 @@ class LevelAnalyser(private val sampleRate: Int, private val onFrame: (endsAtSam
     }
 
     /**
-     * Nothing was measured for [seconds], because nobody was looking or nothing played. What is
-     * remembered is aged as that much silence would have aged it, and after longer than a silence
-     * may last inside a song ([MusicLevels.SILENCE_ENDS_SECONDS]) the song's shape starts over.
-     * The yardsticks only ever came down while frames were measured: opened on a quiet song hours
+     * Music went by unmeasured for [seconds], because nobody was looking, or what comes now is
+     * other music. What is remembered is aged as that much silence would have aged it. The
+     * yardsticks only ever came down while frames were measured: opened on a quiet song hours
      * after a loud one, the picture sat nearly still for a minute, measuring the one against the
      * other.
+     *
+     * In the [sameSong] the loudest the song has been is left as it is. Aged with the rest, a
+     * quiet part come back to a minute later counted as all there until the song got loud again.
+     *
+     * The song's shape is not touched here: it starts over on a [jump]. A pause is neither, the
+     * audio goes on where it stopped, and it keeps everything however long it lasts.
      */
-    fun aged(seconds: Double) {
+    fun aged(seconds: Double, sameSong: Boolean = false) {
         if (!(seconds > 0.0)) return
         val kept = exp(-seconds / MusicLevels.YARDSTICK_SECONDS).toFloat()
         for (band in 0 until MusicLevels.BANDS) yardstick[band] *= kept
         now *= exp(-seconds / MusicLevels.NOW_SECONDS).toFloat()
-        song *= exp(-seconds / MusicLevels.SONG_SECONDS).toFloat()
-        if (seconds > MusicLevels.SILENCE_ENDS_SECONDS) startOver()
+        if (!sameSong) song *= exp(-seconds / MusicLevels.SONG_SECONDS).toFloat()
     }
 
     /** 16 bit samples from [buffer]'s position to its limit, [channels] interleaved. The buffer is left as it was. */
