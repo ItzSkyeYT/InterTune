@@ -266,7 +266,8 @@ class LivingFieldTest {
         val mains = LivingField.mainColours(IntArray(64 * 64) { navy }, 64, 64)
         val bass = mains[MusicLevels.BASS]
         assertTrue("still a blue: ${Integer.toHexString(bass)}", apart(bass, navy) < 12)
-        assertTrue("and no longer nearly black", (bass and 0xff) >= 150)
+        assertTrue("and no longer nearly black: ${Integer.toHexString(bass)}", (bass and 0xff) >= 110)
+        assertTrue("nor more of a blue than the navy is, by much", LivingField.colourfulness(bass) <= LivingField.colourfulness(navy) * 1.75f)
     }
 
     @Test
@@ -291,6 +292,61 @@ class LivingFieldTest {
         assertTrue(drawn.all(::isGrey))
         assertTrue(LivingField.mainColours(IntArray(0), 0, 0).all { it == LivingField.GREY })
         assertTrue(LivingField.mainPatches(LivingField.mainColours(IntArray(0), 0, 0), 3, 7).all { near(it, LivingField.GREY, 30) })
+    }
+
+    private fun rgb(r: Int, g: Int, b: Int) = (0xff shl 24) or (r shl 16) or (g shl 8) or b
+
+    @Test
+    fun `a black that leans a hair towards blue is black, and its cover has no blue`() {
+        // AC/DC's Back in Black, as the app read it on 7 Oct 2026: a black cover with grey
+        // lettering, and the voice's rows came out royal blue. A black of 6, 6, 20 measures as
+        // colourful as a visible slate does, and what was taken for the cover's accent was then
+        // lifted into the light, tint and all.
+        val black = rgb(0, 0, 0)
+        val lettering = rgb(95, 100, 98)
+        for ((what, nearly) in listOf("6, 6, 20" to rgb(6, 6, 20), "2, 2, 8" to rgb(2, 2, 8), "12, 12, 26" to rgb(12, 12, 26))) {
+            val mains = LivingField.mainColours(stripes(black to 80, nearly to 17, lettering to 3), 100, 100)
+            for (main in mains) assertTrue("a black of $what gave ${mains.map(Integer::toHexString)}", isGrey(main))
+        }
+        val all = LivingField.mainColours(IntArray(64 * 64) { rgb(6, 6, 20) }, 64, 64)
+        assertTrue("a cover of nothing else: ${all.map(Integer::toHexString)}", all.all(::isGrey))
+    }
+
+    @Test
+    fun `a black cover gives black, grey and white, far enough apart to be seen`() {
+        val mains = LivingField.mainColours(stripes(rgb(16, 17, 21) to 97, rgb(95, 100, 98) to 3), 100, 100)
+        val (bass, voice, top) = mains.map(LivingField::luma)
+        assertTrue("${mains.map(Integer::toHexString)}", mains.all(::isGrey))
+        assertTrue("the bass keeps the cover's black, lit enough to be seen moving: $bass", bass in 80..110)
+        assertTrue("the voice a clear step up: $voice", voice >= bass + 35)
+        assertTrue("and the top is its white: $top", top >= 200 && top >= voice + 35)
+    }
+
+    @Test
+    fun `a dark colour that really is one still counts, and a few stray pixels do not`() {
+        val navy = rgb(12, 20, 64)
+        val dark = LivingField.mainColours(stripes(rgb(0, 0, 0) to 60, navy to 40), 100, 100)
+        assertTrue("a navy is a blue: ${dark.map(Integer::toHexString)}", dark.any { !isGrey(it) && apart(it, navy) < 15 })
+        // half a hundredth of the cover in a vivid red: not its accent
+        val stray = IntArray(100 * 100) { if (it % 200 == 0) red else rgb(10, 10, 10) }
+        val mains = LivingField.mainColours(stray, 100, 100)
+        assertTrue("${mains.map(Integer::toHexString)}", mains.all(::isGrey))
+    }
+
+    @Test
+    fun `a main colour is not much more colourful than it is on the cover`() {
+        // a slate with a faint blue cast: lifted into the light as it stood, it came out a steel blue
+        val slate = rgb(40, 48, 60)
+        val bass = LivingField.mainColours(IntArray(64 * 64) { slate }, 64, 64)[MusicLevels.BASS]
+        assertTrue("lighter than the slate: ${Integer.toHexString(bass)}", LivingField.luma(bass) > LivingField.luma(slate) + 40)
+        assertTrue("and no more than a little more colourful: ${LivingField.colourfulness(bass)} against ${LivingField.colourfulness(slate)}",
+            LivingField.colourfulness(bass) <= LivingField.colourfulness(slate) * 1.75f)
+        // a colour that is light already is left as colourful as it is
+        val leaf = rgb(63, 212, 58)
+        val kept = LivingField.mainColours(IntArray(64 * 64) { leaf }, 64, 64)[MusicLevels.BASS]
+        assertTrue(LivingField.colourfulness(kept) >= LivingField.colourfulness(leaf) * 0.95f)
+        assertEquals("a grey measures as no colour", 0f, LivingField.colourfulness(rgb(128, 128, 128)), 0.002f)
+        assertTrue("and a pure red as a lot", LivingField.colourfulness(rgb(255, 0, 0)) in 0.24f..0.28f)
     }
 
     @Test

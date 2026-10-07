@@ -249,6 +249,25 @@ object LivingField {
     /** A pixel has a hue when it is at least this colourful, in OKLab's measure (a pure red is 0.26). Under it, it is a grey. */
     private const val HUED = 0.02f
 
+    /**
+     * In the dark a pixel has to be this colourful to have a hue, and it is in the dark under
+     * this lightness (OKLab's, 0 to 1). Near black that measure stretches differences nobody can
+     * see: a black of 6, 6, 20 comes out as colourful as a slate that is plainly bluish, and a
+     * black cover with grey lettering was given a royal blue for its accent.
+     */
+    private const val DARK = 0.25f
+    private const val HUED_IN_THE_DARK = 0.06f
+
+    /** A hue is one of the cover's colours when this much of the cover has it. Less is a few stray pixels. */
+    private const val SEEN_WORTH = 0.015f
+
+    /**
+     * A main colour is at most this many times as colourful as it is on the cover. Making a dark
+     * colour light enough to be seen multiplies its tint along with its light, and a charcoal
+     * with a faint cast came out a steel blue nobody could find on the cover.
+     */
+    private const val MOST_GAIN = 1.6f
+
     /** The cover is a coloured one when this much of it has a hue at all. Less, and it is a grey cover with an accent. */
     private const val COLOURED = 0.15f
 
@@ -301,11 +320,16 @@ object LivingField {
      *
      * A cover with too few colours for that is filled up with neighbours of its own hue. One with
      * hardly any hue is a grey cover: its grey takes the bass and whatever colour it has is the
-     * accent. One with none gives three greys.
+     * accent. One with none gives its black, a grey and a white.
+     *
+     * No colour is made up: a hue counts only when enough of the cover has it ([SEEN_WORTH]) and
+     * it can be seen there ([HUED], [HUED_IN_THE_DARK]), and what is shown of it is not much more
+     * colourful than what is on the cover ([MOST_GAIN]).
      */
     fun mainColours(pixels: IntArray, width: Int, height: Int): IntArray {
         if (width <= 0 || height <= 0 || pixels.size < width * height) return IntArray(MAINS) { GREY }
         val weight = FloatArray(HUES)
+        val counts = IntArray(HUES)
         val reds = FloatArray(HUES)
         val greens = FloatArray(HUES)
         val blues = FloatArray(HUES)
@@ -329,10 +353,11 @@ object LivingField {
                 oklab(r, g, b, lab)
                 val chroma = sqrt(lab[1] * lab[1] + lab[2] * lab[2])
                 seen++
-                if (chroma >= HUED) {
+                if (chroma >= HUED && (lab[0] >= DARK || chroma >= HUED_IN_THE_DARK)) {
                     val degrees = Math.toDegrees(atan2(lab[2].toDouble(), lab[1].toDouble())).toFloat().let { if (it < 0f) it + 360f else it }
                     val bin = Math.round(degrees * HUES / 360f) % HUES
                     weight[bin] += chroma
+                    counts[bin]++
                     reds[bin] += chroma * r
                     greens[bin] += chroma * g
                     blues[bin] += chroma * b
@@ -359,11 +384,17 @@ object LivingField {
             for (near in intArrayOf((bin + HUES - 1) % HUES, bin, (bin + 1) % HUES)) {
                 w += weight[near]; r += reds[near]; g += greens[near]; b += blues[near]
             }
-            return withBody(colourful(argb((r / w).toInt(), (g / w).toInt(), (b / w).toInt()), 1.15f), BODY)
+            val onCover = argb((r / w).toInt(), (g / w).toInt(), (b / w).toInt())
+            val shown = withBody(colourful(onCover, 1.15f), BODY)
+            val was = colourfulness(onCover)
+            val now = colourfulness(shown)
+            return if (now > MOST_GAIN * was) colourful(shown, MOST_GAIN * was / now) else shown
         }
-        val heaviest = (0 until HUES).maxByOrNull { around(it) }?.takeIf { around(it) > 0f }
+        fun share(bin: Int) = (counts[(bin + HUES - 1) % HUES] + counts[bin] + counts[(bin + 1) % HUES]).toFloat() / seen
+        val worthy = (0 until HUES).filter { weight[it] > 0f && share(it) >= SEEN_WORTH }
+        val heaviest = worthy.maxByOrNull { around(it) }
         val hues = if (heaviest == null) emptyList() else
-            (0 until HUES).filter { weight[it] > 0f && around(it) >= WORTH * around(heaviest) }.map { Candidate(colourOf(it), around(it)) }
+            worthy.filter { around(it) >= WORTH * around(heaviest) }.map { Candidate(colourOf(it), around(it)) }
         // White weighs as a colour a third as vivid as a pure one would: a cover that is a fifth white has a white.
         val white = if (lights >= LIGHT_WORTH * seen) {
             Candidate(argb(min(232, (light[0] / lights).toInt()), min(232, (light[1] / lights).toInt()), min(232, (light[2] / lights).toInt())), lights * 0.08f)
@@ -404,16 +435,25 @@ object LivingField {
             // are greys a step lighter or darker, a hue's a little way round the wheel one way and
             // lighter the other.
             val other = others.filter { apart(first, it) > TOO_ALIKE }.maxByOrNull { apart(first, it) }?.color
-            fun step(from: Int, by: Float) = if (luma(from) > 150) lit(from, 1f / by) else lit(from, by)
             if (isGrey(bass)) {
-                a = other ?: step(bass, 1.6f)
-                b = if (other != null && isGrey(other)) between(bass, other, 0.5f) else step(bass, if (other == null) 1.3f else 1.6f)
+                // Black, grey and white, or the other way up for a white cover: the far end of the
+                // greys from the bass's, and the grey half way there.
+                val far = if (luma(bass) > 150) 0xff383838.toInt() else 0xffe8e8e8.toInt()
+                a = other ?: far
+                b = between(bass, if (other != null && isGrey(other)) other else far, 0.5f)
             } else {
                 a = other ?: turned(bass, 40f)
                 b = between(turned(bass, -30f), 0xffffffff.toInt(), 0.45f)
             }
         }
         return if (luma(a) >= luma(b)) intArrayOf(bass, b, a) else intArrayOf(bass, a, b)
+    }
+
+    /** How colourful a colour looks, in OKLab's measure: nothing for a grey, about a quarter for a pure red. */
+    fun colourfulness(color: Int): Float {
+        val lab = FloatArray(3)
+        oklab((color shr 16) and 0xff, (color shr 8) and 0xff, color and 0xff, lab)
+        return sqrt(lab[1] * lab[1] + lab[2] * lab[2])
     }
 
     private fun isGrey(color: Int): Boolean {
