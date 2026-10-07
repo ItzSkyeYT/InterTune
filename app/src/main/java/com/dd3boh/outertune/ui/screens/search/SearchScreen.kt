@@ -75,6 +75,9 @@ import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.youtubeNavigator
 import androidx.compose.foundation.layout.Row
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.utils.Landscape
+import com.dd3boh.outertune.ui.utils.LocalLandscape
+import androidx.compose.ui.unit.Dp
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -176,6 +179,7 @@ fun SearchBarContainer(
         SearchBar(
             // The pill, which grows to the whole screen while searching, floats over the page.
             pillModifier = Modifier.tourTarget(Tour.SEARCH_BAR).dpadOverlay(),
+            closedMaxWidth = if (LocalLandscape.current.active) Landscape.PanelMaxWidth else Dp.Unspecified,
             query = query,
             onQueryChange = onQueryChange,
             onSearch = onSearch,

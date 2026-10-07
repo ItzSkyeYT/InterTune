@@ -77,6 +77,7 @@ import com.dd3boh.outertune.ui.utils.rememberGlassSpec
 import com.dd3boh.outertune.utils.rememberPreference
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
+import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 
@@ -105,12 +106,18 @@ fun MiniPlayer(
     // library happens to be showing, so it is the first place a section heading bleeds through.
     val glassTint = glass?.tint(min = 0.66f, max = 0.98f) ?: Color.Transparent
 
+    // On its side the sheet has already put this panel clear of the rail and the cutout, at its
+    // upright width (Landscape.panelSpan), and the insets again would squeeze it.
+    val placedBySheet = LocalLandscape.current.active
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(MiniPlayerHeight)
             // Inset clearance first, then the panel's own gutter.
-            .windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal))
+            .then(
+                if (placedBySheet) Modifier
+                else Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal))
+            )
 //            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp))
             .then(
                 if (glassOn) {

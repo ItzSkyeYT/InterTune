@@ -75,4 +75,13 @@ object Unreleased {
      * checks that read it, in MainActivity and AboutScreen, and make its strings translatable.
      */
     val WELCOME_BACK = BuildConfig.DEBUG
+
+    /**
+     * A layout for a phone on its side (Landscape.kt): the navigation rail whenever the window is
+     * short, the search pill and the mini player at their upright width instead of the width of
+     * the screen, lists two rows abreast, and an album with its cover beside its songs. A first
+     * cut, not agreed for a release, and it does not reach every screen yet. When it is: set this
+     * to true, or delete it with the one check that reads it, the default of Landscape.enabled.
+     */
+    val LANDSCAPE = BuildConfig.DEBUG
 }

@@ -90,6 +90,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.util.lerp
 import com.dd3boh.outertune.constants.AppBarHeight
@@ -136,6 +137,12 @@ fun SearchBar(
      * out of whatever it is given, and a hole the width of the screen is not a highlight.
      */
     pillModifier: Modifier = Modifier,
+    /**
+     * The widest the pill is while shut, for a window where the whole width would stretch it: a
+     * phone on its side (Landscape.kt). It then sits in the middle of the room it has, and opens
+     * out from there to the whole screen as it always did. Unspecified is the whole width.
+     */
+    closedMaxWidth: Dp = Dp.Unspecified,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val heightOffsetLimit = with(LocalDensity.current) {
@@ -228,10 +235,15 @@ fun SearchBar(
             val endWidth = constraints.maxWidth.toFloat()
             val endHeight = constraints.maxHeight.toFloat()
 
+            // What a capped pill leaves over, split between its two sides. Nothing when there
+            // is no cap, and the paddings below are then what they were.
+            val room = startWidth - (SearchBarHorizontalPadding * 2 + startInset + endInset).toPx()
+            val spare = if (closedMaxWidth.isSpecified) ((room - closedMaxWidth.toPx()) / 2f).coerceAtLeast(0f) else 0f
+
             height = lerp(startHeight, endHeight, animationProgress).toDp()
             width = lerp(startWidth, endWidth, animationProgress).toDp()
-            startPadding = lerp((SearchBarHorizontalPadding + startInset).roundToPx().toFloat(), 0f, animationProgress).toDp()
-            endPadding = lerp((SearchBarHorizontalPadding + endInset).roundToPx().toFloat(), 0f, animationProgress).toDp()
+            startPadding = lerp((SearchBarHorizontalPadding + startInset).roundToPx().toFloat() + spare, 0f, animationProgress).toDp()
+            endPadding = lerp((SearchBarHorizontalPadding + endInset).roundToPx().toFloat() + spare, 0f, animationProgress).toDp()
         }
 
         // Glass while it is a pill floating over the page, fading into the solid full screen search

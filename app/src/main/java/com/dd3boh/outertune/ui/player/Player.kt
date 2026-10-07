@@ -17,6 +17,7 @@ import com.dd3boh.outertune.utils.ShareLinks
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberUpdatedState
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
@@ -200,6 +201,7 @@ import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
 import com.dd3boh.outertune.LocalMenuState
+import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.DEFAULT_PLAYER_BACKGROUND
@@ -659,6 +661,19 @@ fun BottomSheetPlayer(
     }
 
 
+    // On its side the mini player is a panel of its upright width in the middle of the page, not
+    // a bar the width of the screen. Null upright, where the sheet is the whole width as before.
+    val landscapeWindow = LocalLandscape.current
+    val miniPlayerSpan = if (landscapeWindow.active) {
+        val insets = LocalPlayerAwareWindowInsets.current
+        with(LocalDensity.current) {
+            landscapeWindow.panelSpan(
+                left = insets.getLeft(this, sheetLayoutDirection).toDp(),
+                right = insets.getRight(this, sheetLayoutDirection).toDp(),
+            )
+        }
+    } else null
+
     // Chromatic shock ripple, adapted from notK50BML/OuterTune. Wraps the whole sheet so the
     // refraction crosses the background and the controls together, which is what makes the
     // rainbow fringing show up along element edges. Gated on the player being expanded, so the
@@ -789,6 +804,7 @@ fun BottomSheetPlayer(
         // Belt and braces on top of that: with the dismiss off, the mini player should not budge
         // downwards either, rather than sliding away and springing back as if it were about to go.
         pinAtCollapsed = !swipeToDismissPlayer,
+        collapsedSpan = miniPlayerSpan,
         collapsedContent = {
             MiniPlayer(
                 position = shownPosition,

@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.min
 import com.dd3boh.outertune.constants.BottomSheetAnimationSpec
@@ -91,6 +92,17 @@ fun BottomSheet(
      * where the user has asked for that to be switched off.
      */
     pinAtCollapsed: Boolean = false,
+    /**
+     * Where the collapsed sheet is, as its left edge and its width, when that is not the whole
+     * width it was given: the mini player of a phone on its side (Landscape.kt).
+     *
+     * Collapsed, the sheet itself is then only that wide, and not only what it draws. It takes
+     * every touch inside its bounds, so a sheet the width of the window with a narrow panel drawn
+     * in it would leave the rows showing either side of the panel dead to a tap. Once it starts
+     * to open it is the whole width again, and the collapsed content stays where it was while it
+     * fades.
+     */
+    collapsedSpan: Pair<Dp, Dp>? = null,
     collapsedContent: @Composable BoxScope.() -> Unit,
     collapsedBackgroundColor: Color = Color.Transparent,
     content: @Composable BoxScope.() -> Unit,
@@ -124,6 +136,19 @@ fun BottomSheet(
     Box(
         modifier = modifier
             .fillMaxSize()
+            .then(
+                if (collapsedSpan != null) {
+                    Modifier.layout { measurable, constraints ->
+                        val full = constraints.maxWidth
+                        val narrow = state.isCollapsed
+                        val width = if (narrow) collapsedSpan.second.roundToPx().coerceAtMost(full) else full
+                        val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+                        layout(full, placeable.height) {
+                            placeable.place(if (narrow) collapsedSpan.first.roundToPx() else 0, 0)
+                        }
+                    }
+                } else Modifier
+            )
             .offset {
                 val y = (state.expandedBound - state.value)
                     .roundToPx()
@@ -218,6 +243,20 @@ fun BottomSheet(
             }
             Box(
                 modifier = Modifier
+                    .then(
+                        if (collapsedSpan != null) {
+                            // In a sheet already that narrow this is all of it. In one the width
+                            // of the window, which it is while it opens, this keeps the place.
+                            Modifier.layout { measurable, constraints ->
+                                val full = constraints.maxWidth
+                                val width = collapsedSpan.second.roundToPx().coerceAtMost(full)
+                                val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+                                layout(full, placeable.height) {
+                                    placeable.place(if (full > width) collapsedSpan.first.roundToPx() else 0, 0)
+                                }
+                            }
+                        } else Modifier
+                    )
                     .graphicsLayer {
                         alpha = 1f - (state.progress * 4).coerceAtMost(1f)
                     }
