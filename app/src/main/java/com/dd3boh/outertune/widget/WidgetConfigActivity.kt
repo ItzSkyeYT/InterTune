@@ -365,9 +365,9 @@ private fun LiveWidget(settings: WidgetSettings, size: IntSize) {
     LaunchedEffect(settings) {
         // A slider dragged end to end asks for a drawing at every step; only the last is wanted.
         delay(60)
-        views = runCatching { renderWidget(context, settings, size.width, size.height) }
-            .onFailure { Log.w("WidgetConfig", "Could not draw the preview", it) }
-            .getOrNull()
+        // Never reached by a drawing that a newer change has cancelled: the preview keeps what it
+        // shows until the newer drawing is there.
+        views = drawnIfStillWanted { renderWidget(context, settings, size.width, size.height) }
     }
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth().heightIn(max = PreviewMaxHeight),
