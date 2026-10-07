@@ -129,7 +129,8 @@ enum class NewThingAction {
  *   already says so on screen: the row in Settings lists other things than this one, and most
  *   settings are a name and a value with no description under them. A bubble that only says
  *   "it is in here" or "choose it here" leaves somebody at a switch they cannot place.
- * @param there false where this build or this phone does not have it, and it is then not listed.
+ * @param there false where this build or this install does not have it, and it is then not
+ *   listed: a card whose button has nowhere to lead is worse than no card.
  */
 class NewThing(
     val id: String,
@@ -140,8 +141,17 @@ class NewThing(
     val icon: ImageVector,
     val action: NewThingAction = NewThingAction.SHOW,
     val stops: List<TourStop> = emptyList(),
-    val there: () -> Boolean = { true },
+    val there: (Install) -> Boolean = { true },
 )
+
+/**
+ * How this install is set up, for the things that are only there on some of them.
+ *
+ * @param quickPicksChips whether Quick picks has its row of chips, which it only has while it
+ *   draws from Best recommendations or Try both (QuickPicksSource.hasChips). Somebody on
+ *   YouTube's row or their library's has nothing there to be shown.
+ */
+class Install(val quickPicksChips: Boolean = true)
 
 /** Newest first: what somebody sees at the top is what they have never seen before. */
 val NEW_THINGS = listOf(
@@ -179,6 +189,7 @@ val NEW_THINGS = listOf(
         body = R.string.tour_quickpicks_body,
         icon = Icons.Rounded.Recommend,
         stops = TOUR_STOPS.filter { it.id == "quick_picks" },
+        there = { it.quickPicksChips },
     ),
     NewThing(
         id = "recognise",
@@ -225,11 +236,16 @@ val NEW_THINGS = listOf(
 
 /**
  * What the welcome back page lists for somebody whose last walkthrough was at [seenVersionCode]:
- * everything that came after it and that this build has. Nothing for a first install, which gets
- * the tour instead, and with [everything] the lot, for the entry in Settings.
+ * everything that came after it and that this build and this [install] have. Nothing for a first
+ * install, which gets the tour instead, and with [everything] the lot, for the entry in Settings.
  */
-fun newThingsFor(seenVersionCode: Int, buildVersionCode: Int = BuildConfig.VERSION_CODE, everything: Boolean = false): List<NewThing> {
-    val here = NEW_THINGS.filter { it.there() }
+fun newThingsFor(
+    seenVersionCode: Int,
+    buildVersionCode: Int = BuildConfig.VERSION_CODE,
+    everything: Boolean = false,
+    install: Install = Install(),
+): List<NewThing> {
+    val here = NEW_THINGS.filter { it.there(install) }
     if (everything) return here
     if (seenVersionCode <= 0) return emptyList()
     return here.filter { it.sinceVersionCode in (seenVersionCode + 1)..buildVersionCode }

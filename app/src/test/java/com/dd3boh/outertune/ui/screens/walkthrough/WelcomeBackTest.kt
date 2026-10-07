@@ -9,12 +9,15 @@ package com.dd3boh.outertune.ui.screens.walkthrough
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.IntSize
+import com.dd3boh.outertune.constants.QuickPicksSource
+import com.dd3boh.outertune.constants.hasChips
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * The welcome back page: what somebody is told is new depends on where they came from, and every
@@ -75,6 +78,48 @@ class WelcomeBackTest {
     fun `asked for from Settings, it lists everything whoever asks`() {
         assertEquals(ids(NEW_THINGS), ids(newThingsFor(0, buildVersionCode = v011, everything = true)))
         assertEquals(ids(NEW_THINGS), ids(newThingsFor(v0115, buildVersionCode = v0115, everything = true)))
+    }
+
+    // What is not there on this install
+
+    @Test
+    fun `Quick picks is not listed where it has no chips to be shown`() {
+        val noChips = Install(quickPicksChips = false)
+
+        val things = newThingsFor(v0109, buildVersionCode = v011, install = noChips)
+        assertEquals(listOf("recognise", "widget", "history", "spatial_audio"), ids(things))
+
+        // Nor in the list asked for from Settings, where "Show me" would lead nowhere just the
+        // same, and it is the only thing that goes.
+        val everything = newThingsFor(0, buildVersionCode = v0115, everything = true, install = noChips)
+        assertEquals(ids(NEW_THINGS) - "quick_picks", ids(everything))
+    }
+
+    @Test
+    fun `where Quick picks has its chips it is listed as before`() {
+        val things = newThingsFor(v0109, buildVersionCode = v011, install = Install(quickPicksChips = true))
+        assertEquals("quick_picks", ids(things).first())
+    }
+
+    @Test
+    fun `only the engine's two sources have chips`() {
+        assertEquals(
+            setOf(QuickPicksSource.ENGINE, QuickPicksSource.COMPARE),
+            QuickPicksSource.entries.filter { it.hasChips }.toSet()
+        )
+    }
+
+    @Test
+    fun `Home draws the chips by the rule the page lists Quick picks by`() {
+        // The page asks hasChips whether there is anything to point at, so Home must not decide
+        // by a rule of its own: every place that marks the chips for the tour sits under it.
+        val home = File("src/main/java/com/dd3boh/outertune/ui/screens/HomeScreen.kt").readLines()
+        val marked = home.indices.filter { "tourTarget(Tour.QUICK_PICKS_CHIPS)" in home[it] }
+        assertTrue("Home no longer marks the chips for the tour", marked.isNotEmpty())
+        for (line in marked) {
+            val guard = (line downTo maxOf(0, line - 8)).map { home[it] }.firstOrNull { it.trimStart().startsWith("if (") }
+            assertTrue("line ${line + 1}: the chips are drawn under ${guard?.trim()}", guard != null && "quickPicksSource.hasChips" in guard)
+        }
     }
 
     // Where "Show me" leads

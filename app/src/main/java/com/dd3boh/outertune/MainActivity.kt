@@ -163,6 +163,10 @@ import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.AnnouncementsEnabledKey
 import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.constants.PureBlackKey
+import com.dd3boh.outertune.constants.QuickPicksSource
+import com.dd3boh.outertune.constants.QuickPicksSourceKey
+import com.dd3boh.outertune.constants.hasChips
+import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.constants.SlimNavBarKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.playback.DownloadUtil
@@ -181,6 +185,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.TourState
 import com.dd3boh.outertune.ui.screens.walkthrough.tourFor
 import kotlinx.coroutines.withTimeoutOrNull
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.screens.walkthrough.Install
 import com.dd3boh.outertune.ui.screens.walkthrough.NewThingAction
 import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_TOUR
 import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_WALK
@@ -1146,8 +1151,14 @@ class MainActivity : ComponentActivity() {
                         var welcomeEverything by rememberSaveable { mutableStateOf(false) }
                         var welcomeLookedAt by rememberSaveable { mutableStateOf(emptyList<String>()) }
                         var tourFromWelcome by rememberSaveable { mutableStateOf(false) }
-                        val newThings = remember(walkthroughSeen, welcomeEverything) {
-                            newThingsFor(walkthroughSeen, everything = welcomeEverything)
+                        // Quick picks is only listed where it has chips to be shown: see Install.
+                        val quickPicksSource by rememberEnumPreference(QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE)
+                        val newThings = remember(walkthroughSeen, welcomeEverything, quickPicksSource) {
+                            newThingsFor(
+                                walkthroughSeen,
+                                everything = welcomeEverything,
+                                install = Install(quickPicksChips = quickPicksSource.orOffered().hasChips),
+                            )
                         }
                         val welcomeOwed = Unreleased.WELCOME_BACK && walkthroughSeen > 0 && newThings.isNotEmpty()
 

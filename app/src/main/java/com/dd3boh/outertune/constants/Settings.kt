@@ -190,6 +190,14 @@ fun QuickPicksSource.orOffered(): QuickPicksSource =
     if (this in QuickPicksSource.offered()) this else QuickPicksSource.YOUTUBE
 
 /**
+ * Whether Quick picks drawn from this source has the row of chips above it: only the engine's two
+ * do. Home also takes the chips away while the engine has fallen back to another row, which is
+ * known to Home alone and for that visit only.
+ */
+val QuickPicksSource.hasChips: Boolean
+    get() = this == QuickPicksSource.ENGINE || this == QuickPicksSource.COMPARE
+
+/**
  * Notes, as setup opens, whether this install has ever been through it.
  *
  * [OobeStatusKey] is missing only on an install that never has: the first Next writes it, and so
