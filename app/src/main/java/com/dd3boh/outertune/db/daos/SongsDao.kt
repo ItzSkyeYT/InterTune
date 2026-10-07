@@ -14,6 +14,7 @@ import com.dd3boh.outertune.db.FavouritesSql
 import com.dd3boh.outertune.db.LibrarySql
 import com.dd3boh.outertune.db.LocalSql
 import com.dd3boh.outertune.db.entities.PlayCountEntity
+import com.dd3boh.outertune.db.entities.SimilarSong
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.extensions.reversed
@@ -323,6 +324,17 @@ interface SongsDao {
     @Transaction
     @Query(FavouritesSql.BY_BOOKMARKED_ARTISTS)
     fun songsByBookmarkedArtists(): Flow<List<Song>>
+
+    /**
+     * Songs YouTube lists beside the favourites' songs, by artists that are not bookmarked: the
+     * guests of the favourites mix, the most listed first. See FavouritesSql for what is kept out.
+     *
+     * A plain read and not a Flow, on purpose. Related lists are written as songs play, so an
+     * observed query would hand the mix a new set of guests in the middle of being listened to.
+     */
+    @Transaction
+    @Query(FavouritesSql.SIMILAR_TO_BOOKMARKED_ARTISTS)
+    fun songsSimilarToBookmarkedArtists(now: Long, limit: Int): List<SimilarSong>
     // endregion
 
     // region downloaded Songs utils

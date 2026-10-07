@@ -62,3 +62,9 @@ data class QueueSong(
     @Embedded val song: Song,
     @ColumnInfo(name = "shuffledIndex") val shuffledIndex: Int
 )
+
+/** A song YouTube lists beside the favourites' songs, and how many of them list it (FavouritesSql). */
+data class SimilarSong(
+    @Embedded val song: Song,
+    @ColumnInfo(name = "refs") val refs: Int
+)
