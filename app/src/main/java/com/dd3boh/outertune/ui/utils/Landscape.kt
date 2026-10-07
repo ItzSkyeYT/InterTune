@@ -82,13 +82,25 @@ data class Landscape(
 
     /**
      * Where the mini player sits in a window with the navigation rail and the cutout taking
-     * [left] and [right] of it: its left edge and its width, centred in what is between them.
-     * Upright it is the whole width, as it always was.
+     * [left] and [right] of it: its left edge and its width. Upright it is the whole width, as
+     * it always was.
+     *
+     * Where the page has two halves (the test for two rows abreast) it sits under the second
+     * one, the right unless [rtl], and is no wider than it. In the middle of the page it lay
+     * across the join, and on any phone under about 430dp tall that put it over the buttons of
+     * a header standing in the first half. Where the page is one column it is in the middle.
      */
-    fun panelSpan(left: Dp, right: Dp): Pair<Dp, Dp> {
+    fun panelSpan(left: Dp, right: Dp, rtl: Boolean = false): Pair<Dp, Dp> {
         val available = (windowWidth - left - right).coerceAtLeast(0.dp)
-        val width = panelWidth(available)
-        return Pair(left + (available - width) / 2, width)
+        val halves = listColumns(available) > 1
+        val width = if (halves) min(PanelMaxWidth, available / 2) else panelWidth(available)
+        val spare = available - width
+        val start = when {
+            !halves -> left + spare / 2
+            rtl -> left
+            else -> left + spare
+        }
+        return Pair(start, width)
     }
 
     /**
@@ -221,7 +233,7 @@ fun SideBySide(first: @Composable () -> Unit, second: @Composable () -> Unit) {
 @Composable
 fun HeaderBesideList(
     header: (@Composable () -> Unit)?,
-    headerInsets: WindowInsets = paneInsets(),
+    headerInsets: WindowInsets = headerPaneInsets(),
     list: @Composable (Modifier) -> Unit,
 ) {
     Row(
@@ -243,10 +255,10 @@ fun HeaderBesideList(
 }
 
 /**
- * What a half of [HeaderBesideList] keeps clear of above and below: the mini player, and the top
- * bar. With [underTopBar] false it is the status bar alone above, for a half the bar has nothing
- * floating over: an album's songs, whose bar is the back button and stands over the other half.
- * Such a list starts with [paneTop].
+ * What the list's half of [HeaderBesideList] keeps clear of above and below: the mini player,
+ * and the top bar. With [underTopBar] false it is the status bar alone above, for a half the bar
+ * has nothing floating over: an album's songs, whose bar is the back button and stands over the
+ * other half. Such a list starts with [paneTop].
  */
 @Composable
 fun paneInsets(underTopBar: Boolean = true): WindowInsets {
@@ -255,6 +267,24 @@ fun paneInsets(underTopBar: Boolean = true): WindowInsets {
         insets.only(WindowInsetsSides.Vertical)
     } else {
         WindowInsets.systemBars.only(WindowInsetsSides.Top).add(insets.only(WindowInsetsSides.Bottom))
+    }
+}
+
+/**
+ * What the header's half of [HeaderBesideList] keeps clear of. Below it is the gesture bar and
+ * no more: the mini player sits under the other half ([Landscape.panelSpan]) and is never over
+ * this one, and a header that left room for it all the same lost 64dp of a window that has 400,
+ * which on most phones is the difference between its Play button being in sight and not. Above
+ * it is the top bar, or nothing with [underTopBar] false, for a picture that runs up under the
+ * status bar as it does upright.
+ */
+@Composable
+fun headerPaneInsets(underTopBar: Boolean = true): WindowInsets {
+    val bottom = WindowInsets.systemBars.only(WindowInsetsSides.Bottom)
+    return if (underTopBar) {
+        LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Top).add(bottom)
+    } else {
+        bottom
     }
 }
 

@@ -9,13 +9,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -106,6 +104,7 @@ import com.dd3boh.outertune.ui.menu.YouTubeArtistMenu
 import com.dd3boh.outertune.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
 import com.dd3boh.outertune.ui.utils.HeaderBesideList
+import com.dd3boh.outertune.ui.utils.headerPaneInsets
 import com.dd3boh.outertune.ui.utils.Landscape
 import com.dd3boh.outertune.ui.utils.fadingEdge
 import com.dd3boh.outertune.ui.utils.paneInsets
@@ -568,7 +567,7 @@ fun ArtistScreen(
             // The picture runs up under the status bar, as it does upright.
             HeaderBesideList(
                 header = if (isLoading && artistPage == null && !showLocal) null else artistHead,
-                headerInsets = LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom),
+                headerInsets = headerPaneInsets(underTopBar = false),
             ) { half ->
                 LazyColumn(
                     state = lazyListState,
