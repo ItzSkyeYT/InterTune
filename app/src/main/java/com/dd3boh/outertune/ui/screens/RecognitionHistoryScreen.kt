@@ -31,15 +31,18 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.dd3boh.outertune.constants.PlayOrigin
+import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.recognition.Heard
 import com.dd3boh.outertune.recognition.RecognitionViewModel
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.utils.urlEncode
 import com.zionhuang.innertube.models.WatchEndpoint
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
@@ -60,6 +63,7 @@ fun RecognitionHistoryScreen(
 ) {
     val heard by viewModel.heard.collectAsStateWithLifecycle(initialValue = emptyList())
     val playerConnection = LocalPlayerConnection.current
+    val database = LocalDatabase.current
     val scope = rememberCoroutineScope()
 
     if (heard.isEmpty()) {
@@ -92,8 +96,14 @@ fun RecognitionHistoryScreen(
                         val id = entry.videoId
                         if (id != null) {
                             scope.launch {
+                                // Handed the song when the library holds it, so it loads at once
+                                // and the rest joins it. The entry itself cannot stand in: it
+                                // keeps what Shazam called the song, not its title on YouTube, its
+                                // artists or its cover, and the player would show it that way and
+                                // the library keep it that way. Unknown, it waits for the answer.
+                                val known = database.song(id).first()?.toMediaMetadata()
                                 playerConnection?.playQueue(
-                                    YouTubeQueue(WatchEndpoint(videoId = id)),
+                                    YouTubeQueue(WatchEndpoint(videoId = id), known),
                                     origin = PlayOrigin.RECOGNISED,
                                 )
                             }
