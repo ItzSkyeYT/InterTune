@@ -116,6 +116,7 @@ import com.dd3boh.outertune.constants.LocalLibraryEnableKey
 import com.dd3boh.outertune.constants.QuickPicksSource
 import com.dd3boh.outertune.constants.QuickPicksSourceKey
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.constants.hasChips
 import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.Album
@@ -715,7 +716,7 @@ fun HomeScreen(
                 }
                 // The engine's chips stay put while its row builds, so they do not drop in with the
                 // songs and push the page down, and a chip can be picked before the row arrives.
-                if ((quickPicksSource == QuickPicksSource.ENGINE || quickPicksSource == QuickPicksSource.COMPARE) && engineFallback == 0) {
+                if (quickPicksSource.hasChips && engineFallback == 0) {
                     item(key = "context_chips") {
                         ContextChipRow(
                             viewModel = viewModel,
@@ -763,7 +764,7 @@ fun HomeScreen(
                     )
                 }
 
-                if ((quickPicksSource == QuickPicksSource.ENGINE || quickPicksSource == QuickPicksSource.COMPARE) && engineFallback == 0) {
+                if (quickPicksSource.hasChips && engineFallback == 0) {
                     item(key = "context_chips") {
                         ContextChipRow(
                             viewModel = viewModel,

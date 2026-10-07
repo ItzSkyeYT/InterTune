@@ -13,6 +13,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.File
@@ -143,5 +144,164 @@ class FavouritesSqlTest {
         song("s2", inLibrary = true); by("s2", "A")
 
         assertEquals(emptyList<String>(), result())
+    }
+
+    // The guests: songs YouTube lists beside the favourites' songs
+
+    private val now = 1_000_000L
+
+    /** YouTube's related shelf for [seed] names [related], or Last.fm's similar tracks with source 1. */
+    private fun related(seed: String, related: String, source: Int = 0) = exec(
+        "INSERT INTO related_song_map(songId, relatedSongId, fetchedAt, source) VALUES ('$seed', '$related', 1, $source)"
+    )
+
+    /** Kind 1 is a song and 2 an artist. No expiry is a ban, and a snooze or a rest has one. */
+    private fun exclude(kind: Int, targetId: String, expiresAt: Long? = null) = exec(
+        "INSERT INTO recommendation_exclusion(kind, targetId, label, reason, createdAt, expiresAt) " +
+                "VALUES ($kind, '$targetId', '$targetId', 1, 0, ${expiresAt ?: "NULL"})"
+    )
+
+    /** Each guest with how many of the favourites' songs list it, in the order the query gives them. */
+    private fun similar(limit: Int = 100): List<Pair<String, Int>> =
+        db.prepareStatement(FavouritesSql.SIMILAR_TO_BOOKMARKED_ARTISTS).use { ps ->
+            ps.setLong(1, now)
+            ps.setInt(2, limit)
+            ps.executeQuery().use { rs -> buildList { while (rs.next()) add(rs.getString("id") to rs.getInt("refs")) } }
+        }
+
+    /** Two favourites with two songs each, and three artists nobody bookmarked. */
+    private fun library() {
+        artist("FAVE", bookmarked = true); artist("FAVE2", bookmarked = true)
+        artist("NEAR", bookmarked = false); artist("FAR", bookmarked = false); artist("ELSE", bookmarked = false)
+        song("f1", inLibrary = true); by("f1", "FAVE")
+        song("f2", inLibrary = true); by("f2", "FAVE")
+        song("g1", inLibrary = true); by("g1", "FAVE2")
+        song("near1", inLibrary = false); by("near1", "NEAR")
+        song("near2", inLibrary = false); by("near2", "NEAR")
+        song("far1", inLibrary = false); by("far1", "FAR")
+        song("else1", inLibrary = false); by("else1", "ELSE")
+    }
+
+    @Test
+    fun `what the favourites' songs list is a guest, with how many of them list it`() {
+        library()
+        related("f1", "near1"); related("f2", "near1"); related("g1", "near1")
+        related("f1", "far1")
+
+        assertEquals(listOf("near1" to 3, "far1" to 1), similar())
+    }
+
+    @Test
+    fun `a song listed by nothing of the favourites' is not a guest`() {
+        library()
+        // else1 is known and near2 is listed, but by a song that is not a favourite's.
+        related("else1", "near2")
+        related("f1", "near1")
+
+        assertEquals(listOf("near1" to 1), similar())
+    }
+
+    @Test
+    fun `a favourite's own song is never handed over as similar`() {
+        library()
+        // YouTube lists one favourite's songs beside another's all the time.
+        related("f1", "f2"); related("f1", "g1"); related("g1", "f1")
+        related("f1", "near1")
+
+        assertEquals(listOf("near1" to 1), similar())
+    }
+
+    @Test
+    fun `nor is a song a favourite is billed second on`() {
+        library()
+        song("feat", inLibrary = false)
+        by("feat", "NEAR", position = 0)
+        by("feat", "FAVE2", position = 1)
+        related("f1", "feat"); related("f1", "near1")
+
+        assertEquals(listOf("near1" to 1), similar())
+    }
+
+    @Test
+    fun `the same pair stored twice counts once`() {
+        library()
+        related("f1", "near1"); related("f1", "near1")
+
+        assertEquals(listOf("near1" to 1), similar())
+    }
+
+    @Test
+    fun `a song by two favourites that lists a guest counts once`() {
+        library()
+        song("duet", inLibrary = true)
+        by("duet", "FAVE", position = 0)
+        by("duet", "FAVE2", position = 1)
+        related("duet", "near1"); related("f1", "near1")
+
+        assertEquals(listOf("near1" to 2), similar())
+    }
+
+    @Test
+    fun `only YouTube's lists count, not Last_fm's`() {
+        library()
+        related("f1", "near1", source = 1)
+        related("f1", "far1")
+
+        assertEquals(listOf("far1" to 1), similar())
+    }
+
+    @Test
+    fun `a banned song or artist is not invited, and a snooze that has run out is forgotten`() {
+        library()
+        related("f1", "near1"); related("f1", "near2"); related("f1", "far1"); related("f1", "else1")
+        exclude(kind = 1, targetId = "near1")
+        exclude(kind = 2, targetId = "FAR")
+        exclude(kind = 2, targetId = "ELSE", expiresAt = now - 1)
+
+        assertEquals(setOf("near2", "else1"), similar().map { it.first }.toSet())
+
+        // A snooze still running keeps its artist out as a ban does.
+        exec("UPDATE recommendation_exclusion SET expiresAt = ${now + 1} WHERE targetId = 'ELSE'")
+        assertEquals(listOf("near2"), similar().map { it.first })
+    }
+
+    @Test
+    fun `the cut keeps the songs listed most, and falls the same way on a tie`() {
+        library()
+        related("f1", "near1"); related("f2", "near1")
+        related("f1", "near2"); related("f1", "far1"); related("f1", "else1")
+
+        assertEquals(listOf("near1" to 2, "else1" to 1), similar(limit = 2))
+    }
+
+    @Test
+    fun `the lists are reached from the favourites, never by reading every list there is`() {
+        // The answer is the same either way, so nothing else here would notice. Left to choose,
+        // SQLite walked all of related_song_map and looked up the artists of every edge: 1.4
+        // seconds against a real library, where starting from the bookmarked artists takes 12 ms.
+        val plan = db.prepareStatement("EXPLAIN QUERY PLAN " + FavouritesSql.SIMILAR_TO_BOOKMARKED_ARTISTS).use { ps ->
+            ps.setLong(1, now)
+            ps.setInt(2, 100)
+            ps.executeQuery().use { rs -> buildList { while (rs.next()) add(rs.getString("detail")) } }
+        }
+        // "SCAN r" in a newer SQLite and "SCAN TABLE related_song_map AS r" in an older one.
+        val edges = Regex("""\br\b""")
+        val steps = plan.joinToString("\n")
+
+        assertTrue("the edges are scanned:\n$steps", plan.none { it.startsWith("SCAN") && edges.containsMatchIn(it) })
+        assertTrue(
+            "the edges are not looked up by the song they belong to:\n$steps",
+            plan.any { it.startsWith("SEARCH") && edges.containsMatchIn(it) && "songId" in it }
+        )
+        assertTrue("it does not start from the artists:\n$steps", plan.any { it.startsWith("SCAN") && "fave" in it })
+    }
+
+    @Test
+    fun `with nothing bookmarked nobody is a guest`() {
+        library()
+        related("f1", "near1")
+        exec("UPDATE artist SET bookmarkedAt = NULL")
+
+        assertEquals(emptyList<Pair<String, Int>>(), similar())
     }
 }

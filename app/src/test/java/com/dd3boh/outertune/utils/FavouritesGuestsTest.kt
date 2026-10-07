@@ -1,0 +1,336 @@
+/*
+ * Copyright (C) 2026 InterTune
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+package com.dd3boh.outertune.utils
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import kotlin.random.Random
+
+/**
+ * Similar artists joining the favourites mix, stated as what must stay true rather than as one
+ * expected order, for the reason FavouritesRadioTest gives: the dealing is random by design.
+ *
+ * Favourites are upper case letters and guests lower case, so a failure reads as "A1 B1 x1 C1".
+ */
+class FavouritesGuestsTest {
+
+    private fun artist(name: String, count: Int): List<String> = (1..count).map { "$name$it" }
+
+    private fun artistOf(song: String) = song.takeWhile { !it.isDigit() }
+
+    private fun isGuest(song: String) = song.first().isLowerCase()
+
+    /** A candidate as the query hands it over: the song, and how many of the favourites' songs point at it. */
+    private data class Candidate(val song: String, val refs: Int)
+
+    private fun candidates(name: String, count: Int, refs: Int) = artist(name, count).map { Candidate(it, refs) }
+
+    /** The queue for a mix of [songs] by [artists] favourites: a third as many places, shared as songsPerGuest says. */
+    private fun queue(candidates: List<Candidate>, songs: Int, artists: Int, seed: Int = 1) =
+        guestQueue(candidates, songs, artists, Random(seed), { it.song }, { it.refs }) { artistOf(it.song).ifEmpty { null } }
+            .map { it.song }
+
+    // The dealing
+
+    @Test
+    fun `the favourites keep the order they had`() {
+        val favourites = interleaveByArtist(listOf(artist("A", 40), artist("B", 9), artist("C", 21)), Random(4))
+        val guests = artist("x", 10) + artist("y", 10) + artist("z", 10)
+
+        for (seed in 1..50) {
+            val out = dealGuests(favourites, guests, Random(seed))
+            assertEquals("seed $seed", favourites, out.filterNot(::isGuest))
+        }
+    }
+
+    @Test
+    fun `one song in four is a guest and never more`() {
+        val favourites = interleaveByArtist(listOf(artist("A", 50), artist("B", 50), artist("C", 20)), Random(2))
+        val guests = artist("x", 100)
+
+        for (seed in 1..50) {
+            val out = dealGuests(favourites, guests, Random(seed))
+            assertEquals("seed $seed: 120 favourites earn 40 guests", 160, out.size)
+            // And not only in total: no stretch from the start runs ahead of the share either.
+            for (end in 1..out.size) {
+                val head = out.take(end)
+                val guestsSoFar = head.count(::isGuest)
+                val favouritesSoFar = end - guestsSoFar
+                assertTrue(
+                    "seed $seed: $guestsSoFar guests after $favouritesSoFar favourites",
+                    guestsSoFar <= (favouritesSoFar + FAVOURITES_PER_GUEST - 1) / FAVOURITES_PER_GUEST,
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `the mix opens on a favourite and two guests never play back to back`() {
+        val favourites = interleaveByArtist(listOf(artist("A", 30), artist("B", 30)), Random(3))
+        val guests = artist("x", 30)
+
+        for (seed in 1..200) {
+            val out = dealGuests(favourites, guests, Random(seed))
+            assertFalse("seed $seed opened on a guest", isGuest(out.first()))
+            for (i in 1 until out.size) {
+                assertFalse("seed $seed: ${out[i - 1]} then ${out[i]}", isGuest(out[i - 1]) && isGuest(out[i]))
+            }
+        }
+    }
+
+    @Test
+    fun `a guest is not always the fourth song`() {
+        val favourites = artist("A", 60)
+        val places = (1..40).flatMap { seed ->
+            dealGuests(favourites, artist("x", 20), Random(seed)).withIndex().filter { isGuest(it.value) }.map { it.index % 4 }
+        }.toSet()
+
+        assertTrue("guests only ever landed at $places of each four", places.size > 1)
+    }
+
+    @Test
+    fun `fewer than three favourites left over earn no guest`() {
+        // Five favourites are one whole three and two over, so one guest, however many wait.
+        val out = dealGuests(artist("A", 5), artist("x", 9), Random(1))
+
+        assertEquals(6, out.size)
+        assertEquals(1, out.count(::isGuest))
+        assertEquals(emptyList<String>(), dealGuests(emptyList(), artist("x", 3), Random(1)))
+        assertEquals(artist("A", 2), dealGuests(artist("A", 2), artist("x", 3), Random(1)))
+    }
+
+    @Test
+    fun `when the guests run out the favourites carry on alone`() {
+        val favourites = artist("A", 30)
+        val out = dealGuests(favourites, artist("x", 2), Random(1))
+
+        assertEquals(32, out.size)
+        assertEquals(favourites, out.filterNot(::isGuest))
+        assertEquals(listOf("x1", "x2"), out.filter(::isGuest))
+    }
+
+    @Test
+    fun `nobody plays twice`() {
+        val favourites = interleaveByArtist(listOf(artist("A", 25), artist("B", 25)), Random(6))
+        val out = dealGuests(favourites, artist("x", 8) + artist("y", 8), Random(6))
+
+        assertEquals("a song was dealt twice", out.size, out.toSet().size)
+    }
+
+    @Test
+    fun `with no guests the mix is the favourites as they were`() {
+        val favourites = interleaveByArtist(listOf(artist("A", 20), artist("B", 7)), Random(8))
+
+        assertEquals(favourites, dealGuests(favourites, emptyList(), Random(8)))
+    }
+
+    @Test
+    fun `favourites added at the end leave the mix above them where it was`() {
+        // The screen re-deals whenever a song is stored. What was already dealt must not move.
+        val before = artist("A", 12)
+        val guests = artist("x", 20)
+
+        for (seed in 1..100) {
+            val shown = dealGuests(before, guests, Random(seed))
+            val grown = dealGuests(before + artist("B", 9), guests, Random(seed))
+            assertEquals("seed $seed", shown, grown.take(shown.size))
+        }
+    }
+
+    @Test
+    fun `held as the screen holds it, a mix that grows moves nothing and stays a mix`() {
+        // What the view model does on every emission: deal again, then keep what was shown where
+        // it was and append the rest. Ten favourites are three whole threes and one over, which
+        // is the case a plain re-deal gets wrong: the fourth three is completed by the newcomers
+        // and its guest may be due between two songs already on screen.
+        val before = artist("A", 10)
+        val guests = artist("x", 20)
+
+        for (seed in 1..200) {
+            val shown = dealGuests(before, guests, Random(seed))
+            val dealtAgain = dealGuests(before + artist("B", 8), guests, Random(seed))
+            val held = holdOrderAppendingNewcomers(shown, dealtAgain, { it }, { it })
+
+            assertEquals("seed $seed: what was on screen moved", shown, held.take(shown.size))
+            assertEquals("seed $seed: a song was lost or doubled", dealtAgain.toSet(), held.toSet())
+            assertEquals(dealtAgain.size, held.size)
+            for (i in 1 until held.size) {
+                assertFalse("seed $seed: ${held[i - 1]} then ${held[i]}", isGuest(held[i - 1]) && isGuest(held[i]))
+            }
+        }
+    }
+
+    // Who is invited
+
+    @Test
+    fun `a mix has a guest place for every whole three of the favourites' songs`() {
+        assertEquals(0, guestPlaces(0))
+        assertEquals(0, guestPlaces(2))
+        assertEquals(1, guestPlaces(3))
+        assertEquals(94, guestPlaces(283))
+    }
+
+    @Test
+    fun `no guest is given more than a third of what a favourite holds on average`() {
+        assertEquals(0, songsPerGuest(0, 0))
+        assertEquals(0, songsPerGuest(10, 0))
+        assertEquals(1, songsPerGuest(5, 2))
+        assertEquals(10, songsPerGuest(30, 1))
+        // The library this was measured on: 283 songs by 8 artists is 35 each, so 12.
+        assertEquals(12, songsPerGuest(283, 8))
+    }
+
+    @Test
+    fun `the artists the favourites point at most are the ones invited`() {
+        val pool = candidates("weak", 6, refs = 1) + candidates("strong", 2, refs = 9) +
+            candidates("middle", 3, refs = 4) + candidates("faint", 1, refs = 1) + candidates("also", 2, refs = 5)
+
+        // Six places: strong (18) brings two songs, middle (12) three, also (10) two. That is
+        // enough, so weak (6) and faint (1) stay at home.
+        val invited = queue(pool, songs = 18, artists = 1).map(::artistOf).toSet()
+
+        assertEquals(setOf("strong", "middle", "also"), invited)
+    }
+
+    @Test
+    fun `enough similar artists are invited to fill the guest places`() {
+        // The fault this pins. As many guests as favourites, three songs each, is nine songs for
+        // thirty places: the guests ran out a third of the way down the mix.
+        val pool = (1..30).flatMap { n -> candidates(('a' + n % 26).toString() + ('a' + n / 26), 3, refs = 40 - n) }
+        val out = queue(pool, songs = 90, artists = 3)
+
+        assertEquals("thirty places", 30, out.size)
+        assertEquals("the ten strongest, three songs each", 10, out.map(::artistOf).toSet().size)
+        val strongest = pool.map { artistOf(it.song) }.distinct().take(10).toSet()
+        assertEquals(strongest, out.map(::artistOf).toSet())
+    }
+
+    @Test
+    fun `a guest with a great many songs listed is held to their share`() {
+        // 300 songs by 3 favourites is 100 each, so a guest brings 34 at most, however many more
+        // YouTube lists, and it is the ones listed most that come.
+        val pool = (1..60).map { Candidate("x$it", refs = it) } + candidates("y", 4, refs = 3) + candidates("z", 4, refs = 3)
+        val out = queue(pool, songs = 300, artists = 3)
+
+        val fromX = out.filter { artistOf(it) == "x" }
+        assertEquals(34, fromX.size)
+        assertEquals((27..60).map { "x$it" }.toSet(), fromX.toSet())
+        assertEquals(34 + 4 + 4, out.size)
+    }
+
+    @Test
+    fun `a small mix still invites three, so its one place is not always the same stranger's`() {
+        val pool = candidates("p", 2, refs = 9) + candidates("q", 2, refs = 5) + candidates("r", 2, refs = 4) +
+            candidates("s", 2, refs = 1)
+
+        // Three favourites' songs are one place. p alone would fill it, on every visit.
+        val firsts = (1..40).map { seed -> artistOf(queue(pool, songs = 3, artists = 1, seed = seed).first()) }.toSet()
+
+        assertEquals(setOf("p", "q", "r"), firsts)
+    }
+
+    @Test
+    fun `a tie between similar artists falls the same way every time`() {
+        val pool = candidates("p", 2, refs = 2) + candidates("q", 2, refs = 2) + candidates("r", 2, refs = 2) +
+            candidates("s", 2, refs = 2)
+
+        val first = queue(pool, songs = 9, artists = 1, seed = 1).map(::artistOf).toSet()
+        assertEquals(setOf("p", "q", "r"), first)
+        for (seed in 2..30) {
+            assertEquals(first, queue(pool.shuffled(Random(seed)), songs = 9, artists = 1, seed = seed).map(::artistOf).toSet())
+        }
+    }
+
+    @Test
+    fun `the same library and the same seed give the same queue, whatever order the rows came in`() {
+        val pool = candidates("x", 9, refs = 3) + candidates("y", 4, refs = 3) + candidates("z", 6, refs = 2)
+
+        val first = queue(pool, songs = 60, artists = 4, seed = 7)
+        for (shuffle in 1..20) {
+            assertEquals(first, queue(pool.shuffled(Random(shuffle)), songs = 60, artists = 4, seed = 7))
+        }
+    }
+
+    @Test
+    fun `the guests take turns like the favourites do`() {
+        // One similar artist with forty songs listed must not sit in every guest place.
+        val pool = candidates("x", 40, refs = 3) + candidates("y", 4, refs = 3) + candidates("z", 4, refs = 3)
+        val out = queue(pool, songs = 300, artists = 3)
+
+        assertEquals(setOf("x", "y", "z"), out.take(3).map(::artistOf).toSet())
+        for (i in 1 until 8) assertTrue("${out[i - 1]} then ${out[i]}", artistOf(out[i - 1]) != artistOf(out[i]))
+    }
+
+    @Test
+    fun `a candidate with no artist is left out and one song is queued once`() {
+        val pool = listOf(Candidate("x1", 2), Candidate("x1", 2), Candidate("7", 5), Candidate("y1", 1))
+
+        assertEquals(setOf("x1", "y1"), queue(pool, songs = 6, artists = 2).toSet())
+        assertEquals(2, queue(pool, songs = 6, artists = 2).size)
+    }
+
+    @Test
+    fun `no favourites, or too few songs for one place, means nobody is invited`() {
+        assertEquals(emptyList<String>(), queue(candidates("x", 5, refs = 3), songs = 0, artists = 0))
+        assertEquals(emptyList<String>(), queue(candidates("x", 5, refs = 3), songs = 2, artists = 1))
+    }
+
+    // A favourite is never handed over as similar
+
+    private fun strangers(guests: List<String>, favourites: List<String>, artistsOf: (String) -> List<String> = { listOf(artistOf(it)) }) =
+        strangersOnly(guests, favourites.toSet(), favourites.map(::artistOf).toSet(), { it }, artistsOf)
+
+    @Test
+    fun `a song that is already a favourite is not a guest`() {
+        val favourites = artist("A", 3)
+
+        assertEquals(listOf("x1", "x2"), strangers(listOf("x1", "A2", "x2"), favourites))
+    }
+
+    @Test
+    fun `a song with a favourite artist on it is not a guest, wherever they are billed`() {
+        // "x9" is by x and features A: it belongs to the favourites, and the query that feeds them
+        // will hand it over there the moment it is known, so here it would play twice.
+        val billing = mapOf("x9" to listOf("x", "A"))
+        val out = strangers(listOf("x1", "x9", "y1"), artist("A", 3)) { billing[it] ?: listOf(artistOf(it)) }
+
+        assertEquals(listOf("x1", "y1"), out)
+    }
+
+    @Test
+    fun `a guest listed twice is kept once`() {
+        assertEquals(listOf("x1", "y1"), strangers(listOf("x1", "y1", "x1"), artist("A", 2)))
+    }
+
+    // Strict
+
+    @Test
+    fun `strict is the favourites mix exactly as it was before there were guests`() {
+        val flat = artist("A", 30) + artist("B", 4) + artist("C", 9)
+        val guests = artist("x", 20)
+
+        for (seed in 1..30) {
+            val today = interleaveBy(flat, Random(seed)) { artistOf(it) }
+            val strict = favouritesMix(today, guests, strict = true, setOf("A", "B", "C"), Random(seed), { it }) { listOf(artistOf(it)) }
+            assertEquals("seed $seed", today, strict)
+        }
+    }
+
+    @Test
+    fun `not strict is the same favourites with strangers dealt in`() {
+        val today = interleaveBy(artist("A", 30) + artist("B", 12), Random(5)) { artistOf(it) }
+        val guests = listOf("x1", "A7", "y1", "x1", "z1")
+
+        val out = favouritesMix(today, guests, strict = false, setOf("A", "B"), Random(5), { it }) { listOf(artistOf(it)) }
+
+        assertEquals(today, out.filterNot(::isGuest))
+        assertEquals(listOf("x1", "y1", "z1"), out.filter(::isGuest))
+        assertEquals("A7 was dealt twice", out.size, out.toSet().size)
+    }
+}

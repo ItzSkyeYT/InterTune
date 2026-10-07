@@ -147,6 +147,7 @@ private const val TRAVEL_MS = 400
 fun TourOverlay(
     state: TourState,
     onNavigate: (String) -> Unit,
+    onNavigateBack: (String?) -> Unit,
     onFinish: () -> Unit,
 ) {
     if (!state.running) return
@@ -165,8 +166,10 @@ fun TourOverlay(
         TourTargets.bring(id, bringRoomPx)
     }
 
+    // Back steps the tour back, and the screen with it when the stop before is on another one.
+    // The route is that stop's, null for Home.
     BackHandler {
-        if (state.index > 0) state.back() else { state.stop(); onFinish() }
+        if (state.index > 0) state.back()?.let { onNavigateBack(it.route) } else { state.stop(); onFinish() }
     }
 
     val density = LocalDensity.current
