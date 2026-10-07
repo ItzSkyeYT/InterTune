@@ -46,6 +46,7 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -117,6 +118,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -163,6 +165,7 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.ThemePlayerFrag
 import com.dd3boh.outertune.ui.utils.GlassSpec
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
+import com.dd3boh.outertune.ui.utils.rememberHeaderBeside
 import com.dd3boh.outertune.utils.dlCoroutine
 import com.dd3boh.outertune.utils.formatFileSize
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -664,6 +667,7 @@ fun SetupWizard(
                                 icon = Icons.Rounded.DarkMode,
                                 title = stringResource(R.string.look_and_feel),
                                 subtitle = stringResource(R.string.oobe_interface_subtitle),
+                                scroll = stepScrollState,
                             ) {
 
 
@@ -692,6 +696,7 @@ fun SetupWizard(
                                 icon = Icons.Rounded.AccountCircle,
                                 title = stringResource(R.string.oobe_ytm_logon_title),
                                 subtitle = stringResource(R.string.oobe_ytm_logon_subtitle),
+                                scroll = stepScrollState,
                             ) {
 
 
@@ -721,6 +726,7 @@ fun SetupWizard(
                                 icon = Icons.Rounded.LibraryMusic,
                                 title = stringResource(R.string.oobe_local_media_title),
                                 subtitle = stringResource(R.string.oobe_local_media_subtitle),
+                                scroll = stepScrollState,
                             ) {
 
                                 ElevatedCard(
@@ -784,6 +790,7 @@ fun SetupWizard(
                                     icon = Icons.Rounded.Download,
                                     title = stringResource(R.string.oobe_downloads_title),
                                     subtitle = stringResource(R.string.oobe_downloads_subtitle),
+                                    scroll = stepScrollState,
                                 ) {
 
                                 ElevatedCard(
@@ -1138,8 +1145,35 @@ private fun OobeStep(
     icon: ImageVector,
     title: String,
     subtitle: String,
+    scroll: ScrollState,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    // On a phone on its side the hero is 200dp of the 300 there are between the status bar and
+    // the buttons, and the first card started under the edge. There the hero stands in the left
+    // half and the cards have the right one (Landscape.kt). The page scrolls as one piece, so
+    // the hero is moved down by as much as the page has moved up, and stays where it is.
+    if (rememberHeaderBeside()) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .offset { IntOffset(0, scroll.value) }
+            ) {
+                OobeHero(icon, title, subtitle)
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                content()
+            }
+        }
+        return
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
