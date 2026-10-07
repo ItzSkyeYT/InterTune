@@ -145,12 +145,15 @@ class PoTokenWebView private constructor(
      */
     @JavascriptInterface
     fun onRunBotguardResult(botguardResponse: String) {
-        Log.d(TAG, "botguardResponse: $botguardResponse")
+        // What BotGuard answers, the identifier a token is made for and the tokens are logged by
+        // their length only. The identifier is the visitorData or the account's dataSyncId, and
+        // logcat gets pasted into issues as it is.
+        Log.d(TAG, "botguardResponse: ${botguardResponse.length} characters")
         makeBotguardServiceRequest(
             "https://www.youtube.com/api/jnn/v1/GenerateIT",
             "[ \"$REQUEST_KEY\", \"$botguardResponse\" ]",
         ) { responseBody ->
-            Log.d(TAG, "GenerateIT response: $responseBody")
+            Log.d(TAG, "GenerateIT response: ${responseBody.length} characters")
             val (integrityToken, expirationTimeInSeconds) = parseIntegrityTokenData(responseBody)
 
             // leave 10 minutes of margin just to be sure
@@ -168,7 +171,7 @@ class PoTokenWebView private constructor(
     suspend fun generatePoToken(identifier: String): String {
         return withContext(Dispatchers.Main) {
             suspendCancellableCoroutine { cont ->
-                Log.d(TAG, "generatePoToken() called with identifier $identifier")
+                Log.d(TAG, "generatePoToken() called with an identifier of ${identifier.length} characters")
                 addPoTokenEmitter(identifier, cont)
                 webView.evaluateJavascript(
                     """try {
@@ -204,7 +207,7 @@ class PoTokenWebView private constructor(
      */
     @JavascriptInterface
     fun onObtainPoTokenResult(identifier: String, poTokenU8: String) {
-        Log.d(TAG, "Generated poToken (before decoding): identifier=$identifier poTokenU8=$poTokenU8")
+        Log.d(TAG, "Generated poToken (before decoding): identifier of ${identifier.length} characters, poTokenU8 of ${poTokenU8.length}")
         val poToken = try {
             u8ToBase64(poTokenU8)
         } catch (t: Throwable) {
@@ -212,7 +215,7 @@ class PoTokenWebView private constructor(
             return
         }
 
-        Log.d(TAG, "Generated poToken: identifier=$identifier poToken=$poToken")
+        Log.d(TAG, "Generated poToken: identifier of ${identifier.length} characters, poToken of ${poToken.length}")
         popPoTokenContinuation(identifier)?.resume(poToken)
     }
 

@@ -69,7 +69,9 @@ class PoTokenGenerator {
      * [PoTokenWebView.generatePoToken] was called
      */
     private suspend fun getWebClientPoToken(videoId: String, sessionId: String, forceRecreate: Boolean): PoTokenResult {
-        Log.d(TAG, "Web poToken requested: $videoId, $sessionId")
+        // The session by its length, and the tokens further down likewise. It is the visitorData
+        // or, signed in, the account's dataSyncId, and logcat gets pasted into issues as it is.
+        Log.d(TAG, "Web poToken requested: $videoId, session identifier of ${sessionId.length} characters")
 
         val (poTokenGenerator, streamingPot, hasBeenRecreated) =
             webPoTokenGenLock.withLock {
@@ -113,7 +115,7 @@ class PoTokenGenerator {
             }
         }
 
-        Log.d(TAG, "[$videoId] playerPot=$playerPot, streamingPot=$streamingPot")
+        Log.d(TAG, "[$videoId] playerPot: ${playerPot.length} characters, streamingPot: ${streamingPot.length} characters")
 
         return PoTokenResult(playerPot, streamingPot)
     }

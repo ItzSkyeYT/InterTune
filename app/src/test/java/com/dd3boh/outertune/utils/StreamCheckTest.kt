@@ -200,6 +200,7 @@ class StreamCheckTest {
 
     @Test
     fun `the player logs the url it found through this`() {
+        // That no line logs one as it is, here or anywhere, is NoIdentifiersInTheLogTest's to say.
         val player = File("src/main/java/com/dd3boh/outertune/utils/YTPlayerUtils.kt").readText()
         assertTrue("the stream url line was not found", "stream url: \${StreamCheck.urlForLog(streamUrl)}" in player)
     }

@@ -36,7 +36,6 @@ class YouTubeTest {
             val playerResponse = youTube.player(videoId, client = YouTubeClient.IOS).getOrThrow()
             val format = playerResponse.streamingData!!.adaptiveFormats[0]
             val url = format.url!!
-            println(url)
             val response = HttpClient(OkHttp).get(url) {
                 headers {
                     append("Range", "bytes=0-10")
