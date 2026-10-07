@@ -50,6 +50,8 @@ import com.dd3boh.outertune.ui.menu.SongMenu
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.StatsViewModel
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.ui.utils.itemsInColumns
+import com.dd3boh.outertune.ui.utils.rememberListColumns
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -107,6 +109,8 @@ fun StatsScreen(
         onArtist = { artist -> navController.navigate("artist/${artist.id}") },
     )
 
+    // Two rows abreast when the phone is on its side, one otherwise (Landscape.kt).
+    val columns = rememberListColumns()
     LazyColumn(
         state = lazyListState,
         contentPadding = LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
@@ -152,8 +156,9 @@ fun StatsScreen(
         }
 
         val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
-        itemsIndexed(
+        itemsInColumns(
             items = mostPlayedSongs,
+            columns = columns,
             key = { _, song -> song.id }
         ) { index, song ->
             SongListItem(

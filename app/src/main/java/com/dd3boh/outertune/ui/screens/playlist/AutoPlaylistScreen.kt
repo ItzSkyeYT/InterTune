@@ -127,6 +127,8 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.ui.utils.itemsInColumns
+import com.dd3boh.outertune.ui.utils.rememberListColumns
 
 enum class PlaylistType {
     LIKE, DOWNLOAD, FAVOURITES, OTHER
@@ -326,6 +328,8 @@ fun AutoPlaylistScreen(
             ),
     ) {
         ScrollToTopManager(navController, lazyListState)
+        // Two rows abreast when the phone is on its side, one otherwise (Landscape.kt).
+        val columns = rememberListColumns()
         LazyColumn(
             state = lazyListState,
             contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
@@ -546,8 +550,9 @@ fun AutoPlaylistScreen(
 
 
             val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
-            itemsIndexed(
+            itemsInColumns(
                 items = if (isSearching) filteredSongs else mutableSongs,
+                columns = columns,
                 key = { _, song -> song.id }
             ) { index, song ->
                 SongListItem(

@@ -79,6 +79,8 @@ import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.YTItem
 import kotlinx.coroutines.launch
 import java.net.URLDecoder
+import com.dd3boh.outertune.ui.utils.itemsInColumns
+import com.dd3boh.outertune.ui.utils.rememberListColumns
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -210,6 +212,8 @@ fun OnlineSearchResult(
             )
         }
 
+    // Two rows abreast when the phone is on its side, one otherwise (Landscape.kt).
+    val columns = rememberListColumns()
     LazyColumn(
         state = lazyListState,
         contentPadding = LocalPlayerAwareWindowInsets.current
@@ -222,10 +226,11 @@ fun OnlineSearchResult(
                     NavigationTitle(summary.title)
                 }
 
-                items(
+                itemsInColumns(
                     items = summary.items,
-                    key = { "${summary.title}/${it.id}" }
-                ) { item ->
+                    columns = columns,
+                    key = { _, item -> "${summary.title}/${item.id}" }
+                ) { _, item ->
                     ytItemContent(item, summary.items)
                 }
             }
@@ -240,10 +245,11 @@ fun OnlineSearchResult(
                 }
             }
         } else {
-            items(
+            itemsInColumns(
                 items = itemsPage?.items.orEmpty(),
-                key = { it.id }
-            ) { item ->
+                columns = columns,
+                key = { _, item -> item.id }
+            ) { _, item ->
                 ytItemContent(item, itemsPage?.items.orEmpty())
             }
 

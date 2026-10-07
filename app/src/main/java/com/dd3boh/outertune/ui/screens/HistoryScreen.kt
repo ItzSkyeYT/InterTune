@@ -102,6 +102,8 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.ui.utils.itemsInColumns
+import com.dd3boh.outertune.ui.utils.rememberListColumns
 
 @OptIn(ExperimentalFoundationApi::class, FlowPreview::class)
 @Composable
@@ -211,6 +213,8 @@ fun HistoryScreen(
 
     Box(Modifier.fillMaxSize()) {
         ScrollToTopManager(navController, lazyListState)
+        // Two rows abreast when the phone is on its side, one otherwise (Landscape.kt).
+        val columns = rememberListColumns()
         LazyColumn(
             state = lazyListState,
             contentPadding = LocalPlayerAwareWindowInsets.current
@@ -297,8 +301,9 @@ fun HistoryScreen(
                         )
                     }
 
-                    itemsIndexed(
+                    itemsInColumns(
                         items = section.songs,
+                        columns = columns,
                         key = { _, song -> song.id }
                     ) { index, song ->
                         val content: @Composable () -> Unit = {
@@ -380,8 +385,9 @@ fun HistoryScreen(
                     }
 
                     val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
-                    itemsIndexed(
+                    itemsInColumns(
                         items = group.plays,
+                        columns = columns,
                         // By play, not by place: a new play lands at the top and shifts every row,
                         // and without keys the rows under a finger or a swipe moved with it.
                         key = { _, entry -> entry.key },

@@ -70,6 +70,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.ui.utils.itemsInColumns
+import com.dd3boh.outertune.ui.utils.rememberListColumns
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,6 +117,8 @@ fun ArtistSongsScreen(
             .fillMaxSize()
             .padding(bottom = 32.dp)
     ) {
+        // Two rows abreast when the phone is on its side, one otherwise (Landscape.kt).
+        val columns = rememberListColumns()
         LazyColumn(
             state = lazyListState,
             contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
@@ -176,8 +180,9 @@ fun ArtistSongsScreen(
             }
 
             val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
-            itemsIndexed(
+            itemsInColumns(
                 items = songs,
+                columns = columns,
                 key = { _, item -> item.id }
             ) { index, song ->
                 SongListItem(
