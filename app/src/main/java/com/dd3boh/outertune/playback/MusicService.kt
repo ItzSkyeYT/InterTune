@@ -145,6 +145,7 @@ import com.dd3boh.outertune.extensions.collectLatest
 import com.dd3boh.outertune.extensions.currentMetadata
 import com.dd3boh.outertune.extensions.findNextMediaItemById
 import com.dd3boh.outertune.extensions.isUserLoggedIn
+import com.dd3boh.outertune.extensions.joinWithin
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.setOffloadEnabled
 import com.dd3boh.outertune.lyrics.LyricsHelper
@@ -228,6 +229,14 @@ private const val CHECKPOINT_MS = 60_000L
  * this process ever creates, for as long as the process lives.
  */
 private val orphanedListensClosedThisProcess = java.util.concurrent.atomic.AtomicBoolean(false)
+
+/**
+ * How long teardown waits for the queue to be saved. The save took 3 to 134 ms over 27 teardowns
+ * in the logs kept from the phone and the emulator, so this is far outside a save that works, and
+ * it is under the five seconds Android gives an app to take a key press or a tap before it says
+ * the app is not responding.
+ */
+private const val QUEUE_SAVE_WAIT_MS = 4_000L
 
 /** A related list older than this is fetched again, within the daily budget. */
 private const val RELATED_STALE_MS = 90L * 24 * 60 * 60 * 1000
@@ -1638,8 +1647,16 @@ class MusicService : MediaLibraryService(),
         queueBoard.shutdown()
         if (dataStore.get(PersistentQueueKey, true)) {
             if (waitForSave) {
-                runBlocking(Dispatchers.IO) {
-                    saveQueueToDisk(pos, playerSongId)
+                // Waited for, but not for good. This is onDestroy, on the main thread, and the
+                // save is a write: with the database not answering, as on 6 Oct 2026, the wait
+                // had no end. The process then lives on with its main thread parked here, and
+                // opening the app again shows its splash screen until it is force stopped. On
+                // the scope that outlives the service, so a save that is only slow still lands.
+                // Given up when it is not in by then: the place in the queue, if the process
+                // dies before it is.
+                val save = lastingScope.launch { saveQueueToDisk(pos, playerSongId) }
+                if (!save.joinWithin(QUEUE_SAVE_WAIT_MS)) {
+                    Log.w(TAG, "The queue save was not in after $QUEUE_SAVE_WAIT_MS ms, teardown goes on without it")
                 }
             } else {
                 pendingQueueSave = scope.launch(Dispatchers.IO) {
@@ -1656,8 +1673,8 @@ class MusicService : MediaLibraryService(),
         val data = queueBoard.getAllQueues()
         // An empty board is ordinary: a fresh install that has been opened and browsed but never
         // played has one, and so does anybody who has deleted every saved queue from the sheet.
-        // last() on it throws, and this runs inside deInitQueue's runBlocking during onDestroy, so
-        // the throw takes out the rest of teardown with it and leaks the session and the player.
+        // last() on it throws, and this ran inside deInitQueue's runBlocking during onDestroy, so
+        // the throw took out the rest of teardown with it and leaked the session and the player.
         //
         // The early return rather than lastOrNull(), which also stops the throw but is a trap:
         // updateAllQueues ends in nukeAliens(ids), and DELETE ... WHERE id NOT IN () matches every

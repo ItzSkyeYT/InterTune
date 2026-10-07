@@ -20,12 +20,14 @@ import java.io.File
  * under a lock and sometimes on the write connection, and the read then needs one of Room's four
  * threads. When the database jammed on 6 Oct 2026 (experiments/bugs/playback-stopped-1835) five
  * loader threads sat in that line, one for every song tried, and nothing played although every
- * read connection was free.
+ * read connection was free. Then the app was swiped away, the service's onDestroy waited for the
+ * queue to be saved, a write, and the main thread never came back: the app showed its splash
+ * screen until it was force stopped.
  *
  * So the loader and the downloader read rows with the queries that return them, through
- * MusicDatabase.readOrNull, which gives up after two seconds. This reads the source, as
- * NoWaitingInTransactionsTest does, because the old lines compile and pass every test that runs
- * against a database that answers.
+ * MusicDatabase.readOrNull, which gives up after two seconds, and teardown waits for the save with
+ * a bound. This reads the source, as NoWaitingInTransactionsTest does, because the old lines
+ * compile and pass every test that runs against a database that answers.
  */
 class NoBlockingOnRoomFlowsTest {
 
@@ -80,6 +82,14 @@ class NoBlockingOnRoomFlowsTest {
             assertFalse("$name reads a Flow's first value", Regex("""\.\s*first(OrNull)?\s*\(\s*\)""").containsMatchIn(block))
         }
         assertEquals("the database reached some other way:\n" + found.joinToString("\n"), emptyList<String>(), found)
+    }
+
+    @Test
+    fun `teardown does not wait for the queue save without a limit`() {
+        val deInit = body(service, "fun deInitQueue(")
+        assertTrue("deInitQueue was not found", "saveQueueToDisk" in deInit)
+        assertFalse("deInitQueue waits in runBlocking again", Regex("""\brunBlocking\b""").containsMatchIn(code(deInit)))
+        assertTrue("deInitQueue no longer bounds its wait", "joinWithin(QUEUE_SAVE_WAIT_MS)" in deInit)
     }
 
     @Test
