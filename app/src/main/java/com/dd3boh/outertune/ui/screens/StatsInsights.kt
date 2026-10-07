@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -97,6 +98,7 @@ import com.dd3boh.outertune.stats.ListenSource
 import com.dd3boh.outertune.stats.ListeningInsights
 import com.dd3boh.outertune.stats.Summary
 import com.dd3boh.outertune.ui.component.items.ItemThumbnail
+import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.utils.LocaleDateFormat
 import com.dd3boh.outertune.viewmodels.PeriodInsights
 import java.text.NumberFormat
@@ -152,11 +154,15 @@ fun LazyListScope.statsInsights(
             }
         }
     } else {
+        // One of the two alone on a phone on its side is no wider than a page of settings
+        // (Landscape.cardWidth). Upright that is no cap, and the card is the width it was.
         if (summary != null) item(key = "insights_summary") {
-            SummaryCard(summary, shown.period, Modifier.cardPadding().alpha(dim).animateItem())
+            val width = LocalLandscape.current.cardWidth()
+            SummaryCard(summary, shown.period, Modifier.widthIn(max = width).cardPadding().alpha(dim).animateItem())
         }
         if (hours != null) item(key = "insights_hours") {
-            HoursCard(hours, Modifier.cardPadding().alpha(dim).animateItem())
+            val width = LocalLandscape.current.cardWidth()
+            HoursCard(hours, Modifier.widthIn(max = width).cardPadding().alpha(dim).animateItem())
         }
     }
 

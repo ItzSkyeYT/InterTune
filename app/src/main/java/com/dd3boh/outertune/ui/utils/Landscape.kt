@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.utils
 
+import android.view.WindowManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,16 +26,19 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import androidx.compose.ui.unit.min
+import androidx.compose.ui.window.DialogWindowProvider
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.constants.Unreleased
 
@@ -110,6 +114,14 @@ data class Landscape(
      */
     fun readingWidth(upright: Dp): Dp =
         if (active && upright.isSpecified) min(upright, ReadingMaxWidth) else upright
+
+    /**
+     * The widest a card that has a line of the page to itself is drawn (the summary on Stats in
+     * a week too thin for the card that stands beside it). On its side that is the width a page
+     * of settings has: the card ran from the rail to the far edge with its three lines of text
+     * in one corner. Upright it has no cap, as before.
+     */
+    fun cardWidth(): Dp = readingWidth(Dp.Infinity)
 
     /**
      * The side of the cover in a header that stands beside its list, with [room] left for it in
@@ -327,5 +339,26 @@ fun headerPaneInsets(underTopBar: Boolean = true): WindowInsets {
 fun LazyListScope.paneTop() {
     item(key = "pane top", contentType = "pane top") {
         Spacer(Modifier.height(8.dp))
+    }
+}
+
+/**
+ * Called inside a dialog: on a phone on its side its window shrinks to what the keyboard leaves.
+ *
+ * Left alone, a dialog's window keeps its height and is moved up just far enough for the field
+ * being typed in to clear the keyboard, so whatever is under the field (Cancel and OK) stays
+ * behind it. Upright that is a dialog with room to spare. In a window with 130dp between the
+ * status bar and the keyboard it is every dialog with a field. Shrunk, the dialog is laid out in
+ * the height that is left, and can scroll in it. Upright the window is not touched.
+ */
+@Composable
+fun DialogAboveKeyboard() {
+    if (!LocalLandscape.current.active) return
+    val window = (LocalView.current.parent as? DialogWindowProvider)?.window ?: return
+    DisposableEffect(window) {
+        val before = window.attributes.softInputMode
+        @Suppress("DEPRECATION")
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        onDispose { window.setSoftInputMode(before) }
     }
 }
