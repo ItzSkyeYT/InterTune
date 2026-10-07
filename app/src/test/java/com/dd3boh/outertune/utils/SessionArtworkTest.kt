@@ -9,6 +9,7 @@ package com.dd3boh.outertune.utils
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.utils.artSizeBucket
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 /**
@@ -101,5 +102,30 @@ class SessionArtworkTest {
         assertEquals(1024, artSizeBucket(1024))
         assertEquals(1280, artSizeBucket(1025))
         assertEquals(256, artSizeBucket(1))
+    }
+
+    @Test
+    fun `asked for by its large address, a cover is the one already in hand`() {
+        // which is how the session names it once the large cover has taken the small one's place
+        val first = SessionCover(sessionArtwork(stored, 900))
+        val renamed = SessionCover(sessionArtwork(sized, 900))
+        assertEquals(first, renamed)
+        assertEquals(first.hashCode(), renamed.hashCode())
+        assertEquals(sized, first.sharp)
+        assertEquals(stored, first.stored)
+    }
+
+    @Test
+    fun `two songs are two covers`() {
+        val other = "https://yt3.googleusercontent.com/Other-123=w120-h120-l90-rj"
+        assertNotEquals(SessionCover(sessionArtwork(stored, 900)), SessionCover(sessionArtwork(other, 900)))
+    }
+
+    @Test
+    fun `a cover with one address has nothing lesser to hand out first`() {
+        for (single in listOf(sized, "https://i.ytimg.com/vi/dQw4w9WgXcQ/hq720.jpg", "/storage/emulated/0/Music/song.flac")) {
+            val cover = SessionCover(sessionArtwork(single, 900))
+            assertEquals(single, cover.sharp, cover.stored)
+        }
     }
 }

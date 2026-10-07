@@ -1,0 +1,79 @@
+/*
+ * Copyright (C) 2026 InterTune
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+package com.dd3boh.outertune.widget
+
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.File
+
+/**
+ * The widget shows the new song and the right button at once, and gets its pictures when they are
+ * there. The title and the play state used to be written only after three covers had been
+ * downloaded one after the other, under the lock every later write waits for. This reads the
+ * source, because the order of a write and a download cannot be seen without a phone.
+ */
+class WidgetWordsFirstTest {
+
+    private val store = File("src/main/java/com/dd3boh/outertune/widget/WidgetStore.kt").readText()
+
+    private val setNowPlaying = store
+        .substringAfter("suspend fun setNowPlaying(")
+        .substringBefore("private suspend fun picturesFor(")
+
+    private val hydrate = store
+        .substringAfter("suspend fun hydrate(")
+        .substringBefore("private suspend fun artFor(")
+
+    private val setList = store
+        .substringAfter("suspend fun setList(")
+        .substringBefore("private suspend fun rowPicturesFor(")
+
+    /** What runs under the lock: up to the first brace that closes at the lock's own depth. */
+    private val locked = setNowPlaying.substringAfter("mutex.withLock {").substringBefore("\n        }\n")
+
+    @Test
+    fun `the words are written under the lock, and nothing is downloaded there`() {
+        assertTrue("write(context" in locked)
+        for (download in listOf("artFor(", "artInSizes(", "picturesFor(", "imageLoader")) {
+            assertFalse("$download under the lock holds up the title and the play button", download in locked)
+        }
+    }
+
+    @Test
+    fun `the widget is told to draw before the pictures are fetched`() {
+        val draws = setNowPlaying.indexOf("updateAll(context)")
+        val fetches = setNowPlaying.indexOf("picturesFor(")
+        assertTrue(draws in 0 until fetches)
+        assertTrue("the fetch is after the lock is let go", fetches > setNowPlaying.indexOf(locked) + locked.length)
+    }
+
+    @Test
+    fun `a row of Home is written without waiting for its pictures either`() {
+        // the same lock: a download under it here holds up the next song's title just the same
+        val rows = setList.substringAfter("mutex.withLock {").substringBefore("\n        }\n")
+        assertTrue("write(context" in rows)
+        for (download in listOf("artFor(", "artInSizes(", "rowPicturesFor(", "imageLoader")) {
+            assertFalse("$download under the lock holds up the title and the play button", download in rows)
+        }
+        assertTrue(setList.indexOf("updateAll(context)") in 0 until setList.indexOf("rowPicturesFor("))
+    }
+
+    @Test
+    fun `a widget that has just appeared is drawn before its pictures are fetched`() {
+        val filling = hydrate.substringAfter("mutex.withLock {").substringBefore("\n        }\n")
+        assertTrue("write(context" in filling)
+        for (download in listOf("artFor(", "artInSizes(", "imageLoader")) {
+            assertFalse("$download under the lock holds up the title and the play button", download in filling)
+        }
+        assertTrue(hydrate.indexOf("updateAll(context)") in 0 until hydrate.indexOf("artInSizes("))
+        // the rows it reads from the library are read under that lock
+        val fromLibrary = hydrate.substringAfter("private suspend fun fromLibrary(")
+        assertFalse("artFor(" in fromLibrary)
+        assertFalse("imageLoader" in fromLibrary)
+    }
+}

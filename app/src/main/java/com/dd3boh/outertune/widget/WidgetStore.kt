@@ -71,14 +71,21 @@ object WidgetStore {
 
     private val mutex = Mutex()
 
+    /** One download of now playing artwork at a time, and none of it under [mutex]. */
+    private val artMutex = Mutex()
+
+    /** The song that plays, as last written: the only one whose artwork is worth a download. */
+    @Volatile
+    private var wantedArt: String? = null
+
     /**
-     * The song whose big cover was last tried in this process. A cover that cannot be made (no
+     * The song whose artwork was last tried in this process. Artwork that cannot be made (no
      * network, a local file with no embedded art, a thumbnail url that keeps failing) stays
-     * missing, and trying it again on every play and pause would hold the lock, and the write
-     * behind it, until the fetch fails. So a missing cover for the same song is tried once per
-     * process; a song change always tries, and a new process tries again.
+     * missing, and trying it again on every play and pause would be a download that fails each
+     * time. So missing artwork for the same song is tried once per process; a song change always
+     * tries, and a new process tries again.
      */
-    private var lastBigArtAttempt: String? = null
+    private var lastArtAttempt: String? = null
 
     /**
      * What the widget is drawing, held in memory as well as on disk.
@@ -180,8 +187,14 @@ object WidgetStore {
 
     /**
      * The song that is playing, and whether it is. Called on every song change and every play or
-     * pause, so it does as little as it can: the artwork is fetched only when the song changed,
-     * apart from one try per process at a big cover that is missing for the current song.
+     * pause.
+     *
+     * Words first, pictures after. The title, the artist and the play button are written with
+     * whatever artwork the phone already has and the widget is told to draw. Only then is the
+     * artwork fetched, outside the lock (see [picturesFor]). It used to be fetched first, three
+     * sizes one after the other, with the words waiting behind them and behind them the next
+     * song's words: on a slow connection the widget showed the last song and the wrong button for
+     * as long as that took.
      *
      * The state is read through [state] under the lock rather than passed in, because these calls
      * arrive from the player a few milliseconds apart and finish in whatever order the disk
@@ -190,27 +203,19 @@ object WidgetStore {
      */
     suspend fun setNowPlaying(context: Context, state: suspend () -> NowState) {
         val widgets = hasWidgets(context)
+        var owed: Pair<MediaMetadata, List<Int>>? = null
         mutex.withLock {
             val (song, isPlaying) = state()
             val old = read(context)
+            wantedArt = song?.id
             if (song == null) {
                 write(context, old.copy(nowPlaying = null, isPlaying = false, updatedAt = System.currentTimeMillis()))
             } else {
                 val same = old.nowPlaying?.id == song.id
-                // The picture is the expensive half and only a widget needs it. The words are
-                // written either way, so a widget added mid-song opens on the right song. Two
-                // sizes, because a widget given over to the artwork wants a real cover while one
-                // with a list beside it wants a thumbnail.
-                // The big cover is also tried when the current song's file is missing, say because
-                // its fetch failed while offline, so a restart brings the real cover back instead of
-                // the thumbnail until the next song. shouldFetchBigArt caps that at once per song
-                // per process; artFor returns at once when the file exists.
-                if (widgets && shouldFetchBigArt(same, File(bigArtPath(context, song.id)).exists(), song.id, lastBigArtAttempt)) {
-                    lastBigArtAttempt = song.id
-                    artFor(context, song.id, artModel(song, ART_BIG_PX), ART_BIG_PX)
-                }
-                val art = if (same) old.nowPlaying?.artPath
-                else if (widgets) artFor(context, song.id, artModel(song, ART_NOW_PX), ART_NOW_PX) else null
+                // The picture is only for a widget. The words are written either way, so a widget
+                // added mid-song opens on the right song.
+                val art = (if (widgets) artOnPhone(context, song.id, ART_NOW_PX) else null)
+                    ?: old.nowPlaying?.artPath.takeIf { same }
                 val now = WidgetSong(
                     id = song.id,
                     title = song.title,
@@ -227,29 +232,75 @@ object WidgetStore {
                 )
                 // Recently played is kept here rather than queried: the song that just started is
                 // the newest there is, and the widget should not have to ask the database to know it.
-                // The small picture is for a widget too, and cost a fetch, an encode and a write on
-                // every new song for everyone else. Pause listen history says the app keeps no
-                // record of what plays; the widget's own list is a record too, so it stops as well
-                // while that is on, and so does fetching a picture for a row nextRecent would only
-                // throw away unused.
+                // Pause listen history says the app keeps no record of what plays; the widget's own
+                // list is a record too, so it stops as well while that is on, and so does making a
+                // picture for a row nextRecent would only throw away unused.
                 val paused = context.dataStore.get(PauseListenHistoryKey, false)
-                val recent = nextRecent(
-                    old.recent,
-                    now.copy(artPath = if (widgets && !paused) pickArt(context, now) else now.artPath),
-                    paused = paused,
-                    maxPicks = WidgetLayout.MAX_PICKS,
-                )
+                val row = (if (widgets && !paused) artOnPhone(context, song.id, ART_PICK_PX) else null) ?: now.artPath
+                val recent = nextRecent(old.recent, now.copy(artPath = row), paused = paused, maxPicks = WidgetLayout.MAX_PICKS)
                 write(context, old.copy(nowPlaying = now, isPlaying = isPlaying, recent = recent, updatedAt = System.currentTimeMillis()))
+                if (widgets) {
+                    // Three sizes: a widget given over to the artwork wants a real cover, one with
+                    // a title beside it a smaller one, and a list row a thumbnail.
+                    val sizes = listOfNotNull(ART_BIG_PX, ART_NOW_PX, ART_PICK_PX.takeIf { !paused })
+                    val missing = sizes.any { !artFile(context, song.id, it).exists() }
+                    if (shouldFetchArt(same, missing, song.id, lastArtAttempt)) {
+                        lastArtAttempt = song.id
+                        owed = song to sizes
+                    }
+                }
             }
             prune(context, read(context))
         }
         if (widgets) MusicWidget().updateAll(context)
+        owed?.let { (song, sizes) ->
+            if (picturesFor(context, song, sizes)) MusicWidget().updateAll(context)
+        }
     }
 
-    /** One of Home's rows as Home is showing it. The widget and the app then hold the same songs. */
+    /**
+     * The artwork of the song that plays, once its words are on the widget: fetched outside the
+     * lock, so neither a pause nor the next song's title waits behind a download, and then written
+     * into the snapshot. True when the widget has something new to draw.
+     */
+    private suspend fun picturesFor(context: Context, song: MediaMetadata, sizes: List<Int>): Boolean {
+        val made = artMutex.withLock {
+            // Skipped past while another song's artwork was downloading: nobody waits for this one.
+            if (wantedArt != song.id) return false
+            artInSizes(context, song.id, sizes) { px -> artModel(song, px) }
+        }
+        if (!made) return false
+        mutex.withLock {
+            val snapshot = read(context)
+            // The song may have changed since. Its row in Recently played is still its own.
+            val now = snapshot.nowPlaying?.takeIf { it.id == song.id }?.let {
+                val art = artOnPhone(context, song.id, ART_NOW_PX) ?: it.artPath
+                it.copy(artPath = art, colour = it.colour ?: artColour(art))
+            }
+            val row = artOnPhone(context, song.id, ART_PICK_PX)
+            write(
+                context,
+                snapshot.copy(
+                    nowPlaying = now ?: snapshot.nowPlaying,
+                    recent = snapshot.recent.map { if (it.id == song.id && row != null) it.copy(artPath = row) else it },
+                    updatedAt = System.currentTimeMillis(),
+                ),
+            )
+        }
+        return true
+    }
+
+    /**
+     * One of Home's rows as Home is showing it. The widget and the app then hold the same songs.
+     *
+     * Words first here too: a row is written with the artwork the phone already has, and what is
+     * missing is fetched outside the lock (see [rowPicturesFor]). Fetched under it, a row of new
+     * songs on a slow connection kept the next song's title and the play button waiting.
+     */
     suspend fun setList(context: Context, which: WidgetList, songs: List<MediaMetadata>) {
         val widgets = hasWidgets(context)
         var changed = false
+        var owed = emptyList<MediaMetadata>()
         mutex.withLock {
             val old = read(context)
             val wanted = songs.take(WidgetLayout.MAX_PICKS)
@@ -260,7 +311,7 @@ object WidgetStore {
                     id = song.id,
                     title = song.title,
                     artist = song.artists.joinToString(", ") { it.name },
-                    artPath = byId[song.id]?.artPath ?: if (widgets) artFor(context, song.id, artModel(song, ART_PICK_PX), ART_PICK_PX) else null,
+                    artPath = byId[song.id]?.artPath ?: if (widgets) artOnPhone(context, song.id, ART_PICK_PX) else null,
                     thumbnailUrl = song.thumbnailUrl,
                     durationSec = song.duration,
                     isLocal = song.isLocal,
@@ -269,43 +320,105 @@ object WidgetStore {
             write(context, old.withList(which, list).copy(updatedAt = System.currentTimeMillis()))
             prune(context, read(context))
             changed = true
+            if (widgets) {
+                val bare = list.filter { it.artPath == null }.mapTo(HashSet()) { it.id }
+                owed = wanted.filter { it.id in bare }
+            }
         }
         if (widgets && changed) MusicWidget().updateAll(context)
+        if (owed.isNotEmpty() && rowPicturesFor(context, which, owed)) MusicWidget().updateAll(context)
+    }
+
+    /**
+     * The artwork of rows written without any, fetched outside the lock and then written into the
+     * list, for the rows that are still in it. True when the widget has something new to draw.
+     */
+    private suspend fun rowPicturesFor(context: Context, which: WidgetList, songs: List<MediaMetadata>): Boolean {
+        val made = HashMap<String, String>()
+        for (song in songs) {
+            // One at a time with the now playing artwork, which takes its turn between two rows.
+            artMutex.withLock {
+                artFor(context, song.id, artModel(song, ART_PICK_PX), ART_PICK_PX)?.let { made[song.id] = it }
+            }
+        }
+        if (made.isEmpty()) return false
+        mutex.withLock {
+            val snapshot = read(context)
+            val rows = snapshot.list(which).map { if (it.artPath == null) it.copy(artPath = made[it.id]) else it }
+            write(context, snapshot.withList(which, rows).copy(updatedAt = System.currentTimeMillis()))
+        }
+        return true
     }
 
     /**
      * A widget has appeared. Whatever the snapshot is missing because there was no widget to want
-     * it, fetch now: the artwork of what it already knows, and Quick picks from the library when
-     * Home has not filled them in. Then draw.
+     * it, get now: Quick picks from the library when Home has not filled them in, and the artwork
+     * of what it already knows.
+     *
+     * Words first, as everywhere else here. What the snapshot and the library know is written with
+     * the artwork the phone has and the widget is drawn; the rest of the artwork is fetched after
+     * that, outside the lock, and written when it is all there. It used to be fetched first, under
+     * the lock, so a new widget on a slow connection stayed empty until the last cover of every
+     * list was in, and a song change in that stretch waited as well.
      */
     suspend fun hydrate(context: Context) {
         if (!hasWidgets(context)) return
+        var playing: WidgetSong? = null
+        var bare = emptyList<WidgetSong>()
         mutex.withLock {
             var snapshot = read(context)
-            val now = snapshot.nowPlaying
-            if (now != null && (now.artPath == null || now.colour == null)) {
-                val art = now.artPath ?: artFor(context, now.id, artModel(now), ART_NOW_PX)
-                snapshot = snapshot.copy(nowPlaying = now.copy(artPath = art, colour = now.colour ?: artColour(art)))
+            snapshot.nowPlaying?.let { now ->
+                if (now.artPath == null || now.colour == null) {
+                    val art = now.artPath ?: artOnPhone(context, now.id, ART_NOW_PX)
+                    snapshot = snapshot.copy(nowPlaying = now.copy(artPath = art, colour = now.colour ?: artColour(art)))
+                }
             }
-            if (now != null) artFor(context, now.id, artModel(now, ART_BIG_PX), ART_BIG_PX)
             // Every list, not only the one this widget shows: a second widget, or the same one
             // set to another list, then has something to draw the moment it is asked.
             for (which in WidgetList.entries) {
                 val filled = snapshot.list(which).ifEmpty { fromLibrary(context, which) }
                 snapshot = snapshot.withList(which, filled.map { song ->
                     if (song.artPath != null) song
-                    else song.copy(artPath = artFor(context, song.id, artModel(song, ART_PICK_PX), ART_PICK_PX))
+                    else song.copy(artPath = artOnPhone(context, song.id, ART_PICK_PX))
                 })
             }
             write(context, snapshot)
             prune(context, read(context))
+            playing = snapshot.nowPlaying
+            bare = WidgetList.entries.flatMap { snapshot.list(it) }.filter { it.artPath == null }.distinctBy { it.id }
+        }
+        MusicWidget().updateAll(context)
+
+        val now = playing
+        val made = now != null && artMutex.withLock {
+            artInSizes(context, now.id, listOf(ART_BIG_PX, ART_NOW_PX)) { px -> artModel(now, px) }
+        }
+        val rows = HashMap<String, String>()
+        for (song in bare) {
+            artMutex.withLock {
+                artFor(context, song.id, artModel(song, ART_PICK_PX), ART_PICK_PX)?.let { rows[song.id] = it }
+            }
+        }
+        if (!made && rows.isEmpty()) return
+        mutex.withLock {
+            var snapshot = read(context)
+            // Only if it is still the song that plays; a row is its own wherever it still is.
+            snapshot.nowPlaying?.takeIf { it.id == now?.id }?.let { song ->
+                val art = artOnPhone(context, song.id, ART_NOW_PX) ?: song.artPath
+                snapshot = snapshot.copy(nowPlaying = song.copy(artPath = art, colour = song.colour ?: artColour(art)))
+            }
+            for (which in WidgetList.entries) {
+                snapshot = snapshot.withList(which, snapshot.list(which).map { if (it.artPath == null) it.copy(artPath = rows[it.id]) else it })
+            }
+            write(context, snapshot)
         }
         MusicWidget().updateAll(context)
     }
 
     /**
      * A row straight from the library, for a widget added before Home has ever filled that row.
-     * The same queries Home uses, so the widget is never emptier than the app.
+     * The same queries Home uses, so the widget is never emptier than the app. With the artwork
+     * the phone has and no more: this runs under the lock (see [hydrate]).
      */
     private suspend fun fromLibrary(context: Context, which: WidgetList): List<WidgetSong> = runCatching {
         val database = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java).database()
@@ -325,7 +438,7 @@ object WidgetStore {
                 id = meta.id,
                 title = meta.title,
                 artist = meta.artists.joinToString(", ") { it.name },
-                artPath = artFor(context, meta.id, artModel(meta, ART_PICK_PX), ART_PICK_PX),
+                artPath = artOnPhone(context, meta.id, ART_PICK_PX),
                 thumbnailUrl = meta.thumbnailUrl,
                 durationSec = meta.duration,
                 isLocal = meta.isLocal,
@@ -338,9 +451,12 @@ object WidgetStore {
         decode(path)?.extractThemeColor()?.toArgb()
     }.getOrNull()
 
-    /** A row-sized copy of the now playing artwork, for the Recently played list. */
-    private suspend fun pickArt(context: Context, song: WidgetSong): String? =
-        artFor(context, song.id, artModel(song, ART_PICK_PX), ART_PICK_PX) ?: song.artPath
+    /**
+     * The artwork file a song already has at [px], if any: the cover at that size before one made
+     * from the stored address (see lesserArtFile).
+     */
+    private fun artOnPhone(context: Context, id: String, px: Int): String? =
+        listOf(artFile(context, id, px), lesserArtFile(context, id, px)).firstOrNull { it.exists() }?.absolutePath
 
     /** What to ask Coil for a song's artwork at [px], best first (see coverAddresses). */
     private fun artModel(song: MediaMetadata, px: Int = ART_NOW_PX): List<Any> = when {
@@ -380,12 +496,60 @@ object WidgetStore {
                     val cropped = if (bitmap.width == bitmap.height) bitmap
                     else Bitmap.createBitmap(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side)
                     val square = if (cropped.width > px) cropped.scale(px, px) else cropped
-                    out.outputStream().use { square.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                    return@withContext out.absolutePath
+                    return@withContext if (save(square, out)) out.absolutePath else null
                 }
                 null
             }
         }.onFailure { Log.w(TAG, "Could not cache the widget artwork", it) }.getOrNull()
+    }
+
+    /**
+     * A song's artwork in each of [sizes] from one download, where each size used to be a download
+     * of its own: the cover is asked for at the largest size that is missing and scaled down for
+     * the others. Files that are there are left alone. True when one was written.
+     *
+     * As in [artFor], only the first model gives the cover at its size, and what a later one gives
+     * is kept under the other name.
+     */
+    private suspend fun artInSizes(context: Context, id: String, sizes: List<Int>, models: (Int) -> List<Any>): Boolean {
+        val wanted = sizes.filter { !artFile(context, id, it).exists() }.sortedDescending()
+        val largest = wanted.firstOrNull() ?: return false
+        return runCatching {
+            withContext(Dispatchers.IO) {
+                for ((nth, model) in models(largest).withIndex()) {
+                    val file = { px: Int -> if (nth == 0) artFile(context, id, px) else lesserArtFile(context, id, px) }
+                    val missing = wanted.filter { !file(it).exists() }
+                    if (missing.isEmpty()) return@withContext false
+                    val result = context.imageLoader.execute(
+                        ImageRequest.Builder(context).data(model).allowHardware(false).size(largest, largest).build()
+                    )
+                    val bitmap = result.image?.toBitmap() ?: continue
+                    // Cropped to the middle before it is scaled, for the reason given in artFor.
+                    val side = minOf(bitmap.width, bitmap.height)
+                    var square = if (bitmap.width == bitmap.height) bitmap
+                    else Bitmap.createBitmap(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side)
+                    // Largest first, each made from the one before: no step is more than a halving.
+                    var saved = false
+                    for (px in missing) {
+                        if (square.width > px) square = square.scale(px, px)
+                        saved = save(square, file(px)) || saved
+                    }
+                    return@withContext saved
+                }
+                false
+            }
+        }.onFailure { Log.w(TAG, "Could not cache the widget artwork", it) }.getOrDefault(false)
+    }
+
+    /**
+     * Written beside the file and moved over it. Artwork is fetched outside the lock now, so a
+     * snapshot may be written, and this file looked for and read, while it is being made: it has to
+     * be there whole or not at all, and two fetches of one cover must not end up as a mix of both.
+     */
+    private fun save(artwork: Bitmap, out: File): Boolean {
+        val tmp = File.createTempFile("art", ".tmp", out.parentFile)
+        tmp.outputStream().use { artwork.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        return tmp.renameTo(out).also { moved -> if (!moved) tmp.delete() }
     }
 
     /**
@@ -418,13 +582,13 @@ interface WidgetEntryPoint {
 }
 
 /**
- * Whether setNowPlaying should (re)fetch the big cover: always for a song that was not already
- * playing, and otherwise only when its file is missing and this is not the song id already tried
- * in this process. Kept apart from [WidgetStore.setNowPlaying] so the once per song retry limit is
- * tested without a real file, a fetch, or the mutex.
+ * Whether setNowPlaying should fetch the now playing artwork: when some of it is [missing], always
+ * for a song that was not already playing, and otherwise only when this is not the song already
+ * tried in this process. Kept apart from [WidgetStore.setNowPlaying] so the once per song limit is
+ * tested without a real file, a fetch, or the lock.
  */
-internal fun shouldFetchBigArt(same: Boolean, fileExists: Boolean, songId: String, lastAttempt: String?): Boolean =
-    !same || (!fileExists && lastAttempt != songId)
+internal fun shouldFetchArt(same: Boolean, missing: Boolean, songId: String, lastAttempt: String?): Boolean =
+    missing && (!same || lastAttempt != songId)
 
 /**
  * The id-keyed art map WidgetStore.decoded() builds, paired with the now playing cover read from

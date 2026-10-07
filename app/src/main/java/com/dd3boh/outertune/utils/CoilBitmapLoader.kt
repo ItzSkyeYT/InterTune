@@ -20,6 +20,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.scale
 import androidx.media3.common.util.BitmapLoader
 import coil3.ImageLoader
+import coil3.annotation.ExperimentalCoilApi
 import coil3.asImage
 import coil3.decode.DataSource
 import coil3.fetch.FetchResult
@@ -30,6 +31,7 @@ import coil3.key.Keyer
 import coil3.request.CachePolicy
 import coil3.request.ErrorResult
 import coil3.request.ImageRequest
+import coil3.request.ImageResult
 import coil3.request.Options
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
@@ -64,21 +66,43 @@ class CoilBitmapLoader @Inject constructor(
     /** The longest side the system keeps of the cover it is handed, in pixels on this screen. */
     private val artPx get() = sessionArtPx(context.resources.displayMetrics.density)
 
+    /**
+     * Told when the large cover has arrived for a song that was first answered with its small one:
+     * the address the song is stored with, and the address of the cover now in hand. media3 does
+     * not ask again by itself (see SessionPlayer), so whoever holds the session has to make it.
+     * Called on the thread the cover was loaded on.
+     */
+    var sharper: ((stored: String, sharp: String) -> Unit)? = null
+
     private val covers by lazy {
-        LastAsked<Uri, Bitmap>(scope, ::cover) { drawPlaceholder(context, artPx, artPx) }
+        LastAsked<SessionCover, Bitmap>(
+            scope,
+            find = ::cover,
+            instead = { drawPlaceholder(context, artPx, artPx) },
+            better = { cover -> sharper?.invoke(cover.stored, cover.sharp) },
+            retryAfterMs = LARGE_COVER_RETRY_MS,
+        )
     }
 
-    override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> = covers.ask(uri)
+    override fun loadBitmap(uri: Uri): ListenableFuture<Bitmap> =
+        covers.ask(SessionCover(sessionArtwork(uri.toString(), artPx)))
 
-    /** The cover at [uri] for the system, or null when it cannot be had right now. */
-    private suspend fun cover(uri: Uri): Bitmap? {
-        val stored = uri.toString()
+    /**
+     * The cover for the system, or null when it cannot be had right now.
+     *
+     * The large cover can be seconds away on a slow connection and out of reach without one, and
+     * until this answers the lock screen and the notification show no picture at all. So unless
+     * the large one is on the phone already, the cover the song is stored with goes out first,
+     * through [meanwhile]: it is on the phone for most songs and a few kilobytes for the rest. The
+     * large one is fetched behind it, and LastAsked hands it to whoever asks from then on.
+     */
+    private suspend fun cover(asked: SessionCover, meanwhile: (Bitmap) -> Unit): Bitmap? {
         try {
             // local images
-            if (stored.startsWith("/storage/")) {
+            if (asked.sharp.startsWith("/storage/")) {
                 val result = context.imageLoader.execute(
                     ImageRequest.Builder(context)
-                        .data(LocalArtworkPath(stored))
+                        .data(LocalArtworkPath(asked.sharp))
                         .allowHardware(false)
                         .diskCachePolicy(CachePolicy.DISABLED)
                         .build()
@@ -90,25 +114,18 @@ class CoilBitmapLoader @Inject constructor(
                 return result.image!!.toBitmap()
             }
 
-            var failure: Throwable? = null
-            for (address in sessionArtwork(stored, artPx)) {
-                val result = context.imageLoader.execute(
-                    ImageRequest.Builder(context)
-                        .data(address)
-                        // decoded straight to what the system keeps, and never blown up to it
-                        .size(artPx, artPx)
-                        .precision(Precision.INEXACT)
-                        .allowHardware(false)
-                        // LastAsked keeps the one that matters. In Coil's cache a cover this size
-                        // is megabytes that nothing else can use, and a few songs of them push
-                        // every list thumbnail out (see the note on hardware bitmaps in App.kt).
-                        .memoryCachePolicy(CachePolicy.DISABLED)
-                        .build()
-                )
-                if (result is SuccessResult) return result.image.toBitmap()
-                failure = (result as ErrorResult).throwable
+            var handedOut = false
+            if (asked.stored != asked.sharp && !onPhone(asked.sharp)) {
+                (load(asked.stored) as? SuccessResult)?.let {
+                    meanwhile(it.image.toBitmap())
+                    handedOut = true
+                }
             }
-            reportException(ExecutionException(failure))
+            val result = load(asked.sharp)
+            if (result is SuccessResult) return result.image.toBitmap()
+            // With the stored cover handed out, a large one that cannot be had means no connection,
+            // which is nothing to report at every play and pause.
+            if (!handedOut) reportException(ExecutionException((result as ErrorResult).throwable))
             return null
         } catch (e: CancellationException) {
             throw e
@@ -117,6 +134,30 @@ class CoilBitmapLoader @Inject constructor(
             return null
         }
     }
+
+    private suspend fun load(address: String): ImageResult = context.imageLoader.execute(
+        ImageRequest.Builder(context)
+            .data(address)
+            // decoded straight to what the system keeps, and never blown up to it
+            .size(artPx, artPx)
+            .precision(Precision.INEXACT)
+            .allowHardware(false)
+            // LastAsked keeps the one that matters. In Coil's cache a cover this size
+            // is megabytes that nothing else can use, and a few songs of them push
+            // every list thumbnail out (see the note on hardware bitmaps in App.kt).
+            .memoryCachePolicy(CachePolicy.DISABLED)
+            .build()
+    )
+
+    /**
+     * Whether the image at [address] is in Coil's files, so that asking for it costs no download.
+     * An address is its own key there. With the image cache switched off in settings nothing is,
+     * and every cover is one of the two downloads.
+     */
+    @OptIn(ExperimentalCoilApi::class)
+    private fun onPhone(address: String): Boolean = runCatching {
+        context.imageLoader.diskCache?.openSnapshot(address)?.use { true } ?: false
+    }.getOrDefault(false)
 
     override suspend fun fetch(): FetchResult? {
         return try {
@@ -216,6 +257,12 @@ class CoilBitmapLoader @Inject constructor(
  */
 private const val SESSION_ART_DP = 320
 
+/**
+ * How long a large cover that could not be fetched is left alone, while the small one stands in
+ * for it, before the system asking for the cover starts another download.
+ */
+private const val LARGE_COVER_RETRY_MS = 15_000L
+
 /** That limit in pixels on a screen of this [density]. */
 fun sessionArtPx(density: Float): Int = (SESSION_ART_DP * density + 0.5f).toInt()
 
@@ -230,10 +277,29 @@ fun sessionArtPx(density: Float): Int = (SESSION_ART_DP * density + 0.5f).toInt(
  * asked for [px], rounded up to the size the player asks for on the same screen (artSizeBucket), so
  * whichever of the two comes second finds the file on disk.
  *
- * The stored address stays as a second try. With no connection the large cover cannot be fetched,
- * while the small one is on disk for every song played before this change.
+ * The stored address stays as the other one. With no connection the large cover cannot be fetched,
+ * and on a slow one it is seconds away, while the small one is on the phone for most songs: it is
+ * what the system is given until the large one is there (see CoilBitmapLoader.cover).
  */
 fun sessionArtwork(stored: String, px: Int): List<String> = coverAddresses(stored, artSizeBucket(px))
+
+/**
+ * A cover as the system asks for it: its [addresses], best first (see [sessionArtwork]).
+ *
+ * Two of these are the same cover when their best address is the same. Once the large cover has
+ * taken the small one's place the session names the cover by the large address (see SessionPlayer),
+ * and asking by that name has to find the cover that is already in hand, not start another.
+ */
+internal class SessionCover(val addresses: List<String>) {
+    /** The cover at the size the system keeps. */
+    val sharp: String get() = addresses.first()
+
+    /** The cover as the song is stored with it: the same address when there is only the one. */
+    val stored: String get() = addresses.last()
+
+    override fun equals(other: Any?): Boolean = other is SessionCover && other.sharp == sharp
+    override fun hashCode(): Int = sharp.hashCode()
+}
 
 class LocalArtworkPathKeyer : Keyer<LocalArtworkPath> {
     override fun key(

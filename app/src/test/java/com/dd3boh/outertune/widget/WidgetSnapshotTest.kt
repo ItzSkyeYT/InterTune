@@ -120,20 +120,21 @@ class WidgetSnapshotTest {
     }
 
     @Test
-    fun `the big cover is retried once per song, and every time the song changes`() {
-        // A new song always gets its first try, file present or not.
-        assertTrue(shouldFetchBigArt(same = false, fileExists = false, songId = "a", lastAttempt = null))
-        assertTrue(shouldFetchBigArt(same = false, fileExists = true, songId = "a", lastAttempt = "z"))
+    fun `missing artwork is tried once per song, and every time the song changes`() {
+        // A new song with artwork missing always gets its try.
+        assertTrue(shouldFetchArt(same = false, missing = true, songId = "a", lastAttempt = null))
+        assertTrue(shouldFetchArt(same = false, missing = true, songId = "a", lastAttempt = "z"))
         // A song played again after its last try failed still gets a try.
-        assertTrue(shouldFetchBigArt(same = false, fileExists = false, songId = "a", lastAttempt = "a"))
-        // The same song, file already there: nothing to do regardless of what was last tried.
-        assertFalse(shouldFetchBigArt(same = true, fileExists = true, songId = "a", lastAttempt = null))
-        // The same song, file missing, not tried yet this process: worth a try.
-        assertTrue(shouldFetchBigArt(same = true, fileExists = false, songId = "a", lastAttempt = null))
-        assertTrue(shouldFetchBigArt(same = true, fileExists = false, songId = "a", lastAttempt = "b"))
-        // The same song, file still missing, already tried for this exact id: do not retry on
-        // every play and pause.
-        assertFalse(shouldFetchBigArt(same = true, fileExists = false, songId = "a", lastAttempt = "a"))
+        assertTrue(shouldFetchArt(same = false, missing = true, songId = "a", lastAttempt = "a"))
+        // Nothing missing: nothing to fetch, whatever was last tried and whichever song it is.
+        assertFalse(shouldFetchArt(same = true, missing = false, songId = "a", lastAttempt = null))
+        assertFalse(shouldFetchArt(same = false, missing = false, songId = "a", lastAttempt = "z"))
+        // The same song, artwork missing, not tried yet this process: worth a try.
+        assertTrue(shouldFetchArt(same = true, missing = true, songId = "a", lastAttempt = null))
+        assertTrue(shouldFetchArt(same = true, missing = true, songId = "a", lastAttempt = "b"))
+        // The same song, still missing, already tried for this exact id: do not retry on every
+        // play and pause.
+        assertFalse(shouldFetchArt(same = true, missing = true, songId = "a", lastAttempt = "a"))
     }
 
     @Test

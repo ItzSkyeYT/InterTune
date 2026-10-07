@@ -642,7 +642,15 @@ class MusicService : MediaLibraryService(),
             toggleLibrary = ::toggleLibrary
         }
 
-        mediaSession = MediaLibrarySession.Builder(this, player, mediaLibrarySessionCallback)
+        // The session is first handed the small cover that is on the phone, so the lock screen is
+        // never without a picture while the large one downloads. When that arrives the session has
+        // to be made to ask again, which only its player can do: see SessionPlayer.
+        val covers = CoilBitmapLoader(this)
+        val sessionPlayer = SessionPlayer(player)
+        covers.sharper = { stored, sharp ->
+            scope.launch { sessionPlayer.coverArrived(stored.toUri(), sharp.toUri()) }
+        }
+        mediaSession = MediaLibrarySession.Builder(this, sessionPlayer, mediaLibrarySessionCallback)
             .setSessionActivity(
                 PendingIntent.getActivity(
                     this,
@@ -652,7 +660,7 @@ class MusicService : MediaLibraryService(),
                 )
             )
             // TODO: do i even want to have smaller art for media notification
-            .setBitmapLoader(CoilBitmapLoader(this))
+            .setBitmapLoader(covers)
             // Media3 otherwise sends the position every 3 seconds while playing, to every connected
             // controller and to the platform session, which is a binder call into system_server
             // that fans out to System UI, Bluetooth and anything else listening. None of them need
