@@ -352,8 +352,8 @@ object WidgetStore {
 
     /**
      * A widget has appeared. Whatever the snapshot is missing because there was no widget to want
-     * it, get now: Quick picks from the library when Home has not filled them in, and the artwork
-     * of what it already knows.
+     * it, get now: Quick picks from the library when Home has not filled them in, the rest of a
+     * Recently played that is still short, and the artwork of what it already knows.
      *
      * Words first, as everywhere else here. What the snapshot and the library know is written with
      * the artwork the phone has and the widget is drawn; the rest of the artwork is fetched after
@@ -376,7 +376,14 @@ object WidgetStore {
             // Every list, not only the one this widget shows: a second widget, or the same one
             // set to another list, then has something to draw the moment it is asked.
             for (which in WidgetList.entries) {
-                val filled = snapshot.list(which).ifEmpty { fromLibrary(context, which) }
+                val held = snapshot.list(which)
+                // Recently played is this file's own list, a song for each one played since the
+                // snapshot began: one or two on a new install, where the widget drew them and left
+                // the rest of its frame bare, so a short one is filled up with what History holds
+                // from before. A row of Home's is what Home showed, short or not, and Home writes
+                // it again at its next build: filled up here, it would shrink back then.
+                val wanting = if (which == WidgetList.RECENT) held.size < WidgetLayout.MAX_PICKS else held.isEmpty()
+                val filled = if (wanting) filledUp(held, fromLibrary(context, which), WidgetLayout.MAX_PICKS) else held
                 snapshot = snapshot.withList(which, filled.map { song ->
                     if (song.artPath != null) song
                     else song.copy(artPath = artOnPhone(context, song.id, ART_PICK_PX))
@@ -617,6 +624,14 @@ internal fun <B> coversFor(snapshot: WidgetSnapshot, old: Map<String, B>, decode
 internal fun nextRecent(old: List<WidgetSong>, played: WidgetSong, paused: Boolean, maxPicks: Int): List<WidgetSong> =
     if (paused) old
     else (listOf(played) + old).distinctBy { it.id }.take(maxPicks)
+
+/**
+ * [held] with the songs of [more] it does not hold yet after it, up to [maxPicks]: a list shorter
+ * than the widget has rows for, filled up from the library. What it held keeps its place and its
+ * own row, artwork and all.
+ */
+internal fun filledUp(held: List<WidgetSong>, more: List<WidgetSong>, maxPicks: Int): List<WidgetSong> =
+    (held + more).distinctBy { it.id }.take(maxPicks)
 
 /**
  * Every artwork file this snapshot is still using, so [WidgetStore.prune] never deletes one still
