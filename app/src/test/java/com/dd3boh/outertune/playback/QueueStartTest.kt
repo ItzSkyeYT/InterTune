@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.playback
 
+import androidx.media3.common.C
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.playback.queues.Queue
@@ -13,7 +14,9 @@ import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -63,6 +66,10 @@ class QueueStartTest {
     /**
      * Stands where MusicService does. It keeps queues by title, which is the board's key, renames
      * as the board does (a copy takes the old one's place), and writes down every call.
+     *
+     * It also keeps the one thing the board reads from the player, the song it holds, so that a
+     * test can say what was heard: a queue loaded on the song the player already holds joins
+     * round it and nothing is heard, and any other load starts its song (QueueBoard.setCurrQueue).
      */
     private class Service : QueueStart.Target {
         val asked = mutableListOf<String>()
@@ -70,10 +77,19 @@ class QueueStartTest {
         override var destroyed = false
         override val untitled = "Queue"
 
+        /** The song the player holds, and each song a load started, with where it started from. */
+        var playing: String? = null
+        val heard = mutableListOf<String>()
+
+        /** Set by a test that wants the steps to wait for the board, and completed when it says. */
+        var board: CompletableDeferred<Unit>? = null
+
         /** What the board was asked, without the player's lines. */
         fun board() = asked.filter { !it.startsWith("player") }
 
-        override suspend fun boardReady() {}
+        override suspend fun boardReady() {
+            board?.await()
+        }
 
         override fun addQueue(
             title: String,
@@ -108,6 +124,11 @@ class QueueStartTest {
             asked += "load '${queue?.title}' ${queue?.queue?.map { it.id }} at ${queue?.queuePos}" +
                 (if (shouldResume) " resuming" else "") +
                 " (origin ${queue?.origin}, slot ${queue?.originSlot}, run ${queue?.runId})"
+            val song = queue?.queue?.getOrNull(queue.queuePos)?.id ?: return
+            if (song == playing) return
+            playing = song
+            val from = if (shouldResume) queue.lastSongPos else C.TIME_UNSET
+            heard += if (from == C.TIME_UNSET) "$song from the top" else "$song from $from ms"
         }
 
         override fun start(playWhenReady: Boolean) {
@@ -339,8 +360,10 @@ class QueueStartTest {
         if (radio.asked.isCompleted) fail("the queue was asked for its answer")
     }
 
-    // Another tap before the answer. Neither order is what anyone would choose (the last answer
-    // wins, not the last tap), and neither is changed here: the board is asked what it always was.
+    // Another tap before the answer: the last tap wins. The earlier tap's answer used to be loaded
+    // when it came, over the song tapped after it. Answered in order, that was the second song,
+    // then the first from the top, then the second again from the top. Answered the other way
+    // round, the first song played for good.
 
     @Test
     fun `two taps, answered in the order they were made`() = runBlocking {
@@ -352,9 +375,13 @@ class QueueStartTest {
         first.asked.await()
         val two = launch { start.play(second, runId = 8) }
         second.asked.await()
+        val beforeAnswers = service.asked.toList()
 
         first.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("A2")), 0))
         one.join()
+        // The first tap's answer asks nothing of the board or the player.
+        assertEquals(beforeAnswers, service.asked)
+
         second.answer.complete(Queue.Status("B Mix", listOf(song("B"), song("B2")), 0))
         two.join()
 
@@ -365,16 +392,17 @@ class QueueStartTest {
                 // The second tap finds the first one's queue of one under the same name.
                 "add '$temp' [B] at 0 replace",
                 "load '$temp' [B] at 0 resuming (origin 3, slot 2, run 8)",
-                "rename '$temp' to 'A Mix'",
-                "add 'A Mix' [A, A2] at 0 replace",
-                "load 'A Mix' [A, A2] at 0 (origin 3, slot 2, run 7)",
                 "rename '$temp' to 'B Mix'",
                 "add 'B Mix' [B, B2] at 0 replace",
                 "load 'B Mix' [B, B2] at 0 (origin 3, slot 2, run 8)",
             ),
             service.board(),
         )
-        assertEquals(listOf("A Mix", "B Mix"), service.queues.map { it.title })
+        // B is loaded once and its queue joins round it.
+        assertEquals(listOf("A from the top", "B from the top"), service.heard)
+        assertEquals(listOf("B Mix"), service.queues.map { it.title })
+        // Each tap starts its song, and the one answer that counts starts the player once more.
+        assertEquals(listOf(started).repeat(3), service.asked.filter { it.startsWith("player") })
     }
 
     @Test
@@ -390,9 +418,11 @@ class QueueStartTest {
 
         second.answer.complete(Queue.Status("B Mix", listOf(song("B"), song("B2")), 0))
         two.join()
+        val afterSecond = service.asked.toList()
         first.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("A2")), 0))
         one.join()
 
+        assertEquals(afterSecond, service.asked)
         assertEquals(
             listOf(
                 "add '$temp' [A] at 0 replace",
@@ -402,12 +432,111 @@ class QueueStartTest {
                 "rename '$temp' to 'B Mix'",
                 "add 'B Mix' [B, B2] at 0 replace",
                 "load 'B Mix' [B, B2] at 0 (origin 3, slot 2, run 8)",
-                "rename '$temp' to 'A Mix'",
-                "add 'A Mix' [A, A2] at 0 replace",
-                "load 'A Mix' [A, A2] at 0 (origin 3, slot 2, run 7)",
             ),
             service.board(),
         )
+        assertEquals(listOf("A from the top", "B from the top"), service.heard)
+        assertEquals(listOf("B Mix"), service.queues.map { it.title })
+    }
+
+    @Test
+    fun `a list asked for before a tapped song does not take the player when it answers`() = runBlocking {
+        // An album tapped, then a song before the album has answered. The album names no song, so
+        // nothing of it is in the player yet, and its answer used to load it over the song.
+        val service = Service()
+        val album = LateQueue(preloadItem = null)
+        val radio = LateQueue(song("B"))
+        val start = QueueStart(service)
+        val one = launch { start.play(album, runId = 7) }
+        album.asked.await()
+        val two = launch { start.play(radio, runId = 8) }
+        radio.asked.await()
+
+        album.answer.complete(Queue.Status("Album", listOf(song("X"), song("Y")), 0))
+        one.join()
+        radio.answer.complete(Queue.Status("B Mix", listOf(song("B"), song("B2")), 0))
+        two.join()
+
+        assertEquals(listOf("B from the top"), service.heard)
+        assertEquals(listOf("B Mix"), service.queues.map { it.title })
+    }
+
+    @Test
+    fun `a tapped song gives way to a list asked for after it`() = runBlocking {
+        val service = Service()
+        val radio = LateQueue(song("A"))
+        val album = LateQueue(preloadItem = null)
+        val start = QueueStart(service)
+        val one = launch { start.play(radio, runId = 7) }
+        radio.asked.await()
+        val two = launch { start.play(album, runId = 8) }
+        album.asked.await()
+
+        // The song plays alone meanwhile. Its queue does not join it: the list was asked for last.
+        radio.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("A2")), 0))
+        one.join()
+        album.answer.complete(Queue.Status("Album", listOf(song("X"), song("Y")), 0))
+        two.join()
+
+        assertEquals(
+            listOf(
+                "add '$temp' [A] at 0 replace",
+                "load '$temp' [A] at 0 resuming (origin 3, slot 2, run 7)",
+                "add 'Album' [X, Y] at 0 replace",
+                "load 'Album' [X, Y] at 0 (origin 3, slot 2, run 8)",
+            ),
+            service.board(),
+        )
+        assertEquals(listOf("A from the top", "X from the top"), service.heard)
+    }
+
+    @Test
+    fun `an earlier tap's answer that fails has nothing to report once another tap was made`() = runBlocking {
+        val service = Service()
+        val first = LateQueue(song("A"))
+        val second = LateQueue(song("B"))
+        val start = QueueStart(service)
+        val failure = CompletableDeferred<Throwable?>()
+        val one = launch { failure.complete(runCatching { start.play(first, runId = 7) }.exceptionOrNull()) }
+        first.asked.await()
+        val two = launch { start.play(second, runId = 8) }
+        second.asked.await()
+
+        first.answer.completeExceptionally(IOException("no network"))
+        one.join()
+        assertNull(failure.await())
+
+        second.answer.complete(Queue.Status("B Mix", listOf(song("B"), song("B2")), 0))
+        two.join()
+        assertEquals(listOf("A from the top", "B from the top"), service.heard)
+    }
+
+    @Test
+    fun `of two taps made before the board is ready, only the second is loaded`() = runBlocking {
+        val service = Service().apply { board = CompletableDeferred() }
+        val first = LateQueue(song("A"))
+        val second = LateQueue(song("B"))
+        val start = QueueStart(service)
+        val one = launch { start.play(first, runId = 7) }
+        val two = launch { start.play(second, runId = 8) }
+        // Both are waiting for the board now.
+        yield()
+        assertEquals(emptyList<String>(), service.asked)
+
+        service.board?.complete(Unit)
+        second.asked.await()
+        // The first tap's song never reaches the board, so its stream is never asked for.
+        assertEquals(
+            listOf("add '$temp' [B] at 0 replace", "load '$temp' [B] at 0 resuming (origin 3, slot 2, run 8)"),
+            service.board(),
+        )
+        one.join()
+        if (first.asked.isCompleted) fail("the first tap's queue was asked for its answer")
+        second.answer.complete(Queue.Status("B Mix", listOf(song("B"), song("B2")), 0))
+        two.join()
+
+        assertEquals(listOf("B from the top"), service.heard)
+        assertEquals(listOf("B Mix"), service.queues.map { it.title })
     }
 
     private fun <T> List<T>.repeat(times: Int) = List(times) { this }.flatten()
