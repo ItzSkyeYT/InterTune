@@ -369,6 +369,12 @@ val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
 val SearchSourceKey = stringPreferencesKey("searchSource")
 
 val VisitorDataKey = stringPreferencesKey("visitorData")
+
+/**
+ * Which client served the last song and when the others were refused, as StreamOrder.encode writes
+ * it, so the first song after a launch is asked of the client that worked before it.
+ */
+val StreamOrderKey = stringPreferencesKey("streamOrder")
 val DataSyncIdKey = stringPreferencesKey("dataSyncId")
 val InnerTubeCookieKey = stringPreferencesKey("innerTubeCookie")
 val AccountNameKey = stringPreferencesKey("accountName")

@@ -165,8 +165,10 @@ class DownloadUtil @Inject constructor(
         // drains it at whatever rate it likes.
         //
         // 700ms, derived from the loudness scan's 350ms rather than invented. A download resolve
-        // costs two player requests on the healthy path, so this lands on the same requests per
-        // second as the scan we already decided was polite.
+        // cost two player requests on the healthy path, so this landed on the same requests per
+        // second as the scan we already decided was polite. It costs one now that the client which
+        // served the last song is asked first (StreamOrder), and the gap was left as it is: half
+        // the requests in the same time is nothing to take back.
         //
         // The asymmetry is the point. On a healthy network the gap is invisible, because the audio
         // transfer that follows takes seconds. On a refused network nothing transfers and every
