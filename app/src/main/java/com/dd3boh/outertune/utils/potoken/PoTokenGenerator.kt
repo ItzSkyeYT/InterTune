@@ -42,8 +42,11 @@ class PoTokenGenerator {
             // back therefore parks that thread forever while holding webPoTokenGenLock, so every
             // later song queues behind it and the player sits at "buffering" on 0:00 with nothing
             // logged. On a real phone in 0.10.5 that state was only recoverable by force stopping the
-            // app. Nothing at HEAD asks for a token, so this is a guard for whenever a client needs
-            // one again: a stalled page costs one song, not the player.
+            // app. No client in the stream chain asks for a token today, so there this is a guard
+            // for whenever one needs it again: a stalled page costs one song, not the player. The
+            // one caller today is the address a play is reported to
+            // (YTPlayerUtils.playerResponseAsAccount), which stops waiting sooner than this and
+            // lets the page finish for the next play.
             runBlocking {
                 withTimeoutOrNull(POTOKEN_TIMEOUT_MS) {
                     getWebClientPoToken(videoId, sessionId, forceRecreate = false)

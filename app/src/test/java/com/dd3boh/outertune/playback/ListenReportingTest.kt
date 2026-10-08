@@ -7,10 +7,15 @@
 package com.dd3boh.outertune.playback
 
 import com.dd3boh.outertune.constants.PlaybackAuthMode
+import com.dd3boh.outertune.playback.ListenReporting.AccountStep
 import com.dd3boh.outertune.playback.ListenReporting.AddressFrom
 import com.zionhuang.innertube.models.Context
 import com.zionhuang.innertube.models.YouTubeClient
 import com.zionhuang.innertube.models.YouTubeLocale
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
@@ -122,25 +127,33 @@ class ListenReportingTest {
         }
     }
 
-    // Whose /player request gives the address, while Unreleased.HISTORY_AS_ACCOUNT is tried.
+    // Whose /player request gives the address: the account's first, the visitor's when that gives none.
 
     private val accountThenVisitor = listOf(AddressFrom.ACCOUNT, AddressFrom.VISITOR)
     private val visitorOnly = listOf(AddressFrom.VISITOR)
 
     @Test
-    fun `the address is asked for as the account first only when signed in and playback may use the account`() {
-        assertEquals(accountThenVisitor, ListenReporting.addressRequests(asAccountTrial = true, loggedIn = true, authMode = PlaybackAuthMode.WHEN_REFUSED))
-        assertEquals(accountThenVisitor, ListenReporting.addressRequests(asAccountTrial = true, loggedIn = true, authMode = PlaybackAuthMode.ALWAYS))
-        assertEquals(visitorOnly, ListenReporting.addressRequests(asAccountTrial = true, loggedIn = true, authMode = PlaybackAuthMode.NEVER))
+    fun `the address is asked for as the account first when signed in and playback may use the account`() {
+        assertEquals(accountThenVisitor, ListenReporting.addressRequests(loggedIn = true, authMode = PlaybackAuthMode.WHEN_REFUSED))
+        assertEquals(accountThenVisitor, ListenReporting.addressRequests(loggedIn = true, authMode = PlaybackAuthMode.ALWAYS))
+    }
+
+    @Test
+    fun `nothing is asked as the account when signed out or when playback as the account is set to never`() {
+        assertEquals(visitorOnly, ListenReporting.addressRequests(loggedIn = true, authMode = PlaybackAuthMode.NEVER))
         PlaybackAuthMode.entries.forEach { mode ->
-            assertEquals(visitorOnly, ListenReporting.addressRequests(asAccountTrial = true, loggedIn = false, authMode = mode))
+            assertEquals(visitorOnly, ListenReporting.addressRequests(loggedIn = false, authMode = mode))
         }
     }
 
     @Test
-    fun `without the trial the address is the visitor's whatever else is set`() {
+    fun `the visitor's request is the last one in every combination, so a play is never worse off`() {
         for (loggedIn in listOf(true, false)) PlaybackAuthMode.entries.forEach { mode ->
-            assertEquals(visitorOnly, ListenReporting.addressRequests(asAccountTrial = false, loggedIn = loggedIn, authMode = mode))
+            val requests = ListenReporting.addressRequests(loggedIn, mode)
+            val combination = "signed in $loggedIn, $mode"
+            assertEquals(combination, AddressFrom.VISITOR, requests.last())
+            assertEquals("$combination: a request is made twice", requests.distinct(), requests)
+            assertEquals(combination, loggedIn && mode != PlaybackAuthMode.NEVER, AddressFrom.ACCOUNT in requests)
         }
     }
 
@@ -168,11 +181,61 @@ class ListenReportingTest {
     }
 
     @Test
-    fun `without the trial there is one request, as before`() {
+    fun `signed out there is one request, as before`() {
         val asked = mutableListOf<AddressFrom>()
         assertEquals(AddressFrom.VISITOR to address, ListenReporting.firstAddress(visitorOnly) { asked += it; address })
         assertNull(ListenReporting.firstAddress(visitorOnly) { asked += it; null })
         assertEquals(listOf(AddressFrom.VISITOR, AddressFrom.VISITOR), asked)
+    }
+
+    // The account's request waits for a script and for a WebView, so it is given so long and no longer.
+
+    @Test
+    fun `an answer that comes in time is the answer, and a request that fails is a failure and not a wait`(): Unit = runBlocking {
+        assertEquals(Result.success(address), ListenReporting.answerWithin(5_000) { address })
+        assertEquals(Result.success(address), ListenReporting.answerWithin(5_000) { delay(50); address })
+        val failed = ListenReporting.answerWithin<String>(5_000) { throw IOException("refused") }
+        assertTrue("a failure was taken for running out of time", failed?.exceptionOrNull() is IOException)
+    }
+
+    @Test
+    fun `the account's request that has not answered in time gives way to the visitor's`(): Unit = runBlocking {
+        // A thread parked in a call that does not return, which is what a WebView that never calls
+        // back looks like from here, and a wait that is merely long.
+        val hangs = listOf<suspend () -> String>(
+            { Thread.sleep(5_000); "https://late" },
+            { delay(5_000); "https://late" },
+        )
+        for (hang in hangs) {
+            val asked = mutableListOf<AddressFrom>()
+            val started = System.nanoTime()
+            val found = ListenReporting.firstAddress(accountThenVisitor) { from ->
+                asked += from
+                when (from) {
+                    AddressFrom.ACCOUNT -> ListenReporting.answerWithin(150) { hang() }?.getOrNull()
+                    AddressFrom.VISITOR -> address
+                }
+            }
+            val tookMs = (System.nanoTime() - started) / 1_000_000
+            assertEquals(AddressFrom.VISITOR to address, found)
+            assertEquals(accountThenVisitor, asked)
+            assertTrue("the play waited $tookMs ms for a request that was given 150", tookMs < 2_500)
+        }
+    }
+
+    @Test
+    fun `a request out of time is no longer waited for, and is not stopped`(): Unit = runBlocking {
+        // What it was fetching, the player's script and the WebView that makes tokens, is kept for
+        // the next play, which then answers in time.
+        val finished = CompletableDeferred<String>()
+        assertNull(ListenReporting.answerWithin(100) { delay(600); finished.complete("fetched"); "late" })
+        assertFalse(finished.isCompleted)
+        assertEquals("fetched", withTimeout(5_000) { finished.await() })
+    }
+
+    @Test
+    fun `the limit is a few seconds`() {
+        assertTrue(ListenReporting.ACCOUNT_ADDRESS_LIMIT_MS in 3_000L..10_000L)
     }
 
     @Test
@@ -183,7 +246,7 @@ class ListenReportingTest {
             "Remote history: YouTube answered 403, the play was refused (address from the account's request)",
             ListenReporting.historyAnswerLine(403, AddressFrom.ACCOUNT),
         )
-        // Without the trial the line is the one it was.
+        // When the account was not asked the line is the one it was.
         assertEquals(ListenReporting.historyAnswerLine(204), ListenReporting.historyAnswerLine(204, null))
         assertEquals(ListenReporting.historyAnswerLine(403), ListenReporting.historyAnswerLine(403, null))
     }
@@ -222,7 +285,48 @@ class ListenReportingTest {
     }
 
     @Test
-    fun `the client that asks as the account puts the channel in the request and the visitor's cannot`() {
+    fun `the log says what the account's request had to be asked without`() {
+        // Without the po token this client answers UNPLAYABLE and no address, so the log has to
+        // tell that apart from a song YouTube will not play.
+        assertEquals(
+            "Remote history: no address from the account's request (answered UNPLAYABLE, asked without a po token), the visitor's is used",
+            ListenReporting.addressSourceLine(AddressFrom.VISITOR, "UNPLAYABLE", null, without = setOf(AccountStep.PO_TOKEN)),
+        )
+        assertEquals(
+            "Remote history: address from the account's request (answered OK, asked without a signature timestamp)",
+            ListenReporting.addressSourceLine(AddressFrom.ACCOUNT, "OK", null, without = setOf(AccountStep.SIGNATURE_TIMESTAMP)),
+        )
+        assertEquals(
+            "Remote history: no address from the account's request (answered UNPLAYABLE, asked without a signature timestamp or a po token)" +
+                " nor from the visitor's",
+            ListenReporting.addressSourceLine(null, "UNPLAYABLE", null, without = setOf(AccountStep.PO_TOKEN, AccountStep.SIGNATURE_TIMESTAMP)),
+        )
+        assertEquals(
+            "Remote history: no address from the account's request (answered HTTP 400, asked without a po token), the visitor's is used",
+            ListenReporting.addressSourceLine(
+                AddressFrom.VISITOR, null, IllegalStateException("Bad response for $address"), httpStatus = 400, without = setOf(AccountStep.PO_TOKEN),
+            ),
+        )
+    }
+
+    @Test
+    fun `the log says what the account's request was waiting for when its time ran out`() {
+        assertEquals(
+            "Remote history: no address from the account's request (no answer within 8 s, waiting for the po token), the visitor's is used",
+            ListenReporting.addressSourceLine(AddressFrom.VISITOR, null, null, outOfTimeAt = AccountStep.PO_TOKEN, limitMs = 8_000),
+        )
+        assertEquals(
+            "Remote history: no address from the account's request (no answer within 8 s, waiting for the signature timestamp), the visitor's is used",
+            ListenReporting.addressSourceLine(AddressFrom.VISITOR, null, null, outOfTimeAt = AccountStep.SIGNATURE_TIMESTAMP, limitMs = 8_000),
+        )
+        assertEquals(
+            "Remote history: no address from the account's request (no answer within 2.5 s, waiting for YouTube's answer) nor from the visitor's",
+            ListenReporting.addressSourceLine(null, null, null, outOfTimeAt = AccountStep.ANSWER, limitMs = 2_500),
+        )
+    }
+
+    @Test
+    fun `the client that asks as the account is the one known to be answered, and it names the channel`() {
         val locale = YouTubeLocale(gl = "US", hl = "en")
         fun YouTubeClient.onBehalfOf(): String? {
             val context = toContext(locale, visitorData = "visitor", dataSyncId = "channel-1", hlOverride = "en")
@@ -231,41 +335,61 @@ class ListenReportingTest {
         }
 
         val client = ListenReporting.ACCOUNT_ADDRESS_CLIENT
+        // The one AsterTune asks, and before it Metrolist: nobody reports a play with another.
+        assertEquals("WEB_REMIX", client.clientName)
         // InnerTube.ytClient sends the cookie only for a client that says it takes one.
         assertTrue(client.loginSupported)
         assertEquals("\"channel-1\"", client.onBehalfOf())
-        // Answers without a po token, and is not the embedded player that walks past an age gate.
-        assertFalse(client.useWebPoTokens)
+        // InnerTube.player passes the signature timestamp and the po token on only for a client
+        // that says it uses them, and without the token this one answers UNPLAYABLE and no address.
+        assertTrue(client.useSignatureTimestamp)
+        assertTrue(client.useWebPoTokens)
         assertFalse(client.isEmbedded)
-        // YouTube is known to ignore the cookie on the Android client.
-        assertFalse(client.clientName == YouTubeClient.ANDROID.clientName)
 
         assertFalse(YouTubeClient.VISIONOS.loginSupported)
         assertNull(YouTubeClient.VISIONOS.onBehalfOf())
     }
 
+    /** [text] without its comments, so that a word in a sentence is not taken for a call. */
+    private fun code(text: String): String = text.lines()
+        .filterNot { line -> line.trim().let { it.startsWith("*") || it.startsWith("//") || it.startsWith("/*") } }
+        .joinToString("\n")
+
     @Test
-    fun `the service takes the address through the choice, and the trial is read there and nowhere else`() {
+    fun `the account's request goes with the timestamp and the token, within the limit, and tells the throttle nothing`() {
+        val utils = File("src/main/java/com/dd3boh/outertune/utils/YTPlayerUtils.kt").readText()
+        val start = utils.indexOf("suspend fun playerResponseAsAccount(")
+        assertTrue("the account's request was not found", start >= 0)
+        val body = code(utils.substring(start, utils.indexOf("\n    /**", start)))
+        assertTrue("ListenReporting.answerWithin(limitMs)" in body)
+        assertTrue("limitMs: Long = ListenReporting.ACCOUNT_ADDRESS_LIMIT_MS" in body)
+        assertTrue("getSignatureTimestampOrNull(" in body)
+        assertTrue("getWebClientPoTokenOrNull(" in body)
+        assertTrue("client = ListenReporting.ACCOUNT_ADDRESS_CLIENT" in body)
+        assertTrue("signatureTimestamp = " in body)
+        assertTrue("webPlayerPot = " in body)
+        // Over the address family the stream chain found to work, and nothing of it remembered.
+        assertTrue("playerOverBestFamily(remember = false)" in body)
+        // One client's refusal is not YouTube's: the visitor's request tells the throttle what it always has.
+        assertFalse("noteThrottle" in body)
+        assertFalse("Throttle." in body)
+    }
+
+    @Test
+    fun `the service takes the address through the choice for everybody, with no switch left to read`() {
         val service = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
         val start = service.indexOf("Trying to register remote history")
         val block = service.substring(start, service.indexOf("override fun onRepeatModeChanged", start))
         assertTrue("ListenReporting.addressRequests(" in block)
-        assertTrue("asAccountTrial = Unreleased.HISTORY_AS_ACCOUNT" in block)
         assertTrue("ListenReporting.firstAddress(" in block)
+        assertTrue("YTPlayerUtils.playerResponseAsAccount(" in block)
+        assertTrue("YTPlayerUtils.playerResponseForMetadata(" in block)
         assertTrue("addressSourceLine(" in block)
 
-        // Read in code, that is: the comments that point at it do not count.
+        // It was a trial behind Unreleased.HISTORY_AS_ACCOUNT. Nothing reads that any more.
         val readers = File("src/main/java").walkTopDown()
-            .filter { it.isFile && it.extension == "kt" && it.name != "Unreleased.kt" }
-            .filter { file ->
-                file.readLines().map { it.trim() }
-                    .any { "Unreleased.HISTORY_AS_ACCOUNT" in it && !it.startsWith("*") && !it.startsWith("//") && !it.startsWith("/*") }
-            }
+            .filter { it.isFile && it.extension == "kt" && "HISTORY_AS_ACCOUNT" in it.readText() }
             .map { it.name }.toList()
-        assertEquals(listOf("MusicService.kt"), readers)
-
-        // Never in a release: off, or debug builds only like the other things held back.
-        val flags = File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readText()
-        assertTrue(Regex("""val HISTORY_AS_ACCOUNT = (false|BuildConfig\.DEBUG)\b""").containsMatchIn(flags))
+        assertEquals(emptyList<String>(), readers)
     }
 }

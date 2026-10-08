@@ -109,24 +109,6 @@ object Unreleased {
     val LANDSCAPE = BuildConfig.DEBUG
 
     /**
-     * A play reported to YouTube's history with an address that was asked for as the account. The
-     * address has always come from a visitor's /player request, which cannot name a brand
-     * account's channel, and somebody with such an account says nothing reaches the history
-     * (ListenReporting.addressRequests, YTPlayerUtils.playerResponseAsAccount). With this on, a
-     * signed-in listener whose playback may use the account asks as the account first and falls
-     * back to the visitor's address when that gives none. Never tried against YouTube: whether the
-     * TV client answers a cookie here, and whether its address changes whose history the play
-     * lands in, is what a brand account has to show. When it is agreed: set this to true, or
-     * delete it with the one check that reads it, in MusicService.onPlaybackStatsReady.
-     *
-     * Off in debug builds too until somebody tries it on purpose. The debug build is the one used
-     * for daily listening, and a report YouTube takes without writing it down would leave that
-     * history quiet with only the log to say so. To try it: BuildConfig.DEBUG here, one counted
-     * play, the two "Remote history" lines in the log, and a look at the history.
-     */
-    val HISTORY_AS_ACCOUNT = false
-
-    /**
      * A shorter first-run setup (ShortSetup.kt): three pages in place of six. What the app is,
      * with the way to restore a backup; signing in, or not; and the five questions of the old
      * exit page as five switches with one Done (SetupChoices). Look and feel, local media and the
