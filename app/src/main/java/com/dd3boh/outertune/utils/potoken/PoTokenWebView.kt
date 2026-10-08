@@ -1,12 +1,18 @@
 package com.dd3boh.outertune.utils.potoken
 
 import android.content.Context
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.annotation.MainThread
+import androidx.annotation.RequiresApi
 import androidx.collection.ArrayMap
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
@@ -25,6 +31,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Collections
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -42,6 +49,20 @@ class PoTokenWebView private constructor(
         onInitializationErrorCloseAndCancel(t)
     }
     private lateinit var expirationInstant: Instant
+
+    /** The WebView's own thread. Errors arrive on others, and the WebView may be touched on this one only. */
+    private val mainThread = Handler(Looper.getMainLooper())
+
+    /**
+     * Whether [continuation] has been given its one answer. A continuation resumed twice throws,
+     * and an uncaught error in the page after initialization did resume it a second time, on the
+     * main thread.
+     */
+    private val initializationAnswered = AtomicBoolean(false)
+
+    /** Set by [close]. A closed WebView makes no tokens and never calls back. */
+    @Volatile
+    private var closed = false
 
     //region Initialization
     init {
@@ -74,6 +95,21 @@ class PoTokenWebView private constructor(
                     popAllPoTokenContinuations().forEach { (_, cont) -> cont.resumeWithException(exception) }
                 }
                 return super.onConsoleMessage(m)
+            }
+        }
+
+        // Without this Android ends the whole app when the page's renderer process dies, and the
+        // player with it. Nothing has been seen to kill it, but this WebView is kept for hours
+        // under a music service. It is of no use afterwards: it is closed, whoever waits on it
+        // is told, and the next token gets a new one (see isExpired).
+        webView.webViewClient = object : WebViewClient() {
+            @RequiresApi(Build.VERSION_CODES.O)
+            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                val gone = PoTokenException("The WebView's renderer process is gone")
+                Log.e(TAG, "The renderer process of the po token page is gone")
+                onInitializationErrorCloseAndCancel(gone)
+                popAllPoTokenContinuations().forEach { (_, cont) -> cont.resumeWithException(gone) }
+                return true
             }
         }
     }
@@ -161,7 +197,7 @@ class PoTokenWebView private constructor(
 
             webView.evaluateJavascript("this.integrityToken = $integrityToken") {
                 Log.d(TAG, "initialization finished, expiration=${expirationTimeInSeconds}s")
-                continuation.resume(this)
+                if (initializationAnswered.compareAndSet(false, true)) continuation.resume(this)
             }
         }
     }
@@ -219,8 +255,9 @@ class PoTokenWebView private constructor(
         popPoTokenContinuation(identifier)?.resume(poToken)
     }
 
+    /** Past its time, or closed: either way the next token needs a new one. */
     val isExpired: Boolean
-        get() = Instant.now().isAfter(expirationInstant)
+        get() = closed || Instant.now().isAfter(expirationInstant)
     //endregion
 
     //region Handling multiple emitters
@@ -298,8 +335,13 @@ class PoTokenWebView private constructor(
      * to [continuation].
      */
     private fun onInitializationErrorCloseAndCancel(error: Throwable) {
-        close()
-        continuation.resumeWithException(error)
+        // On the WebView's thread, whichever thread the error came in on. BotGuard's own errors
+        // arrive on the page's JavaScript thread, where close() throws at its first call to the
+        // WebView: the caller was then never told, and waited out its whole time limit.
+        mainThread.post {
+            close()
+            if (initializationAnswered.compareAndSet(false, true)) continuation.resumeWithException(error)
+        }
     }
 
     /**
@@ -307,6 +349,8 @@ class PoTokenWebView private constructor(
      */
     @MainThread
     fun close() {
+        if (closed) return
+        closed = true
         scope.cancel()
 
         webView.clearHistory()
@@ -338,6 +382,9 @@ class PoTokenWebView private constructor(
             return withContext(Dispatchers.Main) {
                 suspendCancellableCoroutine { cont ->
                     val potWv = PoTokenWebView(context, cont)
+                    // Given up on before it was ready, by the time limit: nobody else holds it
+                    // yet, so it is closed here and not left running.
+                    cont.invokeOnCancellation { potWv.mainThread.post { potWv.close() } }
                     potWv.loadHtmlAndObtainBotguard()
                 }
             }

@@ -4,7 +4,9 @@ import android.util.Log
 import android.webkit.CookieManager
 import com.dd3boh.outertune.App
 import com.dd3boh.outertune.utils.ErrorText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
@@ -30,6 +32,14 @@ class PoTokenGenerator {
     private var webPoTokenStreamingPot: String? = null
     private var webPoTokenGenerator: PoTokenWebView? = null
 
+    /**
+     * Set when a token was not made in time, so that the next one starts from a new WebView. A
+     * page that has stopped answering stops for good, and asking it again cost every later token
+     * the whole time limit.
+     */
+    @Volatile
+    private var webPoTokenTimedOut = false
+
     fun getWebClientPoToken(videoId: String, sessionId: String): PoTokenResult? {
         if (!webViewSupported || webViewBadImpl) {
             return null
@@ -52,6 +62,7 @@ class PoTokenGenerator {
                     getWebClientPoToken(videoId, sessionId, forceRecreate = false)
                 } ?: run {
                     Log.e(TAG, "[$videoId] poToken timed out after ${POTOKEN_TIMEOUT_MS}ms, continuing without one")
+                    webPoTokenTimedOut = true
                     null
                 }
             }
@@ -80,21 +91,37 @@ class PoTokenGenerator {
         val (poTokenGenerator, streamingPot, hasBeenRecreated) =
             webPoTokenGenLock.withLock {
                 val shouldRecreate =
-                    forceRecreate || webPoTokenGenerator == null || webPoTokenGenerator!!.isExpired || webPoTokenSessionId != sessionId
+                    forceRecreate || webPoTokenTimedOut || webPoTokenGenerator == null || webPoTokenGenerator!!.isExpired ||
+                        webPoTokenSessionId != sessionId
 
                 if (shouldRecreate) {
                     webPoTokenSessionId = sessionId
+                    webPoTokenTimedOut = false
 
+                    // Forgotten before the new one is made, and the new one kept only once it has
+                    // made its first token. When making it failed or ran out of time, the closed
+                    // one was still here, and the next token took it for a working one: it waited
+                    // on a page that no longer existed, as did every token after it.
+                    val old = webPoTokenGenerator
+                    webPoTokenGenerator = null
+                    webPoTokenStreamingPot = null
                     withContext(Dispatchers.Main) {
-                        webPoTokenGenerator?.close()
+                        old?.close()
                     }
 
                     // create a new webPoTokenGenerator
-                    webPoTokenGenerator = PoTokenWebView.getNewPoTokenGenerator(App.instance)
+                    val fresh = PoTokenWebView.getNewPoTokenGenerator(App.instance)
 
                     // The streaming poToken needs to be generated exactly once before generating
                     // any other (player) tokens.
-                    webPoTokenStreamingPot = webPoTokenGenerator!!.generatePoToken(webPoTokenSessionId!!)
+                    val freshStreamingPot = try {
+                        fresh.generatePoToken(sessionId)
+                    } catch (throwable: Throwable) {
+                        withContext(NonCancellable + Dispatchers.Main) { fresh.close() }
+                        throw throwable
+                    }
+                    webPoTokenGenerator = fresh
+                    webPoTokenStreamingPot = freshStreamingPot
                 }
 
                 Triple(webPoTokenGenerator!!, webPoTokenStreamingPot!!, shouldRecreate)
@@ -106,6 +133,8 @@ class PoTokenGenerator {
             // streaming poToken (based on [sessionId]) to be generated before anything else.
             poTokenGenerator.generatePoToken(videoId)
         } catch (throwable: Throwable) {
+            // Out of time: there is none left to try again in.
+            if (throwable is CancellationException) throw throwable
             if (hasBeenRecreated) {
                 // the poTokenGenerator has just been recreated (and possibly this is already the
                 // second time we try), so there is likely nothing we can do
