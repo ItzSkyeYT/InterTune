@@ -385,6 +385,54 @@ fun newThingsFor(
     return here.filter { it.sinceVersionCode in (seenVersionCode + 1)..buildVersionCode }
 }
 
+/**
+ * The release a build numbered [versionCode] belongs to, as people know it ("0.11"), or null for
+ * a build from before any release the list of new things knows.
+ *
+ * Read off that list and not off a table of its own. Every release that brought something has an
+ * entry there with its first build, and a second list of numbers to keep in step with it is one
+ * more to forget.
+ */
+fun releaseAt(versionCode: Int): String? =
+    NEW_THINGS.filter { it.sinceVersionCode <= versionCode }.maxByOrNull { it.sinceVersionCode }?.release
+
+/**
+ * What the card at the top of Home says: how many things are new, and since which release, as
+ * people know it. [since] is null for somebody who came from before any release the list knows,
+ * and the card then gives the number alone.
+ */
+data class WelcomeCard(val count: Int, val since: String?)
+
+/**
+ * The card at the top of Home for somebody who has come back to an update, or null for none.
+ *
+ * The welcome back page used to open by itself at the first launch after an update: a whole page
+ * between somebody and their music. It waits now, and this is all that says it is there. One
+ * line among the cards Home already has at its top, to open the page from or to dismiss, and
+ * nothing that has to be answered.
+ *
+ * There is one exactly where the page would have opened: for somebody who has had the tutorial
+ * and whom this build has something to show (newThingsFor), which is never a first install.
+ * Closing the page and dismissing the card both mark the build as seen, so it does not come back
+ * until a later build has something new. It stands aside while something else has the screen:
+ * the setup, the questions asked after an update, a tour, the page itself.
+ */
+fun welcomeCardFor(
+    seenVersionCode: Int,
+    buildVersionCode: Int = BuildConfig.VERSION_CODE,
+    install: Install = Install(),
+    enabled: Boolean = Unreleased.WELCOME_BACK,
+    setupDone: Boolean = true,
+    questionsOpen: Boolean = false,
+    tourUp: Boolean = false,
+    pageOpen: Boolean = false,
+): WelcomeCard? {
+    if (!enabled || !setupDone || questionsOpen || tourUp || pageOpen) return null
+    val things = newThingsFor(seenVersionCode, buildVersionCode, install = install)
+    if (things.isEmpty()) return null
+    return WelcomeCard(count = things.size, since = releaseAt(seenVersionCode))
+}
+
 /** Every stop there is, for bringing a running tour back after the activity was recreated. */
 val ALL_TOUR_STOPS: List<TourStop> get() = (TOUR_STOPS + SETTINGS_TOUR + CLOSER_LOOK_QUESTION + SETTINGS_CLOSER_LOOK + NEW_THINGS.flatMap { it.stops }).distinctBy { it.id }
 
