@@ -35,6 +35,7 @@ import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.utils.MEDIA_PERMISSION_LEVEL
+import com.dd3boh.outertune.ui.utils.MediaPermissionAsk
 import com.dd3boh.outertune.ui.utils.clearDtCache
 import com.dd3boh.outertune.utils.compareVersion
 import com.dd3boh.outertune.utils.dataStore
@@ -267,7 +268,9 @@ suspend fun scanInit(
             // automatic scan, which runs at launch at most once every two hours (the soft cooldown
             // set above), it put a system dialog in front of everyone who listens only to YouTube
             // and left local media on, which is the default. The Library banner still asks when tapped.
-            if (!context.dataStore.get(LocalMediaPermissionAskedKey, defaultValue = false)) {
+            // With the short setup it is not asked from here at all, but where somebody has gone
+            // that needs it: see MediaPermissionAsk.
+            if (MediaPermissionAsk.atStart(askedBefore = context.dataStore.get(LocalMediaPermissionAskedKey, defaultValue = false))) {
                 context.dataStore.edit { settings -> settings[LocalMediaPermissionAskedKey] = true }
                 (context as MainActivity).permissionLauncher.launch(MEDIA_PERMISSION_LEVEL)
             }

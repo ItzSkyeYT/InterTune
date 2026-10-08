@@ -38,6 +38,7 @@ import com.dd3boh.outertune.ui.screens.RecognitionHistoryScreen
 import com.dd3boh.outertune.ui.screens.RecognitionScreen
 import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.SetupWizard
+import com.dd3boh.outertune.ui.utils.AskForMusicOnOpening
 import com.dd3boh.outertune.ui.screens.StatsScreen
 import com.dd3boh.outertune.ui.screens.YouTubeBrowseScreen
 import com.dd3boh.outertune.ui.screens.artist.ArtistAlbumsScreen
@@ -110,7 +111,7 @@ fun NavGraphBuilder.appDestinations(
             LibrarySongsScreen(navController)
         }
         screen(Screens.Folders.route, floating = false) {
-            LibraryFoldersScreen(navController, scrollBehavior)
+            AskForMusicOnOpening(tourState.running) { LibraryFoldersScreen(navController, scrollBehavior) }
         }
         screen(
             route = "${Screens.Folders.route}/{path}",
@@ -389,6 +390,7 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("settings/local") {
             LocalPlayerSettings(navController, scrollBehavior)
+            AskForMusicOnOpening(tourState.running)
         }
         screen("settings/advanced") {
             AdvancedSettings(navController, scrollBehavior)

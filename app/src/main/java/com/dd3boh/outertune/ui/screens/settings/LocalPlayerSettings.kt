@@ -32,8 +32,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -52,6 +54,8 @@ import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalScannerExtraFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalScannerFrag
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.ui.utils.askForMusicOnTurningOn
+import kotlinx.coroutines.launch
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
@@ -66,6 +70,8 @@ fun LocalPlayerSettings(
     val (enabledFilters, onEnabledFiltersChange) = rememberPreference(EnabledFiltersKey, defaultValue = DEFAULT_ENABLED_FILTERS)
     val (enabledTabs, onEnabledTabsChange) = rememberPreference(EnabledTabsKey, defaultValue = DEFAULT_ENABLED_TABS)
     val (localLibEnable, onLocalLibEnableChange) = rememberPreference(LocalLibraryEnableKey, defaultValue = true)
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(localLibEnable) {
         var containsFolders = enabledTabs.contains('F')
@@ -99,6 +105,9 @@ fun LocalPlayerSettings(
                     showLmDisableDialog = true
                 } else {
                     onLocalLibEnableChange(it)
+                    // Turning it on is asking for the music on the device, so this is where
+                    // access to it is asked for (MediaPermissionAsk).
+                    coroutineScope.launch { askForMusicOnTurningOn(context) }
                 }
             }
         )

@@ -125,4 +125,24 @@ object Unreleased {
      * play, the two "Remote history" lines in the log, and a look at the history.
      */
     val HISTORY_AS_ACCOUNT = false
+
+    /**
+     * A shorter first-run setup (ShortSetup.kt): three pages in place of six. What the app is,
+     * with the way to restore a backup; signing in, or not; and the five questions of the old
+     * exit page as five switches with one Done (SetupChoices). Look and feel, local media and the
+     * downloads folder are not asked about: they stay in Settings, at the defaults the old pages
+     * left them on.
+     *
+     * With it, access to the music on the device is asked for where somebody has gone that needs
+     * it, Folders or the local scanner, or as local media is turned on, and no longer by the
+     * automatic scan at start, which put the system's prompt over whatever was on screen at the
+     * first start after setup (MediaPermissionAsk).
+     *
+     * A first cut to look at on a phone, not agreed for a release: the wording, and whether
+     * "Tell me about updates" starts on (SetupChoices.UPDATES_DEFAULT), are still to decide.
+     * Without it setup is the old wizard, untouched. When it is agreed: set this to true, or
+     * delete it with the checks that read it, in AppNavGraph and MediaPermissionAsk, delete
+     * SetupWizard.kt with the strings only it uses, and make the setup_ strings translatable.
+     */
+    val SHORT_SETUP = BuildConfig.DEBUG
 }
