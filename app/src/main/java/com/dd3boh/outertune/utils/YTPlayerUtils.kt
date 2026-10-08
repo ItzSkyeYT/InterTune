@@ -44,6 +44,9 @@ object YTPlayerUtils {
         .proxy(YouTube.proxy)
         .build()
 
+    /** The check of a stream goes over the family its address was issued to: see [StreamFamily]. */
+    private val streamCalls = StreamFamily.Calls(httpClient)
+
     private val poTokenGenerator = PoTokenGenerator()
 
     /**
@@ -674,6 +677,10 @@ object YTPlayerUtils {
                 }
 
                 val isLast = clientIndex == clients.lastIndex
+                // The family the check goes over, for the log: see StreamFamily. A refusal over
+                // the family /player was asked over is the client's or the visitor's, and no
+                // longer something a fetch from another address could explain.
+                val issuedTo = StreamFamily.of(streamUrl)?.label ?: "no family it names"
                 val status = wire.head(streamUrl)
                 trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", status, checked = true)
                 // For StreamOrder the client served or was refused by what the check answered. A
@@ -685,11 +692,11 @@ object YTPlayerUtils {
                 }
                 if (StreamCheck.accept(status, isLast)) {
                     // working stream found, or the last one left with nothing to say it is not
-                    Log.i(TAG, "[$videoId] [${client.clientName}] found working stream ($status)")
+                    Log.i(TAG, "[$videoId] [${client.clientName}] found working stream ($status), address issued to $issuedTo")
                     validated = status != null
                     break
                 }
-                Log.w(TAG, "[$videoId] [${client.clientName}] got bad http status code $status")
+                Log.w(TAG, "[$videoId] [${client.clientName}] got bad http status code $status, address issued to $issuedTo")
                 if (status != null) {
                     refusedStatus = status
                     if (isVisionos) notes.visionosRefused = true
@@ -1029,7 +1036,7 @@ object YTPlayerUtils {
      * song, not at the start. [StreamCheck.accept] turns the answer into a decision.
      */
     private fun streamStatus(url: String): Int? = try {
-        httpClient.newCall(okhttp3.Request.Builder().head().url(url).build()).execute().use { it.code }
+        streamCalls.newCall(okhttp3.Request.Builder().head().url(url).build()).execute().use { it.code }
     } catch (e: Exception) {
         reportException(e)
         null

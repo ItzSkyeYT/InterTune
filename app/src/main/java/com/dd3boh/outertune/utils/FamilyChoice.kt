@@ -25,9 +25,12 @@ import java.net.InetAddress
  * IPv6 rescues it. Whichever family worked is remembered for that network, so the songs after it
  * go straight there instead of being refused first every time.
  *
- * Only /player. Search, browse and the stream itself connect as before: they were never refused,
- * and a stream url issued over IPv4 plays over IPv6 (checked live: HEAD 200, and a ranged GET past
- * the first megabyte answered 206 after one redirect), so the stream does not have to follow.
+ * Only /player is asked this way. Search and browse connect as before: they were never refused.
+ * The stream follows by itself, over the family its address was issued to: see [StreamFamily]. It
+ * was first left to the system, because a stream url issued over IPv4 did play over IPv6 (checked
+ * live on 3 Oct: HEAD 200, and a ranged GET past the first megabyte answered 206 after one
+ * redirect). On 8 Oct that redirected fetch was refused for a new install, every time for three
+ * minutes, so it is no longer counted on.
  */
 object FamilyChoice {
     /** How long a family that worked stays the first one asked over on that network. */

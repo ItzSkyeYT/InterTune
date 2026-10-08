@@ -41,6 +41,7 @@ import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_DOWNLOADING
 import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_INVALID
 import com.dd3boh.outertune.playback.downloadManager.DownloadDirectoryManagerOt
 import com.dd3boh.outertune.playback.downloadManager.DownloadManagerOt
+import com.dd3boh.outertune.utils.StreamFamily
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.codecsOrEmpty
 import com.dd3boh.outertune.utils.contentLengthOrZero
@@ -115,10 +116,13 @@ class DownloadUtil @Inject constructor(
         CacheDataSource.Factory()
             .setCache(playerCache)
             .setUpstreamDataSourceFactory(
+                // Over the family the address was issued to, as its check was made.
                 OkHttpDataSource.Factory(
-                    OkHttpClient.Builder()
-                        .proxy(YouTube.proxy)
-                        .build()
+                    StreamFamily.Calls(
+                        OkHttpClient.Builder()
+                            .proxy(YouTube.proxy)
+                            .build()
+                    )
                 )
             )
     ) { dataSpec ->

@@ -170,6 +170,7 @@ import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.codecsOrEmpty
 import com.dd3boh.outertune.utils.contentLengthOrZero
 import com.dd3boh.outertune.utils.SongVersions
+import com.dd3boh.outertune.utils.StreamFamily
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.enumPreference
@@ -1760,10 +1761,13 @@ class MusicService : MediaLibraryService(),
                     .setUpstreamDataSourceFactory(
                         DefaultDataSource.Factory(
                             this,
+                            // Over the family the address was issued to, as its check was made.
                             OkHttpDataSource.Factory(
-                                OkHttpClient.Builder()
-                                    .proxy(YouTube.proxy)
-                                    .build()
+                                StreamFamily.Calls(
+                                    OkHttpClient.Builder()
+                                        .proxy(YouTube.proxy)
+                                        .build()
+                                )
                             )
                         )
                     )
