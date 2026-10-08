@@ -30,8 +30,21 @@ import kotlinx.coroutines.withContext
  * sit idle until the answer came: 1.7 s of the 5.0 and 6.5 s from the tap to sound measured on
  * 7 Oct 2026, where later songs took 2.1 to 3.0 s. And when the answer failed the song never
  * started at all.
+ *
+ * The last tap wins. The answer is a second or two away, longer on a poor connection, and another
+ * song or list can be asked for in that time. Each run takes a number as it begins, and one that
+ * comes back from a wait to find a later number asks nothing more of the board or the player. An
+ * earlier tap's answer used to be loaded whenever it came: over the song tapped after it, which
+ * its own answer then started again from the top, or for good when the answers came the other
+ * way round.
  */
 internal class QueueStart(private val service: Target) {
+
+    /**
+     * The number of the run that began last. Read and written on the main thread only, where every
+     * run begins and where it comes back to after each wait, in the order the taps were made.
+     */
+    private var lastStart = 0L
 
     /** What the steps ask of the service. Every call is made on the main thread. */
     interface Target {
@@ -53,6 +66,9 @@ internal class QueueStart(private val service: Target) {
             startIndex: Int,
             continuationEndpoint: String?,
         ): MultiQueueObject?
+
+        /** QueueBoard.deleteQueue, for the queue of this title when the board holds one. */
+        fun dropQueue(title: String)
 
         /** QueueBoard.renameQueue. */
         fun renameQueue(queue: MultiQueueObject, title: String)
@@ -79,6 +95,7 @@ internal class QueueStart(private val service: Target) {
         originSlot: Int,
         runId: Long,
     ) {
+        val number = ++lastStart
         var queueTitle = title
         var q: MultiQueueObject? = null
         val preloadItem = queue.preloadItem
@@ -89,7 +106,16 @@ internal class QueueStart(private val service: Target) {
         // The board can wait for another caller's load or for a pending queue save, and the
         // service can be torn down meanwhile.
         if (service.destroyed) return
+        // Or something else was asked for meanwhile, and this one's song is never loaded.
+        if (number != lastStart) return
         if (preloadItem != null) {
+            // The temporary title is this tap's alone, so a queue still under it goes first. It is
+            // an earlier tap's: one whose answer failed, which leaves its song there alone, or
+            // one whose answer has yet to come and will be dropped when it does. Found by that
+            // title, it used to be given this song as well, and as the board keeps one resume
+            // point for a queue, this song was loaded where the other had stopped: 1:35 into a
+            // song tapped a moment ago, or past its end, where it ended as it started.
+            if (title == null) service.dropQueue(PRELOAD_TITLE)
             q = service.addQueue(
                 queueTitle ?: PRELOAD_TITLE,
                 listOf(preloadItem),
@@ -108,10 +134,24 @@ internal class QueueStart(private val service: Target) {
             service.start(playWhenReady)
         }
 
-        val initialStatus = withContext(Dispatchers.IO) { queue.getInitialStatus() }
+        val initialStatus = try {
+            withContext(Dispatchers.IO) { queue.getInitialStatus() }
+        } catch (e: Exception) {
+            // An answer that failed for something no longer wanted is not the listener's to hear
+            // about: what they asked for after it reports for itself.
+            if (number != lastStart) return
+            throw e
+        }
         // The same after the network wait. Nothing below suspends, and onDestroy runs on the same
         // main thread, so it cannot slip in between.
         if (service.destroyed) return
+        // Nor can another tap. One made during the wait has the player now, or will have it when
+        // its own answer comes, and this answer is dropped whole: it is not loaded, and it leaves
+        // no queue of its own on the board.
+        if (number != lastStart) {
+            Log.d(TAG, "playQueue: Queue initial status dropped, another queue was asked for since")
+            return
+        }
         // do not find a title if an override is provided
         if ((title == null) && initialStatus.title != null) {
             queueTitle = initialStatus.title

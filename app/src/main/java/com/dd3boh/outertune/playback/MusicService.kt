@@ -1480,6 +1480,10 @@ class MusicService : MediaLibraryService(),
             startIndex = startIndex,
         )
 
+        override fun dropQueue(title: String) {
+            queueBoard.masterQueues.firstOrNull { it.title == title }?.let { queueBoard.deleteQueue(it) }
+        }
+
         override fun renameQueue(queue: MultiQueueObject, title: String) = queueBoard.renameQueue(queue, title)
 
         override fun setCurrQueue(queue: MultiQueueObject?, shouldResume: Boolean) {
