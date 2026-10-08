@@ -51,6 +51,7 @@ import com.dd3boh.outertune.constants.DarkModeKey
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.ui.utils.fadingEdge
+import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.YTPlayerUtils
@@ -124,11 +125,10 @@ fun ThumbnailPlaybackError(
                 } else if (isAgeGated) {
                     stringResource(R.string.err_age_restricted)
                 } else {
-                    "${error.message} (${error.errorCode}): ${
-                        error.cause?.message ?: error.cause?.cause?.message ?: stringResource(
-                            R.string.error_unknown
-                        )
-                    }"
+                    // What the error says of itself goes through ErrorText, here and below: a
+                    // connection that failed names the phone's own address, and this screen is
+                    // what gets photographed and pasted.
+                    ErrorText.playerLine(error, stringResource(R.string.error_unknown))
                 },
                 color = textColor,
                 style = MaterialTheme.typography.bodyMedium
@@ -151,10 +151,10 @@ fun ThumbnailPlaybackError(
                 // rarely the cause: issue #17 reported IOS's 403, and VISIONOS had refused first.
                 appendLine("stream chain: ${YTPlayerUtils.lastStreamTrail ?: "unknown"}")
             }
-            val headline = "${error.message} (${error.errorCode}): " +
-                    (error.cause?.message ?: error.cause?.cause?.message ?: "")
-            val report = "InterTune player error\n\n" + systemInfo + "\n" + headline +
-                    "\n\n" + error.stackTraceToString()
+            // The lines about the app and the phone go in as they are. Only the error's own words
+            // are given to ErrorText, which would take a version for an address.
+            val report = "InterTune player error\n\n" + systemInfo + "\n" + ErrorText.playerLine(error) +
+                    "\n\n" + ErrorText.of(error)
             clipboardManager.nativeClipboard.setPrimaryClip(
                 ClipData.newPlainText("InterTune player error", AnnotatedString(report))
             )
@@ -183,7 +183,7 @@ fun ThumbnailPlaybackError(
         }
         AnimatedVisibility(showStackTrace) {
             Text(
-                text = error.stackTraceToString(),
+                text = ErrorText.of(error),
                 color = textColor,
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier

@@ -43,8 +43,12 @@ val ytmCoroutine = Dispatchers.IO.limitedParallelism(MAX_YTM_CONTENT_JOBS)
 @OptIn(DelicateCoroutinesApi::class)
 val playerCoroutine = newFixedThreadPoolContext(4, "player_service_offload")
 
+/**
+ * Writes [throwable] and its causes to the log as printStackTrace does, without the network
+ * addresses a failed connection names. See [ErrorText].
+ */
 fun reportException(throwable: Throwable) {
-    throwable.printStackTrace()
+    System.err.print(ErrorText.of(throwable))
 }
 
 /**
