@@ -100,7 +100,7 @@ class BackgroundCheckWorker(
                         if (posted) context.dataStore.edit { it[LastNotifiedUpdateCodeKey] = update.versionCode }
                     }
                 }
-                .onFailure { Log.w(TAG, "Update check failed", it) }
+                .onFailure { Log.w(TAG, "Update check failed", ErrorText.forLog(it)) }
         }
 
         if (context.dataStore.get(PollsEnabledKey, false)) {
@@ -117,7 +117,7 @@ class BackgroundCheckWorker(
                         if (posted) context.dataStore.edit { it[LastNotifiedPollIdKey] = poll.id }
                     }
                 }
-                .onFailure { Log.w(TAG, "Poll check failed", it) }
+                .onFailure { Log.w(TAG, "Poll check failed", ErrorText.forLog(it)) }
         }
 
         return Result.success()

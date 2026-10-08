@@ -16,6 +16,7 @@ import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.QueueToPlaylist
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
@@ -212,7 +213,7 @@ class LibraryImport @Inject constructor(
             }
             setStage(Stage.MATCHED, run)
         } catch (e: SearchUnavailable) {
-            Log.w(TAG, "Stopped matching: YouTube could not be reached", e)
+            Log.w(TAG, "Stopped matching: YouTube could not be reached", ErrorText.forLog(e))
             setStage(Stage.OFFLINE, run)
         }
     }

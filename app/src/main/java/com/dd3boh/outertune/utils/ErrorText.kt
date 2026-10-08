@@ -7,6 +7,8 @@
 package com.dd3boh.outertune.utils
 
 import androidx.media3.common.PlaybackException
+import java.io.PrintStream
+import java.io.PrintWriter
 
 /**
  * What a failure says of itself, as the app may show, copy and log it: without the network
@@ -84,6 +86,23 @@ object ErrorText {
 
     /** [failure] and its causes as printStackTrace writes them, without the addresses. */
     fun of(failure: Throwable): String = withoutAddresses(failure.stackTraceToString())
+
+    /**
+     * [failure] for a call to Log that is handed a throwable, as in Log.w(TAG, "...", failure):
+     * what is written is [failure]'s trace without the addresses.
+     *
+     * Log asks the throwable it is given to print itself, and before that looks down its causes
+     * for an UnknownHostException, which it gives no trace at all so that a phone that is only
+     * offline does not fill the log. So this prints as [failure] would and keeps it as its cause,
+     * and Log goes on deciding as it did, and splitting a long trace as it did.
+     */
+    fun forLog(failure: Throwable): Throwable = Printed(failure)
+
+    private class Printed(private val failure: Throwable) : Throwable(null, failure) {
+        override fun printStackTrace(s: PrintWriter) = s.print(of(failure))
+        override fun printStackTrace(s: PrintStream) = s.print(of(failure))
+        override fun toString(): String = withoutAddresses(failure.toString())
+    }
 
     /**
      * The player's error in one line, for the error screen and for the report copied from it: what

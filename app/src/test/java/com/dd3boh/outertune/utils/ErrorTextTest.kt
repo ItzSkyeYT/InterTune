@@ -9,6 +9,7 @@ package com.dd3boh.outertune.utils
 import androidx.media3.common.PlaybackException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayOutputStream
@@ -17,6 +18,7 @@ import java.io.IOException
 import java.io.PrintStream
 import java.net.ConnectException
 import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 /**
  * What a failure says of itself reaches the log, the player's error screen and the crash report
@@ -361,4 +363,86 @@ class ErrorTextTest {
 
     /** A line without what a comment says on it. */
     private fun code(line: String) = line.trimStart().let { if (it.startsWith("*") || it.startsWith("/*")) "" else it.substringBefore("//") }
+
+    // The lines of the log that are handed a failure themselves, with Log.w(TAG, "...", failure).
+
+    @Test
+    fun `a failure handed to the log prints as it would, without the addresses`() {
+        val failure = unreachable()
+        val handed = ErrorText.forLog(failure)
+        // Log asks what it is handed to print itself, to a writer.
+        assertEquals(ErrorText.of(failure), handed.stackTraceToString())
+        val stream = ByteArrayOutputStream()
+        handed.printStackTrace(PrintStream(stream, true))
+        assertEquals(ErrorText.of(failure), stream.toString())
+        assertEquals("java.io.IOException: java.net.ConnectException: Failed to connect to $host/IPv4", handed.toString())
+    }
+
+    @Test
+    fun `the log still finds what it looks for under a failure handed to it`() {
+        // Log prints no trace for a failure with an UnknownHostException somewhere under it, so
+        // that a phone which is only offline does not fill the log. It walks the causes to tell.
+        val offline = IOException(UnknownHostException("Unable to resolve host \"$host\": No address associated with hostname"))
+        val handed = ErrorText.forLog(offline)
+        assertTrue(handed !== offline)
+        assertSame(offline, handed.cause)
+        assertTrue(generateSequence(handed) { it.cause }.any { it is UnknownHostException })
+    }
+
+    /**
+     * The lines that log a request that failed, each by its file and some of its words. A failure
+     * that comes from the phone itself (the database, a file, the widget) names no address, and
+     * the lines for those hand it to Log as they did.
+     */
+    private val failedRequests = listOf(
+        "recognition/ShazamClient.kt" to "Recognition request failed",
+        "recognition/RecognitionEngine.kt" to "Listening failed",
+        "recognition/RecognitionEngine.kt" to "Search for '\$query' failed",
+        "recognition/RecognitionEngine.kt" to "Mashup search for '\$query' failed",
+        "recognition/RecognitionEngine.kt" to "Could not push",
+        "migration/LibraryImport.kt" to "YouTube could not be reached",
+        "utils/BackgroundChecks.kt" to "Update check failed",
+        "utils/BackgroundChecks.kt" to "Poll check failed",
+        "utils/UpdateInstaller.kt" to "Update download or install failed",
+        "utils/potoken/PoTokenGenerator.kt" to "Failed to obtain poToken, retrying",
+        "utils/ActiveCount.kt" to "Ping could not be sent",
+        "utils/PollChecker.kt" to "could not be sent, recorded locally anyway",
+        "utils/SyncUtils.kt" to "Could not read playlist \$browseId",
+        "utils/SyncUtils.kt" to "Could not read \$browseId",
+        "utils/LastFmSimilar.kt" to "Last.fm similar failed",
+        "playback/MusicService.kt" to "the new stream could not be fetched",
+        "ui/dialog/CreatePlaylistDialog.kt" to "Could not create the playlist on YouTube Music",
+    )
+
+    @Test
+    fun `a request that failed is logged through ErrorText`() {
+        var lines = 0
+        failedRequests.forEach { (path, words) ->
+            val calls = logCalls(File(main, path).readText(), words)
+            assertTrue("no line of $path says: $words", calls.isNotEmpty())
+            calls.forEach { assertTrue("$path logs the failure as it is: $it", "ErrorText" in it) }
+            lines += calls.size
+        }
+        // The search of the recognition engine fails in two places with the same words.
+        assertEquals(failedRequests.size + 1, lines)
+    }
+
+    private val logCall = Regex("""\bLog\.[vdiwe]\s*\(""")
+
+    /** Every call to Log in [source] that says [words], whole. A call often runs over several lines. */
+    private fun logCalls(source: String, words: String): List<String> =
+        logCall.findAll(source).map { source.substring(it.range.first, closingParen(source, it.range.last) + 1) }
+            .filter { words in it }.toList()
+
+    /** The index of the parenthesis closing the one at [open]. Those in a message come in pairs, so they count like any other. */
+    private fun closingParen(text: String, open: Int): Int {
+        var depth = 0
+        for (i in open until text.length) {
+            when (text[i]) {
+                '(' -> depth++
+                ')' -> if (--depth == 0) return i
+            }
+        }
+        return text.lastIndex
+    }
 }

@@ -771,7 +771,7 @@ class SyncUtils @Inject constructor(
             return@withContext false
         }
         val playlistPage = YouTube.playlist(browseId).getOrElse {
-            Log.w(TAG, "Could not read playlist $browseId: ${it.message}")
+            Log.w(TAG, "Could not read playlist $browseId: ${it.message?.let(ErrorText::withoutAddresses)}")
             return@withContext false
         }
         val walked = playlistPage.walkSongs()
@@ -873,7 +873,7 @@ class SyncUtils @Inject constructor(
                     YouTube.library(browseId, tab).fold(
                         onSuccess = { it.walkItems() },
                         onFailure = {
-                            Log.w(TAG, "Could not read $browseId: ${it.message}")
+                            Log.w(TAG, "Could not read $browseId: ${it.message?.let(ErrorText::withoutAddresses)}")
                             Walked(emptyList<YTItem>(), complete = false)
                         }
                     )

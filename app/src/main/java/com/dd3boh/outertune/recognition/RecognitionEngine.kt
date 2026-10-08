@@ -13,6 +13,7 @@ import com.dd3boh.outertune.R
 import android.Manifest
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
+import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.constants.RecogniseListenSecondsKey
 import com.dd3boh.outertune.constants.RecogniseAutoAddKey
@@ -578,7 +579,7 @@ class RecognitionEngine @Inject constructor(
                 publish(null)
                 _state.update { if (it is State.Listening || it is State.Confirming) State.Idle else it }
             } catch (t: Throwable) {
-                Log.w(TAG, "Listening failed", t)
+                Log.w(TAG, "Listening failed", ErrorText.forLog(t))
                 _state.value = State.Failed(t.message ?: "microphone", heardNothing = false)
             } finally {
                 if (job === coroutineContext[Job]) running.value = false
@@ -767,7 +768,7 @@ class RecognitionEngine @Inject constructor(
                 if (candidates.isEmpty()) {
                     val failure = found.exceptionOrNull()
                     when {
-                        failure != null -> Log.w(TAG, "Search for '$query' failed", failure)
+                        failure != null -> Log.w(TAG, "Search for '$query' failed", ErrorText.forLog(failure))
                         items.isNullOrEmpty() -> Log.w(TAG, "Search for '$query' parsed to no items")
                         else -> Log.w(
                             TAG,
@@ -1114,7 +1115,7 @@ class RecognitionEngine @Inject constructor(
             if (added && !playlist.isLocal) {
                 playlist.browseId?.let { browseId ->
                     YouTube.addToPlaylist(browseId, song.id)
-                        .onFailure { Log.w(TAG, "Could not push '${song.title}' to ${playlist.name}", it) }
+                        .onFailure { Log.w(TAG, "Could not push '${song.title}' to ${playlist.name}", ErrorText.forLog(it)) }
                 }
             }
         }
@@ -1428,7 +1429,7 @@ class RecognitionEngine @Inject constructor(
             YouTube.search(query, YouTube.SearchFilter.FILTER_VIDEO)
                 .onFailure {
                     failed = true
-                    Log.w(TAG, "Search for '$query' failed", it)
+                    Log.w(TAG, "Search for '$query' failed", ErrorText.forLog(it))
                 }
                 .getOrNull()?.items?.filterIsInstance<SongItem>()?.take(10).orEmpty()
         }
@@ -1589,7 +1590,7 @@ class RecognitionEngine @Inject constructor(
             YouTube.search(query, YouTube.SearchFilter.FILTER_VIDEO)
                 .onFailure {
                     failed = true
-                    Log.w(TAG, "Mashup search for '$query' failed", it)
+                    Log.w(TAG, "Mashup search for '$query' failed", ErrorText.forLog(it))
                 }
                 .getOrNull()?.items?.filterIsInstance<SongItem>()?.take(10).orEmpty()
         }

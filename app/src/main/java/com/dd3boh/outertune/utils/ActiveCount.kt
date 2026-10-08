@@ -161,7 +161,7 @@ class ActiveCount @Inject constructor(
                 Log.i(TAG, "Counted ${ping.day}${if (ping.rotated) ", new name for ${ping.period}" else ""}")
             }
         }.onFailure {
-            Log.w(TAG, "Ping could not be sent, will try again next launch: $it")
+            Log.w(TAG, "Ping could not be sent, will try again next launch: ${ErrorText.withoutAddresses(it.toString())}")
         }
     }
 

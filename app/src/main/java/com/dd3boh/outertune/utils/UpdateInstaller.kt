@@ -184,7 +184,7 @@ class UpdateInstaller @Inject constructor(
 
                 commit(apk)
             } catch (e: Exception) {
-                Log.w(TAG, "Update download or install failed", e)
+                Log.w(TAG, "Update download or install failed", ErrorText.forLog(e))
                 apk.delete()
                 _state.value = State.Failed(e.message ?: "unknown error")
             }

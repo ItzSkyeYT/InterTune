@@ -159,6 +159,7 @@ import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.utils.CoilBitmapLoader
+import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.Scrobbler
@@ -1869,7 +1870,7 @@ class MusicService : MediaLibraryService(),
                 // than fail a song that plays fine, and leave its row as it is, so the upgrade is
                 // tried again next time.
                 if (staleQuality || partialCopy) {
-                    Log.d(TAG, "PLAYING: remote song (cache kept, the new stream could not be fetched)", throwable)
+                    Log.d(TAG, "PLAYING: remote song (cache kept, the new stream could not be fetched)", ErrorText.forLog(throwable))
                     return@Factory dataSpec
                 }
                 when (throwable) {

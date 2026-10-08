@@ -175,7 +175,7 @@ class LastFmSimilar @Inject constructor(
                 // "Track not found" is an answer, not a failure. Anything else (the network, a
                 // rate limit, a revoked key) is tried again after the cooldown.
                 if (t is LastFmException && t.code == TRACK_NOT_FOUND) emptyList()
-                else null.also { Log.w(TAG, "Last.fm similar failed: ${(t as? LastFmException)?.code ?: t.message}") }
+                else null.also { Log.w(TAG, "Last.fm similar failed: ${(t as? LastFmException)?.code ?: t.message?.let(ErrorText::withoutAddresses)}") }
             },
         )
 

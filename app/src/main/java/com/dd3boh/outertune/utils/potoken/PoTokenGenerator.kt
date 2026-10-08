@@ -3,6 +3,7 @@ package com.dd3boh.outertune.utils.potoken
 import android.util.Log
 import android.webkit.CookieManager
 import com.dd3boh.outertune.App
+import com.dd3boh.outertune.utils.ErrorText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -110,7 +111,7 @@ class PoTokenGenerator {
                 // retry, this time recreating the [webPoTokenGenerator] from scratch;
                 // this might happen for example if the app goes in the background and the WebView
                 // content is lost
-                Log.e(TAG, "Failed to obtain poToken, retrying", throwable)
+                Log.e(TAG, "Failed to obtain poToken, retrying", ErrorText.forLog(throwable))
                 return getWebClientPoToken(videoId = videoId, sessionId = sessionId, forceRecreate = true)
             }
         }

@@ -9,6 +9,7 @@ package com.dd3boh.outertune.recognition
 import android.util.Log
 import com.dd3boh.outertune.fingerprint.SIGNATURE_SAMPLE_RATE_HZ
 import com.dd3boh.outertune.fingerprint.SignatureGenerator
+import com.dd3boh.outertune.utils.ErrorText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -137,7 +138,7 @@ class ShazamClient @Inject constructor() {
                     .build()
             ).execute().use { Triple(it.code, it.body?.string().orEmpty(), it.header("Retry-After")) }
         }.getOrElse {
-            Log.w(TAG, "Recognition request failed", it)
+            Log.w(TAG, "Recognition request failed", ErrorText.forLog(it))
             return@withContext RecognitionOutcome.Failed("network")
         }
 

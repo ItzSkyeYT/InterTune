@@ -381,7 +381,7 @@ class PollChecker @Inject constructor(
                 response.isSuccessful
             }
         }.onFailure {
-            Log.w(TAG, "$name could not be sent, recorded locally anyway: $it")
+            Log.w(TAG, "$name could not be sent, recorded locally anyway: ${ErrorText.withoutAddresses(it.toString())}")
         }
     }
 
