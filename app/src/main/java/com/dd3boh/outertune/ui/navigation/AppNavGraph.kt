@@ -38,6 +38,7 @@ import com.dd3boh.outertune.ui.screens.RecognitionHistoryScreen
 import com.dd3boh.outertune.ui.screens.RecognitionScreen
 import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.SetupWizard
+import com.dd3boh.outertune.ui.screens.ShortSetup
 import com.dd3boh.outertune.ui.utils.AskForMusicOnOpening
 import com.dd3boh.outertune.ui.screens.StatsScreen
 import com.dd3boh.outertune.ui.screens.YouTubeBrowseScreen
@@ -433,7 +434,7 @@ fun NavGraphBuilder.appDestinations(
         }
 
         screen("setup_wizard", floating = false) {
-            SetupWizard(navController)
+            if (Unreleased.SHORT_SETUP) ShortSetup(navController, appScope) else SetupWizard(navController)
         }
 }
 
