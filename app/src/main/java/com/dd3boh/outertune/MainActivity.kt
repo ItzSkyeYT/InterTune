@@ -187,13 +187,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.screens.walkthrough.Install
 import com.dd3boh.outertune.ui.screens.walkthrough.NewThingAction
-import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_TOUR
 import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_WALK
 import com.dd3boh.outertune.ui.screens.walkthrough.TourStop
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBack
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
+import com.dd3boh.outertune.ui.screens.walkthrough.settingsWalkAndQuestion
 import com.dd3boh.outertune.widget.MusicWidgetReceiver
 import com.dd3boh.outertune.constants.WalkthroughSeenVersionKey
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
@@ -1318,13 +1318,24 @@ class MainActivity : ComponentActivity() {
                                         showFromWelcome(thing.id, thing.stops)
                                     }
                                 },
-                                onShowSettings = { showFromWelcome(SETTINGS_WALK, SETTINGS_TOUR) },
+                                // The walk ends on the same question here as in the tutorial:
+                                // whoever asks to be shown round Settings is the likeliest to
+                                // want to be shown into them.
+                                onShowSettings = { showFromWelcome(SETTINGS_WALK, settingsWalkAndQuestion()) },
                                 onDone = {
                                     welcomeOpen = false
                                     if (!welcomeEverything) setWalkthroughSeen(BuildConfig.VERSION_CODE)
                                     welcomeEverything = false
                                 },
                             )
+                        }
+
+                        // The tutorial is over once its question is up, whatever the answer, so
+                        // it is marked as seen there and not only when the tour ends: somebody
+                        // who says yes and leaves the app half way round the settings is not
+                        // given the whole tutorial again at the next launch.
+                        LaunchedEffect(tourState.asking) {
+                            if (tourState.asking && !tourFromWelcome) setWalkthroughSeen(BuildConfig.VERSION_CODE)
                         }
 
                         if (catchUpOpen) {

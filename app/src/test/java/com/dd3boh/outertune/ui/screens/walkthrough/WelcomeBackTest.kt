@@ -162,9 +162,11 @@ class WelcomeBackTest {
     @Test
     fun `a first install is walked round the app and then round Settings`() {
         val tour = tourFor(seenVersionCode = 0, buildVersionCode = v011, settingsWalk = true)
-        assertEquals(TOUR_STOPS.map { it.id } + SETTINGS_TOUR.map { it.id }, tour.map { it.id })
+        // And then asked whether to go on into them, which SettingsCloserLookTest holds.
+        assertEquals(TOUR_STOPS.map { it.id } + SETTINGS_TOUR.map { it.id } + CLOSER_LOOK_QUESTION.id, tour.map { it.id })
         // The walk follows the stop that points at the way into Settings.
-        assertEquals(Tour.SETTINGS, tour[tour.size - SETTINGS_TOUR.size - 1].targetId)
+        assertEquals(Tour.SETTINGS, tour[TOUR_STOPS.size - 1].targetId)
+        assertEquals(SETTINGS_TOUR.first(), tour[TOUR_STOPS.size])
     }
 
     @Test
@@ -180,7 +182,7 @@ class WelcomeBackTest {
 
     @Test
     fun `no two stops share an id, or a rotation would bring back the wrong one`() {
-        val every = TOUR_STOPS + SETTINGS_TOUR + SETTINGS_CLOSER_LOOK + NEW_THINGS.flatMap { it.stops }
+        val every = TOUR_STOPS + SETTINGS_TOUR + CLOSER_LOOK_QUESTION + SETTINGS_CLOSER_LOOK + NEW_THINGS.flatMap { it.stops }
         val twice = every.groupBy { it.id }.filter { (_, same) -> same.distinct().size > 1 }.keys
         assertEquals(emptySet<String>(), twice)
         assertEquals(every.map { it.id }.distinct().size, ALL_TOUR_STOPS.size)

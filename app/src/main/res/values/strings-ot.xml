@@ -750,8 +750,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="tour_settings_rest_title" translatable="false">Updates and the rest</string>
     <string name="tour_settings_rest_body" translatable="false">New versions, how Quick picks chooses, the switches most people never need, and this walk again under About.</string>
 
-    <!-- The closer look at the settings: a sentence for each setting the tour stops at. The
-         titles of those stops are the rows' own. -->
+    <!-- The closer look at the settings: the question the tutorial ends on, and a sentence for
+         each setting the tour then stops at. The titles of those stops are the rows' own. -->
+    <string name="tour_closer_question_title" translatable="false">A closer look at the settings?</string>
+    <string name="tour_closer_question_body" translatable="false">The tour can go on into each screen of Settings and stop at the settings people change most, with a sentence on what each one does. Skip ends it at any stop.</string>
     <string name="tour_closer_next_category" translatable="false">Next category</string>
     <string name="tour_closer_entry" translatable="false">Tour of the settings</string>
     <string name="tour_closer_login" translatable="false">Signing in to your YouTube Music account brings your playlists, likes and recommendations here. The app works without it.</string>

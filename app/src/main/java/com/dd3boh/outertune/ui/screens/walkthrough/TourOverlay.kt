@@ -288,8 +288,8 @@ fun TourOverlay(
         )
     }
 
-    // Next on the last stop ends the tour. Anything else is another stop, and its screen is
-    // gone to.
+    // Next on the last stop ends the tour, and so does "Show me" on a question whose tour has
+    // nothing to show. Anything else is another stop, and its screen is gone to.
     val advance: () -> Unit = {
         state.next()
         if (state.running) state.current?.route?.let(onNavigate) else onFinish()
@@ -516,10 +516,11 @@ private fun TourBubble(
 ) {
     // The opening card is an offer, not a step: a tour somebody agreed to is finished far more
     // often than one that simply started on them. So it is not counted, and its buttons say so.
-    val isOffer = stop.targetId == null && state.index == 0
+    // The question a tour can end on is the same kind of card, about the tour that would follow.
+    val isOffer = stop.targetId == null
     val steps = state.stops.count { it.targetId != null }
     val step = state.stops.take(state.index + 1).count { it.targetId != null }
-    val isLast = state.index == state.stops.lastIndex
+    val isLast = state.onLastStep
     val title = stringResource(stop.title)
 
     // From the keys, each card starts on its main button. The screen behind is closed to the
@@ -567,7 +568,7 @@ private fun TourBubble(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                if (!isOffer && stop.targetId != null) {
+                if (!isOffer) {
                     Text(
                         text = stringResource(R.string.walkthrough_progress, step, steps),
                         style = MaterialTheme.typography.labelMedium,
@@ -591,6 +592,7 @@ private fun TourBubble(
                     Text(
                         stringResource(
                             when {
+                                state.asking -> R.string.welcome_back_show
                                 isOffer -> R.string.walkthrough_start
                                 isLast -> R.string.walkthrough_done
                                 else -> R.string.walkthrough_next

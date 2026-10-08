@@ -111,6 +111,22 @@ val SETTINGS_TOUR = listOf(
 )
 
 /**
+ * The question the walk round Settings ends on: whether to go on into the settings themselves.
+ *
+ * A stop with nothing to point at, like the welcome, and an offer like it: "Not now" ends the tour
+ * as it ended before there was a question, "Show me" starts [SETTINGS_CLOSER_LOOK] in its place.
+ * Asked over the list of settings, where the walk leaves somebody.
+ */
+val CLOSER_LOOK_QUESTION = TourStop(
+    id = "closer_look_question",
+    targetId = null,
+    route = Tour.ROUTE_SETTINGS,
+    title = R.string.tour_closer_question_title,
+    body = R.string.tour_closer_question_body,
+    sinceVersionCode = 0,
+)
+
+/**
  * The screens the Settings list leads to, in the order they are on it. The closer look goes
  * through them in this order, and SettingsCloserLookTest reads the list off SettingsScreen and
  * fails when the two differ, so that a screen added there is not forgotten here.
@@ -148,7 +164,7 @@ private fun closer(id: String, target: String, route: String, @StringRes title: 
 /**
  * A closer look at the settings: into each screen of [SETTINGS_CATEGORIES] and, there, to the
  * settings people change, one bubble each, with a sentence on what the setting does and when
- * somebody would want it. About starts it.
+ * somebody would want it. The tutorial offers it at its end and About starts it again.
  *
  * Not every row. Left out: what only cleans up or is there for developers, a row that opens
  * another screen, what sits folded away under Advanced, and a row whose own description already
@@ -222,6 +238,10 @@ val SETTINGS_CLOSER_LOOK = listOf(
     closer("learn_from_listening", Tour.SETTING_LEARN_FROM_LISTENING, Tour.ROUTE_RECOMMENDATIONS, R.string.learn_from_listening, R.string.tour_closer_learn_from_listening),
     closer("exclusions", Tour.SETTING_EXCLUSIONS, Tour.ROUTE_RECOMMENDATIONS, R.string.exclusions, R.string.tour_closer_exclusions),
 )
+
+/** The tour a question leads to on "Show me", or null for a stop that is not a question. */
+fun tourOfferedBy(stop: TourStop): List<TourStop>? =
+    if (stop.id == CLOSER_LOOK_QUESTION.id) SETTINGS_CLOSER_LOOK else null
 
 /** What "Show me" does for a [NewThing]. */
 enum class NewThingAction {
@@ -365,15 +385,16 @@ fun newThingsFor(
 }
 
 /** Every stop there is, for bringing a running tour back after the activity was recreated. */
-val ALL_TOUR_STOPS: List<TourStop> get() = (TOUR_STOPS + SETTINGS_TOUR + SETTINGS_CLOSER_LOOK + NEW_THINGS.flatMap { it.stops }).distinctBy { it.id }
+val ALL_TOUR_STOPS: List<TourStop> get() = (TOUR_STOPS + SETTINGS_TOUR + CLOSER_LOOK_QUESTION + SETTINGS_CLOSER_LOOK + NEW_THINGS.flatMap { it.stops }).distinctBy { it.id }
 
 /**
  * The same rule as [walkthroughFor], applied to the tour.
  *
  * A first install is walked round the app and then, with [settingsWalk], round Settings. The
  * tour's last stop points at the way in, and ending there left the one place people get lost in
- * as the one place nobody showed them. Somebody who has had the tour gets only the stops that
- * are new since, never the walk: the welcome back page offers it, and they can say no.
+ * as the one place nobody showed them. The walk ends on a question, whether to go on into the
+ * settings themselves ([settingsWalkAndQuestion]). Somebody who has had the tour gets only the
+ * stops that are new since, never the walk: the welcome back page offers it, and they can say no.
  */
 fun tourFor(
     seenVersionCode: Int,
@@ -381,9 +402,15 @@ fun tourFor(
     settingsWalk: Boolean = Unreleased.WELCOME_BACK,
 ): List<TourStop> {
     val shipped = TOUR_STOPS.filter { it.sinceVersionCode <= buildVersionCode }
-    return if (seenVersionCode <= 0) shipped + (if (settingsWalk) SETTINGS_TOUR else emptyList())
+    return if (seenVersionCode <= 0) shipped + (if (settingsWalk) settingsWalkAndQuestion() else emptyList())
     else shipped.filter { it.sinceVersionCode > seenVersionCode }
 }
+
+/**
+ * The walk round Settings as it is given: its four groups, then the question. The tutorial ends on
+ * it and the welcome back page starts it by itself, and it asks the same thing at the end of both.
+ */
+fun settingsWalkAndQuestion(): List<TourStop> = SETTINGS_TOUR + CLOSER_LOOK_QUESTION
 
 /** Every stop, for the entry in settings. */
 fun tourAll(): List<TourStop> = TOUR_STOPS

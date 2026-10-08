@@ -151,8 +151,9 @@ fun Modifier.tourTarget(id: String): Modifier {
  * One stop on the tour.
  *
  * @param targetId the element to point at, or null for something with no home on screen, which is
- *   shown as a plain card in the middle. The welcome and the sign off are the only two of those;
- *   anything else with no target is a slide, and a slideshow is what this replaced.
+ *   shown as a plain card in the middle. The welcome is one, and so is the question the tutorial
+ *   ends on, whether to go on into the settings; anything else with no target is a slide, and a
+ *   slideshow is what this replaced.
  * @param route where the target lives. The tour navigates there before pointing, because half of
  *   explaining a setting is showing which menu it is buried in.
  */
@@ -360,6 +361,19 @@ class TourState {
     val current: TourStop? get() = stops.getOrNull(index)
 
     /**
+     * Whether the tour is on a question about what comes after it: a card with nothing to point
+     * at that is not the opening one. The tutorial ends on one, CLOSER_LOOK_QUESTION.
+     */
+    val asking: Boolean get() = running && index > 0 && current?.targetId == null
+
+    /**
+     * Whether the tour is on the last stop that points at something. That is its last step, and
+     * the button there reads Done, even with a question to follow: the question is about another
+     * tour, and somebody who has had enough has had all of this one.
+     */
+    val onLastStep: Boolean get() = current?.targetId != null && stops.drop(index + 1).none { it.targetId != null }
+
+    /**
      * Where "Next category" leads: the first stop on the screen after the one this stop is on, or
      * null when there is none.
      *
@@ -395,7 +409,14 @@ class TourState {
 
     fun next() {
         steppedBack = false
-        if (index < stops.lastIndex) index++ else stop()
+        // "Show me" on a question: the tour it offers takes this one's place. Stopped first, so
+        // that an offer with nothing left to show ends the tour and is not a button that did
+        // nothing.
+        val offered = if (asking) current?.let(::tourOfferedBy) else null
+        if (offered != null) {
+            stop()
+            start(offered)
+        } else if (index < stops.lastIndex) index++ else stop()
         passOver()
     }
 
