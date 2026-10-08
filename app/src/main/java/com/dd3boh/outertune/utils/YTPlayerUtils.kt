@@ -47,9 +47,16 @@ object YTPlayerUtils {
     private val poTokenGenerator = PoTokenGenerator()
 
     /**
-     * The main client is used for metadata and initial streams.
-     * Do not use other clients for this because it can result in inconsistent metadata.
+     * The main client is the first one written in the chain, and its answer is preferred for
+     * metadata when it has been asked.
+     * Do not prefer other clients for this because it can result in inconsistent metadata.
      * For example other clients can have different normalization targets (loudnessDb).
+     *
+     * It is not asked for every song any more: see [StreamOrder]. On 8 Oct 2026 it had been
+     * refused as a bot on every song for weeks, and a refusal carries nothing a song needs. What
+     * was read from its answer is now read from whichever answer carries it (see the end of
+     * [resolveOnce]), and the one thing only it is asked for, a visitorData when the app has none,
+     * still puts it first.
      *
      * [com.zionhuang.innertube.models.YouTubeClient.ANDROID_VR_NO_AUTH] is what we use, because it
      * is the one that reliably serves streams here.
@@ -121,6 +128,35 @@ object YTPlayerUtils {
      */
     @Volatile
     var onVisitorDataFound: ((String) -> Unit)? = null
+
+    /**
+     * Which client served the last song and when the others were refused, for [StreamOrder] to
+     * decide who is asked first. Set by App from the stored value at launch.
+     */
+    @Volatile
+    var streamMemory: StreamOrder.Memory = StreamOrder.Memory()
+
+    /**
+     * Receives [streamMemory] as [StreamOrder.encode] writes it whenever a song has changed it, so
+     * the next launch starts with the client that served in this one. Set by App, which owns the
+     * stored value. A song served by the same client as the one before changes nothing, so this
+     * is called when the chain was walked and not for every song.
+     */
+    @Volatile
+    var onStreamMemoryChanged: ((String) -> Unit)? = null
+
+    /** Adds what one pass learned to [streamMemory], and hands it on to be stored if that changed it. */
+    private fun rememberAsked(asked: List<StreamOrder.Asked>) {
+        if (asked.isEmpty()) return
+        val changed = synchronized(this) {
+            val before = streamMemory
+            val after = StreamOrder.remember(before, asked, System.currentTimeMillis())
+            if (after == before) return
+            streamMemory = after
+            after
+        }
+        onStreamMemoryChanged?.invoke(StreamOrder.encode(changed))
+    }
 
     /**
      * Whether playback may ask as the signed-in account, set from the preference by MusicService.
@@ -242,7 +278,8 @@ object YTPlayerUtils {
 
     /**
      * Custom player response intended to use for playback.
-     * Metadata like audioConfig and videoDetails are from [MAIN_CLIENT].
+     * Metadata like audioConfig and videoDetails are from [MAIN_CLIENT] when it was asked and its
+     * answer carries them, and from the client that served the stream otherwise.
      * Format & stream can be from [MAIN_CLIENT] or [STREAM_FALLBACK_CLIENTS].
      *
      * The chain over the address family [FamilyChoice] picks, and once more over the other family
@@ -360,6 +397,19 @@ object YTPlayerUtils {
         val playerClients = listOf(MAIN_CLIENT) + streamClients
         val wantsPoToken = playerClients.any { it.useWebPoTokens }
 
+        // The client that served the last song is asked first, and the others as they are written
+        // when it gives no stream: see StreamOrder. Clients are known there by the names the trail
+        // gives them. Two with one name could not be told apart, so such a chain is asked as
+        // written.
+        fun label(client: YouTubeClient) =
+            if (client.loginSupported && isLoggedIn) "${client.clientName} (account)" else client.clientName
+        val written = playerClients.map { label(it) }
+        val hasVisitorData = YouTube.visitorData?.let { StreamCheck.looksLikeVisitorData(it) } == true
+        val clients =
+            if (written.distinct().size != written.size) playerClients
+            else StreamOrder.order(written, streamMemory, System.currentTimeMillis(), hasVisitorData)
+                .map { playerClients[written.indexOf(it)] }
+
         // Worked out on first use rather than up front. The authenticated client asks for a
         // signature timestamp and usually sits at the end of the chain never being reached, so
         // computing this because it is merely in the list would charge every song for an
@@ -385,7 +435,11 @@ object YTPlayerUtils {
                 YouTube.visitorData
             }
 
-        Log.d(TAG, "[$videoId] isLoggedIn: $isLoggedIn, clients: ${playerClients.joinToString { it.clientName }}")
+        Log.d(
+            TAG,
+            "[$videoId] isLoggedIn: $isLoggedIn, clients: ${clients.joinToString { it.clientName }}" +
+                    if (clients.first() !== playerClients.first()) " (${label(clients.first())} served last)" else "",
+        )
 
         val (webPlayerPot, webStreamingPot) = if (!wantsPoToken) {
             Pair(null, null)
@@ -411,25 +465,9 @@ object YTPlayerUtils {
             }
         }
 
-        val mainPlayerResponse =
-            YouTube.player(videoId, playlistId, MAIN_CLIENT, signatureTimestampFor(MAIN_CLIENT), webPlayerPot, addressPolicy = policy)
-                .onFailure { Throttle.noteFailure(it) }
-                .getOrThrow()
-        mainPlayerResponse.rememberBlock()
-
-        // Without a visitorData YouTube issued, VISIONOS refuses every song and the chain ends in
-        // IOS's 403 (issue #17: sw.js_data failed at every launch). The main client has just
-        // answered, and its answer carries a fresh one whatever it said, so take that before
-        // VISIONOS is asked. See StreamCheck.visitorDataToAdopt.
-        StreamCheck.visitorDataToAdopt(YouTube.visitorData, mainPlayerResponse.responseContext.visitorData)
-            ?.let { found ->
-                Log.i(TAG, "[$videoId] no usable visitorData, taking the one ${MAIN_CLIENT.clientName}'s answer carried")
-                YouTube.visitorData = found
-                onVisitorDataFound?.invoke(found)
-            }
-
-        val videoDetails = mainPlayerResponse.videoDetails
-        val playbackTracking = mainPlayerResponse.playbackTracking
+        // The main client's answer, once it has been asked. It stays null for a song the client that
+        // served the last one serves too, which is nearly all of them.
+        var mainPlayerResponse: PlayerResponse? = null
 
         var format: PlayerResponse.StreamingData.Format? = null
         var streamUrl: String? = null
@@ -455,52 +493,88 @@ object YTPlayerUtils {
         // connection or a timeout.
         var lastFallbackFailure: Throwable? = null
         val trail = mutableListOf<String>()
-        for (clientIndex in (-1 until streamClients.size)) {
+        // What each client asked gave, for StreamOrder to remember. A client the network never
+        // reached, or whose url could not be checked, is left out: nothing was learned of it.
+        val asked = mutableListOf<StreamOrder.Asked>()
+
+        // Says what was asked and answered, and remembers it. Whichever client the loop ended on,
+        // successfully or not, and also when a failure ends it early, so a song that failed is
+        // reported with the client that failed rather than with nothing.
+        fun chainDone() {
+            lastStreamClient = lastClient?.let { label(it) }
+            lastStreamTrail = trail.joinToString(", ")
+            Log.d(TAG, "[$videoId] chain: $lastStreamTrail")
+            rememberAsked(asked)
+        }
+
+        for ((clientIndex, client) in clients.withIndex()) {
             // reset for each client
             format = null
             streamUrl = null
             streamExpiresInSeconds = null
 
-            // decide which client to use for streams and load its player response
-            val client: YouTubeClient
-            if (clientIndex == -1) {
-                Log.d(TAG, "Trying client: ${MAIN_CLIENT.clientName}")
-                // try with streams from main client first
-                client = MAIN_CLIENT
-                streamPlayerResponse = mainPlayerResponse
+            // the main client's streams are tried like any other's, in whatever place it is asked
+            val isMain = client === MAIN_CLIENT
+            if (isMain) {
+                Log.d(TAG, "Trying client: ${client.clientName}")
             } else {
-                Log.d(TAG, "Trying fallback client: ${streamClients[clientIndex].clientName}")
-                // after main client use fallback clients
-                client = streamClients[clientIndex]
+                Log.d(TAG, "Trying fallback client: ${client.clientName}")
 
                 if (client.loginRequired && !isLoggedIn) {
                     // skip client if it requires login but user is not logged in
                     continue
                 }
-
-                // hl=en whatever the app's language. Throttle and the error screen know the bot
-                // check and the age gate only by YouTube's English wording, and a fallback client's
-                // reason is what they read. Any other reason is shown on the error screen as
-                // YouTube wrote it, so a song refused for its own sake now reads in English there.
-                // The main client keeps the app's hl: nothing in its answer is shown, and asking it
-                // in English would let its routine bot check (see blockedStatus) reach the throttle
-                // in every language.
-                val fallbackResult =
-                    YouTube.player(
-                        videoId, playlistId, client, signatureTimestampFor(client), webPlayerPot,
-                        hlOverride = "en", addressPolicy = policy,
-                    )
-                        .onFailure { Throttle.noteFailure(it) }
-                streamPlayerResponse = fallbackResult.getOrNull()
-                if (streamPlayerResponse == null) {
-                    fallbackResult.exceptionOrNull()?.let { lastFallbackFailure = it }
-                }
-                streamPlayerResponse?.rememberBlock()
-                if (Throttle.looksLikeBlock(streamPlayerResponse?.playabilityStatus?.reason)) notes.fallbackBlocked = true
             }
-
             lastClient = client
-            if (clientIndex >= 0) {
+            val clientLabel = label(client)
+            val asAccount = client.loginSupported && isLoggedIn
+
+            // hl=en whatever the app's language. Throttle and the error screen know the bot
+            // check and the age gate only by YouTube's English wording, and a fallback client's
+            // reason is what they read. Any other reason is shown on the error screen as
+            // YouTube wrote it, so a song refused for its own sake now reads in English there.
+            // The main client keeps the app's hl: nothing in its answer is shown, and asking it
+            // in English would let its routine bot check (see blockedStatus) reach the throttle
+            // in every language.
+            val result =
+                YouTube.player(
+                    videoId, playlistId, client, signatureTimestampFor(client), webPlayerPot,
+                    hlOverride = if (isMain) null else "en", addressPolicy = policy,
+                )
+                    .onFailure { Throttle.noteFailure(it) }
+            streamPlayerResponse = result.getOrNull()
+            result.exceptionOrNull()?.let { failure ->
+                val unreached = StreamOrder.networkDidNotAnswer(failure)
+                if (!unreached) asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
+                // The main client's failure ends the song, as it always has. So does the first
+                // request of all when the network did not carry it, which used to be the main
+                // client's: see StreamOrder.networkDidNotAnswer.
+                if (isMain || (clientIndex == 0 && unreached)) {
+                    trail += StreamCheck.trailStep(clientLabel, null, null, checked = false)
+                    chainDone()
+                    throw failure
+                }
+                lastFallbackFailure = failure
+            }
+            // Noted as having given no stream, until its url passes the check below.
+            if (streamPlayerResponse != null) asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
+            streamPlayerResponse?.rememberBlock()
+
+            if (isMain) {
+                mainPlayerResponse = streamPlayerResponse
+                // Without a visitorData YouTube issued, VISIONOS refuses every song and the chain
+                // ends in IOS's 403 (issue #17: sw.js_data failed at every launch). The main client
+                // has just answered, and its answer carries a fresh one whatever it said, so take
+                // that before VISIONOS is asked. See StreamCheck.visitorDataToAdopt. An app without
+                // one always asks the main client first: StreamOrder.order sees to that.
+                StreamCheck.visitorDataToAdopt(YouTube.visitorData, streamPlayerResponse?.responseContext?.visitorData)
+                    ?.let { found ->
+                        Log.i(TAG, "[$videoId] no usable visitorData, taking the one ${MAIN_CLIENT.clientName}'s answer carried")
+                        YouTube.visitorData = found
+                        onVisitorDataFound?.invoke(found)
+                    }
+            } else {
+                if (Throttle.looksLikeBlock(streamPlayerResponse?.playabilityStatus?.reason)) notes.fallbackBlocked = true
                 streamPlayerResponse?.playabilityStatus
                     ?.takeIf { it.status != null && it.status != "OK" && explained == null }
                     ?.let { explained = it }
@@ -508,8 +582,6 @@ object YTPlayerUtils {
                     ?.takeIf { it.status != null && it.status != "OK" && fallbackRefusal == null }
                     ?.let { fallbackRefusal = it }
             }
-            val clientLabel =
-                if (client.loginSupported && isLoggedIn) "${client.clientName} (account)" else client.clientName
             val isVisionos = client.clientName == VISIONOS.clientName
             if (isVisionos && Throttle.looksLikeBlock(streamPlayerResponse?.playabilityStatus?.reason)) {
                 notes.visionosRefused = true
@@ -537,9 +609,16 @@ object YTPlayerUtils {
                     streamUrl += "&pot=$webStreamingPot";
                 }
 
-                val isLast = clientIndex == streamClients.size - 1
+                val isLast = clientIndex == clients.lastIndex
                 val status = streamStatus(streamUrl)
                 trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", status, checked = true)
+                // For StreamOrder the client served or was refused by what the check answered. A
+                // check that could not be made says more of the connection than of the client, so
+                // nothing is remembered of it, even when its url is the last one and is played.
+                asked.removeAt(asked.lastIndex)
+                if (status != null) {
+                    asked += StreamOrder.Asked(clientLabel, worked = StreamCheck.accept(status, isLast = false), asAccount)
+                }
                 if (StreamCheck.accept(status, isLast)) {
                     // working stream found, or the last one left with nothing to say it is not
                     Log.i(TAG, "[$videoId] [${client.clientName}] found working stream ($status)")
@@ -555,13 +634,8 @@ object YTPlayerUtils {
             }
         }
 
-        // Whichever client the loop ended on, successfully or not. Written before the throws
-        // below, so a failure is reported with the client that failed rather than with nothing.
-        lastStreamClient = lastClient?.let {
-            if (it.loginSupported && isLoggedIn) "${it.clientName} (account)" else it.clientName
-        }
-        lastStreamTrail = trail.joinToString(", ")
-        Log.d(TAG, "[$videoId] chain: $lastStreamTrail")
+        // Written before the throws below, so a failure is reported with the client that failed.
+        chainDone()
 
         // For the throttle, which playerResponseForPlayback tells once it knows whether a second
         // pass is needed and how it went.
@@ -625,9 +699,24 @@ object YTPlayerUtils {
          * Preference order matters: the main client stays first so that if it ever starts sending
          * audioConfig again we use its numbers, since normalisation targets can differ per client
          * and mixing a target from one with a measurement from another would be wrong.
+         *
+         * Now that the main client is not asked for every song (see [StreamOrder]), its answer is
+         * there only when the walk reached it, and then it is preferred as before. Each number
+         * comes whole from one answer, so nothing is mixed either way.
          */
-        val audioConfig = mainPlayerResponse.playerConfig?.audioConfig
+        val audioConfig = mainPlayerResponse?.playerConfig?.audioConfig
             ?: streamPlayerResponse.playerConfig?.audioConfig
+
+        // The main client's details when it gave any, which a refusal does not, and the serving
+        // client's otherwise. Only the length is read from them (MusicService.recoverSong), and
+        // without them that asked VISIONOS for it in a request of its own.
+        val videoDetails = mainPlayerResponse?.videoDetails ?: streamPlayerResponse.videoDetails
+
+        // The main client's or none, as it always was: a refusal carries none, so none has been
+        // the rule for weeks. It goes into a column of the format row that nothing reads, and
+        // another client's is not put there in its place: a play is reported with an address
+        // asked for at the time (see playerResponseForMetadata).
+        val playbackTracking = mainPlayerResponse?.playbackTracking
 
         PlaybackData(
             audioConfig,

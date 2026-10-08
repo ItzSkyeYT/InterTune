@@ -46,6 +46,7 @@ import com.dd3boh.outertune.constants.ProxyEnabledKey
 import com.dd3boh.outertune.constants.ProxyTypeKey
 import com.dd3boh.outertune.constants.ProxyUrlKey
 import com.dd3boh.outertune.constants.SYSTEM_DEFAULT
+import com.dd3boh.outertune.constants.StreamOrderKey
 import com.dd3boh.outertune.constants.UseLoginForBrowse
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.extensions.toEnum
@@ -58,6 +59,7 @@ import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.StreamOrder
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.YouTubeLocale
@@ -133,6 +135,13 @@ class App : Application(), SingletonImageLoader.Factory {
         // fetch (and fail) again.
         YTPlayerUtils.onVisitorDataFound = { found ->
             GlobalScope.launch { dataStore.edit { it[VisitorDataKey] = found } }
+        }
+        // Which client served the last song, so the first one of this launch is asked of it and
+        // not of one YouTube was refusing an hour ago. Read here, like the keys above, and not by
+        // the player, which runs on every song. See StreamOrder.
+        YTPlayerUtils.streamMemory = StreamOrder.decode(dataStore[StreamOrderKey])
+        YTPlayerUtils.onStreamMemoryChanged = { changed ->
+            GlobalScope.launch { dataStore.edit { it[StreamOrderKey] = changed } }
         }
         GlobalScope.launch {
             dataStore.data
