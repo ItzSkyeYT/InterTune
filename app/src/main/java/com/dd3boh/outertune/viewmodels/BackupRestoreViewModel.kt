@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -109,9 +110,15 @@ class BackupRestoreViewModel @Inject constructor(
                     if (restored) {
                         val stopIntent = Intent(context, MusicService::class.java)
                         context.stopService(stopIntent)
-                        val startIntent = Intent(context, MainActivity::class.java)
-                        startIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        context.startActivity(startIntent)
+                        // In a task of its own, cleared first. MainActivity is singleTask, so a
+                        // plain start was handed to the instance already on top and made nothing
+                        // new: when the process then ended the app was gone, and somebody who had
+                        // just restored a backup was looking at their launcher (a Pixel 5 on
+                        // Android 14). A cleared task gets a new activity, which the system
+                        // brings up in a new process once this one has ended.
+                        context.startActivity(
+                            Intent.makeRestartActivityTask(ComponentName(context, MainActivity::class.java))
+                        )
                         exitProcess(0)
                     } else {
                         Toast.makeText(
