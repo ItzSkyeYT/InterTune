@@ -48,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -193,7 +194,7 @@ fun MiniPlayer(
                 Icon(
                     painter = painterResource(R.drawable.skip_previous),
                     tint = iconButtonColor.copy(alpha = (if (canSkipPrevious) 1f else 0.5f)),
-                    contentDescription = null
+                    contentDescription = stringResource(R.string.widget_previous)
                 )
             }
 
@@ -210,7 +211,10 @@ fun MiniPlayer(
                 Icon(
                     imageVector = if (playbackState == Player.STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     tint = iconButtonColor,
-                    contentDescription = null
+                    // The three buttons were bare pictures: a screen reader had nothing to read out
+                    // for them, and nothing that drives the app by what is on screen could find
+                    // them. They are named as the widget names its own.
+                    contentDescription = stringResource(if (isPlaying) R.string.widget_pause else R.string.widget_play)
                 )
             }
 
@@ -227,7 +231,7 @@ fun MiniPlayer(
                 Icon(
                     painter = painterResource(R.drawable.skip_next),
                     tint = iconButtonColor.copy(alpha = (if (canSkipNext) 1f else 0.5f)),
-                    contentDescription = null
+                    contentDescription = stringResource(R.string.widget_next)
                 )
             }
         }
