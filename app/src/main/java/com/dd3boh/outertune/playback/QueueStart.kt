@@ -67,6 +67,9 @@ internal class QueueStart(private val service: Target) {
             continuationEndpoint: String?,
         ): MultiQueueObject?
 
+        /** QueueBoard.deleteQueue, for the queue of this title when the board holds one. */
+        fun dropQueue(title: String)
+
         /** QueueBoard.renameQueue. */
         fun renameQueue(queue: MultiQueueObject, title: String)
 
@@ -106,6 +109,13 @@ internal class QueueStart(private val service: Target) {
         // Or something else was asked for meanwhile, and this one's song is never loaded.
         if (number != lastStart) return
         if (preloadItem != null) {
+            // The temporary title is this tap's alone, so a queue still under it goes first. It is
+            // an earlier tap's: one whose answer failed, which leaves its song there alone, or
+            // one whose answer has yet to come and will be dropped when it does. Found by that
+            // title, it used to be given this song as well, and as the board keeps one resume
+            // point for a queue, this song was loaded where the other had stopped: 1:35 into a
+            // song tapped a moment ago, or past its end, where it ended as it started.
+            if (title == null) service.dropQueue(PRELOAD_TITLE)
             q = service.addQueue(
                 queueTitle ?: PRELOAD_TITLE,
                 listOf(preloadItem),

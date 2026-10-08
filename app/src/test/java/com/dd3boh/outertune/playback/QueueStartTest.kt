@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -84,6 +85,9 @@ class QueueStartTest {
         /** Set by a test that wants the steps to wait for the board, and completed when it says. */
         var board: CompletableDeferred<Unit>? = null
 
+        /** Every queue made gets an id of its own, as on the board. */
+        private var made = 0L
+
         /** What the board was asked, without the player's lines. */
         fun board() = asked.filter { !it.startsWith("player") }
 
@@ -105,13 +109,21 @@ class QueueStartTest {
             if (items.isEmpty()) return null
             val match = queues.firstOrNull { it.title == title }
             if (match == null) {
-                return MultiQueueObject(queues.size + 1L, title, items.toMutableList(), queuePos = startIndex, index = queues.size)
+                return MultiQueueObject(++made, title, items.toMutableList(), queuePos = startIndex, index = queues.size)
                     .also { queues += it }
             }
             if (replace) match.queue.clear()
             match.queue += items.filter { new -> match.queue.none { it.id == new.id } }
             match.queuePos = match.queue.indexOfFirst { it.id == items[startIndex].id }
             return match
+        }
+
+        /** Written down only when there was a queue to drop, which there seldom is. */
+        override fun dropQueue(title: String) {
+            val at = queues.indexOfFirst { it.title == title }
+            if (at < 0) return
+            asked += "drop '$title' ${queues[at].queue.map { it.id }}"
+            queues.removeAt(at)
         }
 
         override fun renameQueue(queue: MultiQueueObject, title: String) {
@@ -360,6 +372,97 @@ class QueueStartTest {
         if (radio.asked.isCompleted) fail("the queue was asked for its answer")
     }
 
+    // A tap after one whose answer never came. That one's song is still on the board alone, under
+    // the temporary title, and the next tap used to find it there by the title and use it: its
+    // own song was loaded from the place the board had kept for the other one, 1:35 into a song
+    // tapped a moment ago, or past its end, where it ended as it started.
+
+    /** Song A tapped, its answer failed, and A paused at 1:35, which the service writes on the queue. */
+    private suspend fun leftAfterAFailedAnswer(service: Service, start: QueueStart, replace: Boolean = true): MultiQueueObject {
+        val first = LateQueue(song("A"))
+        first.answer.completeExceptionally(IOException("no network"))
+        runCatching { start.play(first, replace = replace, runId = 7) }
+        return service.queues.single().also { it.lastSongPos = 95_000 }
+    }
+
+    @Test
+    fun `a song tapped after an answer that failed starts from the top, in a queue of its own`() = runBlocking {
+        val service = Service()
+        val start = QueueStart(service)
+        val left = leftAfterAFailedAnswer(service, start)
+        val before = service.board().size
+
+        val second = LateQueue(song("B"))
+        val two = launch { start.play(second, runId = 8) }
+        second.asked.await()
+
+        assertEquals(listOf("A from the top", "B from the top"), service.heard)
+        assertEquals(
+            listOf("drop '$temp' [A]", "add '$temp' [B] at 0 replace", "load '$temp' [B] at 0 resuming (origin 3, slot 2, run 8)"),
+            service.board().drop(before),
+        )
+        val made = service.queues.single()
+        assertEquals(listOf("B"), made.queue.map { it.id })
+        assertNotEquals(left.id, made.id)
+        assertEquals(C.TIME_UNSET, made.lastSongPos)
+
+        // And its own answer finds it, as on any other tap.
+        second.answer.complete(Queue.Status("B Mix", listOf(song("B"), song("B2")), 0))
+        two.join()
+        assertEquals(listOf("A from the top", "B from the top"), service.heard)
+        assertEquals(listOf("B Mix"), service.queues.map { it.title })
+        assertEquals(listOf("B", "B2"), service.queues.single().queue.map { it.id })
+    }
+
+    @Test
+    fun `a song started without replacing is not put behind the one left there`() = runBlocking {
+        // Start radio in the notification asks this way. The song used to be added after the one
+        // left there, [A, B], and loaded from A's place.
+        val service = Service()
+        val start = QueueStart(service)
+        leftAfterAFailedAnswer(service, start, replace = false)
+
+        val second = LateQueue(song("B"))
+        val two = launch { start.play(second, replace = false, runId = 8) }
+        second.asked.await()
+
+        assertEquals(listOf("A from the top", "B from the top"), service.heard)
+        assertEquals(listOf("B"), service.queues.single().queue.map { it.id })
+        two.cancel()
+    }
+
+    @Test
+    fun `the same song tapped again after an answer that failed plays on where it is`() = runBlocking {
+        // The player already holds it, so nothing is loaded: a tap on the song that is playing
+        // has never started it over, with or without a network.
+        val service = Service()
+        val start = QueueStart(service)
+        leftAfterAFailedAnswer(service, start)
+
+        val again = LateQueue(song("A"))
+        val two = launch { start.play(again, runId = 8) }
+        again.asked.await()
+
+        assertEquals(listOf("A from the top"), service.heard)
+        assertEquals(listOf("A"), service.queues.single().queue.map { it.id })
+        assertEquals(started, service.asked.last())
+        two.cancel()
+    }
+
+    @Test
+    fun `a queue with a title of its own leaves the one under the temporary title alone`() = runBlocking {
+        val service = Service()
+        val start = QueueStart(service)
+        leftAfterAFailedAnswer(service, start)
+
+        val named = LateQueue(song("B"))
+        val two = launch { start.play(named, title = "Mine", runId = 8) }
+        named.asked.await()
+
+        assertEquals(listOf(temp, "Mine"), service.queues.map { it.title })
+        two.cancel()
+    }
+
     // Another tap before the answer: the last tap wins. The earlier tap's answer used to be loaded
     // when it came, over the song tapped after it. Answered in order, that was the second song,
     // then the first from the top, then the second again from the top. Answered the other way
@@ -389,7 +492,8 @@ class QueueStartTest {
             listOf(
                 "add '$temp' [A] at 0 replace",
                 "load '$temp' [A] at 0 resuming (origin 3, slot 2, run 7)",
-                // The second tap finds the first one's queue of one under the same name.
+                // The second tap makes a queue of its own, and the first one's goes.
+                "drop '$temp' [A]",
                 "add '$temp' [B] at 0 replace",
                 "load '$temp' [B] at 0 resuming (origin 3, slot 2, run 8)",
                 "rename '$temp' to 'B Mix'",
@@ -427,6 +531,7 @@ class QueueStartTest {
             listOf(
                 "add '$temp' [A] at 0 replace",
                 "load '$temp' [A] at 0 resuming (origin 3, slot 2, run 7)",
+                "drop '$temp' [A]",
                 "add '$temp' [B] at 0 replace",
                 "load '$temp' [B] at 0 resuming (origin 3, slot 2, run 8)",
                 "rename '$temp' to 'B Mix'",
