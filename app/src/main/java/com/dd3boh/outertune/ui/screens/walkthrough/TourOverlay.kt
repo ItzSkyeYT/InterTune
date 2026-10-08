@@ -9,6 +9,8 @@ package com.dd3boh.outertune.ui.screens.walkthrough
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+import android.os.SystemClock
+import android.util.Log
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
@@ -132,6 +134,8 @@ private const val SCRIM_ALPHA = 0.7f
 private val EMPHASIZED = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 private const val TRAVEL_MS = 400
 
+private const val TAG = "Tour"
+
 /**
  * The tour: the screen dimmed, a hole over the control being described, and a bubble attached to it.
  *
@@ -170,10 +174,18 @@ fun TourOverlay(
     // Started again when the row that holds the mark is another one: stepping back and forward
     // across two screens in quick succession, the first is found on the screen going out, and
     // the one to scroll to is on the same screen coming in.
+    //
+    // What became of each stop is logged, under its number on the counter: found and after how
+    // long, left out, or given up on. On the screen a stop that waited, or that stands in the
+    // middle with nothing to point at, looks like any other, and a run that walks the tour on a
+    // device has only this to tell them apart by.
     val bringRoomPx = with(LocalDensity.current) { BRING_ROOM.toPx() }
+    val began = remember(stop.id) { SystemClock.uptimeMillis() }
     LaunchedEffect(stop.id, stop.targetId?.let(TourTargets::holder)) {
         val id = stop.targetId ?: return@LaunchedEffect
         val route = stop.route
+        val counted = state.stops.take(state.index + 1).count { it.targetId != null }
+        val named = "stop $counted of ${state.stops.count { it.targetId != null }} (${stop.id})"
         // True once it is there, false once its screen is and it is not, nothing until either.
         val there = withTimeoutOrNull(3000) {
             snapshotFlow {
@@ -183,17 +195,24 @@ fun TourOverlay(
                     else -> null
                 }
             }.filterNotNull().first()
-        } ?: return@LaunchedEffect
+        }
+        if (there == null) {
+            val waited = SystemClock.uptimeMillis() - began
+            Log.d(TAG, "$named: nothing to point at after $waited ms, the bubble stands in the middle")
+            return@LaunchedEffect
+        }
         if (!there) {
             // Two frames' grace, for a row that is composed a pass after its screen is.
             repeat(2) { withFrameNanos { } }
             if (!TourTargets.known(id)) {
+                Log.d(TAG, "$named: not on its screen, left out")
                 state.leaveOut()
                 if (state.running) state.current?.route?.let(onNavigate) else onFinish()
                 return@LaunchedEffect
             }
         }
         TourTargets.bring(id, bringRoomPx)
+        Log.d(TAG, "$named: pointed at after ${SystemClock.uptimeMillis() - began} ms")
     }
 
     // Back steps the tour back, and the screen with it when the stop before is on another one.
