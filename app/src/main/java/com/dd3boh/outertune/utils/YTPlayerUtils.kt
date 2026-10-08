@@ -153,6 +153,50 @@ object YTPlayerUtils {
     internal val chainClients: List<YouTubeClient>
         get() = listOf(MAIN_CLIENT) + STREAM_FALLBACK_CLIENTS + AUTH_CLIENT
 
+    /**
+     * How a client is asked and a stream url checked: YouTube and a HEAD request. Handed down to
+     * the walk the way FamilyChoice.resolve is handed its attempt, so that ChainWalkTest can walk
+     * the chain with answers of its own and no network.
+     */
+    internal interface Wire {
+        /** [asNewVisitor] asks without any visitorData, for the new one the answer then carries. */
+        suspend fun player(
+            videoId: String,
+            playlistId: String?,
+            client: YouTubeClient,
+            signatureTimestamp: Int?,
+            webPlayerPot: String?,
+            hlOverride: String?,
+            policy: AddressPolicy?,
+            asNewVisitor: Boolean = false,
+        ): Result<PlayerResponse>
+
+        fun head(url: String): Int?
+    }
+
+    private object Live : Wire {
+        override suspend fun player(
+            videoId: String,
+            playlistId: String?,
+            client: YouTubeClient,
+            signatureTimestamp: Int?,
+            webPlayerPot: String?,
+            hlOverride: String?,
+            policy: AddressPolicy?,
+            asNewVisitor: Boolean,
+        ): Result<PlayerResponse> =
+            if (asNewVisitor) {
+                YouTube.player(videoId, playlistId, client, visitorData = null, addressPolicy = policy)
+            } else {
+                YouTube.player(
+                    videoId, playlistId, client, signatureTimestamp, webPlayerPot,
+                    hlOverride = hlOverride, addressPolicy = policy,
+                )
+            }
+
+        override fun head(url: String): Int? = streamStatus(url)
+    }
+
     /** Adds what one pass learned to [streamMemory], and hands it on to be stored if that changed it. */
     private fun rememberAsked(asked: List<StreamOrder.Asked>) {
         if (asked.isEmpty()) return
@@ -299,6 +343,15 @@ object YTPlayerUtils {
         playlistId: String? = null,
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
+    ): Result<PlaybackData> = playerResponseForPlayback(videoId, playlistId, audioQuality, connectivityManager, Live)
+
+    /** The same over a [Wire] of the caller's own. */
+    internal suspend fun playerResponseForPlayback(
+        videoId: String,
+        playlistId: String?,
+        audioQuality: AudioQuality,
+        connectivityManager: ConnectivityManager,
+        wire: Wire,
     ): Result<PlaybackData> {
         val trails = mutableListOf<String>()
         val outcome = FamilyChoice.resolve(
@@ -311,7 +364,7 @@ object YTPlayerUtils {
             }
             // Cleared first, so a pass that fails before writing its own does not report the last song's.
             lastStreamTrail = null
-            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy)
+            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire)
             trails += listOfNotNull(policy?.first?.label, lastStreamTrail).joinToString(": ")
             FamilyChoice.Attempt(result to notes, ok = result.isSuccess, refused = result.isFailure && notes.fallbackBlocked)
         }
@@ -333,15 +386,16 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
         policy: AddressPolicy?,
+        wire: Wire,
     ): Pair<Result<PlaybackData>, ChainNotes> {
         val first = ChainNotes()
-        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy)
+        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire)
         val sinceFailedSwap = lastSwapFailedAt.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
         if (result.isSuccess || !StreamCheck.mayRetryWithNewVisitor(first.visionosRefused, sinceFailedSwap)) {
             return result to first
         }
         val previous = YouTube.visitorData
-        val fresh = mintVisitorData(videoId, policy)?.takeIf { it != previous }
+        val fresh = mintVisitorData(videoId, policy, wire)?.takeIf { it != previous }
         if (fresh == null) {
             return result to first
         }
@@ -349,7 +403,7 @@ object YTPlayerUtils {
         Log.i(TAG, "[$videoId] VISIONOS refused, trying again with a visitorData YouTube has just issued")
         YouTube.visitorData = fresh
         val second = ChainNotes()
-        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy)
+        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire)
         if (retried.isSuccess) {
             lastSwapFailedAt = 0L
             // Kept for good only when signed out. Signed in, the stored one came from the
@@ -368,8 +422,8 @@ object YTPlayerUtils {
      * carries a new one whatever it says. sw.js_data would do as well, but it is the very fetch
      * that failed at every launch in issue #17.
      */
-    private suspend fun mintVisitorData(videoId: String, policy: AddressPolicy?): String? =
-        YouTube.player(videoId, null, MAIN_CLIENT, visitorData = null, addressPolicy = policy)
+    private suspend fun mintVisitorData(videoId: String, policy: AddressPolicy?, wire: Wire): String? =
+        wire.player(videoId, null, MAIN_CLIENT, null, null, null, policy, asNewVisitor = true)
             .onFailure { Throttle.noteFailure(it) }
             .getOrNull()
             ?.responseContext?.visitorData
@@ -382,6 +436,7 @@ object YTPlayerUtils {
         connectivityManager: ConnectivityManager,
         notes: ChainNotes,
         policy: AddressPolicy?,
+        wire: Wire,
     ): Result<PlaybackData> = runCatchingCancellable {
         Log.d(TAG, "Playback info requested: $videoId")
 
@@ -545,9 +600,9 @@ object YTPlayerUtils {
             // in English would let its routine bot check (see blockedStatus) reach the throttle
             // in every language.
             val result =
-                YouTube.player(
+                wire.player(
                     videoId, playlistId, client, signatureTimestampFor(client), webPlayerPot,
-                    hlOverride = if (isMain) null else "en", addressPolicy = policy,
+                    hlOverride = if (isMain) null else "en", policy = policy,
                 )
                     .onFailure { Throttle.noteFailure(it) }
             streamPlayerResponse = result.getOrNull()
@@ -618,7 +673,7 @@ object YTPlayerUtils {
                 }
 
                 val isLast = clientIndex == clients.lastIndex
-                val status = streamStatus(streamUrl)
+                val status = wire.head(streamUrl)
                 trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", status, checked = true)
                 // For StreamOrder the client served or was refused by what the check answered. A
                 // check that could not be made says more of the connection than of the client, so
