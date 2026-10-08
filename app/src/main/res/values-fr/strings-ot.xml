@@ -600,11 +600,11 @@
     <string name="tour_search_body">Cherchez dans votre bibliothèque et sur YouTube Music depuis le même champ.</string>
     <string name="tour_quickpicks_title">Sélection Rapide</string>
     <string name="tour_quickpicks_body">Changez le mélange : Auto suit votre écoute, Découverte va chercher plus loin.</string>
-    <string name="tour_recognise_body">Appuyez ici et levez le téléphone : il vous dira ce qui passe.</string>
+    <string name="tour_recognise_body">Appuyez ici et levez le téléphone. InterTune écoute quelques secondes avec le micro et vous dit quel titre passe autour de vous.</string>
     <string name="tour_library_title">Votre bibliothèque est ici</string>
     <string name="tour_library_body">Playlists, albums, artistes et tout ce qui est enregistré sur cet appareil.</string>
     <string name="tour_settings_body">Rien n\'est obligatoire ici. Tout peut être désactivé dans ces paramètres.</string>
-    <string name="walkthrough_recognition_title">Identifier ce qui passe</string>
+    <string name="walkthrough_recognition_title">Identifier un titre qui passe près de vous</string>
     <string name="walkthrough_settings_title">Tout est réglable</string>
     <string name="recognise_settings_description">Ce qui arrive quand vous demandez à InterTune d\'identifier la musique qui passe.</string>
     <string name="recognise_keep_listening_desc">Le grand bouton continue jusqu\'à ce que vous l\'arrêtiez, au lieu d\'identifier un titre et de s\'arrêter. Les cartes à l\'écran choisissent le mode pour une seule écoute.</string>

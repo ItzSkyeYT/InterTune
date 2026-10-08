@@ -698,7 +698,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="tour_search_body">Search your library and YouTube Music from the same box.</string>
     <string name="tour_quickpicks_title">Quick picks</string>
     <string name="tour_quickpicks_body">Change the mix: Auto follows your listening, Discover reaches further out.</string>
-    <string name="tour_recognise_body">Tap this and hold the phone up, and it will name what is playing.</string>
+    <string name="tour_recognise_body">Tap this and hold the phone up. InterTune listens through the microphone for a few seconds and names the song playing around you.</string>
     <string name="tour_library_title">Your library lives here</string>
     <string name="tour_library_body">Playlists, albums, artists and everything saved to this device.</string>
     <string name="tour_settings_body">Nothing here is compulsory. All of it can be turned off in these settings.</string>
@@ -731,7 +731,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_share_links_way" translatable="false">What Share sends is set in here: the YouTube Music link, or a page for any music app.</string>
     <string name="new_share_links_here" translatable="false">What Share sends for a song or an album: the YouTube Music link as before, a page where whoever opens it picks their own app, or you are asked each time.</string>
     <string name="new_quick_picks_title" translatable="false">Quick picks you can steer</string>
-    <string name="new_recognise_body" translatable="false">A button beside the search bar listens for a few seconds and names the song.</string>
+    <string name="new_recognise_body" translatable="false">A button beside the search bar listens through the microphone for a few seconds and names the song playing around you.</string>
     <string name="new_widget_title" translatable="false">A widget for your home screen</string>
     <string name="new_widget_body" translatable="false">What is playing, its controls and Quick picks, without opening the app.</string>
     <string name="new_history_title" translatable="false">Your history, day by day</string>
@@ -750,7 +750,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="tour_settings_rest_title" translatable="false">Updates and the rest</string>
     <string name="tour_settings_rest_body" translatable="false">New versions, how Quick picks chooses, the switches most people never need, and this walk again under About.</string>
 
-    <string name="walkthrough_recognition_title">Name what is playing</string>
+    <string name="walkthrough_recognition_title">Name a song playing near you</string>
     <string name="walkthrough_settings_title">All of it is a setting</string>
     <string name="recognise_settings_description">What happens when you ask InterTune to name what is playing.</string>
     <string name="recognise_keep_listening_desc">The big button keeps going until you stop it, instead of naming one song and finishing. The cards on the screen pick for one run.</string>
