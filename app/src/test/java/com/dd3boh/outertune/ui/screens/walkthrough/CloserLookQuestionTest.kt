@@ -55,13 +55,18 @@ class CloserLookQuestionTest {
     }
 
     @Test
-    fun `the walk asked for from the welcome back page ends on the same question`() {
-        assertEquals(SETTINGS_TOUR + CLOSER_LOOK_QUESTION, settingsWalkAndQuestion())
+    fun `the walk asked for from the welcome back page is the four groups, and ends without the question`() {
+        // The question is the tutorial's. Somebody who asks the page for a walk round Settings
+        // has asked for that much, and is brought back to the page when it is done.
         val activity = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
-        assertTrue("the page starts the walk without its question", "showFromWelcome(SETTINGS_WALK, settingsWalkAndQuestion())" in activity)
-        // What the page asks for is kept by id across a rotation, the question included.
-        val show = WelcomeShow().apply { ask(SETTINGS_WALK, settingsWalkAndQuestion()) }
-        assertEquals(settingsWalkAndQuestion(), show.stops)
+        assertTrue("the page's walk is not the four groups alone", "showFromWelcome(SETTINGS_WALK, SETTINGS_TOUR)" in activity)
+        assertFalse("the page's walk still ends on the question", "showFromWelcome(SETTINGS_WALK, settingsWalkAndQuestion())" in activity)
+        assertFalse(CLOSER_LOOK_QUESTION in SETTINGS_TOUR)
+        // The tutorial's walk is as it was.
+        assertEquals(SETTINGS_TOUR + CLOSER_LOOK_QUESTION, settingsWalkAndQuestion())
+        // What the page asks for is kept by id across a rotation.
+        val show = WelcomeShow().apply { ask(SETTINGS_WALK, SETTINGS_TOUR) }
+        assertEquals(SETTINGS_TOUR, show.stops)
     }
 
     @Test

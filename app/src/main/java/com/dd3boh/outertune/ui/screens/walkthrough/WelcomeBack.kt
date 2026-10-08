@@ -6,7 +6,10 @@
 
 package com.dd3boh.outertune.ui.screens.walkthrough
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,22 +25,32 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.WavingHand
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -45,6 +58,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -64,6 +78,10 @@ import com.dd3boh.outertune.R
  *
  * The walk round Settings sits at the end whatever is new, because Settings is where people get
  * lost, and more so after an update has added to it.
+ *
+ * It does not open by itself. It is a whole page, and opening on it after every update put it
+ * between somebody and their music. A line at the top of Home says it is there ([WelcomeBanner]),
+ * and About has it at any time.
  *
  * A dialog over the app and not a destination, like the questions screen it comes after: the tour
  * it starts needs the real screens underneath, and a destination would be one of them.
@@ -194,6 +212,90 @@ fun WelcomeBack(
 
 /** The id the walk round Settings is ticked off under, beside the ids of the new things. */
 const val SETTINGS_WALK = "settings_walk"
+
+/**
+ * The line at the top of Home that says there are new things to see, for somebody back after an
+ * update (welcomeCardFor). The page above used to open by itself, and this is what is left of
+ * that: it opens from here, or the cross sends the line away, and neither has to happen.
+ *
+ * The shape of the announcement's banner and the question's, which it sits with and can appear
+ * beside, and a third colour for the reason those two differ: a notice, a question and a word
+ * from the app itself should be told apart at a glance. One line where they have two, because
+ * there is nothing to add to it. "See" is a button of its own, since the line does not say that
+ * a tap opens anything, and the rest of the card opens the page as well, as theirs do.
+ */
+@Composable
+fun WelcomeBanner(
+    card: WelcomeCard,
+    onSee: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val since = card.since
+    val line = if (since != null) pluralStringResource(R.plurals.welcome_card_since, card.count, card.count, since)
+    else pluralStringResource(R.plurals.welcome_card, card.count, card.count)
+
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        ),
+        shape = RoundedCornerShape(20.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onSee)
+                .padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 6.dp)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.tertiary)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.WavingHand,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onTertiary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+
+            Text(
+                text = line,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                // One line wherever it fits. A large font on a narrow phone gets a second.
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 14.dp, end = 4.dp)
+            )
+
+            TextButton(
+                onClick = onSee,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onTertiaryContainer),
+            ) {
+                Text(stringResource(R.string.welcome_card_see))
+            }
+
+            IconButton(onClick = onDismiss) {
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = stringResource(R.string.welcome_card_dismiss),
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+            }
+        }
+    }
+}
 
 /**
  * One thing: what it is, a sentence, and the one button that leads to it. Ticked once it has been

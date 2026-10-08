@@ -84,6 +84,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_CLOSER_LOOK
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourState
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
+import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeCard
 import com.dd3boh.outertune.ui.screens.walkthrough.tourAll
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -102,11 +103,23 @@ fun NavGraphBuilder.appDestinations(
     searchActive: () -> Boolean,
     onSearchActiveChange: (Boolean) -> Unit,
     tourState: TourState,
+    /**
+     * The card at the top of Home for somebody back after an update, or null, and its two
+     * buttons. Read through a function for the reason [searchActive] is.
+     */
+    welcomeCard: () -> WelcomeCard?,
+    onWelcomeSee: () -> Unit,
+    onWelcomeDismiss: () -> Unit,
     /** Outlives every destination, for work a destination starts and then pops itself before. */
     appScope: CoroutineScope,
 ) {
         screen(Screens.Home.route) {
-            HomeScreen(navController)
+            HomeScreen(
+                navController,
+                welcomeCard = welcomeCard(),
+                onWelcomeSee = onWelcomeSee,
+                onWelcomeDismiss = onWelcomeDismiss,
+            )
         }
         screen(Screens.Songs.route, floating = false) {
             LibrarySongsScreen(navController)
