@@ -19,15 +19,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <!-- Song recognition listens to the room only while asked to, in windows of 8 to 20
-         seconds, and at no other time. Nothing is recorded to disk: the samples become a fingerprint in memory and the
-         array is dropped. -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
 
     <!--
-      Song recognition only. Requested when the user starts listening, never at launch, and the
+      Song recognition only. Requested when the user starts listening, never at launch. It listens
+      to the room only while asked to, in windows of 8 to 20 seconds, and at no other time, and the
       recording is fingerprinted in memory and discarded: no audio is written to disk or sent
       anywhere. What leaves the device is the signature, which is a few hundred numbers describing
       peaks and cannot be turned back into sound.
@@ -245,10 +241,10 @@
 
 
     <!--
-        Only for the proximity experiment behind the developer screen, and requested at the point
-        of use rather than assumed at install. neverForLocation because nothing here wants to know
-        where anyone is: the only question is how strong a signal from headphones already paired
-        and connected happens to be.
+        Only for "Quieter as you walk away" under Player and audio and the signal log beneath it,
+        on Android 12 and up, and requested at the point of use rather than assumed at install.
+        neverForLocation because nothing here wants to know where anyone is: the only question is
+        how strong a signal from headphones already paired and connected happens to be.
     -->
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN"
