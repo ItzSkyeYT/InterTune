@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.ui.screens.walkthrough
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -127,5 +128,83 @@ class WelcomeCardTest {
         assertNull(card(seen = v011, questionsOpen = true))
         assertNull(card(seen = v011, tourUp = true))
         assertNull(card(seen = v011, pageOpen = true))
+    }
+
+    // Where it is, and what its two buttons do. Lines of the activity and of Home, read there.
+
+    @Test
+    fun `the page no longer opens by itself`() {
+        val activity = File(main, "MainActivity.kt").readText()
+        val atLaunch = activity
+            .substringAfter("LaunchedEffect(oobeStatus, catchUpOpen, pendingStops, welcomeOwed, updatePromptVisible) {")
+            .substringBefore("// Asked for from Settings, under About.")
+        assertFalse("something at launch opens the page", "welcomeOpen = true" in atLaunch)
+        // Nor does the tour's handful of new stops start in its place.
+        assertTrue("pendingStops.isNotEmpty() && !welcomeOwed" in atLaunch)
+    }
+
+    @Test
+    fun `See opens the page as it used to open, and the cross marks this build as seen and opens nothing`() {
+        val activity = File(main, "MainActivity.kt").readText()
+        val see = activity.substringAfter("val seeWelcome = remember {").substringBefore("}")
+        assertTrue("welcomeOpen = true" in see)
+        assertTrue("it would list everything, as the page asked for from Settings does", "welcomeEverything = false" in see)
+        assertFalse("looking is not yet having seen", "setWalkthroughSeen" in see)
+        assertTrue("val dismissWelcome = remember { { setWalkthroughSeen(BuildConfig.VERSION_CODE) } }" in activity)
+    }
+
+    @Test
+    fun `closing the page marks this build as seen, also the page asked for from Settings while a card waits`() {
+        val activity = File(main, "MainActivity.kt").readText()
+        val done = activity.substringAfter("onShowSettings = {").substringAfter("onDone = {").substringBefore("},")
+        assertTrue("if (!welcomeEverything || welcomeOwed) setWalkthroughSeen(BuildConfig.VERSION_CODE)" in done)
+    }
+
+    @Test
+    fun `a tour asked for under About does not send a waiting card away`() {
+        // The end of any other tour marks the build as seen, which is what takes the card off.
+        val activity = File(main, "MainActivity.kt").readText()
+        val finish = activity.substringAfter("onFinish = {").substringBefore("SnackbarHost(")
+        assertTrue("if (!welcomeOwed) setWalkthroughSeen(BuildConfig.VERSION_CODE)" in finish)
+    }
+
+    @Test
+    fun `the page stays under About for whoever sent the card away`() {
+        val about = File(main, "ui/screens/settings/AboutScreen.kt").readText()
+        assertTrue("R.string.welcome_back_entry" in about)
+        assertTrue("navController.navigate(\"whatsnew\")" in about)
+    }
+
+    @Test
+    fun `Home draws it where its other cards are, first of them`() {
+        val home = File(main, "ui/screens/HomeScreen.kt").readText()
+        val card = home.indexOf("item(key = \"welcome_card\")")
+        assertTrue("Home has no card", card > 0)
+        assertTrue(home.indexOf("item(key = \"throttle_banner\")") < card)
+        assertTrue(card < home.indexOf("item(key = \"announcement_banner\")"))
+        assertTrue(card < home.indexOf("item(key = \"poll_banner\")"))
+    }
+
+    @Test
+    fun `its words are held back from translation, and are plain`() {
+        val strings = File("src/main/res/values/strings-ot.xml").readLines()
+        for (name in listOf("welcome_card", "welcome_card_since", "welcome_card_see", "welcome_card_dismiss")) {
+            val at = strings.indexOfFirst { "name=\"$name\"" in it }
+            assertTrue("$name is not in strings-ot.xml", at >= 0)
+            assertTrue("$name can be translated", "translatable=\"false\"" in strings[at])
+            // A plural's words are on the lines under its name.
+            val words = strings.drop(at).takeWhile { "</plurals>" !in it }.take(if ("<plurals" in strings[at]) 4 else 1)
+            for (line in words) {
+                val text = line.substringAfter('>')
+                assertFalse("$name has an exclamation mark", '!' in text)
+                assertFalse("$name has a long dash", 0x2014.toChar() in text)
+            }
+        }
+        // English needs both forms: "1 new thing", "2 new things".
+        for (name in listOf("welcome_card", "welcome_card_since")) {
+            val at = strings.indexOfFirst { "name=\"$name\"" in it }
+            val forms = strings.drop(at + 1).takeWhile { "</plurals>" !in it }
+            assertEquals("$name", listOf("one", "other"), forms.map { it.substringAfter("quantity=\"").substringBefore('"') })
+        }
     }
 }

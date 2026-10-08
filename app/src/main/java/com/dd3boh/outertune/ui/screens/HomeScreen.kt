@@ -178,6 +178,8 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.random.Random
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBanner
+import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeCard
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 internal enum class QuickPicksLabelKind { NONE, TRY_BOTH, LIBRARY, YOUTUBE, LEAN }
@@ -213,6 +215,10 @@ internal fun quickPicksLabelKind(
 fun HomeScreen(
     navController: NavController,
     viewModel: HomeViewModel = hiltViewModel(),
+    /** The card for somebody back after an update, when there is one to show: welcomeCardFor. */
+    welcomeCard: WelcomeCard? = null,
+    onWelcomeSee: () -> Unit = {},
+    onWelcomeDismiss: () -> Unit = {},
 ) {
     val menuState = LocalMenuState.current
     val database = LocalDatabase.current
@@ -669,6 +675,20 @@ fun HomeScreen(
             // away when the back-off expires.
             item(key = "throttle_banner") {
                 ThrottleBanner(modifier = Modifier.animateItem())
+            }
+
+            // What is new since an update, for somebody back after one. First of the three that
+            // can stand here, by the rule the announcement's comment gives below: one line from
+            // the app itself costs the least attention of them.
+            welcomeCard?.let { card ->
+                item(key = "welcome_card") {
+                    WelcomeBanner(
+                        card = card,
+                        onSee = onWelcomeSee,
+                        onDismiss = onWelcomeDismiss,
+                        modifier = Modifier.animateItem(),
+                    )
+                }
             }
 
             // Above Quick picks and below the chips: visible without being in the way, and it

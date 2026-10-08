@@ -184,7 +184,6 @@ import com.dd3boh.outertune.ui.screens.walkthrough.TourOverlay
 import com.dd3boh.outertune.ui.screens.walkthrough.TourState
 import com.dd3boh.outertune.ui.screens.walkthrough.tourFor
 import kotlinx.coroutines.withTimeoutOrNull
-import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.screens.walkthrough.Install
 import com.dd3boh.outertune.ui.screens.walkthrough.NewThingAction
 import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_TOUR
@@ -194,6 +193,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBack
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
+import com.dd3boh.outertune.ui.screens.walkthrough.welcomeCardFor
 import com.dd3boh.outertune.widget.MusicWidgetReceiver
 import com.dd3boh.outertune.constants.WalkthroughSeenVersionKey
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
@@ -1169,8 +1169,13 @@ class MainActivity : ComponentActivity() {
                          * before, what is new since, each thing with a way to it. It takes the
                          * tour's place for them and starts tours of its own, which come back to it.
                          *
+                         * It does not open by itself. Whoever is owed it finds a card at the top
+                         * of Home (welcomeCardFor): "See" opens the page, and the cross marks this
+                         * build as seen with nothing opened, as closing the page does.
+                         *
                          * welcomeEverything is the page asked for from Settings: it lists all
-                         * there is, and closing it marks nothing as seen.
+                         * there is, and closing it marks nothing as seen, unless a card was
+                         * waiting, which a longer list than its own has then answered.
                          */
                         var welcomeOpen by rememberSaveable { mutableStateOf(false) }
                         var welcomeEverything by rememberSaveable { mutableStateOf(false) }
@@ -1181,18 +1186,46 @@ class MainActivity : ComponentActivity() {
                         var tourFromWelcome by rememberSaveable { mutableStateOf(false) }
                         // Quick picks is only listed where it has chips to be shown: see Install.
                         val quickPicksSource by rememberEnumPreference(QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE)
+                        val install = Install(quickPicksChips = quickPicksSource.orOffered().hasChips)
                         val newThings = remember(walkthroughSeen, welcomeEverything, quickPicksSource) {
-                            newThingsFor(
-                                walkthroughSeen,
-                                everything = welcomeEverything,
-                                install = Install(quickPicksChips = quickPicksSource.orOffered().hasChips),
-                            )
+                            newThingsFor(walkthroughSeen, everything = welcomeEverything, install = install)
                         }
-                        val welcomeOwed = Unreleased.WELCOME_BACK && walkthroughSeen > 0 && newThings.isNotEmpty()
+                        // Owed, whatever has the screen just now. Asked of what is new since
+                        // somebody was last here and not of the page's list, which is all there
+                        // is while the page asked for from Settings is open.
+                        val welcomeOwed = welcomeCardFor(walkthroughSeen, install = install) != null
+                        // The card as Home is to show it at this moment. A tour on its way from
+                        // the page counts as one that is up: the card would otherwise show for
+                        // the moment between the page closing and the first bubble.
+                        val welcomeCard by rememberUpdatedState(
+                            welcomeCardFor(
+                                walkthroughSeen,
+                                install = install,
+                                setupDone = oobeStatus >= OOBE_VERSION,
+                                questionsOpen = catchUpOpen,
+                                tourUp = tourState.running || tourFromWelcome,
+                                pageOpen = welcomeOpen,
+                            )
+                        )
+                        // "See": the page as it used to open by itself. The cross: this build
+                        // marked as seen, and nothing opened. Both remembered, because they are
+                        // handed to the graph of destinations, which is built again whenever
+                        // what it is given changes, and the setter of a preference is a new
+                        // function at every recomposition.
+                        val seeWelcome = remember {
+                            {
+                                welcomeEverything = false
+                                welcomeShow.startOver()
+                                welcomeOpen = true
+                            }
+                        }
+                        val dismissWelcome = remember { { setWalkthroughSeen(BuildConfig.VERSION_CODE) } }
 
+                        // Nothing starts by itself for somebody who is owed the card: not the
+                        // page, and not the tour's handful of new stops, which the page lists.
                         LaunchedEffect(oobeStatus, catchUpOpen, pendingStops, welcomeOwed, updatePromptVisible) {
                             if (!catchUpOpen && (!catchUpDone || wizardThisLaunch) && !updatePromptVisible &&
-                                oobeStatus >= OOBE_VERSION && (pendingStops.isNotEmpty() || welcomeOwed) &&
+                                oobeStatus >= OOBE_VERSION && pendingStops.isNotEmpty() && !welcomeOwed &&
                                 !tourState.running && !welcomeOpen && !tourFromWelcome
                             ) {
                                 // Straight from the wizard, its screen has to be gone and Home's
@@ -1205,7 +1238,7 @@ class MainActivity : ComponentActivity() {
                                 // reported where they are. Pointing at a target that has not been
                                 // measured yet puts the hole in the top left corner.
                                 delay(600)
-                                if (welcomeOwed) welcomeOpen = true else tourState.start(pendingStops)
+                                tourState.start(pendingStops)
                             }
                         }
 
@@ -1323,7 +1356,7 @@ class MainActivity : ComponentActivity() {
                                 onShowSettings = { showFromWelcome(SETTINGS_WALK, SETTINGS_TOUR) },
                                 onDone = {
                                     welcomeOpen = false
-                                    if (!welcomeEverything) setWalkthroughSeen(BuildConfig.VERSION_CODE)
+                                    if (!welcomeEverything || welcomeOwed) setWalkthroughSeen(BuildConfig.VERSION_CODE)
                                     welcomeEverything = false
                                 },
                             )
@@ -1459,6 +1492,9 @@ class MainActivity : ComponentActivity() {
                                         searchActive = { searchActive },
                                         onSearchActiveChange = { searchActive = it },
                                         tourState = tourState,
+                                        welcomeCard = { welcomeCard },
+                                        onWelcomeSee = seeWelcome,
+                                        onWelcomeDismiss = dismissWelcome,
                                         appScope = coroutineScope,
                                     )
                                 }
@@ -1842,7 +1878,9 @@ class MainActivity : ComponentActivity() {
                                         navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
                                         welcomeOpen = true
                                     } else {
-                                        setWalkthroughSeen(BuildConfig.VERSION_CODE)
+                                        // Not with a card waiting on Home: a tour asked for
+                                        // under About has shown none of what the card is about.
+                                        if (!welcomeOwed) setWalkthroughSeen(BuildConfig.VERSION_CODE)
                                         // A first install's tour ends on its walk round Settings,
                                         // and the closer look in whichever of their screens it
                                         // had got to. Back out of them, so that what the tour

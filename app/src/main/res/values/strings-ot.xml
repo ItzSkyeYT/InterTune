@@ -740,6 +740,18 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="welcome_back_entry" translatable="false">What is new</string>
     <string name="welcome_back_not_here" translatable="false">That is not on screen in this setup, so there is nothing to point at.</string>
     <string name="welcome_back_no_widget_host" translatable="false">This home screen does not take widgets from apps. Add it from the home screen\'s own widget list.</string>
+    <!-- The card at the top of Home that the page waits behind. %1$d is how many things are new,
+         %2$s the version somebody came from, as in 0.11. -->
+    <plurals name="welcome_card_since" translatable="false">
+        <item quantity="one">%1$d new thing since %2$s</item>
+        <item quantity="other">%1$d new things since %2$s</item>
+    </plurals>
+    <plurals name="welcome_card" translatable="false">
+        <item quantity="one">%1$d new thing</item>
+        <item quantity="other">%1$d new things</item>
+    </plurals>
+    <string name="welcome_card_see" translatable="false">See</string>
+    <string name="welcome_card_dismiss" translatable="false">Dismiss this note</string>
 
     <string name="new_living_blur_title" translatable="false">A background that moves with the music</string>
     <string name="new_living_blur_body" translatable="false">Living blur: the player\'s background breathes with the song and glows round the cover on every beat.</string>
