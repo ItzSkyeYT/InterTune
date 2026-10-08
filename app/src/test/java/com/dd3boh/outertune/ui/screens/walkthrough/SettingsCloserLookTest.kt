@@ -152,7 +152,7 @@ class SettingsCloserLookTest {
             assertNotNull("$name is not in strings-ot.xml", line)
             assertTrue("$name can be translated", "translatable=\"false\"" in line!!)
             assertFalse("$name has an exclamation mark", '!' in line.substringAfter('>'))
-            assertFalse("$name has an em dash", '—' in line)
+            assertFalse("$name has a long dash", 0x2014.toChar() in line)
         }
         // One sentence a stop, two at most: a bubble is not a page.
         for (stop in SETTINGS_CLOSER_LOOK) {

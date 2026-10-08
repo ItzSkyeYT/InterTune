@@ -71,8 +71,11 @@ object Unreleased {
      * The welcome back page: after an update, what is new since the version somebody came from,
      * each thing with a "Show me" that leads to where it lives, and a walk round Settings
      * (WelcomeBack.kt, Walkthrough.kt). Without it a returning user gets the tour's new stops, as
-     * before. Not agreed for a release yet. When it is: set this to true or delete it with the
-     * checks that read it, in MainActivity and AboutScreen, and make its strings translatable.
+     * before. With it the walk ends on a question, whether to look closer at the settings, and
+     * the tour that follows a yes goes into each screen of Settings (SETTINGS_CLOSER_LOOK), also
+     * started from About. Not agreed for a release yet. When it is: set this to true or delete it
+     * with the checks that read it, in MainActivity, AboutScreen and AppNavGraph, and make its
+     * strings translatable.
      */
     val WELCOME_BACK = BuildConfig.DEBUG
 
