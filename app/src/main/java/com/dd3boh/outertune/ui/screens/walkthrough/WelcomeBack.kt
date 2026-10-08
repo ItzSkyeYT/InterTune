@@ -127,10 +127,15 @@ fun WelcomeBack(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxSize()
+                // Outside the scroll, so that nothing of the page is ever drawn under the
+                // navigation bar. Inside it the room for the bar came only at the end of the
+                // page, and until somebody had scrolled that far whatever stood at the bottom
+                // edge lay under the bar: on a page a little longer than the screen that was
+                // Done, with the gesture line through the word. The colour under the bar is the
+                // surface's, which fills the window.
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
                 .verticalScroll(rememberScrollState())
-                // Inside the scroll, so the page's colour runs to the edge and under the
-                // navigation bar while the last button can still be brought clear of it.
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                 .padding(vertical = 32.dp)
         ) {
             Icon(

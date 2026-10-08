@@ -427,6 +427,52 @@ class ErrorTextTest {
         assertEquals(failedRequests.size + 1, lines)
     }
 
+    // What is said to somebody: a toast, a line on a screen.
+
+    /**
+     * The places that hand a failure's own words to somebody, each by its file and by what the
+     * words are handed to. A stream or a download that could not be reached says "failed to
+     * connect to" there as it does in the log, and a toast is photographed as easily as a log is
+     * pasted. What these files show in the app's own words (a status code, a line from the
+     * resources) names no address and is left as it is.
+     */
+    private val shownFailures = listOf(
+        "playback/MusicService.kt" to "Toast.makeText(",
+        "utils/UpdateInstaller.kt" to "State.Failed(",
+        "recognition/RecognitionEngine.kt" to "State.Failed(",
+        "ui/screens/LastFmLoginScreen.kt" to "error = ",
+    )
+
+    @Test
+    fun `a failure's own words are shown without the addresses`() {
+        var places = 0
+        shownFailures.forEach { (path, to) ->
+            val own = given(File(main, path).readText(), to).filter { ".message" in it }
+            assertTrue("$path hands no failure's words to $to", own.isNotEmpty())
+            own.forEach { assertTrue("$path shows the failure as it is: $it", "ErrorText.withoutAddresses(" in it) }
+            places += own.size
+        }
+        // Two toasts of the player's, two ways an update fails, and one each of the other two.
+        assertEquals(6, places)
+        // The player's toast as it is worded, around a stream that could not be reached.
+        val refused = PlaybackException("Source error", unreachable(), PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
+        assertEquals(
+            "plr: Source error (2001): java.net.ConnectException: Failed to connect to $host/IPv4 ",
+            ErrorText.withoutAddresses("plr: ${refused.message} (${refused.errorCode}): ${refused.cause?.message ?: ""} "),
+        )
+    }
+
+    /**
+     * Every place in [source] where [to] is given something, whole: a call up to the parenthesis
+     * that closes it, an assignment up to the end of its line.
+     */
+    private fun given(source: String, to: String): List<String> =
+        Regex(Regex.escape(to)).findAll(source).map {
+            val end = if (to.endsWith("(")) closingParen(source, it.range.last) + 1
+            else source.indexOf('\n', it.range.last).let { at -> if (at < 0) source.length else at }
+            source.substring(it.range.first, end)
+        }.toList()
+
     @Test
     fun `what Media3 logs of its own accord goes through ErrorText as well`() {
         // "ExoPlayerImplInternal: Playback error" and the whole trace under it are written by

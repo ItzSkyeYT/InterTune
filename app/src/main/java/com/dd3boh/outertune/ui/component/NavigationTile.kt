@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -53,7 +54,8 @@ fun NavigationTile(
         Text(
             text = title,
             style = MaterialTheme.typography.labelMedium,
-            maxLines = 1,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
     }
@@ -117,10 +119,14 @@ fun NavigationTile(
             )
         }
 
+        // Two lines for a title wider than its quarter of the row: on a phone 393dp wide "Local
+        // scanner" is, and was cut to "Local scann...". The button above it stays where it is, and
+        // only a row that has such a title is a line taller.
         Text(
             text = title,
             style = MaterialTheme.typography.labelMedium,
-            maxLines = 1,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
     }

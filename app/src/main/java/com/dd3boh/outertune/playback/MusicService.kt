@@ -1447,7 +1447,7 @@ class MusicService : MediaLibraryService(),
                 )
             } catch (e: Exception) {
                 reportException(e)
-                Toast.makeText(this@MusicService, "plr: ${e.message}", Toast.LENGTH_LONG)
+                Toast.makeText(this@MusicService, ErrorText.withoutAddresses("plr: ${e.message}"), Toast.LENGTH_LONG)
                     .show()
             }
             // The steps stop where they are when the service is torn down under them.
@@ -2356,7 +2356,7 @@ class MusicService : MediaLibraryService(),
 
         Toast.makeText(
             this@MusicService,
-            "plr: ${error.message} (${error.errorCode}): ${error.cause?.message ?: ""} ",
+            ErrorText.withoutAddresses("plr: ${error.message} (${error.errorCode}): ${error.cause?.message ?: ""} "),
             Toast.LENGTH_LONG
         ).show()
     }

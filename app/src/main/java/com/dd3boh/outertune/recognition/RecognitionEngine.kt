@@ -580,7 +580,7 @@ class RecognitionEngine @Inject constructor(
                 _state.update { if (it is State.Listening || it is State.Confirming) State.Idle else it }
             } catch (t: Throwable) {
                 Log.w(TAG, "Listening failed", ErrorText.forLog(t))
-                _state.value = State.Failed(t.message ?: "microphone", heardNothing = false)
+                _state.value = State.Failed(ErrorText.withoutAddresses(t.message ?: "microphone"), heardNothing = false)
             } finally {
                 if (job === coroutineContext[Job]) running.value = false
             }

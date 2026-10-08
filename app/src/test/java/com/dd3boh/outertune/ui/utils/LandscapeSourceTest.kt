@@ -60,4 +60,18 @@ class LandscapeSourceTest {
         }.toList()
         assertEquals(wrong.joinToString("\n"), emptyList<String>(), wrong)
     }
+
+    /**
+     * Beside its list the header never scrolls away, and it says the page's name. A page that
+     * also put the name in the top bar once its list had moved said it twice, one above the
+     * other: Liked, Downloaded and Favourite artists did, which are one screen.
+     */
+    @Test
+    fun `a page with its header beside its list does not say its name in the top bar as well`() {
+        val twice = kotlinFiles().filter { "HeaderBesideList(" in it.readText() }.flatMap { file ->
+            file.readLines().filter { "if (showTopBarTitle" in it && "showTopBarTitle && !twoPanes" !in it }
+                .map { "${file.name}: ${it.trim()}" }
+        }.toList()
+        assertEquals(twice.joinToString("\n"), emptyList<String>(), twice)
+    }
 }
