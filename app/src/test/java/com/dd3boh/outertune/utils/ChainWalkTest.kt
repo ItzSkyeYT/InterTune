@@ -280,6 +280,56 @@ class ChainWalkTest {
         assertTrue(after.validated)
     }
 
+    /**
+     * 8 Oct 2026, 19:05, a Pixel 5 installed minutes before: the main client refused as ever, and
+     * VISIONOS and IOS each answering OK with an address its check then got 403 for.
+     */
+    private fun everyAddressRefused(mainSays: String) = Script(
+        says = mapOf(
+            "ANDROID_VR" to listOf(refused(mainSays)),
+            "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+            "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+            "ANDROID_VR as a new visitor" to listOf(refused(mainSays, carrying = newVisitor)),
+        ),
+        heads = mapOf("VISIONOS" to 403, "IOS" to 403),
+    )
+
+    @Test
+    fun `a first song whose every address is refused is walked once more with a new visitorData, and then fails with the status`() {
+        val script = everyAddressRefused(bot)
+        val result = walk(script)
+
+        assertTrue(result.isFailure)
+        assertEquals(
+            listOf("ANDROID_VR", "VISIONOS", "IOS", "ANDROID_VR as a new visitor", "ANDROID_VR", "VISIONOS", "IOS"),
+            script.askedOf,
+        )
+        assertEquals("ANDROID_VR LOGIN_REQUIRED, VISIONOS OK, HEAD 403, IOS OK, HEAD 403", YTPlayerUtils.lastStreamTrail)
+        // No client said why, so the status is all there is to say.
+        assertEquals("YouTube refused the stream (HTTP 403)", result.exceptionOrNull()?.message)
+        // The visitorData that changed nothing is given up again, and none is stored.
+        assertEquals(visitor, YouTube.visitorData)
+        assertEquals(emptyList<String>(), adopted)
+        // Nobody served, so nobody is first for the next song: it is walked as written too.
+        assertNull(YTPlayerUtils.streamMemory.worked)
+        assertEquals(setOf("ANDROID_VR", "VISIONOS", "IOS"), YTPlayerUtils.streamMemory.refusedAt.keys)
+    }
+
+    @Test
+    fun `what the throttle hears of such a song is the main client's refusal, where the phone's language lets it read one`() {
+        // That evening Home said "YouTube has paused this connection" for five minutes. No client
+        // that serves music had given the bot check: the words were the main client's, which it
+        // gives for every song on every network, and which reach the throttle when a chain fails.
+        walk(everyAddressRefused(bot))
+        assertTrue("an English phone backs off on the main client's refusal", Throttle.isBlocked)
+
+        // The main client is asked in the phone's language, and the throttle reads English only.
+        Throttle.clear("the same song on a French phone")
+        YTPlayerUtils.streamMemory = Memory()
+        walk(everyAddressRefused(botInFrench))
+        assertFalse("a French phone does not, for the very same answers", Throttle.isBlocked)
+    }
+
     @Test
     fun `a failure YouTube answered with does not end the song, the rest of the chain is asked`() {
         remembering("VISIONOS", "ANDROID_VR")
