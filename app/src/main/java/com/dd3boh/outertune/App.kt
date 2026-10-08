@@ -50,6 +50,7 @@ import com.dd3boh.outertune.constants.UseLoginForBrowse
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.extensions.toInetSocketAddress
+import com.dd3boh.outertune.playback.PlayerLogger
 import com.dd3boh.outertune.utils.CoilBitmapLoader
 import com.dd3boh.outertune.utils.CrashLog
 import com.dd3boh.outertune.utils.LocalArtworkPathKeyer
@@ -82,6 +83,8 @@ class App : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         // First, so a crash anywhere below is kept for the next launch to offer. See CrashLog.
         CrashLog.install(this)
+        // Before there is a player: what Media3 logs for itself names the phone's address too.
+        PlayerLogger.install()
         // Before anything can read a built-in key: until it has run they all read as empty.
         BuiltInKeys.verify(this)
 

@@ -427,6 +427,23 @@ class ErrorTextTest {
         assertEquals(failedRequests.size + 1, lines)
     }
 
+    @Test
+    fun `what Media3 logs of its own accord goes through ErrorText as well`() {
+        // "ExoPlayerImplInternal: Playback error" and the whole trace under it are written by
+        // Media3 itself, for every stream that could not be reached, and pass none of the above.
+        // Its logger is replaced by one that writes what its own does, without the addresses.
+        val logger = File(main, "playback/PlayerLogger.kt").readText()
+        assertTrue(
+            "what is written is not what ErrorText makes of it",
+            "ErrorText.withoutAddresses(Media3Log.appendThrowableString(message, throwable))" in logger,
+        )
+        listOf("d", "i", "w", "e").forEach { level ->
+            assertTrue("Log.$level is given something else", "Log.$level(tag, written(message, throwable))" in logger)
+        }
+        assertTrue("the logger is not Media3's", "Media3Log.setLogger(this)" in logger)
+        assertTrue("the logger is never installed", "PlayerLogger.install()" in File(main, "App.kt").readText())
+    }
+
     private val logCall = Regex("""\bLog\.[vdiwe]\s*\(""")
 
     /** Every call to Log in [source] that says [words], whole. A call often runs over several lines. */
