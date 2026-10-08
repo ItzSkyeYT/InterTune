@@ -35,6 +35,8 @@ One signed APK per release. Requires Android 7.0 or later. Sideload it, or point
 
 From 0.10.4 onward you only need this page once. Turn update checking on and InterTune finds new releases itself, shows you what changed, and installs them with your confirmation.
 
+If InterTune is useful to you, a star on this page helps other people find the real one.
+
 > [!IMPORTANT]
 >
 > InterTune installs alongside OuterTune, so both can sit on the device at once: it ships as `dev.skye.intertune`, not upstream's `com.dd3boh.outertune`. That also means it cannot update an existing OuterTune install in place. Back up in OuterTune first (**Settings → Backup and restore**), then restore into InterTune from the same screen. Do not uninstall OuterTune until the restore has finished.
