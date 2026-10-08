@@ -673,7 +673,8 @@ fun AutoPlaylistScreen(
                         onValueChange = { query = it },
                         modifier = Modifier.focusRequester(focusRequester),
                     )
-                } else if (showTopBarTitle) {
+                } else if (showTopBarTitle && !twoPanes) {
+                    // Not beside the header, which says the name already and never scrolls away.
                     TopBarTitle(playlist.name)
                 }
             },
