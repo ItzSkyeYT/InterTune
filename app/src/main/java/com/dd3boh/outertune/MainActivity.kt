@@ -1141,10 +1141,15 @@ class MainActivity : ComponentActivity() {
                         /*
                          * The walkthrough for whatever arrived in this build.
                          *
-                         * Behind the catch-up on purpose, and behind the wizard through it: being
-                         * asked to make three privacy decisions and then walked through six
-                         * features, before ever reaching the app, is not a welcome. Somebody who
-                         * has just answered those gets the tour on their next launch instead.
+                         * Behind the catch-up on purpose: coming back to an update, being asked
+                         * to make three privacy decisions and then walked through six features
+                         * before ever reaching the app is not a welcome. Somebody who has just
+                         * answered those gets the tour on their next launch instead.
+                         *
+                         * Not behind the setup wizard. A first install is shown round as soon as
+                         * setup is done, in the same launch: held back the way the catch-up
+                         * holds it, the first session had no tour at all and the second opened
+                         * on one for no reason anybody could see.
                          *
                          * Latched the same way and for the same reason: finishing writes the
                          * preference, and a screen that vanished under the finger that dismissed
@@ -1154,10 +1159,11 @@ class MainActivity : ComponentActivity() {
                             rememberPreference(WalkthroughSeenVersionKey, defaultValue = 0)
                         val pendingStops = remember(walkthroughSeen) { tourFor(walkthroughSeen) }
                         // Whether this launch opened on the wizard, read from the stored value at
-                        // the first frame. Both this and catchUpDone hold the tour back to the
-                        // next launch: keyed on them alone, the effect below ran again the moment
-                        // either closed and started the tour straight after, which every 0.10.9
-                        // upgrader would have met, since none has answered the usage count yet.
+                        // the first frame. catchUpDone holds the tour back to the next launch:
+                        // keyed on the catch-up being open alone, the effect below ran again the
+                        // moment it closed and started the tour straight after, which every
+                        // 0.10.9 upgrader would have met, since none has answered the usage count
+                        // yet. A launch that opened on the wizard is the one that is not held.
                         val wizardThisLaunch = rememberSaveable { oobeStatus < OOBE_VERSION }
 
                         /*
@@ -1187,10 +1193,16 @@ class MainActivity : ComponentActivity() {
                         val welcomeOwed = Unreleased.WELCOME_BACK && walkthroughSeen > 0 && newThings.isNotEmpty()
 
                         LaunchedEffect(oobeStatus, catchUpOpen, pendingStops, welcomeOwed, updatePromptVisible) {
-                            if (!catchUpOpen && !catchUpDone && !wizardThisLaunch && !updatePromptVisible &&
+                            if (!catchUpOpen && (!catchUpDone || wizardThisLaunch) && !updatePromptVisible &&
                                 oobeStatus >= OOBE_VERSION && (pendingStops.isNotEmpty() || welcomeOwed) &&
                                 !tourState.running && !welcomeOpen && !tourFromWelcome
                             ) {
+                                // Straight from the wizard, its screen has to be gone and Home's
+                                // controls back first: a stop on Home whose control has not
+                                // reported when the tour starts is left out of it.
+                                if (wizardThisLaunch) withTimeoutOrNull(3000) {
+                                    while (navController.currentDestination?.route == "setup_wizard" || !TourTargets.known(Tour.SEARCH_BAR)) delay(50)
+                                }
                                 // A beat after the first frame, so the controls it points at have
                                 // reported where they are. Pointing at a target that has not been
                                 // measured yet puts the hole in the top left corner.
@@ -1809,6 +1821,10 @@ class MainActivity : ComponentActivity() {
                                         welcomeOpen = true
                                     } else {
                                         setWalkthroughSeen(BuildConfig.VERSION_CODE)
+                                        // A first install's tour ends on its walk round Settings.
+                                        // Back out of them, so that what the tour leaves somebody
+                                        // in is the app and not its settings.
+                                        if (navController.currentDestination?.route == Tour.ROUTE_SETTINGS) navController.popBackStack()
                                     }
                                 },
                             )

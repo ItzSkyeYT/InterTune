@@ -254,10 +254,21 @@ fun newThingsFor(
 /** Every stop there is, for bringing a running tour back after the activity was recreated. */
 val ALL_TOUR_STOPS: List<TourStop> get() = (TOUR_STOPS + SETTINGS_TOUR + NEW_THINGS.flatMap { it.stops }).distinctBy { it.id }
 
-/** The same rule as [walkthroughFor], applied to the tour. */
-fun tourFor(seenVersionCode: Int): List<TourStop> {
-    val shipped = TOUR_STOPS.filter { it.sinceVersionCode <= BuildConfig.VERSION_CODE }
-    return if (seenVersionCode <= 0) shipped
+/**
+ * The same rule as [walkthroughFor], applied to the tour.
+ *
+ * A first install is walked round the app and then, with [settingsWalk], round Settings. The
+ * tour's last stop points at the way in, and ending there left the one place people get lost in
+ * as the one place nobody showed them. Somebody who has had the tour gets only the stops that
+ * are new since, never the walk: the welcome back page offers it, and they can say no.
+ */
+fun tourFor(
+    seenVersionCode: Int,
+    buildVersionCode: Int = BuildConfig.VERSION_CODE,
+    settingsWalk: Boolean = Unreleased.WELCOME_BACK,
+): List<TourStop> {
+    val shipped = TOUR_STOPS.filter { it.sinceVersionCode <= buildVersionCode }
+    return if (seenVersionCode <= 0) shipped + (if (settingsWalk) SETTINGS_TOUR else emptyList())
     else shipped.filter { it.sinceVersionCode > seenVersionCode }
 }
 
