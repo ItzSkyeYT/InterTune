@@ -325,6 +325,118 @@ class ListenReportingTest {
         )
     }
 
+    // "Check the history address" in developer options: both requests, and what each came to.
+
+    @Test
+    fun `the check says of each request what it answered, whether an address came and how long it took`() {
+        assertEquals(
+            "The account's request (WEB_REMIX): answered OK, address present, 1.4 s (the signature timestamp 0.6 s, the po token 0.7 s, YouTube's answer 0.1 s)",
+            ListenReporting.addressCheckLine(
+                AddressFrom.ACCOUNT, "WEB_REMIX", ListenReporting.requestAnswer("OK", null), hasAddress = true, tookMs = 1_420,
+                steps = linkedMapOf(AccountStep.SIGNATURE_TIMESTAMP to 610L, AccountStep.PO_TOKEN to 700L, AccountStep.ANSWER to 110L),
+            ),
+        )
+        assertEquals(
+            "The visitor's request (VISIONOS): answered OK, address present, 0.3 s",
+            ListenReporting.addressCheckLine(AddressFrom.VISITOR, "VISIONOS", ListenReporting.requestAnswer("OK", null), hasAddress = true, tookMs = 312),
+        )
+        assertEquals(
+            "The account's request (WEB_REMIX): answered UNPLAYABLE, asked without a po token, no address, 2.1 s, YouTube says: The page needs to be reloaded.",
+            ListenReporting.addressCheckLine(
+                AddressFrom.ACCOUNT, "WEB_REMIX", ListenReporting.requestAnswer("UNPLAYABLE", null, without = setOf(AccountStep.PO_TOKEN)),
+                hasAddress = false, tookMs = 2_149, reason = "The page needs to be reloaded.",
+            ),
+        )
+        assertEquals(
+            "The account's request (WEB_REMIX): no answer within 8 s, waiting for the po token, no address, 8.0 s (the signature timestamp 1.2 s)",
+            ListenReporting.addressCheckLine(
+                AddressFrom.ACCOUNT, "WEB_REMIX",
+                ListenReporting.requestAnswer(null, null, outOfTimeAt = AccountStep.PO_TOKEN, limitMs = 8_000),
+                hasAddress = false, tookMs = 8_004, steps = mapOf(AccountStep.SIGNATURE_TIMESTAMP to 1_200L),
+            ),
+        )
+    }
+
+    @Test
+    fun `the check repeats YouTube's reason as plain words only, and no failure's words at all`() {
+        // A reason is a sentence for a person. Should one ever quote an address, it is not passed on.
+        val line = ListenReporting.addressCheckLine(
+            AddressFrom.VISITOR, "VISIONOS", ListenReporting.requestAnswer("ERROR", null), hasAddress = false, tookMs = 90,
+            reason = "Bad request for $address\n<b>cookie</b>: SAPISID=Zz99Yy88; " + "x".repeat(300),
+        )
+        assertTrue(line.startsWith("The visitor's request (VISIONOS): answered ERROR, no address, 0.1 s, YouTube says: Bad request for "))
+        listOf("?", "&", "=", "://", "<", ">", "\n", ";").forEach { assertFalse("the line carries $it", it in line) }
+        assertTrue("the reason is repeated at its whole length", line.length < 260)
+
+        val timeout = SocketTimeoutException("Request timeout has expired [url=$address, cookie=SAPISID=Zz99Yy88]")
+        val failed = ListenReporting.addressCheckLine(AddressFrom.VISITOR, "VISIONOS", ListenReporting.requestAnswer(null, timeout), hasAddress = false, tookMs = 30_000)
+        assertEquals("The visitor's request (VISIONOS): no answer, timed out, SocketTimeoutException, no address, 30.0 s", failed)
+        (identifiers + "SAPISID" + "Zz99Yy88" + "cookie").forEach { assertFalse("the line carries $it", it in failed) }
+    }
+
+    @Test
+    fun `the check says why the account's request is not made, as a play would not make it either`() {
+        assertEquals(
+            "The account's request: not made, nobody is signed in",
+            ListenReporting.accountNotAskedLine(loggedIn = false, authMode = PlaybackAuthMode.WHEN_REFUSED),
+        )
+        assertEquals(
+            "The account's request: not made, nobody is signed in",
+            ListenReporting.accountNotAskedLine(loggedIn = false, authMode = PlaybackAuthMode.NEVER),
+        )
+        assertEquals(
+            "The account's request: not made, playback as the account is set to never",
+            ListenReporting.accountNotAskedLine(loggedIn = true, authMode = PlaybackAuthMode.NEVER),
+        )
+        // It says nothing exactly when a play asks as the account.
+        for (loggedIn in listOf(true, false)) PlaybackAuthMode.entries.forEach { mode ->
+            assertEquals(
+                AddressFrom.ACCOUNT !in ListenReporting.addressRequests(loggedIn, mode),
+                ListenReporting.accountNotAskedLine(loggedIn, mode) != null,
+            )
+        }
+    }
+
+    @Test
+    fun `the check ends by saying what a play would do, and never says reported when the service would not report`() {
+        fun verdict(found: AddressFrom?, loggedIn: Boolean = true, historyPaused: Boolean = false, remotePaused: Boolean = false, throttled: Boolean = false) =
+            ListenReporting.checkVerdictLine(found, loggedIn, historyPaused, remotePaused, throttled)
+
+        assertEquals("A play is reported to the address from the account's request. Nothing was reported now.", verdict(AddressFrom.ACCOUNT))
+        assertEquals("A play is reported to the address from the visitor's request. Nothing was reported now.", verdict(AddressFrom.VISITOR))
+        assertEquals("A play would not be reported: neither request gave an address.", verdict(null))
+        assertEquals(
+            "A play is not reported: sharing listen history with YouTube Music is paused. It would go to the address from the account's request." +
+                " Nothing was reported.",
+            verdict(AddressFrom.ACCOUNT, remotePaused = true),
+        )
+        // Pause listen history keeps a play from being counted at all, so it is never reported either.
+        assertEquals(
+            "A play is not reported: listen history is paused. It would go to the address from the account's request. Nothing was reported.",
+            verdict(AddressFrom.ACCOUNT, historyPaused = true, remotePaused = true),
+        )
+        assertEquals(
+            "A play is not reported: listen history is paused. It would go to the address from the visitor's request. Nothing was reported.",
+            verdict(AddressFrom.VISITOR, historyPaused = true),
+        )
+        assertEquals(
+            "A play is not reported: YouTube is refusing this network for now. It would go to the address from the visitor's request." +
+                " Nothing was reported.",
+            verdict(AddressFrom.VISITOR, throttled = true),
+        )
+        // Signed out there is no account for a play to go to, whatever the visitor's request gave.
+        assertEquals("A play is not reported: nobody is signed in. Nothing was reported.", verdict(AddressFrom.VISITOR, loggedIn = false))
+        assertEquals("A play is not reported: nobody is signed in. Nothing was reported.", verdict(null, loggedIn = false, remotePaused = true))
+
+        for (loggedIn in listOf(true, false)) for (history in listOf(true, false)) for (remote in listOf(true, false)) for (throttled in listOf(true, false)) {
+            // What MusicService.onPlaybackStatsReady asks before it reports a counted play.
+            val reports = !history &&
+                ListenReporting.pingsYouTubeHistory(isLocal = false, loggedIn = loggedIn, remoteHistoryPaused = remote, throttled = throttled)
+            val line = verdict(AddressFrom.ACCOUNT, loggedIn, history, remote, throttled)
+            assertEquals("signed in $loggedIn, history paused $history, sharing paused $remote, throttled $throttled: $line", !reports, line.startsWith("A play is not reported: "))
+        }
+    }
+
     @Test
     fun `the client that asks as the account is the one known to be answered, and it names the channel`() {
         val locale = YouTubeLocale(gl = "US", hl = "en")
@@ -391,5 +503,24 @@ class ListenReportingTest {
             .filter { it.isFile && it.extension == "kt" && "HISTORY_AS_ACCOUNT" in it.readText() }
             .map { it.name }.toList()
         assertEquals(emptyList<String>(), readers)
+    }
+
+    @Test
+    fun `the check in developer options makes both requests and reports nothing`() {
+        val file = File("src/main/java/com/dd3boh/outertune/playback/HistoryAddressCheck.kt")
+        assertTrue("the check was not found", file.isFile)
+        val check = code(file.readText())
+        assertTrue("YTPlayerUtils.playerResponseAsAccount(" in check)
+        assertTrue("YTPlayerUtils.playerResponseForMetadata(" in check)
+        assertTrue("ListenReporting.addressCheckLine(" in check)
+        // It asks for the address and stops there: no play is reported by looking.
+        assertFalse("registerPlayback" in check)
+        assertFalse("playbackTracking" in check)
+
+        // One row, in debug builds, and it reports nothing either.
+        val rows = code(File("src/main/java/com/dd3boh/outertune/ui/screens/settings/fragments/DeveloperFrag.kt").readText())
+        assertTrue("HistoryAddressCheck.run(" in rows)
+        assertTrue("if (BuildConfig.DEBUG)" in rows)
+        assertFalse("registerPlayback" in rows)
     }
 }

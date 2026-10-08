@@ -194,6 +194,72 @@ object ListenReporting {
         }
     }
 
+    /**
+     * One line of "Check the history address" in developer options: whose request, what it came
+     * to in the words of [requestAnswer], whether the answer carried an address, and how long it
+     * took, with what each part of the account's request took when [steps] has them.
+     *
+     * [reason] is what YouTube says to a person about a refusal. Only its plain words are
+     * repeated, up to the first character that is not one of a sentence's, so a reason that ever
+     * quoted an address would stop short of it.
+     */
+    fun addressCheckLine(
+        from: AddressFrom,
+        client: String,
+        answer: String,
+        hasAddress: Boolean,
+        tookMs: Long,
+        reason: String? = null,
+        steps: Map<AccountStep, Long> = emptyMap(),
+    ): String {
+        val parts = AccountStep.entries.mapNotNull { step -> steps[step]?.let { "${step.awaited} ${seconds(it, exact = true)}" } }
+        val said = reason?.takeWhile { it.isLetterOrDigit() || it in " .,'\u2019!-" }?.take(120)?.trim().orEmpty()
+        return from.label.replaceFirstChar { it.uppercase() } + " ($client): $answer, " +
+            (if (hasAddress) "address present" else "no address") + ", " + seconds(tookMs, exact = true) +
+            (if (parts.isEmpty()) "" else parts.joinToString(", ", " (", ")")) +
+            (if (said.isEmpty()) "" else ", YouTube says: $said")
+    }
+
+    /**
+     * The line of the check for an account's request that is not made, or null when it is: the
+     * check asks what a play would ask, and no more. See [addressRequests].
+     */
+    fun accountNotAskedLine(loggedIn: Boolean, authMode: PlaybackAuthMode): String? = when {
+        AddressFrom.ACCOUNT in addressRequests(loggedIn, authMode) -> null
+        !loggedIn -> "The account's request: not made, nobody is signed in"
+        else -> "The account's request: not made, playback as the account is set to never"
+    }
+
+    /**
+     * The last line of the check: what a counted play would do with what the requests gave.
+     * [found] is the first of them that gave an address. The conditions are the service's own:
+     * [historyPaused] keeps a play from being counted at all, and the rest are those of
+     * [pingsYouTubeHistory], so the check cannot say a play is reported when the service would
+     * not report it. Signed out there is no account for a play to go to, so no address is named.
+     */
+    fun checkVerdictLine(
+        found: AddressFrom?,
+        loggedIn: Boolean,
+        historyPaused: Boolean,
+        remoteHistoryPaused: Boolean,
+        throttled: Boolean,
+    ): String {
+        val held = when {
+            !loggedIn -> "nobody is signed in"
+            historyPaused -> "listen history is paused"
+            remoteHistoryPaused -> "sharing listen history with YouTube Music is paused"
+            throttled -> "YouTube is refusing this network for now"
+            else -> null
+        }
+        val address = found?.let { "the address from ${it.label}" }
+        return when {
+            held != null && address != null && loggedIn -> "A play is not reported: $held. It would go to $address. Nothing was reported."
+            held != null -> "A play is not reported: $held. Nothing was reported."
+            address != null -> "A play is reported to $address. Nothing was reported now."
+            else -> "A play would not be reported: neither request gave an address."
+        }
+    }
+
     /** A time for a line: whole seconds as "8 s", and to a tenth when [exact] or when it is not whole. */
     private fun seconds(ms: Long, exact: Boolean = false): String =
         if (!exact && ms % 1000 == 0L) "${ms / 1000} s" else String.format(Locale.ROOT, "%.1f s", ms / 1000.0)
