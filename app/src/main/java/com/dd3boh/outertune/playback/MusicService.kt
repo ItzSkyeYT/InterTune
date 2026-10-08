@@ -113,7 +113,6 @@ import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
 import com.dd3boh.outertune.constants.AdaptiveQueueMode
 import com.dd3boh.outertune.constants.PlaybackAuthModeKey
 import com.dd3boh.outertune.constants.PlaybackAuthMode
-import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.ResumePlaybackOnLaunchKey
 import com.dd3boh.outertune.constants.PlayerVolumeKey
 import com.dd3boh.outertune.constants.ProximityVolumeKey
@@ -181,7 +180,6 @@ import com.google.common.util.concurrent.MoreExecutors
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
-import com.zionhuang.innertube.models.response.PlayerResponse
 import dagger.hilt.android.AndroidEntryPoint
 import io.ktor.client.plugins.ResponseException
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
@@ -2990,31 +2988,31 @@ class MusicService : MediaLibraryService(),
                 )
                 Log.d(TAG, "Trying to register remote history: $ytHist")
                 if (ytHist) {
-                    // The visitor's request alone, as it has always been, unless the trial puts the
-                    // account's before it.
-                    val requests = ListenReporting.addressRequests(
-                        asAccountTrial = Unreleased.HISTORY_AS_ACCOUNT,
-                        loggedIn = loggedIn,
-                        authMode = YTPlayerUtils.authMode,
-                    )
-                    var accountAnswer: Result<PlayerResponse>? = null
+                    // The account's request first, for an address issued to the channel that is
+                    // signed in, and the visitor's, the only one there used to be, when that gives
+                    // none or has not answered in time.
+                    val requests = ListenReporting.addressRequests(loggedIn = loggedIn, authMode = YTPlayerUtils.authMode)
+                    var accountAnswer: YTPlayerUtils.AccountAnswer? = null
                     val found = ListenReporting.firstAddress(requests) { from ->
                         when (from) {
                             AddressFrom.ACCOUNT ->
-                                YTPlayerUtils.playerResponseAsAccount(mediaItem.mediaId).also { accountAnswer = it }
-                            AddressFrom.VISITOR -> YTPlayerUtils.playerResponseForMetadata(mediaItem.mediaId, null)
-                        }.getOrNull()?.playbackTracking?.videostatsPlaybackUrl?.baseUrl
+                                YTPlayerUtils.playerResponseAsAccount(mediaItem.mediaId).also { accountAnswer = it }.address
+                            AddressFrom.VISITOR ->
+                                YTPlayerUtils.addressIn(YTPlayerUtils.playerResponseForMetadata(mediaItem.mediaId, null))
+                        }
                     }
                     val playbackUrl = found?.second
                     // Whose request the address came from, said only when the account was asked.
                     val addressFrom = found?.first?.takeIf { AddressFrom.ACCOUNT in requests }
-                    accountAnswer?.let { answer ->
-                        val failure = answer.exceptionOrNull()
+                    accountAnswer?.let { asked ->
+                        val failure = asked.answer?.exceptionOrNull()
                         val line = ListenReporting.addressSourceLine(
                             used = found?.first,
-                            accountStatus = answer.getOrNull()?.playabilityStatus?.status,
+                            accountStatus = asked.answer?.getOrNull()?.playabilityStatus?.status,
                             accountFailure = failure,
                             httpStatus = (failure as? ResponseException)?.response?.status?.value,
+                            without = asked.without,
+                            outOfTimeAt = asked.outOfTimeAt,
                         )
                         Log.d(TAG, line)
                     }

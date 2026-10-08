@@ -1727,4 +1727,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="favourites_strict_on" translatable="false">Turn off to let similar artists join in.</string>
     <string name="favourites_strict_off" translatable="false">Similar artists join in, one song in four at most.</string>
     <string name="favourites_strict_off_none" translatable="false">No similar artists yet. They come from what YouTube lists beside the songs you play.</string>
+    <string name="history_address_check" translatable="false">Check the history address</string>
+    <string name="history_address_check_description" translatable="false">Asks YouTube where a play of the song now playing would be reported, as your account and as a visitor, and shows what came back. Nothing is reported.</string>
+    <string name="history_address_check_asking" translatable="false">Asking YouTube</string>
 </resources>

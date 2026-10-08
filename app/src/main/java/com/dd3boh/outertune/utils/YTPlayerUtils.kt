@@ -64,8 +64,9 @@ object YTPlayerUtils {
      * The note that used to sit here, saying WEB_REMIX "should be preferred because it is the only
      * client which provides the correct metadata (like loudnessDb) and premium formats", is out of
      * date and was actively misleading. Two things changed under it:
-     * - WEB_REMIX now fails the poToken check on /player and returns UNPLAYABLE, so it provides
-     *   nothing at all. See [playerResponseForMetadata].
+     * - WEB_REMIX fails the poToken check on /player when it is asked without a token, as it was
+     *   here, and returns UNPLAYABLE, so it provided nothing at all. See
+     *   [playerResponseForMetadata]. Asked with one it answers: see [playerResponseAsAccount].
      * - ANDROID_VR_NO_AUTH stopped returning audioConfig, which is why loudness is read from the
      *   client that actually served the audio rather than from this one.
      */
@@ -813,6 +814,11 @@ object YTPlayerUtils {
      *
      * VISIONOS it is. This path is metadata only, its stream urls are never used, and the only
      * other caller just wants videoDetails.lengthSeconds, which VISIONOS also returns.
+     *
+     * What that probe never tried is WEB_REMIX with a po token, and that was all it lacked: see
+     * [playerResponseAsAccount], which a signed-in listener's play asks first since October 2026,
+     * because an address from this request names nobody. This one is still what a play reports
+     * to when that gives no address or is not made, and what a song's length is asked of.
      */
     suspend fun playerResponseForMetadata(
         videoId: String,
@@ -825,29 +831,107 @@ object YTPlayerUtils {
         }.noteThrottle()
 
     /**
+     * What the account's request came to: the answer, when one came in time, and what the request
+     * was made with. For the line the log gets and for the check in developer options, which is
+     * why it keeps the time each part took.
+     */
+    class AccountAnswer(
+        /** YouTube's answer or the failure to get one. Null when the time ran out first. */
+        val answer: Result<PlayerResponse>?,
+        /** What the request had to be asked without: the timestamp, the token, or both. */
+        val without: Set<ListenReporting.AccountStep>,
+        /** What it was waiting for when the time ran out, and null when it answered in time. */
+        val outOfTimeAt: ListenReporting.AccountStep?,
+        /** How long each part took, of those that were finished. */
+        val steps: Map<ListenReporting.AccountStep, Long>,
+        val tookMs: Long,
+    ) {
+        /** The address a play is reported to, when the answer carried one. */
+        val address: String?
+            get() = answer?.let { addressIn(it) }
+    }
+
+    /** The address a play is reported to, from a /player answer that carries one. */
+    fun addressIn(answer: Result<PlayerResponse>): String? =
+        answer.getOrNull()?.playbackTracking?.videostatsPlaybackUrl?.baseUrl?.takeIf { it.isNotBlank() }
+
+    /** Where the account's request has got to, written as it goes and read when its time is up. */
+    private class AccountProgress {
+        @Volatile
+        var at = ListenReporting.AccountStep.SIGNATURE_TIMESTAMP
+        val without: MutableSet<ListenReporting.AccountStep> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+        val steps = java.util.concurrent.ConcurrentHashMap<ListenReporting.AccountStep, Long>()
+    }
+
+    /**
      * /player asked as the account, for the address a play is reported to and for nothing else.
-     * Only while Unreleased.HISTORY_AS_ACCOUNT is tried: see [ListenReporting.addressRequests].
+     * See [ListenReporting.addressRequests] for when, and [ListenReporting.ACCOUNT_ADDRESS_CLIENT]
+     * for why this client.
      *
      * The request above is a visitor's, VISIONOS taking no cookie, so the address it hands back
      * names nobody, and a brand account's channel is named nowhere in the report that follows.
-     * [ListenReporting.ACCOUNT_ADDRESS_CLIENT] carries the cookie and onBehalfOfUser, so its
-     * address is issued to the channel that is signed in. Whether YouTube answers it, and whether
-     * the play then lands in that channel's history, has not been tried.
+     * This one carries the cookie and onBehalfOfUser, so its address is issued to the channel that
+     * is signed in. It is AsterTune's request (commit 6ea96c90): WEB_REMIX with the signature
+     * timestamp and a player po token, the token made for the video once the WebView has made one
+     * for the session. Without the token YouTube answers UNPLAYABLE and no address. The request
+     * is sent all the same when the timestamp or the token could not be had, as theirs is, and
+     * [AccountAnswer.without] says so for the log.
+     *
+     * All of it within [limitMs], after which the caller uses the visitor's address: see
+     * [ListenReporting.answerWithin]. The timestamp is read from the player's script and the token
+     * comes out of a WebView, and neither may hold a finished play back.
      *
      * It is kept away from what the stream chain has learned, because its client is one the chain
      * never asks:
-     * - No signature timestamp. It costs an extraction, and only the streams need it, which are
-     *   not used.
      * - The throttle is not told. One client's refusal is not YouTube's, and the visitor's
      *   request that follows a refusal tells the throttle what it always has.
      * - It goes over the address family the chain found to work, and what it finds is forgotten.
      */
-    suspend fun playerResponseAsAccount(videoId: String): Result<PlayerResponse> =
-        playerOverBestFamily(remember = false) { policy ->
-            YouTube.player(
-                videoId, client = ListenReporting.ACCOUNT_ADDRESS_CLIENT, hlOverride = "en", addressPolicy = policy,
-            )
+    suspend fun playerResponseAsAccount(
+        videoId: String,
+        limitMs: Long = ListenReporting.ACCOUNT_ADDRESS_LIMIT_MS,
+    ): AccountAnswer {
+        val started = System.nanoTime()
+        fun since(from: Long) = (System.nanoTime() - from) / 1_000_000
+        val progress = AccountProgress()
+        val answer = ListenReporting.answerWithin(limitMs) {
+            var stepStarted = System.nanoTime()
+            fun stepDone(step: ListenReporting.AccountStep, next: ListenReporting.AccountStep?, missing: Boolean = false) {
+                progress.steps[step] = since(stepStarted)
+                if (missing) progress.without += step
+                if (next != null) progress.at = next
+                stepStarted = System.nanoTime()
+            }
+
+            val signatureTimestamp = getSignatureTimestampOrNull(videoId)
+            stepDone(ListenReporting.AccountStep.SIGNATURE_TIMESTAMP, ListenReporting.AccountStep.PO_TOKEN, missing = signatureTimestamp == null)
+
+            // The identifier the stream chain would use, so that a chain that asks for a token
+            // again finds the same WebView and not one made for another session.
+            val session = YouTube.dataSyncId?.takeIf { YouTube.cookie != null && it.isNotBlank() } ?: YouTube.visitorData
+            val webPlayerPot = getWebClientPoTokenOrNull(videoId, session)?.playerRequestPoToken
+            stepDone(ListenReporting.AccountStep.PO_TOKEN, ListenReporting.AccountStep.ANSWER, missing = webPlayerPot == null)
+
+            playerOverBestFamily(remember = false) { policy ->
+                YouTube.player(
+                    videoId,
+                    client = ListenReporting.ACCOUNT_ADDRESS_CLIENT,
+                    signatureTimestamp = signatureTimestamp,
+                    webPlayerPot = webPlayerPot,
+                    hlOverride = "en",
+                    addressPolicy = policy,
+                )
+            }.also { stepDone(ListenReporting.AccountStep.ANSWER, null) }
         }
+        return AccountAnswer(
+            // A failure of the work itself and a failed request are the same to the caller.
+            answer = answer?.fold(onSuccess = { it }, onFailure = { Result.failure(it) }),
+            without = progress.without.toSet(),
+            outOfTimeAt = if (answer == null) progress.at else null,
+            steps = progress.steps.toMap(),
+            tookMs = since(started),
+        )
+    }
 
     /** Outcome of a loudness lookup. Distinguishes "no value exists" from "the request failed". */
     sealed interface LoudnessResult {

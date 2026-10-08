@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.ConfirmationNumber
 import androidx.compose.material.icons.rounded.Coronavirus
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,14 +54,19 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.edit
+import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioGaplessOffloadKey
 import com.dd3boh.outertune.constants.AudioOffloadKey
 import com.dd3boh.outertune.constants.OobeStatusKey
+import com.dd3boh.outertune.constants.PauseListenHistoryKey
+import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.SCANNER_OWNER_LM
 import com.dd3boh.outertune.constants.ScannerImpl
 import com.dd3boh.outertune.constants.VisitorDataKey
+import com.dd3boh.outertune.playback.HistoryAddressCheck
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.settings.SETTINGS_TAG
@@ -124,6 +130,10 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
         )
 
         Spacer(Modifier.height(20.dp))
+
+        if (BuildConfig.DEBUG) {
+            HistoryAddressCheckRow()
+        }
 
         PreferenceEntry(
             title = { Text("Delete VisitorData: This may (or may not) help resolve \"Sign in to confirm you're not a bot\" issues. Not recommended for logged in users.") },
@@ -529,6 +539,46 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
             )
         }
     
+}
+
+/**
+ * "Check the history address": asks YouTube for the address a play of the song now playing would
+ * be reported to, as the account and as a visitor, and writes what came back under the row and
+ * in the log. With nothing from YouTube playing it asks about a fixed song. It reports nothing:
+ * see [HistoryAddressCheck]. Debug builds only.
+ */
+@Composable
+private fun HistoryAddressCheckRow() {
+    val playerConnection = LocalPlayerConnection.current
+    val coroutineScope = rememberCoroutineScope()
+    val (historyPaused, _) = rememberPreference(PauseListenHistoryKey, defaultValue = false)
+    val (remoteHistoryPaused, _) = rememberPreference(PauseRemoteListenHistoryKey, defaultValue = false)
+    var asking by remember { mutableStateOf(false) }
+    var answered by remember { mutableStateOf<String?>(null) }
+
+    PreferenceEntry(
+        title = { Text(stringResource(R.string.history_address_check)) },
+        description = when {
+            asking -> stringResource(R.string.history_address_check_asking)
+            else -> answered ?: stringResource(R.string.history_address_check_description)
+        },
+        icon = { Icon(Icons.Rounded.History, null) },
+        isEnabled = !asking,
+        onClick = {
+            // A file on the phone has no address to ask for.
+            val playing = playerConnection?.mediaMetadata?.value?.takeIf { !it.isLocal }?.id
+            asking = true
+            coroutineScope.launch {
+                answered = HistoryAddressCheck.run(
+                    videoId = playing ?: HistoryAddressCheck.FIXED_SONG,
+                    nowPlaying = playing != null,
+                    historyPaused = historyPaused,
+                    remoteHistoryPaused = remoteHistoryPaused,
+                ).joinToString("\n")
+                asking = false
+            }
+        },
+    )
 }
 
 @Composable
