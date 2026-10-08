@@ -50,6 +50,8 @@ import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.dialog.CounterDialog
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @Composable
 fun ColumnScope.LyricFormatFrag() {
@@ -64,6 +66,7 @@ fun ColumnScope.LyricFormatFrag() {
     }
 
     EnumListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_POSITION),
         title = { Text(stringResource(R.string.lyrics_text_position)) },
         icon = { Icon(Icons.Rounded.Lyrics, null) },
         selectedValue = lyricsPosition,
@@ -77,6 +80,7 @@ fun ColumnScope.LyricFormatFrag() {
         }
     )
     PreferenceEntry(
+        modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_FONT_SIZE),
         title = { Text(stringResource(R.string.lyrics_font_Size)) },
         description = "$lyricFontSize sp",
         icon = { Icon(Icons.Rounded.TextFields, null) },
@@ -140,6 +144,7 @@ fun ColumnScope.LyricSourceFrag() {
     val (preferLocalLyric, onPreferLocalLyric) = rememberPreference(LyricSourcePrefKey, defaultValue = true)
 
     SwitchPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_SOURCES),
         title = { Text(stringResource(R.string.enable_lrclib)) },
         description = stringResource(R.string.enable_lrclib_description),
         icon = { Icon(Icons.Rounded.Lyrics, null) },
@@ -155,6 +160,7 @@ fun ColumnScope.LyricSourceFrag() {
     )
     // prioritize local lyric files over all cloud providers
     SwitchPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_PREFER_LOCAL),
         title = { Text(stringResource(R.string.lyrics_prefer_local)) },
         description = stringResource(R.string.lyrics_prefer_local_description),
         icon = { Icon(Icons.Rounded.ContentCut, null) },

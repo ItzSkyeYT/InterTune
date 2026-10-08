@@ -37,6 +37,9 @@ import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.launch
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+import androidx.compose.ui.Modifier
 
 /**
  * Where the occasional question is turned on, off, and inspected.
@@ -71,6 +74,7 @@ fun ColumnScope.PollsFrag() {
 
     // One line under the switch; what is fetched and sent is behind the i, for whoever asks.
     ExplainedSwitchPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_POLLS),
         title = stringResource(R.string.polls_enabled),
         explanation = stringResource(R.string.polls_enabled_info),
         description = stringResource(R.string.polls_enabled_description),

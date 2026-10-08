@@ -52,6 +52,8 @@ import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalScannerExtraFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalScannerFrag
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,6 +89,7 @@ fun LocalPlayerSettings(
             .padding(horizontal = 16.dp)
     ) {
         SwitchPreference(
+            modifier = Modifier.tourTarget(Tour.SETTING_LOCAL_MEDIA),
             title = { Text(stringResource(R.string.local_library_enable_title)) },
             description = stringResource(R.string.local_library_enable_description),
             icon = { Icon(Icons.Rounded.SdCard, null) },

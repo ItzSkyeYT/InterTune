@@ -187,13 +187,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.screens.walkthrough.Install
 import com.dd3boh.outertune.ui.screens.walkthrough.NewThingAction
-import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_TOUR
 import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_WALK
 import com.dd3boh.outertune.ui.screens.walkthrough.TourStop
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBack
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
+import com.dd3boh.outertune.ui.screens.walkthrough.settingsWalkAndQuestion
 import com.dd3boh.outertune.widget.MusicWidgetReceiver
 import com.dd3boh.outertune.constants.WalkthroughSeenVersionKey
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
@@ -1238,6 +1238,18 @@ class MainActivity : ComponentActivity() {
                             navController.currentBackStackEntry?.savedStateHandle?.set("scrollToTop", true)
                         }
 
+                        // To the screen a stop is on. From one screen of Settings to another
+                        // the tour leaves the first as it goes, the way somebody would by the
+                        // arrow, so that there is one screen over the list at a time and not
+                        // a dozen piled up under the last by the end of the closer look. Going
+                        // from the list into a screen this pops nothing, and neither does going
+                        // into Settings from Home, where the list is not underneath yet.
+                        val tourGoTo: (String) -> Unit = { route ->
+                            if (navController.currentDestination?.route != route) {
+                                navController.navigate(route) { popUpTo(Tour.ROUTE_SETTINGS) }
+                            }
+                        }
+
                         // A tour from the page: to the screen its first stop is on, and started once
                         // what it points at is there. If nothing of it is on screen (Quick picks
                         // has no chips while the engine has fallen back to another row), the page
@@ -1306,13 +1318,24 @@ class MainActivity : ComponentActivity() {
                                         showFromWelcome(thing.id, thing.stops)
                                     }
                                 },
-                                onShowSettings = { showFromWelcome(SETTINGS_WALK, SETTINGS_TOUR) },
+                                // The walk ends on the same question here as in the tutorial:
+                                // whoever asks to be shown round Settings is the likeliest to
+                                // want to be shown into them.
+                                onShowSettings = { showFromWelcome(SETTINGS_WALK, settingsWalkAndQuestion()) },
                                 onDone = {
                                     welcomeOpen = false
                                     if (!welcomeEverything) setWalkthroughSeen(BuildConfig.VERSION_CODE)
                                     welcomeEverything = false
                                 },
                             )
+                        }
+
+                        // The tutorial is over once its question is up, whatever the answer, so
+                        // it is marked as seen there and not only when the tour ends: somebody
+                        // who says yes and leaves the app half way round the settings is not
+                        // given the whole tutorial again at the next launch.
+                        LaunchedEffect(tourState.asking) {
+                            if (tourState.asking && !tourFromWelcome) setWalkthroughSeen(BuildConfig.VERSION_CODE)
                         }
 
                         if (catchUpOpen) {
@@ -1800,7 +1823,7 @@ class MainActivity : ComponentActivity() {
                             TourOverlay(
                                 state = tourState,
                                 // Two stops in a row on one screen are one screen, not two of it.
-                                onNavigate = { route -> if (navController.currentDestination?.route != route) navController.navigate(route) },
+                                onNavigate = tourGoTo,
                                 // Back out of a stop's screen to the one the stop before it is
                                 // on. That screen is underneath, since the tour came through it.
                                 // If it is not, it is opened the way a step forward opens it.
@@ -1808,7 +1831,7 @@ class MainActivity : ComponentActivity() {
                                     if (route == null) {
                                         goHome()
                                     } else if (navController.currentDestination?.route != route && !navController.popBackStack(route, inclusive = false)) {
-                                        navController.navigate(route)
+                                        tourGoTo(route)
                                     }
                                 },
                                 onFinish = {
@@ -1821,10 +1844,14 @@ class MainActivity : ComponentActivity() {
                                         welcomeOpen = true
                                     } else {
                                         setWalkthroughSeen(BuildConfig.VERSION_CODE)
-                                        // A first install's tour ends on its walk round Settings.
-                                        // Back out of them, so that what the tour leaves somebody
-                                        // in is the app and not its settings.
-                                        if (navController.currentDestination?.route == Tour.ROUTE_SETTINGS) navController.popBackStack()
+                                        // A first install's tour ends on its walk round Settings,
+                                        // and the closer look in whichever of their screens it
+                                        // had got to. Back out of them, so that what the tour
+                                        // leaves somebody in is the app and not its settings.
+                                        val route = navController.currentDestination?.route.orEmpty()
+                                        if (route == Tour.ROUTE_SETTINGS || route.startsWith(Tour.ROUTE_SETTINGS + "/")) {
+                                            navController.popBackStack(Tour.ROUTE_SETTINGS, inclusive = true)
+                                        }
                                     }
                                 },
                             )

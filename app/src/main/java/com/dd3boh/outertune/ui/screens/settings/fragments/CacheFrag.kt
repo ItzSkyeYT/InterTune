@@ -39,6 +39,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @Composable
 fun ColumnScope.SongCacheFrag() {
@@ -90,6 +92,7 @@ fun ColumnScope.SongCacheFrag() {
     }
 
     ListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_SONG_CACHE),
         title = { Text(stringResource(R.string.song_cache_max_size)) },
         selectedValue = maxSongCacheSize,
         values = listOf(0, 128, 256, 512, 1024, 2048, 4096, 8192, -1),

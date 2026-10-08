@@ -91,6 +91,8 @@ import android.content.Context
 import android.widget.Toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.withContext
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 // The expressive slider track, the one with the gap beside the thumb, is still marked
 // experimental in Material 3 1.4. It is what the rest of the system draws, so it is the right
@@ -214,6 +216,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         // A spinner while it writes, because on a large library this is several seconds during
         // which the row looked like it had ignored the tap, which is when people tap it again.
         PreferenceEntry(
+            modifier = Modifier.tourTarget(Tour.SETTING_BACKUP),
             title = { Text(stringResource(R.string.action_backup)) },
             description = if (backingUp) stringResource(R.string.backup_in_progress) else null,
             icon = { Icon(Icons.Rounded.Backup, null) },
@@ -239,6 +242,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         // Same reasoning as the Backup card above: a real-sized restore is seconds of disk I/O
         // and Room migration work, and the row needs to say so instead of looking ignored.
         PreferenceEntry(
+            modifier = Modifier.tourTarget(Tour.SETTING_RESTORE),
             title = { Text(stringResource(R.string.action_restore)) },
             description = if (restoring) stringResource(R.string.restore_in_progress) else null,
             icon = { Icon(Icons.Rounded.Restore, null) },
@@ -257,6 +261,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         modifier = Modifier.fillMaxWidth()
     ) {
         SwitchPreference(
+            modifier = Modifier.tourTarget(Tour.SETTING_AUTO_BACKUP),
             title = { Text(stringResource(R.string.auto_backup)) },
             description = stringResource(R.string.auto_backup_description),
             icon = { Icon(Icons.Rounded.Schedule, null) },

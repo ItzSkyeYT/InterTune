@@ -107,6 +107,7 @@ fun ColumnScope.PlayerGeneralFrag() {
     )
 
     SwitchPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_AUTO_LOAD_MORE),
         title = { Text(stringResource(R.string.auto_load_more)) },
         description = stringResource(R.string.auto_load_more_desc),
         icon = { Icon(Icons.Rounded.Autorenew, null) },
@@ -335,10 +336,14 @@ fun ColumnScope.HeadTrackingFrag() {
         ExplainLink(stringResource(R.string.link_report), HEAD_TRACKING_ISSUE),
     )
 
+    // One mark for the tour, on whichever of the two rows is there: it is the same setting
+    // whether or not this phone can switch it on.
+    val tourMark = Modifier.tourTarget(Tour.SETTING_HEAD_TRACKING)
     if (!available) {
         // A row rather than a dead switch. A switch that cannot be moved invites people to keep
         // trying it, and greying the whole row would fade the one thing they need to tap.
         ExplainedPreference(
+            modifier = tourMark,
             title = stringResource(R.string.head_tracking),
             description = stringResource(R.string.head_tracking_none),
             explanation = stringResource(R.string.head_tracking_explain),
@@ -349,6 +354,7 @@ fun ColumnScope.HeadTrackingFrag() {
     }
 
     ExplainedSwitchPreference(
+        modifier = tourMark,
         title = stringResource(R.string.head_tracking),
         description = stringResource(R.string.head_tracking_description),
         explanation = stringResource(R.string.head_tracking_explain),
@@ -509,6 +515,7 @@ fun ColumnScope.TransitionFadeFrag() {
     val (enabled, onEnabledChange) = rememberPreference(TransitionFadeKey, defaultValue = false)
 
     ExplainedSwitchPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_TRANSITION_FADE),
         title = stringResource(R.string.transition_fade),
         description = stringResource(R.string.transition_fade_description),
         explanation = stringResource(R.string.transition_fade_explain),
@@ -565,6 +572,7 @@ fun ColumnScope.AudioQualityFrag() {
     )
 
     EnumListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_AUDIO_QUALITY),
         title = { Text(stringResource(R.string.audio_quality)) },
         icon = { Icon(Icons.Rounded.GraphicEq, null) },
         selectedValue = audioQuality,

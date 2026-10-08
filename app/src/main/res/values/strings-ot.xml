@@ -750,6 +750,58 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="tour_settings_rest_title" translatable="false">Updates and the rest</string>
     <string name="tour_settings_rest_body" translatable="false">New versions, how Quick picks chooses, the switches most people never need, and this walk again under About.</string>
 
+    <!-- The closer look at the settings: the question the tutorial ends on, and a sentence for
+         each setting the tour then stops at. The titles of those stops are the rows' own. -->
+    <string name="tour_closer_question_title" translatable="false">A closer look at the settings?</string>
+    <string name="tour_closer_question_body" translatable="false">The tour can go on into each screen of Settings and stop at the settings people change most, with a sentence on what each one does. Skip ends it at any stop.</string>
+    <string name="tour_closer_next_category" translatable="false">Next category</string>
+    <string name="tour_closer_entry" translatable="false">Tour of the settings</string>
+    <string name="tour_closer_login" translatable="false">Signing in to your YouTube Music account brings your playlists, likes and recommendations here. The app works without it.</string>
+    <string name="tour_closer_lastfm" translatable="false">For those who keep a Last.fm profile: once connected, the songs you finish here are added to it.</string>
+    <string name="tour_closer_ytm_sync" translatable="false">Keeps the library here and the one in your YouTube Music account the same without being asked. Signed out, there is nothing for it to sync with.</string>
+    <string name="tour_closer_sync_mode" translatable="false">Choose read only if likes and playlists made here should stay here and never reach your account.</string>
+    <string name="tour_closer_quick_picks_source" translatable="false">Who chooses the songs in the Quick picks row at the top of Home. It changes that one row and nothing else.</string>
+    <string name="tour_closer_content_language" translatable="false">The language YouTube Music answers in: song and artist names, and the titles of the rows on Home.</string>
+    <string name="tour_closer_content_country" translatable="false">The country whose charts and new releases you are shown. Change it if the suggestions are for somewhere you are not.</string>
+    <string name="tour_closer_local_media" translatable="false">With this on, the music files on this phone sit in the same library as YouTube Music. Off hides them, and the scanner on this screen with them.</string>
+    <string name="tour_closer_scan_paths" translatable="false">Which folders are searched for music. Leave out the ones that hold ringtones or voice notes and they stay out of the library.</string>
+    <string name="tour_closer_scanner_sensitivity" translatable="false">How much has to agree for two files to count as the same song: the title alone, or the artists and the album as well.</string>
+    <string name="tour_closer_dark_theme" translatable="false">Light, dark, or whichever the phone is using. With Pure black on as well, the dark theme is true black and not dark grey.</string>
+    <string name="tour_closer_player_background" translatable="false">What is behind the player while a song plays: the theme\'s colour, or a gradient or a blur made from the cover.</string>
+    <string name="tour_closer_liquid_glass" translatable="false">Off, the navigation bar, the mini player and the player\'s controls are plain flat panels.</string>
+    <string name="tour_closer_tab_arrangement" translatable="false">Which tabs the bar at the bottom has, and in what order. A tab you never open can be taken off it.</string>
+    <string name="tour_closer_default_tab" translatable="false">The tab the app opens on. Somebody who mostly plays their own library can start there instead of on Home.</string>
+    <string name="tour_closer_auto_load_more" translatable="false">Off, the music stops when the queue runs out.</string>
+    <string name="tour_closer_media_buttons" translatable="false">The two extra buttons in the notification and on the lock screen, beside previous, play and next: like, radio, shuffle, repeat or add to library.</string>
+    <string name="tour_closer_audio_quality" translatable="false">How much data a song takes. Low suits a small data plan. Playing now at, on this screen, shows what the song playing is getting.</string>
+    <string name="tour_closer_transition_fade" translatable="false">For listening without hard cuts between songs. How long the fade lasts appears under it once it is on.</string>
+    <string name="tour_closer_spatial_audio" translatable="false">Puts the music in front of you instead of inside your head. Headphones does it in the app, so it works on any phone.</string>
+    <string name="tour_closer_head_tracking" translatable="false">The music stays where it is when you turn your head. It needs headphones that report which way they face, and a phone that passes it on.</string>
+    <string name="tour_closer_recognise_keep" translatable="false">For a party or the radio: each song that comes on is named, one after the other, until you stop it.</string>
+    <string name="tour_closer_recognise_pause" translatable="false">Your own music would be heard in place of the song in the room, so it is paused for the seconds of listening.</string>
+    <string name="tour_closer_recognise_auto_add" translatable="false">Started from a playlist, Keep listening adds each song it is sure of to that playlist. Off, it shows what it heard and you choose.</string>
+    <string name="tour_closer_recognise_seconds" translatable="false">Longer gives a quiet or noisy room a better chance of a match, and takes that much longer to answer.</string>
+    <string name="tour_closer_lyrics_sources" translatable="false">LRCLIB and KuGou are the two places lyrics are fetched from, each with its switch here. Turn one off if it keeps finding the wrong words.</string>
+    <string name="tour_closer_lyrics_prefer_local" translatable="false">Only matters if your own music files have lyric files beside them: those are then shown before anything fetched.</string>
+    <string name="tour_closer_lyrics_position" translatable="false">Whether the lines sit to the left, in the middle or to the right of the lyrics view.</string>
+    <string name="tour_closer_lyrics_font_size" translatable="false">How large the lyrics are in the player, for reading them from further away.</string>
+    <string name="tour_closer_liked_autodownload" translatable="false">Every song you like is downloaded as well, so your liked songs play with no connection. Wi-Fi only keeps that off mobile data.</string>
+    <string name="tour_closer_download_folder" translatable="false">Downloads are kept inside the app unless a folder is set here. In a folder of your own they are ordinary files, there for other apps too.</string>
+    <string name="tour_closer_song_cache" translatable="false">Songs you stream are kept so that they need not be fetched twice. This is how much space they may take.</string>
+    <string name="tour_closer_backup" translatable="false">Saves your library, playlists, settings and listening history as one file, to keep somewhere safe or to take to another phone.</string>
+    <string name="tour_closer_restore" translatable="false">Brings a backup file back. The library and the settings in the app now are replaced by what the file holds.</string>
+    <string name="tour_closer_auto_backup" translatable="false">So that a lost or reset phone costs what changed since the last backup and not the whole library.</string>
+    <string name="tour_closer_pause_history" translatable="false">Quick picks and the recommendations learn from this history, so they learn nothing while it is paused.</string>
+    <string name="tour_closer_pause_remote_history" translatable="false">For listening that should not shape what YouTube Music suggests to you elsewhere. It needs you to be signed in.</string>
+    <string name="tour_closer_polls" translatable="false">Your say in what gets built next. What is sent when you answer is behind the i.</string>
+    <string name="tour_closer_update_check" translatable="false">Off, a new version only reaches you when you look for one yourself, with Check for updates further down.</string>
+    <string name="tour_closer_background_check" translatable="false">Whether the app also looks while it is closed, and how often.</string>
+    <string name="tour_closer_check_now" translatable="false">Looks for a new version now, whatever the switches above say.</string>
+    <string name="tour_closer_quick_picks_lean" translatable="false">Gives most of the Best recommendations row to one kind of song. Auto leaves the mix to what it has learned from your listening.</string>
+    <string name="tour_closer_adventurousness" translatable="false">Set with the slider under this line. To the right, more of the row goes to artists you have never played.</string>
+    <string name="tour_closer_learn_from_listening" translatable="false">What it learns is how its guesses went: which cards you played and which you passed over. Off, it goes on guessing the way it does now.</string>
+    <string name="tour_closer_exclusions" translatable="false">The songs and artists you have told Quick picks to keep away. Each can be lifted again from here.</string>
+
     <string name="walkthrough_recognition_title">Name a song playing near you</string>
     <string name="walkthrough_settings_title">All of it is a setting</string>
     <string name="recognise_settings_description">What happens when you ask InterTune to name what is playing.</string>

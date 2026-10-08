@@ -72,6 +72,8 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.RecommendationsViewModel
 import java.util.Locale
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 /**
  * The recommendation settings people change: Home's rows, the engine's own controls, and what it
@@ -162,6 +164,7 @@ fun RecommendationsSettings(
                 LeanChoice.line(lean, quickPicksSource, chip, newSongsOnly, adventurousness / 100.0)
             }
             EnumListPreference(
+                modifier = Modifier.tourTarget(Tour.SETTING_QUICK_PICKS_LEAN),
                 title = { Text(leanTitle) },
                 icon = null,
                 trailingContent = { ExplainButton(leanTitle, leanInfo) },
@@ -179,6 +182,7 @@ fun RecommendationsSettings(
                 onCheckedChange = onShowReasonsChange,
             )
             ExplainedPreference(
+                modifier = Modifier.tourTarget(Tour.SETTING_ADVENTUROUSNESS),
                 title = stringResource(R.string.adventurousness),
                 explanation = stringResource(R.string.adventurousness_info),
                 // While Never heard leads the row the slider no longer sets this count, and the line says what does.
@@ -261,6 +265,7 @@ fun RecommendationsSettings(
                 explanation = stringResource(R.string.recommendations_learning_title_info),
             )
             ExplainedSwitchPreference(
+                modifier = Modifier.tourTarget(Tour.SETTING_LEARN_FROM_LISTENING),
                 title = stringResource(R.string.learn_from_listening),
                 explanation = stringResource(R.string.learn_from_listening_info),
                 description = stringResource(R.string.learn_from_listening_description),
@@ -285,6 +290,7 @@ fun RecommendationsSettings(
                 )
             }
             ExplainedPreference(
+                modifier = Modifier.tourTarget(Tour.SETTING_EXCLUSIONS),
                 title = stringResource(R.string.exclusions),
                 explanation = stringResource(R.string.exclusions_info),
                 description = stringResource(R.string.exclusions_count, activeExclusions),

@@ -84,6 +84,8 @@ import com.dd3boh.outertune.constants.LikedAutodownloadMode
 import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 /**
  * Whether [a] and [b] are the same folder, or one sits inside the other, checked both ways. A
@@ -166,6 +168,7 @@ fun ColumnScope.DownloadsFrag() {
     )
 
     EnumListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_LIKED_AUTODOWNLOAD),
         title = { Text(stringResource(R.string.like_autodownload)) },
         icon = { Icon(Icons.Rounded.Favorite, null) },
         selectedValue = likedAutodownload,
@@ -239,6 +242,7 @@ fun ColumnScope.DownloadsFrag() {
     )
 
     PreferenceEntry(
+        modifier = Modifier.tourTarget(Tour.SETTING_DOWNLOAD_FOLDER),
         title = { Text(stringResource(R.string.dl_main_path_title)) },
         description = if (downloadPath != "") uriListFromString(downloadPath).firstOrNull()
             ?.let { absoluteFilePathFromUri(context, it) } ?: downloadPath else null,
