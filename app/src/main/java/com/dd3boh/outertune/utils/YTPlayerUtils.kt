@@ -145,6 +145,14 @@ object YTPlayerUtils {
     @Volatile
     var onStreamMemoryChanged: ((String) -> Unit)? = null
 
+    /**
+     * Every client a song can be asked of, in the order written: the main one, the fallbacks and
+     * the one that carries the account. For StreamChainProbe, which asks each of them what it
+     * answers today, so that it cannot ask another list than this one.
+     */
+    internal val chainClients: List<YouTubeClient>
+        get() = listOf(MAIN_CLIENT) + STREAM_FALLBACK_CLIENTS + AUTH_CLIENT
+
     /** Adds what one pass learned to [streamMemory], and hands it on to be stored if that changed it. */
     private fun rememberAsked(asked: List<StreamOrder.Asked>) {
         if (asked.isEmpty()) return
