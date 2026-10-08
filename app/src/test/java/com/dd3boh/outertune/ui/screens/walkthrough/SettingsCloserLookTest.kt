@@ -132,6 +132,27 @@ class SettingsCloserLookTest {
     }
 
     @Test
+    fun `every stop's row is drawn by the screen its route leads to`() {
+        // A stop given the wrong screen would never be seen to be wrong: the tour passes over a
+        // setting that is not on its screen without a word. So this follows each route to the
+        // screen it opens and to the fragments that screen is built from, and wants the row
+        // marked inside one of those.
+        val graph = File(main, "ui/navigation/AppNavGraph.kt").readText()
+        val declared = Regex("""^(?:private |internal )?fun (?:ColumnScope\.)?(\w+)\(""")
+        for (stop in SETTINGS_CLOSER_LOOK) {
+            val screen = Regex("""screen\("${Regex.escape(stop.route!!)}"\) \{\s*(\w+)\(""").find(graph)?.groupValues?.get(1)
+            assertNotNull("${stop.id}: no screen is opened by ${stop.route}", screen)
+            val drawnBy = settingsSources.firstOrNull { "fun $screen(" in it.readText() }
+            assertNotNull("${stop.id}: $screen is not a settings screen", drawnBy)
+            val builtFrom = Regex("""\b(\w+Frag)\(""").findAll(drawnBy!!.readText()).map { it.groupValues[1] }.toSet() + screen!!
+
+            val (file, line) = marks(stop.targetId!!).singleOrNull() ?: continue
+            val markedIn = file.readLines().take(line).mapNotNull { declared.find(it)?.groupValues?.get(1) }.lastOrNull()
+            assertTrue("${stop.id} is on ${stop.route}, and its row is marked in $markedIn, which $screen does not draw", markedIn in builtFrom)
+        }
+    }
+
+    @Test
     fun `a stop is titled with the string its row is titled with`() {
         for (stop in SETTINGS_CLOSER_LOOK) {
             val (file, line) = marks(stop.targetId!!).singleOrNull() ?: continue
