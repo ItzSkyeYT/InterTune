@@ -371,6 +371,9 @@ class MusicService : MediaLibraryService(),
      */
     @Volatile private var stoppedByError = false
 
+    /** Where each streamed song is fetched from, until the player fails on it: see [StreamAddresses]. */
+    private val streamAddresses = StreamAddresses()
+
     @Volatile private var listenHistoryPaused = false
     /** Similar songs come from Both or Last.fm only, so a song played is asked about on Last.fm too. */
     @Volatile private var asksLastFm = false
@@ -1778,7 +1781,6 @@ class MusicService : MediaLibraryService(),
     }
 
     private fun createDataSourceFactory(): DataSource.Factory {
-        val songUrlCache = HashMap<String, Pair<String, Long>>()
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
             Log.d(TAG, "PLAYING: song id = $mediaId")
@@ -1848,10 +1850,12 @@ class MusicService : MediaLibraryService(),
                 return@Factory dataSpec
             }
 
-            songUrlCache[mediaId]?.takeIf { !staleQuality && it.second > System.currentTimeMillis() }?.let {
+            // The address the song was given earlier, unless the player has failed on it since:
+            // onPlayerError forgets it, and the try after that asks afresh below.
+            streamAddresses.of(mediaId, System.currentTimeMillis())?.takeIf { !staleQuality }?.let {
                 Log.d(TAG, "PLAYING: remote song (temp cache)")
                 offloadScope.launch { recoverSong(mediaId) }
-                return@Factory dataSpec.withUri(it.first.toUri())
+                return@Factory dataSpec.withUri(it.toUri())
             }
 
             Log.d(TAG, "PLAYING: remote song (online fetch)")
@@ -1949,8 +1953,9 @@ class MusicService : MediaLibraryService(),
 
             val streamUrl = playbackData.streamUrl
 
-            songUrlCache[mediaId] =
-                streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
+            // Kept whether or not it answered its check. The rest of the song is fetched from it,
+            // and the player failing on it is what takes it out again.
+            streamAddresses.keep(mediaId, streamUrl, System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L))
             dataSpec.withUri(streamUrl.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
         }
     }
@@ -2311,6 +2316,19 @@ class MusicService : MediaLibraryService(),
         // the one of the item the error names, the current one when it names none. Before
         // skipOnError below, which makes the next song current.
         plays.playerError(PlayBook.itemOf(error, player.currentTimeline), player.currentMediaItem?.mediaId)
+
+        // The stream address the song was being fetched from goes with the failure, so that the
+        // next try asks for one afresh: Play, the retries of the wait below, the radio's answer
+        // preparing the player. It used to be handed out again until it expired, hours later, and
+        // a song that had failed on its address could only be skipped. Whatever the failure was:
+        // asking again is one walk of the chain, most often a single request, and an address is
+        // not worth more than that once the player has stopped on it. Here, before the wait for
+        // the network, which returns, and before skipOnError, which makes the next song current.
+        // See StreamAddresses.
+        val failedId = PlayBook.itemOf(error, player.currentTimeline) ?: player.currentMediaItem?.mediaId
+        if (streamAddresses.playerFailedOn(failedId)) {
+            Log.d(TAG, "PLAYING: the player failed on $failedId, its stream address will be asked for again")
+        }
 
         // Wait for reconnection, but only where a network could help. See waitsForNetwork: a
         // local file that has gone missing used to wait here for good whenever the phone was

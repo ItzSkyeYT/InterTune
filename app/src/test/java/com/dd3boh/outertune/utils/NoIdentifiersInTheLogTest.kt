@@ -41,7 +41,7 @@ class NoIdentifiersInTheLogTest {
 
     /** What the code calls the things that are not logged as they are. */
     private val secret = Regex(
-        """\b(?:\w*[sS]treamUrl\w*|\w*[pP]laybackUrl\w*|playbackTracking\w*|songUrlCache|\w*[cC]ookie\w*""" +
+        """\b(?:\w*[sS]treamUrl\w*|\w*[pP]laybackUrl\w*|playbackTracking\w*|songUrlCache|streamAddresses|\w*[cC]ookie\w*""" +
             """|\w*[vV]isitorData\w*|\w*[dD]ataSyncId\w*|\w*Pot|pot|\w*[pP]oToken\w*)\b"""
     )
 
