@@ -145,3 +145,15 @@ fun OptInCatchUp(onDone: () -> Unit) {
         }
     }
 }
+
+/**
+ * Whether the catch-up screen is owed: there is a question this install has never answered. An
+ * unset preference is "never asked", since every way of answering writes one, the setup pages
+ * included (SetupChoices), so nobody who declined is asked again.
+ *
+ * News is owed only by those who did not say yes to questions: the rest get it from the checker,
+ * which writes their yes down (PollChecker.adoptNewsChoice). [lastFmOwed] is worked out by the
+ * caller, because that question is only owed where it can be put (lastFmQuestionAskable).
+ */
+internal fun catchUpOwed(updates: Boolean?, questions: Boolean?, news: Boolean?, count: Boolean?, lastFmOwed: Boolean): Boolean =
+    updates == null || questions == null || count == null || lastFmOwed || (news == null && questions != true)

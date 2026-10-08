@@ -201,6 +201,7 @@ import com.dd3boh.outertune.constants.SimilarSourceKey
 import com.dd3boh.outertune.engine.SimilarSources
 import com.dd3boh.outertune.utils.lastFmQuestionAskable
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
+import com.dd3boh.outertune.ui.screens.catchUpOwed
 import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
 import com.dd3boh.outertune.ui.theme.ColorSaver
@@ -1128,11 +1129,8 @@ class MainActivity : ComponentActivity() {
                         var catchUpDone by rememberSaveable { mutableStateOf(false) }
 
                         LaunchedEffect(updateChoice, pollChoice, newsChoice, usageChoice, lastFmOwed, oobeStatus) {
-                            // News is owed only by those who did not say yes to questions: the
-                            // rest get it from the checker, which writes their yes down.
                             if (!catchUpDone && oobeStatus >= OOBE_VERSION &&
-                                (updateChoice == null || pollChoice == null || usageChoice == null || lastFmOwed ||
-                                    (newsChoice == null && pollChoice != true))
+                                catchUpOwed(updateChoice, pollChoice, newsChoice, usageChoice, lastFmOwed)
                             ) {
                                 catchUpOpen = true
                             }
