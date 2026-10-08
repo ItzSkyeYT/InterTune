@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Badge
@@ -79,6 +80,16 @@ import com.dd3boh.outertune.ui.utils.Landscape
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import androidx.compose.ui.unit.Dp
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+
+/**
+ * Whether the search pill begins with a back arrow, and not with a magnifier.
+ *
+ * It began with the arrow everywhere, also on a tab with nothing being searched, where there is
+ * nothing to go back from and a tap on it opens search. So the arrow is for the two places it
+ * leaves: search while it is open, and a page of results. [route] is the destination on screen.
+ */
+fun searchPillLeadsBack(searchActive: Boolean, route: String?): Boolean =
+    searchActive || route?.startsWith("search") == true
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -213,8 +224,14 @@ fun SearchBarContainer(
                         }
                     },
                 ) {
+                    // The same button in the same place either way. Only its picture says
+                    // which of the three things above a tap will do.
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        imageVector = if (searchPillLeadsBack(searchActive, navBackStackEntry?.destination?.route)) {
+                            Icons.AutoMirrored.Rounded.ArrowBack
+                        } else {
+                            Icons.Rounded.Search
+                        },
                         contentDescription = null
                     )
                 }
