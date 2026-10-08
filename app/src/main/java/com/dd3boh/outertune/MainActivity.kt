@@ -187,13 +187,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.screens.walkthrough.Install
 import com.dd3boh.outertune.ui.screens.walkthrough.NewThingAction
+import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_TOUR
 import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_WALK
 import com.dd3boh.outertune.ui.screens.walkthrough.TourStop
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBack
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
-import com.dd3boh.outertune.ui.screens.walkthrough.settingsWalkAndQuestion
 import com.dd3boh.outertune.widget.MusicWidgetReceiver
 import com.dd3boh.outertune.constants.WalkthroughSeenVersionKey
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
@@ -1316,10 +1316,11 @@ class MainActivity : ComponentActivity() {
                                         showFromWelcome(thing.id, thing.stops)
                                     }
                                 },
-                                // The walk ends on the same question here as in the tutorial:
-                                // whoever asks to be shown round Settings is the likeliest to
-                                // want to be shown into them.
-                                onShowSettings = { showFromWelcome(SETTINGS_WALK, settingsWalkAndQuestion()) },
+                                // The four groups and back to the page. The question the
+                                // tutorial's walk ends on is not asked here: whoever taps this
+                                // has asked for the walk, and the tour of the settings is one
+                                // row down under About.
+                                onShowSettings = { showFromWelcome(SETTINGS_WALK, SETTINGS_TOUR) },
                                 onDone = {
                                     welcomeOpen = false
                                     if (!welcomeEverything) setWalkthroughSeen(BuildConfig.VERSION_CODE)

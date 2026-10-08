@@ -111,7 +111,8 @@ val SETTINGS_TOUR = listOf(
 )
 
 /**
- * The question the walk round Settings ends on: whether to go on into the settings themselves.
+ * The question the tutorial ends on, after its walk round Settings: whether to go on into the
+ * settings themselves.
  *
  * A stop with nothing to point at, like the welcome, and an offer like it: "Not now" ends the tour
  * as it ended before there was a question, "Show me" starts [SETTINGS_CLOSER_LOOK] in its place.
@@ -407,8 +408,9 @@ fun tourFor(
 }
 
 /**
- * The walk round Settings as it is given: its four groups, then the question. The tutorial ends on
- * it and the welcome back page starts it by itself, and it asks the same thing at the end of both.
+ * The walk round Settings as the tutorial gives it: its four groups, then the question. The walk
+ * asked for from the welcome back page is the four groups alone ([SETTINGS_TOUR]). Whoever asks
+ * there has asked for the walk, and is brought back to the page when it is done.
  */
 fun settingsWalkAndQuestion(): List<TourStop> = SETTINGS_TOUR + CLOSER_LOOK_QUESTION
 
