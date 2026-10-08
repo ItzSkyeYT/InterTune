@@ -43,6 +43,9 @@ object TourTargets {
     /** Everything that is there to be pointed at, in view or scrolled out of it. */
     private val there = mutableStateMapOf<String, Place>()
 
+    /** The screens that are drawn, by route, and how many of each: see [screenArrived]. */
+    private val screens = mutableStateMapOf<String, Int>()
+
     private class Place(val bringer: BringIntoViewRequester) {
         var size = IntSize.Zero
     }
@@ -58,16 +61,61 @@ object TourTargets {
         if (rect.isEmpty) bounds.remove(id) else bounds[id] = rect
     }
 
+    /**
+     * As [put], from the row itself, and only from the row that holds the mark. Stepping back to
+     * a screen and forward again, the screen going out is still laid out while the same screen
+     * comes in, and its rows slide away under the same ids: the hole must not follow those.
+     */
+    internal fun put(id: String, bringer: BringIntoViewRequester, rect: Rect, size: IntSize) {
+        if (there[id]?.bringer === bringer) put(id, rect, size)
+    }
+
+    /**
+     * The row marked [id] has gone. Only the row that holds the mark takes it away, for the same
+     * reason: the one going out is disposed after the one coming in has arrived, and forgetting
+     * by id alone then left the tour with nothing to point at on a screen that was right there.
+     */
+    internal fun leave(id: String, bringer: BringIntoViewRequester) {
+        if (there[id]?.bringer === bringer) forget(id)
+    }
+
     fun forget(id: String) {
         bounds.remove(id)
         there.remove(id)
     }
+
+    /**
+     * A screen has been drawn. The tour asks for this before it decides that a setting it meant
+     * to point at is not on this install: a row that has not reported yet and a row that is not
+     * there look the same until the screen it would be on is known to be up.
+     *
+     * Counted, since going back and forth the screen that leaves is still drawn while the same
+     * one arrives.
+     */
+    fun screenArrived(route: String) {
+        screens[route] = (screens[route] ?: 0) + 1
+    }
+
+    fun screenLeft(route: String) {
+        val still = (screens[route] ?: 0) - 1
+        if (still > 0) screens[route] = still else screens.remove(route)
+    }
+
+    /** Whether the screen at [route] is drawn, with everything on it that marks itself. */
+    fun drawn(route: String): Boolean = route in screens
 
     /** Null when the element is not on screen, which is the tour's cue to move the user first. */
     operator fun get(id: String): Rect? = bounds[id]
 
     /** Whether the element exists on the screen that is showing, even if it has to be scrolled to. */
     fun known(id: String): Boolean = id in there
+
+    /**
+     * The row that holds the mark now, as something to tell one arrival of it from the next: a
+     * stop that was scrolled to on a screen going out has to be scrolled to again on the same
+     * screen coming in.
+     */
+    fun holder(id: String): Any? = there[id]
 
     /**
      * Scrolls the element into view, with [room] pixels to spare above and below it: the bubble
@@ -94,9 +142,9 @@ fun Modifier.tourTarget(id: String): Modifier {
     val bringer = remember { BringIntoViewRequester() }
     DisposableEffect(id) {
         TourTargets.arrive(id, bringer)
-        onDispose { TourTargets.forget(id) }
+        onDispose { TourTargets.leave(id, bringer) }
     }
-    return bringIntoViewRequester(bringer).onGloballyPositioned { TourTargets.put(id, it.boundsInRoot(), it.size) }
+    return bringIntoViewRequester(bringer).onGloballyPositioned { TourTargets.put(id, bringer, it.boundsInRoot(), it.size) }
 }
 
 /**
@@ -244,6 +292,12 @@ class TourState {
      */
     var welcomeAsked by mutableStateOf(false)
 
+    /**
+     * Whether the last step taken was a step back, which [leaveOut] goes on in the direction of.
+     * Not kept across a rotation: it matters for the instant a stop is arrived at and no longer.
+     */
+    private var steppedBack = false
+
     val current: TourStop? get() = stops.getOrNull(index)
 
     /**
@@ -266,7 +320,43 @@ class TourState {
     }
 
     fun next() {
+        steppedBack = false
         if (index < stops.lastIndex) index++ else stop()
+        passOver()
+    }
+
+    /**
+     * Having arrived at a stop: while it is one on a screen that is already drawn, with its
+     * setting not on it, it is left out before a bubble is ever put up for it. A stop on a screen
+     * the tour has yet to go to cannot be asked this way, and the overlay leaves that one out
+     * when the screen arrives without it.
+     */
+    private fun passOver() {
+        while (running) {
+            val stop = current ?: return
+            val id = stop.targetId ?: return
+            val route = stop.route ?: return
+            if (!TourTargets.drawn(route) || TourTargets.known(id)) return
+            leaveOut()
+        }
+    }
+
+    /**
+     * Leaves out the stop the tour is on, because what it points at turned out not to be on its
+     * screen: a setting hidden while signed out, or behind another switch, or behind a flag. A
+     * stop on another screen is taken on trust when the tour starts (see [start]), so this is
+     * where the same rule is applied to it, once its screen is up to be asked.
+     *
+     * The tour is then on the stop that came next, or, stepping back, on the one before, and it
+     * is over when nothing is left to point at.
+     */
+    fun leaveOut() {
+        val gone = index
+        val left = stops.filterIndexed { at, _ -> at != gone }
+        val to = if (steppedBack && gone > 0) gone - 1 else gone
+        if (to !in left.indices || left.none { it.targetId != null }) return stop()
+        stops = left
+        index = to
     }
 
     /**
@@ -279,13 +369,16 @@ class TourState {
      */
     fun back(): TourStop? {
         if (index == 0) return null
+        steppedBack = true
         val left = stops[index]
         index--
+        passOver()
         return current?.takeIf { it.route != left.route }
     }
 
     fun stop() {
         running = false
+        steppedBack = false
         index = 0
         stops = emptyList()
     }

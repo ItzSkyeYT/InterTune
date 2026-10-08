@@ -14,6 +14,7 @@ import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
@@ -429,4 +430,11 @@ private fun NavGraphBuilder.screen(
     content: @Composable AnimatedContentScope.(NavBackStackEntry) -> Unit,
 ) = composable(route = route, arguments = arguments) { entry ->
     TopBarGlassDestination(floating) { content(entry) }
+    // For the tour, which asks whether a screen is drawn before it decides that a setting it
+    // meant to point at there is not on this install. After the content, so that every row that
+    // marks itself has done so by the time the screen says it is up.
+    DisposableEffect(route) {
+        TourTargets.screenArrived(route)
+        onDispose { TourTargets.screenLeft(route) }
+    }
 }

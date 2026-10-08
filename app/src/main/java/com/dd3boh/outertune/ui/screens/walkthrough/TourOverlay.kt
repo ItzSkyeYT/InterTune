@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.walkthrough
 
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.input.InputMode
@@ -45,6 +46,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -159,17 +161,51 @@ fun TourOverlay(
     // there at all until that screen is. Waited for, then scrolled to with room round it. Given
     // up on after three seconds, and the bubble then stands in the middle, as it does for a stop
     // with nothing to point at.
+    //
+    // A stop on a screen of its own is not waited for once that screen is drawn without it: the
+    // setting is not on this install (hidden while signed out, behind another switch, behind a
+    // flag), and the tour goes on to the next stop at once. It used to stand in the middle for
+    // such a stop, describing a control that was not there with a counter that counted it.
+    //
+    // Started again when the row that holds the mark is another one: stepping back and forward
+    // across two screens in quick succession, the first is found on the screen going out, and
+    // the one to scroll to is on the same screen coming in.
     val bringRoomPx = with(LocalDensity.current) { BRING_ROOM.toPx() }
-    LaunchedEffect(stop.id) {
+    LaunchedEffect(stop.id, stop.targetId?.let(TourTargets::holder)) {
         val id = stop.targetId ?: return@LaunchedEffect
-        withTimeoutOrNull(3000) { snapshotFlow { TourTargets.known(id) }.first { it } } ?: return@LaunchedEffect
+        val route = stop.route
+        // True once it is there, false once its screen is and it is not, nothing until either.
+        val there = withTimeoutOrNull(3000) {
+            snapshotFlow {
+                when {
+                    TourTargets.known(id) -> true
+                    route != null && TourTargets.drawn(route) -> false
+                    else -> null
+                }
+            }.filterNotNull().first()
+        } ?: return@LaunchedEffect
+        if (!there) {
+            // Two frames' grace, for a row that is composed a pass after its screen is.
+            repeat(2) { withFrameNanos { } }
+            if (!TourTargets.known(id)) {
+                state.leaveOut()
+                if (state.running) state.current?.route?.let(onNavigate) else onFinish()
+                return@LaunchedEffect
+            }
+        }
         TourTargets.bring(id, bringRoomPx)
     }
 
     // Back steps the tour back, and the screen with it when the stop before is on another one.
     // The route is that stop's, null for Home.
     BackHandler {
-        if (state.index > 0) state.back()?.let { onNavigateBack(it.route) } else { state.stop(); onFinish() }
+        if (state.index > 0) {
+            val backTo = state.back()
+            if (state.running) backTo?.let { onNavigateBack(it.route) } else onFinish()
+        } else {
+            state.stop()
+            onFinish()
+        }
     }
 
     val density = LocalDensity.current
@@ -252,10 +288,11 @@ fun TourOverlay(
         )
     }
 
+    // Next on the last stop ends the tour. Anything else is another stop, and its screen is
+    // gone to.
     val advance: () -> Unit = {
-        val wasLast = state.index == state.stops.lastIndex
         state.next()
-        if (wasLast) onFinish() else state.current?.route?.let(onNavigate)
+        if (state.running) state.current?.route?.let(onNavigate) else onFinish()
         Unit
     }
 
