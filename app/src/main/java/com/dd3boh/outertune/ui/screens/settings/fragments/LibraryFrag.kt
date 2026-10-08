@@ -34,7 +34,6 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.ExplainButton
-import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.dialog.CounterDialog
@@ -248,9 +247,14 @@ fun ColumnScope.QuickPicksSourceFrag() {
         title = { Text(quickPicksTitle) },
         icon = { Icon(Icons.Rounded.AutoAwesome, null) },
         trailingContent = {
+            // What the row is for, then the detail of each choice. The first paragraph used to
+            // stand under the row: six sentences in a card that holds one choice, run right down
+            // to the card's edge, and a second "i" beside the one that already explains.
             ExplainButton(
                 title = quickPicksTitle,
-                body = stringResource(if (Unreleased.ENGINE) R.string.quick_picks_source_info else R.string.quick_picks_source_info_basic),
+                body = stringResource(if (Unreleased.ENGINE) R.string.quick_picks_source_description else R.string.quick_picks_source_description_basic) +
+                    "\n\n" +
+                    stringResource(if (Unreleased.ENGINE) R.string.quick_picks_source_info else R.string.quick_picks_source_info_basic),
             )
         },
         selectedValue = quickPicksSource.orOffered(),
@@ -266,5 +270,4 @@ fun ColumnScope.QuickPicksSourceFrag() {
             }
         }
     )
-    InfoLabel(stringResource(if (Unreleased.ENGINE) R.string.quick_picks_source_description else R.string.quick_picks_source_description_basic))
 }
