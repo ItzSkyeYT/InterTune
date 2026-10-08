@@ -124,6 +124,7 @@ fun ColumnScope.ThemeAppFrag() {
         )
     }
     EnumListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_DARK_THEME),
         title = { Text(stringResource(R.string.dark_theme)) },
         icon = { Icon(Icons.Rounded.DarkMode, null) },
         selectedValue = darkMode,
@@ -280,6 +281,7 @@ fun ColumnScope.ThemePlayerFrag() {
     // The refraction half needs API 33 for RuntimeShader; the background half does not, so below
     // 33 this still does something and the description says which half you get.
     SwitchPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_LIQUID_GLASS),
         title = { Text(stringResource(R.string.player_liquid_glass)) },
         description = stringResource(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)

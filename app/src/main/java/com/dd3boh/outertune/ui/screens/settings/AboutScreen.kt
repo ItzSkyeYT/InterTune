@@ -208,6 +208,12 @@ fun AboutScreen(
                             navController.navigate("whatsnew")
                         }
                     )
+                    PreferenceEntry(
+                        title = { Text(stringResource(R.string.tour_closer_entry)) },
+                        onClick = {
+                            navController.navigate("settings_tour")
+                        }
+                    )
                 }
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_bug_report_action)) },

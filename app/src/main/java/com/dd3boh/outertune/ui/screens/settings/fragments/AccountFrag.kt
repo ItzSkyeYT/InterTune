@@ -48,6 +48,8 @@ import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.utils.parseCookieString
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +75,7 @@ fun ColumnScope.AccountFrag(navController: NavController) {
     }
 
     PreferenceEntry(
+        modifier = Modifier.tourTarget(Tour.SETTING_LOGIN),
         title = { Text(if (isLoggedIn) accountName else stringResource(R.string.login)) },
         description = if (isLoggedIn) {
             accountEmail.takeIf { it.isNotEmpty() }

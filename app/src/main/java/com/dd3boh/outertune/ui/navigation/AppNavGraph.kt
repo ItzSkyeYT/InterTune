@@ -78,6 +78,7 @@ import com.dd3boh.outertune.ui.screens.settings.SettingsScreen
 import com.dd3boh.outertune.ui.screens.settings.BackupSettings
 import com.dd3boh.outertune.ui.screens.settings.StorageSettings
 import com.dd3boh.outertune.ui.screens.settings.UpdateSettings
+import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_CLOSER_LOOK
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourState
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
@@ -332,6 +333,23 @@ fun NavGraphBuilder.appDestinations(
                     inclusive = false,
                 )
                 tourState.welcomeAsked = true
+            }
+        }
+        if (Unreleased.WELCOME_BACK) {
+            screen("settings_tour", floating = false) {
+                // The closer look at the settings, asked for again from About. It goes through
+                // the screens the list of settings leads to, so it starts from that list, which
+                // is underneath: About is reached through it. Nothing is waited for here, and
+                // so nothing outlives this destination: the first stop's screen is gone to at
+                // once, and the tour waits for what it points at by itself.
+                LaunchedEffect(Unit) {
+                    if (!navController.popBackStack(Tour.ROUTE_SETTINGS, inclusive = false)) {
+                        navController.popBackStack()
+                        navController.navigate(Tour.ROUTE_SETTINGS)
+                    }
+                    SETTINGS_CLOSER_LOOK.firstOrNull()?.route?.let { navController.navigate(it) }
+                    tourState.start(SETTINGS_CLOSER_LOOK)
+                }
             }
         }
         screen("recognition") {

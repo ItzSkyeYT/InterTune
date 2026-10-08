@@ -185,6 +185,7 @@ fun ColumnScope.TabArrangementFrag() {
 
 
     PreferenceEntry(
+        modifier = Modifier.tourTarget(Tour.SETTING_TAB_ARRANGEMENT),
         title = { Text(stringResource(R.string.tab_arrangement)) },
         icon = { Icon(Icons.Rounded.Reorder, null) },
         onClick = {
@@ -388,6 +389,7 @@ fun ColumnScope.TabExtrasFrag() {
     val (defaultOpenTab, onDefaultOpenTabChange) = rememberPreference(DefaultOpenTabKey, defaultValue = "home")
 
     ListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_DEFAULT_TAB),
         title = { Text(stringResource(R.string.default_open_tab)) },
         icon = { Icon(Icons.Rounded.Tab, null) },
         selectedValue = Screens.getAllScreens().find { it.route == defaultOpenTab } ?: Screens.Home,
@@ -438,6 +440,7 @@ fun ColumnScope.LocalizationFrag() {
     val (contentCountry, onContentCountryChange) = rememberPreference(key = ContentCountryKey, defaultValue = "system")
 
     ListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_LANGUAGE),
         title = { Text(stringResource(R.string.content_language)) },
         icon = { Icon(Icons.Rounded.Language, null) },
         selectedValue = contentLanguage,
@@ -462,6 +465,7 @@ fun ColumnScope.LocalizationFrag() {
         }
     )
     ListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_COUNTRY),
         title = { Text(stringResource(R.string.content_country)) },
         icon = { Icon(Icons.Rounded.LocationOn, null) },
         selectedValue = contentCountry,

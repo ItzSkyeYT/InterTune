@@ -190,6 +190,51 @@ object Tour {
     const val SETTING_SHARE_LINKS = "setting_share_links"
     const val SETTING_SPATIAL_AUDIO = "setting_spatial_audio"
 
+    // The settings the closer look stops at (SETTINGS_CLOSER_LOOK), by the screen they are on.
+    const val SETTING_LOGIN = "setting_login"
+    const val SETTING_LASTFM = "setting_lastfm"
+    const val SETTING_YTM_SYNC = "setting_ytm_sync"
+    const val SETTING_SYNC_MODE = "setting_sync_mode"
+    const val SETTING_QUICK_PICKS_SOURCE = "setting_quick_picks_source"
+    const val SETTING_CONTENT_LANGUAGE = "setting_content_language"
+    const val SETTING_CONTENT_COUNTRY = "setting_content_country"
+    const val SETTING_LOCAL_MEDIA = "setting_local_media"
+    const val SETTING_SCAN_PATHS = "setting_scan_paths"
+    const val SETTING_SCANNER_SENSITIVITY = "setting_scanner_sensitivity"
+    const val SETTING_DARK_THEME = "setting_dark_theme"
+    const val SETTING_LIQUID_GLASS = "setting_liquid_glass"
+    const val SETTING_TAB_ARRANGEMENT = "setting_tab_arrangement"
+    const val SETTING_DEFAULT_TAB = "setting_default_tab"
+    const val SETTING_AUTO_LOAD_MORE = "setting_auto_load_more"
+    const val SETTING_MEDIA_BUTTONS = "setting_media_buttons"
+    const val SETTING_AUDIO_QUALITY = "setting_audio_quality"
+    const val SETTING_TRANSITION_FADE = "setting_transition_fade"
+    const val SETTING_HEAD_TRACKING = "setting_head_tracking"
+    const val SETTING_RECOGNISE_KEEP_LISTENING = "setting_recognise_keep_listening"
+    const val SETTING_RECOGNISE_PAUSE = "setting_recognise_pause"
+    const val SETTING_RECOGNISE_AUTO_ADD = "setting_recognise_auto_add"
+    const val SETTING_RECOGNISE_SECONDS = "setting_recognise_seconds"
+    const val SETTING_LYRICS_SOURCES = "setting_lyrics_sources"
+    const val SETTING_LYRICS_PREFER_LOCAL = "setting_lyrics_prefer_local"
+    const val SETTING_LYRICS_POSITION = "setting_lyrics_position"
+    const val SETTING_LYRICS_FONT_SIZE = "setting_lyrics_font_size"
+    const val SETTING_LIKED_AUTODOWNLOAD = "setting_liked_autodownload"
+    const val SETTING_DOWNLOAD_FOLDER = "setting_download_folder"
+    const val SETTING_SONG_CACHE = "setting_song_cache"
+    const val SETTING_BACKUP = "setting_backup"
+    const val SETTING_RESTORE = "setting_restore"
+    const val SETTING_AUTO_BACKUP = "setting_auto_backup"
+    const val SETTING_PAUSE_HISTORY = "setting_pause_history"
+    const val SETTING_PAUSE_REMOTE_HISTORY = "setting_pause_remote_history"
+    const val SETTING_POLLS = "setting_polls"
+    const val SETTING_UPDATE_CHECK = "setting_update_check"
+    const val SETTING_BACKGROUND_CHECK = "setting_background_check"
+    const val SETTING_CHECK_NOW = "setting_check_now"
+    const val SETTING_QUICK_PICKS_LEAN = "setting_quick_picks_lean"
+    const val SETTING_ADVENTUROUSNESS = "setting_adventurousness"
+    const val SETTING_LEARN_FROM_LISTENING = "setting_learn_from_listening"
+    const val SETTING_EXCLUSIONS = "setting_exclusions"
+
     /**
      * The routes those live on. Null on a stop means Home, and Home's own screen at that: not the
      * one the app opens on, which is whichever tab was chosen as the default.
@@ -198,6 +243,20 @@ object Tour {
     const val ROUTE_SETTINGS = "settings"
     const val ROUTE_LOOK_AND_FEEL = "settings/appearance"
     const val ROUTE_PLAYER = "settings/player"
+
+    // The rest of what the Settings list leads to (SETTINGS_CATEGORIES).
+    const val ROUTE_ACCOUNT = "settings/account_sync"
+    const val ROUTE_LIBRARY = "settings/library"
+    const val ROUTE_LOCAL = "settings/local"
+    const val ROUTE_RECOGNITION = "settings/recognition"
+    const val ROUTE_LYRICS = "settings/library/lyrics"
+    const val ROUTE_STORAGE = "settings/storage"
+    const val ROUTE_BACKUP = "settings/backup"
+    const val ROUTE_PRIVACY = "settings/privacy"
+    const val ROUTE_UPDATES = "settings/updates"
+    const val ROUTE_RECOMMENDATIONS = "settings/recommendations"
+    const val ROUTE_ADVANCED = "settings/advanced"
+    const val ROUTE_ABOUT = "settings/about"
 }
 
 /**
@@ -301,6 +360,21 @@ class TourState {
     val current: TourStop? get() = stops.getOrNull(index)
 
     /**
+     * Where "Next category" leads: the first stop on the screen after the one this stop is on, or
+     * null when there is none.
+     *
+     * Only in a tour that goes from one screen of Settings to another, which is the closer look.
+     * The tutorial's step from Home into Settings, and a new thing's from the list into its
+     * screen, are the way to one place and not a row of places to pass over.
+     */
+    val nextScreen: TourStop?
+        get() {
+            val here = current?.route ?: return null
+            if (!here.startsWith(Tour.ROUTE_SETTINGS + "/")) return null
+            return stops.drop(index + 1).firstOrNull { it.route != here }
+        }
+
+    /**
      * Starts the tour, minus anything that is not on screen to be pointed at.
      *
      * Not a defensive guard: the Quick picks chips only exist while Quick picks is drawing from the
@@ -322,6 +396,14 @@ class TourState {
     fun next() {
         steppedBack = false
         if (index < stops.lastIndex) index++ else stop()
+        passOver()
+    }
+
+    /** "Next category": on to [nextScreen], past whatever is left of this one. */
+    fun skipScreen() {
+        val to = nextScreen ?: return
+        steppedBack = false
+        index = stops.indexOf(to)
         passOver()
     }
 

@@ -110,6 +110,119 @@ val SETTINGS_TOUR = listOf(
     TourStop("settings_rest", Tour.SETTINGS_REST, Tour.ROUTE_SETTINGS, R.string.tour_settings_rest_title, R.string.tour_settings_rest_body, 0),
 )
 
+/**
+ * The screens the Settings list leads to, in the order they are on it. The closer look goes
+ * through them in this order, and SettingsCloserLookTest reads the list off SettingsScreen and
+ * fails when the two differ, so that a screen added there is not forgotten here.
+ */
+val SETTINGS_CATEGORIES = listOf(
+    Tour.ROUTE_ACCOUNT,
+    Tour.ROUTE_LIBRARY,
+    Tour.ROUTE_LOCAL,
+    Tour.ROUTE_LOOK_AND_FEEL,
+    Tour.ROUTE_PLAYER,
+    Tour.ROUTE_RECOGNITION,
+    Tour.ROUTE_LYRICS,
+    Tour.ROUTE_STORAGE,
+    Tour.ROUTE_BACKUP,
+    Tour.ROUTE_PRIVACY,
+    Tour.ROUTE_UPDATES,
+    Tour.ROUTE_RECOMMENDATIONS,
+    Tour.ROUTE_ADVANCED,
+    Tour.ROUTE_ABOUT,
+)
+
+/**
+ * The screens the closer look does not go into, and why. Named, so that every screen on the list
+ * has either stops or a reason: the test fails on one with neither.
+ */
+val CLOSER_LOOK_LEFT_OUT = mapOf(
+    Tour.ROUTE_ADVANCED to "Emptying the image cache and the switch for the developer's own settings: upkeep, with nothing to choose between.",
+    Tour.ROUTE_ABOUT to "Nothing on it is a setting. It holds the way back into this tour.",
+)
+
+/** A stop of the closer look: [title] is the string its row is titled with, [body] the sentence. */
+private fun closer(id: String, target: String, route: String, @StringRes title: Int, @StringRes body: Int) =
+    TourStop("closer_$id", target, route, title, body, 0)
+
+/**
+ * A closer look at the settings: into each screen of [SETTINGS_CATEGORIES] and, there, to the
+ * settings people change, one bubble each, with a sentence on what the setting does and when
+ * somebody would want it. About starts it.
+ *
+ * Not every row. Left out: what only cleans up or is there for developers, a row that opens
+ * another screen, what sits folded away under Advanced, and a row whose own description already
+ * says all there is. Where a described row is stopped at all the same, because it is one people
+ * go looking for, the bubble says what the description does not, and is short.
+ *
+ * A stop is titled with the string its row is titled with, so the two cannot drift apart, and
+ * the test reads both ends to hold them to it. Some of these rows are not on every install:
+ * head tracking is only there under spatial audio for headphones, the Last.fm row is another
+ * row once connected, links you share is behind a flag. Such a stop costs nothing. It is taken
+ * on trust here and left out when the tour gets to its screen and finds it missing
+ * (TourState.leaveOut).
+ */
+val SETTINGS_CLOSER_LOOK = listOf(
+    closer("login", Tour.SETTING_LOGIN, Tour.ROUTE_ACCOUNT, R.string.login, R.string.tour_closer_login),
+    closer("lastfm", Tour.SETTING_LASTFM, Tour.ROUTE_ACCOUNT, R.string.lastfm_connect, R.string.tour_closer_lastfm),
+    closer("ytm_sync", Tour.SETTING_YTM_SYNC, Tour.ROUTE_ACCOUNT, R.string.ytm_sync, R.string.tour_closer_ytm_sync),
+    closer("sync_mode", Tour.SETTING_SYNC_MODE, Tour.ROUTE_ACCOUNT, R.string.sync_mode, R.string.tour_closer_sync_mode),
+
+    closer("quick_picks_source", Tour.SETTING_QUICK_PICKS_SOURCE, Tour.ROUTE_LIBRARY, R.string.quick_picks_source, R.string.tour_closer_quick_picks_source),
+    closer("content_language", Tour.SETTING_CONTENT_LANGUAGE, Tour.ROUTE_LIBRARY, R.string.content_language, R.string.tour_closer_content_language),
+    closer("content_country", Tour.SETTING_CONTENT_COUNTRY, Tour.ROUTE_LIBRARY, R.string.content_country, R.string.tour_closer_content_country),
+
+    closer("local_media", Tour.SETTING_LOCAL_MEDIA, Tour.ROUTE_LOCAL, R.string.local_library_enable_title, R.string.tour_closer_local_media),
+    closer("scan_paths", Tour.SETTING_SCAN_PATHS, Tour.ROUTE_LOCAL, R.string.scan_paths_title, R.string.tour_closer_scan_paths),
+    closer("scanner_sensitivity", Tour.SETTING_SCANNER_SENSITIVITY, Tour.ROUTE_LOCAL, R.string.scanner_sensitivity_title, R.string.tour_closer_scanner_sensitivity),
+
+    closer("dark_theme", Tour.SETTING_DARK_THEME, Tour.ROUTE_LOOK_AND_FEEL, R.string.dark_theme, R.string.tour_closer_dark_theme),
+    closer("player_background", Tour.SETTING_PLAYER_BACKGROUND, Tour.ROUTE_LOOK_AND_FEEL, R.string.player_background_style, R.string.tour_closer_player_background),
+    closer("liquid_glass", Tour.SETTING_LIQUID_GLASS, Tour.ROUTE_LOOK_AND_FEEL, R.string.player_liquid_glass, R.string.tour_closer_liquid_glass),
+    closer("tab_arrangement", Tour.SETTING_TAB_ARRANGEMENT, Tour.ROUTE_LOOK_AND_FEEL, R.string.tab_arrangement, R.string.tour_closer_tab_arrangement),
+    closer("default_tab", Tour.SETTING_DEFAULT_TAB, Tour.ROUTE_LOOK_AND_FEEL, R.string.default_open_tab, R.string.tour_closer_default_tab),
+    // The sentence the welcome back page's own tour has for it, which already says what it does.
+    closer("share_links", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LOOK_AND_FEEL, R.string.share_link_kind_title, R.string.new_share_links_here),
+
+    closer("auto_load_more", Tour.SETTING_AUTO_LOAD_MORE, Tour.ROUTE_PLAYER, R.string.auto_load_more, R.string.tour_closer_auto_load_more),
+    closer("media_buttons", Tour.SETTING_MEDIA_BUTTONS, Tour.ROUTE_PLAYER, R.string.media_control_buttons, R.string.tour_closer_media_buttons),
+    closer("audio_quality", Tour.SETTING_AUDIO_QUALITY, Tour.ROUTE_PLAYER, R.string.audio_quality, R.string.tour_closer_audio_quality),
+    closer("transition_fade", Tour.SETTING_TRANSITION_FADE, Tour.ROUTE_PLAYER, R.string.transition_fade, R.string.tour_closer_transition_fade),
+    closer("spatial_audio", Tour.SETTING_SPATIAL_AUDIO, Tour.ROUTE_PLAYER, R.string.spatial_audio, R.string.tour_closer_spatial_audio),
+    closer("head_tracking", Tour.SETTING_HEAD_TRACKING, Tour.ROUTE_PLAYER, R.string.head_tracking, R.string.tour_closer_head_tracking),
+
+    closer("recognise_keep", Tour.SETTING_RECOGNISE_KEEP_LISTENING, Tour.ROUTE_RECOGNITION, R.string.recognise_keep_listening, R.string.tour_closer_recognise_keep),
+    closer("recognise_pause", Tour.SETTING_RECOGNISE_PAUSE, Tour.ROUTE_RECOGNITION, R.string.recognise_pause_title, R.string.tour_closer_recognise_pause),
+    closer("recognise_auto_add", Tour.SETTING_RECOGNISE_AUTO_ADD, Tour.ROUTE_RECOGNITION, R.string.recognise_auto_add, R.string.tour_closer_recognise_auto_add),
+    closer("recognise_seconds", Tour.SETTING_RECOGNISE_SECONDS, Tour.ROUTE_RECOGNITION, R.string.recognise_listen_seconds, R.string.tour_closer_recognise_seconds),
+
+    closer("lyrics_sources", Tour.SETTING_LYRICS_SOURCES, Tour.ROUTE_LYRICS, R.string.enable_lrclib, R.string.tour_closer_lyrics_sources),
+    closer("lyrics_prefer_local", Tour.SETTING_LYRICS_PREFER_LOCAL, Tour.ROUTE_LYRICS, R.string.lyrics_prefer_local, R.string.tour_closer_lyrics_prefer_local),
+    closer("lyrics_position", Tour.SETTING_LYRICS_POSITION, Tour.ROUTE_LYRICS, R.string.lyrics_text_position, R.string.tour_closer_lyrics_position),
+    closer("lyrics_font_size", Tour.SETTING_LYRICS_FONT_SIZE, Tour.ROUTE_LYRICS, R.string.lyrics_font_Size, R.string.tour_closer_lyrics_font_size),
+
+    closer("liked_autodownload", Tour.SETTING_LIKED_AUTODOWNLOAD, Tour.ROUTE_STORAGE, R.string.like_autodownload, R.string.tour_closer_liked_autodownload),
+    closer("download_folder", Tour.SETTING_DOWNLOAD_FOLDER, Tour.ROUTE_STORAGE, R.string.dl_main_path_title, R.string.tour_closer_download_folder),
+    closer("song_cache", Tour.SETTING_SONG_CACHE, Tour.ROUTE_STORAGE, R.string.song_cache_max_size, R.string.tour_closer_song_cache),
+
+    closer("backup", Tour.SETTING_BACKUP, Tour.ROUTE_BACKUP, R.string.action_backup, R.string.tour_closer_backup),
+    closer("restore", Tour.SETTING_RESTORE, Tour.ROUTE_BACKUP, R.string.action_restore, R.string.tour_closer_restore),
+    closer("auto_backup", Tour.SETTING_AUTO_BACKUP, Tour.ROUTE_BACKUP, R.string.auto_backup, R.string.tour_closer_auto_backup),
+
+    closer("pause_history", Tour.SETTING_PAUSE_HISTORY, Tour.ROUTE_PRIVACY, R.string.pause_listen_history, R.string.tour_closer_pause_history),
+    closer("pause_remote_history", Tour.SETTING_PAUSE_REMOTE_HISTORY, Tour.ROUTE_PRIVACY, R.string.pause_remote_listen_history, R.string.tour_closer_pause_remote_history),
+    closer("polls", Tour.SETTING_POLLS, Tour.ROUTE_PRIVACY, R.string.polls_enabled, R.string.tour_closer_polls),
+
+    closer("update_check", Tour.SETTING_UPDATE_CHECK, Tour.ROUTE_UPDATES, R.string.update_check, R.string.tour_closer_update_check),
+    closer("background_check", Tour.SETTING_BACKGROUND_CHECK, Tour.ROUTE_UPDATES, R.string.background_check_interval, R.string.tour_closer_background_check),
+    closer("check_now", Tour.SETTING_CHECK_NOW, Tour.ROUTE_UPDATES, R.string.check_for_update, R.string.tour_closer_check_now),
+
+    closer("quick_picks_lean", Tour.SETTING_QUICK_PICKS_LEAN, Tour.ROUTE_RECOMMENDATIONS, R.string.quick_picks_lean, R.string.tour_closer_quick_picks_lean),
+    closer("adventurousness", Tour.SETTING_ADVENTUROUSNESS, Tour.ROUTE_RECOMMENDATIONS, R.string.adventurousness, R.string.tour_closer_adventurousness),
+    closer("learn_from_listening", Tour.SETTING_LEARN_FROM_LISTENING, Tour.ROUTE_RECOMMENDATIONS, R.string.learn_from_listening, R.string.tour_closer_learn_from_listening),
+    closer("exclusions", Tour.SETTING_EXCLUSIONS, Tour.ROUTE_RECOMMENDATIONS, R.string.exclusions, R.string.tour_closer_exclusions),
+)
+
 /** What "Show me" does for a [NewThing]. */
 enum class NewThingAction {
     /** Go to where it lives and point at it: [NewThing.stops]. */
@@ -252,7 +365,7 @@ fun newThingsFor(
 }
 
 /** Every stop there is, for bringing a running tour back after the activity was recreated. */
-val ALL_TOUR_STOPS: List<TourStop> get() = (TOUR_STOPS + SETTINGS_TOUR + NEW_THINGS.flatMap { it.stops }).distinctBy { it.id }
+val ALL_TOUR_STOPS: List<TourStop> get() = (TOUR_STOPS + SETTINGS_TOUR + SETTINGS_CLOSER_LOOK + NEW_THINGS.flatMap { it.stops }).distinctBy { it.id }
 
 /**
  * The same rule as [walkthroughFor], applied to the tour.

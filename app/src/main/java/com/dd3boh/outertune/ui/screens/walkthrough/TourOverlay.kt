@@ -369,6 +369,10 @@ fun TourOverlay(
                 state = state,
                 stop = stop,
                 onAdvance = advance,
+                onSkipScreen = {
+                    state.skipScreen()
+                    if (state.running) state.current?.route?.let(onNavigate) else onFinish()
+                },
                 onFinish = onFinish,
                 modifier = Modifier
                     .onGloballyPositioned {
@@ -506,6 +510,7 @@ private fun TourBubble(
     state: TourState,
     stop: TourStop,
     onAdvance: () -> Unit,
+    onSkipScreen: () -> Unit,
     onFinish: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -547,7 +552,17 @@ private fun TourBubble(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(14.dp))
+            // In a tour that goes from screen to screen of Settings, a way past what is left of
+            // this screen. On a line of its own, above the buttons that are on every bubble, so
+            // that those stay where they are from one stop to the next.
+            if (state.nextScreen != null) {
+                Spacer(Modifier.height(6.dp))
+                TextButton(onClick = onSkipScreen, modifier = Modifier.align(Alignment.End)) {
+                    Text(stringResource(R.string.tour_closer_next_category))
+                }
+            } else {
+                Spacer(Modifier.height(14.dp))
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),

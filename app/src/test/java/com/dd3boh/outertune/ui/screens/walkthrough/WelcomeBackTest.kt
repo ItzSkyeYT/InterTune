@@ -180,7 +180,7 @@ class WelcomeBackTest {
 
     @Test
     fun `no two stops share an id, or a rotation would bring back the wrong one`() {
-        val every = TOUR_STOPS + SETTINGS_TOUR + NEW_THINGS.flatMap { it.stops }
+        val every = TOUR_STOPS + SETTINGS_TOUR + SETTINGS_CLOSER_LOOK + NEW_THINGS.flatMap { it.stops }
         val twice = every.groupBy { it.id }.filter { (_, same) -> same.distinct().size > 1 }.keys
         assertEquals(emptySet<String>(), twice)
         assertEquals(every.map { it.id }.distinct().size, ALL_TOUR_STOPS.size)

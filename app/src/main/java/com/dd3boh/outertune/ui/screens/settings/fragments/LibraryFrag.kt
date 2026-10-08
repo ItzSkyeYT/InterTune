@@ -42,6 +42,8 @@ import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.utils.parseCookieString
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @Composable
 fun ColumnScope.ListenHistoryFrag() {
@@ -73,6 +75,7 @@ fun ColumnScope.ListenHistoryFrag() {
     }
 
     SwitchPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_PAUSE_HISTORY),
         title = { Text(stringResource(R.string.pause_listen_history)) },
         description = stringResource(R.string.pause_listen_history_description),
         icon = { Icon(Icons.Rounded.History, null) },
@@ -80,6 +83,7 @@ fun ColumnScope.ListenHistoryFrag() {
         onCheckedChange = onPauseListenHistoryChange
     )
     SwitchPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_PAUSE_REMOTE_HISTORY),
         title = { Text(stringResource(R.string.pause_remote_listen_history)) },
         description = stringResource(R.string.pause_remote_listen_history_description),
         icon = { Icon(Icons.Rounded.History, null) },
@@ -240,6 +244,7 @@ fun ColumnScope.QuickPicksSourceFrag() {
 
     val quickPicksTitle = stringResource(R.string.quick_picks_source)
     EnumListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_QUICK_PICKS_SOURCE),
         title = { Text(quickPicksTitle) },
         icon = { Icon(Icons.Rounded.AutoAwesome, null) },
         trailingContent = {

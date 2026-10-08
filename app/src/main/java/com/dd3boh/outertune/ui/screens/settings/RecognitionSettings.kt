@@ -43,6 +43,8 @@ import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +72,7 @@ fun RecognitionSettings(
 
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             ExplainedSwitchPreference(
+                modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_KEEP_LISTENING),
                 title = stringResource(R.string.recognise_keep_listening),
                 explanation = stringResource(R.string.recognise_keep_listening_explain),
                 description = stringResource(R.string.recognise_keep_listening_desc),
@@ -77,6 +80,7 @@ fun RecognitionSettings(
                 onCheckedChange = onKeepListeningChange,
             )
             ExplainedSwitchPreference(
+                modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_PAUSE),
                 title = stringResource(R.string.recognise_pause_title),
                 explanation = stringResource(R.string.recognise_pause_explain),
                 description = stringResource(R.string.recognise_pause_desc),
@@ -84,6 +88,7 @@ fun RecognitionSettings(
                 onCheckedChange = onPauseOnSpeakerChange,
             )
             ExplainedSwitchPreference(
+                modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_AUTO_ADD),
                 title = stringResource(R.string.recognise_auto_add),
                 explanation = stringResource(R.string.recognise_auto_add_explain),
                 description = stringResource(R.string.recognise_auto_add_desc),
@@ -103,6 +108,7 @@ fun RecognitionSettings(
 
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             ListPreference(
+                modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_SECONDS),
                 title = { Text(stringResource(R.string.recognise_listen_seconds)) },
                 icon = { Icon(Icons.Rounded.Timer, null) },
                 selectedValue = listenSeconds,

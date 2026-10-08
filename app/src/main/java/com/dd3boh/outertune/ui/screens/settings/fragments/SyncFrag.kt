@@ -65,6 +65,8 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.utils.parseCookieString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +78,7 @@ fun ColumnScope.SyncAutoFrag() {
     val (ytmSync, onYtmSyncChange) = rememberPreference(YtmSyncKey, defaultValue = true)
 
     SwitchPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_YTM_SYNC),
         title = { Text(stringResource(R.string.ytm_sync)) },
         icon = { Icon(Icons.Rounded.Sync, null) },
         checked = ytmSync,
@@ -227,6 +230,7 @@ fun ColumnScope.SyncParamsFrag() {
     val (syncMode, onSyncModeChange) = rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
 
     EnumListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_SYNC_MODE),
         title = { Text(stringResource(R.string.sync_mode)) },
         icon = { Icon(Icons.Rounded.SyncLock, null) },
         selectedValue = syncMode,

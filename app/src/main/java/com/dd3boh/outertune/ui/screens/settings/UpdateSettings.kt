@@ -64,6 +64,8 @@ import com.dd3boh.outertune.utils.InstallSource
 import com.dd3boh.outertune.utils.installSource
 import com.dd3boh.outertune.utils.fdroidPageUrl
 import com.dd3boh.outertune.utils.UpdateInstaller
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 /**
  * Everything to do with app updates, in one place.
@@ -130,6 +132,7 @@ fun UpdateSettings(
             )
 
             SwitchPreference(
+                modifier = Modifier.tourTarget(Tour.SETTING_UPDATE_CHECK),
                 title = { Text(stringResource(R.string.update_check)) },
                 description = stringResource(
                     if (fromFdroid) R.string.update_check_description_fdroid
@@ -162,6 +165,7 @@ fun UpdateSettings(
             // Governs questions too, which is why the copy says so. Two separate schedules for
             // two small requests would wake the device twice to answer one question.
             ListPreference(
+                modifier = Modifier.tourTarget(Tour.SETTING_BACKGROUND_CHECK),
                 title = { Text(stringResource(R.string.background_check_interval)) },
                 icon = { Icon(Icons.Rounded.Schedule, null) },
                 selectedValue = backgroundHours,
@@ -191,6 +195,7 @@ fun UpdateSettings(
             InfoLabel(stringResource(R.string.background_check_interval_desc))
 
             PreferenceEntry(
+                modifier = Modifier.tourTarget(Tour.SETTING_CHECK_NOW),
                 title = { Text(stringResource(R.string.check_for_update)) },
                 description = if (checking) stringResource(R.string.checking_for_update) else null,
                 icon = { Icon(Icons.Rounded.Refresh, null) },

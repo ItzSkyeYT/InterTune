@@ -23,6 +23,9 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.launch
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+import androidx.compose.ui.Modifier
 
 /**
  * Connecting a Last.fm account.
@@ -79,6 +82,7 @@ fun ColumnScope.LastFmFrag(navController: NavController) {
         )
     } else {
         PreferenceEntry(
+            modifier = Modifier.tourTarget(Tour.SETTING_LASTFM),
             title = { Text(stringResource(R.string.lastfm_connect)) },
             description = stringResource(R.string.lastfm_connect_description),
             icon = { Icon(Icons.Rounded.Link, null) },

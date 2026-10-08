@@ -106,6 +106,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 
 @Composable
@@ -435,6 +437,7 @@ fun ColumnScope.LocalScannerFrag() {
 
     // file path selector
     PreferenceEntry(
+        modifier = Modifier.tourTarget(Tour.SETTING_SCAN_PATHS),
         title = { Text(stringResource(R.string.scan_paths_title)) },
         onClick = {
             showAddFolderDialog = true
@@ -697,6 +700,7 @@ fun ColumnScope.LocalScannerExtraFrag() {
 
     // scanner sensitivity
     EnumListPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_SCANNER_SENSITIVITY),
         title = { Text(stringResource(R.string.scanner_sensitivity_title)) },
         icon = { Icon(Icons.Rounded.GraphicEq, null) },
         selectedValue = scannerSensitivity,

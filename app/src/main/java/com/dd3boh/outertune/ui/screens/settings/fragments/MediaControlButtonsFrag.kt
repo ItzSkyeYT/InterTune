@@ -50,6 +50,8 @@ import com.dd3boh.outertune.playback.MediaControlButtons
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 /**
  * Which two buttons the phone's media controls show beside previous, play and next: the
@@ -66,6 +68,7 @@ fun ColumnScope.MediaControlButtonsFrag() {
     var showDialog by remember { mutableStateOf(false) }
 
     PreferenceEntry(
+        modifier = Modifier.tourTarget(Tour.SETTING_MEDIA_BUTTONS),
         title = { Text(stringResource(R.string.media_control_buttons)) },
         description = chosen.map { mediaControlLabel(it) }.joinToString(", "),
         icon = { Icon(Icons.Rounded.ScreenLockPortrait, null) },

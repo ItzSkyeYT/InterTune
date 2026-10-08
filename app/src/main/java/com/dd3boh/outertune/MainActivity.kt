@@ -1238,6 +1238,18 @@ class MainActivity : ComponentActivity() {
                             navController.currentBackStackEntry?.savedStateHandle?.set("scrollToTop", true)
                         }
 
+                        // To the screen a stop is on. From one screen of Settings to another
+                        // the tour leaves the first as it goes, the way somebody would by the
+                        // arrow, so that there is one screen over the list at a time and not
+                        // a dozen piled up under the last by the end of the closer look. Going
+                        // from the list into a screen this pops nothing, and neither does going
+                        // into Settings from Home, where the list is not underneath yet.
+                        val tourGoTo: (String) -> Unit = { route ->
+                            if (navController.currentDestination?.route != route) {
+                                navController.navigate(route) { popUpTo(Tour.ROUTE_SETTINGS) }
+                            }
+                        }
+
                         // A tour from the page: to the screen its first stop is on, and started once
                         // what it points at is there. If nothing of it is on screen (Quick picks
                         // has no chips while the engine has fallen back to another row), the page
@@ -1800,7 +1812,7 @@ class MainActivity : ComponentActivity() {
                             TourOverlay(
                                 state = tourState,
                                 // Two stops in a row on one screen are one screen, not two of it.
-                                onNavigate = { route -> if (navController.currentDestination?.route != route) navController.navigate(route) },
+                                onNavigate = tourGoTo,
                                 // Back out of a stop's screen to the one the stop before it is
                                 // on. That screen is underneath, since the tour came through it.
                                 // If it is not, it is opened the way a step forward opens it.
@@ -1808,7 +1820,7 @@ class MainActivity : ComponentActivity() {
                                     if (route == null) {
                                         goHome()
                                     } else if (navController.currentDestination?.route != route && !navController.popBackStack(route, inclusive = false)) {
-                                        navController.navigate(route)
+                                        tourGoTo(route)
                                     }
                                 },
                                 onFinish = {
@@ -1821,10 +1833,14 @@ class MainActivity : ComponentActivity() {
                                         welcomeOpen = true
                                     } else {
                                         setWalkthroughSeen(BuildConfig.VERSION_CODE)
-                                        // A first install's tour ends on its walk round Settings.
-                                        // Back out of them, so that what the tour leaves somebody
-                                        // in is the app and not its settings.
-                                        if (navController.currentDestination?.route == Tour.ROUTE_SETTINGS) navController.popBackStack()
+                                        // A first install's tour ends on its walk round Settings,
+                                        // and the closer look in whichever of their screens it
+                                        // had got to. Back out of them, so that what the tour
+                                        // leaves somebody in is the app and not its settings.
+                                        val route = navController.currentDestination?.route.orEmpty()
+                                        if (route == Tour.ROUTE_SETTINGS || route.startsWith(Tour.ROUTE_SETTINGS + "/")) {
+                                            navController.popBackStack(Tour.ROUTE_SETTINGS, inclusive = true)
+                                        }
                                     }
                                 },
                             )
