@@ -18,6 +18,7 @@ import com.zionhuang.innertube.models.response.PlayerResponse
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -245,6 +246,38 @@ class ChainWalkTest {
         val script = Script(mapOf("ANDROID_VR" to listOf(noNetwork)))
         assertSame(noNetwork, walk(script).exceptionOrNull())
         assertEquals(listOf("ANDROID_VR"), script.askedOf)
+    }
+
+    @Test
+    fun `with no stream check answered the last client's address goes to the player unchecked, and says so`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        // 8 Oct 2026 on the emulator, with every connection to a stream refused while YouTube
+        // itself still answered: each client is asked and no address can be checked.
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR" to listOf(refused(botInFrench)),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+            ),
+            heads = mapOf("VISIONOS" to null, "IOS" to null),
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "IOS"), script.askedOf)
+        assertEquals("VISIONOS OK, HEAD failed, ANDROID_VR LOGIN_REQUIRED, IOS OK, HEAD failed", YTPlayerUtils.lastStreamTrail)
+        // IOS's, which answers 403 whenever it can be asked. It is still the best there is, and
+        // what keeps it from being played for good is MusicService forgetting an address the
+        // player fails on: see StreamAddresses.
+        assertTrue(data.streamUrl.startsWith("https://IOS.example/"))
+        assertFalse(data.validated)
+        // A check that could not be made says nothing of the client, so VISIONOS is still first.
+        assertEquals("VISIONOS", YTPlayerUtils.streamMemory.worked)
+        assertEquals(setOf("ANDROID_VR"), YTPlayerUtils.streamMemory.refusedAt.keys)
+        val next = Script(today)
+        val after = walk(next).getOrThrow()
+        assertEquals(listOf("VISIONOS"), next.askedOf)
+        assertTrue(after.streamUrl.startsWith("https://VISIONOS.example/"))
+        assertTrue(after.validated)
     }
 
     @Test
