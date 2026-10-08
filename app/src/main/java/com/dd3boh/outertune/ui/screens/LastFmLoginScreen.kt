@@ -26,6 +26,7 @@ import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.LocalScrobbler
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.utils.ErrorText
 import kotlinx.coroutines.launch
 
 /**
@@ -59,7 +60,7 @@ fun LastFmLoginScreen(
                 token = t
                 authorizeUrl = url
             }
-            .onFailure { error = it.message ?: "" }
+            .onFailure { error = ErrorText.withoutAddresses(it.message ?: "") }
     }
 
     val message = error

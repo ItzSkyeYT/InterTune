@@ -123,7 +123,7 @@ class UpdateInstaller @Inject constructor(
                     return@launch
                 }
                 runCatching { commit(File(context.cacheDir, APK_NAME)) }
-                    .onFailure { _state.value = State.Failed(it.message ?: "install failed") }
+                    .onFailure { _state.value = State.Failed(ErrorText.withoutAddresses(it.message ?: "install failed")) }
             }
         } else {
             start(url, expectedBytes, installWhenDone = true)
@@ -186,7 +186,7 @@ class UpdateInstaller @Inject constructor(
             } catch (e: Exception) {
                 Log.w(TAG, "Update download or install failed", ErrorText.forLog(e))
                 apk.delete()
-                _state.value = State.Failed(e.message ?: "unknown error")
+                _state.value = State.Failed(ErrorText.withoutAddresses(e.message ?: "unknown error"))
             }
         }
     }
