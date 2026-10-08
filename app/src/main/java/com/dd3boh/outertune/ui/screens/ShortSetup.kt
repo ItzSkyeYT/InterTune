@@ -103,6 +103,7 @@ import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
 import com.zionhuang.innertube.utils.parseCookieString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -111,6 +112,9 @@ import kotlinx.coroutines.runBlocking
 private const val PAGE_WELCOME = 0
 private const val PAGE_SIGN_IN = 1
 private const val PAGE_CHOICES = 2
+
+// How long a page has been up before its buttons do anything. See where it is read.
+private const val SETTLE_MS = 600L
 
 /**
  * First-run setup in three pages (Unreleased.SHORT_SETUP).
@@ -250,6 +254,15 @@ fun ShortSetup(
                 label = "setupPage",
             ) { shown ->
                 val scroll = rememberSaveable(shown, saver = ScrollState.Saver) { ScrollState(0) }
+                // A page's buttons do nothing for its first moment. One page's button stands
+                // where the next page's does, and the second tap of a double tap, a quarter of
+                // a second after the first, landed on a page nobody had seen yet: "Not now"
+                // twice was "Not now" and then Done, and five answers were given unread.
+                var settled by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    delay(SETTLE_MS)
+                    settled = true
+                }
                 when (shown) {
                     PAGE_WELCOME -> SetupPage(
                         beside = beside,
@@ -277,14 +290,14 @@ fun ShortSetup(
                             SetupButton(
                                 text = stringResource(R.string.setup_get_started),
                                 enabled = !restoring,
-                                onClick = { storedPage = PAGE_SIGN_IN },
+                                onClick = { if (settled) storedPage = PAGE_SIGN_IN },
                             )
                             SetupButton(
                                 text = stringResource(R.string.oobe_use_backup),
                                 primary = false,
                                 enabled = !restoring,
                                 busy = restoring,
-                                onClick = { restoreLauncher.launch(arrayOf("application/octet-stream")) },
+                                onClick = { if (settled) restoreLauncher.launch(arrayOf("application/octet-stream")) },
                             )
                         },
                     )
@@ -323,17 +336,17 @@ fun ShortSetup(
                             if (signedIn) {
                                 SetupButton(
                                     text = stringResource(R.string.action_next),
-                                    onClick = { storedPage = PAGE_CHOICES },
+                                    onClick = { if (settled) storedPage = PAGE_CHOICES },
                                 )
                             } else {
                                 SetupButton(
                                     text = stringResource(R.string.setup_sign_in),
-                                    onClick = { navController.navigate("login") },
+                                    onClick = { if (settled) navController.navigate("login") },
                                 )
                                 SetupButton(
                                     text = stringResource(R.string.setup_not_now),
                                     primary = false,
-                                    onClick = { storedPage = PAGE_CHOICES },
+                                    onClick = { if (settled) storedPage = PAGE_CHOICES },
                                 )
                             }
                         },
@@ -348,6 +361,17 @@ fun ShortSetup(
                         LaunchedEffect(scroll) {
                             snapshotFlow { scroll.canScrollForward }.first { !it }
                             seenAll = true
+                        }
+                        // Done waits the same moment again once the end of the list is in
+                        // view, so that the second tap of a double tap on More does not answer
+                        // for the switch the first one has just brought up.
+                        var endSettled by remember { mutableStateOf(false) }
+                        LaunchedEffect(seenAll) {
+                            endSettled = false
+                            if (seenAll) {
+                                delay(SETTLE_MS)
+                                endSettled = true
+                            }
                         }
                         SetupPage(
                             beside = beside,
@@ -405,8 +429,9 @@ fun ShortSetup(
                                     text = stringResource(if (seenAll) R.string.action_done else R.string.setup_more),
                                     enabled = !finishing,
                                     onClick = {
-                                        if (seenAll) finish()
-                                        else coroutineScope.launch {
+                                        if (seenAll) {
+                                            if (settled && endSettled) finish()
+                                        } else if (settled) coroutineScope.launch {
                                             // Most of a screen further on, so the row that was cut
                                             // by the edge is whole at the top of the next one.
                                             scroll.animateScrollTo(
