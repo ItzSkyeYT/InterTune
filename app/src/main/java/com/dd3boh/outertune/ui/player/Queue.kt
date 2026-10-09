@@ -244,7 +244,8 @@ fun QueueSheet(
                     Icon(
                         imageVector = Icons.Rounded.ExpandLess,
                         tint = onBackgroundColor,
-                        contentDescription = null,
+                        // The arrow under the player that opens the queue had no name either.
+                        contentDescription = stringResource(R.string.queue),
                     )
                 }
             }
@@ -1330,7 +1331,8 @@ fun BoxScope.QueueContent(
                             modifier = Modifier
                                 .size(32.dp)
                                 .padding(4.dp)
-                                .align(Alignment.Center),
+                                .align(Alignment.Center)
+                                .named(shuffleName(shuffleModeEnabled)),
                             color = iconButtonColor,
                             enabled = !detachedHead,
                             onClick = {
@@ -1345,7 +1347,8 @@ fun BoxScope.QueueContent(
                             icon = Icons.Rounded.SkipPrevious,
                             modifier = Modifier
                                 .size(32.dp)
-                                .align(Alignment.Center),
+                                .align(Alignment.Center)
+                                .named(stringResource(R.string.widget_previous)),
                             color = iconButtonColor,
                             enabled = !detachedHead && canSkipPrevious,
                             onClick = {
@@ -1380,7 +1383,8 @@ fun BoxScope.QueueContent(
                             icon = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                             modifier = Modifier
                                 .size(36.dp)
-                                .align(Alignment.Center),
+                                .align(Alignment.Center)
+                                .named(playPauseName(isPlaying && playbackState != STATE_ENDED)),
                             color = iconButtonColor,
                             enabled = !detachedHead,
                             onClick = {
@@ -1418,7 +1422,8 @@ fun BoxScope.QueueContent(
                             icon = Icons.Rounded.SkipNext,
                             modifier = Modifier
                                 .size(32.dp)
-                                .align(Alignment.Center),
+                                .align(Alignment.Center)
+                                .named(stringResource(R.string.widget_next)),
                             color = iconButtonColor,
                             enabled = !detachedHead && canSkipNext,
                             onClick = {
@@ -1440,7 +1445,8 @@ fun BoxScope.QueueContent(
                             modifier = Modifier
                                 .size(32.dp)
                                 .padding(4.dp)
-                                .align(Alignment.Center),
+                                .align(Alignment.Center)
+                                .named(repeatName(repeatMode)),
                             color = iconButtonColor,
                             enabled = !detachedHead,
                             onClick = {

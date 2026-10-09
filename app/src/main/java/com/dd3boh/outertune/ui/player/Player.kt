@@ -918,7 +918,7 @@ fun BottomSheetPlayer(
             val likeCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
                     painter = painterResource(if (currentSong?.song?.liked == true) R.drawable.favorite else R.drawable.favorite_border),
-                    contentDescription = null,
+                    contentDescription = likeName(currentSong?.song?.liked == true),
                     container = MaterialTheme.colorScheme.primary,
                     content = MaterialTheme.colorScheme.onPrimary,
                     onClick = playerConnection::toggleLike
@@ -998,7 +998,7 @@ fun BottomSheetPlayer(
                     }
                     PlayerActionSegment(
                         painter = painterResource(if (liked) R.drawable.favorite else R.drawable.favorite_border),
-                        contentDescription = null,
+                        contentDescription = likeName(liked),
                         shape = connectedShape(first = !canShare, last = true),
                         container = MaterialTheme.colorScheme.primary,
                         content = MaterialTheme.colorScheme.onPrimary,
@@ -1353,7 +1353,8 @@ fun BottomSheetPlayer(
                             modifier = Modifier
                                 .size(transportIconSize)
                                 .padding(4.dp)
-                                .align(Alignment.Center),
+                                .align(Alignment.Center)
+                                .named(shuffleName(shuffleModeEnabled)),
                             color = onBackgroundColor,
                             enabled = playerConnection.player.currentMediaItem != null,
                             onClick = {
@@ -1369,7 +1370,8 @@ fun BottomSheetPlayer(
                             enabled = canSkipPrevious,
                             modifier = Modifier
                                 .size(transportIconSize)
-                                .align(Alignment.Center),
+                                .align(Alignment.Center)
+                                .named(stringResource(R.string.widget_previous)),
                             color = onBackgroundColor,
                             onClick = {
                                 if (playerConnection.player.currentMediaItem == null) {
@@ -1417,7 +1419,7 @@ fun BottomSheetPlayer(
                     ) {
                         Image(
                             imageVector = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = null,
+                            contentDescription = playPauseName(isPlaying && playbackState != STATE_ENDED),
                             colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
                             modifier = Modifier
                                 .align(Alignment.Center)
@@ -1453,7 +1455,8 @@ fun BottomSheetPlayer(
                             enabled = canSkipNext,
                             modifier = Modifier
                                 .size(transportIconSize)
-                                .align(Alignment.Center),
+                                .align(Alignment.Center)
+                                .named(stringResource(R.string.widget_next)),
                             color = onBackgroundColor,
                             onClick = {
                                 // Cold start: the restored queue is only in the queue board until
@@ -1478,7 +1481,8 @@ fun BottomSheetPlayer(
                             modifier = Modifier
                                 .size(transportIconSize)
                                 .padding(4.dp)
-                                .align(Alignment.Center),
+                                .align(Alignment.Center)
+                                .named(repeatName(repeatMode)),
                             color = onBackgroundColor,
                             enabled = playerConnection.player.currentMediaItem != null,
                             onClick = {
