@@ -66,4 +66,13 @@ class ShortSetupNavTest {
             assertTrue(name, name in code.substringAfter("private fun SetupNavRow("))
         }
     }
+
+    @Test
+    fun `signed in, the page still has the way back to sign in as somebody else`() {
+        // The sign-in page returns by itself, so a sign-in made as the wrong account is first
+        // seen here, and here is where it has to be undone.
+        val page = code.substringAfter("PAGE_SIGN_IN -> SetupPage(").substringBefore("else -> {")
+        assertTrue("R.string.setup_other_account" in page)
+        assertEquals(2, Regex("""navController\.navigate\("login"\)""").findAll(page).count())
+    }
 }

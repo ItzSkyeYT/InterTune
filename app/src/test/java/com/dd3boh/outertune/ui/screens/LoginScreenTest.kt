@@ -287,6 +287,35 @@ class LoginScreenTest {
         assertTrue(SIGNED_IN_WAIT_MS in 4_000..15_000)
     }
 
+    // A sign-in made as the wrong account has to be one that can be made again. The page used to
+    // open with whatever sign-in was still in it, and came up as that account at once.
+
+    @Test
+    fun `a page that reaches YouTube Music signed out keeps nothing, and what the app holds stays`() {
+        // Somebody signed in who came to change accounts and gave up is still who they were.
+        assertFalse(keepsCookie(visitor, returns = true))
+        assertFalse(keepsCookie("", returns = true))
+        assertTrue(keepsCookie(cookieOf("s1"), returns = true))
+    }
+
+    @Test
+    fun `without the flag every cookie of YouTube Music's page is kept, as it always was`() {
+        assertTrue(keepsCookie(visitor, returns = false))
+        assertTrue(keepsCookie(cookieOf("s1"), returns = false))
+    }
+
+    @Test
+    fun `the page is opened signed out, and loads only once its old cookies have gone`() {
+        // Loaded before they have gone, Google's page would be asked for with them and answer as
+        // the account before.
+        val source = File("src/main/java/com/dd3boh/outertune/ui/screens/LoginScreen.kt").readText()
+        val code = source.lines().joinToString("\n") { it.substringBefore("//") }
+        val cleared = code.substringAfter("removeAllCookies {", "").substringBefore("\n                        }")
+        assertTrue("the page is not loaded from the callback of removeAllCookies", "loadUrl(loginUrl(email))" in cleared)
+        // Twice in all: there, and for a build without the flag, which opens as it always did.
+        assertEquals(2, Regex("""loadUrl\(loginUrl\(email\)\)""").findAll(code).count())
+    }
+
     @Test
     fun `what the sign-in page keeps is written where leaving the page cannot drop it`() {
         // A rememberPreference setter writes in the screen's own scope, and a write still on its

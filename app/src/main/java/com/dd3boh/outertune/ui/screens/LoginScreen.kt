@@ -288,7 +288,9 @@ fun LoginScreen(
                                     loadUrl("javascript:Android.onRetrieveDataSyncId(window.yt.config_.DATASYNC_ID)")
 
                                     if (isYouTubeMusicPage(url)) {
-                                        CookieManager.getInstance().getCookie(url)?.let { keepSignIn(it) }
+                                        CookieManager.getInstance().getCookie(url)
+                                            ?.takeIf { keepsCookie(it, Unreleased.LOGIN_RETURNS) }
+                                            ?.let { keepSignIn(it) }
                                     }
                                     // The page showing, for a load that ended after another began.
                                     landedOn(view.url, loaded = isYouTubeMusicPage(url))
@@ -332,8 +334,28 @@ fun LoginScreen(
                             canGoBack = false
                             currentUrl = null
                             signedIn = null
-                            cameWith = signInOf(runCatching { CookieManager.getInstance().getCookie(YOUTUBE_MUSIC) }.getOrNull())
-                            loadUrl(loginUrl(email))
+                            cameWith = null
+                            if (Unreleased.LOGIN_RETURNS) {
+                                // The page is opened signed out, whatever sign-in an earlier
+                                // visit left in it. With one still there Google's page did not
+                                // ask anything: it came up as that account at once, and somebody
+                                // who had signed in as the wrong one could not sign in as
+                                // another. What the app itself holds is not touched until a new
+                                // sign-in is made. The page is loaded only once the cookies have
+                                // gone, or it would be asked for with them.
+                                val page = this
+                                val cookies = CookieManager.getInstance()
+                                cookies.removeAllCookies {
+                                    if (webView === page) {
+                                        // Nothing should be left. If something is, the page that
+                                        // comes up with it is not a sign-in made here.
+                                        cameWith = signInOf(runCatching { cookies.getCookie(YOUTUBE_MUSIC) }.getOrNull())
+                                        loadUrl(loginUrl(email))
+                                    }
+                                }
+                            } else {
+                                loadUrl(loginUrl(email))
+                            }
                         }
                     },
                     // Closed rather than left running unseen, when it is given up for another account
@@ -407,10 +429,20 @@ internal fun signInOf(cookie: String?): String? =
     cookie?.let { runCatching { parseCookieString(it)["SAPISID"] }.getOrNull() }?.takeIf { it.isNotEmpty() }
 
 /**
+ * Whether YouTube Music's page hands the app [cookie] to keep as its sign-in. With the page going
+ * back by itself ([returns]) only a cookie that holds a sign-in is kept: the page is opened signed
+ * out, and one that got to YouTube Music that way would otherwise sign out an app whose user had
+ * only come to change accounts and thought better of it. Without it every cookie is kept, as it
+ * always was.
+ */
+internal fun keepsCookie(cookie: String?, returns: Boolean): Boolean = !returns || signInOf(cookie) != null
+
+/**
  * A sign-in made on this visit ([madeHere]) goes back by itself, and so does one that was in the
  * page already when an account of this phone was picked for it: that is the account asked for.
  * One that only comes up, nobody having chosen anything, stays: gone back from by itself, there
- * would be no way left to sign in as somebody else, every visit ending before it began.
+ * would be no way left to sign in as somebody else, every visit ending before it began. The page
+ * is opened signed out, so that takes a sign-in its cookies were not cleared of.
  */
 internal fun signInEnd(madeHere: Boolean, accountPicked: Boolean): SignInEnd =
     if (madeHere || accountPicked) SignInEnd.GO_BACK else SignInEnd.ASK

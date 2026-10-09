@@ -369,9 +369,17 @@ fun ShortSetup(
                                     },
                                 )
                             },
-                            // Signed in, there is nothing left to do here but go on.
-                            buttons = if (signedIn) null else {
-                                {
+                            buttons = {
+                                if (signedIn) {
+                                    // The sign-in page comes back here by itself, so this is
+                                    // where a sign-in made as the wrong account is first seen,
+                                    // and where it can be made again.
+                                    SetupButton(
+                                        text = stringResource(R.string.setup_other_account),
+                                        primary = false,
+                                        onClick = { if (live) navController.navigate("login") },
+                                    )
+                                } else {
                                     SetupButton(
                                         text = stringResource(R.string.setup_sign_in),
                                         onClick = { if (live) navController.navigate("login") },
