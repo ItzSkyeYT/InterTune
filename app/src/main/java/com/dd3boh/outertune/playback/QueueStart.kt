@@ -74,6 +74,9 @@ internal class QueueStart(private val service: Target) {
             continuationEndpoint: String?,
         ): MultiQueueObject?
 
+        /** Whether the board holds a queue of this title. */
+        fun hasQueue(title: String): Boolean
+
         /** QueueBoard.deleteQueue, for the queue of this title when the board holds one. */
         fun dropQueue(title: String)
 
@@ -162,12 +165,19 @@ internal class QueueStart(private val service: Target) {
             Log.d(TAG, "playQueue: Queue initial status dropped, another queue was asked for since")
             return
         }
+        // The queue of one goes once the full queue is loaded, where a queue of the answer's title
+        // is on the board already: the board fills that one, and renaming the queue of one as
+        // well left two queues of one name, one of them a single song. A radio started twice
+        // was enough. Only when there are songs to fill it with: an empty answer leaves the queue
+        // of one as the song's own, and it takes the title as it always has.
+        var spent = false
         // do not find a title if an override is provided
         if ((title == null) && initialStatus.title != null) {
             queueTitle = initialStatus.title
 
             if (preloadItem != null && q != null) {
-                service.renameQueue(q, queueTitle)
+                spent = !initialStatus.items.isEmpty() && service.hasQueue(queueTitle)
+                if (!spent) service.renameQueue(q, queueTitle)
             }
         }
 
@@ -186,6 +196,8 @@ internal class QueueStart(private val service: Target) {
             full?.originSlot = originSlot
             full?.runId = runId
             service.setCurrQueue(full, shouldResume)
+            // After the load, so the song is never without a queue.
+            if (spent) service.dropQueue(PRELOAD_TITLE)
         }
 
         // For a queue that had no song to start with, this is its start. After an early start the
