@@ -183,7 +183,6 @@ fun TourOverlay(
     val began = remember(stop.id) { SystemClock.uptimeMillis() }
     LaunchedEffect(stop.id, stop.targetId?.let(TourTargets::holder)) {
         val id = stop.targetId ?: return@LaunchedEffect
-        val route = stop.route
         val counted = state.stops.take(state.index + 1).count { it.targetId != null }
         val named = "stop $counted of ${state.stops.count { it.targetId != null }} (${stop.id})"
         // True once it is there, false once its screen is and it is not, nothing until either.
