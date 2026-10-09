@@ -106,6 +106,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -119,6 +120,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -590,8 +592,14 @@ class MainActivity : ComponentActivity() {
             // is on its side (Landscape.kt).
             val windowPx = LocalWindowInfo.current.containerSize
             val windowDensity = LocalDensity.current
-            val landscape = remember(windowPx, windowDensity) {
-                with(windowDensity) { Landscape(windowPx.width.toDp(), windowPx.height.toDp()) }
+            // The width the root below is laid out at, which it reports itself: the system's
+            // size can be the wider of the two (Landscape.laidOutWidth). Forgotten when the
+            // system's size changes, so a width from before a turn is never the one used.
+            var laidOutWidth by remember(windowPx) { mutableIntStateOf(0) }
+            val landscape = remember(windowPx, laidOutWidth, windowDensity) {
+                with(windowDensity) {
+                    Landscape(Landscape.laidOutWidth(windowPx.width, laidOutWidth).toDp(), windowPx.height.toDp())
+                }
             }
 //            val tabMode = this@MainActivity.tabMode()
             // The rail for a wide window, and for a short one: a phone on its side that is not
@@ -904,6 +912,7 @@ class MainActivity : ComponentActivity() {
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxSize()
+                        .onSizeChanged { laidOutWidth = it.width }
                         .background(MaterialTheme.colorScheme.surface)
                 ) {
                     Log.v(MAIN_TAG, "RC-2.2")
