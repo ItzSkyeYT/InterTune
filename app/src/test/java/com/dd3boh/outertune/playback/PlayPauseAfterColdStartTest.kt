@@ -52,12 +52,22 @@ class PlayPauseAfterColdStartTest {
 
     @Test
     fun `the connection loads the saved queue into an empty player before it toggles`() {
-        val body = File(sources, "playback/PlayerConnection.kt").readText()
-            .substringAfter("    fun togglePlayPause() {").substringBefore("\n    }")
-        val loads = body.indexOf("if (player.currentMediaItem == null) service.queueBoard.setCurrQueue()")
-        val toggles = body.indexOf("player.togglePlayPause()")
+        val connection = File(sources, "playback/PlayerConnection.kt").readText()
+        val toggle = connection.substringAfter("    fun togglePlayPause() {").substringBefore("\n    }")
+        val load = connection.substringAfter("    fun loadSavedQueue() {").substringBefore("\n    }")
 
-        assertTrue("it no longer loads the saved queue:\n$body", loads >= 0)
-        assertTrue("it toggles before it loads:\n$body", toggles > loads)
+        assertTrue("it no longer loads the saved queue:\n$load", "if (player.currentMediaItem == null) service.queueBoard.setCurrQueue()" in load)
+        assertTrue("it no longer loads before it toggles:\n$toggle", toggle.indexOf("loadSavedQueue()") in 0 until toggle.indexOf("player.togglePlayPause()"))
+    }
+
+    @Test
+    fun `the heart and the library button act on the song on screen, which the player may not hold yet`() {
+        // The service knows the current song from the player, and after a cold start the player
+        // is empty: the heart in the full player took the tap and changed nothing (Pixel 5,
+        // 9 Oct 2026). The connection knows the song on screen and hands it over.
+        val connection = File(sources, "playback/PlayerConnection.kt").readText()
+
+        assertTrue("service.toggleLike(mediaMetadata.value?.id)" in connection)
+        assertTrue("service.toggleLibrary(mediaMetadata.value?.id)" in connection)
     }
 }
