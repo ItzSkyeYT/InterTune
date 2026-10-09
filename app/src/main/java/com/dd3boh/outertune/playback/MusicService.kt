@@ -112,6 +112,8 @@ import com.dd3boh.outertune.engine.SongTags
 import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
 import com.dd3boh.outertune.constants.AdaptiveQueueMode
 import com.dd3boh.outertune.constants.PlaybackAuthModeKey
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.constants.WebClientFirstKey
 import com.dd3boh.outertune.constants.PlaybackAuthMode
 import com.dd3boh.outertune.constants.ResumePlaybackOnLaunchKey
 import com.dd3boh.outertune.constants.PlayerVolumeKey
@@ -995,6 +997,12 @@ class MusicService : MediaLibraryService(),
                 } ?: PlaybackAuthMode.WHEN_REFUSED
             }.distinctUntilChanged()
                 .collectLatest(scope) { YTPlayerUtils.authMode = it }
+            // The experiment behind Unreleased.WEB_CLIENT_FIRST, read here for the same reason.
+            if (Unreleased.WEB_CLIENT_FIRST) {
+                dataStore.data.map { it[WebClientFirstKey] ?: false }
+                    .distinctUntilChanged()
+                    .collectLatest(scope) { YTPlayerUtils.askWebClientFirst = it }
+            }
 
             // The switch has to reach the player already running, not some later one. Without this
             // it sat inert until the process was killed, which on One UI happens often enough, and

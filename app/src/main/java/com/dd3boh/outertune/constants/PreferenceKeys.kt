@@ -375,6 +375,12 @@ val VisitorDataKey = stringPreferencesKey("visitorData")
  * it, so the first song after a launch is asked of the client that worked before it.
  */
 val StreamOrderKey = stringPreferencesKey("streamOrder")
+
+/**
+ * The developer options' "Ask YouTube Music's web client first": an experiment, in debug builds
+ * only. See Unreleased.WEB_CLIENT_FIRST.
+ */
+val WebClientFirstKey = booleanPreferencesKey("webClientFirst")
 val DataSyncIdKey = stringPreferencesKey("dataSyncId")
 val InnerTubeCookieKey = stringPreferencesKey("innerTubeCookie")
 val AccountNameKey = stringPreferencesKey("accountName")

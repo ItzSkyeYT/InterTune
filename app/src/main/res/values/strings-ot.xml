@@ -1742,4 +1742,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="history_address_check" translatable="false">Check the history address</string>
     <string name="history_address_check_description" translatable="false">Asks YouTube where a play of the song now playing would be reported, as your account and as a visitor, and shows what came back. Nothing is reported.</string>
     <string name="history_address_check_asking" translatable="false">Asking YouTube</string>
+    <string name="web_client_first" translatable="false">Ask YouTube Music\'s web client first</string>
+    <string name="web_client_first_description" translatable="false">An experiment. Every song is asked of WEB_REMIX, with a signature timestamp and a po token, before the usual clients. Nothing is remembered of what it finds.</string>
 </resources>

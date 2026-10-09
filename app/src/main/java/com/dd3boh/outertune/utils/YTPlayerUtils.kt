@@ -13,6 +13,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.media3.common.PlaybackException
 import com.dd3boh.outertune.constants.AudioQuality
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.playback.ListenReporting
 import com.dd3boh.outertune.utils.YTPlayerUtils.MAIN_CLIENT
 import com.dd3boh.outertune.utils.YTPlayerUtils.STREAM_FALLBACK_CLIENTS
@@ -233,6 +234,33 @@ object YTPlayerUtils {
      * what this is for.
      */
     private val AUTH_CLIENT: YouTubeClient = ANDROID
+
+    /**
+     * An experiment (Unreleased.WEB_CLIENT_FIRST): the client asked before the whole chain while
+     * [askWebClientFirst] is on.
+     *
+     * WEB_REMIX, because it is what the forks that no longer rest on VISIONOS alone ask, and
+     * because everything it needs is already passed along here: the signature timestamp, the
+     * player po token in the request and the streaming one on the address. What the experiment is
+     * for is to see how far its address gets: whether [findUrlOrNull] can decipher it, and what
+     * the check then answers.
+     *
+     * On 9 Oct 2026 it got as far as the cipher. Asked with the timestamp and a token made on
+     * the device, and asked with neither, WEB_REMIX answered OK, and every audio address in the
+     * answer came in a signatureCipher. NewPipeExtractor, which does the deciphering here, no
+     * longer finds the signature function in YouTube's player script ("Could not find
+     * deobfuscation function with any of the known patterns"), so the trail read "WEB_REMIX OK,
+     * address not deciphered" and VISIONOS served the song. Whether the address plays once it
+     * is deciphered, and with which of the two po tokens on it, is still not known.
+     *
+     * Nothing is remembered of it (see chainDone in [resolveOnce]), so switching it off leaves the
+     * order as it was, and the rest of the chain is asked as ever when it gives no stream.
+     */
+    private val TRIAL_CLIENT: YouTubeClient = WEB_REMIX
+
+    /** The developer options' switch for [TRIAL_CLIENT], set from the preference by MusicService. */
+    @Volatile
+    var askWebClientFirst: Boolean = false
 
     /**
      * The fallback chain, with the account appended or promoted depending on the setting.
@@ -462,7 +490,8 @@ object YTPlayerUtils {
         val isLoggedIn = YouTube.cookie != null
         val streamClients = streamClients(isLoggedIn)
         val playerClients = listOf(MAIN_CLIENT) + streamClients
-        val wantsPoToken = playerClients.any { it.useWebPoTokens }
+        val trial = TRIAL_CLIENT.takeIf { Unreleased.WEB_CLIENT_FIRST && askWebClientFirst }
+        val wantsPoToken = (listOfNotNull(trial) + playerClients).any { it.useWebPoTokens }
 
         // The client that served the last song is asked first, and the others as they are written
         // when it gives no stream: see StreamOrder. Clients are known there by the names the trail
@@ -472,10 +501,12 @@ object YTPlayerUtils {
             if (client.loginSupported && isLoggedIn) "${client.clientName} (account)" else client.clientName
         val written = playerClients.map { label(it) }
         val hasVisitorData = YouTube.visitorData?.let { StreamCheck.looksLikeVisitorData(it) } == true
-        val clients =
+        val ordered =
             if (written.distinct().size != written.size) playerClients
             else StreamOrder.order(written, streamMemory, System.currentTimeMillis(), hasVisitorData)
                 .map { playerClients[written.indexOf(it)] }
+        // The experiment's client before all of them, whatever is remembered: see TRIAL_CLIENT.
+        val clients = listOfNotNull(trial) + ordered
 
         // Worked out on first use rather than up front. The authenticated client asks for a
         // signature timestamp and usually sits at the end of the chain never being reached, so
@@ -505,7 +536,7 @@ object YTPlayerUtils {
         Log.d(
             TAG,
             "[$videoId] isLoggedIn: $isLoggedIn, clients: ${clients.joinToString { it.clientName }}" +
-                    if (clients.first() !== playerClients.first()) " (${label(clients.first())} served last)" else "",
+                    if (ordered.first() !== playerClients.first()) " (${label(ordered.first())} served last)" else "",
         )
 
         val (webPlayerPot, webStreamingPot) = if (!wantsPoToken) {
@@ -571,7 +602,9 @@ object YTPlayerUtils {
             lastStreamClient = lastClient?.let { label(it) }
             lastStreamTrail = trail.joinToString(", ")
             Log.d(TAG, "[$videoId] chain: $lastStreamTrail")
-            rememberAsked(asked)
+            // Not the experiment's client: remembered, it would be looked for in a chain that
+            // does not have it once the switch is off again.
+            rememberAsked(if (trial == null) asked else asked.filterNot { it.client == label(trial) })
         }
 
         for ((clientIndex, client) in clients.withIndex()) {

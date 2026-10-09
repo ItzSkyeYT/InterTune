@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.Coronavirus
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -65,7 +66,9 @@ import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.SCANNER_OWNER_LM
 import com.dd3boh.outertune.constants.ScannerImpl
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.VisitorDataKey
+import com.dd3boh.outertune.constants.WebClientFirstKey
 import com.dd3boh.outertune.playback.HistoryAddressCheck
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -102,6 +105,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
         defaultValue = false
     )
     val (audioOffload, onAudioOffloadChange) = rememberPreference(key = AudioOffloadKey, defaultValue = false)
+    val (webClientFirst, onWebClientFirstChange) = rememberPreference(key = WebClientFirstKey, defaultValue = false)
 
     var nukeEnabled by remember {
         mutableStateOf(false)
@@ -133,6 +137,15 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
 
         if (BuildConfig.DEBUG) {
             HistoryAddressCheckRow()
+        }
+        if (Unreleased.WEB_CLIENT_FIRST) {
+            SwitchPreference(
+                title = { Text(stringResource(R.string.web_client_first)) },
+                description = stringResource(R.string.web_client_first_description),
+                icon = { Icon(Icons.Rounded.Science, null) },
+                checked = webClientFirst,
+                onCheckedChange = onWebClientFirstChange,
+            )
         }
 
         PreferenceEntry(

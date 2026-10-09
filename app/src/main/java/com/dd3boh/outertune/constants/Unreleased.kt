@@ -129,4 +129,18 @@ object Unreleased {
      * SetupWizard.kt with the strings only it uses, and make the setup_ strings translatable.
      */
     val SHORT_SETUP = BuildConfig.DEBUG
+
+    /**
+     * "Ask YouTube Music's web client first" in the developer options: an experiment for the day
+     * VISIONOS, the one client that serves whole songs, stops. With the switch on every song is
+     * asked of WEB_REMIX before the chain as it is, with the signature timestamp and a po token
+     * (YTPlayerUtils.TRIAL_CLIENT), and the chain is asked as ever when that gives no stream.
+     *
+     * Off unless somebody switches it on, and never in a release. It is not a feature to agree
+     * on. On 9 Oct 2026 it showed where that road ends today: WEB_REMIX answers, and the app
+     * cannot decipher the address it gives. It is there to be tried again the day the app can.
+     * Delete it with the two checks that read it, in MusicService and DeveloperFrag, once it has
+     * served its purpose.
+     */
+    val WEB_CLIENT_FIRST = BuildConfig.DEBUG
 }
