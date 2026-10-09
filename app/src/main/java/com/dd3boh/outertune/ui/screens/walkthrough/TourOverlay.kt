@@ -191,7 +191,8 @@ fun TourOverlay(
             snapshotFlow {
                 when {
                     TourTargets.known(id) -> true
-                    route != null && TourTargets.drawn(route) -> false
+                    // Home counts as a screen of its own here: see TourState.passOver.
+                    TourTargets.drawn(stop.screen) -> false
                     else -> null
                 }
             }.filterNotNull().first()
