@@ -13,7 +13,9 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -44,16 +46,23 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -65,16 +74,24 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -130,8 +147,13 @@ private const val SETTLE_MS = 600L
  * Done (SetupChoices). Look and feel, local media and the downloads folder are left at what the
  * old pages showed, which is what anybody tapping Next through them got.
  *
- * A page's buttons are never under the fold: they stand below what scrolls, and beside it in a
- * window too short to stack the two, which is a phone on its side.
+ * Under every page is the row the wizard has under its own: back, a line that says how far
+ * along, and on, which is a tick on the last page (SetupNavRow). It is outside the pages, so it
+ * stays where it is while they change, and none of them can be without it. The pages keep only
+ * what is not going on: restoring a backup, and signing in.
+ *
+ * A page's button is never under the fold either: it stands below what scrolls, and beside it in
+ * a window too short to stack the two, which is a phone on its side.
  *
  * What is stored is what the wizard stores: the page in OobeStatusKey while setup is open,
  * OOBE_VERSION once it is done, and the mark of a first setup with what follows from it
@@ -146,6 +168,7 @@ fun ShortSetup(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
     val updateChecker = LocalUpdateChecker.current
     val pollChecker = LocalPollChecker.current
 
@@ -218,10 +241,31 @@ fun ShortSetup(
         }
     }
 
-    // Back is a page back, and nothing on the first page: setup is not left by Back.
-    BackHandler {
-        if (page > PAGE_WELCOME && !finishing) storedPage = page - 1
+    // Nothing goes on for a page's first moment. The button that goes on stands in one place
+    // under every page, and the second tap of a double tap, a quarter of a second after the
+    // first, landed on a page nobody had seen yet: twice on was past signing in and then Done,
+    // and five answers were given unread.
+    var settledPage by remember { mutableStateOf(-1) }
+    LaunchedEffect(page) {
+        delay(SETTLE_MS)
+        settledPage = page
     }
+    val settled = settledPage == page
+
+    // Back is a page back, and nothing on the first page: setup is not left by Back.
+    val canGoBack = page > PAGE_WELCOME && !finishing
+    // Not on from the first page while a backup is being restored: the app restarts when it is.
+    val canGoOn = !finishing && !(page == PAGE_WELCOME && restoring)
+    val back: () -> Unit = {
+        if (canGoBack) storedPage = page - 1
+    }
+    val forward: () -> Unit = {
+        if (canGoOn && settled) {
+            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+            if (page < PAGE_CHOICES) storedPage = page + 1 else finish()
+        }
+    }
+    BackHandler(onBack = back)
 
     Surface(
         color = MaterialTheme.colorScheme.background,
@@ -238,215 +282,259 @@ fun ShortSetup(
             val enterTravelPx = with(LocalDensity.current) { 48.dp.roundToPx() }
             val exitTravelPx = with(LocalDensity.current) { 24.dp.roundToPx() }
 
-            AnimatedContent(
-                targetState = page,
-                transitionSpec = {
-                    val towards = if (targetState > initialState) AnimatedContentTransitionScope.SlideDirection.Start
-                    else AnimatedContentTransitionScope.SlideDirection.End
-                    (slideIntoContainer(towards, tween(300, easing = LinearOutSlowInEasing)) { enterTravelPx } +
-                        fadeIn(tween(220, delayMillis = 110, easing = LinearOutSlowInEasing)))
-                        .togetherWith(
-                            slideOutOfContainer(towards, tween(200, easing = FastOutLinearInEasing)) { exitTravelPx } +
-                                fadeOut(tween(110, easing = FastOutLinearInEasing))
-                        )
-                        .using(SizeTransform(clip = false) { _, _ -> snap() })
-                },
-                label = "setupPage",
-            ) { shown ->
-                val scroll = rememberSaveable(shown, saver = ScrollState.Saver) { ScrollState(0) }
-                // A page's buttons do nothing for its first moment. One page's button stands
-                // where the next page's does, and the second tap of a double tap, a quarter of
-                // a second after the first, landed on a page nobody had seen yet: "Not now"
-                // twice was "Not now" and then Done, and five answers were given unread.
-                var settled by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) {
-                    delay(SETTLE_MS)
-                    settled = true
-                }
-                when (shown) {
-                    PAGE_WELCOME -> SetupPage(
-                        beside = beside,
-                        scroll = scroll,
-                        centred = true,
-                        content = {
-                            Image(
-                                painter = painterResource(R.drawable.launcher_monochrome),
-                                contentDescription = null,
-                                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary, BlendMode.SrcIn),
-                                modifier = Modifier
-                                    .size(if (beside) 72.dp else 104.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
-                                    .padding(if (beside) 10.dp else 14.dp)
+            Column(modifier = Modifier.fillMaxSize()) {
+                AnimatedContent(
+                    targetState = page,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    transitionSpec = {
+                        val towards = if (targetState > initialState) AnimatedContentTransitionScope.SlideDirection.Start
+                        else AnimatedContentTransitionScope.SlideDirection.End
+                        (slideIntoContainer(towards, tween(300, easing = LinearOutSlowInEasing)) { enterTravelPx } +
+                            fadeIn(tween(220, delayMillis = 110, easing = LinearOutSlowInEasing)))
+                            .togetherWith(
+                                slideOutOfContainer(towards, tween(200, easing = FastOutLinearInEasing)) { exitTravelPx } +
+                                    fadeOut(tween(110, easing = FastOutLinearInEasing))
                             )
-                            Spacer(Modifier.height(if (beside) 12.dp else 24.dp))
-                            SetupHeading(
-                                title = stringResource(R.string.oobe_welcome_message),
-                                body = stringResource(R.string.setup_welcome_body),
-                                large = true,
-                            )
-                        },
-                        buttons = {
-                            SetupButton(
-                                text = stringResource(R.string.setup_get_started),
-                                enabled = !restoring,
-                                onClick = { if (settled) storedPage = PAGE_SIGN_IN },
-                            )
-                            SetupButton(
-                                text = stringResource(R.string.oobe_use_backup),
-                                primary = false,
-                                enabled = !restoring,
-                                busy = restoring,
-                                onClick = { if (settled) restoreLauncher.launch(arrayOf("application/octet-stream")) },
-                            )
-                        },
-                    )
-
-                    PAGE_SIGN_IN -> SetupPage(
-                        beside = beside,
-                        scroll = scroll,
-                        centred = true,
-                        content = {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .size(72.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.secondaryContainer)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.AccountCircle,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.size(34.dp),
-                                )
-                            }
-                            Spacer(Modifier.height(if (beside) 12.dp else 20.dp))
-                            SetupHeading(
-                                title = stringResource(R.string.setup_sign_in_title),
-                                body = when {
-                                    !signedIn -> stringResource(R.string.setup_sign_in_body)
-                                    // The name arrives a moment after the cookie does.
-                                    accountName.isEmpty() -> stringResource(R.string.setup_signed_in)
-                                    else -> stringResource(R.string.setup_signed_in_as, accountName)
-                                },
-                            )
-                        },
-                        buttons = {
-                            if (signedIn) {
-                                SetupButton(
-                                    text = stringResource(R.string.action_next),
-                                    onClick = { if (settled) storedPage = PAGE_CHOICES },
-                                )
-                            } else {
-                                SetupButton(
-                                    text = stringResource(R.string.setup_sign_in),
-                                    onClick = { if (settled) navController.navigate("login") },
-                                )
-                                SetupButton(
-                                    text = stringResource(R.string.setup_not_now),
-                                    primary = false,
-                                    onClick = { if (settled) storedPage = PAGE_CHOICES },
-                                )
-                            }
-                        },
-                    )
-
-                    else -> {
-                        // More until the end of the list has been on screen, and Done from then
-                        // on. Done answers every question on the page, so it is not offered
-                        // over one that is still under the fold. Where the page fits, which is
-                        // most phones upright, it reads Done from the start.
-                        var seenAll by rememberSaveable { mutableStateOf(false) }
-                        LaunchedEffect(scroll) {
-                            snapshotFlow { scroll.canScrollForward }.first { !it }
-                            seenAll = true
-                        }
-                        // Done waits the same moment again once the end of the list is in
-                        // view, so that the second tap of a double tap on More does not answer
-                        // for the switch the first one has just brought up.
-                        var endSettled by remember { mutableStateOf(false) }
-                        LaunchedEffect(seenAll) {
-                            endSettled = false
-                            if (seenAll) {
-                                delay(SETTLE_MS)
-                                endSettled = true
-                            }
-                        }
-                        SetupPage(
+                            .using(SizeTransform(clip = false) { _, _ -> snap() })
+                    },
+                    label = "setupPage",
+                ) { shown ->
+                    val scroll = rememberSaveable(shown, saver = ScrollState.Saver) { ScrollState(0) }
+                    // A page on its way out does nothing either.
+                    val live = settled && shown == page
+                    when (shown) {
+                        PAGE_WELCOME -> SetupPage(
                             beside = beside,
                             scroll = scroll,
-                            centred = false,
+                            centred = true,
                             content = {
-                                Spacer(Modifier.height(if (beside) 0.dp else 16.dp))
-                                SetupHeading(
-                                    title = stringResource(R.string.setup_choices_title),
-                                    body = stringResource(R.string.setup_choices_body),
+                                Image(
+                                    painter = painterResource(R.drawable.launcher_monochrome),
+                                    contentDescription = null,
+                                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary, BlendMode.SrcIn),
+                                    modifier = Modifier
+                                        .size(if (beside) 72.dp else 104.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
+                                        .padding(if (beside) 10.dp else 14.dp)
                                 )
-                                Spacer(Modifier.height(16.dp))
-                                // The titles are the ones these switches have in Settings, so
-                                // each reads as that setting and not as a copy of it.
-                                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                                    SwitchPreference(
-                                        title = { Text(stringResource(R.string.update_check)) },
-                                        description = stringResource(
-                                            if (fromFdroid) R.string.setup_updates_line_fdroid else R.string.setup_updates_line
-                                        ),
-                                        checked = choices.updates,
-                                        onCheckedChange = { choices = choices.copy(updates = it) },
-                                    )
-                                    SwitchPreference(
-                                        title = { Text(stringResource(R.string.polls_enabled)) },
-                                        description = stringResource(R.string.setup_questions_line),
-                                        checked = choices.questions,
-                                        onCheckedChange = { choices = choices.copy(questions = it) },
-                                    )
-                                    SwitchPreference(
-                                        title = { Text(stringResource(R.string.news_enabled)) },
-                                        description = stringResource(R.string.setup_news_line),
-                                        checked = choices.news,
-                                        onCheckedChange = { choices = choices.copy(news = it) },
-                                    )
-                                    SwitchPreference(
-                                        title = { Text(stringResource(R.string.usage_count_enabled)) },
-                                        description = stringResource(R.string.setup_count_line),
-                                        checked = choices.count,
-                                        onCheckedChange = { choices = choices.copy(count = it) },
-                                    )
-                                    // Not there at all in a build that cannot ask Last.fm.
-                                    choices.lastFm?.let { on ->
-                                        SwitchPreference(
-                                            title = { Text(stringResource(R.string.lastfm_opt_in_enabled)) },
-                                            description = stringResource(R.string.setup_lastfm_line),
-                                            checked = on,
-                                            onCheckedChange = { choices = choices.copy(lastFm = it) },
-                                        )
-                                    }
-                                }
+                                Spacer(Modifier.height(if (beside) 12.dp else 24.dp))
+                                SetupHeading(
+                                    title = stringResource(R.string.oobe_welcome_message),
+                                    body = stringResource(R.string.setup_welcome_body),
+                                    large = true,
+                                )
                             },
                             buttons = {
                                 SetupButton(
-                                    text = stringResource(if (seenAll) R.string.action_done else R.string.setup_more),
-                                    enabled = !finishing,
-                                    onClick = {
-                                        if (seenAll) {
-                                            if (settled && endSettled) finish()
-                                        } else if (settled) coroutineScope.launch {
-                                            // Most of a screen further on, so the row that was cut
-                                            // by the edge is whole at the top of the next one.
-                                            scroll.animateScrollTo(
-                                                (scroll.value + scroll.viewportSize * 3 / 4).coerceAtMost(scroll.maxValue)
-                                            )
-                                        }
-                                    },
+                                    text = stringResource(R.string.oobe_use_backup),
+                                    primary = false,
+                                    enabled = !restoring,
+                                    busy = restoring,
+                                    onClick = { if (live) restoreLauncher.launch(arrayOf("application/octet-stream")) },
                                 )
                             },
                         )
+
+                        PAGE_SIGN_IN -> SetupPage(
+                            beside = beside,
+                            scroll = scroll,
+                            centred = true,
+                            content = {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .size(72.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.AccountCircle,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        modifier = Modifier.size(34.dp),
+                                    )
+                                }
+                                Spacer(Modifier.height(if (beside) 12.dp else 20.dp))
+                                SetupHeading(
+                                    title = stringResource(R.string.setup_sign_in_title),
+                                    body = when {
+                                        !signedIn -> stringResource(R.string.setup_sign_in_body)
+                                        // The name arrives a moment after the cookie does.
+                                        accountName.isEmpty() -> stringResource(R.string.setup_signed_in)
+                                        else -> stringResource(R.string.setup_signed_in_as, accountName)
+                                    },
+                                )
+                            },
+                            // Signed in, there is nothing left to do here but go on.
+                            buttons = if (signedIn) null else {
+                                {
+                                    SetupButton(
+                                        text = stringResource(R.string.setup_sign_in),
+                                        onClick = { if (live) navController.navigate("login") },
+                                    )
+                                }
+                            },
+                        )
+
+                        else -> {
+                            SetupPage(
+                                beside = beside,
+                                scroll = scroll,
+                                centred = false,
+                                content = {
+                                    Spacer(Modifier.height(if (beside) 0.dp else 16.dp))
+                                    SetupHeading(
+                                        title = stringResource(R.string.setup_choices_title),
+                                        body = stringResource(R.string.setup_choices_body),
+                                    )
+                                    Spacer(Modifier.height(16.dp))
+                                    // The titles are the ones these switches have in Settings, so
+                                    // each reads as that setting and not as a copy of it.
+                                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                                        SwitchPreference(
+                                            title = { Text(stringResource(R.string.update_check)) },
+                                            description = stringResource(
+                                                if (fromFdroid) R.string.setup_updates_line_fdroid else R.string.setup_updates_line
+                                            ),
+                                            checked = choices.updates,
+                                            onCheckedChange = { choices = choices.copy(updates = it) },
+                                        )
+                                        SwitchPreference(
+                                            title = { Text(stringResource(R.string.polls_enabled)) },
+                                            description = stringResource(R.string.setup_questions_line),
+                                            checked = choices.questions,
+                                            onCheckedChange = { choices = choices.copy(questions = it) },
+                                        )
+                                        SwitchPreference(
+                                            title = { Text(stringResource(R.string.news_enabled)) },
+                                            description = stringResource(R.string.setup_news_line),
+                                            checked = choices.news,
+                                            onCheckedChange = { choices = choices.copy(news = it) },
+                                        )
+                                        SwitchPreference(
+                                            title = { Text(stringResource(R.string.usage_count_enabled)) },
+                                            description = stringResource(R.string.setup_count_line),
+                                            checked = choices.count,
+                                            onCheckedChange = { choices = choices.copy(count = it) },
+                                        )
+                                        // Not there at all in a build that cannot ask Last.fm.
+                                        choices.lastFm?.let { on ->
+                                            SwitchPreference(
+                                                title = { Text(stringResource(R.string.lastfm_opt_in_enabled)) },
+                                                description = stringResource(R.string.setup_lastfm_line),
+                                                checked = on,
+                                                onCheckedChange = { choices = choices.copy(lastFm = it) },
+                                            )
+                                        }
+                                    }
+                                },
+                                // The tick under the page is Done. A switch still under the
+                                // fold when it is tapped stays as it stood.
+                                buttons = null,
+                            )
+                        }
                     }
                 }
+                SetupNavRow(
+                    progress = setupProgress(page),
+                    last = page == PAGE_CHOICES,
+                    canGoBack = canGoBack,
+                    canGoOn = canGoOn,
+                    onBack = {
+                        if (canGoBack) haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                        back()
+                    },
+                    onForward = forward,
+                )
             }
         }
     }
+}
+
+/** How far along [page] is, for the line under it: nothing on the first page, all of it on the last. */
+internal fun setupProgress(page: Int): Float =
+    page.coerceIn(PAGE_WELCOME, PAGE_CHOICES).toFloat() / PAGE_CHOICES
+
+/**
+ * Back, how far along, and on: one row under every page, the two buttons the same shape at either
+ * end of the line, as under the wizard's pages. On is a tick on the [last] page, where it is Done.
+ *
+ * Back is there on the first page too, and dead: there is nowhere back to, and without it the
+ * row would be lopsided on the page that makes the first impression.
+ */
+@Composable
+private fun SetupNavRow(
+    progress: Float,
+    last: Boolean,
+    canGoBack: Boolean,
+    canGoOn: Boolean,
+    onBack: () -> Unit,
+    onForward: () -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .widthIn(max = 720.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        ) {
+            SetupNavButton(enabled = canGoBack, onClick = onBack) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = stringResource(R.string.action_back),
+                )
+            }
+            // Longer than the 300 ms a page takes to change, so the line is still moving as the
+            // new page settles.
+            val shown by animateFloatAsState(
+                targetValue = progress,
+                animationSpec = tween(400, easing = FastOutSlowInEasing),
+                label = "setupProgress",
+            )
+            LinearProgressIndicator(
+                progress = { shown },
+                strokeCap = StrokeCap.Round,
+                drawStopIndicator = {},
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 20.dp)
+                    .height(4.dp),
+            )
+            SetupNavButton(enabled = canGoOn, onClick = onForward) {
+                Icon(
+                    imageVector = if (last) Icons.Rounded.Check else Icons.AutoMirrored.Rounded.ArrowForward,
+                    contentDescription = stringResource(if (last) R.string.action_done else R.string.action_next),
+                )
+            }
+        }
+    }
+}
+
+/** One end of the row. Dead, it keeps its place and loses its colour. */
+@Composable
+private fun SetupNavButton(
+    enabled: Boolean,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    FloatingActionButton(
+        onClick = onClick,
+        containerColor = if (enabled) FloatingActionButtonDefaults.containerColor
+        else MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation),
+        contentColor = if (enabled) contentColorFor(FloatingActionButtonDefaults.containerColor)
+        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
+        elevation = if (enabled) FloatingActionButtonDefaults.elevation()
+        else FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
+        modifier = if (enabled) Modifier else Modifier.semantics { disabled() },
+        content = content,
+    )
 }
 
 /** The five switches across a rotation: see SetupChoices.positions. */
@@ -456,12 +544,12 @@ private val ChoicesSaver = Saver<SetupChoices, String>(
 )
 
 /**
- * One page of setup: what it says, and its buttons.
+ * One page of setup: what it says, and its own button when it has one.
  *
- * The buttons are outside what scrolls, so they are in view whatever the size of the screen or of
- * the type. Upright they stand under the page. In a window too short for that ([beside]) the page
- * has the left half and the buttons the right, so that a phone on its side shows both without
- * scrolling either.
+ * The button is outside what scrolls, so it is in view whatever the size of the screen or of the
+ * type. Upright it stands under the page. In a window too short for that ([beside]) the page has
+ * the left half and the button the right, so that a phone on its side shows both without
+ * scrolling either. A page with none has the whole room.
  *
  * @param centred whether a page shorter than its room stands in the middle of it, as a page of a
  *   few words does, or at the top, as a list does
@@ -472,10 +560,10 @@ private fun SetupPage(
     scroll: ScrollState,
     centred: Boolean,
     content: @Composable ColumnScope.() -> Unit,
-    buttons: @Composable ColumnScope.() -> Unit,
+    buttons: (@Composable ColumnScope.() -> Unit)?,
 ) {
     val arrangement = if (centred) Arrangement.Center else Arrangement.Top
-    if (beside) {
+    if (beside && buttons != null) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxSize(),
@@ -486,6 +574,7 @@ private fun SetupPage(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
+                    .moreBelow(scroll, MaterialTheme.colorScheme.background)
                     .verticalScroll(scroll)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 content = content,
@@ -518,17 +607,36 @@ private fun SetupPage(
                 .weight(1f)
                 .widthIn(max = 560.dp)
                 .fillMaxWidth()
+                .moreBelow(scroll, MaterialTheme.colorScheme.background)
                 .verticalScroll(scroll)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             content = content,
         )
-        Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .widthIn(max = 408.dp)
-                .fillMaxWidth()
-                .padding(start = 24.dp, top = 8.dp, end = 24.dp, bottom = 16.dp),
-            content = buttons,
+        if (buttons != null) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .widthIn(max = 408.dp)
+                    .fillMaxWidth()
+                    .padding(start = 24.dp, top = 8.dp, end = 24.dp, bottom = 6.dp),
+                content = buttons,
+            )
+        }
+    }
+}
+
+/**
+ * The foot of what scrolls fading into the [page] while more of it lies below. A list cut exactly
+ * between two rows looks whole, and the tick under it is Done whether its end was seen or not.
+ */
+private fun Modifier.moreBelow(scroll: ScrollState, page: Color): Modifier = drawWithContent {
+    drawContent()
+    if (scroll.canScrollForward) {
+        val fade = 40.dp.toPx()
+        drawRect(
+            brush = Brush.verticalGradient(listOf(Color.Transparent, page), startY = size.height - fade, endY = size.height),
+            topLeft = Offset(0f, size.height - fade),
+            size = Size(size.width, fade),
         )
     }
 }
@@ -559,9 +667,9 @@ private fun SetupHeading(title: String, body: String, large: Boolean = false) {
 }
 
 /**
- * One of a page's ways on, the width of the page. [primary] is the filled one, and the other is
- * tonal and not a bare line of text, because on these pages the second way is as good as the
- * first: restoring a backup, or not signing in. [busy] puts a spinner before the words.
+ * What a page offers beside going on, the width of the page: signing in is the filled one
+ * ([primary]), and restoring a backup is tonal and not a bare line of text, being as good a way
+ * as going on. [busy] puts a spinner before the words.
  */
 @Composable
 private fun SetupButton(
