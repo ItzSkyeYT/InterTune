@@ -224,7 +224,14 @@ class WebClientProof {
      */
     private fun solver(command: List<String>, question: String): String? {
         val process = ProcessBuilder(command).redirectErrorStream(false).start()
-        val errors = Thread { process.errorStream.bufferedReader().use { it.readText() }.let { if (it.isNotBlank()) say("  the solver's process wrote ${it.lines().size} lines to its error output") } }
+        val errors = Thread {
+            process.errorStream.bufferedReader().use { it.readText() }.let { text ->
+                if (text.isNotBlank()) {
+                    say("  the solver's process wrote ${text.lines().size} lines to its error output, beginning:")
+                    text.lines().filter { it.isNotBlank() }.take(4).forEach { say("    " + it.take(160)) }
+                }
+            }
+        }
         errors.start()
         var output: String? = null
         val reading = Thread { output = process.inputStream.bufferedReader().use { it.readText() } }
