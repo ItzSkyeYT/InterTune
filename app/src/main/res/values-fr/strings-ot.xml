@@ -1494,4 +1494,5 @@
     <string name="share_link_choice_title">Quel lien ?</string>
     <string name="share_link_youtube_music_description">S\'ouvre dans YouTube Music ou dans InterTune</string>
     <string name="share_link_page_description">La personne choisit son appli : Spotify, Apple Music, Deezer et d\'autres</string>
+    <string name="stats_nothing_played">Rien n\'a été joué sur cette période.</string>
 </resources>
