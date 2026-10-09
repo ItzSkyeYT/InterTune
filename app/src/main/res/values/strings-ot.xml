@@ -1743,4 +1743,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="history_address_check_description" translatable="false">Asks YouTube where a play of the song now playing would be reported, as your account and as a visitor, and shows what came back. Nothing is reported.</string>
     <string name="history_address_check_asking" translatable="false">Asking YouTube</string>
     <string name="stats_nothing_played">Nothing was played in this period.</string>
+    <string name="sort_order_ascending">Ascending order</string>
+    <string name="sort_order_descending">Descending order</string>
+    <string name="home_play_at_random">Play something at random</string>
 </resources>

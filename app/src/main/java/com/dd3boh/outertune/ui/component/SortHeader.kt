@@ -34,9 +34,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.PlaylistSongSortType
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 
@@ -98,12 +101,15 @@ inline fun <reified T : Enum<T>> SortHeader(
         }
 
         if (sortType != PlaylistSongSortType.CUSTOM) {
+            val sortOrderName = stringResource(if (sortDescending) R.string.sort_order_descending else R.string.sort_order_ascending)
             ResizableIconButton(
                 icon = if (sortDescending) Icons.Rounded.ArrowDownward else Icons.Rounded.ArrowUpward,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .size(32.dp)
-                    .padding(8.dp),
+                    .padding(8.dp)
+                    // The arrow says which way the list runs, and had no words for it.
+                    .semantics { contentDescription = sortOrderName },
                 onClick = { onSortDescendingChange(!sortDescending) }
             )
         }

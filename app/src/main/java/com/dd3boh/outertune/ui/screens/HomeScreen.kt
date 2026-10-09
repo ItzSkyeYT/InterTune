@@ -1263,6 +1263,7 @@ fun HomeScreen(
             visible = allLocalItems.isNotEmpty() || allYtItems.isNotEmpty(),
             lazyListState = lazylistState,
             icon = Icons.Rounded.Casino,
+            contentDescription = stringResource(R.string.home_play_at_random),
             onClick = {
                 val local = when {
                     allLocalItems.isNotEmpty() && allYtItems.isNotEmpty() -> Random.nextFloat() < 0.5
