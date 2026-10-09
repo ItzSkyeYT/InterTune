@@ -138,8 +138,16 @@ class PlayerConnection(
      * The loading is here now, for all of them. setCurrQueue never prepares; the toggle does.
      */
     fun togglePlayPause() {
-        if (player.currentMediaItem == null) service.queueBoard.setCurrQueue()
+        loadSavedQueue()
         player.togglePlayPause()
+    }
+
+    /**
+     * The saved queue into the player, when the player is empty: what anything that acts on the
+     * player must do first after a cold start. It never prepares and never plays.
+     */
+    fun loadSavedQueue() {
+        if (player.currentMediaItem == null) service.queueBoard.setCurrQueue()
     }
 
     fun playQueue(
@@ -194,12 +202,13 @@ class PlayerConnection(
         service.enqueueEnd(items)
     }
 
+    /** The song on screen, which after a cold start the player does not hold yet: see MusicService.toggleLibrary. */
     fun toggleLike() {
-        service.toggleLike()
+        service.toggleLike(mediaMetadata.value?.id)
     }
 
     fun toggleLibrary() {
-        service.toggleLibrary()
+        service.toggleLibrary(mediaMetadata.value?.id)
     }
 
     override fun onPlaybackStateChanged(state: Int) {

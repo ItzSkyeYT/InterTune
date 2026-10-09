@@ -1349,6 +1349,9 @@ fun BoxScope.QueueContent(
                             color = iconButtonColor,
                             enabled = !detachedHead && canSkipPrevious,
                             onClick = {
+                                // Cold start: the saved queue is not in the player yet, and a
+                                // skip in an empty player goes nowhere. As the full player does.
+                                playerConnection.loadSavedQueue()
                                 playerConnection.player.seekToPrevious()
                                 haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                             }
@@ -1419,6 +1422,7 @@ fun BoxScope.QueueContent(
                             color = iconButtonColor,
                             enabled = !detachedHead && canSkipNext,
                             onClick = {
+                                playerConnection.loadSavedQueue()
                                 playerConnection.player.seekToNext()
                                 haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                             }
