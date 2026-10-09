@@ -21,7 +21,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
+import com.dd3boh.outertune.R
 import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.Artist
 import com.dd3boh.outertune.db.entities.Playlist
@@ -65,7 +67,7 @@ fun LibraryArtistListItem(
         ) {
             Icon(
                 Icons.Rounded.MoreVert,
-                contentDescription = null
+                contentDescription = stringResource(R.string.options)
             )
         }
     },
@@ -133,7 +135,7 @@ fun LibraryAlbumListItem(
         ) {
             Icon(
                 Icons.Rounded.MoreVert,
-                contentDescription = null
+                contentDescription = stringResource(R.string.options)
             )
         }
     },
@@ -234,7 +236,7 @@ fun LibraryPlaylistListItem(
         ) {
             Icon(
                 Icons.Rounded.MoreVert,
-                contentDescription = null
+                contentDescription = stringResource(R.string.options)
             )
         }
     },
