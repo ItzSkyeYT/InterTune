@@ -9,6 +9,7 @@ package com.dd3boh.outertune.utils
 import android.net.ConnectivityManager
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.utils.StreamOrder.Memory
+import com.dd3boh.outertune.utils.potoken.PoTokenResult
 import com.zionhuang.innertube.AddressPolicy
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.ResponseContext
@@ -31,8 +32,10 @@ import java.net.UnknownHostException
  *
  * StreamOrderTest says which client is asked first. This runs the walk itself, the code a song
  * goes through, for the cases that cannot be had on a phone on demand: the client that served the
- * last song refusing this one, no network, an app without a visitorData. Signed out throughout:
- * the account's client asks for a signature timestamp, which is a request to YouTube.
+ * last song refusing this one, no network, an app without a visitorData. Signed out, but for the
+ * one test that says otherwise. The signature timestamp and the po tokens that the account's
+ * client and a web client are asked with come from here too, as the answers do: the real ones
+ * are a request to YouTube and a WebView.
  */
 class ChainWalkTest {
     /** Synthetic, in the shape YouTube issues them. */
@@ -58,6 +61,7 @@ class ChainWalkTest {
     fun fresh() {
         YouTube.cookie = null
         YouTube.visitorData = visitor
+        YTPlayerUtils.askWebClientFirst = false
         YTPlayerUtils.streamMemory = Memory()
         YTPlayerUtils.onStreamMemoryChanged = { stored += it }
         YTPlayerUtils.onVisitorDataFound = { adopted += it }
@@ -65,7 +69,9 @@ class ChainWalkTest {
 
     @After
     fun leaveNothingBehind() {
+        YouTube.cookie = null
         YouTube.visitorData = null
+        YTPlayerUtils.askWebClientFirst = false
         YTPlayerUtils.streamMemory = Memory()
         YTPlayerUtils.onStreamMemoryChanged = null
         YTPlayerUtils.onVisitorDataFound = null
@@ -78,6 +84,10 @@ class ChainWalkTest {
         private val heads: Map<String, Int?> = emptyMap(),
     ) : YTPlayerUtils.Wire {
         val askedOf = mutableListOf<String>()
+
+        /** What each client's request carried, for the ones that got any: the signature timestamp and the player po token. */
+        val timestamps = mutableMapOf<String, Int>()
+        val playerTokens = mutableMapOf<String, String>()
         private val turn = mutableMapOf<String, Int>()
 
         override suspend fun player(
@@ -92,6 +102,8 @@ class ChainWalkTest {
         ): Result<PlayerResponse> {
             val name = if (asNewVisitor) "${client.clientName} as a new visitor" else client.clientName
             askedOf += name
+            signatureTimestamp?.let { timestamps[name] = it }
+            webPlayerPot?.let { playerTokens[name] = it }
             val lines = says[name] ?: error("$name was not expected to be asked")
             val at = turn.getOrDefault(name, 0)
             turn[name] = at + 1
@@ -104,6 +116,16 @@ class ChainWalkTest {
         override fun head(url: String): Int? {
             val client = url.substringAfter("://").substringBefore('.')
             return if (client in heads) heads[client] else 200
+        }
+
+        override fun signatureTimestamp(videoId: String): Int? = TIMESTAMP
+
+        override fun poTokens(videoId: String, sessionId: String?): PoTokenResult? = PoTokenResult(VIDEO_TOKEN, SESSION_TOKEN)
+
+        companion object {
+            const val TIMESTAMP = 20_375
+            const val VIDEO_TOKEN = "token-made-for-the-video"
+            const val SESSION_TOKEN = "token-made-for-the-session"
         }
     }
 
@@ -138,6 +160,11 @@ class ChainWalkTest {
             musicVideoType = null, viewCount = "1", thumbnail = Thumbnails(emptyList()),
         ),
         playbackTracking = null,
+    )
+
+    /** [answer] with every address taken out of it, which is what a client that only streams over SABR gives. */
+    private fun withoutAddress(answer: PlayerResponse) = answer.copy(
+        streamingData = answer.streamingData?.let { data -> data.copy(adaptiveFormats = data.adaptiveFormats.map { it.copy(url = null) }) },
     )
 
     private fun walk(script: Script) = runBlocking {
@@ -376,5 +403,75 @@ class ChainWalkTest {
         assertEquals(newVisitor, YouTube.visitorData)
         assertEquals("VISIONOS", YTPlayerUtils.streamMemory.worked)
         assertEquals(setOf("ANDROID_VR", "IOS"), YTPlayerUtils.streamMemory.refusedAt.keys)
+    }
+
+    @Test
+    fun `with the experiment on the web client is asked first, with the timestamp and the tokens, and nothing is remembered of it`() {
+        // As on any phone in October 2026: VISIONOS served last, and would be asked first.
+        remembering("VISIONOS", "ANDROID_VR")
+        val before = YTPlayerUtils.streamMemory
+        YTPlayerUtils.askWebClientFirst = true
+        val script = Script(mapOf("WEB_REMIX" to listOf(playable("WEB_REMIX", loudness = 4.0, seconds = "200"))))
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("WEB_REMIX"), script.askedOf)
+        assertEquals(Script.TIMESTAMP, script.timestamps["WEB_REMIX"])
+        assertEquals(Script.VIDEO_TOKEN, script.playerTokens["WEB_REMIX"])
+        // The session's token is what goes on the address today. Whether YouTube wants the
+        // video's there instead is what the experiment is still to find out.
+        assertEquals("https://WEB_REMIX.example/videoplayback?itag=251&pot=${Script.SESSION_TOKEN}", data.streamUrl)
+        assertEquals("WEB_REMIX OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+        assertEquals("WEB_REMIX", YTPlayerUtils.lastStreamClient)
+        assertEquals(before, YTPlayerUtils.streamMemory)
+        assertEquals("nothing changed, so nothing is stored", emptyList<String>(), stored)
+    }
+
+    @Test
+    fun `with the experiment on, a web client that gives no address costs its turn and the chain is asked as ever`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val before = YTPlayerUtils.streamMemory
+        YTPlayerUtils.askWebClientFirst = true
+        val script = Script(
+            mapOf(
+                "WEB_REMIX" to listOf(withoutAddress(playable("WEB_REMIX", loudness = 4.0, seconds = "200"))),
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+            )
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("WEB_REMIX", "VISIONOS"), script.askedOf)
+        assertEquals("WEB_REMIX OK, no address, VISIONOS OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+        // No token on an address that is not a web client's.
+        assertEquals("https://VISIONOS.example/videoplayback?itag=251", data.streamUrl)
+        assertEquals("VISIONOS", YTPlayerUtils.lastStreamClient)
+        assertEquals(before, YTPlayerUtils.streamMemory)
+    }
+
+    @Test
+    fun `signed in, the account's client is asked last and with a signature timestamp, and nothing is remembered of it`() {
+        YouTube.cookie = "SAPISID=made-up"
+        // The day after VISIONOS: its address and IOS's fail their check, and the account's is all that is left.
+        val script = Script(
+            says = mapOf(
+                "ANDROID_VR" to listOf(refused(bot)),
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+                "ANDROID" to listOf(playable("ANDROID", loudness = 5.0, seconds = "200")),
+            ),
+            heads = mapOf("VISIONOS" to 403, "IOS" to 403),
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("ANDROID_VR", "VISIONOS", "IOS", "ANDROID"), script.askedOf)
+        assertEquals(
+            "ANDROID_VR LOGIN_REQUIRED, VISIONOS OK, HEAD 403, IOS OK, HEAD 403, ANDROID (account) OK, HEAD 200",
+            YTPlayerUtils.lastStreamTrail,
+        )
+        assertEquals(mapOf("ANDROID" to Script.TIMESTAMP), script.timestamps)
+        // No client of this chain asks with a po token, so none is made and none is sent.
+        assertEquals(emptyMap<String, String>(), script.playerTokens)
+        assertTrue(data.streamUrl.startsWith("https://ANDROID.example/"))
+        assertNull("a song the account served is not a reason to ask as the account first", YTPlayerUtils.streamMemory.worked)
+        assertEquals(setOf("ANDROID_VR", "VISIONOS", "IOS"), YTPlayerUtils.streamMemory.refusedAt.keys)
     }
 }

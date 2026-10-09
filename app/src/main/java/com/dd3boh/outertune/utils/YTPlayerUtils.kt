@@ -162,6 +162,11 @@ object YTPlayerUtils {
      * How a client is asked and a stream url checked: YouTube and a HEAD request. Handed down to
      * the walk the way FamilyChoice.resolve is handed its attempt, so that ChainWalkTest can walk
      * the chain with answers of its own and no network.
+     *
+     * What a web client's request needs comes over it as well, the signature timestamp and the
+     * po tokens. The first is read from YouTube's player script and the second made in a WebView,
+     * so without them here no walk with the account's client or a web client in it could be run
+     * in a test.
      */
     internal interface Wire {
         /** [asNewVisitor] asks without any visitorData, for the new one the answer then carries. */
@@ -177,6 +182,10 @@ object YTPlayerUtils {
         ): Result<PlayerResponse>
 
         fun head(url: String): Int?
+
+        fun signatureTimestamp(videoId: String): Int?
+
+        fun poTokens(videoId: String, sessionId: String?): PoTokenResult?
     }
 
     private object Live : Wire {
@@ -200,6 +209,10 @@ object YTPlayerUtils {
             }
 
         override fun head(url: String): Int? = streamStatus(url)
+
+        override fun signatureTimestamp(videoId: String): Int? = getSignatureTimestampOrNull(videoId)
+
+        override fun poTokens(videoId: String, sessionId: String?): PoTokenResult? = getWebClientPoTokenOrNull(videoId, sessionId)
     }
 
     /** Adds what one pass learned to [streamMemory], and hands it on to be stored if that changed it. */
@@ -518,7 +531,7 @@ object YTPlayerUtils {
         fun signatureTimestampFor(client: YouTubeClient): Int? {
             if (!client.useSignatureTimestamp) return null
             if (!signatureTimestampResolved) {
-                signatureTimestamp = getSignatureTimestampOrNull(videoId)
+                signatureTimestamp = wire.signatureTimestamp(videoId)
                 signatureTimestampResolved = true
             }
             return signatureTimestamp
@@ -542,7 +555,7 @@ object YTPlayerUtils {
         val (webPlayerPot, webStreamingPot) = if (!wantsPoToken) {
             Pair(null, null)
         } else {
-            getWebClientPoTokenOrNull(videoId, sessionId)?.let {
+            wire.poTokens(videoId, sessionId)?.let {
                 Pair(it.playerRequestPoToken, it.streamingDataPoToken)
             } ?: Pair(null, null).also {
                 Log.w(TAG, "[$videoId] No po token")
