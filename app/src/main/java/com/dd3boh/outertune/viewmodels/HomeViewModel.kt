@@ -851,7 +851,12 @@ class HomeViewModel @Inject constructor(
         // Manual bans and snoozes filter every recommendation row, whatever the source.
         val restsHere = quickPicksSource() == QuickPicksSource.ENGINE || context.dataStore.get(RestsEverywhereKey, false)
         val exclusions = runCatching { database.engineExclusions(now) }.getOrDefault(emptyList()).filter { it.reason != ExclusionsViewModel.REASON_REST || restsHere }
-        val bannedSongs = exclusions.filter { it.kind == ExclusionsViewModel.KIND_SONG }.map { it.targetId }
+        // A song gone from YouTube is left out by its id and nothing more. As a ban it would take
+        // every card of the same title and artist with it, the upload that could be played in its
+        // place included, which is the one thing a row should offer instead.
+        val goneIds = exclusions.filter { it.kind == ExclusionsViewModel.KIND_SONG && it.reason == ExclusionsViewModel.REASON_GONE }
+            .mapTo(HashSet()) { it.targetId }
+        val bannedSongs = exclusions.filter { it.kind == ExclusionsViewModel.KIND_SONG && it.reason != ExclusionsViewModel.REASON_GONE }.map { it.targetId }
             .takeIf { it.isNotEmpty() }?.let { ids -> runCatching { database.songsByIds(ids).first() }.getOrDefault(emptyList()) }
             ?.map { PlayedSong(it.id, it.song.title, it.artists.firstOrNull()?.name) }.orEmpty()
         val bannedArtists = exclusions.filter { it.kind == ExclusionsViewModel.KIND_ARTIST }.flatMap { listOf(it.targetId, it.label.trim().lowercase()) }.toSet()
@@ -862,7 +867,7 @@ class HomeViewModel @Inject constructor(
         // Quick picks is the row that is supposed to be varied, and the one that goes lopsided:
         // a run of the same sort of music arrives together because it comes from the same few
         // artists. Two apiece breaks that up without thinning a row that was fine already.
-        fun songs(items: List<Song>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE, capOf: ((Song) -> Int)? = null) = pass.row(items, fresh, { it.song.id }, { it.song.title }, { it.artists.firstOrNull()?.name }, { it.artists.firstOrNull()?.id }, { it.song.id in againIds }, maxPerArtist, capOf)
+        fun songs(items: List<Song>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE, capOf: ((Song) -> Int)? = null) = pass.row(items.filter { it.song.id !in goneIds }, fresh, { it.song.id }, { it.song.title }, { it.artists.firstOrNull()?.name }, { it.artists.firstOrNull()?.id }, { it.song.id in againIds }, maxPerArtist, capOf)
         // The engine's own row under a lean: its lead cards keep their places and the first
         // column through the pass (LeanRow.compose). Never Try both, whose row is a drafted mix.
         val leanRow = engineRow?.takeIf { source == QuickPicksSource.ENGINE && it.lean.lane != null }
@@ -872,8 +877,8 @@ class HomeViewModel @Inject constructor(
             val cardIds = leanRow.cards.mapTo(HashSet()) { it.songId }
             return LeanRow.compose(quickPicksPool.filter { it.id in cardIds }, tidied, lead, 20, EngineParams.DEFAULT.columns, { it.id }, { laneOf[it.id] }, { it.artists.firstOrNull()?.name })
         }
-        fun local(items: List<LocalItem>) = pass.row(items, false, { (it as? Song)?.song?.id }, { (it as? Song)?.song?.title }, { (it as? Song)?.artists?.firstOrNull()?.name }, { (it as? Song)?.artists?.firstOrNull()?.id })
-        fun yt(items: List<YTItem>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE) = pass.row(items, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name }, { (it as? SongItem)?.artists?.firstOrNull()?.id }, { false }, maxPerArtist)
+        fun local(items: List<LocalItem>) = pass.row(items.filter { (it as? Song)?.song?.id !in goneIds }, false, { (it as? Song)?.song?.id }, { (it as? Song)?.song?.title }, { (it as? Song)?.artists?.firstOrNull()?.name }, { (it as? Song)?.artists?.firstOrNull()?.id })
+        fun yt(items: List<YTItem>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE) = pass.row(items.filter { (it as? SongItem)?.id !in goneIds }, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name }, { (it as? SongItem)?.artists?.firstOrNull()?.id }, { false }, maxPerArtist)
         // Whichever Quick picks row is on screen goes first; the other is not shown and must not
         // claim songs from the rows below it.
         val ytShown = ytRowOnScreen(ytQuickPicksPool)

@@ -28,3 +28,22 @@ fun Cache.holdsWhole(key: String): Boolean {
  */
 fun Cache.holdsPartFromStart(key: String): Boolean =
     getCachedLength(key, 0, 1) > 0 && !holdsWhole(key)
+
+/**
+ * Whether a cached part and a stream are the same file, as far as the song's format row can say:
+ * the same itag and, where both lengths are known, the same number of bytes.
+ *
+ * The itag alone was the test, and it was enough while a song's bytes could only come from the
+ * song's own id: one id, one itag, one file. A stand-in is another upload under the same itag
+ * ([StandIns]), and carried on with it a part would hold the start of one upload and the rest of
+ * another. Two uploads of a recording are never the same length to the byte.
+ */
+fun sameStream(partItag: Int?, partLength: Long?, itag: Int, length: Long): Boolean =
+    partItag == itag && (partLength == null || partLength <= 0L || length <= 0L || partLength == length)
+
+/**
+ * The same itag and both lengths known and different: surely another file, an upload other than
+ * the one the part came from, and not another quality of the same one, which has another itag.
+ */
+fun anotherUpload(partItag: Int?, partLength: Long?, itag: Int, length: Long): Boolean =
+    partItag == itag && partLength != null && partLength > 0L && length > 0L && partLength != length

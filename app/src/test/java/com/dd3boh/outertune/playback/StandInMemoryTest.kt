@@ -68,12 +68,28 @@ class StandInMemoryTest {
     }
 
     @Test
-    fun `what does not read as two ids and a time is dropped, the rest kept`() {
+    fun `what does not read as an id, an id or nothing, and a time is dropped, the rest kept`() {
         assertEquals(Memory(), StandInMemory.decode(null))
         assertEquals(Memory(), StandInMemory.decode(""))
         assertEquals(
-            mapOf("OLDID000002" to Entry("NEWID000002", t0)),
-            StandInMemory.decode("OLDID000001=NEWID000001;=NEWID000003@5;OLD ID=NEWID000004@5;OLDID000005=@5;OLDID000006=NEWID000006@soon;OLDID000002=NEWID000002@$t0").of,
+            mapOf("OLDID000002" to Entry("NEWID000002", t0), "OLDID000005" to Entry(null, 5)),
+            StandInMemory.decode("OLDID000001=NEWID000001;=NEWID000003@5;OLD ID=NEWID000004@5;OLDID000005=@5;OLDID000006=NEWID000006@soon;OLDID000007=NEW ID@5;OLDID000002=NEWID000002@$t0").of,
         )
+    }
+
+    @Test
+    fun `a search that found nothing is noted for three days, and is no stand-in`() {
+        val memory = StandInMemory.remember(Memory(), "OLDID000001", null, t0)
+
+        assertNull(StandInMemory.known(memory, "OLDID000001", t0))
+        assertEquals(true, StandInMemory.lookedInVain(memory, "OLDID000001", t0))
+        assertEquals(true, StandInMemory.lookedInVain(memory, "OLDID000001", t0 + 2 * day))
+        assertEquals(false, StandInMemory.lookedInVain(memory, "OLDID000001", t0 + 3 * day))
+        assertEquals(false, StandInMemory.lookedInVain(memory, "ANOTHER0001", t0))
+        // A stand-in is not a search that found nothing.
+        assertEquals(false, StandInMemory.lookedInVain(StandInMemory.remember(memory, "OLDID000001", "NEWID000001", t0), "OLDID000001", t0))
+        // It is stored with nothing where the stand-in's id would be, and reads back.
+        assertEquals("OLDID000001=@$t0", StandInMemory.encode(memory))
+        assertEquals(memory, StandInMemory.decode(StandInMemory.encode(memory)))
     }
 }

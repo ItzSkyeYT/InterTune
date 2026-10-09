@@ -905,7 +905,6 @@
     <string name="exclusion_reason_artist_ban">Jamais cet artiste</string>
     <string name="exclusion_reason_snooze">Moins de cet artiste, pendant un mois</string>
     <string name="exclusion_reason_rest">Mis au repos après avoir été passé</string>
-    <string name="exclusion_reason_gone">N\'est plus sur YouTube</string>
     <string name="menu_not_this_song">Pas ce titre</string>
     <string name="menu_less_of_artist">Moins de cet artiste</string>
     <string name="menu_never_artist">Jamais cet artiste</string>
