@@ -51,15 +51,27 @@ else
 
     say "restarting the sensors HAL (the phone will soft reboot here)"
     root 'setprop ctl.restart vendor.sensors-hal-multihal'
+    RESTARTED=1
+fi
+
+up() { sh_ 'dumpsys sensorservice 2>/dev/null | head -1' 2>/dev/null | grep -q 'Captured at'; }
+
+# The restart takes a moment to reach sensorservice. Asked three seconds after it, the service
+# still answers, as the one about to go, and the restriction lifted on it goes down with it.
+if [ -n "${RESTARTED:-}" ]; then
+    say "waiting for sensorservice to go down"
+    for _ in $(seq 1 10); do
+        up || break
+        sleep 2
+    done
 fi
 
 say "waiting for sensorservice to come back"
 for _ in $(seq 1 40); do
+    up && break
     sleep 3
-    if sh_ 'dumpsys sensorservice 2>/dev/null | head -1' 2>/dev/null | grep -q 'Captured at'; then
-        break
-    fi
 done
+sleep 5
 
 say "lifting the system-only restriction on TYPE_HEAD_TRACKER"
 # Undocumented, and the only lever: SensorService hard-codes head tracker access
@@ -67,12 +79,18 @@ say "lifting the system-only restriction on TYPE_HEAD_TRACKER"
 # holds the signature-level MANAGE_SENSORS that the command requires.
 sh_ 'cmd sensorservice unrestrict-ht'
 
-say "result"
-if sh_ 'dumpsys sensorservice' | grep -q 'head_tracker'; then
-    sh_ 'dumpsys sensorservice' | grep -A1 'head_tracker(37)'
-    echo
-    echo "Head tracking is live. Put the headphones on and it will appear to apps."
-else
-    echo "No head tracker. Connect the headphones and run this again." >&2
-    exit 1
-fi
+say "looking for the head tracker, for up to a minute"
+# It is only there while the headphones are connected, and after a soft reboot they take a
+# while to come back.
+for _ in $(seq 1 20); do
+    if sh_ 'dumpsys sensorservice' | grep -q 'head_tracker'; then
+        sh_ 'dumpsys sensorservice' | grep -A1 'head_tracker(37)'
+        echo
+        echo "Head tracking is live. Put the headphones on and it will appear to apps."
+        exit 0
+    fi
+    sleep 3
+done
+echo "No head tracker after a minute. The rest is in place: connect the headphones and put them" >&2
+echo "in your ears. If InterTune still shows none, run this again; it restarts nothing now." >&2
+exit 1

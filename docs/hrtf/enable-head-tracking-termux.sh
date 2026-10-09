@@ -21,6 +21,14 @@ if ! su -c 'id' 2>/dev/null | grep -q 'uid=0'; then
     exit 1
 fi
 
+# The mount has to be made in the phone's own view of the file system, not in Termux's: -M asks
+# for that. Where su does not know -M the worker checks for itself and says what to change.
+if su -M -c 'id' 2>/dev/null | grep -q 'uid=0'; then
+    SU="su -M"
+else
+    SU="su"
+fi
+
 # Only root and adb's shell may write under /data/local/tmp. So the worker is written in a
 # folder of Termux's own and root copies it over: written there straight from Termux it was
 # "Permission denied", and nothing ran. Started from a root shell it is staged beside itself.
@@ -36,7 +44,13 @@ cat > "$STAGE" <<'WORKER_EOF'
 exec >> /data/local/tmp/ht-enable.log 2>&1
 echo "=== $(date) ==="
 
-if grep -q dynamic_sensor_hal /vendor/etc/sensors/hals.conf; then
+# As the system sees the file, which is what the sensors HAL reads. A root shell started from
+# an app has that app's view of the file system, and a mount made there is seen by nobody else:
+# on 9 Oct 2026 a run said "mounted", the HAL went on reading the real file, and no head
+# tracker ever came.
+seen() { grep -q dynamic_sensor_hal /proc/1/root/vendor/etc/sensors/hals.conf 2>/dev/null; }
+
+if seen; then
     echo "already mounted"
 else
     cp /vendor/etc/sensors/hals.conf /data/local/tmp/hals.conf.backup
@@ -48,7 +62,13 @@ else
     chcon u:object_r:vendor_configs_file:s0 /data/local/tmp/hals.conf
     mount -o bind /data/local/tmp/hals.conf /vendor/etc/sensors/hals.conf || {
         echo "bind mount failed"; exit 1; }
-    echo "mounted:"; cat /vendor/etc/sensors/hals.conf
+    if ! seen; then
+        umount /vendor/etc/sensors/hals.conf 2>/dev/null
+        echo "mounted, but only in this shell's own view: the system does not see it."
+        echo "In the KernelSU app: Superuser, Termux, Mount namespace, choose Global. Then run this again."
+        exit 1
+    fi
+    echo "mounted:"; cat /proc/1/root/vendor/etc/sensors/hals.conf
 
     echo "restarting sensors HAL, the phone will soft reboot"
     setprop ctl.restart vendor.sensors-hal-multihal
@@ -126,7 +146,7 @@ echo "handing off to a detached root process"
 echo "Termux will be killed when the phone soft reboots. That is expected."
 echo "It takes up to two minutes. Then:  su -c 'cat $LOG'"
 
-su -c "setsid sh $WORKER < /dev/null > /dev/null 2>&1 &"
+$SU -c "setsid sh $WORKER < /dev/null > /dev/null 2>&1 &"
 
 sleep 4
 su -c "cat $LOG" 2>/dev/null || true
