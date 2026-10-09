@@ -60,8 +60,10 @@ fun BoxScope.HideOnScrollFAB(
     visible: Boolean = true,
     lazyListState: LazyGridState,
     icon: ImageVector,
+    /** What a screen reader says for it: the button is a picture and nothing else. */
+    contentDescription: String? = null,
     onClick: () -> Unit,
-) = HideOnScrollFAB(visible && lazyListState.isScrollingUp(), onClick) { Icon(imageVector = icon, contentDescription = null) }
+) = HideOnScrollFAB(visible && lazyListState.isScrollingUp(), onClick) { Icon(imageVector = icon, contentDescription = contentDescription) }
 
 @Composable
 fun BoxScope.HideOnScrollFAB(
@@ -76,8 +78,10 @@ fun BoxScope.HideOnScrollFAB(
     visible: Boolean = true,
     lazyListState: LazyListState,
     icon: ImageVector,
+    /** What a screen reader says for it: the button is a picture and nothing else. */
+    contentDescription: String? = null,
     onClick: () -> Unit,
-) = HideOnScrollFAB(visible && lazyListState.isScrollingUp(), onClick) { Icon(imageVector = icon, contentDescription = null) }
+) = HideOnScrollFAB(visible && lazyListState.isScrollingUp(), onClick) { Icon(imageVector = icon, contentDescription = contentDescription) }
 
 @Composable
 fun BoxScope.HideOnScrollFAB(

@@ -240,7 +240,7 @@ fun HistoryScreen(
                         ) {
                             Icon(
                                 Icons.Rounded.Search,
-                                contentDescription = null
+                                contentDescription = stringResource(R.string.search)
                             )
                         }
                         TextField(
@@ -502,7 +502,7 @@ fun HistoryScreen(
                     ) {
                         Icon(
                             Icons.Rounded.Search,
-                            contentDescription = null
+                            contentDescription = stringResource(R.string.search)
                         )
                     }
                 }

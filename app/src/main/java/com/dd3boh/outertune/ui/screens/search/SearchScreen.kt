@@ -225,14 +225,12 @@ fun SearchBarContainer(
                     },
                 ) {
                     // The same button in the same place either way. Only its picture says
-                    // which of the three things above a tap will do.
+                    // which of the three things above a tap will do, and its name for a screen
+                    // reader, which it did not have: the first stop on every tab said nothing.
+                    val leadsBack = searchPillLeadsBack(searchActive, navBackStackEntry?.destination?.route)
                     Icon(
-                        imageVector = if (searchPillLeadsBack(searchActive, navBackStackEntry?.destination?.route)) {
-                            Icons.AutoMirrored.Rounded.ArrowBack
-                        } else {
-                            Icons.Rounded.Search
-                        },
-                        contentDescription = null
+                        imageVector = if (leadsBack) Icons.AutoMirrored.Rounded.ArrowBack else Icons.Rounded.Search,
+                        contentDescription = stringResource(if (leadsBack) R.string.back else R.string.search)
                     )
                 }
             },
