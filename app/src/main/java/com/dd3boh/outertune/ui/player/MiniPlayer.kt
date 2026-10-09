@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +51,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -303,6 +305,10 @@ fun MiniMediaInfo(
                 .weight(1f)
                 .padding(horizontal = 6.dp)
         ) {
+            // Each line reads in the direction of its own letters. As a line of the app's
+            // direction a title written the other way lost its first letter where it was cut
+            // short: "nstant Crush (feat.…" in the Arabic app. The column keeps it on its side.
+            val ownDirection = LocalTextStyle.current.copy(textDirection = TextDirection.Content)
             Text(
                 text = mediaMetadata.title,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -310,6 +316,7 @@ fun MiniMediaInfo(
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                style = ownDirection,
             )
             Text(
                 text = mediaMetadata.artists.joinToString { it.name },
@@ -317,6 +324,7 @@ fun MiniMediaInfo(
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                style = ownDirection,
             )
         }
     }

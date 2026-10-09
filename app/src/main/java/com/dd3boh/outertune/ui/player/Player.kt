@@ -118,6 +118,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -238,6 +239,7 @@ import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.menu.PlayerMenu
 import com.dd3boh.outertune.ui.theme.extractGradientColors
 import com.dd3boh.outertune.ui.utils.SnapLayoutInfoProvider
+import com.dd3boh.outertune.ui.utils.readingDirection
 import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -1154,25 +1156,33 @@ fun BottomSheetPlayer(
                     // scroll when they do not fit, and fade out at the end rather than stopping
                     // mid-letter against the first button.
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = mediaMetadata.title,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontSize = titleSize,
-                            color = onBackgroundColor,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .fadeWhenClipped()
-                                .basicMarquee(
-                                    iterations = 1,
-                                    initialDelayMillis = 3000
-                                )
-                                .clickable(enabled = mediaMetadata.album != null) {
-                                    navController.navigate("album/${mediaMetadata.album!!.id}")
-                                    state.collapseSoft()
-                                }
-                        )
+                        // The title scrolls, and fades, in the direction of its own letters. In
+                        // the app's direction a title written the other way began at its far
+                        // end: "…Julian Casablancas)" in the Arabic app. The column still puts
+                        // it on the app's side.
+                        CompositionLocalProvider(
+                            LocalLayoutDirection provides readingDirection(mediaMetadata.title, LocalLayoutDirection.current)
+                        ) {
+                            Text(
+                                text = mediaMetadata.title,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontSize = titleSize,
+                                color = onBackgroundColor,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .fadeWhenClipped()
+                                    .basicMarquee(
+                                        iterations = 1,
+                                        initialDelayMillis = 3000
+                                    )
+                                    .clickable(enabled = mediaMetadata.album != null) {
+                                        navController.navigate("album/${mediaMetadata.album!!.id}")
+                                        state.collapseSoft()
+                                    }
+                            )
+                        }
 
                         Row(modifier = Modifier.fadeWhenClipped()) {
                             mediaMetadata.artists.fastForEachIndexed { index, artist ->
