@@ -26,7 +26,8 @@ class ExplanationsStayShortTest {
     private fun isExplanation(name: String) =
         name.endsWith("_info") || name.endsWith("_explain") || name.endsWith("_tooltip") || name in OTHERS
 
-    private fun words(text: String) = text.split(Regex("\\s+")).count { it.isNotBlank() }
+    /** Words, not marks: French sets its guillemets, colons and semicolons off with a space. */
+    private fun words(text: String) = text.split(Regex("\\s+")).count { word -> word.any { it.isLetterOrDigit() } }
 
     @Test
     fun `no explanation runs past sixty words, in English or in French`() {
