@@ -41,6 +41,7 @@ import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.utils.parseCookieString
+import com.dd3boh.outertune.ui.screens.settings.SettingJumps
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
@@ -100,6 +101,7 @@ fun ColumnScope.ListenHistoryFrag() {
         onClick = { showMinPlaybackDur = true }
     )
     PreferenceEntry(
+        modifier = Modifier.tourTarget(SettingJumps.CLEAR_LISTEN_HISTORY),
         title = { Text(stringResource(R.string.clear_listen_history)) },
         description = stringResource(R.string.clear_listen_history_description),
         icon = { Icon(Icons.Rounded.ClearAll, null) },

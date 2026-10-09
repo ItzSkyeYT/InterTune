@@ -121,6 +121,7 @@ fun RecommendationsSettings(
             explanation = stringResource(R.string.recommendations_home_title_info),
         )
         ExplainedSwitchPreference(
+            modifier = Modifier.tourTarget(SettingJumps.TIDY_HOME_ROWS),
             title = stringResource(R.string.tidy_home_rows),
             explanation = stringResource(R.string.tidy_home_rows_info),
             description = stringResource(R.string.tidy_home_rows_description),
@@ -128,6 +129,7 @@ fun RecommendationsSettings(
             onCheckedChange = onTidyHomeRowsChange,
         )
         ExplainedSwitchPreference(
+            modifier = Modifier.tourTarget(SettingJumps.RANK_WITH_LISTENING),
             title = stringResource(R.string.rank_with_listening),
             explanation = stringResource(R.string.rank_with_listening_info),
             description = stringResource(R.string.rank_with_listening_description),
@@ -198,6 +200,7 @@ fun RecommendationsSettings(
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
             ExplainedPreference(
+                modifier = Modifier.tourTarget(SettingJumps.FAMILIARITY),
                 title = stringResource(R.string.familiarity),
                 explanation = stringResource(R.string.familiarity_info),
                 description = stringResource(R.string.familiarity_description, LeanChoice.againCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly)),
@@ -222,6 +225,7 @@ fun RecommendationsSettings(
                 val similarTitle = stringResource(R.string.similar_source)
                 val similarInfo = stringResource(R.string.similar_source_info)
                 EnumListPreference(
+                    modifier = Modifier.tourTarget(SettingJumps.SIMILAR_SOURCE),
                     title = { Text(similarTitle) },
                     icon = null,
                     trailingContent = { ExplainButton(similarTitle, similarInfo) },
