@@ -23,9 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -126,11 +125,10 @@ internal fun linkedNames(body: String, own: String, named: Map<String, Jump>, ro
 /** [body] with every name that leads somewhere made a link: see [linkedNames]. */
 @Composable
 fun explanationWithLinks(body: String, own: String, onJump: (Jump) -> Unit): AnnotatedString {
-    val context = LocalContext.current
-    // The names are in the app's language, which a change of configuration can change.
-    val configuration = LocalConfiguration.current
-    val named = remember(configuration) { SettingJumps.NAMED.associate { (name, jump) -> context.getString(name) to jump } }
-    val rows = remember(configuration) { SettingJumps.ROWS.associate { (name, jump) -> context.getString(name) to jump } }
+    // The names are in the app's language, which the resources follow when it changes.
+    val resources = LocalResources.current
+    val named = remember(resources) { SettingJumps.NAMED.associate { (name, jump) -> resources.getString(name) to jump } }
+    val rows = remember(resources) { SettingJumps.ROWS.associate { (name, jump) -> resources.getString(name) to jump } }
     val jumpTo by rememberUpdatedState(onJump)
     val style = TextLinkStyles(SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline))
     return remember(body, own, named, rows, style) {
