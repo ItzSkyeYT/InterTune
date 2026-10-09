@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.outertune.R
@@ -73,7 +74,7 @@ fun RowScope.SelectHeader(
         ) {
             Icon(
                 Icons.Rounded.MoreVert,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.options),
                 tint = LocalContentColor.current
             )
         }

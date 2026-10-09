@@ -445,7 +445,7 @@ fun ArtistScreen(
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Rounded.MoreVert,
-                                                contentDescription = null
+                                                contentDescription = stringResource(R.string.options)
                                             )
                                         }
                                     },

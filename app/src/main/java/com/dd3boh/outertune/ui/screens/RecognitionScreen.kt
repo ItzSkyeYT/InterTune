@@ -880,7 +880,7 @@ private fun RecognisedSongRow(
             isPlaying = isPlaying,
             trailingContent = {
                 IconButton(onClick = { openMenu() }) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = null)
+                    Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.options))
                 }
             },
             modifier = Modifier.combinedClickable(
@@ -935,7 +935,7 @@ private fun CandidateRow(
         trailingContent = {
             Box {
                 IconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = null)
+                    Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.options))
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(

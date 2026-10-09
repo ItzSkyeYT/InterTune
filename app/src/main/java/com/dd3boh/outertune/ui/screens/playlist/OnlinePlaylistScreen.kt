@@ -516,7 +516,7 @@ fun OnlinePlaylistScreen(
                             ) {
                                 Icon(
                                     Icons.Rounded.MoreVert,
-                                    contentDescription = null
+                                    contentDescription = stringResource(R.string.options)
                                 )
                             }
                         }
@@ -630,7 +630,7 @@ fun OnlinePlaylistScreen(
                                         ) {
                                             Icon(
                                                 Icons.Rounded.MoreVert,
-                                                contentDescription = null
+                                                contentDescription = stringResource(R.string.options)
                                             )
                                         }
                                     }

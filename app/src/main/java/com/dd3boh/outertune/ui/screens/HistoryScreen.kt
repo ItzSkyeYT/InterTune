@@ -324,7 +324,7 @@ fun HistoryScreen(
                                     ) {
                                         Icon(
                                             Icons.Rounded.MoreVert,
-                                            contentDescription = null
+                                            contentDescription = stringResource(R.string.options)
                                         )
                                     }
                                 },
