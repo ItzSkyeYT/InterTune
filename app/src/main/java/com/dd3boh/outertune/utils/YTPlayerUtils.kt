@@ -273,12 +273,17 @@ object YTPlayerUtils {
         /** VISIONOS gave the bot check, or answered with a url that failed the check. */
         var visionosRefused = false
         var gotStream = false
-        var blocked: PlayerResponse.PlayabilityStatus? = null
 
         /**
-         * A fallback client gave the bot check. [blocked] counts the main client too, and ANDROID_VR
-         * gives it on a healthy network, so a song that is simply unavailable would look refused.
+         * The bot check a fallback client answered with, for the throttle. Never the main client's:
+         * ANDROID_VR gives it for every song on a healthy network, so its words say nothing about
+         * the connection. It used to be counted here, and as the main client is asked in the
+         * phone's language while the throttle reads English, any song that failed on a phone set
+         * to English, a region locked one included, held Home, downloads and sync for five minutes.
          */
+        var blocked: PlayerResponse.PlayabilityStatus? = null
+
+        /** A fallback client gave the bot check. Set as the walk goes, so a walk that throws still says so. */
         var fallbackBlocked = false
 
         fun tellThrottle() {
@@ -524,7 +529,8 @@ object YTPlayerUtils {
         // pings, downloads, sync and Home loads for as long as it lasts) and counted a strike, so
         // a genuine block later started at the top of the ladder. So: network failures are still
         // reported as they happen, but a block is only reported once the whole chain has failed,
-        // and a working stream from any client clears it.
+        // only when a client that serves music gave it (see ChainNotes.blocked), and a working
+        // stream from any client clears it.
         var blockedStatus: PlayerResponse.PlayabilityStatus? = null
         fun PlayerResponse.rememberBlock() {
             if (blockedStatus == null && Throttle.looksLikeBlock(playabilityStatus.reason)) {
@@ -600,9 +606,8 @@ object YTPlayerUtils {
             // check and the age gate only by YouTube's English wording, and a fallback client's
             // reason is what they read. Any other reason is shown on the error screen as
             // YouTube wrote it, so a song refused for its own sake now reads in English there.
-            // The main client keeps the app's hl: nothing in its answer is shown, and asking it
-            // in English would let its routine bot check (see blockedStatus) reach the throttle
-            // in every language.
+            // The main client keeps the app's hl: nothing in its answer is shown or read, its
+            // routine bot check least of all (see ChainNotes.blocked).
             val result =
                 wire.player(
                     videoId, playlistId, client, signatureTimestampFor(client), webPlayerPot,
@@ -625,7 +630,7 @@ object YTPlayerUtils {
             }
             // Noted as having given no stream, until its url passes the check below.
             if (streamPlayerResponse != null) asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
-            streamPlayerResponse?.rememberBlock()
+            if (!isMain) streamPlayerResponse?.rememberBlock()
 
             if (isMain) {
                 mainPlayerResponse = streamPlayerResponse
