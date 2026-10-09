@@ -21,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -44,6 +46,9 @@ fun NavigationTile(
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp))
                 .clickable(onClick = onClick)
+                // The button is the circle, and its name is written under it, outside it: a
+                // screen reader had a button with nothing to say, then a word that did nothing.
+                .semantics { contentDescription = title }
         ) {
             Icon(
                 painter = painterResource(icon),
@@ -112,6 +117,9 @@ fun NavigationTile(
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp))
                 .clickable(onClick = onClick)
+                // The button is the circle, and its name is written under it, outside it: a
+                // screen reader had a button with nothing to say, then a word that did nothing.
+                .semantics { contentDescription = title }
         ) {
             Icon(
                 icon,

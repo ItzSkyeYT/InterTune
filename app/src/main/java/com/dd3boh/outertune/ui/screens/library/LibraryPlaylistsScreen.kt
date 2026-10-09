@@ -535,12 +535,14 @@ fun LibraryPlaylistsScreen(
             LibraryViewType.LIST -> HideOnScrollFAB(
                 lazyListState = lazyListState,
                 icon = Icons.Rounded.Add,
+                contentDescription = stringResource(R.string.create_playlist),
                 onClick = { showCreatePlaylistDialog = true },
             )
 
             LibraryViewType.GRID -> HideOnScrollFAB(
                 lazyListState = lazyGridState,
                 icon = Icons.Rounded.Add,
+                contentDescription = stringResource(R.string.create_playlist),
                 onClick = { showCreatePlaylistDialog = true },
             )
         }
