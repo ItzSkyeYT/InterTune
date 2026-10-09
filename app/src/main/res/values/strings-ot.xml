@@ -1129,6 +1129,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="exclusion_reason_artist_ban">Never this artist</string>
     <string name="exclusion_reason_snooze">Less of this artist, for a month</string>
     <string name="exclusion_reason_rest">Rested after a skip</string>
+    <string name="exclusion_reason_gone">No longer on YouTube</string>
     <string name="menu_not_this_song">Not this song</string>
     <string name="menu_less_of_artist">Less of this artist</string>
     <string name="menu_never_artist">Never this artist</string>

@@ -253,6 +253,14 @@ object YTPlayerUtils {
         }
     }
 
+    /**
+     * Every client that serves music turned the song itself down: see [StreamCheck.unavailableSong].
+     * A PlaybackException like the one thrown before, with the same words, so nothing that
+     * shows or maps a failure changes. Its type is for StandIns, which looks for the same
+     * recording under another id.
+     */
+    class SongUnavailable(reason: String?) : PlaybackException(reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+
     data class PlaybackData(
         val audioConfig: PlayerResponse.PlayerConfig.AudioConfig?,
         val videoDetails: PlayerResponse.VideoDetails?,
@@ -565,6 +573,8 @@ object YTPlayerUtils {
         // as itself when no fallback client explained anything, so MusicService can map it to no
         // connection or a timeout.
         var lastFallbackFailure: Throwable? = null
+        // Every fallback client's answer, for StreamCheck.unavailableSong.
+        val fallbackSaid = mutableListOf<PlayerResponse.PlayabilityStatus>()
         val trail = mutableListOf<String>()
         // What each client asked gave, for StreamOrder to remember. A client the network never
         // reached, or whose url could not be checked, is left out: nothing was learned of it.
@@ -646,6 +656,7 @@ object YTPlayerUtils {
                         onVisitorDataFound?.invoke(found)
                     }
             } else {
+                streamPlayerResponse?.playabilityStatus?.let { fallbackSaid += it }
                 if (Throttle.looksLikeBlock(streamPlayerResponse?.playabilityStatus?.reason)) notes.fallbackBlocked = true
                 streamPlayerResponse?.playabilityStatus
                     ?.takeIf { it.status != null && it.status != "OK" && explained == null }
@@ -717,6 +728,14 @@ object YTPlayerUtils {
         // pass is needed and how it went.
         notes.gotStream = streamUrl != null
         notes.blocked = blockedStatus
+
+        // The song itself turned down by every client that serves music. The same words as
+        // before, thrown as their own kind of failure.
+        if (streamUrl == null) {
+            StreamCheck.unavailableSong(fallbackSaid, unreached = lastFallbackFailure != null)?.let { gone ->
+                throw SongUnavailable(gone.reason ?: gone.status)
+            }
+        }
 
         // Every url the chain produced was refused by its check. Say why in the words of the client
         // that turned the request down, rather than "Could not find stream url".

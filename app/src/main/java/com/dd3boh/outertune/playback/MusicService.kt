@@ -178,6 +178,7 @@ import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.playerCoroutine
 import com.dd3boh.outertune.utils.reportException
 import com.google.common.util.concurrent.MoreExecutors
+import com.dd3boh.outertune.viewmodels.ExclusionsViewModel
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
@@ -374,6 +375,68 @@ class MusicService : MediaLibraryService(),
 
     /** Where each streamed song is fetched from, until the player fails on it: see [StreamAddresses]. */
     private val streamAddresses = StreamAddresses()
+
+    /**
+     * Asks YouTube for a song's stream, and for the same recording under another id when the
+     * song's own is gone: see [StandIns]. The song as the queue has it, or as its own row and its
+     * artists say when it is not in the queue; a database that does not answer leaves nothing to
+     * search for, and the song fails as it would have.
+     */
+    private val standIns by lazy {
+        StandIns(
+            resolve = { id ->
+                YTPlayerUtils.playerResponseForPlayback(id, audioQuality = audioQualityNow(), connectivityManager = connectivityManager)
+            },
+            wanted = { id ->
+                queueBoard.getCurrentQueue()?.findSong(id)?.let { queued ->
+                    StandIn.Wanted(queued.title, queued.artists.map { it.name }, queued.duration.takeIf { it > 0 })
+                } ?: database.readOrNull { songRow(id) }?.let { row ->
+                    StandIn.Wanted(
+                        row.title,
+                        database.readOrNull { artistNamesOf(id) }.orEmpty(),
+                        row.duration.takeIf { it > 0 },
+                    )
+                }
+            },
+            search = { query ->
+                YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrThrow().items.filterIsInstance<SongItem>()
+            },
+        ).also {
+            it.onGone = goneSongs::gone
+            it.onDoubt = goneSongs::doubted
+            it.onPlays = goneSongs::plays
+        }
+    }
+
+    /**
+     * The songs no copy of which plays, for the recommendation rows to leave out: see [GoneSongs].
+     * Only a song the library has a row for, since the Exclusions page names it by its title, and
+     * only where nothing else already keeps it out. Every write is caught: an exception on the
+     * database's own threads ends the app.
+     */
+    private val goneSongs = GoneSongs(
+        load = { database.readOrNull { goneSongIds() } },
+        mark = { id, at ->
+            database.query {
+                runCatching {
+                    val title = songRow(id)?.title
+                    if (title != null && exclusion(ExclusionsViewModel.KIND_SONG, id) == null) {
+                        insertExclusion(
+                            RecommendationExclusion(
+                                kind = ExclusionsViewModel.KIND_SONG, targetId = id, label = title,
+                                reason = ExclusionsViewModel.REASON_GONE, createdAt = at, expiresAt = at + ExclusionsViewModel.GONE_MS,
+                            )
+                        )
+                    }
+                }.onFailure { Log.w(TAG, "Could not note a song as gone from YouTube", it) }
+            }
+        },
+        lift = { ids ->
+            database.query {
+                runCatching { deleteGone(ids) }.onFailure { Log.w(TAG, "Could not take a song off the gone list", it) }
+            }
+        },
+    )
 
     @Volatile private var listenHistoryPaused = false
     /** Similar songs come from Both or Last.fm only, so a song played is asked about on Last.fm too. */
@@ -1296,7 +1359,7 @@ class MusicService : MediaLibraryService(),
         } ?: return
         val duration = song?.song?.duration?.takeIf { it != -1 }
             ?: mediaMetadata.duration.takeIf { it != -1 }
-            ?: (playbackData?.videoDetails ?: YTPlayerUtils.playerResponseForMetadata(mediaId)
+            ?: (playbackData?.videoDetails ?: YTPlayerUtils.playerResponseForMetadata(StandInMemory.idFor(mediaId))
                 .getOrNull()?.videoDetails)?.lengthSeconds?.toInt()
             ?: -1
         database.query {
@@ -1867,11 +1930,7 @@ class MusicService : MediaLibraryService(),
             Log.d(TAG, "PLAYING: remote song (online fetch)")
 
             val playbackData = runBlocking(Dispatchers.IO) {
-                YTPlayerUtils.playerResponseForPlayback(
-                    mediaId,
-                    audioQuality = audioQualityNow(),
-                    connectivityManager = connectivityManager,
-                )
+                standIns.playbackData(mediaId)
             }.getOrElse { throwable ->
                 // The upgrade could not be had (the network went, or the video is gone from
                 // YouTube), but the copy it was meant to replace is still here. Play that rather
@@ -3019,10 +3078,12 @@ class MusicService : MediaLibraryService(),
                     var accountAnswer: YTPlayerUtils.AccountAnswer? = null
                     val found = ListenReporting.firstAddress(requests) { from ->
                         when (from) {
+                            // By the id the song was played from: its own is gone when it has a
+                            // stand-in, and YouTube gives no address for an id it does not serve.
                             AddressFrom.ACCOUNT ->
-                                YTPlayerUtils.playerResponseAsAccount(mediaItem.mediaId).also { accountAnswer = it }.address
+                                YTPlayerUtils.playerResponseAsAccount(StandInMemory.idFor(mediaItem.mediaId)).also { accountAnswer = it }.address
                             AddressFrom.VISITOR ->
-                                YTPlayerUtils.addressIn(YTPlayerUtils.playerResponseForMetadata(mediaItem.mediaId, null))
+                                YTPlayerUtils.addressIn(YTPlayerUtils.playerResponseForMetadata(StandInMemory.idFor(mediaItem.mediaId), null))
                         }
                     }
                     val playbackUrl = found?.second

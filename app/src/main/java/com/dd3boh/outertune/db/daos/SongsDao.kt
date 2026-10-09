@@ -67,6 +67,13 @@ interface SongsDao {
     @Query("SELECT * FROM song WHERE id = :songId")
     fun songRow(songId: String?): SongEntity?
 
+    /** The names of a song's artists in the order the song lists them, read once like [songRow]. */
+    @Query(
+        "SELECT artist.name FROM song_artist_map JOIN artist ON artist.id = song_artist_map.artistId " +
+            "WHERE song_artist_map.songId = :songId ORDER BY song_artist_map.position"
+    )
+    fun artistNamesOf(songId: String): List<String>
+
     @Transaction
     @Query("SELECT * FROM song WHERE title LIKE '%' || :query || '%' AND (inLibrary IS NOT NULL OR dateDownload IS NOT NULL) LIMIT :previewSize")
     fun searchSongs(query: String, previewSize: Int = Int.MAX_VALUE): Flow<List<Song>>

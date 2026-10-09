@@ -24,7 +24,7 @@ data class RecommendationExclusion(
     val kind: Int,
     val targetId: String,
     val label: String,
-    /** 1 ban, 2 snooze, 3 automatic rest. The strongest reason wins on conflict. */
+    /** 1 ban, 2 snooze, 3 automatic rest, 4 gone from YouTube (GoneSongs). The strongest reason wins on conflict. */
     val reason: Int,
     val createdAt: Long,
     /** Null: until removed. */

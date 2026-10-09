@@ -183,12 +183,22 @@ class DownloadUtil @Inject constructor(
             lastResolveAt = SystemClock.elapsedRealtime()
         }
 
+        // A song whose own id YouTube no longer serves is downloaded from the id the same
+        // recording goes by now, as the player plays it: see StandIns.
         val playbackData = runBlocking(Dispatchers.IO) {
-            YTPlayerUtils.playerResponseForPlayback(
-                mediaId,
-                audioQuality = audioQuality,
-                connectivityManager = connectivityManager,
-            )
+            StandIns(
+                resolve = { id ->
+                    YTPlayerUtils.playerResponseForPlayback(id, audioQuality = audioQuality, connectivityManager = connectivityManager)
+                },
+                wanted = { id ->
+                    database.readOrNull { songRow(id) }?.let { row ->
+                        StandIn.Wanted(row.title, database.readOrNull { artistNamesOf(id) }.orEmpty(), row.duration.takeIf { it > 0 })
+                    }
+                },
+                search = { query ->
+                    YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrThrow().items.filterIsInstance<SongItem>()
+                },
+            ).playbackData(mediaId)
         }.getOrElse {
             if (staleCopy) return@Factory dataSpec
             throw it

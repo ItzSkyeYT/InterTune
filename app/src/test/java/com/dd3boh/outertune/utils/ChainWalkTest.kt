@@ -366,6 +366,45 @@ class ChainWalkTest {
         }
     }
 
+    // A song that is gone is its own kind of failure, for StandIns to act on. The words stay.
+
+    @Test
+    fun `a song every serving client calls gone fails as unavailable, in the words it failed with before`() {
+        val gone = refused("This video is not available", status = "UNPLAYABLE")
+        val script = Script(mapOf("ANDROID_VR" to listOf(refused(bot)), "VISIONOS" to listOf(gone), "IOS" to listOf(gone)))
+
+        val failure = walk(script).exceptionOrNull()
+
+        assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
+        assertEquals("This video is not available", failure?.message)
+        assertEquals(listOf("ANDROID_VR", "VISIONOS", "IOS"), script.askedOf)
+    }
+
+    @Test
+    fun `refused addresses, the bot check and a client that could not be reached are not a song that is gone`() {
+        val gone = refused("This video is not available", status = "UNPLAYABLE")
+        val scripts = listOf(
+            everyAddressRefused(bot),
+            Script(
+                mapOf(
+                    "ANDROID_VR" to listOf(refused(bot)),
+                    "VISIONOS" to listOf(refused(bot)),
+                    "IOS" to listOf(refused(bot)),
+                    "ANDROID_VR as a new visitor" to listOf(refused(bot, carrying = newVisitor)),
+                )
+            ),
+            Script(mapOf("ANDROID_VR" to listOf(refused(bot)), "VISIONOS" to listOf(gone), "IOS" to listOf(UnknownHostException("no address")))),
+        )
+        for (script in scripts) {
+            Throttle.clear("the next case")
+            YTPlayerUtils.streamMemory = Memory()
+            YouTube.visitorData = visitor
+            val failure = walk(script).exceptionOrNull()
+            assertTrue(failure != null)
+            assertFalse(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
+        }
+    }
+
     @Test
     fun `a failure YouTube answered with does not end the song, the rest of the chain is asked`() {
         remembering("VISIONOS", "ANDROID_VR")

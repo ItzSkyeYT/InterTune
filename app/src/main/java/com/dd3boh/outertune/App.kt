@@ -46,12 +46,14 @@ import com.dd3boh.outertune.constants.ProxyEnabledKey
 import com.dd3boh.outertune.constants.ProxyTypeKey
 import com.dd3boh.outertune.constants.ProxyUrlKey
 import com.dd3boh.outertune.constants.SYSTEM_DEFAULT
+import com.dd3boh.outertune.constants.StandInsKey
 import com.dd3boh.outertune.constants.StreamOrderKey
 import com.dd3boh.outertune.constants.UseLoginForBrowse
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.extensions.toInetSocketAddress
 import com.dd3boh.outertune.playback.PlayerLogger
+import com.dd3boh.outertune.playback.StandInMemory
 import com.dd3boh.outertune.utils.CoilBitmapLoader
 import com.dd3boh.outertune.utils.CrashLog
 import com.dd3boh.outertune.utils.LocalArtworkPathKeyer
@@ -142,6 +144,11 @@ class App : Application(), SingletonImageLoader.Factory {
         YTPlayerUtils.streamMemory = StreamOrder.decode(dataStore[StreamOrderKey])
         YTPlayerUtils.onStreamMemoryChanged = { changed ->
             GlobalScope.launch { dataStore.edit { it[StreamOrderKey] = changed } }
+        }
+        // The songs played from another id because YouTube no longer serves their own. See StandIns.
+        StandInMemory.current = StandInMemory.decode(dataStore[StandInsKey])
+        StandInMemory.onChanged = { changed ->
+            GlobalScope.launch { dataStore.edit { it[StandInsKey] = changed } }
         }
         GlobalScope.launch {
             dataStore.data
