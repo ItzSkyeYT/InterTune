@@ -13,7 +13,7 @@
     <string name="quick_picks_source">Quick picks source</string>
     <string name="quick_picks_source_youtube">YouTube Music</string>
     <string name="quick_picks_source_library">Your library</string>
-    <string name="quick_picks_source_description">Where the Quick picks row gets its songs. YouTube Music picks them for your account. Your library builds the row instead from songs related to what you have already played. This changes that one row; the rest of the home screen is the same either way. Best recommendations builds the row itself from how you actually listen: what you finish, search for and like, when you play it, and what you pass over. It is new and it learns as you go.</string>
+    <string name="quick_picks_source_description">Where the Quick picks row gets its songs. YouTube Music uses the shelf YouTube makes for your account, Your library uses songs related to what you play, and Best recommendations builds the row from how you listen. Try both alternates Best recommendations with another source.</string>
     <string name="oobe_update_auto_description">Fetch it in the background so it is ready when you want it. Android still asks you to confirm.</string>
     <string name="oobe_polls_answered">You can change this any time in Settings, under Questions and news.</string>
     <string name="poll_title">A question from InterTune</string>
@@ -26,7 +26,7 @@
     <string name="grp_polls">Questions and news</string>
     <string name="polls_enabled">Ask me the occasional question</string>
     <string name="polls_enabled_description">A short question on Home now and then, about what to build. Off by default.</string>
-    <string name="polls_enabled_info">Now and then InterTune downloads a short list of questions from GitHub and shows the next one at the top of Home. Nothing is downloaded while this and news are both off.\n\nWhat is sent, to count answers and views:\n• When you answer a question: the question, your choice and the app version.\n• The first time you open a question: its title and the app version.\n\nNever your account, your device or anything about your library.</string>
+    <string name="polls_enabled_info">Now and then InterTune downloads a short list of questions from GitHub and shows one at the top of Home. Answering sends the question, your choice and the app version; opening one for the first time sends its title and the app version. Never your account, your device or your library.</string>
     <string name="polls_none">No question right now</string>
     <string name="polls_one_waiting">There is a question waiting</string>
     <string name="polls_forget">Let me be asked again</string>
@@ -227,7 +227,7 @@
     <string name="quick_picks_lean_set_aside_chip">The %1$s chip on Home takes over while it is on.</string>
     <string name="quick_picks_lean_set_aside_new_only">New songs only takes over while it is on.</string>
     <string name="quick_picks_lean_new_only_strict">With New songs only on, Best recommendations picks only songs you have never even started, as long as there are enough.</string>
-    <string name="quick_picks_lean_info">Auto is the usual mix, picked by what Best recommendations has learned from your listening. Each other choice gives one kind of song most of the Best recommendations cards, the first ones included, as long as there are enough such songs. It applies while Quick picks source is Best recommendations or Try both, and changing it then rebuilds Quick picks at once. With Songs that fit what I am playing now, Quick picks is also rebuilt once you have listened to a few songs from elsewhere and come back to Home.</string>
+    <string name="quick_picks_lean_info">Auto is the usual mix, from what Best recommendations has learned. Each other choice gives one kind of song most of its cards. Songs that fit what I am playing now also rebuilds Quick picks once you have listened to a few songs from elsewhere.</string>
     <string name="quick_picks_leaning_new">Leaning toward songs you have never heard</string>
     <string name="quick_picks_leaning_artist">Leaning toward artists you keep coming back to</string>
     <string name="quick_picks_leaning_forgotten">Leaning toward things you loved and forgot about</string>
@@ -243,7 +243,7 @@
     <string name="why_these_lean">Leaning toward: %1$s, %2$d of the %3$d cards on screen</string>
     <string name="adventurousness_description_lean_new">Set by Quick picks leaning toward songs you have never heard: %1$d of 20 cards.</string>
     <string name="recommendations_summary_too_early_choice">Too early to tell which way it is going since you changed what Quick picks leans toward.</string>
-    <string name="context_chips_info">The first chip is your usual row: Auto, or the short name of what you chose under Quick picks leans toward. Discover gives at least half the row to songs new to you. Favourites starts only from songs you have liked, and leans toward your artists and old favourites.\n\nFocus, Chill and Party start from what song titles say about the recording, such as slowed or nightcore. They learn from what you play while each is on, and after eight plays heard well they follow those alone. New songs only gives the whole row to songs you have not heard well. A chip stays on until you change it.</string>
+    <string name="context_chips_info">The first chip is your usual row. The others lean it for now: Discover toward songs new to you, Favourites toward what you have liked, and Focus, Chill and Party toward what you play while each is on. A chip stays on until you change it.</string>
     <string name="share_link_kind_title">Links you share</string>
     <string name="share_link_youtube_music">YouTube Music link</string>
     <string name="share_link_page">A page for any music app</string>
