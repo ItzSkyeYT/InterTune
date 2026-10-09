@@ -316,18 +316,54 @@ class ChainWalkTest {
     }
 
     @Test
-    fun `what the throttle hears of such a song is the main client's refusal, where the phone's language lets it read one`() {
-        // That evening Home said "YouTube has paused this connection" for five minutes. No client
-        // that serves music had given the bot check: the words were the main client's, which it
-        // gives for every song on every network, and which reach the throttle when a chain fails.
+    fun `the main client's refusal alone does not reach the throttle, whatever the phone's language`() {
+        // That evening Home said "YouTube has paused this connection" and held recommendations,
+        // downloads and sync for five minutes. No client that serves music had given the bot
+        // check: the words were the main client's, which it gives for every song on every
+        // network. They reached the throttle whenever a chain failed, and on a phone set to
+        // English only, since the main client is asked in the phone's language and the throttle
+        // reads English.
         walk(everyAddressRefused(bot))
-        assertTrue("an English phone backs off on the main client's refusal", Throttle.isBlocked)
+        assertFalse("an English phone", Throttle.isBlocked)
 
-        // The main client is asked in the phone's language, and the throttle reads English only.
-        Throttle.clear("the same song on a French phone")
         YTPlayerUtils.streamMemory = Memory()
         walk(everyAddressRefused(botInFrench))
-        assertFalse("a French phone does not, for the very same answers", Throttle.isBlocked)
+        assertFalse("a French phone", Throttle.isBlocked)
+    }
+
+    @Test
+    fun `a song that is simply unavailable does not back the app off`() {
+        // What Throttle.looksLikeBlock is careful about, one region locked track stopping the
+        // whole library, happened by this road on every English phone.
+        val gone = refused("This video is not available", status = "UNPLAYABLE")
+        val script = Script(mapOf("ANDROID_VR" to listOf(refused(bot)), "VISIONOS" to listOf(gone), "IOS" to listOf(gone)))
+
+        val result = walk(script)
+
+        assertEquals("This video is not available", result.exceptionOrNull()?.message)
+        assertFalse(Throttle.isBlocked)
+    }
+
+    @Test
+    fun `the bot check from a client that serves music does reach the throttle, in either language`() {
+        // The fallback clients are asked in English whatever the phone is set to, so this was
+        // already the same on every phone. It is here so that it stays.
+        for (mainSays in listOf(bot, botInFrench)) {
+            Throttle.clear("the next phone")
+            YTPlayerUtils.streamMemory = Memory()
+            YouTube.visitorData = visitor
+            val script = Script(
+                mapOf(
+                    "ANDROID_VR" to listOf(refused(mainSays)),
+                    "VISIONOS" to listOf(refused(bot)),
+                    "IOS" to listOf(refused(bot)),
+                    "ANDROID_VR as a new visitor" to listOf(refused(mainSays, carrying = newVisitor)),
+                )
+            )
+
+            assertTrue(walk(script).isFailure)
+            assertTrue("the main client said: $mainSays", Throttle.isBlocked)
+        }
     }
 
     @Test
