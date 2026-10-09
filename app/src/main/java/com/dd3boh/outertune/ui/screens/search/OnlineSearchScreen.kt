@@ -51,7 +51,6 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.SuggestionItemHeight
 import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.extensions.toMediaItem
-import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
@@ -248,7 +247,7 @@ fun OnlineSearchScreen(
                             when (item) {
                                 is SongItem -> {
                                     if (item.id == mediaMetadata?.id) {
-                                        playerConnection.player.togglePlayPause()
+                                        playerConnection.togglePlayPause()
                                     } else {
                                         // Same change as the full results screen: a tapped suggestion
                                         // starts a radio from that song rather than queueing the rest

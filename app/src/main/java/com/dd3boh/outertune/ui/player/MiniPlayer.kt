@@ -62,7 +62,6 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
-import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.button.IconButton
 import kotlin.math.roundToInt
@@ -200,12 +199,9 @@ fun MiniPlayer(
 
             IconButton(
                 onClick = {
-                    // Same three-tap bug as the full player. togglePlayPause now prepares,
-                    // rewinds when ended, and plays.
-                    if (playerConnection.player.currentMediaItem == null) {
-                        playerConnection.service.queueBoard.setCurrQueue()
-                    }
-                    playerConnection.player.togglePlayPause()
+                    // Same three-tap bug as the full player. The connection loads the saved queue
+                    // into an empty player, then prepares, rewinds when ended, and plays.
+                    playerConnection.togglePlayPause()
                 }
             ) {
                 Icon(

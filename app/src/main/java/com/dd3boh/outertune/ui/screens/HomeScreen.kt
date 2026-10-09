@@ -124,7 +124,6 @@ import com.dd3boh.outertune.db.entities.Artist
 import com.dd3boh.outertune.db.entities.LocalItem
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.Song
-import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
@@ -310,7 +309,7 @@ fun HomeScreen(
                     .combinedClickable(
                         onClick = {
                             if (it.id == mediaMetadata?.id) {
-                                playerConnection.player.togglePlayPause()
+                                playerConnection.togglePlayPause()
                             } else {
                                 val song = it.toMediaMetadata()
                                 if (song.isLocal) {
@@ -831,7 +830,7 @@ fun HomeScreen(
                                             .combinedClickable(
                                                 onClick = {
                                                     if (song.id == mediaMetadata?.id) {
-                                                        playerConnection.player.togglePlayPause()
+                                                        playerConnection.togglePlayPause()
                                                     } else {
                                                         val tappedAt = System.currentTimeMillis()
                                                         viewModel.quickPickTapped(slot, tappedAt)
