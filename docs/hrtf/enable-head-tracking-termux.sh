@@ -21,7 +21,16 @@ if ! su -c 'id' 2>/dev/null | grep -q 'uid=0'; then
     exit 1
 fi
 
-cat > "$WORKER" <<'WORKER_EOF'
+# Only root and adb's shell may write under /data/local/tmp. So the worker is written in a
+# folder of Termux's own and root copies it over: written there straight from Termux it was
+# "Permission denied", and nothing ran. Started from a root shell it is staged beside itself.
+if [ "$(id -u)" = "0" ]; then
+    STAGE="$WORKER.staged"
+else
+    STAGE="${TMPDIR:-${HOME:-/data/data/com.termux/files/home}}/ht-enable-worker.staged"
+fi
+
+cat > "$STAGE" <<'WORKER_EOF'
 #!/system/bin/sh
 # Runs as root, detached, so it survives system_server restarting.
 exec >> /data/local/tmp/ht-enable.log 2>&1
@@ -71,8 +80,15 @@ else
 fi
 WORKER_EOF
 
-chmod 755 "$WORKER"
-: > "$LOG"
+if [ ! -s "$STAGE" ]; then
+    echo "Could not write $STAGE. Nothing was changed." >&2
+    exit 1
+fi
+if ! su -c "cp '$STAGE' '$WORKER' && chmod 755 '$WORKER' && : > '$LOG' && chmod 644 '$LOG'"; then
+    echo "Root could not put the worker in /data/local/tmp. Nothing was changed." >&2
+    exit 1
+fi
+rm -f "$STAGE"
 
 echo "handing off to a detached root process"
 echo "Termux will be killed when the phone soft reboots. That is expected."
@@ -81,4 +97,4 @@ echo "Afterwards:  su -c 'cat $LOG'"
 su -c "setsid sh $WORKER < /dev/null > /dev/null 2>&1 &"
 
 sleep 4
-cat "$LOG" 2>/dev/null || true
+su -c "cat $LOG" 2>/dev/null || true
