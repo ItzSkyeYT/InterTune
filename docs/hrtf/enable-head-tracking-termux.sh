@@ -52,16 +52,36 @@ else
 
     echo "restarting sensors HAL, the phone will soft reboot"
     setprop ctl.restart vendor.sensors-hal-multihal
+    RESTARTED=1
+fi
+
+up() { dumpsys sensorservice 2>/dev/null | head -1 | grep -q 'Captured at'; }
+
+# The restart takes a moment to reach sensorservice. Asked three seconds after it, the
+# service still answered, as the one about to go: "back after 0s". What was then set on
+# it went down with it, and the head tracker was looked for before anything had come back.
+if [ -n "${RESTARTED:-}" ]; then
+    echo "waiting for sensorservice to go down"
+    i=0
+    while [ $i -lt 10 ] && up; do
+        sleep 2
+        i=$((i + 1))
+    done
+    if up; then
+        echo "still up after 20s: the HAL restarted without taking it down"
+    else
+        echo "down after $((i * 2))s"
+    fi
 fi
 
 echo "waiting for sensorservice"
 i=0
 while [ $i -lt 60 ]; do
-    sleep 3
-    if dumpsys sensorservice 2>/dev/null | head -1 | grep -q 'Captured at'; then
-        echo "sensorservice back after $((i * 3))s"
+    if up; then
+        echo "sensorservice up after $((i * 3))s"
         break
     fi
+    sleep 3
     i=$((i + 1))
 done
 
@@ -69,15 +89,27 @@ done
 # to system_server and audioserver with no permission that satisfies it. Root
 # passes every permission check, so it can run this as well as shell can.
 sleep 5
-cmd sensorservice unrestrict-ht
-echo "unrestrict-ht done"
-
-if dumpsys sensorservice | grep -q head_tracker; then
-    dumpsys sensorservice | grep 'head_tracker(37)'
-    echo "HEAD TRACKING LIVE"
+if cmd sensorservice unrestrict-ht; then
+    echo "unrestrict-ht done"
 else
-    echo "no head tracker. Connect the headphones and run this again."
+    echo "unrestrict-ht FAILED: sensorservice did not take it"
 fi
+
+# A head tracker is only there while the headphones are connected, and after a soft reboot
+# they take a while to come back. Looked for once, straight away, it was never there.
+echo "looking for the head tracker, for up to a minute"
+i=0
+while [ $i -lt 20 ]; do
+    if dumpsys sensorservice | grep -q head_tracker; then
+        dumpsys sensorservice | grep 'head_tracker(37)'
+        echo "HEAD TRACKING LIVE"
+        exit 0
+    fi
+    sleep 3
+    i=$((i + 1))
+done
+echo "no head tracker after a minute. The rest is in place: connect the headphones and"
+echo "put them in your ears. If InterTune still shows none, run this again; it restarts nothing now."
 WORKER_EOF
 
 if [ ! -s "$STAGE" ]; then
@@ -92,7 +124,7 @@ rm -f "$STAGE"
 
 echo "handing off to a detached root process"
 echo "Termux will be killed when the phone soft reboots. That is expected."
-echo "Afterwards:  su -c 'cat $LOG'"
+echo "It takes up to two minutes. Then:  su -c 'cat $LOG'"
 
 su -c "setsid sh $WORKER < /dev/null > /dev/null 2>&1 &"
 
