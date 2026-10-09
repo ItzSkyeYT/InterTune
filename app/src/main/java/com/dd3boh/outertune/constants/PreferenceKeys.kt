@@ -375,6 +375,12 @@ val VisitorDataKey = stringPreferencesKey("visitorData")
  * it, so the first song after a launch is asked of the client that worked before it.
  */
 val StreamOrderKey = stringPreferencesKey("streamOrder")
+
+/**
+ * Songs whose own id YouTube no longer serves, each with the id it is played from, as
+ * StandInMemory.encode writes them. See StandIns.
+ */
+val StandInsKey = stringPreferencesKey("standIns")
 val DataSyncIdKey = stringPreferencesKey("dataSyncId")
 val InnerTubeCookieKey = stringPreferencesKey("innerTubeCookie")
 val AccountNameKey = stringPreferencesKey("accountName")

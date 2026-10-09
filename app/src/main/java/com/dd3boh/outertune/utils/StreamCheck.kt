@@ -131,6 +131,44 @@ object StreamCheck {
         else -> ChainFailure.Unknown
     }
 
+    /**
+     * YouTube's words for a song nobody asking this way is served: taken down, made private, not
+     * licensed in this country, for paying members only.
+     *
+     * Matched on text, like the bot check, and for the same reason. The status does not tell "this
+     * song is gone" from "this client is no longer welcome": YouTube answers a client it has
+     * retired with UNPLAYABLE as well, for every song at once, and reading that as the song being
+     * gone would have the app looking for another copy of everything it is asked to play.
+     */
+    private val GONE = listOf(
+        "video is not available", "video unavailable", "video is unavailable",
+        "video is private", "private video",
+        "has been removed", "no longer available", "terminated",
+        "available in your country", "blocked it in your country",
+        "requires payment", "only available to",
+    )
+
+    /** Words for the client being turned away, whatever else the sentence says of the video. */
+    private val NOT_THE_SONG = listOf("on this app", "on this device", "latest version", "update")
+
+    fun saysGone(reason: String?): Boolean {
+        val r = reason?.lowercase() ?: return false
+        return GONE.any { it in r } && NOT_THE_SONG.none { it in r }
+    }
+
+    /**
+     * What a walk that found no stream says of the song itself: the first fallback client's
+     * answer, when every fallback client asked did answer, none with a stream to try, and each in
+     * words that mean the song is gone. Null for everything else: a client the network did not
+     * reach ([unreached]), one that answered OK and had its address refused, the bot check, the
+     * age gate, words not known. A song is called gone on YouTube's say alone, never on a guess.
+     */
+    fun unavailableSong(
+        fallbacks: List<PlayerResponse.PlayabilityStatus>,
+        unreached: Boolean,
+    ): PlayerResponse.PlayabilityStatus? =
+        fallbacks.firstOrNull()?.takeIf { !unreached && fallbacks.all { it.status != "OK" && saysGone(it.reason) } }
+
     private val HOST_NAME = Regex("""[A-Za-z0-9.-]{1,253}""")
     private val NUMBER = Regex("""\d{1,12}""")
     private val MIME_TYPE = Regex("""[A-Za-z]{1,12}/[A-Za-z0-9-]{1,16}""")

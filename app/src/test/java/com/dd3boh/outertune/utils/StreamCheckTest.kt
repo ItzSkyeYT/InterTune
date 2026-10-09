@@ -204,4 +204,69 @@ class StreamCheckTest {
         val player = File("src/main/java/com/dd3boh/outertune/utils/YTPlayerUtils.kt").readText()
         assertTrue("the stream url line was not found", "stream url: \${StreamCheck.urlForLog(streamUrl)}" in player)
     }
+
+    // A song that is gone, as against a client that is turned away or a network that is not there.
+
+    private fun said(status: String, reason: String?) = PlayerResponse.PlayabilityStatus(status, reason)
+
+    @Test
+    fun `YouTube's words for a song that is gone are read as that`() {
+        for (reason in listOf(
+            "This video is not available",
+            "Video unavailable",
+            "This video is unavailable",
+            "This video is private",
+            "Private video",
+            "This video has been removed by the uploader",
+            "This video is no longer available because the YouTube account associated with this video has been terminated.",
+            "The uploader has not made this video available in your country",
+            "This video contains content from SME, who has blocked it in your country on copyright grounds",
+            "This video requires payment to watch",
+            "This video is only available to Music Premium members",
+        )) assertTrue(reason, StreamCheck.saysGone(reason))
+    }
+
+    @Test
+    fun `words for the client being turned away are not, nor the bot check, the age gate or nothing`() {
+        for (reason in listOf(
+            "The following content is not available on this app. Watch on the latest version of YouTube.",
+            "This video is unavailable on this device",
+            "Please update the app to watch this video",
+            "Sign in to confirm you’re not a bot",
+            "Sign in to confirm your age",
+            "This live stream recording is not available.",
+            "An error occurred. Please try again later.",
+            "",
+            null,
+        )) assertFalse(reason.toString(), StreamCheck.saysGone(reason))
+    }
+
+    @Test
+    fun `a song is gone when every client that serves music says so`() {
+        val first = said("UNPLAYABLE", "This video is not available")
+        assertSame(first, StreamCheck.unavailableSong(listOf(first, said("ERROR", "Video unavailable")), unreached = false))
+        assertSame(first, StreamCheck.unavailableSong(listOf(first), unreached = false))
+    }
+
+    @Test
+    fun `a song is not called gone on anything less`() {
+        val gone = said("UNPLAYABLE", "This video is not available")
+        // Nobody was asked.
+        assertNull(StreamCheck.unavailableSong(emptyList(), unreached = false))
+        // One client was not reached: what it would have said is not known.
+        assertNull(StreamCheck.unavailableSong(listOf(gone), unreached = true))
+        // One client had the song and its address was refused: the song is there.
+        assertNull(StreamCheck.unavailableSong(listOf(gone, said("OK", null)), unreached = false))
+        // One client gave the bot check, or words nobody has seen: it is not the song's fault yet.
+        assertNull(StreamCheck.unavailableSong(listOf(gone, said("LOGIN_REQUIRED", "Sign in to confirm you’re not a bot")), unreached = false))
+        assertNull(StreamCheck.unavailableSong(listOf(gone, said("UNPLAYABLE", "Something new")), unreached = false))
+        assertNull(StreamCheck.unavailableSong(listOf(gone, said("UNPLAYABLE", null)), unreached = false))
+        // A client YouTube has retired says UNPLAYABLE for every song there is.
+        assertNull(
+            StreamCheck.unavailableSong(
+                listOf(said("UNPLAYABLE", "The following content is not available on this app. Watch on the latest version of YouTube.")),
+                unreached = false,
+            )
+        )
+    }
 }

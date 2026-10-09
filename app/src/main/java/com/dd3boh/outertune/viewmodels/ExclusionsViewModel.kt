@@ -37,7 +37,13 @@ class ExclusionsViewModel @Inject constructor(
         const val REASON_BAN = 1
         const val REASON_SNOOZE = 2
         const val REASON_REST = 3
+
+        /** YouTube no longer serves the song and no copy of it played: see GoneSongs. */
+        const val REASON_GONE = 4
         const val SNOOZE_MS = 30L * 24 * 60 * 60 * 1000
         const val REST_MS = 7L * 24 * 60 * 60 * 1000
+
+        /** Songs come back: a block is lifted, a video restored. After a month the song may be offered once more. */
+        const val GONE_MS = 30L * 24 * 60 * 60 * 1000
     }
 }

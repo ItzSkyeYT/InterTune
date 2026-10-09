@@ -67,6 +67,7 @@ fun ExclusionsSettings(
     fun reasonText(e: RecommendationExclusion): String = when (e.reason) {
         ExclusionsViewModel.REASON_BAN -> stringResource(if (e.kind == ExclusionsViewModel.KIND_SONG) R.string.exclusion_reason_song_ban else R.string.exclusion_reason_artist_ban)
         ExclusionsViewModel.REASON_SNOOZE -> stringResource(R.string.exclusion_reason_snooze)
+        ExclusionsViewModel.REASON_GONE -> stringResource(R.string.exclusion_reason_gone)
         else -> stringResource(R.string.exclusion_reason_rest)
     }
 
