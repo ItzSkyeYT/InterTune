@@ -57,7 +57,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_audio_off">Off</string>
     <string name="spatial_audio_headphones">Headphones</string>
     <string name="spatial_audio_surround">Surround upmix</string>
-    <string name="spatial_audio_explain">Headphones put the music inside your head. This puts it in front of you instead.\n\nHeadphones does it in the app, so it works on any phone. Surround upmix asks your phone to do it, which only helps if your phone supports it.</string>
+    <string name="spatial_audio_explain">Headphones put the music inside your head. This puts it in front of you instead.\n\n\"Headphones\" does it in the app, so it works on any phone. \"Surround upmix\" asks your phone to do it, which only helps if your phone supports it.</string>
     <string name="stage_width">Stage width</string>
     <string name="stage_width_value">Speakers at %1$d degrees either side</string>
     <string name="stage_width_explain">How far apart the two virtual speakers are. 30 degrees is what stereo is mixed for.\n\nWider separates the instruments more. Too wide leaves a gap in the middle.</string>
@@ -74,7 +74,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="head_tracking_response_balanced">Balanced</string>
     <string name="head_tracking_response_quick">Quick</string>
     <string name="head_tracking_response_instant">Instant</string>
-    <string name="head_tracking_response_explain">Sound takes time to reach your ears, so the app aims slightly ahead of your head.\n\nQuick and Instant feel immediate but can overshoot when you stop turning. Smooth never overshoots but feels slightly behind.</string>
+    <string name="head_tracking_response_explain">Sound takes time to reach your ears, so the app aims slightly ahead of your head.\n\n\"Quick\" and \"Instant\" feel immediate but can overshoot when you stop turning. \"Smooth\" never overshoots but feels slightly behind.</string>
     <string name="proximity_volume">Quieter as you walk away</string>
     <string name="proximity_volume_description">Treats your phone as where the music is coming from.</string>
     <string name="proximity_volume_explain">Your phone becomes where the music comes from. Walk away and it gets quieter.\n\nIt judges distance from Bluetooth signal strength, which is rough, so it changes slowly and only a little. It never mutes.</string>
@@ -282,7 +282,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="quick_picks_source_engine">Best recommendations (experimental)</string>
     <string name="quick_picks_source_compare">Try both (experimental)</string>
     <string name="quick_picks_source_off">Off</string>
-    <string name="quick_picks_source_description">Where the Quick picks row gets its songs. YouTube Music uses the shelf YouTube makes for your account, Your library uses songs related to what you play, and Best recommendations builds the row from how you listen. Try both alternates Best recommendations with another source.</string>
+    <string name="quick_picks_source_description">Where the \"Quick picks\" row gets its songs. \"YouTube Music\" uses the shelf YouTube makes for your account, \"Your library\" uses songs related to what you play, and \"Best recommendations\" builds the row from how you listen. \"Try both\" alternates \"Best recommendations\" with another source.</string>
     <string name="oobe_update_auto_description">Fetch it in the background so it is ready when you want it. Android still asks you to confirm.</string>
     <string name="oobe_polls_answered">You can change this any time in Settings, under Questions and news.</string>
     <string name="oobe_usage_count_answered">You can change this any time in Settings, under Anonymous count.</string>
@@ -368,7 +368,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="keep_alive_description">Use a persistent foreground service to prevent InterTune from being closed in the background</string>
     <string name="persistent_queue_desc_ot">Restore previous open queue(s) when the app starts</string>
     <string name="min_playback_duration">Minimum playback duration</string>
-    <string name="min_playback_duration_description">How much of a song has to play before it counts as a play. This decides play counts, Most played and what reaches your YouTube history. The History screen lists every song heard for 2 seconds or more, whatever this is set to.</string>
+    <string name="min_playback_duration_description">How much of a song has to play before it counts as a play. This decides play counts, \"Most played\" and what reaches your YouTube history. The \"History\" screen lists every song heard for 2 seconds or more, whatever this is set to.</string>
     <string name="swipe2Queue">Swipe to queue</string>
     <string name="swipe2Queue_description">Swipe on a song to add it to "enqueue next" directly after currently playing song</string>
     <string name="seek_increment">Seek increment</string>
@@ -835,12 +835,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="walkthrough_settings_title">All of it is a setting</string>
     <string name="recognise_settings_description">What happens when you ask InterTune to name what is playing.</string>
     <string name="recognise_keep_listening_desc">The big button keeps going until you stop it, instead of naming one song and finishing. The cards on the screen pick for one run.</string>
-    <string name="recognise_keep_listening_explain">A single listen takes about ten seconds. Keep listening carries on, adding each new song it hears, even with the screen off. It uses the microphone and the network the whole time, so it costs battery.</string>
+    <string name="recognise_keep_listening_explain">A single listen takes about ten seconds. \"Keep listening\" carries on, adding each new song it hears, even with the screen off. It uses the microphone and the network the whole time, so it costs battery.</string>
     <string name="recognise_pause_title">Pause my music while listening</string>
     <string name="recognise_pause_desc">Only when the sound is coming from the phone itself.</string>
     <string name="recognise_pause_explain">From the phone\'s speaker, the microphone would hear this app and name the song already playing. On headphones nothing is paused, because your music never reaches the microphone.</string>
     <string name="recognise_clear_history_desc">Forget the songs recognised so far.</string>
-    <string name="recognise_clear_history_explain">Empties What you have heard (the last 200 recognised songs) and this session\'s list, and stops any listening in progress. Nothing on it was in your library or history unless you saved it as a playlist.</string>
+    <string name="recognise_clear_history_explain">Empties \"What you have heard\" (the last 200 recognised songs) and this session\'s list, and stops any listening in progress. Nothing on it was in your library or history unless you saved it as a playlist.</string>
     <string name="recognise_play">Play</string>
     <string name="recognise_save_as_playlist">Save as playlist</string>
     <!-- %1$s is the playlist's name. -->
@@ -908,7 +908,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recognition_service_none">Nothing added yet</string>
     <string name="discover_something_new">Discover something new</string>
     <string name="discover_row_description">A row under Quick picks of songs you have never played</string>
-    <string name="discover_row_info">Songs you have never played, picked the way Best recommendations picks them, from what you listen to. A song you skipped after a few seconds counts as played. Pull to refresh for other songs.</string>
+    <string name="discover_row_info">Songs you have never played, picked the way \"Best recommendations\" picks them, from what you listen to. A song you skipped after a few seconds counts as played. Pull to refresh for other songs.</string>
     <string name="recognition_service_none_heard">Nothing recognised yet</string>
     <string name="recognition_service_stop">Stop</string>
     <plurals name="recognition_service_added">
@@ -1440,45 +1440,45 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_rounded_corners">Rounded corners</string>
 
 <!-- Recommendations: the little "i" beside every item, and what it opens -->
-    <string name="recommendations_home_title_info">Tidy Home rows and Rank with your listening act on songs once they have arrived, whatever fills Quick picks. The first works on every recommendation row, the second only puts Quick picks in order.</string>
-    <string name="tidy_home_rows_info">No Home row shows a song an earlier row already has, and versions of one song (live, remastered, video) count as the same. Nothing fills a gap, so a row can come up short. Off, your exclusions only filter the Best recommendations row.</string>
-    <string name="rank_with_listening_info">Puts the Quick picks row in an order that suits you: songs you play often, played lately or liked tend to come first. Nothing is added or removed. It leaves the row alone when Best recommendations or Try both fills it.</string>
-    <string name="recommendations_engine_title_info">The row is twenty cards: songs related to what you play, songs you keep coming back to, more from your artists, old favourites gone quiet, and a few new to you. These settings apply while Quick picks source is Best recommendations or Try both.</string>
+    <string name="recommendations_home_title_info">\"Tidy Home rows\" and \"Rank with your listening\" act on songs once they have arrived, whatever fills \"Quick picks\". The first works on every recommendation row, the second only puts \"Quick picks\" in order.</string>
+    <string name="tidy_home_rows_info">No Home row shows a song an earlier row already has, and versions of one song (live, remastered, video) count as the same. Nothing fills a gap, so a row can come up short. Off, your exclusions only filter the \"Best recommendations\" row.</string>
+    <string name="rank_with_listening_info">Puts the \"Quick picks\" row in an order that suits you: songs you play often, played lately or liked tend to come first. Nothing is added or removed. It leaves the row alone when \"Best recommendations\" or \"Try both\" fills it.</string>
+    <string name="recommendations_engine_title_info">The row is twenty cards: songs related to what you play, songs you keep coming back to, more from your artists, old favourites gone quiet, and a few new to you. These settings apply while \"Quick picks source\" is \"Best recommendations\" or \"Try both\".</string>
     <string name="adventurousness_info">Higher gives more of the row to songs new to you: one card of twenty at 0, two at 50, three at 100. The other kinds of card make room. A change shows the next time the row is made, or when you pull down on Home.</string>
     <string name="familiarity_info">Higher gives more of the row to songs you got into in the last two weeks: none at 0, four cards of twenty at 25, up to eleven at 60. The other kinds of card make room.</string>
-    <string name="similar_source_info">Where Best recommendations and Discover something new find songs like the ones you play. With Both or Last.fm only, the title and artist of songs you play or have liked go to Last.fm, nothing else and no account. YouTube only sends Last.fm nothing.</string>
-    <string name="similar_mix_info">Both starts half and half. The source whose songs you play more of gets more of the places, up to four in five, and the other always keeps one in five so it can win them back.</string>
-    <string name="new_songs_only_info">The whole row goes to songs you have not heard past about halfway; one you skipped early still counts as new. Adventurousness and Familiarity stop mattering while it is on. The row can come up short, and Quick picks then shows another source.</string>
+    <string name="similar_source_info">Where \"Best recommendations\" and \"Discover something new\" find songs like the ones you play. With \"Both\" or \"Last.fm only\", the title and artist of songs you play or have liked go to Last.fm, nothing else and no account. \"YouTube only\" sends Last.fm nothing.</string>
+    <string name="similar_mix_info">\"Both\" starts half and half. The source whose songs you play more of gets more of the places, up to four in five, and the other always keeps one in five so it can win them back.</string>
+    <string name="new_songs_only_info">The whole row goes to songs you have not heard past about halfway; one you skipped early still counts as new. \"Adventurousness\" and \"Familiarity\" stop mattering while it is on. The row can come up short, and \"Quick picks\" then shows another source.</string>
     <string name="show_reasons_info">Each card says the main reason it is there: a song it goes with, an artist you play, a like, or that it is new to you. A wildcard is a card picked at random to keep the row fresh.</string>
-    <string name="exclusions_info">Long-press a card in Quick picks for Not this song, Less of this artist (for a month) or Never this artist. They only filter the recommendation rows, never search, your library or playlists. This page lists what is in force, and Lift removes one.</string>
-    <string name="rest_songs_i_skip_info">Skip a song you like or play often before its halfway point, and it stays out of the Best recommendations row for a week. A skip in the first thirty seconds does not count. You can lift a rest early on the Exclusions page.</string>
-    <string name="rests_everywhere_info">A rested song is also kept out of the other Home rows, not only Best recommendations. Those rows can come back shorter. It needs Tidy Home rows on.</string>
-    <string name="recommendations_learning_title_info">Learn from listening decides whether it learns at all. Rests and exclusions keep songs out of the row: a rest lasts a week after a skip, an exclusion as long as you chose.</string>
-    <string name="recommendations_doing_info">Worked out on this phone from your own listening, and nothing leaves it unless you save a copy under Your data. Give it a few weeks before you read much into the numbers.</string>
+    <string name="exclusions_info">Long-press a card in \"Quick picks\" for \"Not this song\", \"Less of this artist\" (for a month) or \"Never this artist\". They only filter the recommendation rows, never search, your library or playlists. This page lists what is in force, and \"Lift\" removes one.</string>
+    <string name="rest_songs_i_skip_info">Skip a song you like or play often before its halfway point, and it stays out of the \"Best recommendations\" row for a week. A skip in the first thirty seconds does not count. You can lift a rest early on the \"Exclusions\" page.</string>
+    <string name="rests_everywhere_info">A rested song is also kept out of the other Home rows, not only \"Best recommendations\". Those rows can come back shorter. It needs \"Tidy Home rows\" on.</string>
+    <string name="recommendations_learning_title_info">\"Learn from listening\" decides whether it learns at all. Rests and exclusions keep songs out of the row: a rest lasts a week after a skip, an exclusion as long as you chose.</string>
+    <string name="recommendations_doing_info">Worked out on this phone from your own listening, and nothing leaves it unless you save a copy under \"Your data\". Give it a few weeks before you read much into the numbers.</string>
     <string name="recommendations_data_info">What it has learned is kept on this phone. Here you can take back a session or a day, reset or rebuild it, and save or load a copy. Anything that changes it asks first.</string>
-    <string name="recommendations_summary_info">Seen means a card was on screen for half a second, or you tapped it. Played means you heard a good part of that song, or liked it. A card you did not tap is judged a day later, so the newest are not counted yet.</string>
-    <string name="recommendations_doing_title_info">Worked out on this phone from your own listening; nothing leaves it unless you save a copy under Your data. Give it a few weeks: a card is judged a day late, and it learns only a little each day.</string>
+    <string name="recommendations_summary_info">\"Seen\" means a card was on screen for half a second, or you tapped it. \"Played\" means you heard a good part of that song, or liked it. A card you did not tap is judged a day later, so the newest are not counted yet.</string>
+    <string name="recommendations_doing_title_info">Worked out on this phone from your own listening; nothing leaves it unless you save a copy under \"Your data\". Give it a few weeks: a card is judged a day late, and it learns only a little each day.</string>
     <string name="learn_from_listening_info">Each card it showed you is judged against what you did next, and that nudges how it scores cards like it. Off, it stops learning; your plays are still logged, so History and Stats are untouched. It all runs on the phone.</string>
     <string name="recommendations_wins_info">Of the cards each source showed you, how many you went on to play. Every source is counted by the same rules, so the lines can be compared. A card you did not tap waits a day before it counts.</string>
-    <string name="shadow_comparison_info">The unseen row is built when Home opens and is never shown. A day later it is checked against what you went on to play; it teaches Best recommendations nothing. Off, the unseen line on this page stops filling in.</string>
+    <string name="shadow_comparison_info">The unseen row is built when Home opens and is never shown. A day later it is checked against what you went on to play; it teaches \"Best recommendations\" nothing. Off, the unseen line on this page stops filling in.</string>
     <string name="recommendations_held_info">A day after a row changes, the app looks at the songs you chose to play in the meantime. A song counts as held when it was already in that row. Expect low numbers: the row had to guess what you would pick on your own.</string>
     <string name="recommendations_brier_info">Every card it shows carries its guess at how likely you are to play it. The first line puts the average guess beside how many were played: the closer the two, the better. The lines under it group the cards by the chance it gave them.</string>
     <string name="recommendations_weights_info">Each line is one weight, with its starting value in brackets. Above its start, that feature pushes a card\'s score up more; below, it pushes it down more. Read each against its own start, not against the others.</string>
-    <string name="recommendations_reset_weights_info">It goes back to how it started, as if it had learned nothing. Your listens, exclusions and settings are kept, and Rebuild what it learned brings the learning back. It asks first.</string>
-    <string name="recommendations_rebuild_weights_info">It starts from the beginning and learns again from every card it has shown you, leaving out what you told it to forget. Use it after a Reset, or after loading a copy. It asks first, and a long history takes longer.</string>
+    <string name="recommendations_reset_weights_info">It goes back to how it started, as if it had learned nothing. Your listens, exclusions and settings are kept, and \"Rebuild what it learned\" brings the learning back. It asks first.</string>
+    <string name="recommendations_rebuild_weights_info">It starts from the beginning and learns again from every card it has shown you, leaving out what you told it to forget. Use it after \"Reset what it learned\", or after loading a copy. It asks first, and a long history takes longer.</string>
     <string name="forget_last_session_info">Takes back the session of what is playing now, or of your last play: its listens stop teaching, and what it learned is worked out again without them. It asks first, saying how many listens. History, Stats and play counts are untouched.</string>
     <string name="forget_today_info">Every play started since midnight stops teaching, and what it learned is worked out again without them. It asks first, saying how many listens. A song that began before midnight belongs to yesterday and stays.</string>
-    <string name="engine_developer_info">The engine\'s constants, each with its default: a number overrides one, an empty field restores it. They change the Best recommendations row only, not what it learns. Pull down on Home to see a change.</string>
+    <string name="engine_developer_info">The engine\'s constants, each with its default: a number overrides one, an empty field restores it. They change the \"Best recommendations\" row only, not what it learns. Pull down on Home to see a change.</string>
     <string name="export_engine_data_info">Saves what it has learned as a file of numbers, where you choose. No song titles, artists, play counts or dates, and nothing about your account or phone. Nothing is uploaded.</string>
-    <string name="recommendations_learned_title_info">Everything below is what it learns from, kept in the app on this phone and never uploaded. A backup includes it. Under Privacy and history, Pause listen history stops it being written and Clear listen history deletes it.</string>
-    <string name="recommendations_listens_info">Best recommendations does not go by what counts as a play. It weighs each listen by how much of the song you heard: under thirty seconds counts for nothing unless you liked it. Skips matter to it as much as songs you finished.</string>
+    <string name="recommendations_learned_title_info">Everything below is what it learns from, kept in the app on this phone and never uploaded. A backup includes it. Under \"Privacy and history\", \"Pause listen history\" stops it being written and \"Clear listen history\" deletes it.</string>
+    <string name="recommendations_listens_info">\"Best recommendations\" does not go by what counts as a play. It weighs each listen by how much of the song you heard: under thirty seconds counts for nothing unless you liked it. Skips matter to it as much as songs you finished.</string>
     <string name="recommendations_sessions_info">A session is a run of listening with no gap longer than thirty minutes. The row starts from the session you are in, and a song counts at most three times per session, so an hour on repeat does not outweigh a week.</string>
     <string name="recommendations_how_they_ended_info">How each listen stopped: played to the end, skipped by you, replaced by a new queue, failed, or simply stopped. A song you heard only ever counts in its favour, and a skip counts against it, at most half as much. A play that failed teaches it nothing.</string>
-    <string name="recommendations_where_from_info">Each place counts the times you started playing from there; the songs that play on after are not counted again. A song you chose yourself teaches it more than one that just played on, and a search counts most. Not recorded means the app did not note where it began.</string>
-    <string name="recommendations_impressions_info">A card counts as seen when half of it stayed on screen for half a second after you stopped scrolling. Only the cards of Best recommendations and Discover something new teach it anything. A card seen and not played within a day counts a little against that song.</string>
-    <string name="recommendations_signals_info">Each is stored with the moment it happened, and never leaves the phone. They are kept, not used: nothing that picks or orders your cards reads them yet. Pause listen history stops all of it.</string>
-    <string name="recommendations_recent_title_info">The last thirty listens it learns from, newest first. Each line says how the play ended, how much of the song you heard and where it was started from. Not learned from means you told it to forget that listen.</string>
-    <string name="context_chips_info">The first chip is your usual row. The others lean it for now: Discover toward songs new to you, Favourites toward what you have liked, and Focus, Chill and Party toward what you play while each is on. A chip stays on until you change it.</string>
+    <string name="recommendations_where_from_info">Each place counts the times you started playing from there; the songs that play on after are not counted again. A song you chose yourself teaches it more than one that just played on, and a search counts most. \"Not recorded\" means the app did not note where it began.</string>
+    <string name="recommendations_impressions_info">A card counts as seen when half of it stayed on screen for half a second after you stopped scrolling. Only the cards of \"Best recommendations\" and \"Discover something new\" teach it anything. A card seen and not played within a day counts a little against that song.</string>
+    <string name="recommendations_signals_info">Each is stored with the moment it happened, and never leaves the phone. They are kept, not used: nothing that picks or orders your cards reads them yet. \"Pause listen history\" stops all of it.</string>
+    <string name="recommendations_recent_title_info">The last thirty listens it learns from, newest first. Each line says how the play ended, how much of the song you heard and where it was started from. \"Not learned from\" means you told it to forget that listen.</string>
+    <string name="context_chips_info">The first chip is your usual row. The others lean it for now: \"Discover\" toward songs new to you, \"Favourites\" toward what you have liked, and \"Focus\", \"Chill\" and \"Party\" toward what you play while each is on. A chip stays on until you change it.</string>
     <string name="context_chips">Context chips</string>
     <string name="explain_what_this_does">What %1$s does</string>
     <string name="explain_close">Close</string>
@@ -1488,7 +1488,7 @@ while also allowing users to translate our app as well. New, specific strings to
   does not offer, so these say the same thing without them. The Quick picks source setting is the
   only place left that shows either. They go when Unreleased.ENGINE does.
 -->
-    <string name="quick_picks_source_description_basic">Where the Quick picks row gets its songs. YouTube Music uses the shelf YouTube makes for your account, and Your library uses songs related to what you play. Only this row changes, nothing else on Home.</string>
+    <string name="quick_picks_source_description_basic">Where the \"Quick picks\" row gets its songs. \"YouTube Music\" uses the shelf YouTube makes for your account, and \"Your library\" uses songs related to what you play. Only this row changes, nothing else on Home.</string>
     <plurals name="adaptive_tail_hidden">
         <item quantity="one">%1$d more song waiting, picked from what you play next</item>
         <item quantity="other">%1$d more songs waiting, picked from what you play next</item>
@@ -1715,7 +1715,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="quick_picks_lean_set_aside_chip">The %1$s chip on Home takes over while it is on.</string>
     <string name="quick_picks_lean_set_aside_new_only">New songs only takes over while it is on.</string>
     <string name="quick_picks_lean_new_only_strict">With New songs only on, Best recommendations picks only songs you have never even started, as long as there are enough.</string>
-    <string name="quick_picks_lean_info">Auto is the usual mix, from what Best recommendations has learned. Each other choice gives one kind of song most of its cards. Songs that fit what I am playing now also rebuilds Quick picks once you have listened to a few songs from elsewhere.</string>
+    <string name="quick_picks_lean_info">\"Auto\" is the usual mix, from what \"Best recommendations\" has learned. Each other choice gives one kind of song most of its cards. \"Songs that fit what I am playing now\" also rebuilds \"Quick picks\" once you have listened to a few songs from elsewhere.</string>
     <string name="quick_picks_leaning_new">Leaning toward songs you have never heard</string>
     <string name="quick_picks_leaning_artist">Leaning toward artists you keep coming back to</string>
     <string name="quick_picks_leaning_forgotten">Leaning toward things you loved and forgot about</string>
