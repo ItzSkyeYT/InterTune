@@ -6,7 +6,6 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
-import com.dd3boh.outertune.engine.ContextChip
 import com.dd3boh.outertune.engine.EngineTuning
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -36,14 +35,13 @@ class LeanTextsTest {
     private fun sentences(paragraph: String) = Regex("[.!?](?=\\s|$)").findAll(paragraph).count()
 
     @Test
-    fun `the explanations are two paragraphs at most, of two to four sentences`() {
+    fun `the explanations are one paragraph of three sentences at most`() {
         for ((language, texts) in listOf("English" to english, "French" to french)) {
-            val lean = paragraphs(texts.getValue(leanInfo))
-            assertEquals(language, 1, lean.size)
-            assertEquals(language, 4, sentences(lean.single()))
-            val chips = paragraphs(texts.getValue(chipsInfo))
-            assertEquals(language, 2, chips.size)
-            chips.forEach { assertTrue("$language: $it", sentences(it) in 2..4) }
+            for (name in listOf(leanInfo, chipsInfo)) {
+                val text = texts.getValue(name)
+                assertEquals("$language $name", 1, paragraphs(text).size)
+                assertTrue("$language $name", sentences(text) in 2..3)
+            }
             assertEquals(language, 1, sentences(texts.getValue(strictLine)))
             for (name in listOf(leanInfo, chipsInfo, strictLine)) assertFalse("$language $name", '\u2014' in texts.getValue(name))
         }
@@ -66,13 +64,16 @@ class LeanTextsTest {
     }
 
     @Test
-    fun `the chips' explanation gives the moods the count the engine learns at, and Favourites one plain sentence`() {
-        assertEquals(8, ContextChip.MIN_TAGGED)
-        assertTrue("eight plays" in english.getValue(chipsInfo))
-        assertTrue("huit titres" in french.getValue(chipsInfo))
+    fun `the chips' explanation gives no count, and does not say Favourites holds only liked songs`() {
+        // The moods follow your own plays after ContextChip.MIN_TAGGED of them. The text used to
+        // give that number; it says what the chips do now and leaves the number to the engine.
+        for ((language, texts) in listOf("English" to english, "French" to french)) {
+            val text = texts.getValue(chipsInfo)
+            assertFalse(language, text.any { it.isDigit() } || "eight" in text || "huit" in text)
+        }
         // It used to say Favourites builds only from liked songs, so unliked songs still appear.
         assertFalse("unliked" in english.getValue(chipsInfo))
         assertFalse("non aimés" in french.getValue(chipsInfo))
-        assertTrue("Favourites starts only from songs you have liked" in english.getValue(chipsInfo))
+        assertFalse("only" in english.getValue(chipsInfo))
     }
 }
