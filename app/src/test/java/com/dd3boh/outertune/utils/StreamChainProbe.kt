@@ -50,6 +50,16 @@ import java.util.Locale
  * CHANGED against what the file held, and a line that changed is followed by what it was. A run
  * that could not reach YouTube at all leaves the file alone and says SAME: a dead connection is not
  * news about the chain. STREAM_CHAIN_VIDEOS picks other songs, comma separated.
+ *
+ * STREAM_CHAIN_CANDIDATES=1 also asks the clients the player does not ask today ([candidates]):
+ * what would be left to try on the day the one client that serves whole songs stops. Each is asked
+ * once, for the first song, through the same request, and its line begins "candidate". It says in
+ * addition what kind of address the answer carried (plain, ciphered or none, which is a client
+ * that streams over SABR only) and whether a ciphered one could be deciphered. Before them comes
+ * one line on the deciphering itself, tried on a made-up address. These lines are printed after
+ * the chain's and are neither kept nor compared, so the chain's SAME or CHANGED means what it did.
+ * A candidate that needs a po token is asked without one, since a unit test has no WebView to
+ * make it, and one that takes a login is asked without the account, as the chain's own is.
  */
 class StreamChainProbe {
 
@@ -59,10 +69,79 @@ class StreamChainProbe {
 
     private val http = OkHttpClient()
 
+    private companion object {
+        /** The desktop Safaris that yt-dlp's visionos and web_embedded clients say they are. */
+        const val SAFARI_26 = "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
+        const val SAFARI_15 = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15,gzip(gfe)"
+    }
+
     /** Well past the 512 KB that a capped url serves, and past the megabyte docs/403.md measured. */
     private val probeAt = 2L * 1024 * 1024
 
     private var reached = false
+
+    /** A client the chain does not ask, by the name its line gets. */
+    private class Candidate(val name: String, val client: YouTubeClient)
+
+    /**
+     * The clients left to try, as the app would ask them: the ones [YouTubeClient] defines and the
+     * chain leaves out, and the ones other projects ask today, written here and nowhere else.
+     * Versions and user agents as read on 9 Oct 2026 in yt-dlp (yt_dlp/extractor/youtube/_base.py
+     * on master) and NewPipeExtractor (ClientsConstants.java on dev).
+     *
+     * Two that [YouTubeClient] defines are not asked, their answers being known and each request
+     * being one more from this address: WEB_CREATOR answers only to an account, and the embedded
+     * TV player was removed from yt-dlp as broken in January 2026.
+     */
+    private val candidates = listOf(
+        Candidate("WEB_REMIX (no po token)", YouTubeClient.WEB_REMIX),
+        Candidate("WEB_REMIX at yt-dlp's version (no po token)", YouTubeClient.WEB_REMIX.copy(clientVersion = "1.20260707.12.00")),
+        Candidate("WEB (no po token)", YouTubeClient.WEB),
+        Candidate("TVHTML5 (asked without the account)", YouTubeClient.TVHTML5),
+        Candidate(
+            "VISIONOS with NewPipe's version and user agent",
+            YouTubeClient.VISIONOS.copy(
+                clientVersion = "1.04",
+                userAgent = "com.google.visionos.youtube/1.04(RealityDevice17,1; U; CPU visionOS 26_6_0 like Mac OS X; US)",
+                osVersion = "26.6.0.23O770",
+            ),
+        ),
+        Candidate(
+            "VISIONOS with yt-dlp's user agent",
+            YouTubeClient.VISIONOS.copy(userAgent = SAFARI_26, osVersion = "26.5.23O471"),
+        ),
+        Candidate(
+            "WEB_EMBEDDED_PLAYER as yt-dlp has it, without encryptedHostFlags",
+            YouTubeClient(
+                clientName = "WEB_EMBEDDED_PLAYER",
+                clientVersion = "2.20260708.00.00",
+                clientId = "56",
+                userAgent = SAFARI_15,
+                loginSupported = true,
+                useSignatureTimestamp = true,
+                isEmbedded = true,
+            ),
+        ),
+        Candidate(
+            "TVHTML5 downgraded as yt-dlp has it (asked without the account)",
+            YouTubeClient.TVHTML5.copy(clientVersion = "5.20260707", userAgent = "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version"),
+        ),
+        Candidate(
+            "TVHTML5_SIMPLY as yt-dlp has it (no po token)",
+            YouTubeClient(clientName = "TVHTML5_SIMPLY", clientVersion = "1.0", clientId = "75", userAgent = YouTubeClient.TVHTML5.userAgent, useSignatureTimestamp = true),
+        ),
+        Candidate(
+            "MWEB as yt-dlp has it (no po token)",
+            YouTubeClient(
+                clientName = "MWEB",
+                clientVersion = "2.20260708.05.00",
+                clientId = "2",
+                userAgent = "Mozilla/5.0 (iPad; CPU OS 16_7_10 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1,gzip(gfe)",
+                loginSupported = true,
+                useSignatureTimestamp = true,
+            ),
+        ),
+    )
 
     @Test
     fun probe(): Unit = runBlocking {
@@ -81,15 +160,25 @@ class StreamChainProbe {
             }
         }
 
+        // Asked last, with the visitorData the main client's answer gave, as the chain's own are.
+        val others = mutableListOf<String>()
+        if (System.getenv("STREAM_CHAIN_CANDIDATES") == "1") {
+            others += "deciphering (NewPipeExtractor): " + deciphering(videos.first())
+            for (candidate in candidates) {
+                others += "candidate ${candidate.name}: " + ask(candidate.client, isMain = false, videos.first(), detail = true)
+                delay(1_500)
+            }
+        }
+
         val lines = StreamChainReport.lines(videos, said)
         val kept = System.getenv("STREAM_CHAIN_KEPT")?.takeIf { it.isNotBlank() }?.let { File(it) }
         if (kept == null) {
-            lines.forEach { println("STREAM_CHAIN $it") }
+            (lines + others).forEach { println("STREAM_CHAIN $it") }
             return@runBlocking
         }
         val before = kept.takeIf { it.exists() }?.readLines()?.filter { it.isNotBlank() }
         val report = StreamChainReport.against(before, lines, reached)
-        report.printed.forEach { println("STREAM_CHAIN $it") }
+        StreamChainReport.withOthers(report.printed, others).forEach { println("STREAM_CHAIN $it") }
         if (report.keep != null) kept.writeText(report.keep.joinToString("\n", postfix = "\n"))
     }
 
@@ -97,7 +186,7 @@ class StreamChainProbe {
         if (client.loginSupported) "${client.clientName} (asked without the account)" else client.clientName
 
     /** One client's answer for one song, as the player would get it, in a few words. */
-    private suspend fun ask(client: YouTubeClient, isMain: Boolean, videoId: String): String {
+    private suspend fun ask(client: YouTubeClient, isMain: Boolean, videoId: String, detail: Boolean = false): String {
         val signatureTimestamp =
             if (client.useSignatureTimestamp) NewPipeUtils.getSignatureTimestamp(videoId).getOrNull() else null
         // The main client in the app's language and the others in English, as resolveOnce asks them.
@@ -120,7 +209,7 @@ class StreamChainProbe {
         if (playability.status != "OK") {
             return playability.status + (playability.reason?.let { " \"$it\"" } ?: "") + ", $carries"
         }
-        return "OK, " + stream(response, videoId) + ", $carries"
+        return "OK, " + (if (detail) streamInDetail(response, videoId) else stream(response, videoId)) + ", $carries"
     }
 
     private fun yesNo(value: Boolean) = if (value) "yes" else "no"
@@ -130,9 +219,61 @@ class StreamChainProbe {
         val format = response.streamingData?.adaptiveFormats?.filter { it.isAudio }?.maxByOrNull { it.bitrate }
             ?: return "no audio format"
         val address = NewPipeUtils.getStreamUrl(format, videoId).getOrNull() ?: return "no stream url"
+        return checked(address, format.contentLength ?: 0L)
+    }
+
+    /**
+     * The same for a candidate, with what kind of address its answer carried. A web client's is
+     * ciphered or missing: missing from every format is a client that streams over SABR only, and
+     * a ciphered one is only as good as the deciphering the app has.
+     */
+    private suspend fun streamInDetail(response: PlayerResponse, videoId: String): String {
+        val audio = response.streamingData?.adaptiveFormats?.filter { it.isAudio }.orEmpty()
+        if (audio.isEmpty()) return "no audio format"
+        val format = audio.filter { it.url != null || it.signatureCipher != null }.maxByOrNull { it.bitrate }
+            ?: return "${audio.size} audio formats and none with an address (SABR only)"
+        val kind = if (format.url != null) "plain address" else "ciphered address"
+        // Never the failure's own words: they can quote an address.
+        val address = NewPipeUtils.getStreamUrl(format, videoId)
+            .getOrElse { return "$kind, not deciphered (${it.javaClass.simpleName})" }
+        return "$kind, " + checked(address, format.contentLength ?: 0L)
+    }
+
+    /**
+     * Whether the app can decipher at all today: the signature timestamp, then the signature and
+     * the n parameter of a made-up address, through the code the player uses. No request but the
+     * player script NewPipe fetches once, and nothing is asked of the made-up address.
+     */
+    private fun deciphering(videoId: String): String {
+        fun made(url: String?, cipher: String?) = PlayerResponse.StreamingData.Format(
+            itag = 251, url = url, mimeType = "audio/webm", bitrate = 0, width = null, height = null,
+            contentLength = null, quality = "tiny", fps = null, qualityLabel = null, averageBitrate = null,
+            audioQuality = null, approxDurationMs = null, audioSampleRate = null, audioChannels = null,
+            loudnessDb = null, lastModified = null, signatureCipher = cipher,
+        )
+        val madeUp = "https://example.invalid/videoplayback"
+        val signature = "AJfQdSswRQIhAKx3mPq7Zt-0Yb1cD2eF4gH6iJ8kL0mN2oP4qR6sT8uVAiB9wX1yZ3aB5cD7eF9gH1iJ3kL5mN7oP9qR1sT3uV5w=="
+        val n = "AbCdEfGhIjKlMnOpQr"
+        val timestamp = NewPipeUtils.getSignatureTimestamp(videoId)
+        fun encoded(value: String) = java.net.URLEncoder.encode(value, "UTF-8")
+        val signed = NewPipeUtils.getStreamUrl(made(null, "s=${encoded(signature)}&sp=sig&url=${encoded(madeUp)}"), videoId)
+        val unthrottled = NewPipeUtils.getStreamUrl(made("$madeUp?n=$n", null), videoId)
+        fun said(result: Result<String>, parameter: String, given: String): String = result.fold(
+            onSuccess = { url ->
+                val now = java.net.URLDecoder.decode(url.substringAfter("$parameter=", "").substringBefore('&'), "UTF-8")
+                if (now.isNotEmpty() && now != given) "runs" else "ran and changed nothing"
+            },
+            onFailure = { "fails (${it.javaClass.simpleName})" },
+        )
+        return "signature timestamp " + (if (timestamp.isSuccess) "found" else "not found (${timestamp.exceptionOrNull()?.javaClass?.simpleName})") +
+            ", signature function " + said(signed, "sig", signature) +
+            ", n function " + said(unthrottled, "n", n)
+    }
+
+    /** What an address does: the player's HEAD check, then bytes from further in. */
+    private suspend fun checked(address: String, length: Long): String {
         val head = status(Request.Builder().head().url(address).build())
         delay(1_500)
-        val length = format.contentLength ?: 0L
         if (length <= 512 * 1024 + 16) return "HEAD ${head ?: "failed"}, too short to say more"
         val from = minOf(probeAt, length - 16)
         val request = Request.Builder().url(address).header("Range", "bytes=$from-${from + 15}").build()
@@ -159,6 +300,13 @@ internal object StreamChainReport {
         else perSong.mapIndexed { i, answer -> "${videos.getOrNull(i)}: $answer" }.joinToString("; ")
         "$client: $answers"
     }
+
+    /**
+     * [printed] with [others] put before its last line, which is SAME or CHANGED and has to stay
+     * last: the wrapper's caller reads it there.
+     */
+    fun withOthers(printed: List<String>, others: List<String>): List<String> =
+        if (printed.isEmpty()) others else printed.dropLast(1) + others + printed.last()
 
     /**
      * [lines] against what was [kept] by the run before, null if there was none.
