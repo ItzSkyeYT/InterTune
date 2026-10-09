@@ -584,6 +584,9 @@ object YTPlayerUtils {
         // as itself when no fallback client explained anything, so MusicService can map it to no
         // connection or a timeout.
         var lastFallbackFailure: Throwable? = null
+        // Whether one of those failures leaves it open what has become of the song: see
+        // StreamCheck.leavesSongOpen.
+        var songLeftOpen = false
         // Every fallback client's answer, for StreamCheck.unavailableSong.
         val fallbackSaid = mutableListOf<PlayerResponse.PlayabilityStatus>()
         val trail = mutableListOf<String>()
@@ -648,6 +651,8 @@ object YTPlayerUtils {
                     throw failure
                 }
                 lastFallbackFailure = failure
+                if (StreamCheck.leavesSongOpen(unreached, asAccount)) songLeftOpen = true
+                Log.d(TAG, "[$videoId] $clientLabel: the request failed, ${StreamCheck.failureForLog(failure)}")
             }
             // Noted as having given no stream, until its url passes the check below.
             if (streamPlayerResponse != null) asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
@@ -743,7 +748,7 @@ object YTPlayerUtils {
         // The song itself turned down by every client that serves music: its own kind of failure,
         // in the words of the first of them.
         if (streamUrl == null) {
-            StreamCheck.unavailableSong(fallbackSaid, unreached = lastFallbackFailure != null)?.let { gone ->
+            StreamCheck.unavailableSong(fallbackSaid, unreached = songLeftOpen)?.let { gone ->
                 throw SongUnavailable(gone.reason ?: gone.status)
             }
         }

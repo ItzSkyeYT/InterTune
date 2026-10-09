@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.utils
 
 import com.zionhuang.innertube.models.response.PlayerResponse
+import io.ktor.client.plugins.ResponseException
 
 /**
  * What the HEAD check on a stream url decides, kept out of YTPlayerUtils so it can be tested
@@ -168,6 +169,27 @@ object StreamCheck {
         unreached: Boolean,
     ): PlayerResponse.PlayabilityStatus? =
         fallbacks.firstOrNull()?.takeIf { !unreached && fallbacks.all { it.status != "OK" && saysGone(it.reason) } }
+
+    /**
+     * Whether a fallback client's failed request leaves it open what has become of the song, for
+     * [unavailableSong]'s unreached.
+     *
+     * A request the network did not carry does, whoever asked: nothing was heard. So does an
+     * error YouTube answered to a client that asks as any visitor would, which might have been
+     * the one to serve the song. An error answered to the request made as the account does not.
+     * It used to, and on a phone signed in that is what kept a song that was gone from being
+     * looked for at all: the three clients before it each said "This video is not available",
+     * the account's got an error within a tenth of a second, and the song failed as it always
+     * had. That request had nothing to play either way, so the song's other copy costs nothing.
+     */
+    fun leavesSongOpen(networkDidNotAnswer: Boolean, asAccount: Boolean): Boolean = networkDidNotAnswer || !asAccount
+
+    /**
+     * A failed request for the log: what kind of failure, and the status YouTube gave when it
+     * gave one. Never the failure's own words, which quote the address asked and its answer.
+     */
+    fun failureForLog(failure: Throwable): String =
+        failure.javaClass.simpleName + ((failure as? ResponseException)?.response?.status?.value?.let { " $it" } ?: "")
 
     private val HOST_NAME = Regex("""[A-Za-z0-9.-]{1,253}""")
     private val NUMBER = Regex("""\d{1,12}""")

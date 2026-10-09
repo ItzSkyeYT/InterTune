@@ -134,9 +134,11 @@ object Unreleased {
      * A song whose own id YouTube calls gone, played from the id the same recording has now, and
      * kept out of the recommendation rows when no copy of it plays (StandIns, GoneSongs).
      *
-     * Seen working on the emulator with made-up dead ids only. It sits on the path every song
-     * takes, and the hard part, telling a copy from another take of the song, has not met a real
-     * library. Without it a song that is gone fails as it always has, and nothing is searched
+     * Seen working on the emulator with made-up dead ids, and once on a real one: a liked song
+     * taken off YouTube, on a phone signed in, played from the id it has now a second and a half
+     * after the tap (9 Oct 2026). It sits on the path every song takes, and the hard part,
+     * telling a copy from another take of the song, has met that one song of a real library and
+     * no more. Without it a song that is gone fails as it always has, and nothing is searched
      * for, noted or left out. When it is agreed: set this to true, or delete it with the one
      * check that reads it, in StandIns, and make exclusion_reason_gone and
      * error_cached_part_stale translatable.
