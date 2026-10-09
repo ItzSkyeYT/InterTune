@@ -162,4 +162,17 @@ object Unreleased {
      * login_signed_in_as, login_signed_in and login_going_back translatable.
      */
     val LOGIN_RETURNS = BuildConfig.DEBUG
+
+    /**
+     * A setting named in an explanation is a link to it: a tap closes the explanation, opens the
+     * screen the setting is on, scrolls to its row and flashes it (SettingJumps, SettingJumpHost).
+     * The names an explanation writes in quotation marks are what can be links, and they are the
+     * ones the list knows the place of: every setting the tour stops at, a few rows marked for
+     * this alone, and the choices of three settings.
+     *
+     * A first cut to look at on a phone, not agreed for a release. Without it an explanation is
+     * plain text, as before. When it is agreed: set this to true, or delete it with the one check
+     * that reads it, in Explain.kt.
+     */
+    val EXPLANATION_LINKS = BuildConfig.DEBUG
 }

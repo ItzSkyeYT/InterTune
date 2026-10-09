@@ -180,6 +180,7 @@ import com.dd3boh.outertune.ui.component.shimmer.ShimmerTheme
 import com.dd3boh.outertune.ui.menu.BottomSheetMenu
 import com.dd3boh.outertune.ui.menu.MenuState
 import com.dd3boh.outertune.ui.player.BottomSheetPlayer
+import com.dd3boh.outertune.ui.screens.settings.SettingJumpHost
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.ui.screens.walkthrough.TourOverlay
@@ -1913,6 +1914,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                             )
+
+                            // A setting named in an explanation, jumped to and flashed.
+                            SettingJumpHost(navController)
 
                             SnackbarHost(
                                 hostState = snackbarHostState,

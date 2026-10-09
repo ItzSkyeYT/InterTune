@@ -33,9 +33,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
+import com.dd3boh.outertune.ui.screens.settings.SettingJump
+import com.dd3boh.outertune.ui.screens.settings.explanationWithLinks
 
 /**
  * The little "i" beside a setting, and the dialog behind it.
@@ -117,7 +121,13 @@ fun ExplainDialog(
         // the bottom, but high enough that nothing worth reading has to be scrolled to. The real
         // fix for scrolling is writing less, which is the other half of this change.
         Text(
-            text = body,
+            // A setting it names is a way to that setting: see SettingJumps.
+            text = if (Unreleased.EXPLANATION_LINKS) {
+                explanationWithLinks(body, own = title) { jump ->
+                    onDismiss()
+                    SettingJump.go(jump)
+                }
+            } else AnnotatedString(body),
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier
                 .heightIn(max = 480.dp)
