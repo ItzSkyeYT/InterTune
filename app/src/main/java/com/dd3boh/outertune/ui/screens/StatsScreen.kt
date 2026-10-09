@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,6 +39,7 @@ import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.ChipsRow
+import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.NavigationTitle
@@ -267,6 +270,21 @@ fun StatsScreen(
                         )
                     }
                 }
+            }
+        }
+
+        // A period with no plays had nothing at all under the chips, and a blank page reads as
+        // one that is still loading. Said once this period's numbers are in, so it does not
+        // show while they are on their way.
+        val nothingPlayed = insights?.let { it.period == statPeriod && it.stats.summary == null } == true &&
+                mostPlayedSongs.isEmpty() && mostPlayedArtists.isEmpty() && mostPlayedAlbums.isEmpty()
+        if (nothingPlayed) {
+            item(key = "nothingPlayed") {
+                EmptyPlaceholder(
+                    icon = Icons.AutoMirrored.Rounded.TrendingUp,
+                    text = stringResource(R.string.stats_nothing_played),
+                    modifier = Modifier.animateItem()
+                )
             }
         }
     }
