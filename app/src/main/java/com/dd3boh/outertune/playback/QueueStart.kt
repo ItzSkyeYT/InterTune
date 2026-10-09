@@ -37,6 +37,13 @@ import kotlinx.coroutines.withContext
  * earlier tap's answer used to be loaded whenever it came: over the song tapped after it, which
  * its own answer then started again from the top, or for good when the answers came the other
  * way round.
+ *
+ * A pause stands. The song started at the tap can be paused again before the answer comes, by the
+ * listener, by the sleep timer or by another app taking the sound for good. The answer then loads
+ * the rest of the queue round it and leaves it paused; it used to set playWhenReady once more,
+ * and the song played on a second after it was stopped. A song the app itself stopped because it
+ * failed is the exception and gets its second try ([wantsToPlay]): with Skip on error on it has
+ * no next song to skip to yet, and that try is what gets that listener their music.
  */
 internal class QueueStart(private val service: Target) {
 
@@ -78,6 +85,9 @@ internal class QueueStart(private val service: Target) {
 
         /** Prepares the player, which does nothing to one already prepared, and sets playWhenReady. */
         fun start(playWhenReady: Boolean)
+
+        /** Whether the player means to play now: see [wantsToPlay]. */
+        val wantsToPlay: Boolean
     }
 
     /**
@@ -178,10 +188,10 @@ internal class QueueStart(private val service: Target) {
             service.setCurrQueue(full, shouldResume)
         }
 
-        // For a queue that had no song to start with. After an early start the player is prepared
-        // already and this sets playWhenReady once more, as it has on every play but the first; a
-        // song that failed to load meanwhile gets its second try here.
-        service.start(playWhenReady)
+        // For a queue that had no song to start with, this is its start. After an early start the
+        // player is prepared already, and a song that failed to load meanwhile gets its second try
+        // here. What it does not do then is play a song paused since the tap: see the class note.
+        service.start(if (preloadItem != null) playWhenReady && service.wantsToPlay else playWhenReady)
     }
 
     companion object {
@@ -190,5 +200,12 @@ internal class QueueStart(private val service: Target) {
 
         /** What the queue of one is called until the queue's answer names it. */
         const val PRELOAD_TITLE = "Radio\u2060temp"
+
+        /**
+         * Whether a player means to play. One the app paused because a song failed still does:
+         * to the player that pause and the listener's are the same playWhenReady false, and only
+         * the listener's is to be left alone.
+         */
+        fun wantsToPlay(playWhenReady: Boolean, stoppedByError: Boolean) = playWhenReady || stoppedByError
     }
 }
