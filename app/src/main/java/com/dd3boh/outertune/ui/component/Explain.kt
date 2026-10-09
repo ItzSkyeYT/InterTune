@@ -41,10 +41,10 @@ import com.dd3boh.outertune.ui.dialog.DefaultDialog
  * The little "i" beside a setting, and the dialog behind it.
  *
  * A recommendation engine that cannot say what it is doing is not one anybody should be asked to
- * trust, and a one line description under a switch has room for the what but never for the how.
- * So every item the engine touches carries one of these: the row's own line stays short, and the
- * mechanism, the data it reads and the honest caveats live here, where they cost nothing to
- * anyone who is not asking.
+ * trust, so every item the engine touches carries one of these. The row's own line says what the
+ * thing is; this says, in two or three short sentences, what it does and what it costs. It used
+ * to hold the mechanism as well, and grew to a page behind a button that nobody read to the end.
+ * ExplanationsStayShortTest holds the length now.
  *
  * The button is its own touch target, so it opens the explanation without toggling the switch or
  * following the row it sits on.
