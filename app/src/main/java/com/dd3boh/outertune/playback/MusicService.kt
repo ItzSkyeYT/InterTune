@@ -1546,6 +1546,8 @@ class MusicService : MediaLibraryService(),
             startIndex = startIndex,
         )
 
+        override fun hasQueue(title: String) = queueBoard.masterQueues.any { it.title == title }
+
         override fun dropQueue(title: String) {
             queueBoard.masterQueues.firstOrNull { it.title == title }?.let { queueBoard.deleteQueue(it) }
         }
