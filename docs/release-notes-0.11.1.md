@@ -38,7 +38,7 @@ Fixes for 0.11. One thing changes for everyone: History lists a song after 2 sec
 - **Media control buttons** is under Settings > Look and feel now, beside the player's other buttons. It was under Player and audio.
 - **Stats** showed a blank page for a period with nothing played. It says so.
 - In Arabic, Hebrew and Persian the player showed the end of a title written in Latin letters and hid its beginning, and the mini player cut off its first letter. A title now reads in the direction it is written in. An Arabic or Hebrew title in the English app does too.
-- With the slim navigation bar the tabs had no name for a screen reader. They are named.
+- More is named for screen readers: shuffle, previous, play, next, repeat and the heart in the full player, where only the sleep timer and the menu had a name; the three dots that open the menu of a song, an album, an artist or a playlist; and the tabs of the slim navigation bar.
 - The search pill begins with a magnifier until there is something to go back from. It showed a back arrow at all times.
 - On a narrow phone, "Local scanner" is written out under its button on Home, where it was cut short.
 - On a new install, the short tour of the app starts as soon as setup is done, where it waited for the next launch.
