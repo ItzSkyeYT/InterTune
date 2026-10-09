@@ -6,8 +6,11 @@
 
 package com.dd3boh.outertune.ui.screens
 
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -133,5 +136,166 @@ class LoginScreenTest {
         assertFalse(isYouTubeMusicPage("https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fmusic.youtube.com"))
         assertFalse(isYouTubeMusicPage("https://x.example/?next=https://music.youtube.com/"))
         assertFalse(isYouTubeMusicPage(null))
+    }
+
+    // Once the sign-in is made, the page says so and goes back by itself. It used to stay on
+    // YouTube Music's own site, signed in, with nothing to say what to do next: in setup that
+    // read as being stuck (9 Oct 2026).
+
+    private val music = "https://music.youtube.com/"
+    private val google = "https://accounts.google.com/v3/signin/identifier"
+    private val visitor = "VISITOR_INFO1_LIVE=abc; YSC=q; PREF=tz=Europe.Paris"
+    private fun cookieOf(signIn: String) = "$visitor; SAPISID=$signIn; HSID=h"
+
+    @Test
+    fun `a cookie with SAPISID in it is a sign-in, and nothing else is`() {
+        assertEquals("xyz/123", signInOf("VISITOR_INFO1_LIVE=abc; SAPISID=xyz/123; YSC=q"))
+        assertEquals("xyz", signInOf("SAPISID=xyz"))
+        // A visitor's cookies, which YouTube Music hands anybody who opens it.
+        assertNull(signInOf(visitor))
+        // Other cookies that only have those letters in their name.
+        assertNull(signInOf("__Secure-3PAPISID=xyz; __Secure-1PAPISID=xyz"))
+        assertNull(signInOf("SAPISID="))
+        assertNull(signInOf(null))
+        assertNull(signInOf(""))
+    }
+
+    @Test
+    fun `a cookie the app cannot read is not a sign-in, and does not stop the page`() {
+        // The rest of the app gives up on such a string and signs the account out, so the page
+        // must not call it signed in.
+        assertNull(signInOf("no equals sign in here"))
+        assertNull(signInOf(";;; ;"))
+        assertNull(signInOf("odd; SAPISID=xyz"))
+    }
+
+    @Test
+    fun `a sign-in made on this visit goes back by itself`() {
+        assertEquals(SignInEnd.GO_BACK, signInEnd(madeHere = true, accountPicked = false))
+        assertEquals(SignInEnd.GO_BACK, signInEnd(madeHere = true, accountPicked = true))
+    }
+
+    @Test
+    fun `an account picked for it that was signed in already goes back as well`() {
+        // The page came up signed in at once, as the account that was asked for.
+        assertEquals(SignInEnd.GO_BACK, signInEnd(madeHere = false, accountPicked = true))
+    }
+
+    @Test
+    fun `a page that comes up signed in with nobody having chosen anything waits to be told`() {
+        // An older sign-in was still in the page. Gone back from by itself, there would be no
+        // way left to sign in as somebody else: every visit would end before it began.
+        assertEquals(SignInEnd.ASK, signInEnd(madeHere = false, accountPicked = false))
+    }
+
+    @Test
+    fun `Google's own page is never a sign-in made, whatever its cookie holds`() {
+        assertNull(signedInOn(null, google, cookieOf("s1"), cameWith = null, accountPicked = true))
+        assertNull(signedInOn(null, null, cookieOf("s1"), cameWith = null, accountPicked = true))
+        // Nor a page that only starts like YouTube Music's, or is not over https.
+        assertNull(signedInOn(null, "https://music.youtube.com.example.net/", cookieOf("s1"), null, true))
+        assertNull(signedInOn(null, "http://music.youtube.com/", cookieOf("s1"), null, true))
+    }
+
+    @Test
+    fun `YouTube Music with a visitor's cookie is not a sign-in made`() {
+        assertNull(signedInOn(null, music, visitor, cameWith = null, accountPicked = true))
+        assertNull(signedInOn(null, music, null, cameWith = null, accountPicked = true))
+    }
+
+    @Test
+    fun `the first sign-in of a fresh page is one made here`() {
+        val landed = signedInOn(null, music, cookieOf("s1"), cameWith = null, accountPicked = false)
+        assertEquals(SignedIn("s1", SignInEnd.GO_BACK), landed)
+    }
+
+    @Test
+    fun `a page opened signed in is one made here only once the sign-in has changed`() {
+        // Opened from Settings while signed in, the picker dismissed: the same sign-in comes up.
+        assertEquals(
+            SignedIn("s1", SignInEnd.ASK),
+            signedInOn(null, music, cookieOf("s1"), cameWith = "s1", accountPicked = false),
+        )
+        // Somebody then signed in as another account on that page.
+        assertEquals(
+            SignedIn("s2", SignInEnd.GO_BACK),
+            signedInOn(SignedIn("s1", SignInEnd.ASK), music, cookieOf("s2"), cameWith = "s1", accountPicked = false),
+        )
+        // With an account picked for it, the same sign-in is what was asked for.
+        assertEquals(
+            SignedIn("s1", SignInEnd.GO_BACK),
+            signedInOn(null, music, cookieOf("s1"), cameWith = "s1", accountPicked = true),
+        )
+    }
+
+    @Test
+    fun `the same sign-in seen again keeps what is known of it`() {
+        // YouTube Music moves between its own pages, and reports each: the name already had and
+        // the page already loaded are not forgotten, and the wait does not start over.
+        val known = SignedIn("s1", SignInEnd.GO_BACK, loaded = true, answered = true, name = "Ada")
+        // Its other cookies change from one page to the next; the sign-in is the same one.
+        val later = "YSC=another; SAPISID=s1; ST-abc=def"
+        assertSame(known, signedInOn(known, music + "library", later, cameWith = null, accountPicked = false))
+    }
+
+    @Test
+    fun `leaving YouTube Music for Google's page again ends it`() {
+        // From the page left up, somebody goes to switch accounts: nothing is signed in "here"
+        // while Google's page is the one showing, and Back belongs to that page again.
+        val known = SignedIn("s1", SignInEnd.ASK, loaded = true, answered = true, name = "Ada")
+        assertNull(signedInOn(known, google, cookieOf("s1"), cameWith = "s1", accountPicked = false))
+    }
+
+    @Test
+    fun `the account's name goes to the sign-in it was asked for, and to no other`() {
+        val known = SignedIn("s1", SignInEnd.GO_BACK)
+        assertEquals(known.copy(answered = true, name = "Ada"), signedInNamed(known, "s1", "Ada"))
+        // An answer for the account before, arriving late.
+        assertSame(known, signedInNamed(known, "s0", "Grace"))
+        assertNull(signedInNamed(null, "s1", "Ada"))
+    }
+
+    @Test
+    fun `an account that does not say its name has still answered`() {
+        // The request failed, or came back with nothing: the page does not wait for it again.
+        val known = SignedIn("s1", SignInEnd.GO_BACK)
+        assertEquals(known.copy(answered = true), signedInNamed(known, "s1", null))
+        assertEquals(known.copy(answered = true), signedInNamed(known, "s1", "  "))
+        // A second request failing does not take back the name the first one gave.
+        val named = known.copy(answered = true, name = "Ada")
+        assertEquals(named, signedInNamed(named, "s1", null))
+    }
+
+    @Test
+    fun `it goes back once the page has loaded, the name has come and the words were up long enough`() {
+        assertFalse(mayGoBack(shownForMs = 0, loaded = true, answered = true))
+        assertFalse(mayGoBack(shownForMs = SIGNED_IN_SHOWN_MS - 1, loaded = true, answered = true))
+        assertTrue(mayGoBack(shownForMs = SIGNED_IN_SHOWN_MS, loaded = true, answered = true))
+        // The name is waited for, since setup's next page says it.
+        assertFalse(mayGoBack(shownForMs = SIGNED_IN_SHOWN_MS, loaded = true, answered = false))
+        // So is the page: its script hands over what the app keeps beside the cookie.
+        assertFalse(mayGoBack(shownForMs = SIGNED_IN_SHOWN_MS, loaded = false, answered = true))
+        assertFalse(mayGoBack(shownForMs = SIGNED_IN_WAIT_MS - 1, loaded = false, answered = false))
+    }
+
+    @Test
+    fun `a page that never finishes or a name that never comes does not hold it for good`() {
+        assertTrue(mayGoBack(shownForMs = SIGNED_IN_WAIT_MS, loaded = false, answered = false))
+        assertTrue(mayGoBack(shownForMs = SIGNED_IN_WAIT_MS, loaded = true, answered = false))
+        assertTrue(mayGoBack(shownForMs = SIGNED_IN_WAIT_MS, loaded = false, answered = true))
+        assertTrue(SIGNED_IN_SHOWN_MS in 800..3_000)
+        assertTrue(SIGNED_IN_WAIT_MS in 4_000..15_000)
+    }
+
+    @Test
+    fun `what the sign-in page keeps is written where leaving the page cannot drop it`() {
+        // A rememberPreference setter writes in the screen's own scope, and a write still on its
+        // way when the screen leaves is dropped. This page now leaves by itself a moment after
+        // the sign-in, so the cookie, the account's name and the two ids go through keep().
+        val source = File("src/main/java/com/dd3boh/outertune/ui/screens/LoginScreen.kt").readText()
+        for (key in listOf("InnerTubeCookieKey", "AccountNameKey", "AccountEmailKey", "AccountChannelHandleKey", "VisitorDataKey", "DataSyncIdKey")) {
+            assertFalse("$key is written through rememberPreference", Regex("rememberPreference\\(\\s*$key").containsMatchIn(source))
+            assertTrue("$key is not written at all", Regex("it\\[$key] = ").containsMatchIn(source))
+        }
     }
 }
