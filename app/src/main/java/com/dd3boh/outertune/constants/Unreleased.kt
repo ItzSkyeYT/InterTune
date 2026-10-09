@@ -137,10 +137,13 @@ object Unreleased {
      * (YTPlayerUtils.TRIAL_CLIENT), and the chain is asked as ever when that gives no stream.
      *
      * Off unless somebody switches it on, and never in a release. It is not a feature to agree
-     * on. On 9 Oct 2026 it showed where that road ends today: WEB_REMIX answers, and the app
-     * cannot decipher the address it gives. It is there to be tried again the day the app can.
-     * Delete it with the two checks that read it, in MusicService and DeveloperFrag, once it has
-     * served its purpose.
+     * on. On 9 Oct 2026 it showed where that road ends today: WEB_REMIX answers, and the address
+     * it gives is in a cipher NewPipeExtractor can no longer undo. So with the switch on that
+     * address goes to a solver instead (utils/cipher): yt-dlp's, run in a WebView. Everything
+     * round the solver is built and tested with a stand-in for it. The solver's own two files
+     * are not in the tree yet, and until they are the switch does what it did that day.
+     * Delete it with the two checks that read it, in MusicService and DeveloperFrag, and with
+     * utils/cipher if the solver is not kept, once it has served its purpose.
      */
     val WEB_CLIENT_FIRST = BuildConfig.DEBUG
 }

@@ -113,6 +113,11 @@ class StreamCheckTest {
             StreamCheck.trailStep("WEB_REMIX", "OK", null, checked = false, lacking = StreamCheck.NOT_DECIPHERED),
         )
         assertEquals("WEB OK, no address", StreamCheck.trailStep("WEB", "OK", null, checked = false, lacking = StreamCheck.NO_ADDRESS))
+        // The experiment's client, whose address is tried with more than one po token.
+        assertEquals(
+            "WEB_REMIX OK, HEAD 200 with the video's token",
+            StreamCheck.trailStep("WEB_REMIX", "OK", 200, checked = true, with = "the video's token"),
+        )
     }
 
     @Test

@@ -101,12 +101,23 @@ object StreamCheck {
      * [lacking] is why a playable answer gave the player nothing to fetch, [NOT_DECIPHERED] or
      * [NO_ADDRESS]. Without it such a step read "WEB_REMIX OK", which is what a client that
      * served reads like before its check.
+     *
+     * [with] is the po token the checked address carried, in words, for the one client whose
+     * address is tried with more than one: "WEB_REMIX OK, HEAD 200 with the video's token".
      */
-    fun trailStep(client: String, playability: String?, head: Int?, checked: Boolean, lacking: String? = null): String =
+    fun trailStep(
+        client: String,
+        playability: String?,
+        head: Int?,
+        checked: Boolean,
+        lacking: String? = null,
+        with: String? = null,
+    ): String =
         buildString {
             append(client).append(' ').append(playability ?: "no answer")
             if (lacking != null) append(", ").append(lacking)
             if (checked) append(", HEAD ").append(head?.toString() ?: "failed")
+            if (checked && with != null) append(" with ").append(with)
         }
 
     /** What [resolveOnceFailure] decided to do about a chain that produced no usable stream. */

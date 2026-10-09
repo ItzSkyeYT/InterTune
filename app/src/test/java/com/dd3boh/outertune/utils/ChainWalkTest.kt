@@ -9,6 +9,8 @@ package com.dd3boh.outertune.utils
 import android.net.ConnectivityManager
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.utils.StreamOrder.Memory
+import com.dd3boh.outertune.utils.cipher.ChallengeSolver
+import com.dd3boh.outertune.utils.cipher.PlayerScript
 import com.dd3boh.outertune.utils.potoken.PoTokenResult
 import com.zionhuang.innertube.AddressPolicy
 import com.zionhuang.innertube.YouTube
@@ -16,6 +18,7 @@ import com.zionhuang.innertube.models.ResponseContext
 import com.zionhuang.innertube.models.Thumbnails
 import com.zionhuang.innertube.models.YouTubeClient
 import com.zionhuang.innertube.models.response.PlayerResponse
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -25,6 +28,7 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.net.URLEncoder
 import java.net.UnknownHostException
 
 /**
@@ -62,6 +66,7 @@ class ChainWalkTest {
         YouTube.cookie = null
         YouTube.visitorData = visitor
         YTPlayerUtils.askWebClientFirst = false
+        YTPlayerUtils.forgetWhatTheTrialLearned()
         YTPlayerUtils.streamMemory = Memory()
         YTPlayerUtils.onStreamMemoryChanged = { stored += it }
         YTPlayerUtils.onVisitorDataFound = { adopted += it }
@@ -72,18 +77,35 @@ class ChainWalkTest {
         YouTube.cookie = null
         YouTube.visitorData = null
         YTPlayerUtils.askWebClientFirst = false
+        YTPlayerUtils.forgetWhatTheTrialLearned()
         YTPlayerUtils.streamMemory = Memory()
         YTPlayerUtils.onStreamMemoryChanged = null
         YTPlayerUtils.onVisitorDataFound = null
         Throttle.clear("the test is over")
     }
 
-    /** What the clients say, each in turn and the last one again after that, and what each one's url gets. */
+    /**
+     * What the clients say, each in turn and the last one again after that, and what each one's url
+     * gets: by the client its host names, or by [headOf] when a test has to see the whole address.
+     *
+     * [playerScript] and [solver] are the experiment's. A walk without the experiment has neither,
+     * and fails if it asks for one: that is what holds it to "exactly as before".
+     */
     private class Script(
         private val says: Map<String, List<Any>>,
         private val heads: Map<String, Int?> = emptyMap(),
+        private val headOf: ((String) -> Int?)? = null,
+        private val playerScript: PlayerScript? = null,
+        private val scriptWanted: Boolean = playerScript != null,
+        private val solver: (suspend (List<String>, List<String>) -> ChallengeSolver.Solved)? = null,
     ) : YTPlayerUtils.Wire {
         val askedOf = mutableListOf<String>()
+
+        /** Every address a check was made of, in order. */
+        val checked = mutableListOf<String>()
+
+        /** How often the solver was asked, and with what. */
+        val solved = mutableListOf<Pair<List<String>, List<String>>>()
 
         /** What each client's request carried, for the ones that got any: the signature timestamp and the player po token. */
         val timestamps = mutableMapOf<String, Int>()
@@ -114,8 +136,21 @@ class ChainWalkTest {
         }
 
         override fun head(url: String): Int? {
+            checked += url
+            headOf?.let { return it(url) }
             val client = url.substringAfter("://").substringBefore('.')
             return if (client in heads) heads[client] else 200
+        }
+
+        override suspend fun playerScript(): PlayerScript? {
+            check(scriptWanted) { "the player script was not expected to be asked for" }
+            return playerScript
+        }
+
+        override suspend fun solve(script: PlayerScript, signatures: List<String>, ns: List<String>): ChallengeSolver.Solved {
+            assertSame("solved against the script the request's timestamp came from", playerScript, script)
+            solved += signatures to ns
+            return (solver ?: error("the solver was not expected to be asked"))(signatures, ns)
         }
 
         override fun signatureTimestamp(videoId: String): Int? = TIMESTAMP
@@ -123,6 +158,7 @@ class ChainWalkTest {
         override fun poTokens(videoId: String, sessionId: String?): PoTokenResult? = PoTokenResult(VIDEO_TOKEN, SESSION_TOKEN)
 
         companion object {
+            /** What NewPipeExtractor reads, for the account's client. */
             const val TIMESTAMP = 20_375
             const val VIDEO_TOKEN = "token-made-for-the-video"
             const val SESSION_TOKEN = "token-made-for-the-session"
@@ -405,46 +441,210 @@ class ChainWalkTest {
         assertEquals(setOf("ANDROID_VR", "IOS"), YTPlayerUtils.streamMemory.refusedAt.keys)
     }
 
-    @Test
-    fun `with the experiment on the web client is asked first, with the timestamp and the tokens, and nothing is remembered of it`() {
-        // As on any phone in October 2026: VISIONOS served last, and would be asked first.
+    /** The script the experiment's client is asked with. Its text is not read here: the stand-in solver needs none. */
+    private val playerScript = PlayerScript(id = "0a1b2c3d", text = "not read in these tests", signatureTimestamp = 20_381)
+
+    /**
+     * A playable answer as a web client gives it: the address in a cipher, and an n in the address.
+     * On a stream host of YouTube's, which is the only kind a solved address is taken from, and
+     * its first name is what [Script.head] knows it by.
+     */
+    private fun ciphered() = playable("WEB_REMIX", loudness = 4.0, seconds = "200").let { answer ->
+        val inner = "https://web-remix.googlevideo.com/videoplayback?itag=251&n=ISSUED"
+        val cipher = "s=SCRAMBLED&sp=sig&url=" + URLEncoder.encode(inner, "UTF-8")
+        answer.copy(
+            streamingData = answer.streamingData?.let { data ->
+                data.copy(adaptiveFormats = data.adaptiveFormats.map { it.copy(url = null, signatureCipher = cipher) })
+            },
+        )
+    }
+
+    /** What [ciphered] comes to once [solving] has answered, before any po token is put on it. */
+    private val deciphered = "https://web-remix.googlevideo.com/videoplayback?itag=251&n=SOLVED&sig=UNSCRAMBLED"
+
+    private val solving: suspend (List<String>, List<String>) -> ChallengeSolver.Solved = { signatures, ns ->
+        ChallengeSolver.Solved(signatures.associateWith { "UNSCRAMBLED" }, ns.associateWith { "SOLVED" })
+    }
+
+    /** As on any phone in October 2026, with the experiment's switch on: VISIONOS served last and would be asked first. */
+    private fun experimentOn(): Memory {
         remembering("VISIONOS", "ANDROID_VR")
-        val before = YTPlayerUtils.streamMemory
         YTPlayerUtils.askWebClientFirst = true
-        val script = Script(mapOf("WEB_REMIX" to listOf(playable("WEB_REMIX", loudness = 4.0, seconds = "200"))))
+        return YTPlayerUtils.streamMemory
+    }
+
+    @Test
+    fun `with the experiment on the web client is asked first, with the timestamp of the script its address is then solved against`() {
+        val before = experimentOn()
+        val script = Script(mapOf("WEB_REMIX" to listOf(ciphered())), playerScript = playerScript, solver = solving)
         val data = walk(script).getOrThrow()
 
         assertEquals(listOf("WEB_REMIX"), script.askedOf)
-        assertEquals(Script.TIMESTAMP, script.timestamps["WEB_REMIX"])
+        // The script's own timestamp, not the one NewPipeExtractor reads for the account's client.
+        assertEquals(playerScript.signatureTimestamp, script.timestamps["WEB_REMIX"])
         assertEquals(Script.VIDEO_TOKEN, script.playerTokens["WEB_REMIX"])
-        // The session's token is what goes on the address today. Whether YouTube wants the
-        // video's there instead is what the experiment is still to find out.
-        assertEquals("https://WEB_REMIX.example/videoplayback?itag=251&pot=${Script.SESSION_TOKEN}", data.streamUrl)
-        assertEquals("WEB_REMIX OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+        assertEquals(listOf(listOf("SCRAMBLED") to listOf("ISSUED")), script.solved)
+        assertEquals(deciphered + "&pot=${Script.VIDEO_TOKEN}", data.streamUrl)
+        assertEquals("one check, since the first token passed", 1, script.checked.size)
+        assertEquals("WEB_REMIX OK, HEAD 200 with the video's token", YTPlayerUtils.lastStreamTrail)
         assertEquals("WEB_REMIX", YTPlayerUtils.lastStreamClient)
-        assertEquals(before, YTPlayerUtils.streamMemory)
+        assertTrue(data.validated)
+        assertEquals("nothing is remembered of it", before, YTPlayerUtils.streamMemory)
         assertEquals("nothing changed, so nothing is stored", emptyList<String>(), stored)
     }
 
     @Test
-    fun `with the experiment on, a web client that gives no address costs its turn and the chain is asked as ever`() {
-        remembering("VISIONOS", "ANDROID_VR")
-        val before = YTPlayerUtils.streamMemory
-        YTPlayerUtils.askWebClientFirst = true
+    fun `an address the video's token leaves refused is tried with the session's, and the one that served goes first for the next song`() {
+        experimentOn()
+        fun script() = Script(
+            says = mapOf("WEB_REMIX" to listOf(ciphered())),
+            headOf = { url -> if (url.endsWith("&pot=${Script.SESSION_TOKEN}")) 200 else 403 },
+            playerScript = playerScript,
+            solver = solving,
+        )
+        val first = script()
+        val data = walk(first).getOrThrow()
+
+        assertEquals(
+            listOf(deciphered + "&pot=${Script.VIDEO_TOKEN}", deciphered + "&pot=${Script.SESSION_TOKEN}"),
+            first.checked,
+        )
+        assertEquals(deciphered + "&pot=${Script.SESSION_TOKEN}", data.streamUrl)
+        assertEquals("WEB_REMIX OK, HEAD 200 with the session's token", YTPlayerUtils.lastStreamTrail)
+
+        val second = script()
+        walk(second).getOrThrow()
+        assertEquals(listOf(deciphered + "&pot=${Script.SESSION_TOKEN}"), second.checked)
+    }
+
+    @Test
+    fun `an address refused with every token and with none costs the experiment its turn, and the chain is asked as ever`() {
+        val before = experimentOn()
         val script = Script(
-            mapOf(
+            says = mapOf(
+                "WEB_REMIX" to listOf(ciphered()),
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+            ),
+            heads = mapOf("web-remix" to 403),
+            playerScript = playerScript,
+            solver = solving,
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("WEB_REMIX", "VISIONOS"), script.askedOf)
+        assertEquals(
+            listOf(
+                deciphered + "&pot=${Script.VIDEO_TOKEN}",
+                deciphered + "&pot=${Script.SESSION_TOKEN}",
+                deciphered,
+                "https://VISIONOS.example/videoplayback?itag=251",
+            ),
+            script.checked,
+        )
+        assertEquals("WEB_REMIX OK, HEAD 403 with no token, VISIONOS OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+        // No token on an address that is not a web client's.
+        assertEquals("https://VISIONOS.example/videoplayback?itag=251", data.streamUrl)
+        assertEquals("VISIONOS", YTPlayerUtils.lastStreamClient)
+        assertEquals(before, YTPlayerUtils.streamMemory)
+    }
+
+    @Test
+    fun `a solver that fails, or leaves a value unsolved, costs the experiment its turn and no more`() {
+        val failing: suspend (List<String>, List<String>) -> ChallengeSolver.Solved = { _, _ -> error("the solver's two files are not in this build") }
+        val halfway: suspend (List<String>, List<String>) -> ChallengeSolver.Solved = { signatures, _ ->
+            ChallengeSolver.Solved(signatures.associateWith { "UNSCRAMBLED" }, emptyMap())
+        }
+        // What NewPipeExtractor's n function did on 9 Oct 2026: the value handed back as it came.
+        val idle: suspend (List<String>, List<String>) -> ChallengeSolver.Solved = { signatures, ns ->
+            ChallengeSolver.Solved(signatures.associateWith { "UNSCRAMBLED" }, ns.associateWith { it })
+        }
+        for (solver in listOf(failing, halfway, idle)) {
+            experimentOn()
+            val script = Script(
+                says = mapOf(
+                    "WEB_REMIX" to listOf(ciphered()),
+                    "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                ),
+                playerScript = playerScript,
+                solver = solver,
+            )
+            val data = walk(script).getOrThrow()
+
+            assertEquals(listOf("WEB_REMIX", "VISIONOS"), script.askedOf)
+            assertEquals("WEB_REMIX OK, address not deciphered, VISIONOS OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+            assertEquals("nothing of the web client's was fetched", listOf("https://VISIONOS.example/videoplayback?itag=251"), script.checked)
+            assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
+        }
+    }
+
+    @Test
+    fun `a solver that never answers is given up on when its time is over, and the song goes on`() {
+        experimentOn()
+        YTPlayerUtils.trialLimitMs = 150
+        val script = Script(
+            says = mapOf(
+                "WEB_REMIX" to listOf(ciphered()),
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+            ),
+            playerScript = playerScript,
+            solver = { _, _ -> awaitCancellation() },
+        )
+        val started = System.nanoTime()
+        val data = walk(script).getOrThrow()
+        val tookMs = (System.nanoTime() - started) / 1_000_000
+
+        assertTrue("given up on after its 150 ms, not waited for: took $tookMs ms", tookMs < 5_000)
+        assertEquals("WEB_REMIX OK, address not deciphered, VISIONOS OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
+    }
+
+    @Test
+    fun `without a player script the web client is not asked at all`() {
+        val before = experimentOn()
+        val script = Script(
+            says = mapOf("VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200"))),
+            playerScript = null,
+            scriptWanted = true,
+        )
+        walk(script).getOrThrow()
+
+        assertEquals(listOf("VISIONOS"), script.askedOf)
+        assertEquals("WEB_REMIX not asked, no player script, VISIONOS OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+        assertEquals(before, YTPlayerUtils.streamMemory)
+    }
+
+    @Test
+    fun `a web client whose answer has no address in it costs its turn and the chain is asked as ever`() {
+        val before = experimentOn()
+        val script = Script(
+            says = mapOf(
                 "WEB_REMIX" to listOf(withoutAddress(playable("WEB_REMIX", loudness = 4.0, seconds = "200"))),
                 "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
-            )
+            ),
+            playerScript = playerScript,
         )
         val data = walk(script).getOrThrow()
 
         assertEquals(listOf("WEB_REMIX", "VISIONOS"), script.askedOf)
         assertEquals("WEB_REMIX OK, no address, VISIONOS OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
-        // No token on an address that is not a web client's.
         assertEquals("https://VISIONOS.example/videoplayback?itag=251", data.streamUrl)
-        assertEquals("VISIONOS", YTPlayerUtils.lastStreamClient)
         assertEquals(before, YTPlayerUtils.streamMemory)
+    }
+
+    @Test
+    fun `what the experiment's client is refused with is not the chain's, and the song fails with what the chain's own clients said`() {
+        experimentOn()
+        val gone = refused("This video is not available", status = "UNPLAYABLE")
+        // The web client gives the bot check, which from a client of the chain would back the app off.
+        val script = Script(
+            says = mapOf("WEB_REMIX" to listOf(refused(bot)), "VISIONOS" to listOf(gone), "ANDROID_VR" to listOf(refused(botInFrench)), "IOS" to listOf(gone)),
+            playerScript = playerScript,
+        )
+        val failure = walk(script).exceptionOrNull()
+
+        assertEquals(listOf("WEB_REMIX", "VISIONOS", "ANDROID_VR", "IOS"), script.askedOf)
+        assertEquals("This video is not available", failure?.message)
+        assertFalse("the experiment's refusal was not told to the throttle", Throttle.isBlocked)
     }
 
     @Test
