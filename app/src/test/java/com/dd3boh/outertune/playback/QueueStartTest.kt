@@ -124,6 +124,8 @@ class QueueStartTest {
             return match
         }
 
+        override fun hasQueue(title: String) = queues.any { it.title == title }
+
         /** Written down only when there was a queue to drop, which there seldom is. */
         override fun dropQueue(title: String) {
             val at = queues.indexOfFirst { it.title == title }
@@ -387,6 +389,77 @@ class QueueStartTest {
             listOf("add '$temp' [A] at 0 replace", "load '$temp' [A] at 0 resuming $tags", "rename '$temp' to 'A Mix'"),
             service.board(),
         )
+    }
+
+    // A radio started again while the queue it made last time is still on the board. The answer
+    // names the same title, the board fills the queue that has it, and the queue of one that the
+    // tap made used to be given that title too: two queues of one name, one of them a single song.
+
+    @Test
+    fun `a radio started again fills the queue of its title and leaves no second one`() = runBlocking {
+        val service = Service()
+        val first = LateQueue(song("X"))
+        val before = launch { QueueStart(service).play(first) }
+        first.asked.await()
+        first.answer.complete(Queue.Status("You Mix", listOf(song("X"), song("Y")), 0))
+        before.join()
+        assertEquals(listOf("You Mix"), service.queues.map { it.title })
+        service.asked.clear()
+
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio) }
+        radio.asked.await()
+        radio.answer.complete(Queue.Status("You Mix", listOf(song("A"), song("B"), song("C")), 0))
+        job.join()
+
+        assertEquals(listOf("You Mix"), service.queues.map { it.title })
+        assertEquals(listOf("A", "B", "C"), service.queues.single().queue.map { it.id })
+        // The tapped song was never without a queue: the full one is loaded before the queue of
+        // one goes, and nothing is heard but the song starting once.
+        assertEquals(
+            listOf(
+                "add '$temp' [A] at 0 replace",
+                "load '$temp' [A] at 0 resuming $tags",
+                "add 'You Mix' [A, B, C] at 0 replace",
+                "load 'You Mix' [A, B, C] at 0 $tags",
+                "drop '$temp' [A]",
+            ),
+            service.board(),
+        )
+        assertEquals(listOf("X from the top", "A from the top"), service.heard)
+    }
+
+    @Test
+    fun `a title nobody else has is still given to the queue of one, as before`() = runBlocking {
+        val service = Service()
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio) }
+        radio.asked.await()
+        radio.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("B")), 0))
+        job.join()
+
+        assertEquals("rename '$temp' to 'A Mix'", service.board()[2])
+        assertEquals(listOf("A Mix"), service.queues.map { it.title })
+    }
+
+    @Test
+    fun `an empty answer under a title that is taken still names the queue of one`() = runBlocking {
+        // Nothing will fill the older queue, so the song's own queue is the one to keep, and it is
+        // better named after its radio than left under the name it was given for the wait.
+        val service = Service()
+        val first = LateQueue(song("X"))
+        val before = launch { QueueStart(service).play(first) }
+        first.asked.await()
+        first.answer.complete(Queue.Status("You Mix", listOf(song("X"), song("Y")), 0))
+        before.join()
+
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio) }
+        radio.asked.await()
+        radio.answer.complete(Queue.Status("You Mix", emptyList(), 0))
+        job.join()
+
+        assertTrue(service.queues.none { it.title == temp })
     }
 
     @Test
