@@ -148,6 +148,11 @@ object Unreleased {
      * opened from, setup or the account's settings (LoginScreen, SignedIn). Without it the page
      * stays on YouTube Music's own site, signed in, and the way back is for the user to find.
      *
+     * With it the page is also opened signed out each time, its cookies cleared first, so that a
+     * sign-in made as the wrong account can be made again as another: without it the page comes
+     * up at once as the account before. And a page that reaches YouTube Music signed out no
+     * longer replaces the sign-in the app holds.
+     *
      * Its decisions are tested as logic, and seen on a Pixel 5: with a made-up sign-in cookie put
      * into the page, going back to setup, going back to the settings, and the line with Done; and
      * with one real sign-in, from setup, on 9 Oct 2026. Not agreed for a release yet. When it is:

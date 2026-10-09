@@ -583,6 +583,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_sign_in" translatable="false">Sign in to YouTube Music</string>
     <string name="setup_signed_in_as" translatable="false">You are signed in as %1$s.</string>
     <string name="setup_signed_in" translatable="false">You are signed in.</string>
+    <string name="setup_other_account" translatable="false">Use another account</string>
     <string name="setup_choices_title" translatable="false">A few choices</string>
     <string name="setup_choices_body" translatable="false">Each can be changed later in Settings.</string>
     <string name="setup_updates_line" translatable="false">Looks on GitHub for a new version when you open the app.</string>
