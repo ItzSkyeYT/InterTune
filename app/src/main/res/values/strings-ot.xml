@@ -1024,10 +1024,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="settings_recommendations_description">How Quick picks is chosen, and what it learns from.</string>
     <string name="recommendations_learned_title">What it has to learn from</string>
     <plurals name="recommendations_listens">
-        <item quantity="one">%1$d listen, %2$d in your History</item>
-        <item quantity="other">%1$d listens, %2$d of them in your History</item>
+        <item quantity="one">%1$d listen, %2$d counted as a play</item>
+        <item quantity="other">%1$d listens, %2$d of them counted as plays</item>
     </plurals>
-    <string name="recommendations_listens_description">Every time a song played, however briefly, skips included. A listen goes into History once it passes Minimum playback duration, under Privacy and history.</string>
+    <string name="recommendations_listens_description">Every time a song played, however briefly, skips included. Counted as a play means it passed Minimum playback duration, under Privacy and history.</string>
     <plurals name="recommendations_sessions">
         <item quantity="one">%1$d listening session</item>
         <item quantity="other">%1$d listening sessions</item>
@@ -1369,7 +1369,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">, %1$d song after your pick</item>
         <item quantity="other">, %1$d songs after your pick</item>
     </plurals>
-    <string name="recommendations_recent_not_counted">, not in History</string>
+    <string name="recommendations_recent_not_counted">, not counted as a play</string>
     <string name="recommendations_recent_yesterday">yesterday, %1$s</string>
     <string name="recommendations_recent_day_time">%1$s, %2$s</string>
     <string name="recommendations_recent_not_learned">, not learned from</string>

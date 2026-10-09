@@ -793,11 +793,11 @@
     <string name="settings_recommendations_description">Comment la Sélection Rapide est choisie, et ce dont elle apprend.</string>
     <string name="recommendations_learned_title">Ce qui lui sert à apprendre</string>
     <plurals name="recommendations_listens">
-        <item quantity="one">%1$d écoute, %2$d dans votre historique</item>
-        <item quantity="many">%1$d écoutes, dont %2$d dans votre historique</item>
-        <item quantity="other">%1$d écoutes, dont %2$d dans votre historique</item>
+        <item quantity="one">%1$d écoute, %2$d comptée comme lecture</item>
+        <item quantity="many">%1$d écoutes, dont %2$d comptées comme lectures</item>
+        <item quantity="other">%1$d écoutes, dont %2$d comptées comme lectures</item>
     </plurals>
-    <string name="recommendations_listens_description">Chaque fois qu\'un titre a joué, même brièvement, titres passés compris. Une écoute entre dans l\'historique une fois la Durée minimale de lecture dépassée, dans Confidentialité et historique.</string>
+    <string name="recommendations_listens_description">Chaque fois qu\'un titre a joué, même brièvement, titres passés compris. Comptée comme lecture signifie qu\'elle a dépassé la Durée minimale de lecture, dans Confidentialité et historique.</string>
     <plurals name="recommendations_sessions">
         <item quantity="one">%1$d session d\'écoute</item>
         <item quantity="many">%1$d sessions d\'écoute</item>
@@ -1166,7 +1166,7 @@
         <item quantity="many">, %1$d titres après votre choix</item>
         <item quantity="other">, %1$d titres après votre choix</item>
     </plurals>
-    <string name="recommendations_recent_not_counted">, pas dans l\'historique</string>
+    <string name="recommendations_recent_not_counted">, pas comptée comme lecture</string>
     <string name="recommendations_recent_yesterday">hier à %1$s</string>
     <string name="recommendations_recent_day_time">%1$s à %2$s</string>
     <string name="recommendations_recent_not_learned">, ne lui apprend rien</string>
