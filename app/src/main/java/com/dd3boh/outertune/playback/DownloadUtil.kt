@@ -180,7 +180,10 @@ class DownloadUtil @Inject constructor(
         // The asymmetry is the point. On a healthy network the gap is invisible, because the audio
         // transfer that follows takes seconds. On a refused network nothing transfers and every
         // resolve fails in about a second, which is exactly when the app would otherwise hammer.
-        synchronized(resolveGate) {
+        //
+        // Taken for each id asked: a song that is gone is asked for under up to three more
+        // (StandIns), and those requests are a download's as much as the first.
+        fun paced() = synchronized(resolveGate) {
             val wait = RESOLVE_GAP_MS - (SystemClock.elapsedRealtime() - lastResolveAt)
             if (wait > 0) Thread.sleep(wait)
             lastResolveAt = SystemClock.elapsedRealtime()
@@ -192,6 +195,7 @@ class DownloadUtil @Inject constructor(
         val played = runBlocking(Dispatchers.IO) {
             StandIns(
                 resolve = { id ->
+                    paced()
                     YTPlayerUtils.playerResponseForPlayback(id, audioQuality = audioQuality, connectivityManager = connectivityManager)
                 },
                 wanted = { id ->
