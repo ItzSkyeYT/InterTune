@@ -32,10 +32,44 @@ class TourLeftOutTest {
 
     private fun mark(stop: TourStop) = TourTargets.arrive(stop.targetId!!, BringIntoViewRequester())
 
+    // The first-run tutorial's stops, all on Home.
+    private val home = TOUR_STOPS.filter { it.targetId != null }
+
     @After
     fun clear() {
-        four.forEach { TourTargets.forget(it.targetId!!) }
-        routes.forEach { route -> while (TourTargets.drawn(route)) TourTargets.screenLeft(route) }
+        (four + home).forEach { TourTargets.forget(it.targetId!!) }
+        (routes + Tour.ROUTE_HOME).forEach { route -> while (TourTargets.drawn(route)) TourTargets.screenLeft(route) }
+    }
+
+    @Test
+    fun `a stop on Home whose control has gone since the tour began gets no bubble either`() {
+        // The chips over Quick picks are on Home while the row loads. On a new install the row
+        // then falls back to YouTube's picks and they go, and a tour that began in that moment
+        // reached the stop with its bubble in the middle of the screen, describing them.
+        TourTargets.screenArrived(Tour.ROUTE_HOME)
+        home.forEach(::mark)
+        val state = TourState().apply { start(home) }
+        assertEquals(home.size, state.stops.size)
+
+        TourTargets.forget(Tour.QUICK_PICKS_CHIPS)
+        state.next()
+
+        assertEquals("Next goes past it", "recognise", state.current?.id)
+        assertEquals("and the counter no longer counts it", home.size - 1, state.stops.size)
+        state.back()
+        assertEquals("search", state.current?.id)
+    }
+
+    @Test
+    fun `a stop on Home is not judged while Home is not the screen that is up`() {
+        home.forEach(::mark)
+        val state = TourState().apply { start(home) }
+        TourTargets.forget(Tour.QUICK_PICKS_CHIPS)
+
+        state.next()
+
+        assertEquals("quick_picks", state.current?.id)
+        assertEquals(home.size, state.stops.size)
     }
 
     @Test

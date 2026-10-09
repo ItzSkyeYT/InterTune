@@ -166,6 +166,9 @@ data class TourStop(
     val sinceVersionCode: Int,
 )
 
+/** The screen a stop is on: its own, or Home, where the tour starts and where a stop with no route is. */
+val TourStop.screen: String get() = route ?: Tour.ROUTE_HOME
+
 /**
  * Ids for the elements the tour knows about.
  *
@@ -433,13 +436,18 @@ class TourState {
      * setting not on it, it is left out before a bubble is ever put up for it. A stop on a screen
      * the tour has yet to go to cannot be asked this way, and the overlay leaves that one out
      * when the screen arrives without it.
+     *
+     * Home is such a screen too. [start] keeps a stop on Home only when what it points at is
+     * there, but it can go between the start and the stop: the chips over Quick picks stand on
+     * Home while the row loads, and on a new install the row then falls back to YouTube's picks
+     * and they leave. The tour that began in that moment used to reach the stop all the same,
+     * its bubble in the middle of the screen describing chips that were not there.
      */
     private fun passOver() {
         while (running) {
             val stop = current ?: return
             val id = stop.targetId ?: return
-            val route = stop.route ?: return
-            if (!TourTargets.drawn(route) || TourTargets.known(id)) return
+            if (!TourTargets.drawn(stop.screen) || TourTargets.known(id)) return
             leaveOut()
         }
     }

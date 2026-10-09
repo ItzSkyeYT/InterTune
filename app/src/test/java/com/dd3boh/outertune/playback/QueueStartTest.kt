@@ -85,6 +85,12 @@ class QueueStartTest {
         /** Set by a test that wants the steps to wait for the board, and completed when it says. */
         var board: CompletableDeferred<Unit>? = null
 
+        /**
+         * Whether the player means to play, as the player keeps it: a start sets it, and a test
+         * takes it away where the listener would have paused.
+         */
+        override var wantsToPlay = false
+
         /** Every queue made gets an id of its own, as on the board. */
         private var made = 0L
 
@@ -145,6 +151,7 @@ class QueueStartTest {
 
         override fun start(playWhenReady: Boolean) {
             asked += "player: prepare, playWhenReady $playWhenReady"
+            wantsToPlay = playWhenReady
         }
     }
 
@@ -213,6 +220,79 @@ class QueueStartTest {
         radio.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("B")), 0))
         job.join()
         assertEquals(listOf("player: prepare, playWhenReady false").repeat(2), service.asked.filter { it.startsWith("player") })
+    }
+
+    // A pause made between the tap and the answer. The answer used to set playWhenReady again
+    // whatever had happened since, so a song paused a second after it was tapped played on.
+
+    @Test
+    fun `a pause made while the answer was awaited is left standing`() = runBlocking {
+        val service = Service()
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio) }
+        radio.asked.await()
+        assertEquals(started, service.asked.last())
+
+        service.wantsToPlay = false
+        radio.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("B")), 0))
+        job.join()
+
+        // The rest of the queue still joins round the song and the player is still prepared.
+        // Playing is the one thing not asked for again.
+        assertEquals("load 'A Mix' [A, B] at 0 $tags", service.board().last())
+        assertEquals(listOf(started, "player: prepare, playWhenReady false"), service.asked.filter { it.startsWith("player") })
+    }
+
+    @Test
+    fun `a pause stands when the answer comes back empty as well`() = runBlocking {
+        val service = Service()
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio) }
+        radio.asked.await()
+
+        service.wantsToPlay = false
+        radio.answer.complete(Queue.Status(null, emptyList(), 0))
+        job.join()
+
+        assertEquals("player: prepare, playWhenReady false", service.asked.last())
+    }
+
+    @Test
+    fun `a song tapped while the player was paused starts, at the tap and at the answer`() = runBlocking {
+        // The pause was the song before's. A tap is asking for this one.
+        val service = Service().apply { wantsToPlay = false }
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio) }
+        radio.asked.await()
+        assertEquals(started, service.asked.last())
+
+        radio.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("B")), 0))
+        job.join()
+        assertEquals(listOf(started, started), service.asked.filter { it.startsWith("player") })
+    }
+
+    @Test
+    fun `a list asked for while the player was paused starts when it answers`() = runBlocking {
+        // No song of this queue was started early, so there is no pause of its own to respect.
+        val service = Service().apply { wantsToPlay = false }
+        val album = LateQueue(preloadItem = null)
+        val job = launch { QueueStart(service).play(album) }
+        album.asked.await()
+        album.answer.complete(Queue.Status("Album", listOf(song("A"), song("B")), 0))
+        job.join()
+
+        assertEquals(started, service.asked.last())
+    }
+
+    @Test
+    fun `a song the app stopped on an error still means to play, one the listener paused does not`() {
+        // The two look the same to the player, playWhenReady false. With Skip on error a tapped
+        // song whose stream fails has no next song yet, so it stops, and the answer's second try
+        // is how that listener ends up with music.
+        assertTrue(QueueStart.wantsToPlay(playWhenReady = true, stoppedByError = false))
+        assertTrue(QueueStart.wantsToPlay(playWhenReady = false, stoppedByError = true))
+        assertTrue(QueueStart.wantsToPlay(playWhenReady = true, stoppedByError = true))
+        assertTrue(!QueueStart.wantsToPlay(playWhenReady = false, stoppedByError = false))
     }
 
     @Test
