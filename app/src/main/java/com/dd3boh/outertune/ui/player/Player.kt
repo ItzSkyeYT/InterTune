@@ -1224,272 +1224,274 @@ fun BottomSheetPlayer(
                     }
                 }
 
-                val seekInteraction = remember { MutableInteractionSource() }
-                Slider(
-                    value = (sliderPosition ?: shownPosition).toFloat(),
-                    valueRange = 0f..(if (shownDuration == C.TIME_UNSET) 0f else shownDuration.toFloat()),
-                    onValueChange = {
-                        sliderPosition = it.toLong()
-                        // slider too granular for this haptic to feel right
-//                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                    },
-                    onValueChangeFinished = {
-                        sliderPosition?.let {
-                            if (playerConnection.player.currentMediaItem == null) {
-                                // Nothing is loaded yet, so there is nothing to seek: move where
-                                // the restored song will start instead, whether or not it already
-                                // had a saved point (restoredPosition is null when the process died
-                                // before ever pausing, since ResumePoint.afterTransition leaves the
-                                // saved position at TIME_UNSET for an ordinary song change).
-                                playerConnection.service.queueBoard.getCurrentQueue()?.lastSongPos = it
-                                playerConnection.restoredPosition.value = it
-                            } else {
-                                playerConnection.player.seekTo(it)
-                                position = it
+                PlaybackOrder {
+                    val seekInteraction = remember { MutableInteractionSource() }
+                    Slider(
+                        value = (sliderPosition ?: shownPosition).toFloat(),
+                        valueRange = 0f..(if (shownDuration == C.TIME_UNSET) 0f else shownDuration.toFloat()),
+                        onValueChange = {
+                            sliderPosition = it.toLong()
+                            // slider too granular for this haptic to feel right
+    //                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                        },
+                        onValueChangeFinished = {
+                            sliderPosition?.let {
+                                if (playerConnection.player.currentMediaItem == null) {
+                                    // Nothing is loaded yet, so there is nothing to seek: move where
+                                    // the restored song will start instead, whether or not it already
+                                    // had a saved point (restoredPosition is null when the process died
+                                    // before ever pausing, since ResumePoint.afterTransition leaves the
+                                    // saved position at TIME_UNSET for an ordinary song change).
+                                    playerConnection.service.queueBoard.getCurrentQueue()?.lastSongPos = it
+                                    playerConnection.restoredPosition.value = it
+                                } else {
+                                    playerConnection.player.seekTo(it)
+                                    position = it
+                                }
                             }
-                        }
-                        sliderPosition = null
-                        haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                    },
-                    // Material 3 Expressive: a bar thumb standing clear of a thick track, with the
-                    // stop dot at the end, the same slider the backup settings already use.
-                    interactionSource = seekInteraction,
-                    thumb = {
-                        SliderDefaults.Thumb(
-                            interactionSource = seekInteraction,
-                            thumbSize = DpSize(4.dp, 36.dp),
+                            sliderPosition = null
+                            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                        },
+                        // Material 3 Expressive: a bar thumb standing clear of a thick track, with the
+                        // stop dot at the end, the same slider the backup settings already use.
+                        interactionSource = seekInteraction,
+                        thumb = {
+                            SliderDefaults.Thumb(
+                                interactionSource = seekInteraction,
+                                thumbSize = DpSize(4.dp, 36.dp),
+                            )
+                        },
+                        track = { sliderState ->
+                            SliderDefaults.Track(
+                                sliderState = sliderState,
+                                modifier = Modifier.height(14.dp),
+                                thumbTrackGapSize = 5.dp,
+                                trackInsideCornerSize = 4.dp,
+                            )
+                        },
+                        modifier = Modifier
+                            .padding(horizontal = hPadding)
+                            // From the keys, left and right seek in steps of a few seconds, which a
+                            // whole song's worth of one percent nudges was not. Up and down move on
+                            // rather than nudging the slider, which would otherwise hold on to focus.
+                            .onPreviewKeyEvent { event ->
+                                val forward = when (event.key) {
+                                    Key.DirectionRight -> true
+                                    Key.DirectionLeft -> false
+                                    Key.DirectionUp, Key.DirectionDown -> {
+                                        if (event.type == KeyEventType.KeyDown) {
+                                            focusManager.moveFocus(
+                                                if (event.key == Key.DirectionUp) FocusDirection.Up else FocusDirection.Down
+                                            )
+                                        }
+                                        return@onPreviewKeyEvent true
+                                    }
+                                    else -> return@onPreviewKeyEvent false
+                                }
+                                if (event.type == KeyEventType.KeyDown && playerConnection.player.currentMediaItem != null) {
+                                    val target = dpadSeekTarget(playerConnection.player.currentPosition, shownDuration, forward)
+                                    playerConnection.player.seekTo(target)
+                                    position = target
+                                }
+                                true
+                            }
+                    )
+
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = hPadding + 4.dp)
+                    ) {
+                        Text(
+                            text = makeTimeString(sliderPosition ?: shownPosition),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = onBackgroundColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                    },
-                    track = { sliderState ->
-                        SliderDefaults.Track(
-                            sliderState = sliderState,
-                            modifier = Modifier.height(14.dp),
-                            thumbTrackGapSize = 5.dp,
-                            trackInsideCornerSize = 4.dp,
+
+                        Text(
+                            text = if (shownDuration != C.TIME_UNSET) makeTimeString(shownDuration) else "",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = onBackgroundColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                    },
-                    modifier = Modifier
-                        .padding(horizontal = hPadding)
-                        // From the keys, left and right seek in steps of a few seconds, which a
-                        // whole song's worth of one percent nudges was not. Up and down move on
-                        // rather than nudging the slider, which would otherwise hold on to focus.
-                        .onPreviewKeyEvent { event ->
-                            val forward = when (event.key) {
-                                Key.DirectionRight -> sheetLayoutDirection == LayoutDirection.Ltr
-                                Key.DirectionLeft -> sheetLayoutDirection != LayoutDirection.Ltr
-                                Key.DirectionUp, Key.DirectionDown -> {
-                                    if (event.type == KeyEventType.KeyDown) {
-                                        focusManager.moveFocus(
-                                            if (event.key == Key.DirectionUp) FocusDirection.Up else FocusDirection.Down
+                    }
+
+                    Spacer(Modifier.height(controlSizes.gapAboveTransport))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = hPadding)
+                        .then(
+                            if (liquidGlass && groupedControls) {
+                                Modifier.drawBackdrop(
+                                    backdrop = playerBackdrop,
+                                    shape = { RoundedCornerShape(32.dp) },
+                                    effects = {
+                                        blur(4f.dp.toPx())
+                                        lens(
+                                            refractionHeight = 24f.dp.toPx() * glassIntensity,
+                                            refractionAmount = 32f.dp.toPx() * glassIntensity,
+                                            depthEffect = true,
+                                            chromaticAberration = true
                                         )
                                     }
-                                    return@onPreviewKeyEvent true
-                                }
-                                else -> return@onPreviewKeyEvent false
-                            }
-                            if (event.type == KeyEventType.KeyDown && playerConnection.player.currentMediaItem != null) {
-                                val target = dpadSeekTarget(playerConnection.player.currentPosition, shownDuration, forward)
-                                playerConnection.player.seekTo(target)
-                                position = target
-                            }
-                            true
-                        }
-                )
-
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = hPadding + 4.dp)
-                ) {
-                    Text(
-                        text = makeTimeString(sliderPosition ?: shownPosition),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = onBackgroundColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-
-                    Text(
-                        text = if (shownDuration != C.TIME_UNSET) makeTimeString(shownDuration) else "",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = onBackgroundColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-
-                Spacer(Modifier.height(controlSizes.gapAboveTransport))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = hPadding)
-                    .then(
-                        if (liquidGlass && groupedControls) {
-                            Modifier.drawBackdrop(
-                                backdrop = playerBackdrop,
-                                shape = { RoundedCornerShape(32.dp) },
-                                effects = {
-                                    blur(4f.dp.toPx())
-                                    lens(
-                                        refractionHeight = 24f.dp.toPx() * glassIntensity,
-                                        refractionAmount = 32f.dp.toPx() * glassIntensity,
-                                        depthEffect = true,
-                                        chromaticAberration = true
-                                    )
-                                }
-                            )
-                        } else Modifier
-                    )
-                ) {
-                    val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
-
-                    Box(modifier = Modifier.weight(1f)) {
-                        ResizableIconButton(
-                            icon = if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
-                            modifier = Modifier
-                                .size(transportIconSize)
-                                .padding(4.dp)
-                                .align(Alignment.Center)
-                                .named(shuffleName(shuffleModeEnabled)),
-                            color = onBackgroundColor,
-                            enabled = playerConnection.player.currentMediaItem != null,
-                            onClick = {
-                                playerConnection.triggerShuffle()
-                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                            }
+                                )
+                            } else Modifier
                         )
-                    }
-
-                    Box(modifier = Modifier.weight(1f)) {
-                        ResizableIconButton(
-                            icon = Icons.Rounded.SkipPrevious,
-                            enabled = canSkipPrevious,
-                            modifier = Modifier
-                                .size(transportIconSize)
-                                .align(Alignment.Center)
-                                .named(stringResource(R.string.widget_previous)),
-                            color = onBackgroundColor,
-                            onClick = {
-                                if (playerConnection.player.currentMediaItem == null) {
-                                    playerConnection.service.queueBoard.setCurrQueue()
-                                }
-                                playerConnection.player.seekToPrevious()
-                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                            }
-                        )
-                    }
-
-                    if (seekIncrement != SeekIncrement.OFF) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            ResizableIconButton(
-                                icon = Icons.Rounded.FastRewind,
-                                modifier = Modifier
-                                    .size(transportIconSize)
-                                    .align(Alignment.Center),
-                                color = onBackgroundColor,
-                                enabled = playerConnection.player.currentMediaItem != null,
-                                onClick = {
-                                    playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
-                                }
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.width(PlayButtonGap))
-
-                    Box(
-                        modifier = Modifier
-                            .size(playButtonSize)
-                            .animateContentSize()
-                            .clip(RoundedCornerShape(playPauseRoundness))
-                            .background(MaterialTheme.colorScheme.primary)
-                            .focusRequester(playPauseFocus)
-                            .clickable {
-                                // One call. Loading the saved queue never prepares, and the
-                                // toggle used to flip playWhenReady instead of starting, so this
-                                // took up to three taps to make a sound. See the connection.
-                                playerConnection.togglePlayPause()
-                                // play/pause is slightly harder haptic
-                                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                            }
                     ) {
-                        Image(
-                            imageVector = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = playPauseName(isPlaying && playbackState != STATE_ENDED),
-                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .size(controlSizes.playIcon)
-                        )
-                    }
+                        val shuffleModeEnabled by playerConnection.shuffleModeEnabled.collectAsState()
 
-                    Spacer(Modifier.width(PlayButtonGap))
-
-                    if (seekIncrement != SeekIncrement.OFF) {
                         Box(modifier = Modifier.weight(1f)) {
                             ResizableIconButton(
-                                icon = Icons.Rounded.FastForward,
+                                icon = if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
                                 modifier = Modifier
                                     .size(transportIconSize)
-                                    .align(Alignment.Center),
+                                    .padding(4.dp)
+                                    .align(Alignment.Center)
+                                    .named(shuffleName(shuffleModeEnabled)),
                                 color = onBackgroundColor,
                                 enabled = playerConnection.player.currentMediaItem != null,
                                 onClick = {
-                                    //ExoPlayer seek increment can only be set in builder
-                                    //playerConnection.player.seekForward()
-                                    playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
+                                    playerConnection.triggerShuffle()
+                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                 }
                             )
                         }
-                    }
 
-
-
-                    Box(modifier = Modifier.weight(1f)) {
-                        ResizableIconButton(
-                            icon = Icons.Rounded.SkipNext,
-                            enabled = canSkipNext,
-                            modifier = Modifier
-                                .size(transportIconSize)
-                                .align(Alignment.Center)
-                                .named(stringResource(R.string.widget_next)),
-                            color = onBackgroundColor,
-                            onClick = {
-                                // Cold start: the restored queue is only in the queue board until
-                                // something loads it into the player, same as Previous and Play above.
-                                if (playerConnection.player.currentMediaItem == null) {
-                                    playerConnection.service.queueBoard.setCurrQueue()
+                        Box(modifier = Modifier.weight(1f)) {
+                            ResizableIconButton(
+                                icon = Icons.Rounded.SkipPrevious,
+                                enabled = canSkipPrevious,
+                                modifier = Modifier
+                                    .size(transportIconSize)
+                                    .align(Alignment.Center)
+                                    .named(stringResource(R.string.widget_previous)),
+                                color = onBackgroundColor,
+                                onClick = {
+                                    if (playerConnection.player.currentMediaItem == null) {
+                                        playerConnection.service.queueBoard.setCurrQueue()
+                                    }
+                                    playerConnection.player.seekToPrevious()
+                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                 }
-                                playerConnection.player.seekToNext()
-                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                            }
-                        )
-                    }
+                            )
+                        }
 
-                    Box(modifier = Modifier.weight(1f)) {
-                        ResizableIconButton(
-                            icon = when (repeatMode) {
-                                REPEAT_MODE_OFF -> R.drawable.repeat_off
-                                REPEAT_MODE_ALL -> R.drawable.repeat_on
-                                REPEAT_MODE_ONE -> R.drawable.repeat_one
-                                else -> throw IllegalStateException()
-                            },
-                            modifier = Modifier
-                                .size(transportIconSize)
-                                .padding(4.dp)
-                                .align(Alignment.Center)
-                                .named(repeatName(repeatMode)),
-                            color = onBackgroundColor,
-                            enabled = playerConnection.player.currentMediaItem != null,
-                            onClick = {
-                                playerConnection.player.toggleRepeatMode()
-                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                        if (seekIncrement != SeekIncrement.OFF) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                ResizableIconButton(
+                                    icon = Icons.Rounded.FastRewind,
+                                    modifier = Modifier
+                                        .size(transportIconSize)
+                                        .align(Alignment.Center),
+                                    color = onBackgroundColor,
+                                    enabled = playerConnection.player.currentMediaItem != null,
+                                    onClick = {
+                                        playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
+                                    }
+                                )
                             }
-                        )
+                        }
+
+                        Spacer(Modifier.width(PlayButtonGap))
+
+                        Box(
+                            modifier = Modifier
+                                .size(playButtonSize)
+                                .animateContentSize()
+                                .clip(RoundedCornerShape(playPauseRoundness))
+                                .background(MaterialTheme.colorScheme.primary)
+                                .focusRequester(playPauseFocus)
+                                .clickable {
+                                    // One call. Loading the saved queue never prepares, and the
+                                    // toggle used to flip playWhenReady instead of starting, so this
+                                    // took up to three taps to make a sound. See the connection.
+                                    playerConnection.togglePlayPause()
+                                    // play/pause is slightly harder haptic
+                                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                                }
+                        ) {
+                            Image(
+                                imageVector = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                contentDescription = playPauseName(isPlaying && playbackState != STATE_ENDED),
+                                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimary),
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .size(controlSizes.playIcon)
+                            )
+                        }
+
+                        Spacer(Modifier.width(PlayButtonGap))
+
+                        if (seekIncrement != SeekIncrement.OFF) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                ResizableIconButton(
+                                    icon = Icons.Rounded.FastForward,
+                                    modifier = Modifier
+                                        .size(transportIconSize)
+                                        .align(Alignment.Center),
+                                    color = onBackgroundColor,
+                                    enabled = playerConnection.player.currentMediaItem != null,
+                                    onClick = {
+                                        //ExoPlayer seek increment can only be set in builder
+                                        //playerConnection.player.seekForward()
+                                        playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
+                                    }
+                                )
+                            }
+                        }
+
+
+
+                        Box(modifier = Modifier.weight(1f)) {
+                            ResizableIconButton(
+                                icon = Icons.Rounded.SkipNext,
+                                enabled = canSkipNext,
+                                modifier = Modifier
+                                    .size(transportIconSize)
+                                    .align(Alignment.Center)
+                                    .named(stringResource(R.string.widget_next)),
+                                color = onBackgroundColor,
+                                onClick = {
+                                    // Cold start: the restored queue is only in the queue board until
+                                    // something loads it into the player, same as Previous and Play above.
+                                    if (playerConnection.player.currentMediaItem == null) {
+                                        playerConnection.service.queueBoard.setCurrQueue()
+                                    }
+                                    playerConnection.player.seekToNext()
+                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                }
+                            )
+                        }
+
+                        Box(modifier = Modifier.weight(1f)) {
+                            ResizableIconButton(
+                                icon = when (repeatMode) {
+                                    REPEAT_MODE_OFF -> R.drawable.repeat_off
+                                    REPEAT_MODE_ALL -> R.drawable.repeat_on
+                                    REPEAT_MODE_ONE -> R.drawable.repeat_one
+                                    else -> throw IllegalStateException()
+                                },
+                                modifier = Modifier
+                                    .size(transportIconSize)
+                                    .padding(4.dp)
+                                    .align(Alignment.Center)
+                                    .named(repeatName(repeatMode)),
+                                color = onBackgroundColor,
+                                enabled = playerConnection.player.currentMediaItem != null,
+                                onClick = {
+                                    playerConnection.player.toggleRepeatMode()
+                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                }
+                            )
+                        }
                     }
                 }
 
