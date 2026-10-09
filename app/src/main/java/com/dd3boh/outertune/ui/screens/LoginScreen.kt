@@ -6,6 +6,8 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.net.Uri
 import android.os.Build
+import android.os.SystemClock
+import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
@@ -15,15 +17,19 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Warning
@@ -45,10 +51,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.edit
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.R
@@ -58,14 +70,20 @@ import com.dd3boh.outertune.constants.AccountNameKey
 import com.dd3boh.outertune.constants.DataSyncIdKey
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.LoginPickerDeclinedKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.reportException
 import com.zionhuang.innertube.YouTube
+import com.zionhuang.innertube.utils.parseCookieString
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
@@ -75,12 +93,15 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 fun LoginScreen(
     navController: NavController,
 ) {
-    var visitorData by rememberPreference(VisitorDataKey, "")
-    var dataSyncId by rememberPreference(DataSyncIdKey, "")
-    var innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
-    var accountName by rememberPreference(AccountNameKey, "")
-    var accountEmail by rememberPreference(AccountEmailKey, "")
-    var accountChannelHandle by rememberPreference(AccountChannelHandleKey, "")
+    val context = LocalContext.current
+    // What the page keeps is written outside the screen's own scope. A rememberPreference setter
+    // writes in that scope, and a write still on its way when the screen is left is dropped: the
+    // account's name, which arrives a moment after the cookie, was lost that way by anybody quick
+    // to leave, and the page now leaves by itself.
+    val store = remember { context.applicationContext.dataStore }
+    fun keep(write: (MutablePreferences) -> Unit) {
+        GlobalScope.launch { store.edit { write(it) } }
+    }
 
     // Remembered: as a plain local it was a new, empty holder on every recomposition, so Back never
     // reached the page. Whether the page can go back is kept beside it, taken from the page's own
@@ -92,6 +113,17 @@ fun LoginScreen(
     // Google's; the address and its lock are what a browser would show you. Null until a page has
     // arrived, so nothing is vouched for while the picker is up or the page is on its way.
     var currentUrl by remember { mutableStateOf<String?>(null) }
+    // The sign-in the page has ended on, once it has, and the one it was opened with, which is
+    // what tells a sign-in made here from one that was in the page already. See SignedIn.
+    var signedIn by remember { mutableStateOf<SignedIn?>(null) }
+    var cameWith by remember { mutableStateOf<String?>(null) }
+    var left by remember { mutableStateOf(false) }
+    // Once, however many things ask: a second call would leave the screen under this one too.
+    fun leave() {
+        if (left) return
+        left = true
+        navController.navigateUp()
+    }
 
     // Most people signing in already have their Google account on this phone. The app cannot use
     // that session itself, since YouTube Music takes only a sign-in made on Google's page, but it
@@ -100,7 +132,6 @@ fun LoginScreen(
     // mostly offers to confirm on this same phone, or a password manager fills the rest.
     // Null until the picker has answered; empty when there is no address to fill in, which opens
     // the page as it always was.
-    val context = LocalContext.current
     var pickedAccount by rememberSaveable { mutableStateOf<String?>(null) }
     // On a phone with Google's services but no Google account on it, signed out or with microG,
     // the system skips its list and goes straight to adding an account, and did so each time
@@ -142,6 +173,65 @@ fun LoginScreen(
         if (canPick && !pickerDeclined) openPicker() else pickedAccount = ""
     }
 
+    // The cookie kept as the sign-in, and the account asked who it is.
+    fun keepSignIn(cookie: String) {
+        GlobalScope.launch {
+            store.edit { it[InnerTubeCookieKey] = cookie }
+            // That write reaches YouTube.cookie through App's collector, some time later. Asked
+            // before that, the account answered for the one signed in before, or for nobody, and
+            // that name and address were stored.
+            runCatching { YouTube.cookie = cookie }
+            val account = YouTube.accountInfo().onFailure { reportException(it) }.getOrNull()
+            if (account != null) {
+                store.edit {
+                    it[AccountNameKey] = account.name
+                    it[AccountEmailKey] = account.email.orEmpty()
+                    it[AccountChannelHandleKey] = account.channelHandle.orEmpty()
+                }
+            }
+            withContext(Dispatchers.Main) {
+                signedIn = signedInNamed(signedIn, signInOf(cookie), account?.name)
+            }
+        }
+    }
+
+    // A page has arrived, or has finished loading: whether a sign-in has ended on it.
+    fun landedOn(url: String?, loaded: Boolean) {
+        if (!Unreleased.LOGIN_RETURNS) return
+        val cookie = if (isYouTubeMusicPage(url)) {
+            runCatching { CookieManager.getInstance().getCookie(url) }.getOrNull()
+        } else null
+        val known = signedIn
+        val now = signedInOn(known, url, cookie, cameWith, accountPicked = !pickedAccount.isNullOrEmpty())
+        signedIn = if (loaded) now?.copy(loaded = true) else now
+        if (now != null && now.id != known?.id) {
+            Log.d(TAG, "signed in: ${now.end}")
+            // Kept as the page arrives and not only when it has loaded, which going back waits
+            // for no longer than it must. A page that has loaded keeps it as it always did.
+            if (!loaded && cookie != null) keepSignIn(cookie)
+        }
+    }
+
+    // A sign-in made here, said for long enough: back to where the page was opened from, which
+    // is setup or the account's settings.
+    val goingBackFor = signedIn?.takeIf { it.end == SignInEnd.GO_BACK }?.id
+    LaunchedEffect(goingBackFor) {
+        if (goingBackFor == null) return@LaunchedEffect
+        val since = SystemClock.elapsedRealtime()
+        while (true) {
+            val state = signedIn?.takeIf { it.id == goingBackFor } ?: return@LaunchedEffect
+            val shownFor = SystemClock.elapsedRealtime() - since
+            if (mayGoBack(shownFor, loaded = state.loaded, answered = state.answered)) {
+                Log.d(TAG, "going back after $shownFor ms, page loaded: ${state.loaded}, name asked: ${state.answered}")
+                break
+            }
+            delay(100)
+        }
+        leave()
+    }
+
+    val landed = signedIn
+    val goingBack = landed?.end == SignInEnd.GO_BACK
     Column(
         modifier = Modifier
             .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
@@ -149,125 +239,217 @@ fun LoginScreen(
     ) {
         LoginAddressBar(currentUrl)
         val email = pickedAccount
-        if (canPick && email != null) {
+        // Not while the page is about to go back: a picker opened then would answer to a screen
+        // that has gone.
+        if (canPick && email != null && !goingBack) {
             LoginAccountRow(
                 email = email,
                 onSwitch = { openPicker() },
                 onAnotherAccount = { pickedAccount = "" },
             )
         }
+        if (landed?.end == SignInEnd.ASK) {
+            LoginSignedInRow(name = landed.name, onDone = { leave() })
+        }
         // Held back until the picker has answered, so the page loads once, with the address in it.
         // Each later answer, from Switch, Another account or Pick one, gets a page of its own, so
         // Back cannot return to steps taken for the account before, under the new one's name.
-        if (email != null) key(email) {
-            AndroidView(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                factory = { context ->
-                    WebView(context).apply {
-                        webViewClient = object : WebViewClient() {
-                            // The address is read from the page's history, which changes once a
-                            // page has arrived, and not from onPageStarted: a load can start for
-                            // one address and end without ever showing it, leaving the page before
-                            // it on screen. Google's sign-in also moves between its steps without
-                            // loading a new page, and those steps come here too.
-                            override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
-                                // A page given up for another account says nothing about this one.
-                                if (view !== webView) return
-                                if (url != null) currentUrl = url
-                                canGoBack = view.canGoBack()
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+        ) {
+            if (email != null) key(email) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { context ->
+                        WebView(context).apply {
+                            webViewClient = object : WebViewClient() {
+                                // The address is read from the page's history, which changes once a
+                                // page has arrived, and not from onPageStarted: a load can start for
+                                // one address and end without ever showing it, leaving the page before
+                                // it on screen. Google's sign-in also moves between its steps without
+                                // loading a new page, and those steps come here too.
+                                override fun doUpdateVisitedHistory(view: WebView, url: String?, isReload: Boolean) {
+                                    // A page given up for another account says nothing about this one.
+                                    if (view !== webView) return
+                                    if (url != null) currentUrl = url
+                                    canGoBack = view.canGoBack()
+                                    landedOn(url, loaded = false)
+                                }
+
+                                override fun onPageFinished(view: WebView, url: String?) {
+                                    if (view !== webView) return
+                                    // The web view's own address rather than this url, which is also
+                                    // given for a load that was abandoned before it arrived.
+                                    view.url?.let { currentUrl = it }
+                                    canGoBack = view.canGoBack()
+                                    loadUrl("javascript:Android.onRetrieveVisitorData(window.yt.config_.VISITOR_DATA)")
+                                    loadUrl("javascript:Android.onRetrieveDataSyncId(window.yt.config_.DATASYNC_ID)")
+
+                                    if (isYouTubeMusicPage(url)) {
+                                        CookieManager.getInstance().getCookie(url)?.let { keepSignIn(it) }
+                                    }
+                                    // The page showing, for a load that ended after another began.
+                                    landedOn(view.url, loaded = isYouTubeMusicPage(url))
+                                }
                             }
-
-                            override fun onPageFinished(view: WebView, url: String?) {
-                                if (view !== webView) return
-                                // The web view's own address rather than this url, which is also
-                                // given for a load that was abandoned before it arrived.
-                                view.url?.let { currentUrl = it }
-                                canGoBack = view.canGoBack()
-                                loadUrl("javascript:Android.onRetrieveVisitorData(window.yt.config_.VISITOR_DATA)")
-                                loadUrl("javascript:Android.onRetrieveDataSyncId(window.yt.config_.DATASYNC_ID)")
-
-                                if (isYouTubeMusicPage(url)) {
-                                    val cookie = CookieManager.getInstance().getCookie(url)
-                                    innerTubeCookie = cookie
-                                    GlobalScope.launch {
-                                        // The preference write above reaches YouTube.cookie through
-                                        // App's collector, some time later. Asked before that, this
-                                        // answered for the account signed in before, or for nobody,
-                                        // and stored that name and address.
-                                        runCatching { YouTube.cookie = cookie }
-                                        YouTube.accountInfo().onSuccess {
-                                            accountName = it.name
-                                            accountEmail = it.email.orEmpty()
-                                            accountChannelHandle = it.channelHandle.orEmpty()
-                                        }.onFailure {
-                                            reportException(it)
+                            settings.apply {
+                                javaScriptEnabled = true
+                                setSupportZoom(true)
+                                builtInZoomControls = true
+                            }
+                            // Asked for rather than left to the default, so a password manager,
+                            // Google's included, offers to fill the sign-in: one tap instead of
+                            // typing a password.
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
+                            }
+                            // Any page this web view reaches can call these, one a link on Google's
+                            // page leads to included, so they are answered only while the page showing
+                            // is YouTube Music's own over https, the one the script from onPageFinished
+                            // reads. They are called on a thread of their own, and the web view says
+                            // which page it is showing only on the main one.
+                            addJavascriptInterface(object {
+                                @JavascriptInterface
+                                fun onRetrieveVisitorData(newVisitorData: String?) {
+                                    if (newVisitorData == null) return
+                                    post {
+                                        if (isYouTubeMusicPage(this@apply.url)) keep { it[VisitorDataKey] = newVisitorData }
+                                    }
+                                }
+                                @JavascriptInterface
+                                fun onRetrieveDataSyncId(newDataSyncId: String?) {
+                                    if (newDataSyncId == null) return
+                                    post {
+                                        if (isYouTubeMusicPage(this@apply.url)) {
+                                            keep { it[DataSyncIdKey] = newDataSyncId.substringBefore("||") }
                                         }
                                     }
                                 }
-                            }
+                            }, "Android")
+                            webView = this
+                            canGoBack = false
+                            currentUrl = null
+                            signedIn = null
+                            cameWith = signInOf(runCatching { CookieManager.getInstance().getCookie(YOUTUBE_MUSIC) }.getOrNull())
+                            loadUrl(loginUrl(email))
                         }
-                        settings.apply {
-                            javaScriptEnabled = true
-                            setSupportZoom(true)
-                            builtInZoomControls = true
-                        }
-                        // Asked for rather than left to the default, so a password manager,
-                        // Google's included, offers to fill the sign-in: one tap instead of
-                        // typing a password.
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
-                        }
-                        // Any page this web view reaches can call these, one a link on Google's
-                        // page leads to included, so they are answered only while the page showing
-                        // is YouTube Music's own over https, the one the script from onPageFinished
-                        // reads. They are called on a thread of their own, and the web view says
-                        // which page it is showing only on the main one.
-                        addJavascriptInterface(object {
-                            @JavascriptInterface
-                            fun onRetrieveVisitorData(newVisitorData: String?) {
-                                if (newVisitorData == null) return
-                                post {
-                                    if (isYouTubeMusicPage(this@apply.url)) visitorData = newVisitorData
-                                }
-                            }
-                            @JavascriptInterface
-                            fun onRetrieveDataSyncId(newDataSyncId: String?) {
-                                if (newDataSyncId == null) return
-                                post {
-                                    if (isYouTubeMusicPage(this@apply.url)) dataSyncId = newDataSyncId.substringBefore("||")
-                                }
-                            }
-                        }, "Android")
-                        webView = this
-                        canGoBack = false
-                        currentUrl = null
-                        loadUrl(loginUrl(email))
-                    }
-                },
-                // Closed rather than left running unseen, when it is given up for another account
-                // or the screen is left: Google's page for the account before could otherwise go
-                // on waiting for a confirmation on the phone.
-                onRelease = { view ->
-                    if (webView === view) webView = null
-                    view.destroy()
-                },
-            )
+                    },
+                    // Closed rather than left running unseen, when it is given up for another account
+                    // or the screen is left: Google's page for the account before could otherwise go
+                    // on waiting for a confirmation on the phone.
+                    // Under the notice the page is not there to be read out either.
+                    update = { view ->
+                        view.importantForAccessibility = if (goingBack) {
+                            View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                        } else View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+                    },
+                    onRelease = { view ->
+                        if (webView === view) webView = null
+                        view.destroy()
+                    },
+                )
+            }
+            if (goingBack) LoginGoingBack(landed?.name)
         }
     }
 
     FloatingTopBar(title = stringResource(R.string.login), navController = navController)
 
-    BackHandler(enabled = canGoBack) {
+    // Once signed in, Back leaves the screen: the steps behind it are Google's, done with.
+    BackHandler(enabled = canGoBack && signedIn == null) {
         // Asked again, so an answer gone stale cannot keep Back on this screen.
         val view = webView
         if (view != null && view.canGoBack()) view.goBack() else navController.navigateUp()
     }
 }
 
+private const val TAG = "LoginScreen"
+private const val YOUTUBE_MUSIC = "https://music.youtube.com"
 private const val LOGIN_URL = "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fmusic.youtube.com"
 private const val GOOGLE_ACCOUNT_TYPE = "com.google"
+
+/** How long the page says that the sign-in is made before it goes back: long enough to read. */
+internal const val SIGNED_IN_SHOWN_MS = 1_500L
+
+/** How long it waits at most for YouTube Music's page to load and the account to say its name. */
+internal const val SIGNED_IN_WAIT_MS = 8_000L
+
+/** What the page does about a sign-in that has ended on it. */
+internal enum class SignInEnd {
+    /** Says so, and goes back by itself to where it was opened from. */
+    GO_BACK,
+
+    /** Says so and stays up, with a button to go back. */
+    ASK,
+}
+
+/**
+ * A sign-in the page has ended on: [id] is the sign-in itself (see [signInOf]) and [end] what the
+ * page does about it. [loaded] is whether YouTube Music's page has finished loading, which is
+ * when its script hands over what the app keeps beside the cookie; [answered] whether the account
+ * has been asked who it is, and [name] what it said.
+ */
+internal data class SignedIn(
+    val id: String,
+    val end: SignInEnd,
+    val loaded: Boolean = false,
+    val answered: Boolean = false,
+    val name: String? = null,
+)
+
+/**
+ * The sign-in [cookie] holds, by the cookie the rest of the app goes by, or null: for a visitor's
+ * cookies, for none, and for a string the app cannot read, which it would sign out on.
+ */
+internal fun signInOf(cookie: String?): String? =
+    cookie?.let { runCatching { parseCookieString(it)["SAPISID"] }.getOrNull() }?.takeIf { it.isNotEmpty() }
+
+/**
+ * A sign-in made on this visit ([madeHere]) goes back by itself, and so does one that was in the
+ * page already when an account of this phone was picked for it: that is the account asked for.
+ * One that only comes up, nobody having chosen anything, stays: gone back from by itself, there
+ * would be no way left to sign in as somebody else, every visit ending before it began.
+ */
+internal fun signInEnd(madeHere: Boolean, accountPicked: Boolean): SignInEnd =
+    if (madeHere || accountPicked) SignInEnd.GO_BACK else SignInEnd.ASK
+
+/**
+ * The sign-in the page is on while it shows [url] with [cookie]: none unless the page is YouTube
+ * Music's own and its cookie holds one, [known] itself while it is still the same one, whatever
+ * else of the cookie has changed, and a new one otherwise. [cameWith] is the sign-in the page was
+ * opened with, and [accountPicked] whether an account of this phone was picked for it.
+ */
+internal fun signedInOn(
+    known: SignedIn?,
+    url: String?,
+    cookie: String?,
+    cameWith: String?,
+    accountPicked: Boolean,
+): SignedIn? {
+    if (!isYouTubeMusicPage(url)) return null
+    val id = signInOf(cookie) ?: return null
+    if (known?.id == id) return known
+    return SignedIn(id, signInEnd(madeHere = id != cameWith, accountPicked = accountPicked))
+}
+
+/**
+ * [known] once the account of the sign-in [id] has been asked who it is. An answer for another
+ * sign-in, the one before arriving late, changes nothing. No [name] is an answer too, a request
+ * that failed, and does not take back a name already had.
+ */
+internal fun signedInNamed(known: SignedIn?, id: String?, name: String?): SignedIn? =
+    if (known == null || known.id != id) known
+    else known.copy(answered = true, name = name?.takeIf { it.isNotBlank() } ?: known.name)
+
+/**
+ * Whether the page goes back now, the sign-in having been said for [shownForMs]: once that is
+ * long enough to read, the page has [loaded] and the account has [answered], or once it has
+ * waited [SIGNED_IN_WAIT_MS] for those two, which a slow connection must not hold it behind.
+ */
+internal fun mayGoBack(shownForMs: Long, loaded: Boolean, answered: Boolean): Boolean =
+    shownForMs >= SIGNED_IN_SHOWN_MS && ((loaded && answered) || shownForMs >= SIGNED_IN_WAIT_MS)
 
 /** Google's sign-in, with the address to sign in as filled in when one was picked. */
 private fun loginUrl(email: String): String =
@@ -412,6 +594,85 @@ private fun LoginAccountRow(email: String, onSwitch: () -> Unit, onAnotherAccoun
         if (email.isNotEmpty()) {
             TextButton(onClick = onAnotherAccount) {
                 Text(stringResource(R.string.login_another_account))
+            }
+        }
+    }
+}
+
+/** "Signed in as Ada", or "Signed in" until the account has said who it is, and when it never does. */
+@Composable
+private fun signedInLine(name: String?): String =
+    if (name.isNullOrBlank()) stringResource(R.string.login_signed_in)
+    else stringResource(R.string.login_signed_in_as, name)
+
+/**
+ * What lies over YouTube Music's page once a sign-in is made and the page is about to go back by
+ * itself: that it worked, as whom, and that there is nothing left to do here. The page stays
+ * loaded underneath, since its script still has things to hand over.
+ */
+@Composable
+private fun LoginGoingBack(name: String?) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .padding(32.dp)
+                .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.CheckCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(48.dp),
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = signedInLine(name),
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.login_going_back),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+/**
+ * Above a page that came up signed in already, nobody having chosen anything: who it is signed in
+ * as, and the way back. The page stays up beneath it, for somebody who is here to switch.
+ */
+@Composable
+private fun LoginSignedInRow(name: String?, onDone: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 8.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 16.dp, end = 4.dp),
+        ) {
+            Text(
+                text = signedInLine(name),
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onDone) {
+                Text(stringResource(R.string.action_done))
             }
         }
     }
