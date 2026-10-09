@@ -24,7 +24,8 @@ class WelcomeCardTest {
 
     private val v0109 = 80          // somebody still on 0.10.9
     private val v011 = 91           // 0.11 as it shipped
-    private val v0115 = 92          // the first build of 0.11.5
+    private val v0111 = 92          // 0.11.1, fixes only: it took the number 0.11.5 was to have
+    private val v0115 = 93          // the first build of 0.11.5
 
     private val main = File("src/main/java/com/dd3boh/outertune")
 
@@ -67,6 +68,13 @@ class WelcomeCardTest {
     }
 
     @Test
+    fun `0_11_1 brings no card, and somebody on it gets the one for 0_11_5`() {
+        assertNull(card(seen = v011, build = v0111))
+        assertNull(card(seen = v0111, build = v0111))
+        assertEquals(WelcomeCard(count = 2, since = "0.11"), card(seen = v0111))
+    }
+
+    @Test
     fun `seen or dismissed it stays away, and the next update with something new brings another`() {
         // Closing the page and the cross on the card both mark the build somebody is on as seen.
         assertNotNull(card(seen = v0109, build = v011))
@@ -86,7 +94,7 @@ class WelcomeCardTest {
 
     @Test
     fun `the number is the number of things the page lists, on this install`() {
-        for (seen in listOf(0, v0109, 88, v011, v0115)) for (build in listOf(v011, v0115)) {
+        for (seen in listOf(0, v0109, 88, v011, v0111, v0115)) for (build in listOf(v011, v0111, v0115)) {
             for (install in listOf(Install(quickPicksChips = true), Install(quickPicksChips = false))) {
                 val listed = newThingsFor(seen, buildVersionCode = build, install = install).size
                 val said = card(seen = seen, build = build, install = install)?.count ?: 0
@@ -102,6 +110,7 @@ class WelcomeCardTest {
     fun `a build is named by the release it belongs to, as people know it`() {
         assertEquals("0.11", releaseAt(v011))
         assertEquals("0.11", releaseAt(88))
+        assertEquals("a fix release is known by the release it fixes", "0.11", releaseAt(v0111))
         assertEquals("0.11.5", releaseAt(v0115))
         assertEquals("0.11.5", releaseAt(v0115 + 30))
     }

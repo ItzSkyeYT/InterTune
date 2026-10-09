@@ -39,7 +39,7 @@ class CloserLookQuestionTest {
 
     @Test
     fun `a first install's tutorial ends on the question, after the walk round Settings`() {
-        val tour = tourFor(seenVersionCode = 0, buildVersionCode = 92, settingsWalk = true)
+        val tour = tourFor(seenVersionCode = 0, buildVersionCode = 93, settingsWalk = true)
         assertEquals(CLOSER_LOOK_QUESTION, tour.last())
         assertEquals(SETTINGS_TOUR.last(), tour[tour.lastIndex - 1])
         assertEquals(1, tour.count { it == CLOSER_LOOK_QUESTION })
@@ -50,7 +50,7 @@ class CloserLookQuestionTest {
     @Test
     fun `without the flag nobody is asked, and somebody who has had the tutorial is not asked on an update`() {
         assertFalse(CLOSER_LOOK_QUESTION in tourFor(seenVersionCode = 0, buildVersionCode = 92, settingsWalk = false))
-        assertFalse(CLOSER_LOOK_QUESTION in tourFor(seenVersionCode = 80, buildVersionCode = 92, settingsWalk = true))
+        assertFalse(CLOSER_LOOK_QUESTION in tourFor(seenVersionCode = 80, buildVersionCode = 93, settingsWalk = true))
         assertFalse("the tour started from About is the tour of the app alone", CLOSER_LOOK_QUESTION in tourAll())
     }
 
@@ -114,7 +114,7 @@ class CloserLookQuestionTest {
     @Test
     fun `the welcome is an offer and not a question about what follows`() {
         val state = TourState()
-        state.start(tourFor(seenVersionCode = 0, buildVersionCode = 92, settingsWalk = true))
+        state.start(tourFor(seenVersionCode = 0, buildVersionCode = 93, settingsWalk = true))
         assertEquals("welcome", state.current!!.id)
         assertFalse(state.asking)
         assertFalse(state.onLastStep)

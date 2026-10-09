@@ -1,0 +1,10 @@
+Version 0.11.1
+
+- Corrigé : la musique pouvait s'arrêter entre deux titres, puis l'appli ne s'ouvrait plus sans arrêt forcé.
+- Lecture relance un titre qui a échoué.
+- Deux titres touchés coup sur coup : le dernier est lu.
+- L'appli se rouvre seule après une restauration.
+- Historique : un titre y figure dès 2 secondes d'écoute, au lieu de 5.
+- Aucune adresse réseau dans les journaux et rapports d'erreur.
+
+Journal complet : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.11.1

@@ -1,0 +1,10 @@
+Version 0.11.1
+
+- Music could stop at a song change, and the app would then not open until it was force stopped. Fixed.
+- Play brings back a song that failed on a bad connection.
+- Two songs tapped one after the other: the last one plays.
+- The app comes back by itself after a backup is restored.
+- History lists a song after 2 seconds of listening, where it took 5.
+- No network addresses in logs and error reports.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.11.1
