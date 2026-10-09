@@ -149,7 +149,6 @@ import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.move
 import com.dd3boh.outertune.extensions.supportsWideScreen
-import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
@@ -1055,7 +1054,7 @@ fun BoxScope.QueueContent(
                                         } else {
                                             coroutineScope.launch(Dispatchers.Main) {
                                                 if (index == currentWindowIndex && !detachedHead) {
-                                                    playerConnection.player.togglePlayPause()
+                                                    playerConnection.togglePlayPause()
                                                 } else {
                                                     val index = index // race condition...?
                                                     if (detachedHead) {
@@ -1386,7 +1385,7 @@ fun BoxScope.QueueContent(
                                     playerConnection.player.seekTo(0, 0)
                                     playerConnection.player.playWhenReady = true
                                 } else {
-                                    playerConnection.player.togglePlayPause()
+                                    playerConnection.togglePlayPause()
                                 }
                                 // play/pause is slightly harder haptic
                                 haptic.performHapticFeedback(HapticFeedbackType.Confirm)

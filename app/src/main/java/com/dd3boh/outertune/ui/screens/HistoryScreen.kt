@@ -78,7 +78,6 @@ import com.dd3boh.outertune.history.HistoryEntry
 import com.dd3boh.outertune.history.HistoryFormat
 import com.dd3boh.outertune.history.HistoryRemoval
 import com.dd3boh.outertune.extensions.toMediaItem
-import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.ChipsRow
@@ -334,7 +333,7 @@ fun HistoryScreen(
                                     .combinedClickable(
                                         onClick = {
                                             if (song.id == mediaMetadata?.id) {
-                                                playerConnection.player.togglePlayPause()
+                                                playerConnection.togglePlayPause()
                                             } else {
                                                 playerConnection.playQueue(
                                                     ListQueue(
@@ -414,7 +413,7 @@ fun HistoryScreen(
                             thumbnailSize = thumbnailSize,
                             onPlay = {
                                 if (entry.song.id == mediaMetadata?.id) {
-                                    playerConnection.player.togglePlayPause()
+                                    playerConnection.togglePlayPause()
                                 } else {
                                     playerConnection.playQueue(
                                         ListQueue(

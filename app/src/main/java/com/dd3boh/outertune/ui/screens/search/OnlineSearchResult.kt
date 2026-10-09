@@ -46,7 +46,6 @@ import com.dd3boh.outertune.constants.AppBarHeight
 import com.dd3boh.outertune.constants.SearchFilterHeight
 import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.extensions.toMediaItem
-import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
@@ -177,7 +176,7 @@ fun OnlineSearchResult(
                                 when (item) {
                                     is SongItem -> {
                                         if (item.id == mediaMetadata?.id) {
-                                            playerConnection.player.togglePlayPause()
+                                            playerConnection.togglePlayPause()
                                         } else {
                                             // Radio, not the rest of the search. Tapping a result used to queue every other song the
                                             // search happened to return, so looking up one track left you playing

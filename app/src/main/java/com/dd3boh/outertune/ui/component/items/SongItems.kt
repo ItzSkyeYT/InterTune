@@ -58,7 +58,6 @@ import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistSong
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toMediaItem
-import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.DirectoryTree
 import com.dd3boh.outertune.ui.component.PlayingIndicatorBox
 import com.dd3boh.outertune.ui.component.SwipeToQueueBox
@@ -206,7 +205,7 @@ fun SongListItem(
                     if (inSelectMode == true) {
                         onSelectedChange(!isSelected)
                     } else if (isActive) {
-                        playerConnection.player.togglePlayPause()
+                        playerConnection.togglePlayPause()
                     } else {
                         onPlay()
                     }

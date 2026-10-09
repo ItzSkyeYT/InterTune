@@ -28,6 +28,7 @@ import com.dd3boh.outertune.extensions.currentMetadata
 import com.dd3boh.outertune.extensions.getCurrentQueueIndex
 import com.dd3boh.outertune.extensions.getQueueWindows
 import com.dd3boh.outertune.extensions.metadata
+import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.lyrics.LyricsLookup
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.utils.reportException
@@ -125,6 +126,20 @@ class PlayerConnection(
                 shuffleModeEnabled.value = resumption.shuffled
             }
         }
+    }
+
+    /**
+     * Play or pause, for anything that shows the current song: the two play buttons, and every
+     * row, card and tile that stands for it.
+     *
+     * After a cold start the player is empty and the song shown comes from the saved queue (see
+     * init). A toggle on an empty player does nothing, so the row of that song took the tap and
+     * stayed silent, while the play button beside it worked: it loaded the saved queue first.
+     * The loading is here now, for all of them. setCurrQueue never prepares; the toggle does.
+     */
+    fun togglePlayPause() {
+        if (player.currentMediaItem == null) service.queueBoard.setCurrQueue()
+        player.togglePlayPause()
     }
 
     fun playQueue(

@@ -229,7 +229,6 @@ import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.supportsWideScreen
 import com.dd3boh.outertune.extensions.tabMode
-import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.BottomSheet
@@ -1398,13 +1397,10 @@ fun BottomSheetPlayer(
                             .background(MaterialTheme.colorScheme.primary)
                             .focusRequester(playPauseFocus)
                             .clickable {
-                                // One branch. setCurrQueue loads the queue but never prepares,
-                                // and togglePlayPause used to flip playWhenReady instead of
-                                // starting, so this took up to three taps to make a sound.
-                                if (playerConnection.player.currentMediaItem == null) {
-                                    playerConnection.service.queueBoard.setCurrQueue()
-                                }
-                                playerConnection.player.togglePlayPause()
+                                // One call. Loading the saved queue never prepares, and the
+                                // toggle used to flip playWhenReady instead of starting, so this
+                                // took up to three taps to make a sound. See the connection.
+                                playerConnection.togglePlayPause()
                                 // play/pause is slightly harder haptic
                                 haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                             }

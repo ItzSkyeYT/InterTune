@@ -34,7 +34,6 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.StatPeriod
 import com.dd3boh.outertune.constants.SwipeToQueueKey
-import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.ChipsRow
@@ -89,7 +88,7 @@ fun StatsScreen(
         isPlaying = isPlaying,
         onSong = { song ->
             if (song.id == mediaMetadata?.id) {
-                playerConnection.player.togglePlayPause()
+                playerConnection.togglePlayPause()
             } else {
                 playerConnection.playQueue(
                     ListQueue(title = statsTitle, items = listOf(song.toMediaMetadata())),
