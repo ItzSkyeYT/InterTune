@@ -1495,4 +1495,7 @@
     <string name="share_link_youtube_music_description">S\'ouvre dans YouTube Music ou dans InterTune</string>
     <string name="share_link_page_description">La personne choisit son appli : Spotify, Apple Music, Deezer et d\'autres</string>
     <string name="stats_nothing_played">Rien n\'a été joué sur cette période.</string>
+    <string name="sort_order_ascending">Ordre croissant</string>
+    <string name="sort_order_descending">Ordre décroissant</string>
+    <string name="home_play_at_random">Lancer quelque chose au hasard</string>
 </resources>
