@@ -7,6 +7,7 @@ Fixes for 0.11. One thing changes for everyone: History lists a song after 2 sec
 - **Music could stop, and the app would then not open.** At the change from one song to the next, counting the play that had just ended could lock the app's database. Every song after it stayed on loading, and the app would not open again until it was force stopped. This is fixed. A database that is slow to answer also no longer keeps a song from starting, and closing the app no longer waits for it without end.
 - **Play after a failed connection.** A song that had failed while the connection was bad failed again at every Play, also once the connection was back, and only skipping to another song brought the music back. Play now asks YouTube for the song again.
 - **One song that would not play could hold up the whole app.** On a phone set to English, a single song YouTube would not serve, one blocked in your country for instance, made Home say "YouTube has paused this connection" and held recommendations, downloads and sync for five minutes. The app was reading its first source's refusal, which that source gives for every song, as YouTube refusing the connection. A song that fails is now only a song that fails.
+- **A pause straight after a tap.** A tapped song starts at once and its radio joins it a second or two later. A song paused in that time started playing again by itself when the radio arrived. A pause now stands.
 - **Two songs tapped one after the other.** A tapped song plays at once and its radio joins it a moment later. When the first song's radio arrived after the second tap, the second song was cut off for the first, or the first played in its place. The song tapped last now keeps playing.
 - A song tapped after one whose radio could not be fetched, with no connection for instance, started where the song before it had been left and not at 0:00. It starts from the beginning, in a queue of its own.
 - The first song tapped after the app opens starts loading at once, where it waited until its radio had been fetched. When the radio could not be fetched, it did not start at all, a downloaded song included.
@@ -35,6 +36,7 @@ Fixes for 0.11. One thing changes for everyone: History lists a song after 2 sec
 - The search pill begins with a magnifier until there is something to go back from. It showed a back arrow at all times.
 - On a narrow phone, "Local scanner" is written out under its button on Home, where it was cut short.
 - On a new install, the short tour of the app starts as soon as setup is done, where it waited for the next launch.
+- On some new installs that tour had a stop for the chips over Quick picks after they had gone, its bubble in the middle of the screen. The stop is left out when the chips are not there.
 - Previous, play or pause, and next in the mini player are named for screen readers.
 - On a tablet, the back button of a local playlist and of four pages under Recommendations was drawn under the navigation rail and could not be reached. It keeps clear of the rail now.
 - The two microphone permissions were each declared twice. Nothing the app asks for changes.
