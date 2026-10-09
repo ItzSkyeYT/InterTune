@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.utils.cipher
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -15,6 +16,7 @@ import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.annotation.MainThread
@@ -92,6 +94,7 @@ class WebViewChallengeSolver(private val context: Context) : ChallengeSolver {
         return lock.withLock {
             closing?.cancel()
             val ready = prepared?.takeIf { it.first == script.id }?.second
+            val started = System.nanoTime()
             try {
                 // Bounded here too, whatever limit the caller has set: the page's answers are
                 // waited for with no time limit of their own, and this holds a lock.
@@ -100,6 +103,7 @@ class WebViewChallengeSolver(private val context: Context) : ChallengeSolver {
                     open.ask(SolverProtocol.input(prepared = ready != null, signatures, ns), ready ?: script.text)
                 } ?: throw SolverException("the solver did not answer in time")
                 val reading = SolverProtocol.read(output, signatures, ns).getOrThrow()
+                Log.i(TAG, "answered in ${(System.nanoTime() - started) / 1_000_000} ms, asked with " + (if (ready != null) "the prepared script" else "the whole script"))
                 reading.errors.forEach { Log.w(TAG, "the solver could not do $it") }
                 reading.prepared?.let { prepared = script.id to it }
                 closeWhenIdle()
@@ -163,6 +167,9 @@ private class SolverPage private constructor(
     private val waiting = ConcurrentHashMap<Int, Question>()
     private val lastId = AtomicInteger(0)
 
+    /** How many pages have begun to load in the WebView. One is the solver's own. */
+    private val loads = AtomicInteger(0)
+
     @Volatile
     var closed = false
         private set
@@ -200,6 +207,18 @@ private class SolverPage private constructor(
         // Without this Android ends the whole app when the page's renderer dies, and the player
         // with it: see PoTokenWebView.
         webView.webViewClient = object : WebViewClient() {
+            // YouTube's script, once it has run in here, tries to take the page somewhere else:
+            // seen on 9 Oct 2026, where the second question found an error page and no solver.
+            // The page goes nowhere, and one that has left all the same is not asked again.
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = true
+
+            override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                if (loads.incrementAndGet() > 1 && !closed) {
+                    Log.w(TAG, "the solver's page was taken elsewhere, closing it")
+                    fail(SolverException("the solver's page was taken elsewhere"))
+                }
+            }
+
             @RequiresApi(Build.VERSION_CODES.O)
             override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
                 Log.e(TAG, "the renderer process of the solver's page is gone")

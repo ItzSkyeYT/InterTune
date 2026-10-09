@@ -200,6 +200,13 @@ object YTPlayerUtils {
          */
         suspend fun playerScript(): PlayerScript?
 
+        /**
+         * The status of a read of sixteen bytes two megabytes into [url], or null when it could not
+         * be made. For the experiment's client, to see whether a HEAD request tells the truth about
+         * a web client's address as it does about an app client's.
+         */
+        fun readPast(url: String): Int?
+
         /** The signature and n of a web client's address solved against [script]: see [ChallengeSolver]. */
         suspend fun solve(script: PlayerScript, signatures: List<String>, ns: List<String>): ChallengeSolver.Solved
     }
@@ -231,6 +238,13 @@ object YTPlayerUtils {
         override fun poTokens(videoId: String, sessionId: String?): PoTokenResult? = getWebClientPoTokenOrNull(videoId, sessionId)
 
         override suspend fun playerScript(): PlayerScript? = playerScripts.current()
+
+        override fun readPast(url: String): Int? = try {
+            val request = okhttp3.Request.Builder().url(url).header("Range", "bytes=$PAST-${PAST + 15}").build()
+            streamCalls.newCall(request).execute().use { it.code }
+        } catch (e: Exception) {
+            null
+        }
 
         override suspend fun solve(script: PlayerScript, signatures: List<String>, ns: List<String>): ChallengeSolver.Solved =
             challengeSolver.solve(script, signatures, ns)
@@ -316,6 +330,9 @@ object YTPlayerUtils {
      * request thirty, so this holds a song for less than the chain already can.
      */
     const val TRIAL_LIMIT_MS = 12_000L
+
+    /** Well past the 512 KB a capped address serves: the stream check's own distance. */
+    private const val PAST = 2L * 1024 * 1024
 
     /** [TRIAL_LIMIT_MS], and something shorter in the tests that run out of it on purpose. */
     @Volatile
@@ -886,16 +903,31 @@ object YTPlayerUtils {
                 var checked = address
                 var status: Int? = null
                 var carried: Pot? = null
+                var byReading = false
                 for ((kind, pot) in pots) {
                     checked = StreamCipher.withPot(address, pot)
                     status = wire.head(checked)
                     carried = kind
                     if (kind != null) Log.i(TAG, "[$videoId] [${client.clientName}] HEAD ${status ?: "failed"} with ${kind.words}")
+                    // The experiment's address refused by HEAD is also read from, far in: on
+                    // 9 Oct 2026 nothing said yet whether HEAD means for a web client what it
+                    // means for an app client. A read that is served counts as served.
+                    if (isTrial && status != null && !StreamCheck.accept(status, isLast = false)) {
+                        val past = wire.readPast(checked)
+                        Log.i(TAG, "[$videoId] [${client.clientName}] a read past 512 KB got ${past ?: "no answer"} with ${kind?.words}")
+                        if (past != null && StreamCheck.accept(past, isLast = false)) {
+                            status = past
+                            byReading = true
+                        }
+                    }
                     // A check that could not be made is the connection's doing: another token will not mend it.
                     if (status == null || StreamCheck.accept(status, isLast = false)) break
                 }
                 streamUrl = checked
-                trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", status, checked = true, with = carried?.words)
+                trail[trail.lastIndex] = StreamCheck.trailStep(
+                    clientLabel, "OK", status, checked = true,
+                    with = carried?.words?.let { if (byReading) "$it, by a read past 512 KB" else it },
+                )
                 // For StreamOrder the client served or was refused by what the check answered. A
                 // check that could not be made says more of the connection than of the client, so
                 // nothing is remembered of it, even when its url is the last one and is played.

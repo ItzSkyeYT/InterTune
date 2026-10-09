@@ -142,6 +142,18 @@ class ChainWalkTest {
             return if (client in heads) heads[client] else 200
         }
 
+        /** A read from far in gets what the check got, unless a test says otherwise. */
+        var readsPast: ((String) -> Int?)? = null
+        val readPastOf = mutableListOf<String>()
+
+        override fun readPast(url: String): Int? {
+            readPastOf += url
+            readsPast?.let { return it(url) }
+            headOf?.let { return it(url) }
+            val client = url.substringAfter("://").substringBefore('.')
+            return if (client in heads) heads[client] else 200
+        }
+
         override suspend fun playerScript(): PlayerScript? {
             check(scriptWanted) { "the player script was not expected to be asked for" }
             return playerScript
@@ -546,6 +558,23 @@ class ChainWalkTest {
         assertEquals("https://VISIONOS.example/videoplayback?itag=251", data.streamUrl)
         assertEquals("VISIONOS", YTPlayerUtils.lastStreamClient)
         assertEquals(before, YTPlayerUtils.streamMemory)
+    }
+
+    @Test
+    fun `an address a HEAD request refuses and a read from far in is served from counts as served, and the trail says how`() {
+        experimentOn()
+        val script = Script(
+            says = mapOf("WEB_REMIX" to listOf(ciphered())),
+            heads = mapOf("web-remix" to 403),
+            playerScript = playerScript,
+            solver = solving,
+        )
+        script.readsPast = { url -> if (url.endsWith("&pot=${Script.SESSION_TOKEN}")) 206 else 403 }
+        val data = walk(script).getOrThrow()
+
+        assertEquals(deciphered + "&pot=${Script.SESSION_TOKEN}", data.streamUrl)
+        assertEquals("WEB_REMIX OK, HEAD 206 with the session's token, by a read past 512 KB", YTPlayerUtils.lastStreamTrail)
+        assertEquals(2, script.readPastOf.size)
     }
 
     @Test
