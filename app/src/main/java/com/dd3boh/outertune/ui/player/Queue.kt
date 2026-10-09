@@ -1318,142 +1318,144 @@ fun BoxScope.QueueContent(
             // player controls
             if (queueState != null && !compact) {
                 val iconButtonColor = MaterialTheme.colorScheme.onSecondaryContainer
-                Row(
-                    horizontalArrangement = Arrangement.SpaceAround,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = PlayerHorizontalPadding)
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        ResizableIconButton(
-                            if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .padding(4.dp)
-                                .align(Alignment.Center)
-                                .named(shuffleName(shuffleModeEnabled)),
-                            color = iconButtonColor,
-                            enabled = !detachedHead,
-                            onClick = {
-                                playerConnection.triggerShuffle()
-                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                            }
-                        )
-                    }
-
-                    Box(modifier = Modifier.weight(1f)) {
-                        ResizableIconButton(
-                            icon = Icons.Rounded.SkipPrevious,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .align(Alignment.Center)
-                                .named(stringResource(R.string.widget_previous)),
-                            color = iconButtonColor,
-                            enabled = !detachedHead && canSkipPrevious,
-                            onClick = {
-                                // Cold start: the saved queue is not in the player yet, and a
-                                // skip in an empty player goes nowhere. As the full player does.
-                                playerConnection.loadSavedQueue()
-                                playerConnection.player.seekToPrevious()
-                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                            }
-                        )
-                    }
-
-                    if (seekIncrement != SeekIncrement.OFF) {
+                PlaybackOrder {
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = PlayerHorizontalPadding)
+                    ) {
                         Box(modifier = Modifier.weight(1f)) {
                             ResizableIconButton(
-                                icon = Icons.Rounded.FastRewind,
+                                if (shuffleModeEnabled) R.drawable.shuffle_on else R.drawable.shuffle_off,
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .align(Alignment.Center),
+                                    .padding(4.dp)
+                                    .align(Alignment.Center)
+                                    .named(shuffleName(shuffleModeEnabled)),
+                                color = iconButtonColor,
                                 enabled = !detachedHead,
                                 onClick = {
-                                    playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
+                                    playerConnection.triggerShuffle()
+                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                 }
                             )
                         }
-                    }
 
-                    Spacer(Modifier.width(8.dp))
-
-                    Box(modifier = Modifier.weight(1f)) {
-                        ResizableIconButton(
-                            icon = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .align(Alignment.Center)
-                                .named(playPauseName(isPlaying && playbackState != STATE_ENDED)),
-                            color = iconButtonColor,
-                            enabled = !detachedHead,
-                            onClick = {
-                                if (playbackState == STATE_ENDED) {
-                                    playerConnection.player.seekTo(0, 0)
-                                    playerConnection.player.playWhenReady = true
-                                } else {
-                                    playerConnection.togglePlayPause()
-                                }
-                                // play/pause is slightly harder haptic
-                                haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                            }
-                        )
-                    }
-
-                    Spacer(Modifier.width(8.dp))
-
-                    if (seekIncrement != SeekIncrement.OFF) {
                         Box(modifier = Modifier.weight(1f)) {
                             ResizableIconButton(
-                                icon = Icons.Rounded.FastForward,
+                                icon = Icons.Rounded.SkipPrevious,
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .align(Alignment.Center),
-                                enabled = !detachedHead,
+                                    .align(Alignment.Center)
+                                    .named(stringResource(R.string.widget_previous)),
+                                color = iconButtonColor,
+                                enabled = !detachedHead && canSkipPrevious,
                                 onClick = {
-                                    playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
+                                    // Cold start: the saved queue is not in the player yet, and a
+                                    // skip in an empty player goes nowhere. As the full player does.
+                                    playerConnection.loadSavedQueue()
+                                    playerConnection.player.seekToPrevious()
+                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                 }
                             )
                         }
-                    }
 
-                    Box(modifier = Modifier.weight(1f)) {
-                        ResizableIconButton(
-                            icon = Icons.Rounded.SkipNext,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .align(Alignment.Center)
-                                .named(stringResource(R.string.widget_next)),
-                            color = iconButtonColor,
-                            enabled = !detachedHead && canSkipNext,
-                            onClick = {
-                                playerConnection.loadSavedQueue()
-                                playerConnection.player.seekToNext()
-                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                        if (seekIncrement != SeekIncrement.OFF) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                ResizableIconButton(
+                                    icon = Icons.Rounded.FastRewind,
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .align(Alignment.Center),
+                                    enabled = !detachedHead,
+                                    onClick = {
+                                        playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
+                                    }
+                                )
                             }
-                        )
-                    }
+                        }
 
-                    Box(modifier = Modifier.weight(1f)) {
-                        ResizableIconButton(
-                            icon = when (repeatMode) {
-                                REPEAT_MODE_OFF -> R.drawable.repeat_off
-                                REPEAT_MODE_ALL -> R.drawable.repeat_on
-                                REPEAT_MODE_ONE -> R.drawable.repeat_one
-                                else -> throw IllegalStateException()
-                            },
-                            modifier = Modifier
-                                .size(32.dp)
-                                .padding(4.dp)
-                                .align(Alignment.Center)
-                                .named(repeatName(repeatMode)),
-                            color = iconButtonColor,
-                            enabled = !detachedHead,
-                            onClick = {
-                                playerConnection.player.toggleRepeatMode()
-                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                        Spacer(Modifier.width(8.dp))
+
+                        Box(modifier = Modifier.weight(1f)) {
+                            ResizableIconButton(
+                                icon = if (playbackState == STATE_ENDED) Icons.Rounded.Replay else if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .align(Alignment.Center)
+                                    .named(playPauseName(isPlaying && playbackState != STATE_ENDED)),
+                                color = iconButtonColor,
+                                enabled = !detachedHead,
+                                onClick = {
+                                    if (playbackState == STATE_ENDED) {
+                                        playerConnection.player.seekTo(0, 0)
+                                        playerConnection.player.playWhenReady = true
+                                    } else {
+                                        playerConnection.togglePlayPause()
+                                    }
+                                    // play/pause is slightly harder haptic
+                                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                                }
+                            )
+                        }
+
+                        Spacer(Modifier.width(8.dp))
+
+                        if (seekIncrement != SeekIncrement.OFF) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                ResizableIconButton(
+                                    icon = Icons.Rounded.FastForward,
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .align(Alignment.Center),
+                                    enabled = !detachedHead,
+                                    onClick = {
+                                        playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
+                                    }
+                                )
                             }
-                        )
+                        }
+
+                        Box(modifier = Modifier.weight(1f)) {
+                            ResizableIconButton(
+                                icon = Icons.Rounded.SkipNext,
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .align(Alignment.Center)
+                                    .named(stringResource(R.string.widget_next)),
+                                color = iconButtonColor,
+                                enabled = !detachedHead && canSkipNext,
+                                onClick = {
+                                    playerConnection.loadSavedQueue()
+                                    playerConnection.player.seekToNext()
+                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                }
+                            )
+                        }
+
+                        Box(modifier = Modifier.weight(1f)) {
+                            ResizableIconButton(
+                                icon = when (repeatMode) {
+                                    REPEAT_MODE_OFF -> R.drawable.repeat_off
+                                    REPEAT_MODE_ALL -> R.drawable.repeat_on
+                                    REPEAT_MODE_ONE -> R.drawable.repeat_one
+                                    else -> throw IllegalStateException()
+                                },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .padding(4.dp)
+                                    .align(Alignment.Center)
+                                    .named(repeatName(repeatMode)),
+                                color = iconButtonColor,
+                                enabled = !detachedHead,
+                                onClick = {
+                                    playerConnection.player.toggleRepeatMode()
+                                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                }
+                            )
+                        }
                     }
                 }
 
