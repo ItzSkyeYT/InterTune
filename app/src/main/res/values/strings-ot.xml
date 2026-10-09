@@ -578,11 +578,9 @@ while also allowing users to translate our app as well. New, specific strings to
 
     <!-- The short setup (ShortSetup.kt), behind Unreleased.SHORT_SETUP. English only until its wording is agreed. -->
     <string name="setup_welcome_body" translatable="false">A music player for YouTube Music and for the music files on this device.</string>
-    <string name="setup_get_started" translatable="false">Get started</string>
     <string name="setup_sign_in_title" translatable="false">Sign in</string>
     <string name="setup_sign_in_body" translatable="false">Your YouTube Music account brings your playlists, likes and recommendations here. The app works without one.</string>
     <string name="setup_sign_in" translatable="false">Sign in to YouTube Music</string>
-    <string name="setup_not_now" translatable="false">Not now</string>
     <string name="setup_signed_in_as" translatable="false">You are signed in as %1$s.</string>
     <string name="setup_signed_in" translatable="false">You are signed in.</string>
     <string name="setup_choices_title" translatable="false">A few choices</string>
@@ -593,7 +591,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_news_line" translatable="false">An announcement on Home now and then, like a new feature.</string>
     <string name="setup_count_line" translatable="false">One short message a day that says this install is in use. Never what you play.</string>
     <string name="setup_lastfm_line" translatable="false">Sends Last.fm the title and artist of each song you play, to find more like it.</string>
-    <string name="setup_more" translatable="false">More</string>
 
 <!-- M3U -->
     <string name="import_failed_songs">Could not import</string>
