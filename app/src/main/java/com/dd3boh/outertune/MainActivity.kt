@@ -253,6 +253,8 @@ import com.dd3boh.outertune.ui.utils.LocalAppBackdropAvailable
 import com.dd3boh.outertune.ui.utils.Landscape
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
 import com.dd3boh.outertune.ui.utils.LocalGlassIntensity
 import com.dd3boh.outertune.ui.component.LocalSearchBarGlass
@@ -1590,6 +1592,11 @@ class MainActivity : ComponentActivity() {
 //                                            it.route?.substringBefore("?")?.substringBefore("/") == screen.route
 //                                        } == true
                                         val tabSelected = navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true
+                                        // The slim bar has no text under its icons, and a tab
+                                        // then had no name at all for a screen reader: Material
+                                        // drops an icon's own description whenever a label is
+                                        // handed over, shown or not. So the name is on the tab.
+                                        val tabName = stringResource(screen.titleId)
                                         NavigationBarItem(
                                             // Only the library tab is pointed at, so only it is
                                             // reported. Tagging every tab would have four of them
@@ -1598,6 +1605,8 @@ class MainActivity : ComponentActivity() {
                                                 Modifier.tourTarget(Tour.NAV_LIBRARY)
                                             } else Modifier).then(
                                                 if (tabSelected) Modifier.focusRequester(selectedTabFocus) else Modifier
+                                            ).then(
+                                                if (slimNav) Modifier.semantics { contentDescription = tabName } else Modifier
                                             ),
                                             selected = tabSelected,
                                             icon = {
@@ -1705,7 +1714,10 @@ class MainActivity : ComponentActivity() {
 //                                                val isSelected = navBackStackEntry?.destination?.hierarchy?.any {
 //                                                    it.route?.substringBefore("?")?.substringBefore("/") == screen.route
 //                                                } == true
+                                        // Named for a screen reader when slim, as in the bar above.
+                                        val tabName = stringResource(screen.titleId)
                                         NavigationRailItem(
+                                            modifier = if (slimNav) Modifier.semantics { contentDescription = tabName } else Modifier,
                                             selected = navBackStackEntry?.destination?.hierarchy?.any { it.route == screen.route } == true,
                                             icon = {
                                                 Icon(
