@@ -196,13 +196,13 @@ val SETTINGS_CLOSER_LOOK = listOf(
     closer("dark_theme", Tour.SETTING_DARK_THEME, Tour.ROUTE_LOOK_AND_FEEL, R.string.dark_theme, R.string.tour_closer_dark_theme),
     closer("player_background", Tour.SETTING_PLAYER_BACKGROUND, Tour.ROUTE_LOOK_AND_FEEL, R.string.player_background_style, R.string.tour_closer_player_background),
     closer("liquid_glass", Tour.SETTING_LIQUID_GLASS, Tour.ROUTE_LOOK_AND_FEEL, R.string.player_liquid_glass, R.string.tour_closer_liquid_glass),
+    closer("media_buttons", Tour.SETTING_MEDIA_BUTTONS, Tour.ROUTE_LOOK_AND_FEEL, R.string.media_control_buttons, R.string.tour_closer_media_buttons),
     closer("tab_arrangement", Tour.SETTING_TAB_ARRANGEMENT, Tour.ROUTE_LOOK_AND_FEEL, R.string.tab_arrangement, R.string.tour_closer_tab_arrangement),
     closer("default_tab", Tour.SETTING_DEFAULT_TAB, Tour.ROUTE_LOOK_AND_FEEL, R.string.default_open_tab, R.string.tour_closer_default_tab),
     // The sentence the welcome back page's own tour has for it, which already says what it does.
     closer("share_links", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LOOK_AND_FEEL, R.string.share_link_kind_title, R.string.new_share_links_here),
 
     closer("auto_load_more", Tour.SETTING_AUTO_LOAD_MORE, Tour.ROUTE_PLAYER, R.string.auto_load_more, R.string.tour_closer_auto_load_more),
-    closer("media_buttons", Tour.SETTING_MEDIA_BUTTONS, Tour.ROUTE_PLAYER, R.string.media_control_buttons, R.string.tour_closer_media_buttons),
     closer("audio_quality", Tour.SETTING_AUDIO_QUALITY, Tour.ROUTE_PLAYER, R.string.audio_quality, R.string.tour_closer_audio_quality),
     closer("transition_fade", Tour.SETTING_TRANSITION_FADE, Tour.ROUTE_PLAYER, R.string.transition_fade, R.string.tour_closer_transition_fade),
     closer("spatial_audio", Tour.SETTING_SPATIAL_AUDIO, Tour.ROUTE_PLAYER, R.string.spatial_audio, R.string.tour_closer_spatial_audio),
