@@ -160,6 +160,19 @@ data class Landscape(
          */
         const val HeaderPictureRatio = 16f / 9
 
+        /**
+         * The window's width in pixels for everything above: what is laid out, where that is
+         * less than the [container] the system gives for the window.
+         *
+         * Before Android 15 a window stops short of a camera cutout on a short edge unless it
+         * asks to go under it, and this one does not ask. A Pixel 5 on its side is laid out
+         * 2204 px wide, clear of the camera, while the system's size for the window is the whole
+         * 2340. Measured against that, the mini player's panel ended 49.5dp past the right edge,
+         * and its Next button with it. [laidOut] is 0 until the first layout and may be a turn
+         * old, so it is believed only when it is the narrower of the two.
+         */
+        fun laidOutWidth(container: Int, laidOut: Int): Int = if (laidOut in 1 until container) laidOut else container
+
         /** A window nothing is done for: what previews and tests get, and release builds. */
         val Upright = Landscape(0.dp, 0.dp, enabled = false)
     }

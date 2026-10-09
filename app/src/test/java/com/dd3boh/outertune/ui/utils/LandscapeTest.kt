@@ -197,6 +197,30 @@ class LandscapeTest {
     }
 
     @Test
+    fun `the window is as wide as what is laid out, where the system's number is wider`() {
+        // A Pixel 5 on its side, Android 14: the system gives 2340 px for the window, and it is
+        // laid out 2204 wide, clear of the camera on the left.
+        assertEquals(2204, Landscape.laidOutWidth(container = 2340, laidOut = 2204))
+        // Nothing laid out yet, or the same width: the system's number.
+        assertEquals(2340, Landscape.laidOutWidth(container = 2340, laidOut = 0))
+        assertEquals(2340, Landscape.laidOutWidth(container = 2340, laidOut = 2340))
+        // A width wider than the window is one from before a turn, and is not believed.
+        assertEquals(1080, Landscape.laidOutWidth(container = 1080, laidOut = 2204))
+    }
+
+    @Test
+    fun `on a phone whose window stops short of the camera the mini player ends where the window does`() {
+        // The Pixel 5: 801.5dp laid out, the rail's 80dp on its left, nothing on its right.
+        val (start, width) = Landscape(801.5.dp, 393.dp).panelSpan(left = 80.dp, right = 0.dp)
+        assertEquals(801.5f, (start + width).value, 0.01f)
+        assertEquals(360.75f, width.value, 0.01f)
+        // Measured against the 851dp the system gave, it ended 49.5dp past the edge of what was
+        // laid out, and its Next button with it.
+        val (wrongStart, wrongWidth) = Landscape(851.dp, 393.dp).panelSpan(left = 80.dp, right = 0.dp)
+        assertEquals(851f, (wrongStart + wrongWidth).value, 0.01f)
+    }
+
+    @Test
     fun `insets wider than the window leave nothing, not less than nothing`() {
         val (_, width) = window(600, 400).panelSpan(left = 400.dp, right = 400.dp)
         assertEquals(0.dp, width)
