@@ -1497,6 +1497,8 @@ class MusicService : MediaLibraryService(),
             player.prepare()
             player.playWhenReady = playWhenReady
         }
+
+        override val wantsToPlay get() = QueueStart.wantsToPlay(player.playWhenReady, stoppedByError)
     })
 
     /**
