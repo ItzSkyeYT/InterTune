@@ -89,10 +89,23 @@ object StreamCheck {
     fun mayRetryWithNewVisitor(visionosRefused: Boolean, msSinceFailedSwap: Long?): Boolean =
         visionosRefused && (msSinceFailedSwap == null || msSinceFailedSwap >= NEW_VISITOR_RETRY_MS)
 
-    /** One client's part of the error report's trail, as in "VISIONOS OK, HEAD 200". */
-    fun trailStep(client: String, playability: String?, head: Int?, checked: Boolean): String =
+    /** A playable answer whose address came in a cipher that could not be undone. */
+    const val NOT_DECIPHERED = "address not deciphered"
+
+    /** A playable answer with no address in it at all, which is a client that streams over SABR only. */
+    const val NO_ADDRESS = "no address"
+
+    /**
+     * One client's part of the error report's trail, as in "VISIONOS OK, HEAD 200".
+     *
+     * [lacking] is why a playable answer gave the player nothing to fetch, [NOT_DECIPHERED] or
+     * [NO_ADDRESS]. Without it such a step read "WEB_REMIX OK", which is what a client that
+     * served reads like before its check.
+     */
+    fun trailStep(client: String, playability: String?, head: Int?, checked: Boolean, lacking: String? = null): String =
         buildString {
             append(client).append(' ').append(playability ?: "no answer")
+            if (lacking != null) append(", ").append(lacking)
             if (checked) append(", HEAD ").append(head?.toString() ?: "failed")
         }
 

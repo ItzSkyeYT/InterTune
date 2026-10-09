@@ -105,6 +105,14 @@ class StreamCheckTest {
         assertEquals("IOS OK, HEAD 403", StreamCheck.trailStep("IOS", "OK", 403, checked = true))
         assertEquals("IOS OK, HEAD failed", StreamCheck.trailStep("IOS", "OK", null, checked = true))
         assertEquals("ANDROID (account) no answer", StreamCheck.trailStep("ANDROID (account)", null, null, checked = false))
+        // A web client's answer on 9 Oct 2026: playable, and its address in a cipher the app could
+        // not undo. And one with no address at all, which is what a client that only streams
+        // over SABR gives.
+        assertEquals(
+            "WEB_REMIX OK, address not deciphered",
+            StreamCheck.trailStep("WEB_REMIX", "OK", null, checked = false, lacking = StreamCheck.NOT_DECIPHERED),
+        )
+        assertEquals("WEB OK, no address", StreamCheck.trailStep("WEB", "OK", null, checked = false, lacking = StreamCheck.NO_ADDRESS))
     }
 
     @Test

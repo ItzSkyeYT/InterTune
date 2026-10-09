@@ -668,7 +668,15 @@ object YTPlayerUtils {
                         audioQuality,
                         connectivityManager,
                     ) ?: continue
-                streamUrl = findUrlOrNull(format, videoId) ?: continue
+                streamUrl = findUrlOrNull(format, videoId)
+                if (streamUrl == null) {
+                    // Playable, and nothing the player could fetch. Said in the trail, where this
+                    // step otherwise reads as a client that served.
+                    val lacking = if (format.url == null && format.signatureCipher == null) StreamCheck.NO_ADDRESS else StreamCheck.NOT_DECIPHERED
+                    trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", null, checked = false, lacking = lacking)
+                    Log.w(TAG, "[$videoId] [${client.clientName}] answered OK, $lacking")
+                    continue
+                }
                 streamExpiresInSeconds =
                     streamPlayerResponse.streamingData?.expiresInSeconds ?: continue
 
