@@ -28,7 +28,8 @@ class WelcomeBackTest {
 
     private val v0109 = 80          // somebody still on 0.10.9
     private val v011 = 91           // 0.11 as it shipped
-    private val v0115 = 92          // the first build of 0.11.5
+    private val v0111 = 92          // 0.11.1, fixes only: it took the number 0.11.5 was to have
+    private val v0115 = 93          // the first build of 0.11.5
 
     private fun ids(things: List<NewThing>) = things.map { it.id }
 
@@ -56,6 +57,16 @@ class WelcomeBackTest {
     fun `somebody already on 0_11 is shown only what 0_11_5 added`() {
         val things = newThingsFor(v011, buildVersionCode = v0115)
         assertEquals(listOf("living_blur", "share_links"), ids(things))
+    }
+
+    @Test
+    fun `0_11_1 shows nobody anything of 0_11_5, and whoever had a tour on it is still shown 0_11_5`() {
+        // A fix release has nothing to be shown round. It is build 92, the number 0.11.5 was
+        // first given, so what 0.11.5 brings has to be counted from 93: left at 92, somebody on
+        // 0.11.1 would be told of things that build does not have, and then nothing on 0.11.5.
+        assertEquals(emptyList<String>(), ids(newThingsFor(v011, buildVersionCode = v0111)))
+        assertTrue(newThingsFor(v0109, buildVersionCode = v0111).all { it.release == "0.11" })
+        assertEquals(listOf("living_blur", "share_links"), ids(newThingsFor(v0111, buildVersionCode = v0115)))
     }
 
     @Test

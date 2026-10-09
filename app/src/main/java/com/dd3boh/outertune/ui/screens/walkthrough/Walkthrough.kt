@@ -92,9 +92,11 @@ val TOUR_STOPS = listOf(
 )
 
 /**
- * The first build 0.11.5 can ship as. Nothing below it has what its stops point at.
+ * The first build 0.11.5 can ship as. Nothing below it has what its stops point at. 92 was taken
+ * by 0.11.1, the fixes alone, and somebody who had a tour on that build has to be shown what
+ * 0.11.5 brought: counted from 92 they would be shown none of it.
  */
-private const val V0_11_5 = 92
+private const val V0_11_5 = 93
 
 /**
  * A walk round Settings: its four groups, one bubble each.
