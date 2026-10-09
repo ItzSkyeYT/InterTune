@@ -249,6 +249,38 @@ class StreamCheckTest {
     }
 
     @Test
+    fun `an error answered to the account's request does not keep a song from being called gone`() {
+        // A signed-in phone, 9 Oct 2026, a liked song taken off YouTube: VISIONOS, ANDROID_VR and
+        // IOS each said "This video is not available", and the client that asks as the account
+        // got an error from YouTube in a tenth of a second. Held as doubt, that kept the song
+        // from ever being looked for under the id it has now.
+        assertFalse(StreamCheck.leavesSongOpen(networkDidNotAnswer = false, asAccount = true))
+        val gone = said("UNPLAYABLE", "This video is not available")
+        val open = StreamCheck.leavesSongOpen(networkDidNotAnswer = false, asAccount = true)
+        assertSame(gone, StreamCheck.unavailableSong(listOf(gone, gone, gone), unreached = open))
+    }
+
+    @Test
+    fun `a request nobody answered leaves the song open, whoever asked`() {
+        assertTrue(StreamCheck.leavesSongOpen(networkDidNotAnswer = true, asAccount = true))
+        assertTrue(StreamCheck.leavesSongOpen(networkDidNotAnswer = true, asAccount = false))
+    }
+
+    @Test
+    fun `an error answered to a client that asks as any visitor leaves it open as well`() {
+        // That client might have been the one to serve the song.
+        assertTrue(StreamCheck.leavesSongOpen(networkDidNotAnswer = false, asAccount = false))
+    }
+
+    @Test
+    fun `the walk goes by that, and not by any request having failed`() {
+        val walk = java.io.File("src/main/java/com/dd3boh/outertune/utils/YTPlayerUtils.kt").readText()
+        assertTrue("unreached = songLeftOpen" in walk)
+        assertFalse("unreached = lastFallbackFailure != null" in walk)
+        assertTrue("StreamCheck.leavesSongOpen(unreached, asAccount)" in walk)
+    }
+
+    @Test
     fun `a song is not called gone on anything less`() {
         val gone = said("UNPLAYABLE", "This video is not available")
         // Nobody was asked.
