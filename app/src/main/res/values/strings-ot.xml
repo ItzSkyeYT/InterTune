@@ -1746,4 +1746,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="sort_order_ascending">Ascending order</string>
     <string name="sort_order_descending">Descending order</string>
     <string name="home_play_at_random">Play something at random</string>
+    <string name="view_as_list">Shown as a list</string>
+    <string name="view_as_grid">Shown as a grid</string>
 </resources>

@@ -1498,4 +1498,6 @@
     <string name="sort_order_ascending">Ordre croissant</string>
     <string name="sort_order_descending">Ordre décroissant</string>
     <string name="home_play_at_random">Lancer quelque chose au hasard</string>
+    <string name="view_as_list">Affiché en liste</string>
+    <string name="view_as_grid">Affiché en grille</string>
 </resources>

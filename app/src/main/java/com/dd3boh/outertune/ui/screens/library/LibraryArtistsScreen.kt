@@ -176,7 +176,7 @@ fun LibraryArtistsScreen(
                                 LibraryViewType.LIST -> Icons.AutoMirrored.Rounded.List
                                 LibraryViewType.GRID -> Icons.Rounded.GridView
                             },
-                        contentDescription = null
+                        contentDescription = stringResource(if (artistViewType == LibraryViewType.LIST) R.string.view_as_list else R.string.view_as_grid)
                     )
                 }
             }
