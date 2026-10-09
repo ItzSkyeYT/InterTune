@@ -1027,7 +1027,7 @@ fun BoxScope.QueueContent(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Rounded.MoreVert,
-                                            contentDescription = null
+                                            contentDescription = stringResource(R.string.options)
                                         )
                                     }
                                     // Not over search results, as in a playlist: the results are not redrawn

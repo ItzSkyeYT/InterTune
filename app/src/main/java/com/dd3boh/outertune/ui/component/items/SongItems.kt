@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
@@ -181,7 +182,7 @@ fun SongListItem(
                     ) {
                         Icon(
                             Icons.Rounded.MoreVert,
-                            contentDescription = null
+                            contentDescription = stringResource(R.string.options)
                         )
                     }
                 }
@@ -320,7 +321,7 @@ fun SongFolderItem(
             ) {
                 Icon(
                     Icons.Rounded.MoreVert,
-                    contentDescription = null
+                    contentDescription = stringResource(R.string.options)
                 )
             }
         },
