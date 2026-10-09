@@ -48,7 +48,7 @@ Only `id`, `banner` and `title` are needed.
 | `actions` | Up to three buttons, each `{ "label": ..., "url": ... }`. The first is the big one. Every button also closes the announcement. With no buttons there is a single "Got it". |
 | `actionLabel`, `actionUrl` | The older single button. Still read, and ignored when `actions` is there. |
 | `startsAt`, `expiresAt` | When to start and stop showing it. `"2026-10-01"` is a day in UTC, and `expiresAt` runs to the end of that day. `"2026-10-01T18:00:00+02:00"` is an exact time. Milliseconds still work, and so does a timestamp in seconds. |
-| `minVersionCode`, `maxVersionCode` | Which builds show it. 0.10.9.5 is 89, 0.10.9.6 is 90, 0.11 is 91. |
+| `minVersionCode`, `maxVersionCode` | Which builds show it. 0.10.9.5 is 89, 0.10.9.6 is 90, 0.11 is 91, 0.11.1 is 92. |
 | `minSdk`, `maxSdk` | Which Android versions show it, as API levels, both ends included. See "Some phones only" below. |
 | `devices` | Which devices show it: a list of names. See "Some phones only" below. |
 | `translations` | The same words in other languages, keyed by language (`"fr"`) or language and region (`"pt-BR"`). Each can have `banner`, `title`, `body` and `actions`; anything left out comes from the main text. A translated button can leave out its `url`, and takes the address of the button in the same place. The first language on the phone's list that has a translation, or that the main text is written in (see `language`), wins; a phone with neither gets the main text. |
@@ -72,7 +72,7 @@ An announcement or a question can be kept to certain Android versions, certain d
 - `minSdk` and `maxSdk` are Android API levels: 24 is Android 7.0, 26 is 8.0, 28 is 9, 29 is 10, 30 is 11, 31 is 12, 33 is 13, 34 is 14, 35 is 15, 36 is 16, 37 is 17. Leave one out for no limit on that side.
 - `devices` is a list, and one entry matching is enough. An entry is compared, ignoring case, with the phone's manufacturer, its brand, its model, its code name, and manufacturer and model together, and has to be one of them whole: `"samsung"` is every Samsung, `"SM-S938B"` one model. A `*` stands for any run of characters, so `"SM-S93*"` is a family of models and `"pixel 10*"` every Pixel 10. `"pixel"` alone matches nothing, since no phone is called just that.
 - With both, both have to hold.
-- **Always give such an entry `minVersionCode` 92 or higher.** Versions up to 0.11 do not know these fields, ignore them, and would show the entry to everyone. 92 is the first build that reads them.
+- **Always give such an entry `minVersionCode` 92 or higher.** Versions up to 0.11 do not know these fields, ignore them, and would show the entry to everyone. 92, which is 0.11.1, is the first build that reads them.
 - An audience the app cannot read (a number in quotes, a single name instead of a list) hides the entry, like a date it cannot read.
 
 The phone decides by itself from the document everyone gets. Nothing about the phone is sent anywhere to be matched, and answers still carry only the app version.

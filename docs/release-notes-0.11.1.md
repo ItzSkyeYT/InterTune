@@ -1,0 +1,38 @@
+# InterTune 0.11.1
+
+Fixes for 0.11. One thing changes for everyone: History lists a song after 2 seconds of listening, where it took 5.
+
+## Playback
+
+- **Music could stop, and the app would then not open.** At the change from one song to the next, counting the play that had just ended could lock the app's database. Every song after it stayed on loading, and the app would not open again until it was force stopped. This is fixed. A database that is slow to answer also no longer keeps a song from starting, and closing the app no longer waits for it without end.
+- **Play after a failed connection.** A song that had failed while the connection was bad failed again at every Play, also once the connection was back, and only skipping to another song brought the music back. Play now asks YouTube for the song again.
+- **Two songs tapped one after the other.** A tapped song plays at once and its radio joins it a moment later. When the first song's radio arrived after the second tap, the second song was cut off for the first, or the first played in its place. The song tapped last now keeps playing.
+- A song tapped after one whose radio could not be fetched, with no connection for instance, started where the song before it had been left and not at 0:00. It starts from the beginning, in a queue of its own.
+- The first song tapped after the app opens starts loading at once, where it waited until its radio had been fetched. When the radio could not be fetched, it did not start at all, a downloaded song included.
+- InterTune asks YouTube for a song through one source after another until one serves it, and the first it asked has been refused on every song for weeks. It now starts with the source that served the last song.
+- On a network with both IPv4 and IPv6, a song was asked for over one and its stream fetched over the other, which YouTube can refuse. The stream is now fetched over the one its address was issued for, with the other as the way out.
+
+## History
+
+- **History** lists every song you heard for 2 seconds or more, where it took 5. That goes for what you played before the update as well. Play counts, Most played, your YouTube history and Last.fm still follow **Minimum playback duration**.
+- Signed in with a channel (a brand account), plays did not reach that channel's history in YouTube Music. InterTune now asks YouTube where to report a play as the account itself. There was no such account to try this with: if your history still stays empty, please say so.
+
+## Backup
+
+- After a backup was restored, the app closed and did not come back. It now reopens by itself.
+
+## Privacy
+
+- Network addresses are no longer written into the log, onto the player's error screen and what its button copies, into error messages or into crash reports. A failed connection named the address it went to and the phone's own, and the log held each song's whole stream address, which names your IP address. An address now reads IPv4 or IPv6, and a stream is logged by its host.
+
+## Smaller things
+
+- The cover on the lock screen, in the notification and in the system's media player was the small thumbnail a song is stored with, stretched. It is now fetched at the size it is shown. On a slow connection the small one shows at once, and the large one when it has arrived.
+- The widget fetches its covers at the size they are shown as well. A Recently played that is still short is filled up from History, and the preview in the widget's settings no longer goes blank while you change a setting.
+- **Quick picks source**, under Settings > Library and content, is one row again. Its long explanation moved behind the "i" beside it.
+- The search pill begins with a magnifier until there is something to go back from. It showed a back arrow at all times.
+- On a narrow phone, "Local scanner" is written out under its button on Home, where it was cut short.
+- On a new install, the short tour of the app starts as soon as setup is done, where it waited for the next launch.
+- Previous, play or pause, and next in the mini player are named for screen readers.
+- On a tablet, the back button of a local playlist and of four pages under Recommendations was drawn under the navigation rail and could not be reached. It keeps clear of the rail now.
+- The two microphone permissions were each declared twice. Nothing the app asks for changes.
