@@ -68,6 +68,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -245,7 +246,7 @@ fun ShortSetup(
     // under every page, and the second tap of a double tap, a quarter of a second after the
     // first, landed on a page nobody had seen yet: twice on was past signing in and then Done,
     // and five answers were given unread.
-    var settledPage by remember { mutableStateOf(-1) }
+    var settledPage by remember { mutableIntStateOf(-1) }
     LaunchedEffect(page) {
         delay(SETTLE_MS)
         settledPage = page

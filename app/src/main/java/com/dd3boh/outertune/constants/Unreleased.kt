@@ -148,10 +148,10 @@ object Unreleased {
      * opened from, setup or the account's settings (LoginScreen, SignedIn). Without it the page
      * stays on YouTube Music's own site, signed in, and the way back is for the user to find.
      *
-     * Its decisions are tested as logic, and seen on a Pixel 5 with a made-up sign-in cookie put
-     * into the page: going back to setup, going back to the settings, and the line with Done. Not
-     * seen with an account yet. When a real sign-in has been seen to go back: set this to true,
-     * or delete it with the one check that reads it, in LoginScreen, and make
+     * Its decisions are tested as logic, and seen on a Pixel 5: with a made-up sign-in cookie put
+     * into the page, going back to setup, going back to the settings, and the line with Done; and
+     * with one real sign-in, from setup, on 9 Oct 2026. Not agreed for a release yet. When it is:
+     * set this to true, or delete it with the one check that reads it, in LoginScreen, and make
      * login_signed_in_as, login_signed_in and login_going_back translatable.
      */
     val LOGIN_RETURNS = BuildConfig.DEBUG
