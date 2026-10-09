@@ -111,6 +111,9 @@ class DownloadUtil @Inject constructor(
 
     /** Serialises the player requests that downloads make. See the gate in the resolver. */
     private val resolveGate = Any()
+
+    /** The songs called gone in a row while downloading: see [GoneRun]. Apart from the player's. */
+    private val goneRun = GoneRun()
     private var lastResolveAt = 0L
     private val dataSourceFactory = ResolvingDataSource.Factory(
         CacheDataSource.Factory()
@@ -177,17 +180,22 @@ class DownloadUtil @Inject constructor(
         // The asymmetry is the point. On a healthy network the gap is invisible, because the audio
         // transfer that follows takes seconds. On a refused network nothing transfers and every
         // resolve fails in about a second, which is exactly when the app would otherwise hammer.
-        synchronized(resolveGate) {
+        //
+        // Taken for each id asked: a song that is gone is asked for under up to three more
+        // (StandIns), and those requests are a download's as much as the first.
+        fun paced() = synchronized(resolveGate) {
             val wait = RESOLVE_GAP_MS - (SystemClock.elapsedRealtime() - lastResolveAt)
             if (wait > 0) Thread.sleep(wait)
             lastResolveAt = SystemClock.elapsedRealtime()
         }
 
         // A song whose own id YouTube no longer serves is downloaded from the id the same
-        // recording goes by now, as the player plays it: see StandIns.
-        val playbackData = runBlocking(Dispatchers.IO) {
+        // recording goes by now, as the player plays it: see StandIns. Downloads keep a run of
+        // their own, so a batch of them cannot end the player's (GoneRun), and report nothing.
+        val played = runBlocking(Dispatchers.IO) {
             StandIns(
                 resolve = { id ->
+                    paced()
                     YTPlayerUtils.playerResponseForPlayback(id, audioQuality = audioQuality, connectivityManager = connectivityManager)
                 },
                 wanted = { id ->
@@ -198,12 +206,28 @@ class DownloadUtil @Inject constructor(
                 search = { query ->
                     YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrThrow().items.filterIsInstance<SongItem>()
                 },
+                run = goneRun,
             ).playbackData(mediaId)
         }.getOrElse {
             if (staleCopy) return@Factory dataSpec
             throw it
         }
+        val playbackData = played.data
         val format = playbackData.format
+        // A download taken up partway whose first part is another upload's (the song's own id
+        // has died since and this stream is a stand-in's, or the other way round) cannot be
+        // finished: the file would be the start of one and the rest of the other. What is there
+        // goes and this try fails, so that the next one takes the song from its start.
+        if (dataSpec.position > 0L) {
+            val part = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
+            if (anotherUpload(part?.itag, part?.contentLength, format.itag, format.contentLengthOrZero())) {
+                runCatching { downloadCache.removeResource(mediaId) }
+                    .onFailure { Log.w(TAG, "Could not drop the part of $mediaId that is another upload's", it) }
+                throw IOException("the part of this song already downloaded is another upload's")
+            }
+        }
+        // A whole copy of the song itself is not given up for a stand-in's stream.
+        if (staleCopy && played.from != mediaId) return@Factory dataSpec
         // The lower-quality copy goes now that the new stream is in hand, and only for a stream
         // that answered its status check: the last fallback client's is taken unchecked, and one
         // of those failing partway would cost the copy. Either early return leaves the format row

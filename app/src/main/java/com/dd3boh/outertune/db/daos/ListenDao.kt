@@ -234,9 +234,9 @@ interface ListenDao {
     @Query("SELECT * FROM recommendation_exclusion WHERE kind = :kind AND targetId = :targetId LIMIT 1")
     fun exclusion(kind: Int, targetId: String): RecommendationExclusion?
 
-    /** The songs kept out because YouTube no longer serves them (reason 4), in force or lapsed. See GoneSongs. */
-    @Query("SELECT targetId FROM recommendation_exclusion WHERE kind = 1 AND reason = 4")
-    fun goneSongIds(): List<String>
+    /** The songs kept out because YouTube no longer serves them (reason 4), while that is in force. See GoneSongs. */
+    @Query("SELECT targetId FROM recommendation_exclusion WHERE kind = 1 AND reason = 4 AND (expiresAt IS NULL OR expiresAt > :now)")
+    fun goneSongIds(now: Long): List<String>
 
     /** Takes [ids] back off that list, and only off that one: a ban or a rest on the same song stays. */
     @Query("DELETE FROM recommendation_exclusion WHERE kind = 1 AND reason = 4 AND targetId IN (:ids)")

@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.playback
 
+import com.zionhuang.innertube.models.Album
 import com.zionhuang.innertube.models.Artist
 import com.zionhuang.innertube.models.SongItem
 import org.junit.Assert.assertEquals
@@ -94,7 +95,7 @@ class StandInTest {
     }
 
     @Test
-    fun `of two that are the song, the closer in length is played, then the one as explicit as it`() {
+    fun `of two that are the song, the closer in length is played, then YouTube's own order`() {
         assertEquals(
             "CLOSER00001",
             pick(
@@ -102,13 +103,39 @@ class StandInTest {
                 result("CLOSER00001", "Instant Crush", 337, "Daft Punk", "Julian Casablancas"),
             ),
         )
+        assertEquals("FIRST000001", pick(result("FIRST000001", "Instant Crush", 337), result("SECOND00001", "Instant Crush", 337), of = StandIn.Wanted("Instant Crush", listOf("Daft Punk"), 337)))
+    }
+
+    @Test
+    fun `a clean take and an explicit one are both turned down, since nothing says which the song was`() {
+        // They carry the same name and the same length, and the app keeps no note of which it had.
+        val song = StandIn.Wanted("Instant Crush", listOf("Daft Punk"), 337)
+        assertNull(pick(result("CLEAN000001", "Instant Crush", 337), result("EXPLICIT001", "Instant Crush", 337, explicit = true), of = song))
+        // Where it is known, that one is played.
         val explicit = StandIn.Wanted("Instant Crush", listOf("Daft Punk"), 337, explicit = true)
         assertEquals(
             "EXPLICIT001",
             pick(result("CLEAN000001", "Instant Crush", 337), result("EXPLICIT001", "Instant Crush", 337, explicit = true), of = explicit),
         )
-        // And YouTube's own order when nothing tells them apart.
-        assertEquals("FIRST000001", pick(result("FIRST000001", "Instant Crush", 337), result("SECOND00001", "Instant Crush", 337), of = StandIn.Wanted("Instant Crush", listOf("Daft Punk"), 337)))
+        // And one kind alone is no question at all.
+        assertEquals("EXPLICIT001", pick(result("EXPLICIT001", "Instant Crush", 337, explicit = true), of = song))
+    }
+
+    @Test
+    fun `where results on the song's own album pass, only those are the song`() {
+        fun on(album: String?, id: String, seconds: Int = 62) = SongItem(
+            id = id, title = "Intro", artists = listOf(Artist(name = "The xx", id = null)),
+            album = album?.let { Album(name = it, id = "MPREb_$id") }, duration = seconds, thumbnail = "", explicit = false,
+        )
+        val intro = StandIn.Wanted("Intro", listOf("The xx"), 62, album = "xx")
+
+        // Two tracks called Intro by one artist, of one length: the album tells them apart.
+        assertEquals("ONALBUM0001", pick(on("Coexist", "ELSEWHERE01"), on("xx", "ONALBUM0001"), of = intro))
+        // Put out again under another album only, it is still the song: that is the case this is for.
+        assertEquals("REISSUE0001", pick(on("Greatest Hits", "REISSUE0001"), of = intro))
+        // And where the song's album is not known, the album is not asked about.
+        val unknown = StandIn.Wanted("Intro", listOf("The xx"), 62)
+        assertEquals("ELSEWHERE01", pick(on("Coexist", "ELSEWHERE01"), on("xx", "ONALBUM0001"), of = unknown))
     }
 
     @Test

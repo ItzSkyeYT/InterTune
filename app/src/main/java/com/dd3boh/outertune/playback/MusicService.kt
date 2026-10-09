@@ -379,8 +379,9 @@ class MusicService : MediaLibraryService(),
     /**
      * Asks YouTube for a song's stream, and for the same recording under another id when the
      * song's own is gone: see [StandIns]. The song as the queue has it, or as its own row and its
-     * artists say when it is not in the queue; a database that does not answer leaves nothing to
-     * search for, and the song fails as it would have.
+     * artists say when it is not in the queue; where the queue has it without a length the row's
+     * is taken, since without one nothing can pass as the same recording. A database that does
+     * not answer leaves nothing to search for, and the song fails as it would have.
      */
     private val standIns by lazy {
         StandIns(
@@ -389,7 +390,12 @@ class MusicService : MediaLibraryService(),
             },
             wanted = { id ->
                 queueBoard.getCurrentQueue()?.findSong(id)?.let { queued ->
-                    StandIn.Wanted(queued.title, queued.artists.map { it.name }, queued.duration.takeIf { it > 0 })
+                    StandIn.Wanted(
+                        queued.title,
+                        queued.artists.map { it.name },
+                        queued.duration.takeIf { it > 0 } ?: database.readOrNull { songRow(id) }?.duration?.takeIf { it > 0 },
+                        album = queued.album?.title,
+                    )
                 } ?: database.readOrNull { songRow(id) }?.let { row ->
                     StandIn.Wanted(
                         row.title,
@@ -403,7 +409,6 @@ class MusicService : MediaLibraryService(),
             },
         ).also {
             it.onGone = goneSongs::gone
-            it.onDoubt = goneSongs::doubted
             it.onPlays = goneSongs::plays
         }
     }
@@ -411,16 +416,19 @@ class MusicService : MediaLibraryService(),
     /**
      * The songs no copy of which plays, for the recommendation rows to leave out: see [GoneSongs].
      * Only a song the library has a row for, since the Exclusions page names it by its title, and
-     * only where nothing else already keeps it out. Every write is caught: an exception on the
-     * database's own threads ends the app.
+     * only where nothing in force already keeps it out: a ban or a rest stays as it is, and a row
+     * that has lapsed, this kind or another, gives way. Every write is caught: an exception on
+     * the database's own threads ends the app.
      */
     private val goneSongs = GoneSongs(
-        load = { database.readOrNull { goneSongIds() } },
+        load = { at -> database.readOrNull { goneSongIds(at) } },
         mark = { id, at ->
             database.query {
                 runCatching {
                     val title = songRow(id)?.title
-                    if (title != null && exclusion(ExclusionsViewModel.KIND_SONG, id) == null) {
+                    val there = exclusion(ExclusionsViewModel.KIND_SONG, id)
+                    val inForce = there != null && (there.expiresAt == null || there.expiresAt > at)
+                    if (title != null && !inForce) {
                         insertExclusion(
                             RecommendationExclusion(
                                 kind = ExclusionsViewModel.KIND_SONG, targetId = id, label = title,
@@ -1931,7 +1939,7 @@ class MusicService : MediaLibraryService(),
 
             Log.d(TAG, "PLAYING: remote song (online fetch)")
 
-            val playbackData = runBlocking(Dispatchers.IO) {
+            val played = runBlocking(Dispatchers.IO) {
                 standIns.playbackData(mediaId)
             }.getOrElse { throwable ->
                 // The upgrade could not be had (the network went, or the video is gone from
@@ -1968,7 +1976,30 @@ class MusicService : MediaLibraryService(),
                     )
                 }
             }
+            val playbackData = played.data
             val format = playbackData.format
+            // The stream is another upload's, a stand-in for a song whose own id is gone.
+            val standIn = played.from != mediaId
+
+            // Further into a song with parts of it cached from another upload: the player has
+            // that upload's index in hand, and what would be fetched now is not what it points
+            // into. Nothing can be carried on. The parts go and this load fails, so that the
+            // next start of the song takes it from this stream alone. Only when the format row
+            // says so beyond doubt, the same itag and another length: a row that cannot be read,
+            // or another quality of the same upload, is left as it has always been.
+            if (dataSpec.position > 0L) {
+                val part = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
+                if (anotherUpload(part?.itag, part?.contentLength, format.itag, format.contentLengthOrZero())) {
+                    Log.w(TAG, "PLAYING: remote song (what is cached of it is another upload's, dropped; this load fails)")
+                    runCatching { playerCache.removeResource(mediaId) }
+                        .onFailure { Log.w(TAG, "Could not drop the cached parts of $mediaId", it) }
+                    throw PlaybackException(
+                        getString(R.string.error_cached_part_stale),
+                        null,
+                        PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+                    )
+                }
+            }
 
             // The lower-quality copy goes now that the new stream is in hand, not before, so a
             // failed fetch never costs the copy that plays offline. It has to go at all because
@@ -1981,20 +2012,30 @@ class MusicService : MediaLibraryService(),
             // for, and nothing about the song is rewritten.
             // A copy that stops partway is not kept this way: carried on from with a stream other
             // than its own, it would hold two encodings. It goes below instead.
-            if (staleQuality && !playbackData.validated && !partialCopy) {
-                Log.d(TAG, "PLAYING: remote song (cache kept, the new stream was not checked)")
+            // Nor is a whole copy of the song given up for a stand-in's stream, however sure the
+            // match: the copy is the song, and the stand-in only very likely is.
+            if (staleQuality && (!playbackData.validated || standIn) && !partialCopy) {
+                Log.d(TAG, "PLAYING: remote song (cache kept, the new stream was ${if (standIn) "a stand-in's" else "not checked"})")
                 return@Factory dataSpec
             }
+            // The song from its start with nothing of it cached there, and parts further in: the
+            // cache gives up a song's parts one at a time, the oldest first. They are held to the
+            // test a part from the start is, or the song would be fetched from this stream as far
+            // as them and carried on in theirs.
+            val laterParts = !staleQuality && !partialCopy && dataSpec.position == 0L &&
+                    runCatching { playerCache.getCachedSpans(mediaId).isNotEmpty() }.getOrDefault(false)
             if (staleQuality) {
                 runCatching { playerCache.removeResource(mediaId) }
                     .onFailure { Log.w(TAG, "Could not drop the lower-quality copy of $mediaId", it) }
-            } else if (partialCopy) {
+            } else if (partialCopy || laterParts) {
                 // The format row was written by the fetch that filled the copy. A database that
                 // does not answer is taken as a row that does not match: the part is given up and
                 // the song fetched from its start, since nothing says the part is of this stream.
-                val copyItag = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()?.itag
-                if (copyItag != format.itag) {
-                    Log.d(TAG, "PLAYING: remote song (partial copy was itag $copyItag, the stream is ${format.itag}, starting over)")
+                // The same itag is not enough since a song can be played from a stand-in: that is
+                // another upload, and its bytes are not the copy's. See sameStream.
+                val copy = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
+                if (!sameStream(copy?.itag, copy?.contentLength, format.itag, format.contentLengthOrZero())) {
+                    Log.d(TAG, "PLAYING: remote song (partial copy was itag ${copy?.itag}, ${copy?.contentLength} bytes, the stream is ${format.itag}, ${format.contentLengthOrZero()} bytes, starting over)")
                     runCatching { playerCache.removeResource(mediaId) }
                         .onFailure { Log.w(TAG, "Could not drop the partial copy of $mediaId", it) }
                 }

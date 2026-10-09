@@ -127,6 +127,15 @@ object YTPlayerUtils {
         private set
 
     /**
+     * For StandIns, whose lookup for one song is several walks. The report's chain would be the
+     * last of them, a copy's, under an error that is the song's own; it is given them all.
+     */
+    internal fun reportTrail(trail: String) {
+        lastStreamTrail = trail
+        Log.d(TAG, "lookup: $trail")
+    }
+
+    /**
      * Receives a visitorData taken from a /player answer because the app had none, so it can be
      * saved and the next launch starts with one. Set by App, which owns the stored value.
      */
@@ -255,9 +264,11 @@ object YTPlayerUtils {
 
     /**
      * Every client that serves music turned the song itself down: see [StreamCheck.unavailableSong].
-     * A PlaybackException like the one thrown before, with the same words, so nothing that
-     * shows or maps a failure changes. Its type is for StandIns, which looks for the same
-     * recording under another id.
+     * A PlaybackException with the code this failure always had, so nothing that maps a failure
+     * changes. Its words are the first such client's, where they used to be the last client
+     * asked's: each of them says the song is gone, which the last asked, when that is the main
+     * client, need not. Its type is for StandIns, which looks for the same recording under
+     * another id.
      */
     class SongUnavailable(reason: String?) : PlaybackException(reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
 
@@ -729,8 +740,8 @@ object YTPlayerUtils {
         notes.gotStream = streamUrl != null
         notes.blocked = blockedStatus
 
-        // The song itself turned down by every client that serves music. The same words as
-        // before, thrown as their own kind of failure.
+        // The song itself turned down by every client that serves music: its own kind of failure,
+        // in the words of the first of them.
         if (streamUrl == null) {
             StreamCheck.unavailableSong(fallbackSaid, unreached = lastFallbackFailure != null)?.let { gone ->
                 throw SongUnavailable(gone.reason ?: gone.status)

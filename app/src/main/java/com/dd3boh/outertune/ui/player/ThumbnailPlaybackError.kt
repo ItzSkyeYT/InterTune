@@ -149,6 +149,7 @@ fun ThumbnailPlaybackError(
                 appendLine("stream client: ${YTPlayerUtils.lastStreamClient ?: "unknown"}")
                 // And what every client answered on the way there. The one that ended the chain is
                 // rarely the cause: issue #17 reported IOS's 403, and VISIONOS had refused first.
+                // For a song looked for under another id, every walk of that lookup: see StandIns.
                 appendLine("stream chain: ${YTPlayerUtils.lastStreamTrail ?: "unknown"}")
             }
             // The lines about the app and the phone go in as they are. Only the error's own words
