@@ -101,7 +101,6 @@ import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.extensions.toMediaItem
-import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.AutoResizeText
@@ -643,7 +642,7 @@ fun OnlinePlaylistScreen(
                                             if (inSelectMode) {
                                                 onCheckedChange(index !in selection)
                                             } else if (song.id == mediaMetadata?.id) {
-                                                playerConnection.player.togglePlayPause()
+                                                playerConnection.togglePlayPause()
                                             } else {
                                                 playerConnection.playQueue(
                                                     ListQueue(

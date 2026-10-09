@@ -51,7 +51,6 @@ import com.dd3boh.outertune.LocalSnackbarHostState
 import com.dd3boh.outertune.constants.GridThumbnailHeight
 import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.extensions.toMediaItem
-import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.FloatingFooter
@@ -215,7 +214,7 @@ fun ArtistItemsScreen(
                                     if (inSelectMode) {
                                         onCheckedChange(song.id !in selection)
                                     } else if (song.id == mediaMetadata?.id) {
-                                        playerConnection.player.togglePlayPause()
+                                        playerConnection.togglePlayPause()
                                     } else {
                                         playerConnection.playQueue(
                                             ListQueue(

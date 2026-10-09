@@ -21,7 +21,6 @@ import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
-import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.FloatingTopBar
@@ -130,7 +129,7 @@ fun YouTubeBrowseScreen(
                             when (item) {
                                 is SongItem -> {
                                     if (item.id == mediaMetadata?.id) {
-                                        playerConnection.player.togglePlayPause()
+                                        playerConnection.togglePlayPause()
                                     } else {
                                         playerConnection.playQueue(
                                             YouTubeQueue.radio(item.toMediaMetadata()),

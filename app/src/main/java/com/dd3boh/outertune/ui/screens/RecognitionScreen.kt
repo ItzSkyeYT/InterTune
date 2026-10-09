@@ -110,7 +110,6 @@ import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.constants.RecogniseKeepAwakeKey
 import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.extensions.toMediaItem
-import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.recognition.AudioRoute
@@ -887,7 +886,7 @@ private fun RecognisedSongRow(
             modifier = Modifier.combinedClickable(
                 onClick = {
                     if (song.id == mediaMetadata?.id) {
-                        playerConnection.player.togglePlayPause()
+                        playerConnection.togglePlayPause()
                     } else {
                         // Radio, as search does. The origin is the one that exists for songs
                         // identified by ear, which the recommendations weigh as they do a search.
