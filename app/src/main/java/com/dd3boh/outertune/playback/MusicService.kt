@@ -1367,19 +1367,27 @@ class MusicService : MediaLibraryService(),
         if (duration != -1 && relatedDone && similarDone) recoverySettled.add(mediaId)
     }
 
-    fun toggleLibrary() {
+    /**
+     * [shown] is the song on screen, from the player's own heart and library buttons. After a
+     * cold start that is the saved queue's song, while the player, which currentSong follows,
+     * holds nothing yet: the heart took the tap and changed nothing. Without it (the
+     * notification's buttons, which exist only while the player holds a song) it is the
+     * player's song as before. The row is read as it is now, so two quick taps are two toggles.
+     */
+    fun toggleLibrary(shown: String? = null) {
         database.query {
-            currentSong.value?.let {
-                update(it.song.toggleLibrary())
+            (shown ?: currentSong.value?.song?.id)?.let { songRow(it) }?.let {
+                update(it.toggleLibrary())
             }
         }
     }
 
-    fun toggleLike() {
+    /** See [toggleLibrary] for [shown]. */
+    fun toggleLike(shown: String? = null) {
         database.query {
-            currentSong.value?.let {
+            (shown ?: currentSong.value?.song?.id)?.let { songRow(it) }?.let {
                 // toggleLike sends the like to YouTube itself. A likeSong here sent it again.
-                val song = it.song.toggleLike()
+                val song = it.toggleLike()
                 update(song)
                 downloadUtil.autoDownloadOnLike(song)
             }
