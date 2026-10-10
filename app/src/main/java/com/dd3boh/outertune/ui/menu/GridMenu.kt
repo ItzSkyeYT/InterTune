@@ -12,12 +12,13 @@ package com.dd3boh.outertune.ui.menu
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -50,7 +51,15 @@ import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.makeTimeString
 import java.time.LocalDateTime
 
-val GridMenuItemHeight = 96.dp
+/**
+ * The least an entry of a menu's grid stands: its icon, its name on one line, and room to press.
+ * An entry was 96dp whatever was in it, so the rows of a menu stood further apart than the icons
+ * are tall three times over. A name that takes two lines makes its own entry taller.
+ */
+val GridMenuItemHeight = 72.dp
+
+/** Between an entry's icon and its name. */
+private val GridMenuItemGap = 6.dp
 
 @Composable
 fun GridMenu(
@@ -94,20 +103,19 @@ fun LazyGridScope.GridMenuItem(
 ) {
     item {
         Column(
+            verticalArrangement = Arrangement.spacedBy(GridMenuItemGap),
             modifier = modifier
                 .clip(ShapeDefaults.Large)
-                .height(GridMenuItemHeight)
+                .heightIn(min = GridMenuItemHeight)
                 .clickable(
                     enabled = enabled,
                     onClick = onClick
                 )
                 .alpha(if (enabled) 1f else 0.5f)
-                .padding(12.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
+                modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center,
                 content = icon
             )
@@ -228,18 +236,17 @@ fun LazyGridScope.SleepTimerGridMenu(
 ) {
     item {
         Column(
+            verticalArrangement = Arrangement.spacedBy(GridMenuItemGap),
             modifier = modifier
                 .clip(ShapeDefaults.Large)
-                .height(GridMenuItemHeight)
+                .heightIn(min = GridMenuItemHeight)
                 .clickable(
                     onClick = onClick
                 )
-                .padding(12.dp)
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
+                modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center,
                 content = {
                     Icon(

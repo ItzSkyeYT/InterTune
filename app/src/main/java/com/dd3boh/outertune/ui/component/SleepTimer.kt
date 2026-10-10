@@ -14,24 +14,34 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreTime
 import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,9 +63,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.playback.PlayerConnection
+import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.component.SleepTimerDialog
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import java.text.SimpleDateFormat
@@ -123,41 +133,54 @@ fun coerceSleepTimerMinutes(value: Float): Float {
 }
 
 /**
- * Picks a length and starts the sleep timer, or stops at the end of the song. Moved unchanged from
- * PlayerMenu so the player screen can open it too.
+ * Picks a length and starts the sleep timer, or stops at the end of the song. Opened from the
+ * player menu and from the player screen.
+ *
+ * A sheet that comes up from the bottom, so it is closed by dragging it down as a menu is, and on
+ * a phone on its side it is no wider than a menu is there. It was a dialog across the whole
+ * window: on its side that was a slider the length of the phone, and the row of times under it
+ * was cut off where the window ran out of height. What does not fit now scrolls.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) {
     var sleepTimerValue by remember {
         mutableFloatStateOf(30f)
     }
+    val landscape = LocalLandscape.current
 
-    AlertDialog(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ModalBottomSheet(
         onDismissRequest = { onDismiss() },
-        icon = { Icon(imageVector = Icons.Rounded.Timer, contentDescription = null) },
-        title = { Text(stringResource(R.string.sleep_timer)) },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onDismiss()
-                    playerConnection.service.sleepTimer.start(sleepTimerValue.roundToInt())
-                }
-            ) {
-                Text(stringResource(android.R.string.ok))
-            }
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetMaxWidth = landscape.panelWidth(BottomSheetDefaults.SheetMaxWidth),
+        // In the middle of a wide window only the top and the bottom of the screen concern it: see BottomSheetMenu.
+        contentWindowInsets = {
+            if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical) else WindowInsets.safeDrawing
         },
-        dismissButton = {
-            TextButton(
-                onClick = { onDismiss() }
-            ) {
-                Text(stringResource(android.R.string.cancel))
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 8.dp)
+        ) {
+            // The icon where there is height to spare. On its side the window has room for the rest and little more.
+            if (!landscape.active) {
+                Icon(
+                    imageVector = Icons.Rounded.Timer,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
             }
-        },
-        text = {
+            Text(
+                text = stringResource(R.string.sleep_timer),
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+
             val focusRequester = remember {
                 FocusRequester()
             }
@@ -240,9 +263,7 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
                                 }
                             }
                         ),
-                        modifier = Modifier
-                            .weight(weight = 1f, fill = false)
-                            .focusRequester(focusRequester)
+                        modifier = Modifier.focusRequester(focusRequester)
                     )
                 }
 
@@ -301,8 +322,29 @@ fun SleepTimerDialog(playerConnection: PlayerConnection, onDismiss: () -> Unit) 
                     }
                 }
             }
+
+            Row(
+                horizontalArrangement = Arrangement.End,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+            ) {
+                TextButton(
+                    onClick = { onDismiss() }
+                ) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+                TextButton(
+                    onClick = {
+                        onDismiss()
+                        playerConnection.service.sleepTimer.start(sleepTimerValue.roundToInt())
+                    }
+                ) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            }
         }
-    )
+    }
 }
 
 data class TimeChip(
