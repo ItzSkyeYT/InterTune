@@ -1390,7 +1390,8 @@ fun BottomSheetPlayer(
                                     icon = Icons.Rounded.FastRewind,
                                     modifier = Modifier
                                         .size(transportIconSize)
-                                        .align(Alignment.Center),
+                                        .align(Alignment.Center)
+                                        .named(seekBackName()),
                                     color = onBackgroundColor,
                                     enabled = playerConnection.player.currentMediaItem != null,
                                     onClick = {
@@ -1436,7 +1437,8 @@ fun BottomSheetPlayer(
                                     icon = Icons.Rounded.FastForward,
                                     modifier = Modifier
                                         .size(transportIconSize)
-                                        .align(Alignment.Center),
+                                        .align(Alignment.Center)
+                                        .named(seekForwardName()),
                                     color = onBackgroundColor,
                                     enabled = playerConnection.player.currentMediaItem != null,
                                     onClick = {

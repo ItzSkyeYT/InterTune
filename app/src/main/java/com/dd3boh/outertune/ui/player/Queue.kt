@@ -1448,7 +1448,8 @@ fun BoxScope.QueueContent(
                                     icon = Icons.Rounded.FastRewind,
                                     modifier = Modifier
                                         .size(32.dp)
-                                        .align(Alignment.Center),
+                                        .align(Alignment.Center)
+                                        .named(seekBackName()),
                                     enabled = !detachedHead,
                                     onClick = {
                                         playerConnection.player.seekTo(playerConnection.player.currentPosition - seekIncrement.millisec)
@@ -1489,7 +1490,8 @@ fun BoxScope.QueueContent(
                                     icon = Icons.Rounded.FastForward,
                                     modifier = Modifier
                                         .size(32.dp)
-                                        .align(Alignment.Center),
+                                        .align(Alignment.Center)
+                                        .named(seekForwardName()),
                                     enabled = !detachedHead,
                                     onClick = {
                                         playerConnection.player.seekTo(playerConnection.player.currentPosition + seekIncrement.millisec)
