@@ -58,6 +58,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_audio_headphones">Headphones</string>
     <string name="spatial_audio_surround">Surround upmix</string>
     <string name="spatial_audio_explain">Headphones put the music inside your head. This puts it in front of you instead.\n\n\"Headphones\" does it in the app, so it works on any phone. \"Surround upmix\" asks your phone to do it, which only helps if your phone supports it.</string>
+    <string name="spatial_strength" translatable="false">Strength</string>
+    <string name="spatial_strength_value" translatable="false">%1$d%% of the effect</string>
+    <string name="spatial_strength_explain" translatable="false">How much of the spatial effect you hear. Lower mixes the original sound back in.</string>
+    <string name="spatial_bass" translatable="false">Leave the bass alone</string>
+    <string name="spatial_bass_description" translatable="false">Low notes skip the effect and keep their weight.</string>
     <string name="stage_width">Stage width</string>
     <string name="stage_width_value">Speakers at %1$d degrees either side</string>
     <string name="stage_width_explain">How far apart the two virtual speakers are. 30 degrees is what stereo is mixed for.\n\nWider separates the instruments more. Too wide leaves a gap in the middle.</string>

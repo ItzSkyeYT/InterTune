@@ -266,4 +266,18 @@ object Unreleased {
      * true, or delete it with the one check that reads it, in BinauralAudioProcessor.onConfigure.
      */
     val SURROUND_IN = BuildConfig.DEBUG
+
+    /**
+     * Two more controls under Spatial audio on Headphones, for a stereo recording: "Strength",
+     * how much of the rendering is heard with the recording as it came mixed back in, and "Leave
+     * the bass alone", which sends the notes under 120 Hz round the rendering
+     * (BinauralAudioProcessor.strength and bassDirect). Both start where nothing changes: all of
+     * it, and the bass rendered.
+     *
+     * Tested as arithmetic and not yet judged by ear, which is the whole of what they are for.
+     * Without it the two rows are not shown and the renderer is as it was. When it is agreed:
+     * set this to true, or delete it with the checks that read it, in PlayerFrag and
+     * MusicService, and make its five strings translatable.
+     */
+    val SPATIAL_TUNING = BuildConfig.DEBUG
 }

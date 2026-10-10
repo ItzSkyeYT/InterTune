@@ -79,6 +79,9 @@ import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.ui.component.ExplainedPreference
 import androidx.compose.material3.Slider
 import com.dd3boh.outertune.constants.StageWidthKey
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.constants.SpatialBassDirectKey
+import com.dd3boh.outertune.constants.SpatialStrengthKey
 import com.dd3boh.outertune.constants.HeadTrackingLeadKey
 import com.dd3boh.outertune.playback.BinauralAudioProcessor
 import com.dd3boh.outertune.playback.ProximityProbe
@@ -236,6 +239,27 @@ fun ColumnScope.StageWidthFrag() {
         onValueChange = { onWidthChange(it.toInt()) },
         valueRange = BinauralAudioProcessor.MIN_STAGE_WIDTH..BinauralAudioProcessor.MAX_STAGE_WIDTH,
         modifier = Modifier.padding(horizontal = 16.dp),
+    )
+
+    if (!Unreleased.SPATIAL_TUNING) return
+    val (strength, onStrengthChange) = rememberPreference(SpatialStrengthKey, defaultValue = 100)
+    ExplainedPreference(
+        title = stringResource(R.string.spatial_strength),
+        explanation = stringResource(R.string.spatial_strength_explain),
+        description = stringResource(R.string.spatial_strength_value, strength),
+    )
+    Slider(
+        value = strength.toFloat(),
+        onValueChange = { onStrengthChange(it.toInt()) },
+        valueRange = 0f..100f,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+    val (bassDirect, onBassDirectChange) = rememberPreference(SpatialBassDirectKey, defaultValue = false)
+    SwitchPreference(
+        title = { Text(stringResource(R.string.spatial_bass)) },
+        description = stringResource(R.string.spatial_bass_description),
+        checked = bassDirect,
+        onCheckedChange = onBassDirectChange,
     )
 }
 

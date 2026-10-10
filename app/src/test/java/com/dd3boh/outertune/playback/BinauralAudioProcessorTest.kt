@@ -908,4 +908,129 @@ class BinauralAudioProcessorTest {
         assertEquals(null, SurroundLayout.azimuths(2, 30f))
         assertEquals(null, SurroundLayout.azimuths(7, 30f))
     }
+
+    // How much of it, and the bass left alone.
+
+    private fun stereo(third: Boolean = false, share: Float = 1f, bass: Boolean = false, rate: Int = 48000) =
+        BinauralAudioProcessor().apply {
+            enabled = true
+            thirdOrder = third
+            strength = share
+            bassDirect = bass
+            configure(stereoFloat(rate))
+            flush()
+        }
+
+    /** Puts [left] and [right] through [p] in one buffer and returns the two ears. */
+    private fun through(p: BinauralAudioProcessor, left: FloatArray, right: FloatArray): Pair<FloatArray, FloatArray> {
+        val input = ByteBuffer.allocateDirect(8 * left.size).order(ByteOrder.nativeOrder())
+        for (n in left.indices) input.putFloat(left[n]).putFloat(right[n])
+        input.flip()
+        p.queueInput(input)
+        val out = p.output
+        val l = FloatArray(left.size)
+        val r = FloatArray(left.size)
+        for (n in left.indices) { l[n] = out.float; r[n] = out.float }
+        return l to r
+    }
+
+    private fun tone(hz: Double, level: Float, frames: Int = 48000, rate: Int = 48000) =
+        FloatArray(frames) { (level * sin(2 * PI * hz * it / rate)).toFloat() }
+
+    /** How loud, once what it started with has died away. */
+    private fun settled(a: FloatArray) = sqrt(a.drop(a.size / 3).fold(0.0) { acc, v -> acc + v.toDouble() * v } / (a.size - a.size / 3))
+
+    private fun decibels(a: Double, b: Double) = 20 * kotlin.math.log10(a / b)
+
+    @Test
+    fun `nothing of the rendering is the recording as it came, late by the time the rendering takes`() {
+        val (left, right) = impulse(stereo(share = 0f), 0.5f, -0.25f, 512)
+        val at = left.indices.first { left[it] != 0f }
+        assertTrue("held back by $at frames", at in 1..400)
+        for (n in left.indices) {
+            assertEquals("left, frame $n", if (n == at) 0.5f else 0f, left[n], 0f)
+            assertEquals("right, frame $n", if (n == at) -0.25f else 0f, right[n], 0f)
+        }
+        // And that is where the rendering itself is strongest for a sound in the middle.
+        val (rendered, _) = impulse(stereo(), 0.5f, 0.5f, 512)
+        assertEquals(at, rendered.indices.maxByOrNull { abs(rendered[it]) })
+    }
+
+    @Test
+    fun `half of it is half of each`() {
+        for (third in listOf(false, true)) {
+            val all = impulse(stereo(third), 0.5f, -0.25f, 512)
+            val none = impulse(stereo(third, share = 0f), 0.5f, -0.25f, 512)
+            val half = impulse(stereo(third, share = 0.5f), 0.5f, -0.25f, 512)
+            for (n in 0 until 512) {
+                assertEquals("left, frame $n", 0.5f * all.first[n] + 0.5f * none.first[n], half.first[n], 1e-6f)
+                assertEquals("right, frame $n", 0.5f * all.second[n] + 0.5f * none.second[n], half.second[n], 1e-6f)
+            }
+        }
+    }
+
+    @Test
+    fun `all of it, and more than all, is what it always was`() {
+        val expected = impulse(stereo(), 0.7f, -0.3f, 256)
+        for (share in listOf(1f, 1.5f)) {
+            val heard = impulse(stereo(share = share), 0.7f, -0.3f, 256)
+            assertArrayEquals(expected.first, heard.first, 0f)
+            assertArrayEquals(expected.second, heard.second, 0f)
+        }
+    }
+
+    @Test
+    fun `with the bass left alone a low note stays in the ear it was in`() {
+        val low = tone(50.0, 0.4f)
+        val quiet = FloatArray(low.size)
+        val (left, right) = through(stereo(third = true, bass = true), low, quiet)
+        assertTrue("the other ear: ${settled(right)} of ${settled(left)}", settled(right) < 0.05 * settled(left))
+        // Rendered, the same note is in both ears: a head does not shadow a note that low.
+        val (wasLeft, wasRight) = through(stereo(third = true), low, quiet)
+        assertTrue("rendered: ${settled(wasRight)} of ${settled(wasLeft)}", settled(wasRight) > 0.5 * settled(wasLeft))
+    }
+
+    @Test
+    fun `and it is as loud as it went in`() {
+        for (rate in listOf(44100, 48000)) {
+            val low = tone(50.0, 0.4f, rate = rate)
+            val (left, right) = through(stereo(third = true, bass = true, rate = rate), low, low)
+            assertEquals("left ear at $rate", 0.0, decibels(settled(left), settled(low)), 0.5)
+            assertEquals("right ear at $rate", 0.0, decibels(settled(right), settled(low)), 0.5)
+        }
+    }
+
+    @Test
+    fun `the rest still goes through the rendering`() {
+        val high = tone(2000.0, 0.3f)
+        val quiet = FloatArray(high.size)
+        val (left, right) = through(stereo(third = true, bass = true), high, quiet)
+        val (wasLeft, wasRight) = through(stereo(third = true), high, quiet)
+        assertTrue("it reaches the other ear, as rendered sound does", settled(right) > 0.05 * settled(left))
+        assertEquals("left ear, against all of it rendered", 0.0, decibels(settled(left), settled(wasLeft)), 0.5)
+        assertEquals("right ear, against all of it rendered", 0.0, decibels(settled(right), settled(wasRight)), 0.5)
+    }
+
+    @Test
+    fun `no hole where the lows hand over to the rest`() {
+        val seen = StringBuilder()
+        var worst = 0.0
+        for (rate in listOf(44100, 48000)) for (third in listOf(false, true)) for (hz in listOf(40.0, 60.0, 80.0, 100.0, 120.0, 150.0, 200.0, 300.0, 500.0)) {
+            val note = tone(hz, 0.3f, rate = rate)
+            val (left, _) = through(stereo(third = third, bass = true, rate = rate), note, note)
+            val off = decibels(settled(left), settled(note))
+            seen.append("%d Hz at %d, third %s: %+.1f dB; ".format(hz.toInt(), rate, third, off))
+            worst = maxOf(worst, abs(off))
+        }
+        assertTrue(seen.toString(), worst < 2.5)
+    }
+
+    @Test
+    fun `a seek leaves nothing of the recording behind either`() {
+        val p = stereo(third = true, share = 0.5f, bass = true)
+        through(p, tone(60.0, 0.5f, 4800), tone(900.0, 0.5f, 4800))
+        p.flush()
+        val (left, right) = through(p, FloatArray(2048), FloatArray(2048))
+        assertEquals(0.0, energy(left) + energy(right), 0.0)
+    }
 }
