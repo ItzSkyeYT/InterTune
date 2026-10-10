@@ -27,6 +27,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlin.math.tan
 
 /**
  * Puts the music in front of the listener instead of inside their head.
@@ -121,8 +122,9 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     /**
      * How much of the rendering is heard, from 0 to 1. At 1 it is all there is, as it always was.
      * Below that the recording as it came is mixed in, held back by the time the rendering
-     * takes, so that the two arrive together. At 0 nothing is left but the recording, that much
-     * late. For two channels in: a surround recording is its own speakers or it is nothing.
+     * takes and with its low notes turned as the rendering turns them ([turned]), so that the
+     * two arrive together and in step. At 0 nothing is left but the recording, that much late.
+     * For two channels in: a surround recording is its own speakers or it is nothing.
      */
     @Volatile
     var strength: Float = 1f
@@ -219,7 +221,10 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private var dryIndex = 0
     private var delaySamples = 0
     private var roomShare = 0f
-    private var bassDelaySamples = 0
+    private var dryTurn = Float.NaN
+    private val turnState = FloatArray(4)
+    private var mixedBefore = false
+    private var directBefore = false
 
     /**
      * The two ears of the frame just made: where [render], [blend] and [decode] leave their
@@ -551,23 +556,31 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         var peak = 0
         for (t in effective.indices) if (abs(effective[t]) > abs(effective[peak])) peak = t
         delaySamples = peak.coerceAtMost(MASK)
-        // The lows of a sound come through the rendering a little apart from its peak: its filters
-        // do not hold every frequency back alike. Where the recording's own lows meet the rendered
-        // rest, the two have to be in step, or they cancel there and leave a hole. So the lows are
-        // held back by what the rendering takes at that frequency: its phase there as a time,
-        // which is known give or take whole periods, and the one nearest the peak is the true one.
-        val w = 2.0 * PI * BASS_HZ / (if (appliedRate > 0) appliedRate else 48000)
+        // The rendering does not only hold a sound back, it turns its low notes round: against
+        // where its peak is, half a turn at the very bottom and a quarter by 150 Hz, which is
+        // what a first-order all-pass turned over does. A recording held back by the peak alone
+        // and mixed with the rendering therefore cancelled it down there: at half strength a
+        // note of 40 Hz came out thirteen decibels down. So the recording is given the same
+        // turn ([turned]): how far the rendering has turned a note of [BASS_HZ] says where
+        // that all-pass has its corner.
+        val rate = if (appliedRate > 0) appliedRate else 48000
+        val w = 2.0 * PI * BASS_HZ / rate
         var re = 0.0
         var im = 0.0
         for (t in effective.indices) {
             re += effective[t] * cos(w * t)
             im -= effective[t] * sin(w * t)
         }
-        val period = 2.0 * PI / w
-        var late = -atan2(im, re) / w
-        while (late - peak > period / 2) late -= period
-        while (peak - late > period / 2) late += period
-        bassDelaySamples = late.roundToInt().coerceIn(0, MASK)
+        val ahead = atan2(im, re) + w * peak
+        val turn = atan2(sin(ahead), cos(ahead))
+        dryTurn = if (turn > 0.2 && turn < PI - 0.05) {
+            val corner = BASS_HZ / tan((PI - turn) / 2.0)
+            val k = tan(PI * corner / rate)
+            ((k - 1.0) / (k + 1.0)).toFloat()
+        } else {
+            // Not turned, or not in the way this can follow: the recording as it is.
+            Float.NaN
+        }
         if (energy <= 0.0) return 1f
         return (1.0 / sqrt(energy)).toFloat()
     }
@@ -855,6 +868,18 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         val direct = bassDirect
         val mixed = share < 1f || direct
         if (direct) buildCrossover(format.sampleRate)
+        // Brought back in the middle of a song, the recording beside the rendering starts from
+        // nothing, as the room and the air do: not from what it held when it was last there.
+        if (mixed && !mixedBefore) {
+            Arrays.fill(dryLeft, 0f)
+            Arrays.fill(dryRight, 0f)
+            Arrays.fill(turnState, 0f)
+        }
+        if (direct && !directBefore) {
+            Arrays.fill(lowState, 0f); Arrays.fill(highState, 0f); Arrays.fill(inputState, 0f); Arrays.fill(airState, 0f)
+        }
+        mixedBefore = mixed
+        directBefore = direct
 
         // Walked across the buffer rather than stepped at the seam. A step here is a step in the
         // gain applied to every harmonic at once, fifty times a second, which is a buzz.
@@ -1251,8 +1276,8 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         dryLeft[at] = if (air) rawL + airLeft else rawL
         dryRight[at] = if (air) rawR + airRight else rawR
         val then = (at - delaySamples) and MASK
-        val heldL = dryLeft[then]
-        val heldR = dryRight[then]
+        val heldL = turned(0, dryLeft[then])
+        val heldR = turned(2, dryRight[then])
         dryIndex = (at + 1) and MASK
 
         if (direct) {
@@ -1262,16 +1287,33 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             }
             render(section(highPass, inputState, 0, rawL), section(highPass, inputState, 4, rawR))
             val keep = 1f - share
-            val lows = (at - bassDelaySamples) and MASK
-            val left = softClip(section(lowPass, lowState, 0, dryLeft[lows]) + share * ears[0] + keep * section(highPass, highState, 0, heldL))
-            val right = softClip(section(lowPass, lowState, 4, dryRight[lows]) + share * ears[1] + keep * section(highPass, highState, 4, heldR))
+            val left = softClip(section(lowPass, lowState, 0, heldL) + share * ears[0] + keep * section(highPass, highState, 0, heldL))
+            val right = softClip(section(lowPass, lowState, 4, heldR) + share * ears[1] + keep * section(highPass, highState, 4, heldR))
             ears[0] = left
             ears[1] = right
         } else {
+            // Two parts that each stay within full scale, in shares that add up to one: their sum
+            // stays within it too, and rounding its top off again only took the top off the
+            // recording, which at no strength at all came out at nine tenths of itself.
             render(rawL, rawR)
-            ears[0] = softClip(share * ears[0] + (1f - share) * heldL)
-            ears[1] = softClip(share * ears[1] + (1f - share) * heldR)
+            ears[0] = share * ears[0] + (1f - share) * heldL
+            ears[1] = share * ears[1] + (1f - share) * heldR
         }
+    }
+
+    /**
+     * The recording, held back, with its low notes turned as the rendering turns its own: a
+     * first-order all-pass turned over, its corner where [computeGain] found the rendering's.
+     * Nothing is louder or quieter for it, and without it the two cancel below 200 Hz when mixed.
+     * The two numbers it remembers for a channel are at [from].
+     */
+    private fun turned(from: Int, x: Float): Float {
+        val a = dryTurn
+        if (a.isNaN()) return x
+        val y = a * x + turnState[from] - a * turnState[from + 1]
+        turnState[from] = x
+        turnState[from + 1] = y
+        return -y
     }
 
     /**
@@ -1472,6 +1514,7 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         Arrays.fill(lowState, 0f)
         Arrays.fill(highState, 0f)
         Arrays.fill(inputState, 0f)
+        Arrays.fill(turnState, 0f)
         dryIndex = 0
         historyIndex = 0
         writeIndex = 0
