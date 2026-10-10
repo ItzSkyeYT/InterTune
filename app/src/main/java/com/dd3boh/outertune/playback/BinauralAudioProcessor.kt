@@ -6,9 +6,11 @@
 
 package com.dd3boh.outertune.playback
 
+import android.util.Log
 import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
+import com.dd3boh.outertune.constants.Unreleased
 import java.nio.ByteBuffer
 import java.util.Arrays
 import kotlin.math.PI
@@ -166,6 +168,21 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private var historyIndex = 0
     private val targetLeft = FloatArray(16)
     private val targetRight = FloatArray(16)
+
+    // Surround in. A recording in 5.1 or 7.1 is its own loudspeakers: each channel is one more
+    // source in the field, standing where its speaker would, and from the harmonics on the
+    // renderer is the same. Kept beside the pair's own arrays and not in place of them, so that
+    // two channels in go through exactly the arithmetic they always did.
+    private var surroundChannels = 0
+    private var surroundWidth = Float.NaN
+    private var surroundAzimuth = FloatArray(0)
+    private var surroundEncode = FloatArray(0)
+    private var surroundTarget = FloatArray(0)
+    private var surroundStep = FloatArray(0)
+    private var surroundHistory = FloatArray(0)
+    private val surroundFrame = FloatArray(SurroundLayout.MOST)
+    private val surroundToned = FloatArray(SurroundLayout.MOST)
+    private val surroundOne = FloatArray(16)
     private val poseBuffer = FloatArray(4)
 
     /**
@@ -612,7 +629,10 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (!enabled) return AudioProcessor.AudioFormat.NOT_SET
-        if (inputAudioFormat.channelCount != 2) return AudioProcessor.AudioFormat.NOT_SET
+        val channels = inputAudioFormat.channelCount
+        if (channels != 2 && (!Unreleased.SURROUND_IN || SurroundLayout.azimuths(channels, DEFAULT_STAGE_WIDTH) == null)) {
+            return AudioProcessor.AudioFormat.NOT_SET
+        }
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT &&
             inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT
         ) {
@@ -622,15 +642,22 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         applyWidth(stageWidthDegrees)
         if (!buildFilters(inputAudioFormat.sampleRate)) return AudioProcessor.AudioFormat.NOT_SET
         applyWidth(stageWidthDegrees)
-        // Stereo in, stereo out. Unlike the upmix this changes no format, only the samples.
-        return inputAudioFormat
+        // Once a recording, and the one line that says a surround recording was taken up and not
+        // handed on to the phone to fold down.
+        if (channels != 2) Log.d(TAG, "$channels channels in at ${inputAudioFormat.sampleRate} Hz: rendered as their own speakers, two ears out")
+        // Stereo in, stereo out: unlike the upmix this changes no format, only the samples. Six or
+        // eight channels in are a recording's own loudspeakers, and come out as the two ears.
+        return if (channels == 2) inputAudioFormat
+        else AudioProcessor.AudioFormat(inputAudioFormat.sampleRate, 2, inputAudioFormat.encoding)
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val format = inputAudioFormat
         val frames = inputBuffer.remaining() / format.bytesPerFrame
         if (frames == 0) return
-        val out = replaceOutputBuffer(frames * format.bytesPerFrame)
+        val channels = format.channelCount
+        // Two ears out, whatever came in.
+        val out = replaceOutputBuffer(frames * (format.bytesPerFrame / channels) * 2)
         applyWidth(stageWidthDegrees)
 
         // One volatile read per buffer, and the whole head orientation resolved here rather than
@@ -656,6 +683,14 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             val half = rampYaw * 0.5f
             poseBuffer[0] = cos(half); poseBuffer[1] = 0f
             poseBuffer[2] = 0f; poseBuffer[3] = sin(half)
+        }
+
+        if (channels != 2) {
+            renderSurround(inputBuffer, out, frames, channels, format.encoding)
+            inputBuffer.position(inputBuffer.limit())
+            out.flip()
+            framesProcessed += frames.toLong()
+            return
         }
 
         // Walked across the buffer rather than stepped at the seam. A step here is a step in the
@@ -723,7 +758,14 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             encodeLeft[i] += stepLeft[i]
             encodeRight[i] += stepRight[i]
         }
+        decode(harmonics, put)
+    }
 
+    /**
+     * The harmonics of one frame, convolved and decoded to two ears: everything in [render] after
+     * the encoding, which is all that differs between two channels in and six or eight.
+     */
+    private inline fun decode(harmonics: FloatArray, put: (Float) -> Unit) {
         val idx = writeIndex
         for (i in 0 until active) rings[i * RING + idx] = harmonics[i]
 
@@ -749,6 +791,94 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         put(softClip(c - sd))
     }
 
+    /**
+     * The arrays for [channels] channels in, and where each of their speakers stands with the
+     * front pair at the stage's width. Built when the count or the width is not the one they
+     * were built for, which is once a recording and once a turn of the width's slider.
+     */
+    private fun layOutSurround(channels: Int) {
+        val sized = surroundChannels == channels && surroundEncode.size == channels * active
+        if (sized && surroundWidth == appliedWidth) return
+        surroundAzimuth = SurroundLayout.azimuths(channels, appliedWidth) ?: return
+        for (c in surroundAzimuth.indices) surroundAzimuth[c] = surroundAzimuth[c] * PI.toFloat() / 180f
+        surroundWidth = appliedWidth
+        if (!sized) {
+            surroundChannels = channels
+            surroundEncode = FloatArray(channels * active)
+            surroundTarget = FloatArray(channels * active)
+            surroundStep = FloatArray(channels * active)
+            surroundHistory = FloatArray(channels * CORRECTION_RING)
+            // Where they stand with the head level, so the first buffer does not sweep them in from nowhere.
+            encodeSurround(IDENTITY, surroundEncode)
+        }
+    }
+
+    /** [encodeSpeakers] for a recording's own speakers: each one moved against the head and encoded where it lands. */
+    private fun encodeSurround(pose: FloatArray, into: FloatArray) {
+        val w = pose[0]
+        val rx = -pose[2]
+        val ry = pose[1]
+        val rz = -pose[3]
+        for (c in surroundAzimuth.indices) {
+            rotate(w, rx, ry, rz, cos(surroundAzimuth[c]), sin(surroundAzimuth[c]), 0f, rotated)
+            shInto(rotated, surroundOne)
+            System.arraycopy(surroundOne, 0, into, c * active, active)
+        }
+    }
+
+    /**
+     * A buffer of six or eight channels. As [render], with a sum over the channels where the pair
+     * has its two terms: the same tone correction on each channel, the same walk of each speaker
+     * across the buffer, the same gain. A recording's speakers each play at the level the pair's
+     * do, as they would in a room, so what is only in the front pair comes out as it does from a
+     * stereo recording.
+     */
+    private fun renderSurround(inputBuffer: ByteBuffer, out: ByteBuffer, frames: Int, channels: Int, encoding: Int) {
+        layOutSurround(channels)
+        if (surroundChannels != channels) {
+            // Not a count this was configured for. Nothing sensible to play: silence, not noise.
+            repeat(frames * 2) { if (encoding == C.ENCODING_PCM_FLOAT) out.putFloat(0f) else out.putShort(0) }
+            return
+        }
+        encodeSurround(poseBuffer, surroundTarget)
+        val inv = 1f / frames
+        for (k in surroundStep.indices) surroundStep[k] = (surroundTarget[k] - surroundEncode[k]) * inv
+
+        val tone = correction
+        repeat(frames) {
+            if (encoding == C.ENCODING_PCM_FLOAT) {
+                for (c in 0 until channels) surroundFrame[c] = inputBuffer.float
+            } else {
+                for (c in 0 until channels) surroundFrame[c] = inputBuffer.short / 32768f
+            }
+            val toned = if (tone.isEmpty()) surroundFrame else {
+                val h = historyIndex
+                for (c in 0 until channels) {
+                    val base = c * CORRECTION_RING
+                    surroundHistory[base + h] = surroundFrame[c]
+                    var acc = 0f
+                    for (t in tone.indices) acc += surroundHistory[base + ((h - t) and CORRECTION_MASK)] * tone[t]
+                    surroundToned[c] = acc
+                }
+                historyIndex = (h + 1) and CORRECTION_MASK
+                surroundToned
+            }
+            for (i in 0 until active) {
+                var v = 0f
+                var k = i
+                for (c in 0 until channels) {
+                    v += toned[c] * surroundEncode[k]
+                    surroundEncode[k] += surroundStep[k]
+                    k += active
+                }
+                harmonics[i] = v
+            }
+            if (encoding == C.ENCODING_PCM_FLOAT) decode(harmonics) { v -> out.putFloat(v) }
+            else decode(harmonics) { v -> out.putShort(toPcm16(v)) }
+        }
+        System.arraycopy(surroundTarget, 0, surroundEncode, 0, surroundEncode.size)
+    }
+
     /** Radians into (-pi, pi], so a turn past the back of the head takes the short way. */
     private fun wrapPi(a: Float): Float = atan2(sin(a), cos(a))
 
@@ -770,12 +900,15 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         Arrays.fill(rings, 0f)
         Arrays.fill(leftHistory, 0f)
         Arrays.fill(rightHistory, 0f)
+        Arrays.fill(surroundHistory, 0f)
         historyIndex = 0
         writeIndex = 0
         framesProcessed = 0L
     }
 
     companion object {
+        private const val TAG = "BinauralAudio"
+
         /** Power of two so the ring index is a mask rather than a modulo. */
         private const val RING = 1024
         private const val MASK = RING - 1
@@ -895,5 +1028,32 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             9f, -3f, 0.7905694f,
             15f, 3f, 0.7905694f,
         )
+    }
+}
+
+/**
+ * Where the loudspeakers of a surround recording stand round the listener, in the order Android
+ * hands their channels over: left, right, centre, the low notes, then the pair behind, and for
+ * 7.1 the pair at the sides after that.
+ */
+internal object SurroundLayout {
+    /** The most channels a recording comes in here: the eight of 7.1. */
+    const val MOST = 8
+
+    /** The channel for the low notes, which has no place of its own. */
+    const val LOW = 3
+
+    /**
+     * Each channel's angle in degrees, plus to the left, with the front pair [front] degrees
+     * either side: where a stereo recording's two would stand, so the width chosen for those
+     * holds for these. The rest are where the standards put them: the centre straight ahead, 5.1's
+     * surrounds at 110, 7.1's at the sides and at 150 behind. The low notes come from straight
+     * ahead, which for notes that low is as good as from everywhere. Null for a count that is
+     * neither 5.1 nor 7.1.
+     */
+    fun azimuths(channels: Int, front: Float): FloatArray? = when (channels) {
+        6 -> floatArrayOf(front, -front, 0f, 0f, 110f, -110f)
+        8 -> floatArrayOf(front, -front, 0f, 0f, 150f, -150f, 90f, -90f)
+        else -> null
     }
 }

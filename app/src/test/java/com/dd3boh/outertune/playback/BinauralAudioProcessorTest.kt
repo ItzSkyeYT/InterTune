@@ -136,16 +136,15 @@ class BinauralAudioProcessorTest {
     }
 
     @Test
-    fun `mono and multichannel are refused`() {
+    fun `mono is refused, and so is a count that is neither 5 point 1 nor 7 point 1`() {
         val p = BinauralAudioProcessor().apply { enabled = true; thirdOrder = false }
-        assertEquals(
-            AudioProcessor.AudioFormat.NOT_SET,
-            p.configure(AudioProcessor.AudioFormat(48000, 1, C.ENCODING_PCM_FLOAT)),
-        )
-        assertEquals(
-            AudioProcessor.AudioFormat.NOT_SET,
-            p.configure(AudioProcessor.AudioFormat(48000, 6, C.ENCODING_PCM_FLOAT)),
-        )
+        for (channels in listOf(1, 3, 4, 5, 7, 9, 12)) {
+            assertEquals(
+                "$channels channels",
+                AudioProcessor.AudioFormat.NOT_SET,
+                p.configure(AudioProcessor.AudioFormat(48000, channels, C.ENCODING_PCM_FLOAT)),
+            )
+        }
     }
 
     @Test
@@ -719,5 +718,194 @@ class BinauralAudioProcessorTest {
         input.flip()
         p.queueInput(input)
         assertEquals(8 * 64, p.output.remaining())
+    }
+
+    // Surround in: a recording in 5.1 or 7.1 is its own loudspeakers.
+
+    private fun surroundFloat(channels: Int, rate: Int = 48000) =
+        AudioProcessor.AudioFormat(rate, channels, C.ENCODING_PCM_FLOAT)
+
+    private fun surround(channels: Int, third: Boolean = false, width: Float? = null) =
+        BinauralAudioProcessor().apply {
+            enabled = true
+            thirdOrder = third
+            if (width != null) stageWidthDegrees = width
+            configure(surroundFloat(channels))
+            flush()
+        }
+
+    /** Feeds one frame of [frame] then silence, and returns [frames] frames of both ears. */
+    private fun impulseOf(p: BinauralAudioProcessor, frame: FloatArray, frames: Int): Pair<FloatArray, FloatArray> {
+        val left = FloatArray(frames)
+        val right = FloatArray(frames)
+        for (n in 0 until frames) {
+            val input = ByteBuffer.allocateDirect(4 * frame.size).order(ByteOrder.nativeOrder())
+            for (v in frame) input.putFloat(if (n == 0) v else 0f)
+            input.flip()
+            p.queueInput(input)
+            val out = p.output
+            left[n] = out.float
+            right[n] = out.float
+        }
+        return left to right
+    }
+
+    private fun only(channels: Int, vararg at: Pair<Int, Float>) = FloatArray(channels).also { for ((c, v) in at) it[c] = v }
+
+    @Test
+    fun `six channels and eight come out as two, at the same rate`() {
+        for (channels in listOf(6, 8)) for (rate in listOf(44100, 48000)) {
+            val p = BinauralAudioProcessor().apply { enabled = true; thirdOrder = false }
+            val out = p.configure(surroundFloat(channels, rate))
+            assertEquals("$channels in", 2, out.channelCount)
+            assertEquals(rate, out.sampleRate)
+            assertEquals(C.ENCODING_PCM_FLOAT, out.encoding)
+            assertTrue(p.isActive)
+        }
+    }
+
+    @Test
+    fun `what is only in the front pair comes out as it does from a stereo recording`() {
+        for (third in listOf(false, true)) for (channels in listOf(6, 8)) {
+            val stereo = BinauralAudioProcessor().apply { enabled = true; thirdOrder = third }
+            stereo.configure(stereoFloat())
+            stereo.flush()
+            val expected = impulse(stereo, 0.7f, -0.3f, 256)
+            val heard = impulseOf(surround(channels, third), only(channels, 0 to 0.7f, 1 to -0.3f), 256)
+            assertArrayEquals("left ear, $channels channels, third order $third", expected.first, heard.first, 1e-6f)
+            assertArrayEquals("right ear, $channels channels, third order $third", expected.second, heard.second, 1e-6f)
+        }
+    }
+
+    @Test
+    fun `the centre and the low notes reach both ears alike`() {
+        for (channels in listOf(6, 8)) for (channel in listOf(2, SurroundLayout.LOW)) {
+            val (left, right) = impulseOf(surround(channels, third = true), only(channels, channel to 1f), 256)
+            assertTrue("channel $channel of $channels is heard", energy(left) > 0.01)
+            assertArrayEquals("channel $channel of $channels", left, right, 1e-6f)
+        }
+    }
+
+    @Test
+    fun `one centre speaker is quieter than the same signal from both of the pair`() {
+        // The pair carrying one signal comes out at the level it went in, which is what the gain
+        // is derived for. One speaker straight ahead is one speaker, as it is in a room.
+        val (left, _) = impulseOf(surround(6), only(6, 2 to 1f), SadieHrir.TAPS)
+        val (both, _) = impulseOf(surround(6), only(6, 0 to 1f, 1 to 1f), SadieHrir.TAPS)
+        assertEquals(1.0, energy(both), 1e-3)
+        assertTrue("the centre alone: ${energy(left)}", energy(left) in 0.1..0.6)
+    }
+
+    @Test
+    fun `a speaker on the left is louder in the left ear, and its twin on the right is its mirror`() {
+        for ((channels, pairs) in listOf(6 to listOf(4 to 5), 8 to listOf(4 to 5, 6 to 7))) for ((l, r) in pairs) {
+            val fromLeft = impulseOf(surround(channels, third = true), only(channels, l to 1f), 256)
+            val fromRight = impulseOf(surround(channels, third = true), only(channels, r to 1f), 256)
+            assertTrue("channel $l of $channels", energy(fromLeft.first) > 1.5 * energy(fromLeft.second))
+            assertArrayEquals("channel $r of $channels, left ear", fromLeft.second, fromRight.first, 1e-6f)
+            assertArrayEquals("channel $r of $channels, right ear", fromLeft.first, fromRight.second, 1e-6f)
+        }
+    }
+
+    @Test
+    fun `behind is not at the side, and neither is in front`() {
+        val front = impulseOf(surround(8, third = true), only(8, 0 to 1f), 256)
+        val back = impulseOf(surround(8, third = true), only(8, 4 to 1f), 256)
+        val side = impulseOf(surround(8, third = true), only(8, 6 to 1f), 256)
+        fun apart(a: Pair<FloatArray, FloatArray>, b: Pair<FloatArray, FloatArray>) =
+            a.first.indices.sumOf { abs(a.first[it] - b.first[it]).toDouble() + abs(a.second[it] - b.second[it]) }
+        assertTrue(apart(front, back) > 0.1)
+        assertTrue(apart(front, side) > 0.1)
+        assertTrue(apart(back, side) > 0.1)
+    }
+
+    @Test
+    fun `the width chosen for a stereo recording is where a surround one's front pair stands`() {
+        val narrow = impulseOf(surround(6, width = 30f), only(6, 0 to 1f), 256)
+        val wide = impulseOf(surround(6, width = 60f), only(6, 0 to 1f), 256)
+        assertTrue(narrow.first.indices.sumOf { abs(narrow.first[it] - wide.first[it]).toDouble() } > 0.05)
+        // And the surrounds stay where the standard puts them. Read off the layout: what is heard
+        // from them changes a little with the width all the same, since the tone correction is
+        // made for the pair at that width.
+        val at30 = SurroundLayout.azimuths(6, 30f)!!
+        val at60 = SurroundLayout.azimuths(6, 60f)!!
+        assertEquals(30f, at30[0], 0f)
+        assertEquals(60f, at60[0], 0f)
+        for (channel in 2 until 6) assertEquals("channel $channel", at30[channel], at60[channel], 0f)
+    }
+
+    @Test
+    fun `a buffer of many frames is the same as the frames one by one`() {
+        val frame = floatArrayOf(0.5f, -0.2f, 0.3f, 0.1f, -0.4f, 0.25f)
+        val oneByOne = impulseOf(surround(6, third = true), frame, 200)
+        val p = surround(6, third = true)
+        val input = ByteBuffer.allocateDirect(4 * 6 * 200).order(ByteOrder.nativeOrder())
+        for (n in 0 until 200) for (v in frame) input.putFloat(if (n == 0) v else 0f)
+        input.flip()
+        p.queueInput(input)
+        val out = p.output
+        assertEquals(4 * 2 * 200, out.remaining())
+        for (n in 0 until 200) {
+            assertEquals("left, frame $n", oneByOne.first[n], out.float, 1e-6f)
+            assertEquals("right, frame $n", oneByOne.second[n], out.float, 1e-6f)
+        }
+    }
+
+    @Test
+    fun `sixteen bit surround comes out as sixteen bit for two ears`() {
+        val p = BinauralAudioProcessor().apply { enabled = true; thirdOrder = false }
+        val out = p.configure(AudioProcessor.AudioFormat(48000, 6, C.ENCODING_PCM_16BIT))
+        assertEquals(2, out.channelCount)
+        assertEquals(C.ENCODING_PCM_16BIT, out.encoding)
+        p.flush()
+        val input = ByteBuffer.allocateDirect(2 * 6 * 64).order(ByteOrder.nativeOrder())
+        repeat(64) { n -> repeat(6) { input.putShort(if (n == 0) 8000 else 0) } }
+        input.flip()
+        p.queueInput(input)
+        val heard = p.output
+        assertEquals(2 * 2 * 64, heard.remaining())
+        var loud = 0
+        repeat(128) { if (heard.short.toInt() != 0) loud++ }
+        assertTrue("something came out", loud > 8)
+    }
+
+    @Test
+    fun `silence in is silence out, and a seek leaves no tail`() {
+        val p = surround(8, third = true)
+        val quiet = impulseOf(p, FloatArray(8), 64)
+        assertEquals(0.0, energy(quiet.first) + energy(quiet.second), 0.0)
+        impulseOf(p, FloatArray(8) { 0.5f }, 8)
+        p.flush()
+        val after = impulseOf(p, FloatArray(8), 256)
+        assertEquals(0.0, energy(after.first) + energy(after.second), 0.0)
+    }
+
+    @Test
+    fun `stereo after surround on the same processor is stereo as it always was`() {
+        val p = surround(6)
+        impulseOf(p, FloatArray(6) { 0.3f }, 32)
+        p.configure(stereoFloat())
+        p.flush()
+        val fresh = BinauralAudioProcessor().apply { enabled = true; thirdOrder = false }
+        fresh.configure(stereoFloat())
+        fresh.flush()
+        val heard = impulse(p, 1f, 0.5f, 256)
+        val expected = impulse(fresh, 1f, 0.5f, 256)
+        assertArrayEquals(expected.first, heard.first, 1e-6f)
+        assertArrayEquals(expected.second, heard.second, 1e-6f)
+    }
+
+    @Test
+    fun `the speakers of a surround recording stand in mirrored pairs`() {
+        for (channels in listOf(6, 8)) {
+            val at = SurroundLayout.azimuths(channels, 30f)!!
+            assertEquals(channels, at.size)
+            assertEquals(0f, at[2], 0f)
+            assertEquals(0f, at[SurroundLayout.LOW], 0f)
+            for (pair in listOf(0, 4) + if (channels == 8) listOf(6) else emptyList()) assertEquals(at[pair], -at[pair + 1], 0f)
+            assertTrue(at.all { abs(it) <= 180f })
+        }
+        assertEquals(null, SurroundLayout.azimuths(2, 30f))
+        assertEquals(null, SurroundLayout.azimuths(7, 30f))
     }
 }
