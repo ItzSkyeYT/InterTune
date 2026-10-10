@@ -105,6 +105,8 @@ class ChainWalkTest {
         private val playerScript: PlayerScript? = null,
         private val scriptWanted: Boolean = playerScript != null,
         private val solver: (suspend (List<String>, List<String>) -> ChallengeSolver.Solved)? = null,
+        /** Whether the build has the solver's files. Without them the web client is not in the chain, as in every walk before it was. */
+        private val canSolve: Boolean = false,
     ) : YTPlayerUtils.Wire {
         val askedOf = mutableListOf<String>()
 
@@ -184,7 +186,11 @@ class ChainWalkTest {
             return if (client in heads) heads[client] else 200
         }
 
+        /** How often the player script was asked for. Counted here, since the walk takes a failure to get one for there being none. */
+        var scriptsAskedFor = 0
+
         override suspend fun playerScript(): PlayerScript? {
+            scriptsAskedFor++
             check(scriptWanted) { "the player script was not expected to be asked for" }
             return playerScript
         }
@@ -194,6 +200,8 @@ class ChainWalkTest {
             solved += signatures to ns
             return (solver ?: error("the solver was not expected to be asked"))(signatures, ns)
         }
+
+        override fun canSolve(): Boolean = canSolve
 
         override fun signatureTimestamp(videoId: String): Int? = TIMESTAMP
 
@@ -802,6 +810,187 @@ class ChainWalkTest {
         assertEquals(listOf("WEB_REMIX", "VISIONOS", "ANDROID_VR", "IOS"), script.askedOf)
         assertEquals("This video is not available", failure?.message)
         assertFalse("the experiment's refusal was not told to the throttle", Throttle.isBlocked)
+    }
+
+    // --- The web client as one of the chain's own (Unreleased.WEB_FALLBACK), in a build with the solver. ---
+
+    /** The day VISIONOS's addresses are refused: it and IOS answer and fail their check, the main client gives the bot check, and the web client's address is there to be solved. */
+    private fun visionosRefusedAndTheWebClientThere(playerScript: PlayerScript? = this.playerScript, newVisitor: Any = refused(bot, carrying = this.newVisitor)) = Script(
+        says = mapOf(
+            "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+            "ANDROID_VR" to listOf(refused(bot)),
+            "ANDROID_VR as a new visitor" to listOf(newVisitor),
+            "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+            "WEB_REMIX" to listOf(ciphered()),
+        ),
+        heads = mapOf("VISIONOS" to 403, "IOS" to 403),
+        playerScript = playerScript,
+        scriptWanted = true,
+        solver = solving,
+        canSolve = true,
+    )
+
+    @Test
+    fun `a song VISIONOS serves costs what it always did with the web client in the chain`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = Script(
+            says = mapOf("VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200"))),
+            canSolve = true,
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("VISIONOS"), script.askedOf)
+        assertEquals("no po token was made", emptyList<String?>(), script.tokensMadeFor)
+        assertEquals("and no player script fetched", 0, script.scriptsAskedFor)
+        assertEquals("VISIONOS OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
+    }
+
+    @Test
+    fun `the day VISIONOS is refused a new visitorData is tried first, and then the web client serves by itself`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = visionosRefusedAndTheWebClientThere()
+        val data = walk(script).getOrThrow()
+
+        assertEquals(
+            listOf("VISIONOS", "ANDROID_VR", "IOS", "ANDROID_VR as a new visitor", "VISIONOS", "ANDROID_VR", "WEB_REMIX"),
+            script.askedOf,
+        )
+        assertEquals("VISIONOS OK, HEAD 403, ANDROID_VR LOGIN_REQUIRED, WEB_REMIX OK, HEAD 200 with the video's token", YTPlayerUtils.lastStreamTrail)
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
+        assertEquals("asked as the page asks, with the script's own timestamp", listOf("WEB_REMIX"), script.askedAsWebPage)
+        assertEquals(playerScript.signatureTimestamp, script.timestamps["WEB_REMIX"])
+        assertNull("and with no token in the request", script.playerTokens["WEB_REMIX"])
+        // The new visitorData mended nothing for VISIONOS, so the one the app had stays.
+        assertEquals(visitor, YouTube.visitorData)
+        assertEquals(emptyList<String>(), adopted)
+        // It is remembered as the client that served, where the experiment's never is.
+        assertEquals("WEB_REMIX", YTPlayerUtils.streamMemory.worked)
+        assertTrue(YTPlayerUtils.streamMemory.refusedAt.keys.containsAll(setOf("VISIONOS", "ANDROID_VR")))
+        assertFalse("a song that played is no reason to back off", Throttle.isBlocked)
+    }
+
+    @Test
+    fun `the song after that is asked of the web client and of nobody else`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        walk(visionosRefusedAndTheWebClientThere()).getOrThrow()
+
+        val next = visionosRefusedAndTheWebClientThere()
+        val data = walk(next).getOrThrow()
+        assertEquals(listOf("WEB_REMIX"), next.askedOf)
+        assertEquals("the script once for the song", 1, next.scriptsAskedFor)
+        assertEquals("WEB_REMIX OK, HEAD 200 with the video's token", YTPlayerUtils.lastStreamTrail)
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
+    }
+
+    @Test
+    fun `a refused VISIONOS that a new visitorData mends never reaches the web client`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(refused(bot), playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "ANDROID_VR as a new visitor" to listOf(refused(bot, carrying = newVisitor)),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+            ),
+            heads = mapOf("IOS" to 403),
+            canSolve = true,
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "IOS", "ANDROID_VR as a new visitor", "VISIONOS"), script.askedOf)
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
+        assertEquals("the new one is kept, having served", newVisitor, YouTube.visitorData)
+        assertEquals(emptyList<String?>(), script.tokensMadeFor)
+        assertEquals("neither a token nor the player script was needed", 0, script.scriptsAskedFor)
+    }
+
+    @Test
+    fun `when no new visitorData can be had the chain is asked once more, and the web client gets its turn`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        // The main client's answer to a request without a visitorData carries none.
+        val script = visionosRefusedAndTheWebClientThere(newVisitor = refused(bot, carrying = null))
+        val data = walk(script).getOrThrow()
+
+        assertEquals(
+            listOf("VISIONOS", "ANDROID_VR", "IOS", "ANDROID_VR as a new visitor", "VISIONOS", "ANDROID_VR", "WEB_REMIX"),
+            script.askedOf,
+        )
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
+        assertEquals(visitor, YouTube.visitorData)
+    }
+
+    @Test
+    fun `without a player script the chain's web client is passed over, and the song fails as it would have`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = visionosRefusedAndTheWebClientThere(playerScript = null)
+        val failure = walk(script).exceptionOrNull()
+
+        assertEquals(
+            listOf("VISIONOS", "ANDROID_VR", "IOS", "ANDROID_VR as a new visitor", "VISIONOS", "ANDROID_VR", "IOS"),
+            script.askedOf,
+        )
+        assertEquals("VISIONOS OK, HEAD 403, ANDROID_VR LOGIN_REQUIRED, WEB_REMIX not asked, no player script, IOS OK, HEAD 403", YTPlayerUtils.lastStreamTrail)
+        assertEquals("YouTube refused the stream (HTTP 403)", failure?.message)
+    }
+
+    @Test
+    fun `the chain's web client refused as well fails the song with the status, and what it was refused with counts`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "ANDROID_VR as a new visitor" to listOf(refused(bot, carrying = newVisitor)),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+                "WEB_REMIX" to listOf(ciphered()),
+            ),
+            heads = mapOf("VISIONOS" to 403, "IOS" to 403, "web-remix" to 403),
+            playerScript = playerScript,
+            solver = solving,
+            canSolve = true,
+        )
+        val failure = walk(script).exceptionOrNull()
+
+        assertEquals(
+            "VISIONOS OK, HEAD 403, ANDROID_VR LOGIN_REQUIRED, WEB_REMIX OK, HEAD 403 with no token, after 6 s, IOS OK, HEAD 403",
+            YTPlayerUtils.lastStreamTrail,
+        )
+        assertEquals("YouTube refused the stream (HTTP 403)", failure?.message)
+        assertTrue("remembered as refused, like any client of the chain", "WEB_REMIX" in YTPlayerUtils.streamMemory.refusedAt)
+    }
+
+    @Test
+    fun `signed in, the chain's web client is still asked as a visitor, so that it can be remembered`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        YouTube.cookie = "SAPISID=made-up"
+        YouTube.dataSyncId = "ACCOUNT-DATASYNC-ID"
+        val script = visionosRefusedAndTheWebClientThere()
+        val data = walk(script).getOrThrow()
+
+        assertEquals("WEB_REMIX", script.askedOf.last())
+        assertEquals("no cookie goes with it", false, script.couldCarryTheAccount["WEB_REMIX"])
+        assertTrue("its tokens are a visitor's: ${script.tokensMadeFor}", script.tokensMadeFor.none { it == "ACCOUNT-DATASYNC-ID" } && script.tokensMadeFor.size == 1)
+        assertTrue(YTPlayerUtils.lastStreamTrail.orEmpty().endsWith("WEB_REMIX OK, HEAD 200 with the video's token"))
+        assertEquals("WEB_REMIX", YTPlayerUtils.streamMemory.worked)
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
+    }
+
+    @Test
+    fun `while the experiment asks the web client first it is not in the chain a second time`() {
+        experimentOn()
+        val script = Script(
+            says = mapOf(
+                "WEB_REMIX" to listOf(ciphered()),
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+            ),
+            heads = mapOf("web-remix" to 403),
+            playerScript = playerScript,
+            solver = solving,
+            canSolve = true,
+        )
+        walk(script).getOrThrow()
+        assertEquals(listOf("WEB_REMIX", "VISIONOS"), script.askedOf)
     }
 
     @Test

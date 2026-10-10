@@ -220,6 +220,9 @@ object YTPlayerUtils {
 
         /** The signature and n of a web client's address solved against [script]: see [ChallengeSolver]. */
         suspend fun solve(script: PlayerScript, signatures: List<String>, ns: List<String>): ChallengeSolver.Solved
+
+        /** Whether this build has a solver at all. Without one the web client is not in the chain: see [WEB_FALLBACK_CLIENT]. */
+        fun canSolve(): Boolean
     }
 
     private object Live : Wire {
@@ -264,6 +267,16 @@ object YTPlayerUtils {
 
         override suspend fun solve(script: PlayerScript, signatures: List<String>, ns: List<String>): ChallengeSolver.Solved =
             challengeSolver.solve(script, signatures, ns)
+
+        override fun canSolve(): Boolean = solverIsInThisBuild
+    }
+
+    /** Looked up once: the solver's two files are in a build or they are not. */
+    private val solverIsInThisBuild: Boolean by lazy {
+        runCatching {
+            val there = App.instance.assets.list(WebViewChallengeSolver.LIB_ASSET.substringBefore('/')).orEmpty().toSet()
+            listOf(WebViewChallengeSolver.LIB_ASSET, WebViewChallengeSolver.CORE_ASSET).all { it.substringAfter('/') in there }
+        }.getOrDefault(false)
     }
 
     /** Adds what one pass learned to [streamMemory], and hands it on to be stored if that changed it. */
@@ -357,6 +370,27 @@ object YTPlayerUtils {
      * shows on a signed-in phone what such a listener gets.
      */
     private val TRIAL_CLIENT_AS_VISITOR: YouTubeClient = TRIAL_CLIENT.copy(loginSupported = false)
+
+    /**
+     * YouTube Music's web client as one of the chain's own (Unreleased.WEB_FALLBACK): written
+     * after VISIONOS, so it is asked by itself on the day VISIONOS gives no stream, and first for
+     * the songs after that for as long as it serves ([StreamOrder]).
+     *
+     * It is [TRIAL_CLIENT] in everything about how it is asked, deciphered and fetched, and
+     * always as a visitor. A client asked as the account is never remembered by [StreamOrder],
+     * so as the account it would be reached only at the end of a refused walk, song after song.
+     * What differs from the experiment's: its answers count, for the throttle and for the error
+     * a failed song shows, as any fallback client's do, and what it gave is remembered.
+     *
+     * A refused VISIONOS is first tried again with a new visitorData. That mends the common case
+     * in two requests (issue #17), where this needs a player script, a po token and a WebView:
+     * see [resolveWithNewVisitor]. Nothing of the three is fetched or made before its turn
+     * comes, so a song VISIONOS serves costs what it always did.
+     *
+     * Only in a build that has the solver's files ([Wire.canSolve]), and not while the
+     * experiment's switch asks the same client first.
+     */
+    private val WEB_FALLBACK_CLIENT: YouTubeClient = TRIAL_CLIENT.copy(loginSupported = false)
 
     /** The developer options' switch for [TRIAL_CLIENT], set from the preference by MusicService. */
     @Volatile
@@ -509,8 +543,10 @@ object YTPlayerUtils {
      * thing being refused, so it goes first instead and the anonymous attempts stop being the
      * reason the refusal persists.
      */
-    private fun streamClients(isLoggedIn: Boolean): List<YouTubeClient> {
-        val base = STREAM_FALLBACK_CLIENTS.toList()
+    private fun streamClients(isLoggedIn: Boolean, webInChain: Boolean = false): List<YouTubeClient> {
+        // The web client right after VISIONOS and ahead of IOS, whose addresses never pass their check.
+        val written = STREAM_FALLBACK_CLIENTS.toList()
+        val base = if (webInChain) written.take(1) + WEB_FALLBACK_CLIENT + written.drop(1) else written
         if (!isLoggedIn || authMode == PlaybackAuthMode.NEVER) return base
         if (!AUTH_CLIENT.loginSupported) return base
         return when {
@@ -538,6 +574,9 @@ object YTPlayerUtils {
     private class ChainNotes {
         /** VISIONOS gave the bot check, or answered with a url that failed the check. */
         var visionosRefused = false
+
+        /** The chain's web client was passed over, VISIONOS being refused and a new visitorData still to be tried. */
+        var webHeld = false
         var gotStream = false
         var blocked: PlayerResponse.PlayabilityStatus? = null
 
@@ -658,29 +697,40 @@ object YTPlayerUtils {
         policy: AddressPolicy?,
         wire: Wire,
     ): Pair<Result<PlaybackData>, ChainNotes> {
-        val first = ChainNotes()
-        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire)
         val sinceFailedSwap = lastSwapFailedAt.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
+        // While a new visitorData may still be tried, a refused VISIONOS keeps the web client
+        // waiting for the pass that tries it: see WEB_FALLBACK_CLIENT.
+        val holdWeb = StreamCheck.mayRetryWithNewVisitor(visionosRefused = true, sinceFailedSwap)
+        val first = ChainNotes()
+        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb)
         if (result.isSuccess || !StreamCheck.mayRetryWithNewVisitor(first.visionosRefused, sinceFailedSwap)) {
             return result to first
         }
         val previous = YouTube.visitorData
         val fresh = mintVisitorData(videoId, policy, wire)?.takeIf { it != previous }
-        if (fresh == null) {
+        if (fresh == null && !first.webHeld) {
             return result to first
         }
 
-        Log.i(TAG, "[$videoId] VISIONOS refused, trying again with a visitorData YouTube has just issued")
-        YouTube.visitorData = fresh
+        if (fresh != null) {
+            Log.i(TAG, "[$videoId] VISIONOS refused, trying again with a visitorData YouTube has just issued")
+            YouTube.visitorData = fresh
+        } else {
+            // No new one to be had, and the web client was kept back for a pass that now cannot
+            // differ in anything else. It gets its turn all the same.
+            Log.i(TAG, "[$videoId] VISIONOS refused and no new visitorData to be had, asking again with the web client")
+        }
         val second = ChainNotes()
         val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire)
-        if (retried.isSuccess) {
+        if (fresh != null && retried.isSuccess && !second.visionosRefused) {
             lastSwapFailedAt = 0L
             // Kept for good only when signed out. Signed in, the stored one came from the
             // account's own sign-in page and goes with its cookie, so this one lasts until the
             // app restarts, and a bad stored one costs one extra pass per launch.
             if (YouTube.cookie == null) onVisitorDataFound?.invoke(fresh)
-        } else {
+        } else if (fresh != null) {
+            // Refused again, or the song came from another client with VISIONOS as refused as
+            // before: the new one mended nothing, so the one the app had stays.
             YouTube.visitorData = previous
             lastSwapFailedAt = SystemClock.elapsedRealtime()
         }
@@ -707,6 +757,8 @@ object YTPlayerUtils {
         notes: ChainNotes,
         policy: AddressPolicy?,
         wire: Wire,
+        // The chain's web client is passed over once VISIONOS has been refused in this pass: see resolveWithNewVisitor.
+        holdWeb: Boolean = false,
     ): Result<PlaybackData> = runCatchingCancellable {
         Log.d(TAG, "Playback info requested: $videoId")
 
@@ -726,14 +778,16 @@ object YTPlayerUtils {
         // Keyed off the client list rather than hardcoded off, so putting a client that does use
         // them back in the chain starts generating them again on its own.
         val isLoggedIn = YouTube.cookie != null
-        val streamClients = streamClients(isLoggedIn)
-        val playerClients = listOf(MAIN_CLIENT) + streamClients
         // The experiment: see TRIAL_CLIENT. Its client is asked only when there is a player
         // script to ask it with, and the script and the solving share one allowance of time.
         // Without the account when nothing is to be asked as it: see TRIAL_CLIENT_AS_VISITOR.
+        val trialOn = Unreleased.WEB_CLIENT_FIRST && askWebClientFirst
         val trialAsVisitor = isLoggedIn && authMode == PlaybackAuthMode.NEVER
-        val trialWanted = (if (trialAsVisitor) TRIAL_CLIENT_AS_VISITOR else TRIAL_CLIENT)
-            .takeIf { Unreleased.WEB_CLIENT_FIRST && askWebClientFirst }
+        val trialWanted = (if (trialAsVisitor) TRIAL_CLIENT_AS_VISITOR else TRIAL_CLIENT).takeIf { trialOn }
+        // The web client as one of the chain's own: see WEB_FALLBACK_CLIENT.
+        val webInChain = Unreleased.WEB_FALLBACK && !trialOn && wire.canSolve()
+        val streamClients = streamClients(isLoggedIn, webInChain)
+        val playerClients = listOf(MAIN_CLIENT) + streamClients
         var trialLeftMs = trialLimitMs
         suspend fun <T> withinTrialTime(work: suspend () -> T): T? {
             if (trialLeftMs <= 0) return null
@@ -741,11 +795,19 @@ object YTPlayerUtils {
             return withTimeoutOrNull(trialLeftMs) { work() }
                 .also { trialLeftMs -= (System.nanoTime() - started) / 1_000_000 }
         }
-        val script =
-            if (trialWanted == null) null
-            else withinTrialTime { runCatchingCancellable { wire.playerScript() }.getOrNull() }
-        val trial = trialWanted.takeIf { script != null }
-        val wantsPoToken = (listOfNotNull(trial) + playerClients).any { it.useWebPoTokens }
+        // The player script, asked for once and only when a web client is: at once for the
+        // experiment's, which is not asked at all without one, and for the chain's when its turn
+        // comes.
+        var scriptAsked = false
+        var scriptHad: PlayerScript? = null
+        suspend fun playerScript(): PlayerScript? {
+            if (!scriptAsked) {
+                scriptAsked = true
+                scriptHad = withinTrialTime { runCatchingCancellable { wire.playerScript() }.getOrNull() }
+            }
+            return scriptHad
+        }
+        val trial = trialWanted?.takeIf { playerScript() != null }
 
         // The client that served the last song is asked first, and the others as they are written
         // when it gives no stream: see StreamOrder. Clients are known there by the names the trail
@@ -779,12 +841,13 @@ object YTPlayerUtils {
         }
 
         val sessionId =
-            if (isLoggedIn && !(trial != null && trialAsVisitor)) {
+            if (isLoggedIn && !webInChain && !(trial != null && trialAsVisitor)) {
                 // signed in sessions use dataSyncId as identifier
                 YouTube.dataSyncId
             } else {
-                // signed out sessions use visitorData as identifier, and so does the experiment's
-                // client when it asks as a visitor: its po tokens are the only ones made
+                // signed out sessions use visitorData as identifier, and so does a web client
+                // that asks as a visitor, the chain's always and the experiment's when nothing
+                // is asked as the account: the po tokens made are theirs and nobody else's
                 YouTube.visitorData
             }
 
@@ -794,14 +857,18 @@ object YTPlayerUtils {
                     if (ordered.first() !== playerClients.first()) " (${label(ordered.first())} served last)" else "",
         )
 
-        val (webPlayerPot, webStreamingPot) = if (!wantsPoToken) {
-            Pair(null, null)
-        } else {
-            wire.poTokens(videoId, sessionId)?.let {
-                Pair(it.playerRequestPoToken, it.streamingDataPoToken)
-            } ?: Pair(null, null).also {
-                Log.w(TAG, "[$videoId] No po token")
+        // The po tokens, made once and only when a client that carries one is asked. They used
+        // to be made before anything was asked, for any chain with such a client in it, which
+        // with the web client in the chain would be for every song VISIONOS serves.
+        var potsAsked = false
+        var potsHad: PoTokenResult? = null
+        fun poTokens(): PoTokenResult? {
+            if (!potsAsked) {
+                potsAsked = true
+                potsHad = wire.poTokens(videoId, sessionId)
+                if (potsHad == null) Log.w(TAG, "[$videoId] No po token")
             }
+            return potsHad
         }
 
         // A refusal from one client is not a refusal from YouTube. ANDROID_VR answers "Sign in to
@@ -885,11 +952,26 @@ object YTPlayerUtils {
                     continue
                 }
             }
+            if (client === WEB_FALLBACK_CLIENT) {
+                if (holdWeb && notes.visionosRefused) {
+                    // A new visitorData comes first: see resolveWithNewVisitor.
+                    notes.webHeld = true
+                    continue
+                }
+                if (playerScript() == null) {
+                    // Without the script there is no timestamp to ask with and nothing to solve against.
+                    trail += "${label(client)} not asked, no player script"
+                    Log.w(TAG, "[$videoId] [${client.clientName}] not asked: the player script could not be had")
+                    continue
+                }
+            }
             lastClient = client
             val clientLabel = label(client)
             val asAccount = client.loginSupported && isLoggedIn
             // The experiment's client, of which nothing is counted: see TRIAL_CLIENT.
             val isTrial = client === trial
+            // A web client, the experiment's or the chain's: asked, deciphered and checked the same way.
+            val isWeb = isTrial || client === WEB_FALLBACK_CLIENT
 
             // hl=en whatever the app's language. Throttle and the error screen know the bot
             // check and the age gate only by YouTube's English wording, and a fallback client's
@@ -902,11 +984,11 @@ object YTPlayerUtils {
                 wire.player(
                     videoId, playlistId, client,
                     // The timestamp of the very script its address will be solved against.
-                    if (isTrial) script?.signatureTimestamp else signatureTimestampFor(client),
-                    // None for the experiment's client: its token is for the address. See TRIAL_CLIENT.
-                    if (isTrial) null else webPlayerPot,
+                    if (isWeb) playerScript()?.signatureTimestamp else signatureTimestampFor(client),
+                    // None for a web client: its token is for the address. See TRIAL_CLIENT.
+                    if (isWeb || !client.useWebPoTokens) null else poTokens()?.playerRequestPoToken,
                     hlOverride = if (isMain) null else "en", policy = policy,
-                    asWebPage = isTrial,
+                    asWebPage = isWeb,
                 )
                     .onFailure { if (!isTrial) Throttle.noteFailure(it) }
             streamPlayerResponse = result.getOrNull()
@@ -969,13 +1051,13 @@ object YTPlayerUtils {
                         connectivityManager,
                     ) ?: continue
                 val address =
-                    if (isTrial) {
-                        // The experiment's address is read here and solved by the solver, in what
+                    if (isWeb) {
+                        // A web client's address is read here and solved by the solver, in what
                         // is left of its time: see TRIAL_CLIENT.
                         val asIssued = StreamCipher.read(format.url, format.signatureCipher)
                         val answers = asIssued?.takeIf { it.needsSolving }?.let {
                             withinTrialTime {
-                                runCatchingCancellable { wire.solve(checkNotNull(script), listOfNotNull(it.signature), listOfNotNull(it.n)) }
+                                runCatchingCancellable { wire.solve(checkNotNull(playerScript()), listOfNotNull(it.signature), listOfNotNull(it.n)) }
                                     // Only what kind of failure: its words are the solver's own.
                                     .onFailure { failure -> Log.w(TAG, "[$videoId] the solver gave nothing (${failure.javaClass.simpleName})") }
                                     .getOrNull()
@@ -1007,12 +1089,16 @@ object YTPlayerUtils {
                 // the family /player was asked over is the client's or the visitor's, and no
                 // longer something a fetch from another address could explain.
                 val issuedTo = StreamFamily.of(address)?.label ?: "no family it names"
-                // An address carries one po token or none and is checked once, but for the
-                // experiment's: see checkTrialAddress.
+                // An address carries one po token or none and is checked once, but for a web
+                // client's: see checkTrialAddress.
                 val trialCheck =
-                    if (!isTrial) null
-                    else checkTrialAddress(videoId, client, address, format.contentLength, streamPlayerResponse, webPlayerPot, webStreamingPot, wire)
-                val checked = trialCheck?.url ?: StreamCipher.withPot(address, webStreamingPot.takeIf { client.useWebPoTokens })
+                    if (!isWeb) null
+                    else checkTrialAddress(
+                        videoId, client, address, format.contentLength, streamPlayerResponse,
+                        poTokens()?.playerRequestPoToken, poTokens()?.streamingDataPoToken, wire,
+                    )
+                val checked = trialCheck?.url
+                    ?: StreamCipher.withPot(address, if (client.useWebPoTokens) poTokens()?.streamingDataPoToken else null)
                 val status = if (trialCheck != null) trialCheck.status else wire.head(checked)
                 val carried = trialCheck?.pot
                 streamUrl = checked
@@ -1028,7 +1114,7 @@ object YTPlayerUtils {
                     // working stream found, or the last one left with nothing to say it is not
                     Log.i(TAG, "[$videoId] [${client.clientName}] found working stream ($status), address issued to $issuedTo")
                     validated = status != null
-                    if (isTrial && status != null) potThatServed = carried
+                    if (isWeb && status != null) potThatServed = carried
                     break
                 }
                 Log.w(TAG, "[$videoId] [${client.clientName}] got bad http status code $status, address issued to $issuedTo")
