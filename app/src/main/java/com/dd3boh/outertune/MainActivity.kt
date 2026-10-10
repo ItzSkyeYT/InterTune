@@ -1075,10 +1075,16 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // One for as long as this is on screen. It was made anew here whenever this
+                    // was composed again, and the colours above follow the cover of the song
+                    // playing: so every change of song handed the whole app a new menu, closed
+                    // and empty, in place of the one somebody had open.
+                    val menuSheetState = rememberModalBottomSheetState()
+                    val menuState = remember(menuSheetState) { MenuState(menuSheetState) }
                     CompositionLocalProvider(
                         LocalDatabase provides database,
                         LocalContentColor provides contentColorFor(MaterialTheme.colorScheme.surface),
-                        LocalMenuState provides MenuState(rememberModalBottomSheetState()),
+                        LocalMenuState provides menuState,
                         LocalPlayerConnection provides playerConnection,
                         LocalPlayerAwareWindowInsets provides playerAwareWindowInsets,
                         LocalDownloadUtil provides downloadUtil,

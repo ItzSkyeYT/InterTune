@@ -361,6 +361,8 @@ fun BoxScope.QueueContent(
      * SONG LIST
      */
     val mutableSongs = remember { mutableStateListOf<MediaMetadata>() }
+    // Which queue the list was last put at its playing song for. Null until this opening's first.
+    var scrolledFor by remember { mutableStateOf<String?>(null) }
     val (adaptiveQueueMode) = rememberEnumPreference(AdaptiveQueueModeKey, AdaptiveQueueMode.AUTOPLAY_ONLY)
     val lazySongsListState = rememberLazyListState()
 
@@ -434,8 +436,8 @@ fun BoxScope.QueueContent(
         // and the adaptive queue's note sits above the songs as a row of its own, so every move
         // landed one song off, and dragging the last song up asked for a position past the end of
         // the queue and crashed.
-        val fromIndex = mutableSongs.indexOfFirst { it.hashCode() == from.key }
-        val toIndex = mutableSongs.indexOfFirst { it.hashCode() == to.key }
+        val fromIndex = mutableSongs.indexOfFirst { QueueRows.key(it) == from.key }
+        val toIndex = mutableSongs.indexOfFirst { QueueRows.key(it) == to.key }
         if (fromIndex < 0 || toIndex < 0) return@rememberReorderableLazyListState
         val currentDragInfo = dragInfo
         dragInfo = if (currentDragInfo == null) {
@@ -540,16 +542,28 @@ fun BoxScope.QueueContent(
     // results still showed the old one, and a tap or a swipe on them then acted on the new queue at
     // the old positions. Not keyed on the search itself, since opening one must not clear a
     // selection made before it.
-    LaunchedEffect(queueWindows, detachedQueue, unloadedQueueChanged) { // add to songs list & scroll
+    //
+    // The list is put at the song playing once: when the sheet opens, and again when it comes to
+    // show another queue. It used to be put there on every run of this, and this runs whenever
+    // the player's list changes in any way, which it does each time a song starts (its length
+    // becomes known). So a list somebody had scrolled jumped back with every new song, and with
+    // every song removed or moved.
+    // Also when the place of the song playing becomes known: on opening it can arrive after the list.
+    LaunchedEffect(queueWindows, detachedQueue, unloadedQueueChanged, currentWindowIndex == -1) { // add to songs list & scroll
         if (detachedQueue != null) {
-            mutableSongs.apply {
-                clear()
-                addAll(detachedQueue!!.getCurrentQueueShuffled())
+            val shown = QueueRows.of(detachedQueue!!.getCurrentQueueShuffled())
+            if (!QueueRows.same(shown, mutableSongs)) {
+                mutableSongs.apply {
+                    clear()
+                    addAll(shown)
+                }
             }
-            if (!isSearching) {
+            val showing = "detached " + detachedQueue!!.id
+            if (!isSearching && scrolledFor != showing) {
                 detachedQueue?.let {
                     lazySongsListState.scrollToItem(it.getQueuePosShuffled())
                 }
+                scrolledFor = showing
             }
             return@LaunchedEffect
         }
@@ -558,16 +572,24 @@ fun BoxScope.QueueContent(
             return@LaunchedEffect
         }
 
-        mutableSongs.apply {
-            clear()
-            addAll(queueWindows.mapIndexedNotNull { index, w -> w.mediaItem.metadata?.copy(composeUidWorkaround = index.toDouble()) })
+        // Each row under a name of its own that it keeps: see QueueRows. A list that comes back
+        // the same, as it does when only a song's length was learned, is left alone, and so is a
+        // selection made in it.
+        val shown = QueueRows.of(queueWindows.mapNotNull { it.mediaItem.metadata })
+        if (!QueueRows.same(shown, mutableSongs)) {
+            mutableSongs.apply {
+                clear()
+                addAll(shown)
+            }
+            // A selection is of the list as it was: cleared with it, as it always was.
+            selectedItems.clear()
         }
 
-        if (currentWindowIndex != -1 && !isSearching) {
+        val showing = "playing " + qb.getCurrentQueue()?.id
+        if (currentWindowIndex != -1 && !isSearching && scrolledFor != showing) {
             lazySongsListState.scrollToItem(currentWindowIndex)
+            scrolledFor = showing
         }
-
-        selectedItems.clear()
     }
 
 
@@ -922,7 +944,7 @@ fun BoxScope.QueueContent(
             val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
             itemsIndexed(
                 items = if (isSearching) filteredSongs else visibleSongs,
-                key = { _, item -> item.hashCode() },
+                key = { _, item -> QueueRows.key(item) },
                 contentType = { _, _ -> CONTENT_TYPE_SONG }
             ) { displayIndex, window ->
                 // The lambda hands back a position in the list being displayed, and every use of
@@ -946,7 +968,7 @@ fun BoxScope.QueueContent(
                 val currentIndex by rememberUpdatedState(index)
                 ReorderableItem(
                     state = reorderableState,
-                    key = window.hashCode()
+                    key = QueueRows.key(window)
                 ) {
                     val dismissState = rememberSwipeToDismissBoxState(
                         positionalThreshold = { totalDistance ->
