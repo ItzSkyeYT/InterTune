@@ -176,4 +176,33 @@ class DirectAmbientTrial {
         val b0 = both(base); val b5 = both(half); val b1 = both(full)
         for (i in centres.indices) println("%7.0f Hz  %+5.1f %+5.1f".format(centres[i], db(b5[i], b0[i]), db(b1[i], b0[i])))
     }
+
+    /** A hit in the middle of a hall: how much of the hit the split sends to the ambience. */
+    @Test
+    fun hit() {
+        assumeTrue("set AMBIENT_SPLIT to run", !System.getenv("AMBIENT_SPLIT").isNullOrBlank())
+        val n = 96000
+        for ((name, length, up) in listOf(Triple("a hit of 10 ms, 20 dB over the hall", 480, 10f), Triple("a hit of 3 ms, 30 dB over", 144, 31.6f), Triple("a note of 300 ms, 20 dB over", 14400, 10f))) {
+            val hallL = noise(41, n, 0.02f); val hallR = noise(42, n, 0.02f)
+            val hit = noise(43, n, 0.02f * up)
+            val starts = listOf(48000, 60000, 72000)
+            val left = FloatArray(n) { i -> hallL[i] + if (starts.any { i >= it && i < it + length }) hit[i] else 0f }
+            val right = FloatArray(n) { i -> hallR[i] + if (starts.any { i >= it && i < it + length }) hit[i] else 0f }
+            val sp = DirectAmbientSplit()
+            val amb = FloatArray(n); val dir = FloatArray(n)
+            for (i in 0 until n) { sp.process(left[i], right[i]); amb[i] = sp.ambientLeft; dir[i] = sp.directLeft }
+            // The hit comes out DELAY later. Its energy in each part, less what the hall alone puts there.
+            var inAir = 0.0; var inDirect = 0.0; var whole = 0.0
+            val quiet = (30000 until 40000).sumOf { amb[it].toDouble() * amb[it] } / 10000
+            val quietDirect = (30000 until 40000).sumOf { dir[it].toDouble() * dir[it] } / 10000
+            for (st in starts) for (i in st + DirectAmbientSplit.DELAY - 256 until st + DirectAmbientSplit.DELAY + length + 256) {
+                inAir += amb[i].toDouble() * amb[i] - quiet
+                inDirect += dir[i].toDouble() * dir[i] - quietDirect
+                val then = i - DirectAmbientSplit.DELAY
+                if (then >= st && then < st + length) whole += hit[then].toDouble() * hit[then]
+            }
+            println("%-34s of the hit, in the ambience %5.1f%% (%+.1f dB), in the direct %5.1f%%".format(name, 100 * inAir / whole, db(maxOf(inAir, 1e-12), whole), 100 * inDirect / whole))
+        }
+    }
 }
+
