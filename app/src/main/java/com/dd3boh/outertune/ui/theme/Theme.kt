@@ -109,6 +109,13 @@ fun Bitmap.extractThemeColor(): Color {
 fun Bitmap.extractThemeSource(): Color =
     if (Unreleased.COVER_ACCENT) Color(CoverAccent.source(mainColours())) else extractThemeColor()
 
+/**
+ * The colour to paint in what is to be the cover's colour, the widget's background for one:
+ * [extractThemeColor]'s, or with [CoverAccent] the cover's commonest colour when it has none to take.
+ */
+fun Bitmap.extractCoverColor(): Color =
+    if (Unreleased.COVER_ACCENT) Color(CoverAccent.paint(mainColours())) else extractThemeColor()
+
 /** A cover's main colours, and how many of its pixels each stands for. */
 private fun Bitmap.mainColours(): Map<Int, Int> =
     Palette.from(this)

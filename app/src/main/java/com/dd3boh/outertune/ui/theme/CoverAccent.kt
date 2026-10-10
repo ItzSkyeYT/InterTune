@@ -76,6 +76,18 @@ object CoverAccent {
         }
     }
 
+    /**
+     * The colour to paint something in that is to be the cover's colour, as the widget's
+     * background is. For a cover with a colour to take it is the scorer's, as it always was.
+     * For one with none ([source] says grey) the scorer's answer is its stand-in blue, or the
+     * bluish scrap of a black cover, and a widget painted in that is not the cover's colour at
+     * all: such a cover gives the colour it has most of, which for a black one is its black.
+     */
+    fun paint(colorsToPopulation: Map<Int, Int>): Int {
+        if (source(colorsToPopulation) != GREY) return Score.score(colorsToPopulation).first()
+        return colorsToPopulation.maxByOrNull { it.value }?.key ?: GREY
+    }
+
     /** The part of the usual strength a source colour of [chroma] is given, from 0 to 1. */
     fun share(chroma: Double): Double = ((chroma - GREY_UNTIL) / (FULL_FROM - GREY_UNTIL)).coerceIn(0.0, 1.0)
 

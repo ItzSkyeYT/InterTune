@@ -22,7 +22,7 @@ import coil3.toBitmap
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
-import com.dd3boh.outertune.ui.theme.extractThemeColor
+import com.dd3boh.outertune.ui.theme.extractCoverColor
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.ui.utils.coverAddresses
 import com.dd3boh.outertune.utils.LocalArtworkPath
@@ -453,9 +453,9 @@ object WidgetStore {
         }
     }.onFailure { Log.w(TAG, "Could not read $which for the widget", it) }.getOrDefault(emptyList())
 
-    /** The colour of a cover, the way the player takes its own. */
+    /** The colour of a cover: the one the player would take, or what a cover of greys has most of. */
     private fun artColour(path: String?): Int? = runCatching {
-        decode(path)?.extractThemeColor()?.toArgb()
+        decode(path)?.extractCoverColor()?.toArgb()
     }.getOrNull()
 
     /**
