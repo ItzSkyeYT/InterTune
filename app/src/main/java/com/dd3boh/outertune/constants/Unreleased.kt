@@ -231,14 +231,14 @@ object Unreleased {
     val COVER_ACCENT = BuildConfig.DEBUG
 
     /**
-     * With Liquid glass on, the controls at the foot of the queue are of glass, as the player's
-     * are: its five buttons in one bar with the lens, and the queue's name frosted, both over
+     * With Liquid glass on, the bar at the foot of the queue is one pane of glass standing clear
+     * of the edges, as the dock is: the queue's name, its place and the five buttons on it, over
      * the cover the player draws out of focus (QueueSheet's backdrop). The queue itself stays
      * one flat colour.
      *
-     * A first cut to look at, seen on a Pixel 5 and not on One UI. Without it the controls are
-     * as they were. When it is agreed: set this to true, or delete it with the one check that
-     * reads it, in Player.kt.
+     * A first cut to look at, seen on a Pixel 5 and not on One UI. Without it the bar is as it
+     * was. When it is agreed: set this to true, or delete it with the one check that reads it,
+     * in Player.kt.
      */
     val GLASS_QUEUE = BuildConfig.DEBUG
 }
