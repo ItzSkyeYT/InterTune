@@ -121,5 +121,26 @@ class StreamCipherTest {
     fun `a po token goes on the end of an address, and none leaves it alone`() {
         assertEquals("$host?itag=251&pot=TOKEN", StreamCipher.withPot("$host?itag=251", "TOKEN"))
         assertEquals("$host?itag=251", StreamCipher.withPot("$host?itag=251", null))
+        assertEquals("$host?itag=251", StreamCipher.withPot("$host?itag=251", ""))
+        assertEquals("$host?pot=TOKEN", StreamCipher.withPot(host, "TOKEN"))
+    }
+
+    @Test
+    fun `a po token is written as a value in an address has to be`() {
+        // The two alphabets a token comes in, with the padding either can end in.
+        assertEquals("$host?itag=251&pot=Mn_a-B.c~9%3D%3D", StreamCipher.withPot("$host?itag=251", "Mn_a-B.c~9=="))
+        assertEquals("$host?itag=251&pot=a%2Bb%2Fc%3D", StreamCipher.withPot("$host?itag=251", "a+b/c="))
+        assertEquals("a space is never a plus", "$host?itag=251&pot=a%20b", StreamCipher.withPot("$host?itag=251", "a b"))
+        assertEquals("before a fragment, not after it", "$host?itag=251&pot=TOKEN#t=10", StreamCipher.withPot("$host?itag=251#t=10", "TOKEN"))
+    }
+
+    @Test
+    fun `a play's name goes on after the token, and is sixteen characters an address can carry as they are`() {
+        val named = StreamCipher.withCpn(StreamCipher.withPot("$host?itag=251", "TOKEN"), "abcDEF012345-_xy")
+        assertEquals("$host?itag=251&pot=TOKEN&cpn=abcDEF012345-_xy", named)
+        assertEquals("$host?itag=251", StreamCipher.withCpn("$host?itag=251", null))
+        val made = List(50) { StreamCipher.newCpn() }
+        assertTrue(made.all { Regex("""[A-Za-z0-9_-]{16}""").matches(it) })
+        assertTrue("made anew for every play", made.distinct().size > 40)
     }
 }

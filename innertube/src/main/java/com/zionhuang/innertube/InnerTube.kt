@@ -172,8 +172,18 @@ class InnerTube {
         hlOverride: String? = null,
         // Null connects the way every other call does. See AddressPolicy.
         addressPolicy: AddressPolicy? = null,
+        // The request as YouTube Music's own page makes it: the Origin and the visitor's id among
+        // the headers, and in the body the three fields the page sends and the app never has. For
+        // the experiment's web client (YTPlayerUtils.TRIAL_CLIENT). False changes nothing.
+        asWebPage: Boolean = false,
     ) = clientFor(addressPolicy).post("player") {
         ytClient(client, setLogin = true)
+        if (asWebPage) {
+            headers {
+                append("Origin", YouTubeClient.ORIGIN_YOUTUBE_MUSIC)
+                visitorData?.let { append("X-Goog-Visitor-Id", it) }
+            }
+        }
         setBody(
             PlayerBody(
                 context = client.toContext(locale, visitorData, dataSyncId, hlOverride).let {
@@ -190,13 +200,16 @@ class InnerTube {
                 playbackContext = if (client.useSignatureTimestamp && signatureTimestamp != null) {
                     PlayerBody.PlaybackContext(
                         PlayerBody.PlaybackContext.ContentPlaybackContext(
-                            signatureTimestamp
-                        )
+                            signatureTimestamp,
+                            html5Preference = "HTML5_PREF_WANTS".takeIf { asWebPage },
+                        ),
+                        adPlaybackContext = PlayerBody.PlaybackContext.AdPlaybackContext().takeIf { asWebPage },
                     )
                 } else null,
                 serviceIntegrityDimensions = if (client.useWebPoTokens && webPlayerPot != null) {
                     PlayerBody.ServiceIntegrityDimensions(webPlayerPot)
-                } else null
+                } else null,
+                videoCheckOk = true.takeIf { asWebPage },
             )
         )
     }

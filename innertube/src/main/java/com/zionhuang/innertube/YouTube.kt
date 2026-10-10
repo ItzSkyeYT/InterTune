@@ -814,8 +814,10 @@ object YouTube {
         hlOverride: String? = null,
         // Which address family to ask over. Null leaves it to the system, as for every other call.
         addressPolicy: AddressPolicy? = null,
+        // As YouTube Music's own page asks: see InnerTube.player.
+        asWebPage: Boolean = false,
     ): Result<PlayerResponse> = runCatchingCancellable {
-        innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData, hlOverride, addressPolicy)
+        innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData, hlOverride, addressPolicy, asWebPage)
             .body<PlayerResponse>()
     }
 

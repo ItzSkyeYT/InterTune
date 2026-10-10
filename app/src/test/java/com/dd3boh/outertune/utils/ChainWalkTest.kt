@@ -20,6 +20,8 @@ import com.zionhuang.innertube.models.YouTubeClient
 import com.zionhuang.innertube.models.response.PlayerResponse
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -110,6 +112,13 @@ class ChainWalkTest {
         /** What each client's request carried, for the ones that got any: the signature timestamp and the player po token. */
         val timestamps = mutableMapOf<String, Int>()
         val playerTokens = mutableMapOf<String, String>()
+
+        /** The version each client was asked under, and which of them were asked as YouTube Music's own page asks. */
+        val versions = mutableMapOf<String, String>()
+        val askedAsWebPage = mutableListOf<String>()
+
+        /** Every wait the experiment made between two tries of its address. Nothing is waited here. */
+        val paused = mutableListOf<Long>()
         private val turn = mutableMapOf<String, Int>()
 
         override suspend fun player(
@@ -121,11 +130,14 @@ class ChainWalkTest {
             hlOverride: String?,
             policy: AddressPolicy?,
             asNewVisitor: Boolean,
+            asWebPage: Boolean,
         ): Result<PlayerResponse> {
             val name = if (asNewVisitor) "${client.clientName} as a new visitor" else client.clientName
             askedOf += name
             signatureTimestamp?.let { timestamps[name] = it }
             webPlayerPot?.let { playerTokens[name] = it }
+            versions[name] = client.clientVersion
+            if (asWebPage) askedAsWebPage += name
             val lines = says[name] ?: error("$name was not expected to be asked")
             val at = turn.getOrDefault(name, 0)
             turn[name] = at + 1
@@ -145,9 +157,17 @@ class ChainWalkTest {
         /** A read from far in gets what the check got, unless a test says otherwise. */
         var readsPast: ((String) -> Int?)? = null
         val readPastOf = mutableListOf<String>()
+        val readFrom = mutableListOf<Long>()
 
-        override fun readPast(url: String): Int? {
+        override suspend fun pause(ms: Long) {
+            paused += ms
+        }
+
+        override fun cpn(): String = CPN
+
+        override fun readPast(url: String, from: Long): Int? {
             readPastOf += url
+            readFrom += from
             readsPast?.let { return it(url) }
             headOf?.let { return it(url) }
             val client = url.substringAfter("://").substringBefore('.')
@@ -174,6 +194,7 @@ class ChainWalkTest {
             const val TIMESTAMP = 20_375
             const val VIDEO_TOKEN = "token-made-for-the-video"
             const val SESSION_TOKEN = "token-made-for-the-session"
+            const val CPN = "0123456789abcdef"
         }
     }
 
@@ -474,6 +495,9 @@ class ChainWalkTest {
     /** What [ciphered] comes to once [solving] has answered, before any po token is put on it. */
     private val deciphered = "https://web-remix.googlevideo.com/videoplayback?itag=251&n=SOLVED&sig=UNSCRAMBLED"
 
+    /** [deciphered] as the experiment asks for it: with [token] on it, if any, and the play's name after. */
+    private fun asked(token: String?) = deciphered + (token?.let { "&pot=$it" } ?: "") + "&cpn=${Script.CPN}"
+
     private val solving: suspend (List<String>, List<String>) -> ChallengeSolver.Solved = { signatures, ns ->
         ChallengeSolver.Solved(signatures.associateWith { "UNSCRAMBLED" }, ns.associateWith { "SOLVED" })
     }
@@ -494,10 +518,13 @@ class ChainWalkTest {
         assertEquals(listOf("WEB_REMIX"), script.askedOf)
         // The script's own timestamp, not the one NewPipeExtractor reads for the account's client.
         assertEquals(playerScript.signatureTimestamp, script.timestamps["WEB_REMIX"])
-        assertEquals(Script.VIDEO_TOKEN, script.playerTokens["WEB_REMIX"])
+        assertEquals("no token in the request: the one made for the video is for the address", null, script.playerTokens["WEB_REMIX"])
+        assertEquals("asked as the page asks", listOf("WEB_REMIX"), script.askedAsWebPage)
+        assertEquals("and under the page's version of today, not the app's of March 2025", "1.20260707.12.00", script.versions["WEB_REMIX"])
         assertEquals(listOf(listOf("SCRAMBLED") to listOf("ISSUED")), script.solved)
-        assertEquals(deciphered + "&pot=${Script.VIDEO_TOKEN}", data.streamUrl)
-        assertEquals("one check, since the first token passed", 1, script.checked.size)
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
+        assertEquals("one check, since the first token passed at once", 1, script.checked.size)
+        assertEquals("and no waiting", emptyList<Long>(), script.paused)
         assertEquals("WEB_REMIX OK, HEAD 200 with the video's token", YTPlayerUtils.lastStreamTrail)
         assertEquals("WEB_REMIX", YTPlayerUtils.lastStreamClient)
         assertTrue(data.validated)
@@ -506,27 +533,90 @@ class ChainWalkTest {
     }
 
     @Test
-    fun `an address the video's token leaves refused is tried with the session's, and the one that served goes first for the next song`() {
+    fun `an address the video's token leaves refused, at once and six seconds on, is tried with the session's, and the one that served goes first for the next song`() {
         experimentOn()
         fun script() = Script(
             says = mapOf("WEB_REMIX" to listOf(ciphered())),
-            headOf = { url -> if (url.endsWith("&pot=${Script.SESSION_TOKEN}")) 200 else 403 },
+            headOf = { url -> if ("&pot=${Script.SESSION_TOKEN}&" in url) 200 else 403 },
             playerScript = playerScript,
             solver = solving,
         )
         val first = script()
         val data = walk(first).getOrThrow()
 
-        assertEquals(
-            listOf(deciphered + "&pot=${Script.VIDEO_TOKEN}", deciphered + "&pot=${Script.SESSION_TOKEN}"),
-            first.checked,
-        )
-        assertEquals(deciphered + "&pot=${Script.SESSION_TOKEN}", data.streamUrl)
-        assertEquals("WEB_REMIX OK, HEAD 200 with the session's token", YTPlayerUtils.lastStreamTrail)
+        assertEquals(listOf(asked(Script.VIDEO_TOKEN), asked(Script.VIDEO_TOKEN), asked(Script.SESSION_TOKEN)), first.checked)
+        assertEquals("one wait, before the first token's second try", listOf(StartAds.SETTLE_MS), first.paused)
+        assertEquals(asked(Script.SESSION_TOKEN), data.streamUrl)
+        assertEquals("WEB_REMIX OK, HEAD 200 with the session's token, after 6 s", YTPlayerUtils.lastStreamTrail)
 
         val second = script()
         walk(second).getOrThrow()
-        assertEquals(listOf(deciphered + "&pot=${Script.SESSION_TOKEN}"), second.checked)
+        assertEquals(listOf(asked(Script.SESSION_TOKEN)), second.checked)
+        assertEquals(emptyList<Long>(), second.paused)
+    }
+
+    @Test
+    fun `an address refused at once and served six seconds on is played as it was first asked for`() {
+        experimentOn()
+        var tries = 0
+        val script = Script(
+            says = mapOf("WEB_REMIX" to listOf(ciphered())),
+            headOf = { if (tries++ == 0) 403 else 200 },
+            playerScript = playerScript,
+            solver = solving,
+        )
+        script.readsPast = { 403 }
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf(asked(Script.VIDEO_TOKEN), asked(Script.VIDEO_TOKEN)), script.checked)
+        assertEquals(listOf(StartAds.SETTLE_MS), script.paused)
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
+        assertEquals("WEB_REMIX OK, HEAD 200 with the video's token, after 6 s", YTPlayerUtils.lastStreamTrail)
+        assertEquals("the refused try was also read from, two megabytes in", listOf(2L * 1024 * 1024), script.readFrom)
+    }
+
+    @Test
+    fun `an answer with fifteen seconds of ads before the song has its address tried a third time, once they would be over`() {
+        experimentOn()
+        val ad = Json.parseToJsonElement(
+            """{"adPlacementRenderer":{"config":{"adPlacementConfig":{"kind":"AD_PLACEMENT_KIND_START"}},
+                "renderer":{"instreamVideoAdRenderer":{"playerVars":"length_seconds=15"}}}}""",
+        ).jsonObject
+        var tries = 0
+        val script = Script(
+            says = mapOf("WEB_REMIX" to listOf(ciphered().copy(adPlacements = listOf(ad)))),
+            headOf = { if (tries++ < 2) 403 else 200 },
+            playerScript = playerScript,
+            solver = solving,
+        )
+        script.readsPast = { 403 }
+        val data = walk(script).getOrThrow()
+
+        assertEquals(List(3) { asked(Script.VIDEO_TOKEN) }, script.checked)
+        assertEquals("six seconds, then to a second past the ad's fifteen", listOf(6_000L, 10_000L), script.paused)
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
+        assertEquals("WEB_REMIX OK, HEAD 200 with the video's token, after 16 s", YTPlayerUtils.lastStreamTrail)
+    }
+
+    @Test
+    fun `a check that could not be made is the connection's, and is neither waited on nor tried with another token`() {
+        experimentOn()
+        val script = Script(
+            says = mapOf(
+                "WEB_REMIX" to listOf(ciphered()),
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+            ),
+            headOf = { url -> if ("web-remix" in url) null else 200 },
+            playerScript = playerScript,
+            solver = solving,
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf(asked(Script.VIDEO_TOKEN), "https://VISIONOS.example/videoplayback?itag=251"), script.checked)
+        assertEquals(emptyList<Long>(), script.paused)
+        assertEquals(emptyList<String>(), script.readPastOf)
+        assertEquals("WEB_REMIX OK, HEAD failed with the video's token, VISIONOS OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
     }
 
     @Test
@@ -546,14 +636,16 @@ class ChainWalkTest {
         assertEquals(listOf("WEB_REMIX", "VISIONOS"), script.askedOf)
         assertEquals(
             listOf(
-                deciphered + "&pot=${Script.VIDEO_TOKEN}",
-                deciphered + "&pot=${Script.SESSION_TOKEN}",
-                deciphered,
+                asked(Script.VIDEO_TOKEN),
+                asked(Script.VIDEO_TOKEN),
+                asked(Script.SESSION_TOKEN),
+                asked(null),
                 "https://VISIONOS.example/videoplayback?itag=251",
             ),
             script.checked,
         )
-        assertEquals("WEB_REMIX OK, HEAD 403 with no token, VISIONOS OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+        assertEquals("the other tokens are not waited for again", listOf(StartAds.SETTLE_MS), script.paused)
+        assertEquals("WEB_REMIX OK, HEAD 403 with no token, after 6 s, VISIONOS OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
         // No token on an address that is not a web client's.
         assertEquals("https://VISIONOS.example/videoplayback?itag=251", data.streamUrl)
         assertEquals("VISIONOS", YTPlayerUtils.lastStreamClient)
@@ -569,12 +661,12 @@ class ChainWalkTest {
             playerScript = playerScript,
             solver = solving,
         )
-        script.readsPast = { url -> if (url.endsWith("&pot=${Script.SESSION_TOKEN}")) 206 else 403 }
+        script.readsPast = { url -> if ("&pot=${Script.SESSION_TOKEN}&" in url) 206 else 403 }
         val data = walk(script).getOrThrow()
 
-        assertEquals(deciphered + "&pot=${Script.SESSION_TOKEN}", data.streamUrl)
-        assertEquals("WEB_REMIX OK, HEAD 206 with the session's token, by a read past 512 KB", YTPlayerUtils.lastStreamTrail)
-        assertEquals(2, script.readPastOf.size)
+        assertEquals(asked(Script.SESSION_TOKEN), data.streamUrl)
+        assertEquals("WEB_REMIX OK, HEAD 206 with the session's token, after 6 s, by a read past 512 KB", YTPlayerUtils.lastStreamTrail)
+        assertEquals("the video's token twice, then the session's", 3, script.readPastOf.size)
     }
 
     @Test

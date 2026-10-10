@@ -40,6 +40,7 @@ import com.zionhuang.innertube.models.YouTubeClient.Companion.VISIONOS
 import com.zionhuang.innertube.models.YouTubeClient.Companion.WEB_REMIX
 import com.zionhuang.innertube.models.response.PlayerResponse
 import com.zionhuang.innertube.utils.runCatchingCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -50,6 +51,8 @@ object YTPlayerUtils {
 
     private val httpClient = OkHttpClient.Builder()
         .proxy(YouTube.proxy)
+        // The experiment's addresses are checked as its player then fetches them: see WebStreamHeaders.
+        .apply { if (Unreleased.WEB_CLIENT_FIRST) addInterceptor(WebStreamHeaders.interceptor) }
         .build()
 
     /** The check of a stream goes over the family its address was issued to: see [StreamFamily]. */
@@ -186,6 +189,8 @@ object YTPlayerUtils {
             hlOverride: String?,
             policy: AddressPolicy?,
             asNewVisitor: Boolean = false,
+            /** As YouTube Music's own page asks, for the experiment's client: see InnerTube.player. */
+            asWebPage: Boolean = false,
         ): Result<PlayerResponse>
 
         fun head(url: String): Int?
@@ -201,11 +206,17 @@ object YTPlayerUtils {
         suspend fun playerScript(): PlayerScript?
 
         /**
-         * The status of a read of sixteen bytes two megabytes into [url], or null when it could not
-         * be made. For the experiment's client, to see whether a HEAD request tells the truth about
-         * a web client's address as it does about an app client's.
+         * The status of a read of sixteen bytes starting at [from] in [url], or null when it could
+         * not be made. For the experiment's client, to see whether a HEAD request tells the truth
+         * about a web client's address as it does about an app client's.
          */
-        fun readPast(url: String): Int?
+        fun readPast(url: String, from: Long): Int?
+
+        /** Waits, for the experiment's client: an address refused at once is tried again later. See [StartAds]. */
+        suspend fun pause(ms: Long)
+
+        /** The name a play goes by on every fetch of its stream: see [StreamCipher.withCpn]. */
+        fun cpn(): String
 
         /** The signature and n of a web client's address solved against [script]: see [ChallengeSolver]. */
         suspend fun solve(script: PlayerScript, signatures: List<String>, ns: List<String>): ChallengeSolver.Solved
@@ -221,13 +232,14 @@ object YTPlayerUtils {
             hlOverride: String?,
             policy: AddressPolicy?,
             asNewVisitor: Boolean,
+            asWebPage: Boolean,
         ): Result<PlayerResponse> =
             if (asNewVisitor) {
                 YouTube.player(videoId, playlistId, client, visitorData = null, addressPolicy = policy)
             } else {
                 YouTube.player(
                     videoId, playlistId, client, signatureTimestamp, webPlayerPot,
-                    hlOverride = hlOverride, addressPolicy = policy,
+                    hlOverride = hlOverride, addressPolicy = policy, asWebPage = asWebPage,
                 )
             }
 
@@ -239,12 +251,16 @@ object YTPlayerUtils {
 
         override suspend fun playerScript(): PlayerScript? = playerScripts.current()
 
-        override fun readPast(url: String): Int? = try {
-            val request = okhttp3.Request.Builder().url(url).header("Range", "bytes=$PAST-${PAST + 15}").build()
+        override fun readPast(url: String, from: Long): Int? = try {
+            val request = okhttp3.Request.Builder().url(url).header("Range", "bytes=$from-${from + 15}").build()
             streamCalls.newCall(request).execute().use { it.code }
         } catch (e: Exception) {
             null
         }
+
+        override suspend fun pause(ms: Long) = delay(ms)
+
+        override fun cpn(): String = StreamCipher.newCpn()
 
         override suspend fun solve(script: PlayerScript, signatures: List<String>, ns: List<String>): ChallengeSolver.Solved =
             challengeSolver.solve(script, signatures, ns)
@@ -302,23 +318,37 @@ object YTPlayerUtils {
      *
      * So this client's address does not go to NewPipeExtractor. It is read by [StreamCipher] and
      * solved by a [ChallengeSolver] against a player script the app fetches itself
-     * ([PlayerScripts]), whose signature timestamp is the one its request carries. Three things
-     * about it are different from every other client, and only while the switch is on:
-     * - it is asked with that timestamp, and not asked at all when no script could be had;
-     * - its address is tried with more than one po token: see [potsToTry];
+     * ([PlayerScripts]), whose signature timestamp is the one its request carries. That got it a
+     * deciphered address, on the emulator and on a phone, and the stream host refused it with
+     * 403 whatever token it carried (9 Oct 2026).
+     *
+     * Since then it is asked and fetched the way the apps that play from this client do it
+     * (InnerTubeX, ArchiveTune, yt-dlp, read on 9 and 10 Oct 2026). What is different about it
+     * from every other client, and only while the switch is on:
+     * - it is asked with the script's timestamp, and not asked at all when no script could be had;
+     * - it is asked as YouTube Music's page asks (see InnerTube.player's asWebPage), under the
+     *   page's version of today, and with no po token in the request: a token made for the video
+     *   is for the address, and one that has been in the request is not to be used there;
+     * - its address carries that token, encoded, and a cpn, and is fetched with the page's
+     *   headers: see [StreamCipher.withPot], [StreamCipher.withCpn] and [WebStreamHeaders];
+     * - an address refused at once is tried again when the ad the answer puts before the song
+     *   would be over, and only then with the other tokens: see [checkTrialAddress];
      * - none of its refusals is counted, for the throttle or for the error a failed song shows.
      * The script and the solving together get [trialLimitMs] for a song and no more. When they
      * run out, or the solver fails, the step reads "address not deciphered" as before and the
-     * chain is asked.
+     * chain is asked. The waiting is on top of that, and is what holding a song for an
+     * experiment costs: [StartAds.LONGEST_MS] at the very most.
      *
-     * Whether the address plays once it is deciphered, and with which po token on it, is what
-     * is still to be seen. The solver's two files are not in the tree yet: see
-     * [WebViewChallengeSolver].
+     * Whether the address plays now is what is still to be seen. The solver's files are not in
+     * the tree: see [WebViewChallengeSolver].
      *
      * Nothing is remembered of it (see chainDone in [resolveOnce]), so switching it off leaves the
      * order as it was, and the rest of the chain is asked as ever when it gives no stream.
      */
-    private val TRIAL_CLIENT: YouTubeClient = WEB_REMIX
+    private val TRIAL_CLIENT: YouTubeClient = WEB_REMIX.copy(clientVersion = TRIAL_CLIENT_VERSION)
+
+    /** What yt-dlp and InnerTubeX ask WEB_REMIX as in October 2026. The app's own WEB_REMIX is of March 2025. */
+    private const val TRIAL_CLIENT_VERSION = "1.20260707.12.00"
 
     /** The developer options' switch for [TRIAL_CLIENT], set from the preference by MusicService. */
     @Volatile
@@ -361,6 +391,82 @@ object YTPlayerUtils {
         trialLimitMs = TRIAL_LIMIT_MS
     }
 
+    /** What checking the experiment's address came to: the address as it was last asked for, what it got, with which token and how. */
+    private class TrialCheck(val url: String, val status: Int?, val pot: Pot, val how: String)
+
+    /**
+     * The experiment's address, asked for the way a page that plays it would ask.
+     *
+     * The address gets a po token and a cpn ([StreamCipher.withPot], [StreamCipher.withCpn]) and
+     * is checked with a HEAD request and, when that is refused, a read from far in, which is
+     * what says whether the song would play: on 9 Oct 2026 nothing said yet whether HEAD means
+     * for a web client what it means for an app client. A read that is served counts as served.
+     *
+     * The first token ([potsToTry]: the video's, unless another served the last song) is tried
+     * at once, then again after the pauses [StartAds.pausesMs] gives for the ads [answer] puts
+     * before the song, since a web client's address is refused for as long as those would run.
+     * Only an address still refused then is tried with the other tokens, once each: by that time
+     * no ad can be the reason. A check that could not be made ends it, as the connection's doing.
+     *
+     * Everything it sees goes to the log by what it is and never by the address: how long the
+     * ads are, how long the tokens are, and every answer with its token and its time.
+     */
+    private suspend fun checkTrialAddress(
+        videoId: String,
+        client: YouTubeClient,
+        address: String,
+        length: Long?,
+        answer: PlayerResponse,
+        videoPot: String?,
+        sessionPot: String?,
+        wire: Wire,
+    ): TrialCheck {
+        val pots = potsToTry(videoPot, sessionPot)
+        val cpn = wire.cpn()
+        val adMs = StartAds.waitMs(answer.adPlacements, answer.adSlots)
+        val from = if (length != null && length > 16) minOf(PAST, length - 16) else PAST
+        Log.i(
+            TAG,
+            "[$videoId] [${client.clientName}] " +
+                (if (adMs > 0) "${adMs / 1000} s of ads before the song in the answer" else "no ad before the song in the answer") +
+                ", the video's token of ${videoPot?.length ?: 0} characters, the session's of ${sessionPot?.length ?: 0}",
+        )
+
+        fun tried(kind: Pot, pot: String?, afterMs: Long): TrialCheck {
+            val url = StreamCipher.withCpn(StreamCipher.withPot(address, pot), cpn)
+            val at = if (afterMs > 0) "after ${afterMs / 1000} s" else "at once"
+            var status = wire.head(url)
+            Log.i(TAG, "[$videoId] [${client.clientName}] HEAD ${status ?: "failed"} with ${kind.words}, $at")
+            var byReading = false
+            if (status != null && !StreamCheck.accept(status, isLast = false)) {
+                val past = wire.readPast(url, from)
+                Log.i(TAG, "[$videoId] [${client.clientName}] a read past 512 KB got ${past ?: "no answer"} with ${kind.words}, $at")
+                if (past != null && StreamCheck.accept(past, isLast = false)) {
+                    status = past
+                    byReading = true
+                }
+            }
+            val how = listOfNotNull(kind.words, at.takeIf { afterMs > 0 }, "by a read past 512 KB".takeIf { byReading })
+            return TrialCheck(url, status, kind, how.joinToString(", "))
+        }
+        fun settles(check: TrialCheck) = check.status == null || StreamCheck.accept(check.status, isLast = false)
+
+        val (firstKind, firstPot) = pots.first()
+        var waitedMs = 0L
+        var last: TrialCheck? = null
+        for (pause in StartAds.pausesMs(adMs)) {
+            if (pause > 0) {
+                wire.pause(pause)
+                waitedMs += pause
+            }
+            last = tried(firstKind, firstPot, waitedMs).also { if (settles(it)) return it }
+        }
+        for ((kind, pot) in pots.drop(1)) {
+            last = tried(kind, pot, waitedMs).also { if (settles(it)) return it }
+        }
+        return checkNotNull(last)
+    }
+
     /**
      * The po tokens to try the experiment's address with, in order, each with its name.
      *
@@ -374,9 +480,8 @@ object YTPlayerUtils {
      * the session's, then none, and whichever passed the check is first next time. A wrong guess
      * costs one refused HEAD request, and the log says which token got which answer.
      *
-     * The video's token here is a second one, made after the request: Metrolist notes that a
-     * token bound to the video "must not be reused by the player request", and the request has
-     * already carried one.
+     * The video's token is used here and nowhere else: InnerTubeX notes that a token bound to the
+     * video "must not be reused by the player request", and the experiment's request carries none.
      */
     private fun potsToTry(videoPot: String?, sessionPot: String?): List<Pair<Pot, String?>> {
         val all = listOfNotNull(
@@ -786,8 +891,10 @@ object YTPlayerUtils {
                     videoId, playlistId, client,
                     // The timestamp of the very script its address will be solved against.
                     if (isTrial) script?.signatureTimestamp else signatureTimestampFor(client),
-                    webPlayerPot,
+                    // None for the experiment's client: its token is for the address. See TRIAL_CLIENT.
+                    if (isTrial) null else webPlayerPot,
                     hlOverride = if (isMain) null else "en", policy = policy,
+                    asWebPage = isTrial,
                 )
                     .onFailure { if (!isTrial) Throttle.noteFailure(it) }
             streamPlayerResponse = result.getOrNull()
@@ -883,51 +990,21 @@ object YTPlayerUtils {
                 streamExpiresInSeconds =
                     streamPlayerResponse.streamingData?.expiresInSeconds ?: continue
 
-                // An address carries one po token or none, but for the experiment's, which is
-                // tried with each kind in turn until one passes the check: see potsToTry. A second
-                // token is only asked for when the first could be made, so a generator that is
-                // down is not waited on twice.
-                val pots: List<Pair<Pot?, String?>> =
-                    if (isTrial) {
-                        val another = if (webPlayerPot == null) null else wire.poTokens(videoId, sessionId)?.playerRequestPoToken
-                        potsToTry(videoPot = another, sessionPot = webStreamingPot)
-                    } else {
-                        listOf(null to webStreamingPot.takeIf { client.useWebPoTokens })
-                    }
-
                 val isLast = clientIndex == clients.lastIndex
                 // The family the check goes over, for the log: see StreamFamily. A refusal over
                 // the family /player was asked over is the client's or the visitor's, and no
                 // longer something a fetch from another address could explain.
                 val issuedTo = StreamFamily.of(address)?.label ?: "no family it names"
-                var checked = address
-                var status: Int? = null
-                var carried: Pot? = null
-                var byReading = false
-                for ((kind, pot) in pots) {
-                    checked = StreamCipher.withPot(address, pot)
-                    status = wire.head(checked)
-                    carried = kind
-                    if (kind != null) Log.i(TAG, "[$videoId] [${client.clientName}] HEAD ${status ?: "failed"} with ${kind.words}")
-                    // The experiment's address refused by HEAD is also read from, far in: on
-                    // 9 Oct 2026 nothing said yet whether HEAD means for a web client what it
-                    // means for an app client. A read that is served counts as served.
-                    if (isTrial && status != null && !StreamCheck.accept(status, isLast = false)) {
-                        val past = wire.readPast(checked)
-                        Log.i(TAG, "[$videoId] [${client.clientName}] a read past 512 KB got ${past ?: "no answer"} with ${kind?.words}")
-                        if (past != null && StreamCheck.accept(past, isLast = false)) {
-                            status = past
-                            byReading = true
-                        }
-                    }
-                    // A check that could not be made is the connection's doing: another token will not mend it.
-                    if (status == null || StreamCheck.accept(status, isLast = false)) break
-                }
+                // An address carries one po token or none and is checked once, but for the
+                // experiment's: see checkTrialAddress.
+                val trialCheck =
+                    if (!isTrial) null
+                    else checkTrialAddress(videoId, client, address, format.contentLength, streamPlayerResponse, webPlayerPot, webStreamingPot, wire)
+                val checked = trialCheck?.url ?: StreamCipher.withPot(address, webStreamingPot.takeIf { client.useWebPoTokens })
+                val status = if (trialCheck != null) trialCheck.status else wire.head(checked)
+                val carried = trialCheck?.pot
                 streamUrl = checked
-                trail[trail.lastIndex] = StreamCheck.trailStep(
-                    clientLabel, "OK", status, checked = true,
-                    with = carried?.words?.let { if (byReading) "$it, by a read past 512 KB" else it },
-                )
+                trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", status, checked = true, with = trialCheck?.how)
                 // For StreamOrder the client served or was refused by what the check answered. A
                 // check that could not be made says more of the connection than of the client, so
                 // nothing is remembered of it, even when its url is the last one and is played.

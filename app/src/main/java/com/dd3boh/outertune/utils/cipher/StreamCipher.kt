@@ -84,9 +84,45 @@ object StreamCipher {
         return url
     }
 
-    /** [url] with a po token on it, written as the player has always written it, or as it is without one. */
+    /**
+     * [url] with a po token on it, or as it is without one.
+     *
+     * Encoded as a value in an address has to be. The player used to append the token as it came,
+     * and a token is base64 that can end in "=" and, in the alphabet some makers use, hold "+" and
+     * "/". The apps that play from a web client all encode it (InnerTubeX's withPoToken).
+     */
     fun withPot(url: String, pot: String?): String =
-        if (pot.isNullOrEmpty()) url else url + (if ('?' in url) "&" else "?") + "pot=" + pot
+        if (pot.isNullOrEmpty()) url else appended(url, "pot", pot)
+
+    /**
+     * [url] with the play's own name on it, the cpn: sixteen characters the page makes up for
+     * every play and puts on each fetch of the stream, the same one throughout.
+     */
+    fun withCpn(url: String, cpn: String?): String =
+        if (cpn.isNullOrEmpty()) url else appended(url, "cpn", cpn)
+
+    /** A cpn as YouTube.registerPlayback makes one for the play it reports. */
+    fun newCpn(): String = (1..16).map { CPN_ALPHABET.random() }.joinToString("")
+
+    private const val CPN_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+
+    /** At the end of the query and before a fragment, as [withParameter] writes one that was not there. */
+    private fun appended(url: String, name: String, value: String): String {
+        val hash = url.indexOf('#')
+        val beforeFragment = if (hash < 0) url else url.substring(0, hash)
+        val fragment = if (hash < 0) "" else url.substring(hash)
+        return beforeFragment + (if ('?' in beforeFragment) "&" else "?") + name + "=" + queryValue(value) + fragment
+    }
+
+    /** Everything but letters, digits and "-._~" as a percent and two hex digits: a space is %20 here, never "+". */
+    private fun queryValue(value: String): String = buildString(value.length) {
+        for (byte in value.toByteArray(Charsets.UTF_8)) {
+            val code = byte.toInt() and 0xff
+            val kept = code in '0'.code..'9'.code || code in 'A'.code..'Z'.code || code in 'a'.code..'z'.code ||
+                code == '-'.code || code == '.'.code || code == '_'.code || code == '~'.code
+            if (kept) append(code.toChar()) else append('%').append("0123456789ABCDEF"[code ushr 4]).append("0123456789ABCDEF"[code and 15])
+        }
+    }
 
     /**
      * Whether [value] can be the solved form of [question]. The same value back is a function
