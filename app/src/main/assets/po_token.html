@@ -103,18 +103,28 @@
       })
     }
 
+    // The minter is made once for the page and every token comes from that one, as the apps that
+    // play from YouTube Music's web client make theirs. It used to be asked for again with each
+    // token, and each token then came out longer than the last (212, 300, 392, 480 characters in
+    // one process on 9 Oct 2026). A new page starts without one, so a new session gets its own.
+    var poTokenMinter = null;
+
     function obtainPoToken(webPoSignalOutput, integrityToken, identifier) {
-      const getMinter = webPoSignalOutput[0];
+      if (!poTokenMinter) {
+        const getMinter = webPoSignalOutput[0];
 
-      if (!getMinter)
-        throw new Error('PMD:Undefined');
+        if (!getMinter)
+          throw new Error('PMD:Undefined');
 
-      const mintCallback = getMinter(integrityToken);
+        const made = getMinter(integrityToken);
 
-      if (!(mintCallback instanceof Function))
-        throw new Error('APF:Failed');
+        if (!(made instanceof Function))
+          throw new Error('APF:Failed');
 
-      const result = mintCallback(identifier);
+        poTokenMinter = made;
+      }
+
+      const result = poTokenMinter(identifier);
 
       if (!result)
         throw new Error('YNJ:Undefined');
