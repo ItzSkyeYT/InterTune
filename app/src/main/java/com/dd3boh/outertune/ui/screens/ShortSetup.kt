@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -88,6 +89,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.StrokeCap
@@ -318,24 +320,37 @@ fun ShortSetup(
                             content = {
                                 // No logo in a window too short for it and the five lines both: the lines say more.
                                 if (!beside) {
-                                    Image(
-                                        painter = painterResource(R.drawable.launcher_monochrome),
-                                        contentDescription = null,
-                                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary, BlendMode.SrcIn),
-                                        modifier = Modifier
-                                            .size(104.dp)
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
-                                            .padding(14.dp)
-                                    )
-                                    Spacer(Modifier.height(24.dp))
+                                    Box(contentAlignment = Alignment.Center) {
+                                        // The accent glowing behind the logo: the page opens on colour, not on a grey disc.
+                                        Box(
+                                            modifier = Modifier
+                                                .size(168.dp)
+                                                .background(
+                                                    Brush.radialGradient(
+                                                        listOf(MaterialTheme.colorScheme.primary.copy(alpha = 0.32f), Color.Transparent)
+                                                    ),
+                                                    CircleShape,
+                                                )
+                                        )
+                                        Image(
+                                            painter = painterResource(R.drawable.launcher_monochrome),
+                                            contentDescription = null,
+                                            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onPrimaryContainer, BlendMode.SrcIn),
+                                            modifier = Modifier
+                                                .size(104.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                                .padding(14.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.height(8.dp))
                                 }
                                 SetupHeading(
                                     title = stringResource(R.string.oobe_welcome_message),
                                     body = stringResource(R.string.setup_welcome_body),
                                     large = true,
                                 )
-                                Spacer(Modifier.height(if (beside) 12.dp else 24.dp))
+                                Spacer(Modifier.height(if (beside) 12.dp else 20.dp))
                                 SetupOverview(close = beside)
                             },
                             buttons = {
@@ -569,34 +584,108 @@ private val ChoicesSaver = Saver<SetupChoices, String>(
  */
 @Composable
 private fun SetupOverview(close: Boolean) {
-    val lines = listOf(
-        Icons.Rounded.LibraryMusic to R.string.setup_does_youtube_music,
-        Icons.Rounded.SdCard to R.string.setup_does_files,
-        Icons.Rounded.OfflinePin to R.string.setup_does_downloads,
-        Icons.Rounded.AutoAwesome to R.string.setup_does_picks,
-        Icons.Rounded.Block to R.string.setup_does_no_adverts,
+    val rows = listOf(
+        Triple(Icons.Rounded.LibraryMusic, R.string.setup_does_youtube_music, R.string.setup_does_youtube_music_more),
+        Triple(Icons.Rounded.SdCard, R.string.setup_does_files, R.string.setup_does_files_more),
+        Triple(Icons.Rounded.OfflinePin, R.string.setup_does_downloads, R.string.setup_does_downloads_more),
+        Triple(Icons.Rounded.AutoAwesome, R.string.setup_does_picks, R.string.setup_does_picks_more),
+        Triple(Icons.Rounded.Block, R.string.setup_does_no_adverts, R.string.setup_does_no_adverts_more),
     )
+    if (close) {
+        // A window too short for five rows of two lines: the five as plain lines, which all show.
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.widthIn(max = 360.dp),
+        ) {
+            for ((icon, title, _) in rows) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp),
+                    )
+                    Text(
+                        text = stringResource(title),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
+        return
+    }
     Column(
-        // Closer together where the window is short, so that all five are seen without scrolling.
-        verticalArrangement = Arrangement.spacedBy(if (close) 8.dp else 14.dp),
-        modifier = Modifier.widthIn(max = 360.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+        modifier = Modifier
+            .widthIn(max = 420.dp)
+            .fillMaxWidth(),
     ) {
-        for ((icon, line) in lines) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+        rows.forEachIndexed { at, (icon, title, more) ->
+            // Each row comes up a moment after the one above it.
+            var there by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                delay(120L + 70L * at)
+                there = true
+            }
+            val shown by animateFloatAsState(
+                targetValue = if (there) 1f else 0f,
+                animationSpec = tween(320, easing = LinearOutSlowInEasing),
+                label = "setupRow",
+            )
+            // One block of five: round at its two ends, nearly square where the rows meet.
+            val outer = 22.dp
+            val inner = 6.dp
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = RoundedCornerShape(
+                    topStart = if (at == 0) outer else inner,
+                    topEnd = if (at == 0) outer else inner,
+                    bottomStart = if (at == rows.lastIndex) outer else inner,
+                    bottomEnd = if (at == rows.lastIndex) outer else inner,
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer {
+                        alpha = shown
+                        translationY = (1f - shown) * 16.dp.toPx()
+                    },
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp),
-                )
-                Text(
-                    text = stringResource(line),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.secondaryContainer),
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = stringResource(title),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = stringResource(more),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
     }
