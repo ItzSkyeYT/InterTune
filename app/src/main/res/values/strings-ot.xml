@@ -577,7 +577,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="oobe_complete">InterTune is set up and ready to use. Explore your music, discover new tracks, and enjoy the experience!</string>
 
     <!-- The short setup (ShortSetup.kt), behind Unreleased.SHORT_SETUP. English only until its wording is agreed. -->
-    <string name="setup_welcome_body" translatable="false">A music player for YouTube Music and for the music files on this device.</string>
+    <string name="setup_welcome_body" translatable="false">A music player. This is what it does.</string>
+    <string name="setup_does_youtube_music" translatable="false">Plays YouTube Music, signed in or not</string>
+    <string name="setup_does_files" translatable="false">Plays the music files on this device</string>
+    <string name="setup_does_downloads" translatable="false">Downloads songs to play offline</string>
+    <string name="setup_does_picks" translatable="false">Picks songs that follow what you listen to</string>
+    <string name="setup_does_no_adverts" translatable="false">Shows no adverts</string>
     <string name="setup_sign_in_title" translatable="false">Sign in</string>
     <string name="setup_sign_in_body" translatable="false">Your YouTube Music account brings your playlists, likes and recommendations here. The app works without one.</string>
     <string name="setup_sign_in" translatable="false">Sign in to YouTube Music</string>
