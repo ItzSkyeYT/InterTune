@@ -207,4 +207,14 @@ object Unreleased {
      * To ship: this to true, and the files' place in the tree agreed.
      */
     val WEB_FALLBACK = BuildConfig.DEBUG
+
+    /**
+     * VISIONOS under the two other versions and user agents other projects ask it with, written
+     * in the stream chain right after VISIONOS itself (YTPlayerUtils.VISIONOS_IDENTITIES). Asked
+     * only when VISIONOS gave no stream, a request each, and whichever serves is asked first from
+     * then on. Both played whole songs on 9 and 10 Oct 2026 when the stream probe asked them.
+     *
+     * Needs nothing else in the build. To ship: this to true.
+     */
+    val VISIONOS_IDENTITIES = BuildConfig.DEBUG
 }

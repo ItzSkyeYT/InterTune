@@ -68,6 +68,7 @@ import com.dd3boh.outertune.constants.SCANNER_OWNER_LM
 import com.dd3boh.outertune.constants.ScannerImpl
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.VisitorDataKey
+import com.dd3boh.outertune.constants.OwnVisionosRefusedKey
 import com.dd3boh.outertune.constants.VisionosRefusedKey
 import com.dd3boh.outertune.constants.WebClientFirstKey
 import com.dd3boh.outertune.playback.HistoryAddressCheck
@@ -108,6 +109,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
     val (audioOffload, onAudioOffloadChange) = rememberPreference(key = AudioOffloadKey, defaultValue = false)
     val (webClientFirst, onWebClientFirstChange) = rememberPreference(key = WebClientFirstKey, defaultValue = false)
     val (visionosRefused, onVisionosRefusedChange) = rememberPreference(key = VisionosRefusedKey, defaultValue = false)
+    val (ownVisionosRefused, onOwnVisionosRefusedChange) = rememberPreference(key = OwnVisionosRefusedKey, defaultValue = false)
 
     var nukeEnabled by remember {
         mutableStateOf(false)
@@ -139,6 +141,15 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
 
         if (BuildConfig.DEBUG) {
             HistoryAddressCheckRow()
+        }
+        if (Unreleased.VISIONOS_IDENTITIES) {
+            SwitchPreference(
+                title = { Text(stringResource(R.string.own_visionos_refused)) },
+                description = stringResource(R.string.own_visionos_refused_description),
+                icon = { Icon(Icons.Rounded.Science, null) },
+                checked = ownVisionosRefused,
+                onCheckedChange = onOwnVisionosRefusedChange,
+            )
         }
         if (Unreleased.WEB_FALLBACK) {
             SwitchPreference(

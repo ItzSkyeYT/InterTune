@@ -393,6 +393,9 @@ val WebClientFirstKey = booleanPreferencesKey("webClientFirst")
  * stops, in debug builds only. See Unreleased.WEB_FALLBACK.
  */
 val VisionosRefusedKey = booleanPreferencesKey("visionosTakenForRefused")
+
+/** The same for VISIONOS as this app says it alone, so that its other identities are heard taking over. */
+val OwnVisionosRefusedKey = booleanPreferencesKey("ownVisionosTakenForRefused")
 val DataSyncIdKey = stringPreferencesKey("dataSyncId")
 val InnerTubeCookieKey = stringPreferencesKey("innerTubeCookie")
 val AccountNameKey = stringPreferencesKey("accountName")

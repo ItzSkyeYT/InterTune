@@ -1750,6 +1750,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="home_play_at_random">Play something at random</string>
     <string name="view_as_list">Shown as a list</string>
     <string name="view_as_grid">Shown as a grid</string>
+    <string name="own_visionos_refused" translatable="false">Take this app\'s VISIONOS for refused</string>
+    <string name="own_visionos_refused_description" translatable="false">To hear the day YouTube stops taking VISIONOS the way this app says it. The same client under another version is asked next.</string>
     <string name="visionos_refused" translatable="false">Take VISIONOS for refused</string>
     <string name="visionos_refused_description" translatable="false">To hear the day VISIONOS stops. Its address is taken for refused without being asked for, so every song goes down the rest of the chain. Switching it off forgets which client served last.</string>
     <string name="web_client_first" translatable="false">Ask YouTube Music\'s web client first</string>

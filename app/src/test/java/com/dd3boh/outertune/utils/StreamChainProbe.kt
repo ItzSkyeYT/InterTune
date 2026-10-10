@@ -98,18 +98,9 @@ class StreamChainProbe {
         Candidate("WEB_REMIX at yt-dlp's version (no po token)", YouTubeClient.WEB_REMIX.copy(clientVersion = "1.20260707.12.00")),
         Candidate("WEB (no po token)", YouTubeClient.WEB),
         Candidate("TVHTML5 (asked without the account)", YouTubeClient.TVHTML5),
-        Candidate(
-            "VISIONOS with NewPipe's version and user agent",
-            YouTubeClient.VISIONOS.copy(
-                clientVersion = "1.04",
-                userAgent = "com.google.visionos.youtube/1.04(RealityDevice17,1; U; CPU visionOS 26_6_0 like Mac OS X; US)",
-                osVersion = "26.6.0.23O770",
-            ),
-        ),
-        Candidate(
-            "VISIONOS with yt-dlp's user agent",
-            YouTubeClient.VISIONOS.copy(userAgent = SAFARI_26, osVersion = "26.5.23O471"),
-        ),
+        // The two the chain asks after VISIONOS itself (YTPlayerUtils.VISIONOS_IDENTITIES), by the very definitions it asks with.
+        Candidate("VISIONOS with NewPipe's version and user agent", YouTubeClient.VISIONOS_1_04),
+        Candidate("VISIONOS with yt-dlp's user agent", YouTubeClient.VISIONOS_SAFARI),
         Candidate(
             "WEB_EMBEDDED_PLAYER as yt-dlp has it, without encryptedHostFlags",
             YouTubeClient(

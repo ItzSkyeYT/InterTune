@@ -113,6 +113,7 @@ import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
 import com.dd3boh.outertune.constants.AdaptiveQueueMode
 import com.dd3boh.outertune.constants.PlaybackAuthModeKey
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.constants.OwnVisionosRefusedKey
 import com.dd3boh.outertune.constants.VisionosRefusedKey
 import com.dd3boh.outertune.constants.WebClientFirstKey
 import com.dd3boh.outertune.constants.PlaybackAuthMode
@@ -1081,6 +1082,11 @@ class MusicService : MediaLibraryService(),
                 dataStore.data.map { it[VisionosRefusedKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.takeVisionosForRefused(it) }
+            }
+            if (Unreleased.VISIONOS_IDENTITIES) {
+                dataStore.data.map { it[OwnVisionosRefusedKey] ?: false }
+                    .distinctUntilChanged()
+                    .collectLatest(scope) { YTPlayerUtils.takeVisionosForRefused(it, onlyAsSaidHere = true) }
             }
 
             // The switch has to reach the player already running, not some later one. Without this
