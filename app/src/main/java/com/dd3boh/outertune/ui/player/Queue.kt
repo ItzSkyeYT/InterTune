@@ -29,6 +29,8 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -107,7 +109,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -176,6 +180,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import com.dd3boh.outertune.ui.utils.GlassSpec
 import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
@@ -1226,24 +1232,37 @@ fun BoxScope.QueueContent(
         }
     }
 
+    // With glass and upright, the songs run on under the bar: the list is the picture its pane looks
+    // through, and the bar's height is the room left under the last song.
+    val listBackdrop = if (backdrop != null && !landscape) rememberLayerBackdrop() else null
+    val listUnderBar = listBackdrop != null
+    var barHeight by remember { mutableStateOf(0.dp) }
+
 // queue info + player controls
     val bottomNav: @Composable ColumnScope.() -> Unit = {
         Log.v("QueueContent", "QC-nav")
 
         val barInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.End)
         val barShape = RoundedCornerShape(28.dp)
-        // Thinner than the dock's: there are no words behind this pane to fight the ones on it.
-        val barTint = if (backdrop != null) GlassSpec(backdrop, glassIntensity.coerceIn(0f, 1f)).tint(min = 0.3f) else Color.Transparent
+        // Upright the songs run on under the pane, and it is glass over them, as the dock is over
+        // a page. On its side the pane stands under the list of queues, over the player's picture.
+        val paneBackdrop = if (listUnderBar) listBackdrop else backdrop
+        val barTint = when {
+            paneBackdrop == null -> Color.Transparent
+            // The dock's own tint: there are words behind this pane.
+            listUnderBar -> GlassSpec(paneBackdrop, glassIntensity.coerceIn(0f, 1f)).tint()
+            // Thinner: nothing behind it but the cover out of focus.
+            else -> GlassSpec(paneBackdrop, glassIntensity.coerceIn(0f, 1f)).tint(min = 0.3f)
+        }
         Column(
             modifier = Modifier
                 .then(
-                    if (backdrop != null) {
-                        // One pane of glass standing clear of the edges, as the dock does, over
-                        // what the player draws behind itself.
+                    if (paneBackdrop != null) {
+                        // One pane of glass standing clear of the edges, as the dock does.
                         Modifier
                             .windowInsetsPadding(barInsets)
                             .padding(start = 12.dp, top = 4.dp, end = 12.dp, bottom = 8.dp)
-                            .glassPane(backdrop, glassIntensity, barShape, barTint)
+                            .glassPane(paneBackdrop, glassIntensity, barShape, barTint)
                             .clip(barShape)
                             .fillMaxWidth()
                     } else {
@@ -1590,7 +1609,17 @@ fun BoxScope.QueueContent(
         // queue contents
         Column(
             verticalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                // What the pane of glass over the foot of the list looks through. The fill comes
+                // after, so that it is in the picture: a lens over nothing draws nothing. The
+                // pane is not in this column, which a layer's own reader must never be.
+                .then(
+                    if (listBackdrop != null) Modifier
+                        .layerBackdrop(listBackdrop)
+                        .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
+                    else Modifier
+                )
         ) {
             Log.v("QueueContent", "QC-2.2")
             Column(
@@ -1651,11 +1680,31 @@ fun BoxScope.QueueContent(
                 } else {
                     InsetsSafeSTE
                 }
-                songList(songListInsets.asPaddingValues()) // song list
+                val songListPadding = songListInsets.asPaddingValues()
+                val direction = LocalLayoutDirection.current
+                songList(
+                    if (listUnderBar && !isSearching) PaddingValues(
+                        start = songListPadding.calculateStartPadding(direction),
+                        top = songListPadding.calculateTopPadding(),
+                        end = songListPadding.calculateEndPadding(direction),
+                        // Room for the last song to come up clear of the pane.
+                        bottom = songListPadding.calculateBottomPadding() + barHeight,
+                    ) else songListPadding
+                ) // song list
             }
 
             // nav bar
-            if (!isSearching) {
+            if (!isSearching && !listUnderBar) {
+                bottomNav()
+            }
+        }
+        if (!isSearching && listUnderBar) {
+            val density = LocalDensity.current
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .onSizeChanged { barHeight = with(density) { it.height.toDp() } }
+            ) {
                 bottomNav()
             }
         }
