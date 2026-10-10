@@ -38,6 +38,9 @@ import com.dd3boh.outertune.utils.albumWithOrderedSongs
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.widget.WidgetList
 import com.dd3boh.outertune.widget.WidgetStore
+import com.zionhuang.innertube.YouTube
+import com.zionhuang.innertube.models.SongItem
+import com.dd3boh.outertune.models.toMediaMetadata
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.AsyncFunction
 import com.google.common.util.concurrent.Futures
@@ -58,6 +61,7 @@ import javax.inject.Inject
 
 /** The longest a request to play waits for the saved queues to load at the service's start. */
 private const val QUEUES_LOADED_TIMEOUT_MS = 5_000L
+private const val SEARCH_ONLINE_MS = 6_000L
 private const val LIST = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM
 private const val GRID = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
 
@@ -72,6 +76,10 @@ class MediaLibrarySessionCallback @Inject constructor(
     // with it until the service was restarted.
     private val scope = CoroutineScope(Dispatchers.Main) + SupervisorJob()
     lateinit var service: MusicService
+
+    /** The last search of the car that YouTube Music answered, and its answer. See [searchCar]. */
+    @Volatile
+    private var searchedOnline: Pair<String, List<Song>>? = null
     var toggleLike: () -> Unit = {}
     var toggleStartRadio: () -> Unit = {}
     var toggleLibrary: () -> Unit = {}
@@ -369,7 +377,7 @@ class MediaLibrarySessionCallback @Inject constructor(
             if (request.requestMetadata.mediaUri != null) return null
             val query = request.requestMetadata.searchQuery?.trim().orEmpty()
             if (query.isEmpty()) return continueCurrentQueue()
-            return startExternalQueue(searchLibrary(query).map { it.toMediaItem() }, 0, C.TIME_UNSET)
+            return startExternalQueue(searchCar(query).map { it.toMediaItem() }, 0, C.TIME_UNSET)
         }
 
         val target = PlayRequest.parse(mediaId) ?: return null
@@ -392,7 +400,7 @@ class MediaLibrarySessionCallback @Inject constructor(
             is PlayRequest.Album -> database.albumWithOrderedSongs(target.albumId).first()?.songs ?: return null
             is PlayRequest.Playlist -> playlistSongs(target.playlistId)
 
-            is PlayRequest.Search -> searchLibrary(target.query)
+            is PlayRequest.Search -> searchCar(target.query)
         }
         // A stale or removed id (the car's own cache, or a replayed history entry) is a request
         // this cannot place, the same as the Album-not-found case above: fail it rather than
@@ -453,6 +461,39 @@ class MediaLibrarySessionCallback @Inject constructor(
         return MediaItemsWithStartPosition(items, startIndex, startPositionMs)
     }
 
+    /**
+     * What a search from the car finds: the library's answer, and since the rework YouTube
+     * Music's own after it. A driver says the name of a song and expects it to play; from the
+     * library alone, a song never played before was "nothing found". What YouTube Music answers
+     * is written into the library's table of songs seen, as anything shown anywhere in the app
+     * is, which is what lets it be played and its cover be served. Its failing, or its taking
+     * too long, leaves the library's answer as it was.
+     */
+    private suspend fun searchCar(query: String): List<Song> {
+        val library = searchLibrary(query)
+        if (!Unreleased.AUTO_REWORK || library.size >= AutoBrowse.MOST || query.trim().length < 3) return library
+        // The car asks again at every letter typed and once more for the list it then shows, and
+        // the tap that plays a result asks a third time: the same question is asked of YouTube
+        // Music once.
+        searchedOnline?.takeIf { it.first == query }?.let { return (library + it.second).distinctBy { song -> song.id } }
+        val found = withTimeoutOrNull(SEARCH_ONLINE_MS) {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrThrow().items
+                        .filterIsInstance<SongItem>()
+                        .take(AutoBrowse.MOST)
+                        .mapNotNull { item ->
+                            val seen = item.toMediaMetadata()
+                            runCatching { database.insert(seen) }
+                            database.song(seen.id).first()
+                        }
+                }.onFailure { Log.w(TAG, "YouTube Music gave the car's search nothing", it) }.getOrDefault(emptyList())
+            }
+        }.orEmpty()
+        if (found.isNotEmpty()) searchedOnline = query to found
+        return (library + found).distinctBy { it.id }
+    }
+
     /** The library search the search results list, so a spoken query plays what a typed one shows. */
     private suspend fun searchLibrary(query: String): List<Song> = combine(
         database.searchSongs(query),
@@ -489,7 +530,7 @@ class MediaLibrarySessionCallback @Inject constructor(
             try {
                 // Playable and not browsable. Marked both, a result could open as a folder in the
                 // car, and a search result has no children, so it opened empty.
-                val items = searchLibrary(query)
+                val items = searchCar(query)
                     .map {
                         it.toMediaItem(
                             path = "${MusicService.SEARCH}/$query",
@@ -594,15 +635,20 @@ class MediaLibrarySessionCallback @Inject constructor(
     private suspend fun forYou(): List<MediaItem> {
         val items = ArrayList<MediaItem>()
         val jump = context.getString(R.string.auto_jump_back_in)
+        // What is in the player, or with nothing there the queue that was left off, which is what
+        // carrying on then loads.
         val playing = withContext(Dispatchers.Main) { service.player.currentMediaItem?.metadata }
+            ?: runCatching { database.getResumptionQueue()?.getCurrentSong() }.getOrNull()
         if (playing != null) {
             items += action("${AutoBrowse.RESUME}/queue", context.getString(R.string.auto_carry_on), playing.title, AutoArt.uri(context, AutoArt.SONG, playing.id), jump)
         }
         val liked = database.likedSongsCount().first()
         if (liked > 1) {
+            // A tile's name is cut after a dozen letters or so: the name says which songs, and
+            // the line under it that they come shuffled.
             items += action(
                 "${AutoBrowse.SHUFFLE}/${AutoBrowse.LIKED}", context.getString(R.string.auto_shuffle_liked),
-                context.resources.getQuantityString(R.plurals.n_song, liked, liked),
+                context.getString(R.string.auto_shuffled, context.resources.getQuantityString(R.plurals.n_song, liked, liked)),
                 AutoArt.uri(context, AutoArt.PLAYLIST, PlaylistEntity.LIKED_PLAYLIST_ID), jump,
             )
         }
@@ -610,7 +656,7 @@ class MediaLibrarySessionCallback @Inject constructor(
         if (downloaded > 1) {
             items += action(
                 "${AutoBrowse.SHUFFLE}/${AutoBrowse.DOWNLOADED}", context.getString(R.string.auto_shuffle_downloads),
-                context.resources.getQuantityString(R.plurals.n_song, downloaded, downloaded),
+                context.getString(R.string.auto_shuffled, context.resources.getQuantityString(R.plurals.n_song, downloaded, downloaded)),
                 AutoArt.uri(context, AutoArt.PLAYLIST, PlaylistEntity.DOWNLOADED_PLAYLIST_ID), jump,
             )
         }

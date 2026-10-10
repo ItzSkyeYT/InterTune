@@ -67,9 +67,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="auto_for_you" translatable="false">For you</string>
     <string name="auto_recent" translatable="false">Recent</string>
     <string name="auto_jump_back_in" translatable="false">Jump back in</string>
-    <string name="auto_carry_on" translatable="false">Carry on listening</string>
-    <string name="auto_shuffle_liked" translatable="false">Shuffle liked songs</string>
-    <string name="auto_shuffle_downloads" translatable="false">Shuffle downloads</string>
+    <string name="auto_carry_on" translatable="false">Carry on</string>
+    <string name="auto_shuffle_liked" translatable="false">Liked songs</string>
+    <string name="auto_shuffle_downloads" translatable="false">Downloads</string>
+    <string name="auto_shuffled" translatable="false">Shuffled · %1$s</string>
     <string name="spatial_ambience" translatable="false">Ambience</string>
     <string name="spatial_ambience_value" translatable="false">%1$d%% of the way out to your sides</string>
     <string name="spatial_ambience_explain" translatable="false">Finds the reverb and room sound in a recording and moves it out to your sides. Voices and instruments stay in front. At 0 nothing is moved.</string>
