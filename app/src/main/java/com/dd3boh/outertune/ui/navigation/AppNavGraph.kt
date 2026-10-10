@@ -374,7 +374,7 @@ fun NavGraphBuilder.appDestinations(
             RecognitionHistoryScreen(navController, scrollBehavior)
         }
         screen("settings") {
-            SettingsScreen(navController, scrollBehavior)
+            SettingsScreen(navController, scrollBehavior, tourState.running)
         }
         screen("settings/appearance") {
             LookAndFeelSettings(navController, scrollBehavior)

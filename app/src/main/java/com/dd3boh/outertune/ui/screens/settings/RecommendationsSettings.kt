@@ -298,7 +298,7 @@ fun RecommendationsSettings(
                 title = stringResource(R.string.exclusions),
                 explanation = stringResource(R.string.exclusions_info),
                 description = stringResource(R.string.exclusions_count, activeExclusions),
-                onClick = { navController.navigate("settings/recommendations/exclusions") },
+                onClick = { navController.toSettings("settings/recommendations/exclusions") },
             )
             Spacer(Modifier.height(16.dp))
         }
@@ -310,7 +310,7 @@ fun RecommendationsSettings(
                 explanation = stringResource(R.string.recommendations_doing_info),
                 description = stringResource(R.string.recommendations_doing_description),
                 icon = { Icon(Icons.Rounded.Insights, null) },
-                onClick = { navController.navigate("settings/recommendations/doing") },
+                onClick = { navController.toSettings("settings/recommendations/doing") },
             )
             if (Unreleased.ENGINE) {
                 ExplainedPreference(
@@ -318,7 +318,7 @@ fun RecommendationsSettings(
                     explanation = stringResource(R.string.recommendations_data_info),
                     description = stringResource(R.string.recommendations_data_description),
                     icon = { Icon(Icons.Rounded.ManageHistory, null) },
-                    onClick = { navController.navigate("settings/recommendations/data") },
+                    onClick = { navController.toSettings("settings/recommendations/data") },
                 )
             }
         }

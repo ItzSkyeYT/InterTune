@@ -62,4 +62,78 @@ class SettingsTwoPaneTest {
         assertTrue(851.dp >= SettingsTwoPaneMinWidth)
         assertTrue(800.dp >= SettingsTwoPaneMinWidth)
     }
+
+    // What is open on the right.
+
+    private val listed = settingsGroups(engine = true).flatten().map { it.route }
+    private val further = settingsFurtherIn(import = true, engine = true)
+
+    private fun asked(open: List<String>, route: String, over: Boolean = false) = settingsOpened(open, route, listed, further, over)
+
+    @Test
+    fun `every screen further in belongs to an entry of the list, and none is in the list itself`() {
+        for (route in further) {
+            assertFalse(route, route in listed)
+            assertTrue(route, listed.any { route.startsWith("$it/") })
+        }
+        assertEquals(further.size, further.toSet().size)
+        assertEquals(listOf("settings/about/attribution", "settings/about/oss_licenses"), settingsFurtherIn(import = false, engine = false))
+    }
+
+    @Test
+    fun `an entry of the list replaces whatever was open`() {
+        assertEquals(listOf("settings/player"), asked(listOf("settings/about", "settings/about/oss_licenses"), "settings/player"))
+        assertEquals(listOf("settings/about"), asked(listOf("settings/about", "settings/about/oss_licenses"), "settings/about"))
+        // Lyrics is an entry of its own although its route sits under Library's.
+        assertEquals(listOf("settings/library/lyrics"), asked(listOf("settings/library"), "settings/library/lyrics"))
+    }
+
+    @Test
+    fun `a screen further in goes on top of the one that led to it`() {
+        assertEquals(listOf("settings/about", "settings/about/oss_licenses"), asked(listOf("settings/about"), "settings/about/oss_licenses"))
+        assertEquals(
+            listOf("settings/recommendations", "settings/recommendations/doing", "settings/recommendations/developer"),
+            asked(listOf("settings/recommendations", "settings/recommendations/doing"), "settings/recommendations/developer"),
+        )
+    }
+
+    @Test
+    fun `asked for from somewhere else, it starts from the entry it belongs to`() {
+        assertEquals(listOf("settings/recommendations", "settings/recommendations/exclusions"), asked(listOf("settings/player"), "settings/recommendations/exclusions"))
+    }
+
+    @Test
+    fun `asking for what is already open goes back to it and opens nothing twice`() {
+        val open = listOf("settings/recommendations", "settings/recommendations/doing", "settings/recommendations/developer")
+        assertEquals(open, asked(open, "settings/recommendations/developer"))
+        assertEquals(open.take(2), asked(open, "settings/recommendations/doing"))
+        assertEquals(open.take(2), asked(open, "settings/recommendations/doing", over = true))
+    }
+
+    @Test
+    fun `a link opens its screen over the one it was on, to come back to`() {
+        assertEquals(listOf("settings/player", "settings/appearance"), asked(listOf("settings/player"), "settings/appearance", over = true))
+        assertEquals(listOf("settings/player"), asked(listOf("settings/player"), "settings/player", over = true))
+        assertEquals(
+            listOf("settings/about", "settings/about/oss_licenses", "settings/recommendations/exclusions"),
+            asked(listOf("settings/about", "settings/about/oss_licenses"), "settings/recommendations/exclusions", over = true),
+        )
+    }
+
+    @Test
+    fun `what is not a screen of settings is not the pane's to open`() {
+        assertEquals(null, asked(listOf("settings/account_sync"), "login"))
+        assertEquals(null, asked(listOf("settings/about"), "walkthrough", over = true))
+        assertEquals(null, asked(listOf("settings/about"), "settings"))
+        // Nor one that this build does not have.
+        assertEquals(null, settingsOpened(listOf("settings/backup"), "settings/backup/import", listed, settingsFurtherIn(import = false, engine = true)))
+    }
+
+    @Test
+    fun `the entry shown as open is the one the screen in sight belongs to`() {
+        assertEquals("settings/about", settingsChosen(listOf("settings/about", "settings/about/oss_licenses"), listed))
+        assertEquals("settings/appearance", settingsChosen(listOf("settings/player", "settings/appearance"), listed))
+        assertEquals("settings/player", settingsChosen(listOf("settings/player"), listed))
+        assertEquals("settings/recommendations", settingsChosen(listOf("settings/player", "settings/recommendations", "settings/recommendations/data"), listed))
+    }
 }

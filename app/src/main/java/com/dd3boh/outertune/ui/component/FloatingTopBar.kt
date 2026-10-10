@@ -14,6 +14,7 @@ import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.text.input.TextFieldValue
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
@@ -102,6 +104,15 @@ fun FloatingTopBar(
     actions: @Composable RowScope.() -> Unit = {},
     windowInsets: WindowInsets = TopBarInsets,
 ) {
+    val back = LocalTopBarBack.current
+    val titled = LocalTopBarTitle.current
+    if (!back && !titled) {
+        // No bar at all, beside the list that names this screen: only the fade that keeps the
+        // clock readable over what passes under it.
+        Box(modifier.fillMaxWidth().topBarFade().windowInsetsPadding(windowInsets.only(WindowInsetsSides.Top)))
+        return
+    }
+
     // Laid out by hand rather than with Material's TopAppBar, which puts a touch handler across
     // its whole width. On an opaque bar that did no harm; on this one the rows scrolled beneath it
     // could be seen between the shapes and not tapped or dragged. Here only the circle and the
@@ -141,10 +152,10 @@ fun FloatingTopBar(
                     .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (LocalTopBarBack.current) {
+                if (back) {
                     IconButton(
                         modifier = Modifier.backButtonSurface(),
-                        onClick = onBack,
+                        onClick = LocalTopBarUp.current ?: onBack,
                         onLongClick = onLongBack,
                     ) {
                         Icon(BackChevron, contentDescription = stringResource(R.string.back))
@@ -155,7 +166,7 @@ fun FloatingTopBar(
                         .weight(1f)
                         .padding(horizontal = 4.dp),
                     contentAlignment = Alignment.CenterStart,
-                ) { titleContent() }
+                ) { if (titled) titleContent() }
                 Row(verticalAlignment = Alignment.CenterVertically, content = actions)
             }
         }
@@ -164,9 +175,24 @@ fun FloatingTopBar(
 
 /**
  * Whether a bar has its way back. False for a screen drawn beside the list it was chosen from
- * (SettingsTwoPane): the list's own bar has the one way back there, and this one is a title.
+ * (SettingsTwoPane): the list's own bar has the one way back there.
  */
 val LocalTopBarBack = staticCompositionLocalOf { true }
+
+/**
+ * Whether a bar names its screen. False for a screen that is an entry of the list beside it
+ * (SettingsTwoPane): the entry lit in the list already says which screen this is, and saying it
+ * again over the screen takes a line from a window that has few. A bar with neither a title nor
+ * a way back is no bar: the screen then starts under the status bar, and whoever shows it gives
+ * it no room for one.
+ */
+val LocalTopBarTitle = staticCompositionLocalOf { true }
+
+/**
+ * Where a bar's way back leads when that is not up the navigation: a screen that a screen of
+ * the two panes led on to goes back to that one, in the pane (SettingsTwoPane). Null everywhere else.
+ */
+val LocalTopBarUp = staticCompositionLocalOf<(() -> Unit)?> { null }
 
 /** The title pill's text: bold, about 18sp, which is what Samsung's measured. */
 val TopBarTitleStyle: TextStyle

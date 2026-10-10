@@ -174,13 +174,13 @@ fun AboutScreen(
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.attribution_title)) },
                     onClick = {
-                        navController.navigate("settings/about/attribution")
+                        navController.toSettings("settings/about/attribution")
                     }
                 )
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.oss_licenses_title)) },
                     onClick = {
-                        navController.navigate("settings/about/oss_licenses")
+                        navController.toSettings("settings/about/oss_licenses")
                     }
                 )
             }
