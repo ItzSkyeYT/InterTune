@@ -220,9 +220,9 @@ fun QueueSheet(
      */
     compact: Boolean = false,
     /**
-     * What the player draws behind itself, the artwork and its gradient, for the controls at the
-     * foot of the queue to be of glass over (Liquid glass). The sheet itself stays one colour.
-     * Null for the controls as they were.
+     * What the player draws behind itself, the artwork and its gradient, for the bar at the foot
+     * of the queue to be a pane of glass over (Liquid glass). The sheet itself stays one colour.
+     * Null for the bar as it was.
      */
     backdrop: LayerBackdrop? = null,
     glassIntensity: Float = 1f,
@@ -1230,11 +1230,29 @@ fun BoxScope.QueueContent(
     val bottomNav: @Composable ColumnScope.() -> Unit = {
         Log.v("QueueContent", "QC-nav")
 
+        val barInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.End)
+        val barShape = RoundedCornerShape(28.dp)
+        // Thinner than the dock's: there are no words behind this pane to fight the ones on it.
+        val barTint = if (backdrop != null) GlassSpec(backdrop, glassIntensity.coerceIn(0f, 1f)).tint(min = 0.3f) else Color.Transparent
         Column(
             modifier = Modifier
-                .background(MaterialTheme.colorScheme.secondaryContainer)
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.End))
+                .then(
+                    if (backdrop != null) {
+                        // One pane of glass standing clear of the edges, as the dock does, over
+                        // what the player draws behind itself.
+                        Modifier
+                            .windowInsetsPadding(barInsets)
+                            .padding(start = 12.dp, top = 4.dp, end = 12.dp, bottom = 8.dp)
+                            .glassPane(backdrop, glassIntensity, barShape, barTint)
+                            .clip(barShape)
+                            .fillMaxWidth()
+                    } else {
+                        Modifier
+                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                            .fillMaxWidth()
+                            .windowInsetsPadding(barInsets)
+                    }
+                )
                 // Not a stop for the arrow keys, or the buttons inside could never be reached:
                 // focus only moves between siblings. Back closes the queue from the keys.
                 .focusProperties { canFocus = false }
@@ -1270,7 +1288,6 @@ fun BoxScope.QueueContent(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .frosted(backdrop, glassIntensity, RoundedCornerShape(12.dp), MaterialTheme.colorScheme.onSecondaryContainer)
                             .border(1.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(12.dp))
                             .padding(2.dp)
                             .weight(1f)
@@ -1367,7 +1384,6 @@ fun BoxScope.QueueContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = PlayerHorizontalPadding)
-                            .glassBar(backdrop, glassIntensity)
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
                             ResizableIconButton(
@@ -1647,48 +1663,25 @@ fun BoxScope.QueueContent(
 }
 
 /**
- * The queue's five buttons in one bar of glass, as the player has them: the same lens, over the
- * same picture. With no [backdrop] the row is as it was.
+ * The bar at the foot of the queue as one pane of glass: the dock's recipe, over [backdrop], under
+ * a wash of [tint] that keeps what is written on it readable.
  */
-private fun Modifier.glassBar(backdrop: LayerBackdrop?, intensity: Float): Modifier {
-    if (backdrop == null) return this
-    val lens = GlassSpec(backdrop, intensity.coerceIn(0f, 1f)).lensT
+private fun Modifier.glassPane(backdrop: LayerBackdrop, intensity: Float, shape: Shape, tint: Color): Modifier {
+    val glass = GlassSpec(backdrop, intensity.coerceIn(0f, 1f))
     return this
-        .drawBackdrop(
-            backdrop = backdrop,
-            shape = { RoundedCornerShape(32.dp) },
-            effects = {
-                blur(4f.dp.toPx())
-                lens(
-                    refractionHeight = 24f.dp.toPx() * lens,
-                    refractionAmount = 32f.dp.toPx() * lens,
-                    depthEffect = true,
-                    chromaticAberration = true,
-                )
-            },
-        )
-        .padding(vertical = 8.dp)
-}
-
-/**
- * A smaller control of the queue's bar, frosted: the blur and no lens, whose rim at this size
- * reads as an empty outline (PlayerActionSegment says so of the player's own), under a wash of
- * [content]. With no [backdrop] it is as it was.
- */
-private fun Modifier.frosted(backdrop: LayerBackdrop?, intensity: Float, shape: Shape, content: Color): Modifier {
-    if (backdrop == null) return this
-    val t = intensity.coerceIn(0f, 1f)
-    return this
-        .clip(shape)
         .drawBackdrop(
             backdrop = backdrop,
             shape = { shape },
             effects = {
                 vibrancy()
-                blur((16f + (6f - 16f) * t).dp.toPx())
+                blur(glass.blur.toPx())
+                lens(
+                    refractionHeight = 20f.dp.toPx() * glass.lensT,
+                    refractionAmount = 28f.dp.toPx() * glass.lensT,
+                    depthEffect = true,
+                )
             },
-            highlight = { null },
-            shadow = { null },
         )
-        .background(content.copy(alpha = 0.16f))
+        // After the backdrop, not in its onDrawSurface, which would paint a square patch (MainActivity's dock says why).
+        .background(tint, shape)
 }
