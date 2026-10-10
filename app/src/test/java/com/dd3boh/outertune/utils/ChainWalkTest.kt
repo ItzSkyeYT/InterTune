@@ -206,6 +206,13 @@ class ChainWalkTest {
 
         override fun canSolve(): Boolean = canSolve
 
+        /** How often the solver was started ahead of the web client's turn. */
+        var warmed = 0
+
+        override fun warmSolver() {
+            warmed++
+        }
+
         override fun signatureTimestamp(videoId: String): Int? = TIMESTAMP
 
         /**
@@ -855,6 +862,7 @@ class ChainWalkTest {
         assertEquals(listOf("VISIONOS"), script.askedOf)
         assertEquals("no po token was made", emptyList<String?>(), script.tokensMadeFor)
         assertEquals("and no player script fetched", 0, script.scriptsAskedFor)
+        assertEquals("nor the solver started", 0, script.warmed)
         assertEquals("VISIONOS OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
         assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
     }
@@ -877,6 +885,7 @@ class ChainWalkTest {
         // The new visitorData mended nothing for VISIONOS, so the one the app had stays.
         assertEquals(visitor, YouTube.visitorData)
         assertEquals(emptyList<String>(), adopted)
+        assertEquals("the solver was started while the new visitorData was being tried", 1, script.warmed)
         // It is remembered as the client that served, where the experiment's never is.
         assertEquals("WEB_REMIX", YTPlayerUtils.streamMemory.worked)
         assertTrue(YTPlayerUtils.streamMemory.refusedAt.keys.containsAll(setOf("VISIONOS", "ANDROID_VR")))

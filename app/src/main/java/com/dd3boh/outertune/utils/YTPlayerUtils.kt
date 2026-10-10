@@ -21,6 +21,7 @@ import com.dd3boh.outertune.utils.YTPlayerUtils.streamStatus
 import com.dd3boh.outertune.utils.cipher.ChallengeSolver
 import com.dd3boh.outertune.utils.cipher.PlayerScript
 import com.dd3boh.outertune.utils.cipher.PlayerScripts
+import com.dd3boh.outertune.utils.cipher.SolverFiles
 import com.dd3boh.outertune.utils.cipher.StreamCipher
 import com.dd3boh.outertune.utils.cipher.WebViewChallengeSolver
 import com.dd3boh.outertune.utils.potoken.PoTokenGenerator
@@ -46,9 +47,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
+import java.io.File
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 object YTPlayerUtils {
 
@@ -231,6 +235,9 @@ object YTPlayerUtils {
 
         /** Whether this build has a solver at all. Without one the web client is not in the chain: see [WEB_FALLBACK_CLIENT]. */
         fun canSolve(): Boolean
+
+        /** Starts getting the solver ready, for a web client whose turn is a pass away: see [warmWebClient]. Does not wait. */
+        fun warmSolver()
     }
 
     private object Live : Wire {
@@ -277,6 +284,8 @@ object YTPlayerUtils {
             challengeSolver.solve(script, signatures, ns)
 
         override fun canSolve(): Boolean = solverIsInThisBuild
+
+        override fun warmSolver() = warmWebClient(tokensToo = false)
     }
 
     /** Looked up once: the solver's two files are in a build or they are not. */
@@ -419,10 +428,51 @@ object YTPlayerUtils {
     internal var trialLimitMs = TRIAL_LIMIT_MS
 
     /** For the experiment's client only. Neither is made until the switch has been on for a song. */
+    private val solverFiles by lazy { SolverFiles(File(App.instance.cacheDir, "solver")) }
     private val playerScripts by lazy {
-        PlayerScripts(PlayerScripts.over(httpClient.newBuilder().callTimeout(10, TimeUnit.SECONDS).build()))
+        PlayerScripts(PlayerScripts.over(httpClient.newBuilder().callTimeout(10, TimeUnit.SECONDS).build()), files = solverFiles)
     }
-    private val challengeSolver: ChallengeSolver by lazy { WebViewChallengeSolver(App.instance) }
+    private val challengeSolver: ChallengeSolver by lazy { WebViewChallengeSolver(App.instance, solverFiles) }
+
+    private val warming = AtomicBoolean(false)
+
+    /**
+     * Gets the chain's web client ready ahead of its turn: the player script fetched or taken
+     * up from the last run, the solver's page opened and the script cut down, and with
+     * [tokensToo] the page that makes its po tokens, for the visitor. A first song asked of it
+     * cold waited 4.4 s on a Pixel 5 and a later one 0.9 s (10 Oct 2026), and this is that
+     * difference, paid while nobody waits.
+     *
+     * Only ever in the background, one at a time, and only where the web client is in the chain.
+     */
+    private fun warmWebClient(tokensToo: Boolean) {
+        if (!Unreleased.WEB_FALLBACK || !solverIsInThisBuild) return
+        if (!warming.compareAndSet(false, true)) return
+        background.launch {
+            try {
+                runCatching { playerScripts.current()?.let { challengeSolver.warm(it) } }
+                if (tokensToo) {
+                    // The visitorData is read from the settings a moment after launch.
+                    var waited = 0
+                    while (YouTube.visitorData?.let { StreamCheck.looksLikeVisitorData(it) } != true && waited++ < 50) delay(100)
+                    YouTube.visitorData?.takeIf { StreamCheck.looksLikeVisitorData(it) }?.let { getWebClientPoTokenOrNull(WARM_VIDEO, it) }
+                }
+            } finally {
+                warming.set(false)
+            }
+        }
+    }
+
+    /** Not a video: a name for the token the page is made to mint when it is only being got ready. */
+    private const val WARM_VIDEO = "aaaaaaaaaaa"
+
+    /**
+     * At launch, once [streamMemory] is read: when the web client served the last song it is the
+     * one the next will be asked of, so it is got ready now. On any other day this does nothing.
+     */
+    fun warmIfTheWebClientServedLast() {
+        if (streamMemory.worked == WEB_FALLBACK_CLIENT.clientName) warmWebClient(tokensToo = true)
+    }
 
     /** A po token a web client's stream address can carry, by what it was made for. */
     private enum class Pot(val words: String) {
@@ -993,8 +1043,10 @@ object YTPlayerUtils {
             }
             if (client === WEB_FALLBACK_CLIENT) {
                 if (holdWeb && notes.visionosRefused) {
-                    // A new visitorData comes first: see resolveWithNewVisitor.
+                    // A new visitorData comes first: see resolveWithNewVisitor. The pass that
+                    // tries it may come to the web client, whose solver is started meanwhile.
                     notes.webHeld = true
+                    wire.warmSolver()
                     continue
                 }
                 if (playerScript() == null) {

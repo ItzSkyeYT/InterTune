@@ -70,17 +70,18 @@ class SolverMissing : Exception("the solver's two files are not in this build")
  * read 9 Oct 2026), so the unminified files of a release go in as they are, under their own
  * names.
  *
- * THE TWO FILES ARE NOT IN THE TREE YET, and nothing here has run against the real solver. Until
- * they are under assets/solver, every [solve] fails with [SolverMissing] before a WebView is
- * even made, and the stream chain goes on to its next client.
+ * The two files are not in the tree. In a build without them under assets/solver every [solve]
+ * fails with [SolverMissing] before a WebView is even made, and the stream chain goes on to its
+ * next client. With them it has answered on a phone since 10 Oct 2026.
  *
  * One page at a time, made when first needed and closed once nothing has been asked of it for
- * [IDLE_MS], and no question waited on for longer than [LIMIT_MS]. A player script is parsed once: the solver gives back the script cut down to what
- * it needs, that is kept here under the script's name, and later questions are asked with it.
- * The prepared script is kept in memory only, and the solver calls it large, so it goes with the
- * process.
+ * [IDLE_MS], and no question waited on for longer than [LIMIT_MS]. A player script is parsed
+ * once: the solver gives back the script cut down to what it needs, that is kept under the
+ * script's name, and later questions are asked with it. Kept in memory, and in [files] when
+ * there are any, so that the next process does not parse the same script again: see
+ * [SolverFiles].
  */
-class WebViewChallengeSolver(private val context: Context) : ChallengeSolver {
+class WebViewChallengeSolver(private val context: Context, private val files: SolverFiles? = null) : ChallengeSolver {
     private val lock = Mutex()
     private val scope = MainScope()
     private var page: SolverPage? = null
@@ -94,6 +95,7 @@ class WebViewChallengeSolver(private val context: Context) : ChallengeSolver {
         return lock.withLock {
             closing?.cancel()
             val ready = prepared?.takeIf { it.first == script.id }?.second
+                ?: files?.prepared(script.id)?.also { prepared = script.id to it }
             val started = System.nanoTime()
             try {
                 // Bounded here too, whatever limit the caller has set: the page's answers are
@@ -105,7 +107,10 @@ class WebViewChallengeSolver(private val context: Context) : ChallengeSolver {
                 val reading = SolverProtocol.read(output, signatures, ns).getOrThrow()
                 Log.i(TAG, "answered in ${(System.nanoTime() - started) / 1_000_000} ms, asked with " + (if (ready != null) "the prepared script" else "the whole script"))
                 reading.errors.forEach { Log.w(TAG, "the solver could not do $it") }
-                reading.prepared?.let { prepared = script.id to it }
+                reading.prepared?.let {
+                    prepared = script.id to it
+                    files?.keepPrepared(script.id, it)
+                }
                 closeWhenIdle()
                 reading.solved
             } catch (failure: Throwable) {
@@ -115,7 +120,10 @@ class WebViewChallengeSolver(private val context: Context) : ChallengeSolver {
                 page = null
                 if (failed != null) withContext(NonCancellable + Dispatchers.Main) { failed.close() }
                 // And a prepared script that did not give an answer is not trusted a second time.
-                if (failure !is CancellationException) prepared = null
+                if (failure !is CancellationException) {
+                    prepared = null
+                    if (ready != null) files?.dropPrepared(script.id)
+                }
                 throw failure
             }
         }

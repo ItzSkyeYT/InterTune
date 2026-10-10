@@ -47,16 +47,37 @@ class PlayerScript(
  * and a failing fetch must not become two requests for every song.
  *
  * [fetch] gives the text at an address, or null. Handed in, so the tests have no network.
+ *
+ * With [files] the script outlives the process: a new process takes up the one kept, with the
+ * time the page was last asked, so that within [REFRESH_MS] of it nothing is fetched at all, and
+ * after it only the page, unless that names another player.
  */
-class PlayerScripts(private val fetch: (String) -> String?, private val now: () -> Long = System::currentTimeMillis) {
+class PlayerScripts(
+    private val fetch: (String) -> String?,
+    private val files: SolverFiles? = null,
+    private val now: () -> Long = System::currentTimeMillis,
+) {
     private val mutex = Mutex()
     private var kept: PlayerScript? = null
     private var askedAt = 0L
     private var failedAt: Long? = null
+    private var filesRead = false
+
+    /** What [files] holds of an earlier run, taken up once. A script with no timestamp in it is not one. */
+    private fun takeUpWhatWasKept() {
+        if (filesRead) return
+        filesRead = true
+        val current = files?.current() ?: return
+        val text = files.script(current.id) ?: return
+        val timestamp = signatureTimestampIn(text) ?: return
+        kept = PlayerScript(current.id, text, timestamp)
+        askedAt = current.seenAt
+    }
 
     /** The script to ask a web client with and to solve its address against, or null when there is none to be had. */
     suspend fun current(): PlayerScript? = mutex.withLock {
         val time = now()
+        if (kept == null) runInterruptible(Dispatchers.IO) { takeUpWhatWasKept() }
         kept?.let { if (time - askedAt in 0 until REFRESH_MS) return@withLock it }
         failedAt?.let { if (time - it in 0 until RETRY_MS) return@withLock kept }
         val found = try {
@@ -78,10 +99,12 @@ class PlayerScripts(private val fetch: (String) -> String?, private val now: () 
     }
 
     private fun fetched(previous: PlayerScript?): PlayerScript? {
+        val time = now()
         val id = fetch(IFRAME_API)?.let { idIn(it) } ?: return null
-        if (previous?.id == id) return previous
+        if (previous?.id == id) return previous.also { files?.seen(id, time) }
         val text = fetch(address(id)) ?: return null
         val timestamp = signatureTimestampIn(text) ?: return null
+        files?.keepScript(id, text, time)
         return PlayerScript(id, text, timestamp)
     }
 

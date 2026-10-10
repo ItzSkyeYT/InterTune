@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.utils.cipher
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -35,6 +36,26 @@ interface ChallengeSolver {
      * let go of whatever it was waiting on.
      */
     suspend fun solve(script: PlayerScript, signatures: List<String>, ns: List<String>): Solved
+
+    /**
+     * Gets ready to answer about [script] before there is anything to ask: whatever a first
+     * question costs more than a later one is paid now. It is a question like any other, about
+     * a value nobody needs the answer to, and a failure is kept for the question that matters.
+     */
+    suspend fun warm(script: PlayerScript) {
+        try {
+            solve(script, emptyList(), listOf(WARM_N))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (kept: Throwable) {
+            // For the question that matters to meet again and report.
+        }
+    }
+
+    companion object {
+        /** In the shape of an n as YouTube issues one. */
+        const val WARM_N = "A1b2C3d4E5f6G7h8I9"
+    }
 }
 
 /**
