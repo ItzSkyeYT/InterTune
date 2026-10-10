@@ -13,13 +13,13 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The short setup is held back behind Unreleased.SHORT_SETUP, and with the flag off nothing is
- * different: the wizard is the six pages it was, and the music permission is asked for by the
- * scan at start.
+ * The short setup went out with 0.11.5: Unreleased.SHORT_SETUP is on in every build. Until the
+ * flag and the old wizard are taken out, the old way is still the other branch of each check,
+ * and this holds that in place: the flag is read in the places named here and nowhere else, each
+ * of them keeps the old way in its other branch, and the old wizard does not know the flag
+ * exists. So turning the flag off again, if a release had to, gives back exactly what was there.
  *
- * This reads the source, because the flag is a constant of the build and a test cannot turn it
- * off. What it holds to: the flag is read in the places named here and nowhere else, each of them
- * keeps the old way in its other branch, and the old wizard does not know the flag exists.
+ * This reads the source, because the flag is a constant of the build and a test cannot turn it.
  */
 class ShortSetupHeldBackTest {
 
@@ -33,8 +33,26 @@ class ShortSetupHeldBackTest {
         .lines().joinToString("\n") { it.substringBefore("//") }
 
     @Test
-    fun `the flag is on in debug builds only`() {
-        assertTrue(Regex("""val SHORT_SETUP = BuildConfig\.DEBUG\b""").containsMatchIn(code(source("constants/Unreleased.kt"))))
+    fun `the short setup is on in every build, and the sign-in page it needs with it`() {
+        val flags = code(source("constants/Unreleased.kt"))
+        assertTrue(Regex("""val SHORT_SETUP = true\b""").containsMatchIn(flags))
+        // Its sign-in page says who is signed in on the way back and offers another account,
+        // which is the page opened signed out: both are LOGIN_RETURNS.
+        assertTrue(Regex("""val LOGIN_RETURNS = true\b""").containsMatchIn(flags))
+    }
+
+    @Test
+    fun `every text of the short setup can be translated, and is in French`() {
+        val res = File("src/main/res")
+        val english = File(res, "values/strings-ot.xml").readText()
+        val french = File(res, "values-fr/strings-ot.xml").readText()
+        val used = Regex("""R\.string\.([a-z0-9_]+)""").findAll(source("ui/screens/ShortSetup.kt")).map { it.groupValues[1] }.toSet()
+        val own = used.filter { it.startsWith("setup_") } + listOf("login_signed_in_as", "login_signed_in", "login_going_back")
+        assertTrue(own.size >= 28)
+        for (name in own) {
+            assertTrue("$name is not in the English file", "<string name=\"$name\">" in english)
+            assertTrue("$name has no French", "<string name=\"$name\">" in french)
+        }
     }
 
     @Test
