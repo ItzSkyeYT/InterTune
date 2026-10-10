@@ -122,6 +122,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastAny
@@ -1232,9 +1234,10 @@ fun BoxScope.QueueContent(
         }
     }
 
-    // With glass and upright, the songs run on under the bar: the list is the picture its pane looks
-    // through, and the bar's height is the room left under the last song.
-    val listBackdrop = if (backdrop != null && !landscape) rememberLayerBackdrop() else null
+    // With glass, the list runs on under the bar: it is the picture the bar's pane looks through,
+    // and the bar's height is the room left under its last row. Upright that list is the songs, on
+    // its side the queues, which is what the bar stands under there.
+    val listBackdrop = if (backdrop != null) rememberLayerBackdrop() else null
     val listUnderBar = listBackdrop != null
     var barHeight by remember { mutableStateOf(0.dp) }
 
@@ -1244,8 +1247,7 @@ fun BoxScope.QueueContent(
 
         val barInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.End)
         val barShape = RoundedCornerShape(28.dp)
-        // Upright the songs run on under the pane, and it is glass over them, as the dock is over
-        // a page. On its side the pane stands under the list of queues, over the player's picture.
+        // The list runs on under the pane, and it is glass over that, as the dock is over a page.
         val paneBackdrop = if (listUnderBar) listBackdrop else backdrop
         val barTint = when {
             paneBackdrop == null -> Color.Transparent
@@ -1559,9 +1561,18 @@ fun BoxScope.QueueContent(
             Spacer(Modifier.width(8.dp))
 
             // multiqueue list & navbar
+            Box(modifier = Modifier.fillMaxHeight()) {
             Column(
                 verticalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxHeight()
+                modifier = Modifier
+                    .fillMaxHeight()
+                    // As upright: what the pane looks through, the fill in the picture, the pane outside it.
+                    .then(
+                        if (listBackdrop != null) Modifier
+                            .layerBackdrop(listBackdrop)
+                            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
+                        else Modifier
+                    )
             ) {
                 Column(
                     modifier = (if (queueState != null) Modifier.nestedScroll(queueState.preUpPostDownNestedScrollConnection) else Modifier)
@@ -1593,15 +1604,29 @@ fun BoxScope.QueueContent(
                         }
                     } else {
                         queueHeader(Modifier.windowInsetsPadding(InsetsSafeSTE))
-                        queueList(InsetsSafeE.asPaddingValues())
+                        queueList(
+                            if (listUnderBar) InsetsSafeE.asPaddingValues().plusBottom(barHeight, LocalLayoutDirection.current)
+                            else InsetsSafeE.asPaddingValues()
+                        )
                     }
                 }
 
                 // nav bar
-                if (!isSearching) {
+                if (!isSearching && !listUnderBar) {
                     bottomNav()
                 }
             }
+            if (!isSearching && listUnderBar) {
+                val density = LocalDensity.current
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .onSizeChanged { barHeight = with(density) { it.height.toDp() } }
+                ) {
+                    bottomNav()
+                }
+            }
+            } // the queues' half
             } // songsOnly
         }
     } else {
@@ -1682,15 +1707,8 @@ fun BoxScope.QueueContent(
                 }
                 val songListPadding = songListInsets.asPaddingValues()
                 val direction = LocalLayoutDirection.current
-                songList(
-                    if (listUnderBar && !isSearching) PaddingValues(
-                        start = songListPadding.calculateStartPadding(direction),
-                        top = songListPadding.calculateTopPadding(),
-                        end = songListPadding.calculateEndPadding(direction),
-                        // Room for the last song to come up clear of the pane.
-                        bottom = songListPadding.calculateBottomPadding() + barHeight,
-                    ) else songListPadding
-                ) // song list
+                // Room for the last song to come up clear of the pane.
+                songList(if (listUnderBar && !isSearching) songListPadding.plusBottom(barHeight, direction) else songListPadding) // song list
             }
 
             // nav bar
@@ -1734,3 +1752,11 @@ private fun Modifier.glassPane(backdrop: LayerBackdrop, intensity: Float, shape:
         // After the backdrop, not in its onDrawSurface, which would paint a square patch (MainActivity's dock says why).
         .background(tint, shape)
 }
+
+/** These paddings with [more] added at the foot: the room a list leaves for a bar that floats over its last rows. */
+private fun PaddingValues.plusBottom(more: Dp, direction: LayoutDirection) = PaddingValues(
+    start = calculateStartPadding(direction),
+    top = calculateTopPadding(),
+    end = calculateEndPadding(direction),
+    bottom = calculateBottomPadding() + more,
+)
