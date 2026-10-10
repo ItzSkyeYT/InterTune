@@ -72,6 +72,7 @@ import com.dd3boh.outertune.constants.OwnVisionosRefusedKey
 import com.dd3boh.outertune.constants.VisionosRefusedKey
 import com.dd3boh.outertune.constants.WebClientFirstKey
 import com.dd3boh.outertune.playback.HistoryAddressCheck
+import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.settings.SETTINGS_TAG
@@ -83,6 +84,30 @@ import com.dd3boh.outertune.utils.scanners.LocalMediaScanner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+
+/**
+ * Which of VISIONOS's identities are taken for refused, to hear the clients behind them take over:
+ * none, the one this app asks with (the two other versions are asked next), or all three (the
+ * web client is asked next). One choice over two stored switches, [own] and [all], which are
+ * never both on once a choice has been made here.
+ */
+internal enum class VisionosTest(val own: Boolean, val all: Boolean) {
+    OFF(own = false, all = false),
+    OWN(own = true, all = false),
+    ALL(own = false, all = true);
+
+    companion object {
+        /** The choice two stored switches amount to. Both on, as the two rows once allowed, is every version. */
+        fun of(own: Boolean, all: Boolean) = when {
+            all -> ALL
+            own -> OWN
+            else -> OFF
+        }
+
+        /** What can be chosen in a build with [identities] in its chain, and with the web client's [fallback]. */
+        fun choices(identities: Boolean, fallback: Boolean) = listOfNotNull(OFF, OWN.takeIf { identities }, ALL.takeIf { fallback })
+    }
+}
 
 /**
  * The developer block, shown only while the developer toggle is on.
@@ -142,22 +167,27 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
         if (BuildConfig.DEBUG) {
             HistoryAddressCheckRow()
         }
-        if (Unreleased.VISIONOS_IDENTITIES) {
-            SwitchPreference(
-                title = { Text(stringResource(R.string.own_visionos_refused)) },
-                description = stringResource(R.string.own_visionos_refused_description),
+        if (Unreleased.VISIONOS_IDENTITIES || Unreleased.WEB_FALLBACK) {
+            // One row over the two keys. As two switches, "this app's VISIONOS" and "VISIONOS",
+            // they read as one setting shown twice.
+            ListPreference(
+                title = { Text(stringResource(R.string.visionos_test)) },
                 icon = { Icon(Icons.Rounded.Science, null) },
-                checked = ownVisionosRefused,
-                onCheckedChange = onOwnVisionosRefusedChange,
-            )
-        }
-        if (Unreleased.WEB_FALLBACK) {
-            SwitchPreference(
-                title = { Text(stringResource(R.string.visionos_refused)) },
-                description = stringResource(R.string.visionos_refused_description),
-                icon = { Icon(Icons.Rounded.Science, null) },
-                checked = visionosRefused,
-                onCheckedChange = onVisionosRefusedChange,
+                selectedValue = VisionosTest.of(own = ownVisionosRefused, all = visionosRefused),
+                values = VisionosTest.choices(identities = Unreleased.VISIONOS_IDENTITIES, fallback = Unreleased.WEB_FALLBACK),
+                valueText = {
+                    stringResource(
+                        when (it) {
+                            VisionosTest.OFF -> R.string.visionos_test_off
+                            VisionosTest.OWN -> R.string.visionos_test_own
+                            VisionosTest.ALL -> R.string.visionos_test_all
+                        }
+                    )
+                },
+                onValueSelected = {
+                    onOwnVisionosRefusedChange(it.own)
+                    onVisionosRefusedChange(it.all)
+                },
             )
         }
         if (Unreleased.WEB_CLIENT_FIRST) {
