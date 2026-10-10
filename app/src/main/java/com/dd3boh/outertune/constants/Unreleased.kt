@@ -253,4 +253,17 @@ object Unreleased {
      * with the one check that reads it, in SettingsScreen.
      */
     val SETTINGS_TWO_PANE = BuildConfig.DEBUG
+
+    /**
+     * A recording in 5.1 or 7.1 goes through the spatial renderer as its own loudspeakers, each
+     * channel where its speaker stands, when Spatial audio is on Headphones
+     * (BinauralAudioProcessor, SurroundLayout). Without it the renderer takes two channels only,
+     * as before, and the phone folds a surround recording down itself.
+     *
+     * Tested as arithmetic, heard as a tone going round, and seen taking a six and an eight
+     * channel file in the app on an emulator. No music in surround has been listened to through
+     * it, and YouTube Music has none: this is for local files. When it is agreed: set this to
+     * true, or delete it with the one check that reads it, in BinauralAudioProcessor.onConfigure.
+     */
+    val SURROUND_IN = BuildConfig.DEBUG
 }
