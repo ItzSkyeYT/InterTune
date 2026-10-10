@@ -33,6 +33,8 @@ import org.junit.Before
 import org.junit.Test
 import java.net.URLEncoder
 import java.net.UnknownHostException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * The player's own walk of the chain, with answers written here in place of YouTube's.
@@ -149,6 +151,7 @@ class ChainWalkTest {
             webPlayerPot?.let { playerTokens[name] = it }
             versions[name] = client.clientVersion
             couldCarryTheAccount[name] = client.loginSupported
+            if (client.clientName == "WEB_REMIX") webRequestOut.countDown()
             if (asWebPage) askedAsWebPage += name
             val lines = says[name] ?: error("$name was not expected to be asked")
             val at = turn.getOrDefault(name, 0)
@@ -205,7 +208,16 @@ class ChainWalkTest {
 
         override fun signatureTimestamp(videoId: String): Int? = TIMESTAMP
 
+        /**
+         * Whether each making of the po tokens saw the web client's request go out before it was
+         * done. It waits for that a moment: made before the request, as they once were, it waits
+         * in vain and says so here.
+         */
+        val tokensSawTheRequest = mutableListOf<Boolean>()
+        private val webRequestOut = CountDownLatch(1)
+
         override fun poTokens(videoId: String, sessionId: String?): PoTokenResult? {
+            tokensSawTheRequest += webRequestOut.await(2, TimeUnit.SECONDS)
             tokensMadeFor += sessionId
             return PoTokenResult(VIDEO_TOKEN, SESSION_TOKEN)
         }
@@ -546,6 +558,7 @@ class ChainWalkTest {
         assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
         assertEquals("one check, since the first token passed at once", 1, script.checked.size)
         assertEquals("and no waiting", emptyList<Long>(), script.paused)
+        assertEquals("the tokens were made while the request was out, not before it", listOf(true), script.tokensSawTheRequest)
         assertEquals("WEB_REMIX OK, HEAD 200 with the video's token", YTPlayerUtils.lastStreamTrail)
         assertEquals("WEB_REMIX", YTPlayerUtils.lastStreamClient)
         assertTrue(data.validated)

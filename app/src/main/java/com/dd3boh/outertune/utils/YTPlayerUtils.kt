@@ -40,6 +40,11 @@ import com.zionhuang.innertube.models.YouTubeClient.Companion.VISIONOS
 import com.zionhuang.innertube.models.YouTubeClient.Companion.WEB_REMIX
 import com.zionhuang.innertube.models.response.PlayerResponse
 import com.zionhuang.innertube.utils.runCatchingCancellable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
@@ -59,6 +64,9 @@ object YTPlayerUtils {
     private val streamCalls = StreamFamily.Calls(httpClient)
 
     private val poTokenGenerator = PoTokenGenerator()
+
+    /** For work a song is not made to wait for the end of: see poTokens in [resolveOnce]. */
+    private val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * The main client is the first one written in the chain, and its answer is preferred for
@@ -886,15 +894,20 @@ object YTPlayerUtils {
         // The po tokens, made once and only when a client that carries one is asked. They used
         // to be made before anything was asked, for any chain with such a client in it, which
         // with the web client in the chain would be for every song VISIONOS serves.
-        var potsAsked = false
-        var potsHad: PoTokenResult? = null
-        fun poTokens(): PoTokenResult? {
-            if (!potsAsked) {
-                potsAsked = true
-                potsHad = wire.poTokens(videoId, sessionId)
-                if (potsHad == null) Log.w(TAG, "[$videoId] No po token")
-            }
-            return potsHad
+        //
+        // A web client's are made while its request is out and its address is being solved:
+        // the token rides on the address and not in the request, so nothing has to wait for it
+        // but the check. On a phone that hid 0.3 s of every song behind the 0.8 s of the other
+        // two, and 1.5 s of the first song of a process (10 Oct 2026). Not a child of this walk:
+        // a walk that ends without needing them must not wait for a WebView to finish.
+        var pots: Deferred<PoTokenResult?>? = null
+        fun startPoTokens() {
+            if (pots == null) pots = background.async { runCatching { wire.poTokens(videoId, sessionId) }.getOrNull() }
+        }
+        suspend fun poTokens(): PoTokenResult? {
+            val asked = pots == null
+            startPoTokens()
+            return checkNotNull(pots).await().also { if (it == null && asked) Log.w(TAG, "[$videoId] No po token") }
         }
 
         // A refusal from one client is not a refusal from YouTube. ANDROID_VR answers "Sign in to
@@ -998,6 +1011,7 @@ object YTPlayerUtils {
             val isTrial = client === trial
             // A web client, the experiment's or the chain's: asked, deciphered and checked the same way.
             val isWeb = isTrial || client === WEB_FALLBACK_CLIENT
+            if (isWeb) startPoTokens()
 
             // hl=en whatever the app's language. Throttle and the error screen know the bot
             // check and the age gate only by YouTube's English wording, and a fallback client's
