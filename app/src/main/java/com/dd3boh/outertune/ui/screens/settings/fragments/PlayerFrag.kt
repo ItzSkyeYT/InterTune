@@ -82,6 +82,7 @@ import com.dd3boh.outertune.constants.StageWidthKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.SpatialBassDirectKey
 import com.dd3boh.outertune.constants.SpatialStrengthKey
+import com.dd3boh.outertune.constants.SpatialRoomKey
 import com.dd3boh.outertune.constants.HeadTrackingLeadKey
 import com.dd3boh.outertune.playback.BinauralAudioProcessor
 import com.dd3boh.outertune.playback.ProximityProbe
@@ -251,6 +252,18 @@ fun ColumnScope.StageWidthFrag() {
     Slider(
         value = strength.toFloat(),
         onValueChange = { onStrengthChange(it.toInt()) },
+        valueRange = 0f..100f,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+    val (room, onRoomChange) = rememberPreference(SpatialRoomKey, defaultValue = 0)
+    ExplainedPreference(
+        title = stringResource(R.string.spatial_room),
+        explanation = stringResource(R.string.spatial_room_explain),
+        description = stringResource(R.string.spatial_room_value, room),
+    )
+    Slider(
+        value = room.toFloat(),
+        onValueChange = { onRoomChange(it.toInt()) },
         valueRange = 0f..100f,
         modifier = Modifier.padding(horizontal = 16.dp),
     )

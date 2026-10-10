@@ -592,6 +592,9 @@ val SpatialStrengthKey = intPreferencesKey("spatialStrength")
 /** Whether the low notes go round the spatial rendering and stay as they were recorded. */
 val SpatialBassDirectKey = booleanPreferencesKey("spatialBassDirect")
 
+/** How much of a room the spatial rendering puts round its two speakers, in hundredths: 0 is none, as before. */
+val SpatialRoomKey = intPreferencesKey("spatialRoom")
+
 /** How hard the renderer guesses ahead of the head. See HeadTrackingResponse. */
 val HeadTrackingResponseKey = stringPreferencesKey("headTrackingResponse")
 

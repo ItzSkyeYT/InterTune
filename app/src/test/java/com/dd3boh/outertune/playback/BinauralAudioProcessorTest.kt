@@ -1033,4 +1033,68 @@ class BinauralAudioProcessorTest {
         val (left, right) = through(p, FloatArray(2048), FloatArray(2048))
         assertEquals(0.0, energy(left) + energy(right), 0.0)
     }
+
+    // A room round the two speakers.
+
+    private fun inRoom(share: Float, third: Boolean = true, rate: Int = 48000) =
+        BinauralAudioProcessor().apply {
+            enabled = true
+            thirdOrder = third
+            room = share
+            configure(stereoFloat(rate))
+            flush()
+        }
+
+    @Test
+    fun `no room is what it always was`() {
+        val expected = impulse(stereo(third = true), 0.7f, -0.3f, 1200)
+        val heard = impulse(inRoom(0f), 0.7f, -0.3f, 1200)
+        assertArrayEquals(expected.first, heard.first, 0f)
+        assertArrayEquals(expected.second, heard.second, 0f)
+    }
+
+    @Test
+    fun `a room sends the sound back a few thousandths of a second late, and not before`() {
+        val open = impulse(inRoom(0f), 1f, 1f, 1500)
+        val room = impulse(inRoom(1f), 1f, 1f, 1500)
+        // Up to the first reflection the two differ only by the room's being turned down to match.
+        val first = (6.5 * 48).toInt()
+        val early = (0 until first - 8).sumOf { abs(room.first[it]).toDouble() }
+        val earlyOpen = (0 until first - 8).sumOf { abs(open.first[it]).toDouble() }
+        assertTrue("the sound itself is still there: $early of $earlyOpen", early in 0.6 * earlyOpen..earlyOpen)
+        // After the last of the open air's sound, only a room still speaks.
+        val lateOpen = (700 until 1500).sumOf { abs(open.first[it]).toDouble() }
+        val lateRoom = (300 until 1300).sumOf { abs(room.first[it]).toDouble() }
+        assertEquals(0.0, lateOpen, 1e-4)
+        assertTrue("something comes back: $lateRoom", lateRoom > 0.05)
+    }
+
+    @Test
+    fun `a room is not louder than no room`() {
+        for (rate in listOf(44100, 48000)) for (share in listOf(0.5f, 1f)) {
+            val open = impulse(inRoom(0f, rate = rate), 1f, 1f, 2000)
+            val room = impulse(inRoom(share, rate = rate), 1f, 1f, 2000)
+            assertEquals("left ear at $rate, room $share", 0.0, 10 * kotlin.math.log10(energy(room.first) / energy(open.first)), 1.0)
+            assertEquals("right ear at $rate, room $share", 0.0, 10 * kotlin.math.log10(energy(room.second) / energy(open.second)), 1.0)
+        }
+    }
+
+    @Test
+    fun `the room is the same on both sides`() {
+        val fromLeft = impulse(inRoom(1f), 1f, 0f, 1500)
+        val fromRight = impulse(inRoom(1f), 0f, 1f, 1500)
+        assertArrayEquals(fromLeft.first, fromRight.second, 1e-6f)
+        assertArrayEquals(fromLeft.second, fromRight.first, 1e-6f)
+        val centred = impulse(inRoom(1f), 1f, 1f, 1500)
+        assertArrayEquals(centred.first, centred.second, 1e-6f)
+    }
+
+    @Test
+    fun `a seek leaves no echo of the room`() {
+        val p = inRoom(1f)
+        impulse(p, 1f, -1f, 64)
+        p.flush()
+        val (left, right) = impulse(p, 0f, 0f, 1500)
+        assertEquals(0.0, energy(left) + energy(right), 0.0)
+    }
 }
