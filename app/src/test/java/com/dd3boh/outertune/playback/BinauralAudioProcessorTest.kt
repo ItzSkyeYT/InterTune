@@ -1097,4 +1097,77 @@ class BinauralAudioProcessorTest {
         val (left, right) = impulse(p, 0f, 0f, 1500)
         assertEquals(0.0, energy(left) + energy(right), 0.0)
     }
+
+    @Test
+    fun `a room leaves the low notes as loud as they were`() {
+        // Three reflections a few thousandths of a second apart add up at one low note and cancel
+        // at the next: given the lows, this room took six decibels off everything from 40 to 80 Hz.
+        val seen = StringBuilder()
+        var worst = 0.0
+        for (rate in listOf(44100, 48000)) for (hz in listOf(30.0, 40.0, 50.0, 63.0, 80.0, 100.0, 125.0)) for (side in listOf(false, true)) {
+            val note = tone(hz, 0.3f, rate = rate)
+            val other = if (side) FloatArray(note.size) else note
+            val open = through(inRoom(0f, rate = rate), note, other)
+            val room = through(inRoom(1f, rate = rate), note, other)
+            val left = decibels(settled(room.first), settled(open.first))
+            val right = decibels(settled(room.second), settled(open.second))
+            seen.append("%d Hz at %d%s: %+.2f and %+.2f dB; ".format(hz.toInt(), rate, if (side) ", one side" else "", left, right))
+            worst = maxOf(worst, abs(left), abs(right))
+        }
+        assertTrue(seen.toString(), worst < 0.5)
+    }
+
+    /** The energy of [a] in the third of an octave round [centre]. */
+    private fun third(a: FloatArray, centre: Double, rate: Int): Double {
+        var sum = 0.0
+        for (k in 0 until 15) {
+            val w = 2 * PI * centre * Math.pow(2.0, (k - 7) / 14.0 / 3.0) / rate
+            var re = 0.0
+            var im = 0.0
+            for (n in a.indices) { re += a[n] * cos(w * n); im -= a[n] * sin(w * n) }
+            sum += re * re + im * im
+        }
+        return sum
+    }
+
+    @Test
+    fun `a room does not retune the music`() {
+        // What a sound in the middle is given by the room is space, not a tone of its own: third
+        // of an octave by third of an octave it stays where it was. Before the walls were given
+        // the recording as it came, and only its middle, 3 kHz stood six decibels proud.
+        val thirds = listOf(160.0, 200.0, 250.0, 315.0, 400.0, 500.0, 630.0, 800.0, 1000.0, 1250.0, 1600.0, 2000.0, 2500.0, 3150.0, 4000.0, 5000.0, 6300.0, 8000.0, 10000.0, 12500.0)
+        for (rate in listOf(44100, 48000)) for (third in listOf(false, true)) {
+            val open = through(inRoom(0f, third, rate), FloatArray(8192).also { it[0] = 1f }, FloatArray(8192).also { it[0] = 1f }).first
+            for (share in listOf(0.5f, 1f)) {
+                val room = through(inRoom(share, third, rate), FloatArray(8192).also { it[0] = 1f }, FloatArray(8192).also { it[0] = 1f }).first
+                val seen = StringBuilder()
+                var worst = 0.0
+                var sum = 0.0
+                for (hz in thirds) {
+                    val off = 10 * kotlin.math.log10(third(room, hz, rate) / third(open, hz, rate))
+                    seen.append("%d Hz %+.1f; ".format(hz.toInt(), off))
+                    worst = maxOf(worst, abs(off))
+                    sum += off
+                }
+                val about = "room $share at $rate, third order $third: $seen"
+                assertTrue(about, worst < 2.0 * share + 0.3)
+                // And on the whole it is neither up nor down: the walls' share is taken back from the speakers'.
+                assertEquals(about, 0.0, sum / thirds.size, 0.5)
+            }
+        }
+    }
+
+    @Test
+    fun `the room fills in the ear a sound is turned away from`() {
+        // Which is the room doing its work: off one speaker alone, the far ear hears the walls.
+        val quiet = FloatArray(8192)
+        val click = FloatArray(8192).also { it[0] = 1f }
+        val open = through(inRoom(0f), click, quiet)
+        val room = through(inRoom(1f), click, quiet)
+        fun middle(a: FloatArray) = listOf(500.0, 630.0, 800.0, 1000.0, 1250.0, 1600.0, 2000.0).sumOf { third(a, it, 48000) }
+        val near = 10 * kotlin.math.log10(middle(room.first) / middle(open.first))
+        val far = 10 * kotlin.math.log10(middle(room.second) / middle(open.second))
+        assertEquals("the near ear", 0.0, near, 1.5)
+        assertTrue("the far ear gains: $far dB, the near $near", far > near + 1.0)
+    }
 }
