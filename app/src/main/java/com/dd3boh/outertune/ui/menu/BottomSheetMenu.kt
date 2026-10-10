@@ -19,8 +19,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -71,6 +73,7 @@ fun BottomSheetMenu(
     val focusManager = LocalFocusManager.current
     val inputModeManager = LocalInputModeManager.current
     val coroutineScope = rememberCoroutineScope()
+    val landscape = LocalLandscape.current
 
     if (state.isVisible) {
         ModalBottomSheet(
@@ -80,9 +83,15 @@ fun BottomSheetMenu(
             },
             sheetState = state.sheetState,
             // On a phone on its side a menu is the width it is upright and no wider (Landscape.kt).
-            sheetMaxWidth = LocalLandscape.current.panelWidth(BottomSheetDefaults.SheetMaxWidth),
+            sheetMaxWidth = landscape.panelWidth(BottomSheetDefaults.SheetMaxWidth),
             dragHandle = null,
-            contentWindowInsets = { WindowInsets.safeDrawing },
+            // There the menu stands in the middle of the window, at least 80dp from either side
+            // (Landscape.MinWidth and PanelMaxWidth), so only the top and the bottom of the screen
+            // concern it. With the sides in, the camera's cutout pushed everything in the menu
+            // off its middle by the cutout's width.
+            contentWindowInsets = {
+                if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical) else WindowInsets.safeDrawing
+            },
             modifier = modifier
                 .fillMaxHeight()
 
