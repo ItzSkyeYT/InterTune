@@ -2550,6 +2550,10 @@ class MusicService : MediaLibraryService(),
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
         noteTransition(mediaItem, reason)
+        // The car's tabs each show what is playing across their top: another song, another row.
+        if (Unreleased.AUTO_REWORK && ::mediaSession.isInitialized) {
+            AutoBrowse.TABS.forEach { mediaSession.notifyChildrenChanged(it, Int.MAX_VALUE, null) }
+        }
         // Every song change, not only when the queue itself changes. A skip is the strongest
         // opinion anyone gives without pressing anything, so it reaches further than a song that
         // simply ended.

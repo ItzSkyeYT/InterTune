@@ -64,6 +64,7 @@ media3-okhttp = { group = "androidx.media3", name = "media3-datasource-okhttp", 
 media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
 work = { group = "androidx.work", name = "work-runtime-ktx", version = "2.8.1" }
 media3-workmanager = { group = "androidx.media3", name = "media3-exoplayer-workmanager", version.ref = "media3" }
+car-app = { group = "androidx.car.app", name = "app", version = "1.7.0" }
 
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }

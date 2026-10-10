@@ -148,11 +148,29 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
-        <!-- Covers for Android Auto, which loads pictures from a content address and not from the web. Read only. -->
+        <!-- Covers for Android Auto, which loads pictures from a content address and not from the web. Read only,
+             and open to the car, which holds no permission of ours to ask for. -->
         <provider
             android:name=".playback.AutoArtProvider"
             android:authorities="${applicationId}.autoart"
-            android:exported="true" />
+            android:exported="true"
+            tools:ignore="ExportedContentProvider" />
+
+        <!-- The settings Android Auto opens from the cog over the app's tabs. It lets in a car's own software only. -->
+        <service
+            android:name=".playback.AutoSettingsService"
+            android:exported="true"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.SETTINGS" />
+            </intent-filter>
+        </service>
+
+        <!-- The oldest version of the car's screens that knows a settings screen. -->
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="6" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

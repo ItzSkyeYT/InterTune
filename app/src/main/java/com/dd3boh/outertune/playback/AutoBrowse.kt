@@ -13,11 +13,12 @@ import android.net.Uri
  * What Android Auto is shown since the rework (Unreleased.AUTO_REWORK), by the ids it is handed.
  *
  * A car's screen is for somebody who is driving: a few large things to tap, each of which plays
- * at once, and nothing to read down. So the first tab is "For you", rows of covers: the queue
- * there is to carry on with, the liked songs and the downloads in a new order, then Home's own
- * Quick picks, Keep listening and Forgotten favourites. Playlists are a tab of covers, each
- * opening on a row that shuffles it. The library keeps albums and artists as covers and its
- * songs newest first and no more than a couple of hundred. The last tab is what was played lately.
+ * at once, and nothing to read down. So the first tab is "For you", rows of covers: the liked
+ * songs and the downloads in a new order, then Home's own Quick picks, Keep listening and
+ * Forgotten favourites. Playlists are a tab of covers, each opening on a row that shuffles it.
+ * The library keeps albums and artists as covers and its songs newest first and no more than a
+ * couple of hundred. The last tab is what was played lately. Across the top of every tab is
+ * what is playing, a row to tap to get back to the player.
  *
  * The ids: "home/<section>/<song>" for a song of a row of For you, "recent/<song>",
  * "shuffle/liked", "shuffle/downloaded" and "shuffle/playlist/<playlist>" for a list in a new
@@ -29,6 +30,9 @@ object AutoBrowse {
     const val RECENT = "recent"
     const val SHUFFLE = "shuffle"
     const val RESUME = "resume"
+
+    /** The tabs, left to right. Each has what is playing across its top, and is told when that changes. */
+    val TABS = listOf(HOME, MusicService.PLAYLIST, LIBRARY, RECENT)
 
     const val QUICK = "quick"
     const val KEEP = "keep"

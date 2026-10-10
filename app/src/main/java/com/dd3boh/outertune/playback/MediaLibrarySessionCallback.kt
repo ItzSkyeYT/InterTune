@@ -1,12 +1,16 @@
 package com.dd3boh.outertune.playback
 
 import com.dd3boh.outertune.constants.PlayOrigin
+import android.app.PendingIntent
+import android.content.ComponentName
 import android.content.ContentResolver
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.annotation.DrawableRes
+import androidx.car.app.notification.CarPendingIntent
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.media3.common.C
@@ -183,9 +187,31 @@ class MediaLibrarySessionCallback @Inject constructor(
                         .build()
                 )
                 .build(),
-            params
+            if (Unreleased.AUTO_REWORK) withSettings(params) else params
         )
     )
+
+    /**
+     * The root's answer with the car's way into the settings added to it: Android Auto puts a cog
+     * over the tabs of an app whose root names a screen of its own for it. That screen is
+     * AutoSettingsService. Anything that goes wrong making it leaves the answer as it was.
+     */
+    private fun withSettings(params: MediaLibraryService.LibraryParams?): MediaLibraryService.LibraryParams {
+        val extras = Bundle(params?.extras ?: Bundle.EMPTY)
+        runCatching {
+            val screen = Intent(Intent.ACTION_VIEW).setComponent(ComponentName(context, AutoSettingsService::class.java))
+            extras.putParcelable(
+                MediaConstants.EXTRAS_KEY_APPLICATION_PREFERENCES_USING_CAR_APP_LIBRARY_INTENT,
+                CarPendingIntent.getCarApp(context, 0, screen, PendingIntent.FLAG_UPDATE_CURRENT),
+            )
+        }.onFailure { Log.w(TAG, "No settings for the car", it) }
+        return MediaLibraryService.LibraryParams.Builder()
+            .setExtras(extras)
+            .setRecent(params?.isRecent ?: false)
+            .setOffline(params?.isOffline ?: false)
+            .setSuggested(params?.isSuggested ?: false)
+            .build()
+    }
 
     override fun onGetChildren(
         session: MediaLibrarySession,
@@ -195,8 +221,10 @@ class MediaLibrarySessionCallback @Inject constructor(
         pageSize: Int,
         params: MediaLibraryService.LibraryParams?,
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future(Dispatchers.IO) {
+        // What is playing goes across the top of each of the car's tabs.
+        val bar = if (Unreleased.AUTO_REWORK && parentId in AutoBrowse.TABS) listOfNotNull(nowPlaying()) else emptyList()
         LibraryResult.ofItemList(
-            when (parentId) {
+            bar + when (parentId) {
                 MusicService.ROOT -> if (Unreleased.AUTO_REWORK) carTabs() else listOf(
                     browsableMediaItem(
                         MusicService.SONG,
@@ -604,44 +632,62 @@ class MediaLibrarySessionCallback @Inject constructor(
     private fun cover(kind: String, id: String, stored: String?): Uri? =
         if (Unreleased.AUTO_REWORK) AutoArt.uri(context, kind, id) else stored?.toUri()
 
-    /** How the car lays out what a node holds, and the heading an item stands under. */
-    private fun style(playable: Int? = null, browsable: Int? = null, group: String? = null) = Bundle().apply {
+    /**
+     * How the car lays out what a node holds, the heading an item stands under, and for an item
+     * that is to look unlike its neighbours, how that one is laid out.
+     */
+    private fun style(playable: Int? = null, browsable: Int? = null, group: String? = null, single: Int? = null) = Bundle().apply {
         playable?.let { putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE, it) }
         browsable?.let { putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE, it) }
         group?.let { putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, it) }
+        single?.let { putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM, it) }
     }
 
     /** The four tabs: something to play at once, the playlists, the library, what was played lately. */
-    private fun carTabs(): List<MediaItem> = listOf(
-        browsableMediaItem(
-            AutoBrowse.HOME, context.getString(R.string.auto_for_you), null, drawableUri(R.drawable.auto_home),
-            MediaMetadata.MEDIA_TYPE_FOLDER_MIXED, style(playable = GRID, browsable = GRID),
-        ),
-        browsableMediaItem(
-            MusicService.PLAYLIST, context.getString(R.string.playlists), null, drawableUri(R.drawable.queue_music),
-            MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS, style(playable = LIST, browsable = GRID),
-        ),
-        browsableMediaItem(
-            AutoBrowse.LIBRARY, context.getString(R.string.library), null, drawableUri(R.drawable.auto_library),
-            MediaMetadata.MEDIA_TYPE_FOLDER_MIXED, style(playable = LIST, browsable = LIST),
-        ),
-        browsableMediaItem(
-            AutoBrowse.RECENT, context.getString(R.string.auto_recent), null, drawableUri(R.drawable.auto_recent),
-            MediaMetadata.MEDIA_TYPE_PLAYLIST, style(playable = LIST),
-        ),
-    )
+    private fun carTabs(): List<MediaItem> = AutoBrowse.TABS.map { tab ->
+        when (tab) {
+            AutoBrowse.HOME -> browsableMediaItem(
+                tab, context.getString(R.string.auto_for_you), null, drawableUri(R.drawable.auto_home),
+                MediaMetadata.MEDIA_TYPE_FOLDER_MIXED, style(playable = GRID, browsable = GRID),
+            )
 
-    /** For you: what to carry on with or shuffle, then Home's own rows, each under its name. */
+            MusicService.PLAYLIST -> browsableMediaItem(
+                tab, context.getString(R.string.playlists), null, drawableUri(R.drawable.queue_music),
+                MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS, style(playable = LIST, browsable = GRID),
+            )
+
+            AutoBrowse.LIBRARY -> browsableMediaItem(
+                tab, context.getString(R.string.library), null, drawableUri(R.drawable.auto_library),
+                MediaMetadata.MEDIA_TYPE_FOLDER_MIXED, style(playable = LIST, browsable = LIST),
+            )
+
+            else -> browsableMediaItem(
+                tab, context.getString(R.string.auto_recent), null, drawableUri(R.drawable.auto_recent),
+                MediaMetadata.MEDIA_TYPE_PLAYLIST, style(playable = LIST),
+            )
+        }
+    }
+
+    /**
+     * What is playing, as a row right across the top of a tab: its cover, its name, who it is by.
+     * The car's own way back to the player is a small square in a corner of the screen, and a row
+     * is the widest thing a car lets an app put there. A tap carries on with the queue, which
+     * leaves the song where it is and brings the player up. With nothing in the player it is the
+     * song that was left off, and the tap loads that queue.
+     */
+    private suspend fun nowPlaying(): MediaItem? {
+        val playing = withContext(Dispatchers.Main) { service.player.currentMediaItem?.metadata }
+        val song = playing ?: runCatching { database.getResumptionQueue()?.getCurrentSong() }.getOrNull() ?: return null
+        return action(
+            "${AutoBrowse.RESUME}/queue", song.title, song.artists.joinToString { it.name }, AutoArt.uri(context, AutoArt.SONG, song.id),
+            group = context.getString(if (playing != null) R.string.auto_now_playing else R.string.auto_carry_on), single = LIST,
+        )
+    }
+
+    /** For you: lists to shuffle, then Home's own rows, each under its name. */
     private suspend fun forYou(): List<MediaItem> {
         val items = ArrayList<MediaItem>()
         val jump = context.getString(R.string.auto_jump_back_in)
-        // What is in the player, or with nothing there the queue that was left off, which is what
-        // carrying on then loads.
-        val playing = withContext(Dispatchers.Main) { service.player.currentMediaItem?.metadata }
-            ?: runCatching { database.getResumptionQueue()?.getCurrentSong() }.getOrNull()
-        if (playing != null) {
-            items += action("${AutoBrowse.RESUME}/queue", context.getString(R.string.auto_carry_on), playing.title, AutoArt.uri(context, AutoArt.SONG, playing.id), jump)
-        }
         val liked = database.likedSongsCount().first()
         if (liked > 1) {
             // A tile's name is cut after a dozen letters or so: the name says which songs, and
@@ -687,7 +733,7 @@ class MediaLibrarySessionCallback @Inject constructor(
     )
 
     /** Something that plays at a tap and is not a song: the queue carried on with, a list shuffled. */
-    private fun action(id: String, title: String, subtitle: String?, art: Uri?, group: String? = null) =
+    private fun action(id: String, title: String, subtitle: String?, art: Uri?, group: String? = null, single: Int? = null) =
         MediaItem.Builder()
             .setMediaId(id)
             .setMediaMetadata(
@@ -699,7 +745,7 @@ class MediaLibrarySessionCallback @Inject constructor(
                     .setIsPlayable(true)
                     .setIsBrowsable(false)
                     .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
-                    .setExtras(group?.let { style(group = it) })
+                    .setExtras(if (group != null || single != null) style(group = group, single = single) else null)
                     .build()
             )
             .build()

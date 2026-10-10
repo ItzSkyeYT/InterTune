@@ -333,6 +333,8 @@ dependencies {
     implementation(libs.media3.okhttp)
     implementation(libs.media3.session)
     implementation(libs.media3.workmanager)
+    // The settings screen Android Auto shows: a car draws an app's own screens from this and nothing else.
+    implementation(libs.car.app)
 
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
