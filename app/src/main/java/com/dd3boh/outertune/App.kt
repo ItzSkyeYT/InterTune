@@ -244,7 +244,7 @@ class App : Application(), SingletonImageLoader.Factory {
             //
             // Nothing is lost by removing it: all three places that actually read pixels back
             // already pass allowHardware(false) on their own request, and must keep doing so.
-            //   MainActivity.kt  extractThemeColor
+            //   MainActivity.kt  extractThemeSource
             //   Player.kt        extractGradientColors
             //   CoilBitmapLoader loadBitmap, whose output is parcelled to the media session
             .memoryCache {
