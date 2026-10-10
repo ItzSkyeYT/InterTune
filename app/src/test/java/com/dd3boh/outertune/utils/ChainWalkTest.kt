@@ -9,6 +9,7 @@ package com.dd3boh.outertune.utils
 import android.net.ConnectivityManager
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.PlaybackAuthMode
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.utils.StreamOrder.Memory
 import com.dd3boh.outertune.utils.cipher.ChallengeSolver
 import com.dd3boh.outertune.utils.cipher.PlayerScript
@@ -72,6 +73,8 @@ class ChainWalkTest {
         YouTube.dataSyncId = null
         YouTube.visitorData = visitor
         YTPlayerUtils.authMode = PlaybackAuthMode.WHEN_REFUSED
+        // The chain as it was without VISIONOS's other identities, which the tests that are about them put in.
+        YTPlayerUtils.identitiesInChain = false
         YTPlayerUtils.askWebClientFirst = false
         YTPlayerUtils.forgetWhatTheTrialLearned()
         YTPlayerUtils.streamMemory = Memory()
@@ -85,6 +88,7 @@ class ChainWalkTest {
         YouTube.dataSyncId = null
         YouTube.visitorData = null
         YTPlayerUtils.authMode = PlaybackAuthMode.WHEN_REFUSED
+        YTPlayerUtils.identitiesInChain = Unreleased.VISIONOS_IDENTITIES
         YTPlayerUtils.askWebClientFirst = false
         YTPlayerUtils.forgetWhatTheTrialLearned()
         YTPlayerUtils.streamMemory = Memory()
@@ -145,7 +149,13 @@ class ChainWalkTest {
             asNewVisitor: Boolean,
             asWebPage: Boolean,
         ): Result<PlayerResponse> {
-            val name = if (asNewVisitor) "${client.clientName} as a new visitor" else client.clientName
+            // An identity of VISIONOS under the name the chain gives it: to YouTube both are VISIONOS.
+            val own = when (client) {
+                YouTubeClient.VISIONOS_1_04 -> "VISIONOS_104"
+                YouTubeClient.VISIONOS_SAFARI -> "VISIONOS_SAFARI"
+                else -> client.clientName
+            }
+            val name = if (asNewVisitor) "$own as a new visitor" else own
             askedOf += name
             signatureTimestamp?.let { timestamps[name] = it }
             webPlayerPot?.let { playerTokens[name] = it }
@@ -1124,6 +1134,165 @@ class ChainWalkTest {
         assertEquals("no player script was fetched to hear it said a third time", 0, script.scriptsAskedFor)
         assertTrue("the song is called gone, so that its other copy is looked for: $failure", failure is YTPlayerUtils.SongUnavailable)
         assertEquals("This video is not available", failure?.message)
+    }
+
+    // --- VISIONOS under its two other identities (Unreleased.VISIONOS_IDENTITIES). ---
+
+    /** What a client YouTube no longer takes under this version is told, for every song at once. */
+    private val retired = refused("The following content is not available on this app.. Watch on the latest version of YouTube.", status = "UNPLAYABLE")
+
+    @Test
+    fun `when VISIONOS is turned down as it is said here, the same client said another way is asked next and serves`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        YTPlayerUtils.identitiesInChain = true
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(retired),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "VISIONOS_104" to listOf(playable("VISIONOS_104", loudness = 5.0, seconds = "200")),
+            ),
+            canSolve = true,
+        )
+        val data = walk(script).getOrThrow()
+
+        // The main client in between, as after any client that served last and no longer does.
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "VISIONOS_104"), script.askedOf)
+        assertEquals("under NewPipe's version, as the chain's client and no copy of it", "1.04", script.versions["VISIONOS_104"])
+        assertEquals("VISIONOS UNPLAYABLE, ANDROID_VR LOGIN_REQUIRED, VISIONOS_104 OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+        assertEquals("VISIONOS_104", YTPlayerUtils.lastStreamClient)
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS_104.example/"))
+        assertEquals("no new visitorData was asked for, and nothing of the web client's made", 0, script.scriptsAskedFor)
+        assertEquals("it is the one asked first from now on", "VISIONOS_104", YTPlayerUtils.streamMemory.worked)
+
+        val next = Script(mapOf("VISIONOS_104" to listOf(playable("VISIONOS_104", loudness = 5.0, seconds = "200"))), canSolve = true)
+        walk(next).getOrThrow()
+        assertEquals(listOf("VISIONOS_104"), next.askedOf)
+    }
+
+    @Test
+    fun `the second identity is asked when the first is turned down too`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        YTPlayerUtils.identitiesInChain = true
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(retired),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "VISIONOS_104" to listOf(retired),
+                "VISIONOS_SAFARI" to listOf(playable("VISIONOS_SAFARI", loudness = 5.0, seconds = "200")),
+            ),
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "VISIONOS_104", "VISIONOS_SAFARI"), script.askedOf)
+        assertEquals("its version is the app's own, its user agent a browser's", YouTubeClient.VISIONOS.clientVersion, script.versions["VISIONOS_SAFARI"])
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS_SAFARI.example/"))
+    }
+
+    @Test
+    fun `a bot check is every identity's, so a new visitorData is tried as before and the identities are asked again with it`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        YTPlayerUtils.identitiesInChain = true
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(refused(bot), playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "VISIONOS_104" to listOf(refused(bot)),
+                "VISIONOS_SAFARI" to listOf(refused(bot)),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "ANDROID_VR as a new visitor" to listOf(refused(bot, carrying = newVisitor)),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+            ),
+            heads = mapOf("IOS" to 403),
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(
+            listOf("VISIONOS", "ANDROID_VR", "VISIONOS_104", "VISIONOS_SAFARI", "IOS", "ANDROID_VR as a new visitor", "VISIONOS"),
+            script.askedOf,
+        )
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
+        assertEquals(newVisitor, YouTube.visitorData)
+    }
+
+    @Test
+    fun `with every identity refused the web client still gets its turn, after them and after the new visitorData`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        YTPlayerUtils.identitiesInChain = true
+        val refusedAddress = playable("VISIONOS", loudness = 5.0, seconds = "200")
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(refusedAddress),
+                "VISIONOS_104" to listOf(playable("VISIONOS_104", loudness = 5.0, seconds = "200")),
+                "VISIONOS_SAFARI" to listOf(playable("VISIONOS_SAFARI", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "ANDROID_VR as a new visitor" to listOf(refused(bot, carrying = newVisitor)),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+                "WEB_REMIX" to listOf(ciphered()),
+            ),
+            heads = mapOf("VISIONOS" to 403, "VISIONOS_104" to 403, "VISIONOS_SAFARI" to 403, "IOS" to 403),
+            playerScript = playerScript,
+            solver = solving,
+            canSolve = true,
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(
+            "VISIONOS OK, HEAD 403, ANDROID_VR LOGIN_REQUIRED, VISIONOS_104 OK, HEAD 403, VISIONOS_SAFARI OK, HEAD 403, WEB_REMIX OK, HEAD 200 with the video's token",
+            YTPlayerUtils.lastStreamTrail,
+        )
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
+        assertEquals("WEB_REMIX", YTPlayerUtils.streamMemory.worked)
+    }
+
+    @Test
+    fun `the developer's other switch takes only this app's VISIONOS for refused, and the next identity is heard taking over`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        YTPlayerUtils.identitiesInChain = true
+        YTPlayerUtils.takeVisionosForRefused(true, onlyAsSaidHere = true)
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "VISIONOS_104" to listOf(playable("VISIONOS_104", loudness = 5.0, seconds = "200")),
+            ),
+            canSolve = true,
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(
+            "VISIONOS OK, HEAD 403 with the developer's switch on, ANDROID_VR LOGIN_REQUIRED, VISIONOS_104 OK, HEAD 200",
+            YTPlayerUtils.lastStreamTrail,
+        )
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS_104.example/"))
+        assertEquals("no new visitorData was needed, the song having played", listOf("VISIONOS", "ANDROID_VR", "VISIONOS_104"), script.askedOf)
+
+        YTPlayerUtils.takeVisionosForRefused(false, onlyAsSaidHere = true)
+        assertEquals("switched off, nothing is left of the refusal that never was", Memory(), YTPlayerUtils.streamMemory)
+    }
+
+    @Test
+    fun `the developer's switch takes every identity of VISIONOS for refused, as the day the client itself is closed`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        YTPlayerUtils.identitiesInChain = true
+        YTPlayerUtils.takeVisionosForRefused(true)
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "VISIONOS_104" to listOf(playable("VISIONOS_104", loudness = 5.0, seconds = "200")),
+                "VISIONOS_SAFARI" to listOf(playable("VISIONOS_SAFARI", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "ANDROID_VR as a new visitor" to listOf(refused(bot, carrying = newVisitor)),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+                "WEB_REMIX" to listOf(ciphered()),
+            ),
+            heads = mapOf("IOS" to 403),
+            playerScript = playerScript,
+            solver = solving,
+            canSolve = true,
+        )
+        walk(script).getOrThrow()
+
+        assertTrue(YTPlayerUtils.lastStreamTrail.orEmpty().endsWith("WEB_REMIX OK, HEAD 200 with the video's token"))
+        assertTrue("no request went out for any VISIONOS address", script.checked.none { "VISIONOS" in it })
     }
 
     @Test

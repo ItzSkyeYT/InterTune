@@ -78,6 +78,27 @@ data class YouTubeClient(
             useSignatureTimestamp = false,
         )
 
+        /** The desktop Safari that yt-dlp's visionos client says it is. */
+        const val USER_AGENT_SAFARI_26 = "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15"
+
+        /**
+         * [VISIONOS] as two other projects say it, for the day YouTube stops taking it the way this
+         * app says it. The client is the same and what it says of itself differs: the app's version
+         * and user agent in the first, as NewPipeExtractor has them (ClientsConstants.java), and the
+         * browser's user agent in the second, as yt-dlp has it (_base.py), both read on 9 Oct 2026.
+         * Each played a whole song that morning, asked by the stream probe.
+         *
+         * What YouTube closes when it closes a client has so far been one way of saying it: a
+         * version it no longer takes, a user agent it has learned to distrust. So these are asked
+         * right after [VISIONOS] and cost a request each, where the web client costs a WebView.
+         */
+        val VISIONOS_1_04 = VISIONOS.copy(
+            clientVersion = "1.04",
+            userAgent = "com.google.visionos.youtube/1.04(RealityDevice17,1; U; CPU visionOS 26_6_0 like Mac OS X; US)",
+            osVersion = "26.6.0.23O770",
+        )
+        val VISIONOS_SAFARI = VISIONOS.copy(userAgent = USER_AGENT_SAFARI_26, osVersion = "26.5.23O471")
+
         val WEB = YouTubeClient(
             clientName = "WEB",
             clientVersion = "2.20250312.04.00",

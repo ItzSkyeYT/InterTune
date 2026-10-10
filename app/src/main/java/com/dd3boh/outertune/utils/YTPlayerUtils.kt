@@ -398,6 +398,22 @@ object YTPlayerUtils {
     private val TRIAL_CLIENT_AS_VISITOR: YouTubeClient = TRIAL_CLIENT.copy(loginSupported = false)
 
     /**
+     * VISIONOS as two other projects say it (Unreleased.VISIONOS_IDENTITIES), each with the name
+     * the trail and [StreamOrder] know it by: see [YouTubeClient.VISIONOS_1_04]. Written after
+     * VISIONOS and before the web client: the same client under another version costs one request
+     * and no WebView. To YouTube each is VISIONOS, so a bot check on one is taken as VISIONOS
+     * refused, and a new visitorData is tried as it would be for VISIONOS itself.
+     */
+    private val VISIONOS_IDENTITIES: List<Pair<YouTubeClient, String>> = listOf(
+        YouTubeClient.VISIONOS_1_04 to "VISIONOS_104",
+        YouTubeClient.VISIONOS_SAFARI to "VISIONOS_SAFARI",
+    )
+
+    /** Whether they are in the chain. A variable for the tests, most of which walk the chain as it was without them. */
+    @Volatile
+    internal var identitiesInChain: Boolean = Unreleased.VISIONOS_IDENTITIES
+
+    /**
      * YouTube Music's web client as one of the chain's own (Unreleased.WEB_FALLBACK): written
      * after VISIONOS, so it is asked by itself on the day VISIONOS gives no stream, and first for
      * the songs after that for as long as it serves ([StreamOrder]).
@@ -499,6 +515,7 @@ object YTPlayerUtils {
         potThatServed = null
         trialLimitMs = TRIAL_LIMIT_MS
         visionosTakenForRefused = false
+        ownVisionosTakenForRefused = false
     }
 
     /**
@@ -513,12 +530,22 @@ object YTPlayerUtils {
         private set
 
     /**
-     * Sets [visionosTakenForRefused]. Switched off, what [StreamOrder] remembers is forgotten:
-     * it holds a VISIONOS refused that never was, and would keep VISIONOS waiting for hours.
+     * The same for VISIONOS as this app says it and not for its other identities
+     * ([VISIONOS_IDENTITIES]), which are then heard taking over: the developer options' "Take
+     * this app's VISIONOS for refused".
      */
-    fun takeVisionosForRefused(on: Boolean) {
-        val was = visionosTakenForRefused
-        visionosTakenForRefused = on
+    @Volatile
+    internal var ownVisionosTakenForRefused = false
+        private set
+
+    /**
+     * Sets [visionosTakenForRefused], or with [onlyAsSaidHere] [ownVisionosTakenForRefused].
+     * Switched off, what [StreamOrder] remembers is forgotten: it holds a VISIONOS refused that
+     * never was, and would keep VISIONOS waiting for hours.
+     */
+    fun takeVisionosForRefused(on: Boolean, onlyAsSaidHere: Boolean = false) {
+        val was = if (onlyAsSaidHere) ownVisionosTakenForRefused else visionosTakenForRefused
+        if (onlyAsSaidHere) ownVisionosTakenForRefused = on else visionosTakenForRefused = on
         if (was && !on) {
             synchronized(this) { streamMemory = StreamOrder.Memory() }
             onStreamMemoryChanged?.invoke("")
@@ -637,9 +664,11 @@ object YTPlayerUtils {
      * reason the refusal persists.
      */
     private fun streamClients(isLoggedIn: Boolean, webInChain: Boolean = false): List<YouTubeClient> {
-        // The web client right after VISIONOS and ahead of IOS, whose addresses never pass their check.
+        // After VISIONOS its other identities, then the web client, all ahead of IOS, whose
+        // addresses never pass their check.
         val written = STREAM_FALLBACK_CLIENTS.toList()
-        val base = if (webInChain) written.take(1) + WEB_FALLBACK_CLIENT + written.drop(1) else written
+        val identities = if (identitiesInChain) VISIONOS_IDENTITIES.map { it.first } else emptyList()
+        val base = written.take(1) + identities + listOfNotNull(WEB_FALLBACK_CLIENT.takeIf { webInChain }) + written.drop(1)
         if (!isLoggedIn || authMode == PlaybackAuthMode.NEVER) return base
         if (!AUTH_CLIENT.loginSupported) return base
         return when {
@@ -921,8 +950,11 @@ object YTPlayerUtils {
         // when it gives no stream: see StreamOrder. Clients are known there by the names the trail
         // gives them. Two with one name could not be told apart, so such a chain is asked as
         // written.
-        fun label(client: YouTubeClient) =
-            if (client.loginSupported && isLoggedIn) "${client.clientName} (account)" else client.clientName
+        fun label(client: YouTubeClient): String {
+            // An identity of VISIONOS by its own name: to YouTube it is VISIONOS, here it is not the same entry.
+            val name = VISIONOS_IDENTITIES.firstOrNull { it.first === client }?.second ?: client.clientName
+            return if (client.loginSupported && isLoggedIn) "$name (account)" else name
+        }
         val written = playerClients.map { label(it) }
         val hasVisitorData = YouTube.visitorData?.let { StreamCheck.looksLikeVisitorData(it) } == true
         val ordered =
@@ -961,7 +993,7 @@ object YTPlayerUtils {
 
         Log.d(
             TAG,
-            "[$videoId] isLoggedIn: $isLoggedIn, clients: ${clients.joinToString { it.clientName }}" +
+            "[$videoId] isLoggedIn: $isLoggedIn, clients: ${clients.joinToString { label(it).substringBefore(' ') }}" +
                     if (ordered.first() !== playerClients.first()) " (${label(ordered.first())} served last)" else "",
         )
 
@@ -1230,7 +1262,7 @@ object YTPlayerUtils {
                     ?: StreamCipher.withPot(address, if (client.useWebPoTokens) poTokens()?.streamingDataPoToken else null)
                 // The developer's switch: see visionosTakenForRefused. Said in the trail, so a
                 // report made with it on cannot be read as YouTube's doing.
-                val pretended = isVisionos && visionosTakenForRefused
+                val pretended = (isVisionos && visionosTakenForRefused) || (client === VISIONOS && ownVisionosTakenForRefused)
                 if (pretended) Log.w(TAG, "[$videoId] [${client.clientName}] its address is taken for refused: the developer's switch is on")
                 val status = when {
                     trialCheck != null -> trialCheck.status
@@ -1252,12 +1284,13 @@ object YTPlayerUtils {
                 }
                 if (StreamCheck.accept(status, isLast)) {
                     // working stream found, or the last one left with nothing to say it is not
-                    Log.i(TAG, "[$videoId] [${client.clientName}] found working stream ($status), address issued to $issuedTo")
+                    // The client's own name between the brackets, one word: tools/release-check/smoke.py reads this line.
+                    Log.i(TAG, "[$videoId] [${clientLabel.substringBefore(' ')}] found working stream ($status), address issued to $issuedTo")
                     validated = status != null
                     if (isWeb && status != null) potThatServed = carried
                     break
                 }
-                Log.w(TAG, "[$videoId] [${client.clientName}] got bad http status code $status, address issued to $issuedTo")
+                Log.w(TAG, "[$videoId] [${clientLabel.substringBefore(' ')}] got bad http status code $status, address issued to $issuedTo")
                 if (status != null && !isTrial) {
                     refusedStatus = status
                     if (isVisionos) notes.visionosRefused = true
