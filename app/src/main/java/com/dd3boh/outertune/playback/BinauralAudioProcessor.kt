@@ -147,6 +147,17 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     @Volatile
     var room: Float = 0f
 
+    /**
+     * How far out the air round a recording is moved, from 0 to 1. The recording is taken apart
+     * ([DirectAmbientSplit]) into the sound itself, which stays with the two speakers, and what
+     * its channels do not share, the hall and the reverb, which is given a speaker of its own on
+     * each side: where the pair's own stand at next to nothing, at [AIR_OUT_DEGREES] at 1,
+     * straight out at the listener's sides. At 0 nothing is taken apart and the frame is as
+     * it always was; above it everything comes out one frame of the split late. For two channels in.
+     */
+    @Volatile
+    var ambience: Float = 0f
+
     // The active harmonics, in the order they are stored. Rebuilt when the ambisonic order
     // changes. Only harmonics that are non-zero in the horizontal plane are carried at all: for a
     // source at zero elevation every harmonic with (n - |m|) odd evaluates to zero, which is six
@@ -209,6 +220,15 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private var delaySamples = 0
     private var roomShare = 0f
     private var bassDelaySamples = 0
+
+    /**
+     * The two ears of the frame just made: where [render], [blend] and [decode] leave their
+     * answer. Those three are ordinary functions and not inline ones on purpose. Inlined, each
+     * call copied the whole of the convolution into [queueInput], six times over, and a method
+     * that size is one the Java runtime the tests run on declines to compile at all: the suite's
+     * renderer tests went from half a minute to five. One call a frame costs nothing beside the
+     * two and a half thousand multiplications it leads to.
+     */
     private val ears = FloatArray(2)
     private val lowPass = FloatArray(5)
     private val highPass = FloatArray(5)
@@ -236,6 +256,23 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private var roomStep = FloatArray(0)
     private val roomDelay = IntArray(ROOM.size / 3)
     private var roomRate = -1
+
+    // The air round a recording, moved out ([ambience]): the split, what it calls ambient in
+    // this frame, the last of that for its own tone filter to run over, and where the air's two
+    // speakers stand and what each harmonic is worth there, walked with the head as the pair is.
+    private val apart = DirectAmbientSplit()
+    private var airShare = 0f
+    private var airLeft = 0f
+    private var airRight = 0f
+    private val airHeldLeft = FloatArray(CORRECTION_RING)
+    private val airHeldRight = FloatArray(CORRECTION_RING)
+    private val airState = FloatArray(8)
+    private var airEncode = FloatArray(0)
+    private var airTarget = FloatArray(0)
+    private var airStep = FloatArray(0)
+    private var airAzimuth = Float.NaN
+    private var airTone = FloatArray(0)
+    private var airIndex = 0
 
     // Surround in. A recording in 5.1 or 7.1 is its own loudspeakers: each channel is one more
     // source in the field, standing where its speaker would, and from the harmonics on the
@@ -489,8 +526,9 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
      * mono in and mono out at the same level, at any rate, order or width.
      */
     private fun computeGain(): Float {
-        // Whatever sends this here has changed what the room is weighed against.
+        // Whatever sends this here has changed what the room and the air are weighed against.
         roomWeight = Float.NaN
+        airTone = FloatArray(0)
         var energy = 0.0
         val mono = FloatArray(taps)
         for (t in 0 until taps) {
@@ -611,27 +649,59 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             for (i in 0 until active) v += (identityLeft[i] + identityRight[i]) * filters[i * taps + t]
             mono[t] = v
         }
+        val smoothed = smoothed(strengths(mono), sampleRate)
 
+        // Invert, hold the extremes flat, normalise to unity on average and limit how far it may
+        // reach. An unlimited inverse would try to undo a deep notch and produce a howl.
+        val nyquist = sampleRate / 2.0
+        val inverse = DoubleArray(CORRECTION_BINS)
+        var logSum = 0.0
+        for (k in 0 until CORRECTION_BINS) {
+            inverse[k] = 1.0 / max(smoothed[heldFlat(k, nyquist)], 1e-9)
+            logSum += ln(inverse[k])
+        }
+        val mean = exp(logSum / CORRECTION_BINS)
+        val limit = 10.0.pow(CORRECTION_LIMIT_DB / 20.0)
+        for (k in 0 until CORRECTION_BINS) {
+            inverse[k] = (inverse[k] / mean).coerceIn(1.0 / limit, limit)
+        }
+        correction = shaped(inverse)
+    }
+
+    /**
+     * How strong [response] is at each of [CORRECTION_BINS] frequencies, from none up to half the rate.
+     *
+     * Every angle here is a whole number of steps of [TURN], so the cosines come out of a table.
+     * It matters because the air's tone is made from four of these each time its slider moves a
+     * step, on the audio thread: worked out one cosine at a time that was a few hundredths of a
+     * second a step, which is longer than the buffer it holds up.
+     */
+    private fun strengths(response: FloatArray): DoubleArray {
         val mag = DoubleArray(CORRECTION_BINS)
         for (k in 0 until CORRECTION_BINS) {
-            val w = PI * k / CORRECTION_BINS
             var re = 0.0
             var im = 0.0
-            for (t in 0 until taps) {
-                val a = w * t
-                re += mono[t] * cos(a)
-                im -= mono[t] * sin(a)
+            for (t in response.indices) {
+                val a = k * t
+                re += response[t] * TURN[a and TURN_MASK]
+                im -= response[t] * TURN[(a - CORRECTION_BINS / 2) and TURN_MASK]
             }
             mag[k] = sqrt(re * re + im * im)
         }
+        return mag
+    }
 
-        // A third of an octave either side, in log frequency, so the correction follows the tilt
-        // and not the fine structure.
+    /**
+     * [mag] with a third of an octave either side run together, in log frequency, so that what
+     * is made from it follows the tilt and not the fine structure.
+     */
+    private fun smoothed(mag: DoubleArray, sampleRate: Int): DoubleArray {
         val smoothed = DoubleArray(CORRECTION_BINS)
         // The rate is passed in rather than read from inputAudioFormat, which BaseAudioProcessor
         // does not populate until flush: during onConfigure it is still unset, so every frequency
         // worked out from it was nonsense and the correction was shaped against nothing.
         val nyquist = sampleRate / 2.0
+        val log = DoubleArray(CORRECTION_BINS) { ln(max(mag[it], 1e-9)) }
         for (k in 0 until CORRECTION_BINS) {
             val f = k * nyquist / CORRECTION_BINS
             if (f <= 0.0) { smoothed[k] = mag.getOrElse(1) { mag[0] }; continue }
@@ -641,42 +711,36 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             var n = 0
             for (j in 0 until CORRECTION_BINS) {
                 val fj = j * nyquist / CORRECTION_BINS
-                if (fj in lo..hi) { sum += ln(max(mag[j], 1e-9)); n++ }
+                if (fj in lo..hi) { sum += log[j]; n++ }
             }
             smoothed[k] = if (n > 0) exp(sum / n) else max(mag[k], 1e-9)
         }
+        return smoothed
+    }
 
-        // Invert, hold the extremes flat, normalise to unity on average and limit how far it may
-        // reach. An unlimited inverse would try to undo a deep notch and produce a howl.
-        val inverse = DoubleArray(CORRECTION_BINS)
-        var logSum = 0.0
-        for (k in 0 until CORRECTION_BINS) {
-            val f = k * nyquist / CORRECTION_BINS
-            val clampedIndex = when {
-                f < CORRECTION_LOW_HZ -> (CORRECTION_LOW_HZ / nyquist * CORRECTION_BINS).toInt()
-                f > CORRECTION_HIGH_HZ -> (CORRECTION_HIGH_HZ / nyquist * CORRECTION_BINS).toInt()
-                else -> k
-            }.coerceIn(0, CORRECTION_BINS - 1)
-            inverse[k] = 1.0 / max(smoothed[clampedIndex], 1e-9)
-            logSum += ln(inverse[k])
-        }
-        val mean = exp(logSum / CORRECTION_BINS)
-        val limit = 10.0.pow(CORRECTION_LIMIT_DB / 20.0)
-        for (k in 0 until CORRECTION_BINS) {
-            inverse[k] = (inverse[k] / mean).coerceIn(1.0 / limit, limit)
-        }
+    /** The frequency a correction takes its value from at [k]: its own, but nothing under or over the band it is trusted in. */
+    private fun heldFlat(k: Int, nyquist: Double): Int {
+        val f = k * nyquist / CORRECTION_BINS
+        return when {
+            f < CORRECTION_LOW_HZ -> (CORRECTION_LOW_HZ / nyquist * CORRECTION_BINS).toInt()
+            f > CORRECTION_HIGH_HZ -> (CORRECTION_HIGH_HZ / nyquist * CORRECTION_BINS).toInt()
+            else -> k
+        }.coerceIn(0, CORRECTION_BINS - 1)
+    }
 
+    /** A short filter that is worth [gains] at each of [CORRECTION_BINS] frequencies. */
+    private fun shaped(gains: DoubleArray): FloatArray {
         // Symmetric, so it delays both ears identically and the interaural timing is untouched.
         val half = CORRECTION_TAPS / 2
         val out = FloatArray(CORRECTION_TAPS)
         for (t in 0 until CORRECTION_TAPS) {
             val d = t - half
-            var v = inverse[0]
-            for (k in 1 until CORRECTION_BINS) v += 2.0 * inverse[k] * cos(PI * k * d / CORRECTION_BINS)
+            var v = gains[0]
+            for (k in 1 until CORRECTION_BINS) v += 2.0 * gains[k] * TURN[(k * d) and TURN_MASK]
             val window = 0.5 - 0.5 * cos(2.0 * PI * t / (CORRECTION_TAPS - 1))
             out[t] = (v / (2 * CORRECTION_BINS) * window).toFloat()
         }
-        correction = out
+        return out
     }
 
     /** Half a Hann over the last few taps, so a truncated filter does not end in a step. */
@@ -800,28 +864,63 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             stepLeft[i] = (targetLeft[i] - encodeLeft[i]) * inv
             stepRight[i] = (targetRight[i] - encodeRight[i]) * inv
         }
+        val roomBefore = roomShare > 0f
         roomShare = room.coerceIn(0f, 1f)
         if (roomShare > 0f) {
+            // Brought back in the middle of a song, the walls must not send back what the
+            // speakers played when the room was last there.
+            if (!roomBefore) {
+                Arrays.fill(roomLeft, 0f)
+                Arrays.fill(roomRight, 0f)
+                Arrays.fill(roomState, 0f)
+            }
             layOutRoom(format.sampleRate)
             if (roomWeight.isNaN()) roomWeight = weighRoom(format.sampleRate)
             roomKeep = 1f / sqrt(1f + roomShare * roomShare * roomWeight)
             encodeRoom(poseBuffer, roomTarget)
             for (k in roomStep.indices) roomStep[k] = (roomTarget[k] - roomEncode[k]) * inv
         }
+        val airBefore = airShare > 0f
+        airShare = ambience.coerceIn(0f, 1f)
+        val air = airShare > 0f
+        if (air) {
+            // The same for the split, which holds a whole frame of whatever it was last given.
+            if (!airBefore) {
+                apart.reset()
+                Arrays.fill(airHeldLeft, 0f)
+                Arrays.fill(airHeldRight, 0f)
+                Arrays.fill(airState, 0f)
+            }
+            layOutAir(format.sampleRate)
+            encodeAir(poseBuffer, airTarget)
+            for (k in airStep.indices) airStep[k] = (airTarget[k] - airEncode[k]) * inv
+        }
 
         when (format.encoding) {
             C.ENCODING_PCM_16BIT -> repeat(frames) {
-                val l = inputBuffer.short / 32768f
-                val r = inputBuffer.short / 32768f
-                if (mixed) blend(l, r, share, direct) { v -> out.putShort(toPcm16(v)) }
-                else render(l, r, harmonics) { v -> out.putShort(toPcm16(v)) }
+                var l = inputBuffer.short / 32768f
+                var r = inputBuffer.short / 32768f
+                if (air) {
+                    apart.process(l, r)
+                    l = apart.directLeft; r = apart.directRight
+                    airLeft = apart.ambientLeft; airRight = apart.ambientRight
+                }
+                if (mixed) blend(l, r, share, direct) else render(l, r)
+                out.putShort(toPcm16(ears[0]))
+                out.putShort(toPcm16(ears[1]))
             }
 
             C.ENCODING_PCM_FLOAT -> repeat(frames) {
-                val l = inputBuffer.float
-                val r = inputBuffer.float
-                if (mixed) blend(l, r, share, direct) { v -> out.putFloat(v) }
-                else render(l, r, harmonics) { v -> out.putFloat(v) }
+                var l = inputBuffer.float
+                var r = inputBuffer.float
+                if (air) {
+                    apart.process(l, r)
+                    l = apart.directLeft; r = apart.directRight
+                    airLeft = apart.ambientLeft; airRight = apart.ambientRight
+                }
+                if (mixed) blend(l, r, share, direct) else render(l, r)
+                out.putFloat(ears[0])
+                out.putFloat(ears[1])
             }
         }
         for (i in 0 until active) {
@@ -842,8 +941,9 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
      * so the two ears share everything else: the harmonics of degree zero or more sum to something
      * common to both, and the negative ones are added for the left ear and subtracted for the
      * right. One convolution per harmonic rather than two, for exactly the same result.
+     * The two ears are left in [ears].
      */
-    private inline fun render(rawL: Float, rawR: Float, harmonics: FloatArray, put: (Float) -> Unit) {
+    private fun render(rawL: Float, rawR: Float) {
         var l = rawL
         var r = rawR
         val tone = correction
@@ -889,7 +989,30 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             encodeRight[i] += stepRight[i]
         }
         if (room) reflect()
-        decode(harmonics, put)
+        if (airShare > 0f) {
+            // The air has its own two speakers, and its own tone ([toneAir]) in place of the
+            // pair's. That filter is as long as the pair's, so the two stay in step.
+            val now = airIndex
+            airHeldLeft[now] = airLeft
+            airHeldRight[now] = airRight
+            airIndex = (now + 1) and CORRECTION_MASK
+            var aL = 0f
+            var aR = 0f
+            val shape = airTone
+            for (t in shape.indices) {
+                val then = (now - t) and CORRECTION_MASK
+                aL += airHeldLeft[then] * shape[t]
+                aR += airHeldRight[then] * shape[t]
+            }
+            var k = active
+            for (i in 0 until active) {
+                harmonics[i] += aL * airEncode[i] + aR * airEncode[k]
+                airEncode[i] += airStep[i]
+                airEncode[k] += airStep[k]
+                k++
+            }
+        }
+        decode()
     }
 
     /**
@@ -933,69 +1056,143 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     }
 
     /**
+     * How strongly one ear hears a source that is worth [encode] in each harmonic: the energy of
+     * its response between two frequencies, every octave alike, which is how music is spread and
+     * not how an impulse is. The left ear, or with [far] the right; with [toned], through the
+     * pair's tone correction as well. For weighing one thing against another when the layout
+     * changes, never per buffer.
+     */
+    private fun heard(encode: FloatArray, toned: Boolean, far: Boolean, rate: Int, fromHz: Double, toHz: Double): Double {
+        val response = responseOf(encode, toned, far)
+        var sum = 0.0
+        for (k in 0 until WEIGH_POINTS) {
+            val w = 2.0 * PI * fromHz * (toHz / fromHz).pow(k / (WEIGH_POINTS - 1.0)) / rate
+            var re = 0.0
+            var im = 0.0
+            for (t in response.indices) {
+                re += response[t] * cos(w * t)
+                im -= response[t] * sin(w * t)
+            }
+            sum += re * re + im * im
+        }
+        return sum
+    }
+
+    /**
+     * What one ear is sent by a source that is worth [encode] in each harmonic: the left ear, or
+     * with [far] the right; with [toned], through the pair's tone correction as well.
+     */
+    private fun responseOf(encode: FloatArray, toned: Boolean, far: Boolean): FloatArray {
+        if (taps <= 0 || filters.size != active * taps) return FloatArray(0)
+        val plain = FloatArray(taps)
+        for (i in 0 until active) {
+            val v = if (far && fromDifference[i]) -encode[i] else encode[i]
+            if (v == 0f) continue
+            for (t in 0 until taps) plain[t] += v * filters[i * taps + t]
+        }
+        if (!toned || correction.isEmpty()) return plain
+        return FloatArray(taps + correction.size - 1).also { out ->
+            for (a in 0 until taps) for (b in correction.indices) out[a + b] += plain[a] * correction[b]
+        }
+    }
+
+    /** What each harmonic is worth for a source at [angle] radians to the left, with the head level. */
+    private fun worthAt(angle: Float, into: FloatArray) {
+        rotated[0] = cos(angle); rotated[1] = sin(angle); rotated[2] = 0f
+        shInto(rotated, into)
+    }
+
+    /**
      * How much the walls add to a sound in the middle of the stage, beside what the two speakers
      * give it: what [roomKeep] has to make up for. Derived from the filters as the gain is, and
      * for the same reason: a room that is a decibel louder wins a comparison it has not earned.
      *
      * For each wall, the two speakers' reflections off it reach an ear together, so they are one
      * response; the walls come at different times, so their energies add. Weighed over the band
-     * the walls are given, every octave alike, which is how music is spread and not how an
-     * impulse is. Once a change of rate, order or width, never per buffer.
+     * the walls are given. Once a change of rate, order or width.
      */
     private fun weighRoom(rate: Int): Float {
-        if (taps <= 0 || filters.size != active * taps) return 0f
         val centred = FloatArray(active)
-        val response = FloatArray(taps + correction.size)
-        fun respond() {
-            Arrays.fill(response, 0f)
-            for (i in 0 until active) {
-                val v = centred[i]
-                if (v == 0f) continue
-                for (t in 0 until taps) response[t] += v * filters[i * taps + t]
-            }
-        }
-        fun energy(length: Int): Double {
-            var sum = 0.0
-            for (k in 0 until ROOM_WEIGH_POINTS) {
-                val hz = ROOM_WEIGH_FROM_HZ * (ROOM_WEIGH_TO_HZ / ROOM_WEIGH_FROM_HZ).pow(k / (ROOM_WEIGH_POINTS - 1.0))
-                val w = 2.0 * PI * hz / rate
-                var re = 0.0
-                var im = 0.0
-                for (t in 0 until length) {
-                    re += response[t] * cos(w * t)
-                    im -= response[t] * sin(w * t)
-                }
-                sum += re * re + im * im
-            }
-            return sum
-        }
-
-        // The pair, toned as it is heard.
         for (i in 0 until active) centred[i] = identityLeft[i] + identityRight[i]
-        respond()
-        var length = taps
-        if (correction.isNotEmpty()) {
-            val plain = response.copyOf(taps)
-            Arrays.fill(response, 0f)
-            for (a in 0 until taps) for (b in correction.indices) response[a + b] += plain[a] * correction[b]
-            length = taps + correction.size - 1
-        }
-        val pair = energy(length)
+        val pair = heard(centred, toned = true, far = false, rate, ROOM_WEIGH_FROM_HZ, ROOM_WEIGH_TO_HZ)
         if (pair <= 0.0) return 0f
 
         var weight = 0.0
         for (wall in roomDelay.indices) {
             val angle = ROOM[wall * 3] * PI.toFloat() / 180f
-            rotated[0] = cos(angle); rotated[1] = sin(angle); rotated[2] = 0f
-            shInto(rotated, surroundOne)
+            worthAt(angle, surroundOne)
             for (i in 0 until active) centred[i] = surroundOne[i]
-            rotated[1] = -sin(angle)
-            shInto(rotated, surroundOne)
+            worthAt(-angle, surroundOne)
             for (i in 0 until active) centred[i] += surroundOne[i]
-            respond()
-            weight += ROOM[wall * 3 + 2] * ROOM[wall * 3 + 2] * energy(taps) / pair
+            weight += ROOM[wall * 3 + 2] * ROOM[wall * 3 + 2] * heard(centred, toned = false, far = false, rate, ROOM_WEIGH_FROM_HZ, ROOM_WEIGH_TO_HZ) / pair
         }
         return weight.toFloat()
+    }
+
+    /**
+     * Where the air's two speakers stand for this much [ambience], their arrays, and the tone
+     * the air is given there. Built when the angle, the layout or what it is toned against is
+     * not what they were built for.
+     */
+    private fun layOutAir(rate: Int) {
+        val out = AIR_OUT_DEGREES * PI.toFloat() / 180f
+        val angle = speakerAzimuth + airShare * (out - speakerAzimuth)
+        val sized = airEncode.size == 2 * active
+        if (sized && angle == airAzimuth && airTone.isNotEmpty()) return
+        airAzimuth = angle
+        airTone = toneAir(rate)
+        if (!sized) {
+            airEncode = FloatArray(2 * active)
+            airTarget = FloatArray(2 * active)
+            airStep = FloatArray(2 * active)
+            encodeAir(IDENTITY, airEncode)
+        }
+    }
+
+    /**
+     * The filter that makes the air sound, where it now stands, as it did from the pair: as
+     * loud and of the same tone, with only its place changed.
+     *
+     * A sound from the side and behind reaches the ears much duller than one from in front (the
+     * ear itself is in the way: measured, twelve decibels down at 4 kHz) and fuller lower down.
+     * Left alone, moving the air out would be heard as a muffled reverb before it was heard as a
+     * wider one, and the experiment would be judged on its tone. So at each frequency the air is
+     * given back what the move takes: what both ears together get of one speaker of the pair,
+     * toned as the pair is, over what they get of one speaker where the air's is. Between the
+     * two ears nothing is evened out, and that difference is what says where a sound is.
+     */
+    private fun toneAir(rate: Int): FloatArray {
+        val one = FloatArray(active)
+        worthAt(speakerAzimuth, one)
+        val pairNear = strengths(responseOf(one, toned = true, far = false))
+        val pairFar = strengths(responseOf(one, toned = true, far = true))
+        worthAt(airAzimuth, one)
+        val airNear = strengths(responseOf(one, toned = false, far = false))
+        val airFar = strengths(responseOf(one, toned = false, far = true))
+        val pair = DoubleArray(CORRECTION_BINS) { sqrt(pairNear[it] * pairNear[it] + pairFar[it] * pairFar[it]) }
+        val there = DoubleArray(CORRECTION_BINS) { sqrt(airNear[it] * airNear[it] + airFar[it] * airFar[it]) }
+        val from = smoothed(pair, rate)
+        val to = smoothed(there, rate)
+        val nyquist = rate / 2.0
+        val limit = 10.0.pow(CORRECTION_LIMIT_DB / 20.0)
+        return shaped(DoubleArray(CORRECTION_BINS) {
+            val k = heldFlat(it, nyquist)
+            (from[k] / max(to[k], 1e-9)).coerceIn(1.0 / limit, limit)
+        })
+    }
+
+    /** [encodeSpeakers] for the air's two: the left one and its mirror. */
+    private fun encodeAir(pose: FloatArray, into: FloatArray) {
+        val w = pose[0]
+        val rx = -pose[2]
+        val ry = pose[1]
+        val rz = -pose[3]
+        rotate(w, rx, ry, rz, cos(airAzimuth), sin(airAzimuth), 0f, rotated)
+        shInto(rotated, surroundOne)
+        System.arraycopy(surroundOne, 0, into, 0, active)
+        rotate(w, rx, ry, rz, cos(airAzimuth), -sin(airAzimuth), 0f, rotated)
+        shInto(rotated, surroundOne)
+        System.arraycopy(surroundOne, 0, into, active, active)
     }
 
     /** The reflections' delays at this rate, and their arrays for this many harmonics. */
@@ -1045,27 +1242,35 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
      * the rest is the recording as it came, held back to arrive with it. With [direct] the lows
      * are the recording's whatever the share, and it is only the highs that are shared out:
      * the rendering is given the highs alone, so no bass comes through it to be heard twice.
+     * The two ears are left in [ears].
      */
-    private inline fun blend(rawL: Float, rawR: Float, share: Float, direct: Boolean, put: (Float) -> Unit) {
+    private fun blend(rawL: Float, rawR: Float, share: Float, direct: Boolean) {
         val at = dryIndex
-        dryLeft[at] = rawL
-        dryRight[at] = rawR
+        // With the air taken out of what comes in here, the recording as it came is the two together.
+        val air = airShare > 0f
+        dryLeft[at] = if (air) rawL + airLeft else rawL
+        dryRight[at] = if (air) rawR + airRight else rawR
         val then = (at - delaySamples) and MASK
         val heldL = dryLeft[then]
         val heldR = dryRight[then]
         dryIndex = (at + 1) and MASK
 
-        var n = 0
         if (direct) {
-            render(section(highPass, inputState, 0, rawL), section(highPass, inputState, 4, rawR), harmonics) { v -> ears[n++] = v }
+            if (air) {
+                airLeft = section(highPass, airState, 0, airLeft)
+                airRight = section(highPass, airState, 4, airRight)
+            }
+            render(section(highPass, inputState, 0, rawL), section(highPass, inputState, 4, rawR))
             val keep = 1f - share
             val lows = (at - bassDelaySamples) and MASK
-            put(softClip(section(lowPass, lowState, 0, dryLeft[lows]) + share * ears[0] + keep * section(highPass, highState, 0, heldL)))
-            put(softClip(section(lowPass, lowState, 4, dryRight[lows]) + share * ears[1] + keep * section(highPass, highState, 4, heldR)))
+            val left = softClip(section(lowPass, lowState, 0, dryLeft[lows]) + share * ears[0] + keep * section(highPass, highState, 0, heldL))
+            val right = softClip(section(lowPass, lowState, 4, dryRight[lows]) + share * ears[1] + keep * section(highPass, highState, 4, heldR))
+            ears[0] = left
+            ears[1] = right
         } else {
-            render(rawL, rawR, harmonics) { v -> ears[n++] = v }
-            put(softClip(share * ears[0] + (1f - share) * heldL))
-            put(softClip(share * ears[1] + (1f - share) * heldR))
+            render(rawL, rawR)
+            ears[0] = softClip(share * ears[0] + (1f - share) * heldL)
+            ears[1] = softClip(share * ears[1] + (1f - share) * heldR)
         }
     }
 
@@ -1088,7 +1293,7 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             half[3] = (-2.0 * c / a0).toFloat()
             half[4] = ((1.0 - alpha) / a0).toFloat()
         }
-        Arrays.fill(lowState, 0f); Arrays.fill(highState, 0f); Arrays.fill(inputState, 0f)
+        Arrays.fill(lowState, 0f); Arrays.fill(highState, 0f); Arrays.fill(inputState, 0f); Arrays.fill(airState, 0f)
     }
 
     /** One half of the crossover on one sample: its section twice over, with the four numbers it remembers at [from]. */
@@ -1106,10 +1311,10 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     }
 
     /**
-     * The harmonics of one frame, convolved and decoded to two ears: everything in [render] after
-     * the encoding, which is all that differs between two channels in and six or eight.
+     * The harmonics of one frame, convolved and decoded to two ears, into [ears]: everything in
+     * [render] after the encoding, which is all that differs between two channels in and six or eight.
      */
-    private inline fun decode(harmonics: FloatArray, put: (Float) -> Unit) {
+    private fun decode() {
         val idx = writeIndex
         for (i in 0 until active) rings[i * RING + idx] = harmonics[i]
 
@@ -1131,8 +1336,8 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
 
         val c = common * gain
         val sd = side * gain
-        put(softClip(c + sd))
-        put(softClip(c - sd))
+        ears[0] = softClip(c + sd)
+        ears[1] = softClip(c - sd)
     }
 
     /**
@@ -1217,8 +1422,14 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
                 }
                 harmonics[i] = v
             }
-            if (encoding == C.ENCODING_PCM_FLOAT) decode(harmonics) { v -> out.putFloat(v) }
-            else decode(harmonics) { v -> out.putShort(toPcm16(v)) }
+            decode()
+            if (encoding == C.ENCODING_PCM_FLOAT) {
+                out.putFloat(ears[0])
+                out.putFloat(ears[1])
+            } else {
+                out.putShort(toPcm16(ears[0]))
+                out.putShort(toPcm16(ears[1]))
+            }
         }
         System.arraycopy(surroundTarget, 0, surroundEncode, 0, surroundEncode.size)
     }
@@ -1249,6 +1460,13 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         Arrays.fill(roomRight, 0f)
         Arrays.fill(roomState, 0f)
         roomIndex = 0
+        apart.reset()
+        Arrays.fill(airHeldLeft, 0f)
+        Arrays.fill(airHeldRight, 0f)
+        Arrays.fill(airState, 0f)
+        airIndex = 0
+        airLeft = 0f
+        airRight = 0f
         Arrays.fill(dryLeft, 0f)
         Arrays.fill(dryRight, 0f)
         Arrays.fill(lowState, 0f)
@@ -1293,7 +1511,15 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         /** Where the room is weighed against the pair: the middle of the band the walls are given. */
         private const val ROOM_WEIGH_FROM_HZ = 500.0
         private const val ROOM_WEIGH_TO_HZ = 3000.0
-        private const val ROOM_WEIGH_POINTS = 48
+        private const val WEIGH_POINTS = 48
+
+        /**
+         * Where the air's speakers stand with all of [ambience]: straight out at the listener's
+         * sides. Not where a surround speaker stands, a little behind: measured, the two ears
+         * are least alike with the air at the sides (which is what wide is), and from behind the
+         * ear the air loses more of its top than its tone filter can give back.
+         */
+        const val AIR_OUT_DEGREES = 90f
 
         /** Power of two so the ring index is a mask rather than a modulo. */
         private const val RING = 1024
@@ -1318,6 +1544,10 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
 
         /** Frequency points the response is measured at when inverting it. */
         private const val CORRECTION_BINS = 256
+
+        /** The cosine of every whole number of steps round a circle of twice [CORRECTION_BINS] steps. */
+        private const val TURN_MASK = 2 * CORRECTION_BINS - 1
+        private val TURN = DoubleArray(2 * CORRECTION_BINS) { cos(PI * it / CORRECTION_BINS) }
 
         /** A third of an octave, as the ratio to each side of centre. */
         private const val SIXTH_OCTAVE = 1.122462

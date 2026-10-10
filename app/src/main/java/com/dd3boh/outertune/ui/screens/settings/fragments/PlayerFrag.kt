@@ -80,6 +80,7 @@ import com.dd3boh.outertune.ui.component.ExplainedPreference
 import androidx.compose.material3.Slider
 import com.dd3boh.outertune.constants.StageWidthKey
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.constants.SpatialAmbienceKey
 import com.dd3boh.outertune.constants.SpatialBassDirectKey
 import com.dd3boh.outertune.constants.SpatialStrengthKey
 import com.dd3boh.outertune.constants.SpatialRoomKey
@@ -273,6 +274,20 @@ fun ColumnScope.StageWidthFrag() {
         description = stringResource(R.string.spatial_bass_description),
         checked = bassDirect,
         onCheckedChange = onBassDirectChange,
+    )
+
+    if (!Unreleased.DIRECT_AMBIENT) return
+    val (ambience, onAmbienceChange) = rememberPreference(SpatialAmbienceKey, defaultValue = 0)
+    ExplainedPreference(
+        title = stringResource(R.string.spatial_ambience),
+        explanation = stringResource(R.string.spatial_ambience_explain),
+        description = stringResource(R.string.spatial_ambience_value, ambience),
+    )
+    Slider(
+        value = ambience.toFloat(),
+        onValueChange = { onAmbienceChange(it.toInt()) },
+        valueRange = 0f..100f,
+        modifier = Modifier.padding(horizontal = 16.dp),
     )
 }
 

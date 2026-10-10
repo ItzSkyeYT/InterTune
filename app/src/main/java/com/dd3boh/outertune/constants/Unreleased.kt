@@ -281,4 +281,21 @@ object Unreleased {
      * MusicService, and make its eight strings translatable.
      */
     val SPATIAL_TUNING = BuildConfig.DEBUG
+
+    /**
+     * An experiment for a stereo recording under Spatial audio on Headphones: "Ambience". The
+     * recording is taken apart into the sound itself, which stays with the two speakers, and
+     * what its channels do not share, the hall and the reverb, which is moved out towards the
+     * listener's sides and given back the tone the move takes from it
+     * (DirectAmbientSplit, BinauralAudioProcessor.ambience). At 0, where it starts, nothing is
+     * taken apart. Above 0 everything comes out 21 thousandths of a second later, and leaving
+     * or reaching 0 while a song plays drops or repeats that much of it.
+     *
+     * Measured and not yet heard: the one controlled listening test there is found no gain from
+     * this kind of thing, so it is here to be judged by ear and dropped if it does not convince.
+     * Its row is the last under the three of SPATIAL_TUNING and is shown only with them. To
+     * drop it: this flag, the row in PlayerFrag, the collector in MusicService, the key, three
+     * strings, DirectAmbientSplit and everything named "air" in BinauralAudioProcessor.
+     */
+    val DIRECT_AMBIENT = BuildConfig.DEBUG
 }

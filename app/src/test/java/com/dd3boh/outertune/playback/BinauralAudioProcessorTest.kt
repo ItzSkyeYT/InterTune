@@ -1170,4 +1170,242 @@ class BinauralAudioProcessorTest {
         assertEquals("the near ear", 0.0, near, 1.5)
         assertTrue("the far ear gains: $far dB, the near $near", far > near + 1.0)
     }
+
+    // The air round a recording, moved out.
+
+    private fun spread(share: Float, third: Boolean = true, rate: Int = 48000, strength: Float = 1f, bass: Boolean = false) =
+        BinauralAudioProcessor().apply {
+            enabled = true
+            thirdOrder = third
+            ambience = share
+            this.strength = strength
+            bassDirect = bass
+            configure(stereoFloat(rate))
+            flush()
+        }
+
+    private fun hiss(seed: Long, frames: Int, level: Float = 0.2f) = java.util.Random(seed).let { r -> FloatArray(frames) { (r.nextGaussian() * level).toFloat() } }
+
+    private val late = DirectAmbientSplit.DELAY
+
+    /** How alike the two ears are, at whatever small lag makes them most alike: 1 is the same sound in both. */
+    private fun alike(left: FloatArray, right: FloatArray): Double {
+        val from = 24000
+        val to = left.size - 64
+        var l = 0.0
+        var r = 0.0
+        for (n in from until to) { l += left[n].toDouble() * left[n]; r += right[n].toDouble() * right[n] }
+        var best = 0.0
+        for (lag in -48..48) {
+            var sum = 0.0
+            for (n in from until to) sum += left[n].toDouble() * right[n + lag]
+            best = maxOf(best, abs(sum))
+        }
+        return best / sqrt(l * r)
+    }
+
+    @Test
+    fun `no ambience is what it always was`() {
+        val left = hiss(1, 6000)
+        val right = hiss(2, 6000)
+        val expected = through(stereo(third = true), left, right)
+        val heard = through(spread(0f), left, right)
+        assertArrayEquals(expected.first, heard.first, 0f)
+        assertArrayEquals(expected.second, heard.second, 0f)
+    }
+
+    @Test
+    fun `a sound in the middle is left where it was, one frame of the split late`() {
+        for (share in listOf(0.3f, 1f)) {
+            val sound = hiss(3, 40000)
+            val was = through(stereo(third = true), sound, sound)
+            val now = through(spread(share), sound, sound)
+            for (n in late until 40000) {
+                assertEquals("left at $n, ambience $share", was.first[n - late], now.first[n], 1e-5f)
+                assertEquals("right at $n, ambience $share", was.second[n - late], now.second[n], 1e-5f)
+            }
+        }
+    }
+
+    @Test
+    fun `what the channels do not share is heard further apart`() {
+        val left = hiss(4, 72000)
+        val right = hiss(5, 72000)
+        val was = through(spread(0f), left, right)
+        val half = through(spread(0.5f), left, right)
+        val out = through(spread(1f), left, right)
+        val before = alike(was.first, was.second)
+        val between = alike(half.first, half.second)
+        val after = alike(out.first, out.second)
+        // Less alike is what wide is. Not less and less all the way: a sound is at its widest
+        // near the side, and the ears cannot tell a little in front of that from a little behind.
+        assertTrue("the two ears alike: $before with the pair, $between half way, $after all the way out", between < before - 0.05 && after < before - 0.05)
+    }
+
+    /** Noise with most of its energy low down, as music has: white noise through one pole at 800 Hz. */
+    private fun warm(seed: Long, frames: Int, rate: Int): FloatArray {
+        val white = hiss(seed, frames, 0.5f)
+        val by = (1.0 - kotlin.math.exp(-2.0 * PI * 800 / rate)).toFloat()
+        var y = 0f
+        return FloatArray(frames) { y += by * (white[it] - y); y }
+    }
+
+    @Test
+    fun `and it is as loud out there as it was with the pair`() {
+        for (rate in listOf(44100, 48000)) for (third in listOf(false, true)) for (share in listOf(0.5f, 1f)) {
+            val left = warm(6, 72000, rate)
+            val right = warm(7, 72000, rate)
+            val was = through(spread(0f, third, rate), left, right)
+            val out = through(spread(share, third, rate), left, right)
+            fun loud(p: Pair<FloatArray, FloatArray>) = (24000 until 72000).sumOf { p.first[it].toDouble() * p.first[it] + p.second[it].toDouble() * p.second[it] }
+            assertEquals("ambience $share at $rate, third order $third", 0.0, 10 * kotlin.math.log10(loud(out) / loud(was)), 0.5)
+        }
+    }
+
+    /** The energy in each third of an octave over the settled part of [a], at 48 kHz. */
+    private fun thirds(a: FloatArray, centres: List<Double>): DoubleArray {
+        val size = DirectAmbientSplit.SIZE
+        val power = DoubleArray(size / 2 + 1)
+        val re = FloatArray(size)
+        val im = FloatArray(size)
+        var at = 24000
+        while (at + size <= a.size) {
+            for (n in 0 until size) { re[n] = a[at + n] * (0.5f - 0.5f * cos(2 * PI * n / size).toFloat()); im[n] = 0f }
+            DirectAmbientSplit.fft(re, im, false)
+            for (k in 0..size / 2) power[k] += (re[k] * re[k] + im[k] * im[k]).toDouble()
+            at += size / 2
+        }
+        return DoubleArray(centres.size) { c ->
+            val lo = centres[c] / Math.pow(2.0, 1.0 / 6)
+            val hi = centres[c] * Math.pow(2.0, 1.0 / 6)
+            var sum = 0.0
+            for (k in 0..size / 2) { val hz = k * 48000.0 / size; if (hz >= lo && hz < hi) sum += power[k] }
+            sum
+        }
+    }
+
+    @Test
+    fun `and of the same tone`() {
+        // From the side a sound reaches the ears duller than from in front, and fuller lower down:
+        // left alone, the air moved out was twelve decibels down at 4 kHz and three up under 600 Hz.
+        // Its own tone filter gives that back, so that only its place changes.
+        val centres = listOf(250.0, 315.0, 400.0, 500.0, 630.0, 800.0, 1000.0, 1250.0, 1600.0, 2000.0, 2500.0, 3150.0, 4000.0, 5000.0, 6300.0, 8000.0, 10000.0, 12500.0)
+        val left = hiss(18, 144000)
+        val right = hiss(19, 144000)
+        fun both(p: Pair<FloatArray, FloatArray>) = thirds(p.first, centres).zip(thirds(p.second, centres)) { a, b -> a + b }
+        val was = both(through(spread(0f), left, right))
+        for ((share, most) in listOf(0.5f to 2.5, 1f to 4.5)) {
+            val out = both(through(spread(share), left, right))
+            val seen = StringBuilder()
+            var worst = 0.0
+            var sum = 0.0
+            for (i in centres.indices) {
+                val off = 10 * kotlin.math.log10(out[i] / was[i])
+                seen.append("%d Hz %+.1f; ".format(centres[i].toInt(), off))
+                worst = maxOf(worst, abs(off))
+                sum += abs(off)
+            }
+            assertTrue("ambience $share: $seen", worst < most && sum / centres.size < 1.2)
+        }
+    }
+
+    @Test
+    fun `the air on the left is the mirror of the air on the right`() {
+        val left = hiss(8, 30000)
+        val right = hiss(9, 30000)
+        val one = through(spread(1f), left, right)
+        val other = through(spread(1f), right, left)
+        assertArrayEquals(one.first, other.second, 1e-5f)
+        assertArrayEquals(one.second, other.first, 1e-5f)
+    }
+
+    @Test
+    fun `with none of the rendering what is left is the whole recording, air and all`() {
+        val left = hiss(10, 12000)
+        val right = hiss(11, 12000)
+        val p = spread(1f, strength = 0f)
+        val (heardLeft, heardRight) = through(p, left, right)
+        // Late by the split's frame and by what the rendering takes, as the recording beside it always is.
+        val plain = impulse(stereo(third = true, share = 0f), 1f, 1f, 512).first
+        val held = plain.indices.first { plain[it] != 0f } + late
+        for (n in held until 12000) {
+            assertEquals("left at $n", left[n - held], heardLeft[n], 1e-6f)
+            assertEquals("right at $n", right[n - held], heardRight[n], 1e-6f)
+        }
+    }
+
+    @Test
+    fun `the bass left alone stays as loud with the air moved out`() {
+        val low = tone(50.0, 0.4f, frames = 72000)
+        val (left, right) = through(spread(1f, bass = true), low, low)
+        assertEquals("left ear", 0.0, decibels(settled(left), settled(low)), 0.5)
+        assertEquals("right ear", 0.0, decibels(settled(right), settled(low)), 0.5)
+    }
+
+    @Test
+    fun `sixteen bit goes the same way`() {
+        val left = hiss(12, 30000)
+        val right = hiss(13, 30000)
+        val float = through(spread(1f), FloatArray(30000) { (left[it] * 32768f).toInt().toShort() / 32768f }, FloatArray(30000) { (right[it] * 32768f).toInt().toShort() / 32768f })
+        val p = BinauralAudioProcessor().apply {
+            enabled = true; thirdOrder = true; ambience = 1f
+            configure(AudioProcessor.AudioFormat(48000, 2, C.ENCODING_PCM_16BIT)); flush()
+        }
+        val input = ByteBuffer.allocateDirect(4 * 30000).order(ByteOrder.nativeOrder())
+        for (n in 0 until 30000) input.putShort((left[n] * 32768f).toInt().toShort()).putShort((right[n] * 32768f).toInt().toShort())
+        input.flip()
+        p.queueInput(input)
+        val out = p.output
+        for (n in 0 until 30000) {
+            assertEquals("left at $n", float.first[n], out.short / 32768f, 2f / 32768f)
+            assertEquals("right at $n", float.second[n], out.short / 32768f, 2f / 32768f)
+        }
+    }
+
+    @Test
+    fun `a seek leaves none of the air behind`() {
+        val p = spread(1f, strength = 0.5f, bass = true)
+        through(p, hiss(14, 6000), hiss(15, 6000))
+        p.flush()
+        val (left, right) = through(p, FloatArray(4000), FloatArray(4000))
+        assertEquals(0.0, energy(left) + energy(right), 0.0)
+    }
+
+    @Test
+    fun `turning the head turns the air with the rest`() {
+        // A quarter turn to the left: the air that stood out at the left is now behind, and the two ears swap what they had of it.
+        val left = hiss(16, 40000)
+        val right = hiss(17, 40000)
+        fun facing(yaw: Float) = spread(1f).also { it.headYawRadians = yaw }
+        val ahead = through(facing(0f), left, right)
+        val round = through(facing(PI.toFloat()), left, right)
+        // Facing the other way everything is mirrored: left ear hears what the right did.
+        fun loud(a: FloatArray) = (30000 until 40000).sumOf { a[it].toDouble() * a[it] }
+        assertEquals(0.0, 10 * kotlin.math.log10(loud(round.first) / loud(ahead.second)), 1.5)
+        assertEquals(0.0, 10 * kotlin.math.log10(loud(round.second) / loud(ahead.first)), 1.5)
+    }
+
+    @Test
+    fun `air brought back in the middle of a song brings nothing of before with it`() {
+        val p = spread(1f)
+        through(p, hiss(20, 6000), hiss(21, 6000))
+        p.ambience = 0f
+        through(p, FloatArray(2000), FloatArray(2000))
+        p.ambience = 1f
+        // Nothing but silence has gone in since: what the split still held of the noise must not come out now.
+        val (left, right) = through(p, FloatArray(4000), FloatArray(4000))
+        assertEquals(0.0, energy(left) + energy(right), 0.0)
+    }
+
+    @Test
+    fun `a room brought back in the middle of a song sends nothing of before back`() {
+        val p = inRoom(1f)
+        through(p, hiss(22, 6000), hiss(23, 6000))
+        p.room = 0f
+        through(p, FloatArray(2000), FloatArray(2000))
+        p.room = 1f
+        val (left, right) = through(p, FloatArray(4000), FloatArray(4000))
+        assertEquals(0.0, energy(left) + energy(right), 0.0)
+    }
 }
+
