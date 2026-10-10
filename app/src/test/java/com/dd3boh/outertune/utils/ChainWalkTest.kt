@@ -977,6 +977,43 @@ class ChainWalkTest {
     }
 
     @Test
+    fun `with the developer's switch VISIONOS is taken for refused without its address being asked for, and the trail says so`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        YTPlayerUtils.takeVisionosForRefused(true)
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "ANDROID_VR as a new visitor" to listOf(refused(bot, carrying = newVisitor)),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+                "WEB_REMIX" to listOf(ciphered()),
+            ),
+            heads = mapOf("IOS" to 403),
+            playerScript = playerScript,
+            solver = solving,
+            canSolve = true,
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(
+            "VISIONOS OK, HEAD 403 with the developer's switch on, ANDROID_VR LOGIN_REQUIRED, WEB_REMIX OK, HEAD 200 with the video's token",
+            YTPlayerUtils.lastStreamTrail,
+        )
+        assertTrue("no request went out for VISIONOS's address", script.checked.none { "VISIONOS" in it })
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
+        assertEquals("WEB_REMIX", YTPlayerUtils.streamMemory.worked)
+
+        // Switched off, VISIONOS is asked again at once: nothing is left of a refusal that never was.
+        stored.clear()
+        YTPlayerUtils.takeVisionosForRefused(false)
+        assertEquals(Memory(), YTPlayerUtils.streamMemory)
+        assertEquals("and the stored copy is emptied with it", listOf(""), stored)
+        val after = Script(mapOf("ANDROID_VR" to listOf(refused(bot)), "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200"))), canSolve = true)
+        walk(after).getOrThrow()
+        assertEquals("ANDROID_VR LOGIN_REQUIRED, VISIONOS OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+    }
+
+    @Test
     fun `while the experiment asks the web client first it is not in the chain a second time`() {
         experimentOn()
         val script = Script(

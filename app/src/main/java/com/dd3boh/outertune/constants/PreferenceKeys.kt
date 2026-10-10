@@ -381,6 +381,12 @@ val StreamOrderKey = stringPreferencesKey("streamOrder")
  * only. See Unreleased.WEB_CLIENT_FIRST.
  */
 val WebClientFirstKey = booleanPreferencesKey("webClientFirst")
+
+/**
+ * The developer options' "Take VISIONOS for refused": to see the chain as on the day VISIONOS
+ * stops, in debug builds only. See Unreleased.WEB_FALLBACK.
+ */
+val VisionosRefusedKey = booleanPreferencesKey("visionosTakenForRefused")
 val DataSyncIdKey = stringPreferencesKey("dataSyncId")
 val InnerTubeCookieKey = stringPreferencesKey("innerTubeCookie")
 val AccountNameKey = stringPreferencesKey("accountName")

@@ -431,6 +431,32 @@ object YTPlayerUtils {
     internal fun forgetWhatTheTrialLearned() {
         potThatServed = null
         trialLimitMs = TRIAL_LIMIT_MS
+        visionosTakenForRefused = false
+    }
+
+    /**
+     * The developer options' "Take VISIONOS for refused" (Unreleased.WEB_FALLBACK): while it is
+     * on, VISIONOS's address is taken for refused with 403 without being asked for, so a song
+     * goes down the rest of the chain as it would on the day VISIONOS stops. Everything else is
+     * as it would be that day, what [StreamOrder] remembers included, which is how the song
+     * after the first comes to be asked of the web client at once.
+     */
+    @Volatile
+    internal var visionosTakenForRefused = false
+        private set
+
+    /**
+     * Sets [visionosTakenForRefused]. Switched off, what [StreamOrder] remembers is forgotten:
+     * it holds a VISIONOS refused that never was, and would keep VISIONOS waiting for hours.
+     */
+    fun takeVisionosForRefused(on: Boolean) {
+        val was = visionosTakenForRefused
+        visionosTakenForRefused = on
+        if (was && !on) {
+            synchronized(this) { streamMemory = StreamOrder.Memory() }
+            onStreamMemoryChanged?.invoke("")
+            Log.i(TAG, "VISIONOS is asked again, and which client served last is forgotten")
+        }
     }
 
     /** What checking the experiment's address came to: the address as it was last asked for, what it got, with which token and how. */
@@ -1099,10 +1125,21 @@ object YTPlayerUtils {
                     )
                 val checked = trialCheck?.url
                     ?: StreamCipher.withPot(address, if (client.useWebPoTokens) poTokens()?.streamingDataPoToken else null)
-                val status = if (trialCheck != null) trialCheck.status else wire.head(checked)
+                // The developer's switch: see visionosTakenForRefused. Said in the trail, so a
+                // report made with it on cannot be read as YouTube's doing.
+                val pretended = isVisionos && visionosTakenForRefused
+                if (pretended) Log.w(TAG, "[$videoId] [${client.clientName}] its address is taken for refused: the developer's switch is on")
+                val status = when {
+                    trialCheck != null -> trialCheck.status
+                    pretended -> 403
+                    else -> wire.head(checked)
+                }
                 val carried = trialCheck?.pot
                 streamUrl = checked
-                trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", status, checked = true, with = trialCheck?.how)
+                trail[trail.lastIndex] = StreamCheck.trailStep(
+                    clientLabel, "OK", status, checked = true,
+                    with = trialCheck?.how ?: "the developer's switch on".takeIf { pretended },
+                )
                 // For StreamOrder the client served or was refused by what the check answered. A
                 // check that could not be made says more of the connection than of the client, so
                 // nothing is remembered of it, even when its url is the last one and is played.

@@ -1742,6 +1742,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="history_address_check" translatable="false">Check the history address</string>
     <string name="history_address_check_description" translatable="false">Asks YouTube where a play of the song now playing would be reported, as your account and as a visitor, and shows what came back. Nothing is reported.</string>
     <string name="history_address_check_asking" translatable="false">Asking YouTube</string>
+    <string name="visionos_refused" translatable="false">Take VISIONOS for refused</string>
+    <string name="visionos_refused_description" translatable="false">To hear the day VISIONOS stops. Its address is taken for refused without being asked for, so every song goes down the rest of the chain. Switching it off forgets which client served last.</string>
     <string name="web_client_first" translatable="false">Ask YouTube Music\'s web client first</string>
     <string name="web_client_first_description" translatable="false">An experiment. Every song is asked of WEB_REMIX before the usual clients, and its address is deciphered by a solver in a WebView. Nothing is remembered of what it finds.</string>
 </resources>
