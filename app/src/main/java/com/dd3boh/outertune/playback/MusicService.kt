@@ -106,6 +106,7 @@ import com.dd3boh.outertune.constants.HeadTrackingResponseKey
 import com.dd3boh.outertune.constants.StageWidthKey
 import com.dd3boh.outertune.constants.SpatialBassDirectKey
 import com.dd3boh.outertune.constants.SpatialStrengthKey
+import com.dd3boh.outertune.constants.SpatialRoomKey
 import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
 import com.dd3boh.outertune.constants.PersistentQueueKey
@@ -930,6 +931,9 @@ class MusicService : MediaLibraryService(),
             dataStore.data.map { it[SpatialBassDirectKey] ?: false }
                 .distinctUntilChanged()
                 .collectLatest(scope) { binauralProcessor.bassDirect = Unreleased.SPATIAL_TUNING && it }
+            dataStore.data.map { it[SpatialRoomKey] ?: 0 }
+                .distinctUntilChanged()
+                .collectLatest(scope) { binauralProcessor.room = if (Unreleased.SPATIAL_TUNING) it / 100f else 0f }
 
             dataStore.data.map {
                 it[HeadTrackingResponseKey]?.let { name ->

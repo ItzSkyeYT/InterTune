@@ -61,6 +61,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_strength" translatable="false">Strength</string>
     <string name="spatial_strength_value" translatable="false">%1$d%% of the effect</string>
     <string name="spatial_strength_explain" translatable="false">How much of the spatial effect you hear. Lower mixes the original sound back in.</string>
+    <string name="spatial_room" translatable="false">Room</string>
+    <string name="spatial_room_value" translatable="false">%1$d%% of a small room</string>
+    <string name="spatial_room_explain" translatable="false">Adds the first echoes of a small room round the two speakers. It helps the sound sit in front of you. At 0 there is no room.</string>
     <string name="spatial_bass" translatable="false">Leave the bass alone</string>
     <string name="spatial_bass_description" translatable="false">Low notes skip the effect and keep their weight.</string>
     <string name="stage_width">Stage width</string>

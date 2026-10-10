@@ -136,6 +136,17 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     @Volatile
     var bassDirect: Boolean = false
 
+    /**
+     * How much of a room there is round the two speakers, from 0 to 1. At 0 there is none, as
+     * there never was: two speakers in the open air, which no one has ever listened to. With a
+     * room, each speaker is also heard off the wall beside it, off the wall across and off the
+     * wall behind, a few thousandths of a second late and duller, from where those walls are.
+     * That is most of what tells an ear a sound is out in front and not between the ears.
+     * The first reflections only: there is no tail yet. For two channels in.
+     */
+    @Volatile
+    var room: Float = 0f
+
     // The active harmonics, in the order they are stored. Rebuilt when the ambisonic order
     // changes. Only harmonics that are non-zero in the horizontal plane are carried at all: for a
     // source at zero elevation every harmonic with (n - |m|) odd evaluates to zero, which is six
@@ -196,6 +207,7 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private val dryRight = FloatArray(RING)
     private var dryIndex = 0
     private var delaySamples = 0
+    private var roomShare = 0f
     private var bassDelaySamples = 0
     private val ears = FloatArray(2)
     private val lowPass = FloatArray(5)
@@ -204,6 +216,20 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private val lowState = FloatArray(8)
     private val highState = FloatArray(8)
     private val inputState = FloatArray(8)
+
+    // The room: for each speaker its three reflections ([ROOM]), each a source of its own in the
+    // field, fed from what the speaker played a little earlier. Walked across a buffer as the
+    // speakers are, since they turn with the head as the speakers do.
+    private val roomLeft = FloatArray(ROOM_RING)
+    private val roomRight = FloatArray(ROOM_RING)
+    private var roomIndex = 0
+    private var roomDullLeft = 0f
+    private var roomDullRight = 0f
+    private var roomEncode = FloatArray(0)
+    private var roomTarget = FloatArray(0)
+    private var roomStep = FloatArray(0)
+    private val roomDelay = IntArray(ROOM.size / 3)
+    private var roomRate = -1
 
     // Surround in. A recording in 5.1 or 7.1 is its own loudspeakers: each channel is one more
     // source in the field, standing where its speaker would, and from the harmonics on the
@@ -766,6 +792,12 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             stepLeft[i] = (targetLeft[i] - encodeLeft[i]) * inv
             stepRight[i] = (targetRight[i] - encodeRight[i]) * inv
         }
+        roomShare = room.coerceIn(0f, 1f)
+        if (roomShare > 0f) {
+            layOutRoom(format.sampleRate)
+            encodeRoom(poseBuffer, roomTarget)
+            for (k in roomStep.indices) roomStep[k] = (roomTarget[k] - roomEncode[k]) * inv
+        }
 
         when (format.encoding) {
             C.ENCODING_PCM_16BIT -> repeat(frames) {
@@ -825,7 +857,73 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             encodeLeft[i] += stepLeft[i]
             encodeRight[i] += stepRight[i]
         }
+        if (roomShare > 0f) reflect(l, r)
         decode(harmonics, put)
+    }
+
+    /**
+     * The room's part of one frame, added to the harmonics the two speakers gave: what each
+     * speaker played a few milliseconds ago, duller, from where a wall would send it back. Then
+     * the whole is turned down by what the reflections added, so that a room is not also louder.
+     */
+    private fun reflect(l: Float, r: Float) {
+        // A wall takes the top off a sound. One pole, about 5 kHz at 48.
+        roomDullLeft += ROOM_DULL * (l - roomDullLeft)
+        roomDullRight += ROOM_DULL * (r - roomDullRight)
+        val at = roomIndex
+        roomLeft[at] = roomDullLeft
+        roomRight[at] = roomDullRight
+        roomIndex = (at + 1) and ROOM_MASK
+
+        val walls = roomDelay.size
+        var added = 0f
+        for (wall in 0 until walls) {
+            val level = ROOM[wall * 3 + 2] * roomShare
+            added += level * level
+            val then = (at - roomDelay[wall]) and ROOM_MASK
+            val fromLeft = roomLeft[then] * level
+            val fromRight = roomRight[then] * level
+            var k = wall * 2 * active
+            for (i in 0 until active) {
+                harmonics[i] += fromLeft * roomEncode[k] + fromRight * roomEncode[k + active]
+                roomEncode[k] += roomStep[k]
+                roomEncode[k + active] += roomStep[k + active]
+                k++
+            }
+        }
+        val level = 1f / sqrt(1f + added)
+        for (i in 0 until active) harmonics[i] *= level
+    }
+
+    /** The reflections' delays at this rate, and their arrays for this many harmonics. */
+    private fun layOutRoom(rate: Int) {
+        val size = roomDelay.size * 2 * active
+        if (rate == roomRate && roomEncode.size == size) return
+        roomRate = rate
+        for (wall in roomDelay.indices) {
+            roomDelay[wall] = (ROOM[wall * 3 + 1] * rate / 1000f).roundToInt().coerceIn(1, ROOM_MASK)
+        }
+        roomEncode = FloatArray(size)
+        roomTarget = FloatArray(size)
+        roomStep = FloatArray(size)
+        encodeRoom(IDENTITY, roomEncode)
+    }
+
+    /** [encodeSpeakers] for the reflections: each wall's pair, the left speaker's and its mirror for the right. */
+    private fun encodeRoom(pose: FloatArray, into: FloatArray) {
+        val w = pose[0]
+        val rx = -pose[2]
+        val ry = pose[1]
+        val rz = -pose[3]
+        for (wall in roomDelay.indices) {
+            val angle = ROOM[wall * 3] * PI.toFloat() / 180f
+            rotate(w, rx, ry, rz, cos(angle), sin(angle), 0f, rotated)
+            shInto(rotated, surroundOne)
+            System.arraycopy(surroundOne, 0, into, wall * 2 * active, active)
+            rotate(w, rx, ry, rz, cos(angle), -sin(angle), 0f, rotated)
+            shInto(rotated, surroundOne)
+            System.arraycopy(surroundOne, 0, into, wall * 2 * active + active, active)
+        }
     }
 
     /**
@@ -1033,6 +1131,11 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         Arrays.fill(leftHistory, 0f)
         Arrays.fill(rightHistory, 0f)
         Arrays.fill(surroundHistory, 0f)
+        Arrays.fill(roomLeft, 0f)
+        Arrays.fill(roomRight, 0f)
+        roomDullLeft = 0f
+        roomDullRight = 0f
+        roomIndex = 0
         Arrays.fill(dryLeft, 0f)
         Arrays.fill(dryRight, 0f)
         Arrays.fill(lowState, 0f)
@@ -1052,6 +1155,24 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
          * shadow a sound somewhere above 200 Hz, so nothing under this had a direction to lose.
          */
         const val BASS_HZ = 120.0
+
+        /**
+         * The room, as the left speaker's three first reflections: where each comes from in
+         * degrees (plus is left), how many milliseconds after the speaker itself, and how loud
+         * beside it. The wall at its side, the wall across the room, the wall behind the
+         * listener: a room of about four metres by five with the speakers two and a half metres
+         * off. The right speaker's are these mirrored.
+         */
+        private val ROOM = floatArrayOf(
+            65f, 6.5f, 0.45f,
+            -55f, 11f, 0.32f,
+            160f, 17f, 0.25f,
+        )
+
+        /** Room for the longest of them at 96 kHz. */
+        private const val ROOM_RING = 2048
+        private const val ROOM_MASK = ROOM_RING - 1
+        private const val ROOM_DULL = 0.5f
 
         /** Power of two so the ring index is a mask rather than a modulo. */
         private const val RING = 1024
