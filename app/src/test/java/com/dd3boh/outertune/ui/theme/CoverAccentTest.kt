@@ -11,6 +11,7 @@ import com.google.material.color.scheme.SchemeTonalSpot
 import com.google.material.color.score.Score
 import com.google.material.color.utils.MathUtils
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -187,4 +188,35 @@ class CoverAccentTest {
         /** DefaultThemeColor, which is a Compose colour and so not for a test without Android. */
         const val DefaultThemeColorArgb = 0xFFED5564.toInt()
     }
+
+    // The colour to paint something in, the widget's background.
+
+    @Test
+    fun `a black cover is painted black, not in the bluish scrap the scorer takes`() {
+        assertEquals(0xff101010.toInt(), CoverAccent.paint(blackCover))
+        // Which is what it was painted in: a colour the cover has a fortieth of.
+        assertNotEquals(0xff101010.toInt(), Score.score(blackCover).first())
+    }
+
+    @Test
+    fun `a cover of greys is painted in the grey it has most of, not in the scorer's blue`() {
+        assertEquals(0xff101010.toInt(), CoverAccent.paint(greys))
+        assertEquals(0xff4285f4.toInt(), Score.score(greys).first())
+    }
+
+    @Test
+    fun `no colours at all are painted grey`() {
+        assertEquals(CoverAccent.GREY, CoverAccent.paint(emptyMap()))
+    }
+
+    @Test
+    fun `a cover with a colour to take is painted in the scorer's, as it always was`() {
+        for (cover in listOf(oliveAndGold, blackAndWhitePhoto)) {
+            if (CoverAccent.source(cover) == CoverAccent.GREY) continue
+            assertEquals(Score.score(cover).first(), CoverAccent.paint(cover))
+        }
+        assertNotEquals(CoverAccent.GREY, CoverAccent.source(oliveAndGold))
+        assertEquals(Score.score(oliveAndGold).first(), CoverAccent.paint(oliveAndGold))
+    }
 }
+

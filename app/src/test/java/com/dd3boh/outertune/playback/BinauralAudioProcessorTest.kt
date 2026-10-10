@@ -1407,5 +1407,52 @@ class BinauralAudioProcessorTest {
         val (left, right) = through(p, FloatArray(4000), FloatArray(4000))
         assertEquals(0.0, energy(left) + energy(right), 0.0)
     }
+
+    @Test
+    fun `with everything on, no change of setting in the middle of a song stops it`() {
+        // An exception on the audio thread is a song that stops. Every array the room and the air
+        // keep is as long as the layout, and the layout changes under them: with the order, with
+        // 3D head tracking, with the rate; and their tone and weight change with the stage width.
+        val p = BinauralAudioProcessor().apply {
+            enabled = true
+            room = 1f
+            ambience = 1f
+            strength = 0.6f
+            bassDirect = true
+        }
+        val left = hiss(30, 3000)
+        val right = hiss(31, 3000)
+        fun sound(about: String) {
+            val (l, r) = through(p, left, right)
+            assertTrue(about, l.all { it.isFinite() } && r.all { it.isFinite() })
+            assertTrue("$about: silent", energy(l) + energy(r) > 0.0)
+        }
+        for (third in listOf(false, true, false)) for (sphere in listOf(false, true)) for (rate in listOf(48000, 44100)) {
+            p.thirdOrder = third
+            p.fullSphere = sphere
+            p.configure(stereoFloat(rate))
+            p.flush()
+            sound("third order $third, the whole sphere $sphere, $rate Hz")
+            // In the middle of the song, with no new format: the width, then each control off and on again.
+            p.stageWidthDegrees = 45f
+            sound("the stage widened")
+            p.stageWidthDegrees = 30f
+            p.room = 0f; p.ambience = 0f; p.strength = 1f; p.bassDirect = false
+            sound("everything off")
+            p.room = 0.5f; p.ambience = 0.4f; p.strength = 0.6f; p.bassDirect = true
+            p.headPose = floatArrayOf(0.924f, 0f, 0.383f, 0f)
+            sound("everything on again, the head tipped")
+            p.headPose = null
+            p.room = 1f; p.ambience = 1f
+        }
+        // And a surround recording between two stereo ones, on the same processor.
+        p.configure(surroundFloat(6))
+        p.flush()
+        val six = impulseOf(p, FloatArray(6) { 0.3f }, 600)
+        assertTrue(six.first.all { it.isFinite() } && six.second.all { it.isFinite() })
+        p.configure(stereoFloat())
+        p.flush()
+        sound("stereo again after surround")
+    }
 }
 
