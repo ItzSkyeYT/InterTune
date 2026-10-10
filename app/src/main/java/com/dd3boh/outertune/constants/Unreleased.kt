@@ -217,4 +217,16 @@ object Unreleased {
      * Needs nothing else in the build. To ship: this to true.
      */
     val VISIONOS_IDENTITIES = BuildConfig.DEBUG
+
+    /**
+     * The theme takes as much colour from a cover as the cover has (CoverAccent). A black and
+     * white cover with a tint in it gives controls that are nearly grey, where it gave them in
+     * full colour, and a cover of greys gives grey ones, where it gave blue. A cover in colour
+     * gives what it always did.
+     *
+     * Its numbers were set on fourteen covers and looked at on a Pixel 5. Without it the theme
+     * is the cover's hue at full strength, as before. When it is agreed: set this to true, or
+     * delete it with the two checks that read it, both in Theme.kt.
+     */
+    val COVER_ACCENT = BuildConfig.DEBUG
 }

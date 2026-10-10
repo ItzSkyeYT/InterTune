@@ -210,7 +210,7 @@ import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
 import com.dd3boh.outertune.ui.theme.ColorSaver
 import com.dd3boh.outertune.ui.theme.DefaultThemeColor
 import com.dd3boh.outertune.ui.theme.OuterTuneTheme
-import com.dd3boh.outertune.ui.theme.extractThemeColor
+import com.dd3boh.outertune.ui.theme.extractThemeSource
 import com.dd3boh.outertune.ui.utils.appBarScrollBehavior
 import com.dd3boh.outertune.ui.utils.blockFocusWhen
 import androidx.compose.ui.input.InputMode
@@ -749,7 +749,7 @@ class MainActivity : ComponentActivity() {
                                     .build()
                             )
 
-                            ret = result.image?.toBitmap()?.extractThemeColor() ?: DefaultThemeColor
+                            ret = result.image?.toBitmap()?.extractThemeSource() ?: DefaultThemeColor
                         }
                         ret
                     }

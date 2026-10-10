@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.palette.graphics.Palette
+import com.dd3boh.outertune.constants.Unreleased
 import com.google.material.color.dynamiccolor.DynamicScheme
 import com.google.material.color.hct.Hct
 import com.google.material.color.scheme.SchemeTonalSpot
@@ -67,7 +68,8 @@ fun OuterTuneTheme(
                 systemTheme
             }
         } else {
-            SchemeTonalSpot(Hct.fromInt(themeColor.toArgb()), darkTheme, 0.0)
+            val source = Hct.fromInt(themeColor.toArgb())
+            (if (Unreleased.COVER_ACCENT) CoverAccent.scheme(source, darkTheme) else SchemeTonalSpot(source, darkTheme, 0.0))
                 .toColorScheme()
                 .pureBlack(darkTheme && pureBlack)
         }
@@ -96,14 +98,24 @@ private val KeyFocusRippleAlpha = RippleAlpha(
 )
 
 fun Bitmap.extractThemeColor(): Color {
-    val colorsToPopulation = Palette.from(this)
+    val rankedColors = Score.score(mainColours())
+    return Color(rankedColors.first())
+}
+
+/**
+ * The colour the app's theme is built from: [extractThemeColor]'s, or with [CoverAccent] the same
+ * hue with a chroma that says how much colour the cover has of it.
+ */
+fun Bitmap.extractThemeSource(): Color =
+    if (Unreleased.COVER_ACCENT) Color(CoverAccent.source(mainColours())) else extractThemeColor()
+
+/** A cover's main colours, and how many of its pixels each stands for. */
+private fun Bitmap.mainColours(): Map<Int, Int> =
+    Palette.from(this)
         .maximumColorCount(8)
         .generate()
         .swatches
         .associate { it.rgb to it.population }
-    val rankedColors = Score.score(colorsToPopulation)
-    return Color(rankedColors.first())
-}
 
 /**
  * Two colours taken from the artwork, for the player background gradient.
