@@ -83,9 +83,12 @@ object CoverAccent {
      * bluish scrap of a black cover, and a widget painted in that is not the cover's colour at
      * all: such a cover gives the colour it has most of, which for a black one is its black.
      */
-    fun paint(colorsToPopulation: Map<Int, Int>): Int {
+    fun paint(colorsToPopulation: Map<Int, Int>, everyColour: Map<Int, Int> = colorsToPopulation): Int {
         if (source(colorsToPopulation) != GREY) return Score.score(colorsToPopulation).first()
-        return colorsToPopulation.maxByOrNull { it.value }?.key ?: GREY
+        // [everyColour] is the cover with nothing left out. The colours a theme is taken from
+        // come without the nearly black and the nearly white, which a black cover is made of:
+        // asked for its commonest colour among the rest, it had none, or the grey round its lettering.
+        return everyColour.maxByOrNull { it.value }?.key ?: GREY
     }
 
     /** The part of the usual strength a source colour of [chroma] is given, from 0 to 1. */

@@ -136,4 +136,18 @@ class SettingsTwoPaneTest {
         assertEquals("settings/player", settingsChosen(listOf("settings/player"), listed))
         assertEquals("settings/recommendations", settingsChosen(listOf("settings/player", "settings/recommendations", "settings/recommendations/data"), listed))
     }
+
+    @Test
+    fun `what the pane holds can be put away and brought back`() {
+        // It is kept across a rotation, which takes something that can be written out. A view
+        // onto another list cannot, and going back to a screen underneath used to hand one over.
+        val open = listOf("settings/recommendations", "settings/recommendations/doing", "settings/recommendations/developer")
+        for (kept in listOf(asked(open, "settings/recommendations/doing"), asked(open, "settings/recommendations/doing", over = true), asked(open, "settings/recommendations"))) {
+            assertTrue(kept is java.io.Serializable)
+            val out = java.io.ByteArrayOutputStream()
+            java.io.ObjectOutputStream(out).use { it.writeObject(kept) }
+            assertTrue(out.size() > 0)
+        }
+    }
 }
+
