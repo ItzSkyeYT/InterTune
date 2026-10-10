@@ -298,4 +298,21 @@ object Unreleased {
      * strings, DirectAmbientSplit and everything named "air" in BinauralAudioProcessor.
      */
     val DIRECT_AMBIENT = BuildConfig.DEBUG
+
+    /**
+     * What Android Auto is shown, reworked for somebody who is driving (AutoBrowse): a first
+     * tab, "For you", of covers that play at a tap (the queue there is, the liked songs and the
+     * downloads shuffled, then Quick picks, Keep listening and Forgotten favourites), playlists
+     * as covers that open on a Shuffle row, a library of albums and artists as covers with its
+     * songs newest first and capped, and a tab of what was played lately. And covers at all:
+     * the car loads a picture from one of the app's own addresses and not from the web, so
+     * every cover was a grey square; AutoArtProvider now serves them.
+     *
+     * Without it the car gets the four lists it always had, Songs, Artists, Albums and
+     * Playlists, and the provider is asked for nothing. Seen in the desktop head unit against a
+     * Pixel 5; not in a car. To drop it: this flag, AutoBrowse and AutoArtProvider with its
+     * entry in the manifest, the branches that read the flag in MediaLibrarySessionCallback, the
+     * four kinds of request it added to PlayRequest, three drawables and six strings.
+     */
+    val AUTO_REWORK = BuildConfig.DEBUG
 }

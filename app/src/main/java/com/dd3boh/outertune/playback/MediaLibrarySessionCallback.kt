@@ -15,6 +15,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC
 import androidx.media3.common.Player
 import androidx.media3.session.LibraryResult
+import androidx.media3.session.MediaConstants
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaLibraryService.MediaLibrarySession
 import androidx.media3.session.MediaSession
@@ -25,6 +26,7 @@ import androidx.media3.session.SessionResult
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.MediaSessionConstants
 import com.dd3boh.outertune.constants.SongSortType
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.db.entities.Song
@@ -34,6 +36,11 @@ import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.extensions.toggleShuffleMode
 import com.dd3boh.outertune.utils.albumWithOrderedSongs
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.widget.WidgetList
+import com.dd3boh.outertune.widget.WidgetStore
+import com.zionhuang.innertube.YouTube
+import com.zionhuang.innertube.models.SongItem
+import com.dd3boh.outertune.models.toMediaMetadata
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.AsyncFunction
 import com.google.common.util.concurrent.Futures
@@ -54,6 +61,9 @@ import javax.inject.Inject
 
 /** The longest a request to play waits for the saved queues to load at the service's start. */
 private const val QUEUES_LOADED_TIMEOUT_MS = 5_000L
+private const val SEARCH_ONLINE_MS = 6_000L
+private const val LIST = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM
+private const val GRID = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
 
 class MediaLibrarySessionCallback @Inject constructor(
     @ApplicationContext val context: Context,
@@ -66,6 +76,10 @@ class MediaLibrarySessionCallback @Inject constructor(
     // with it until the service was restarted.
     private val scope = CoroutineScope(Dispatchers.Main) + SupervisorJob()
     lateinit var service: MusicService
+
+    /** The last search of the car that YouTube Music answered, and its answer. See [searchCar]. */
+    @Volatile
+    private var searchedOnline: Pair<String, List<Song>>? = null
     var toggleLike: () -> Unit = {}
     var toggleStartRadio: () -> Unit = {}
     var toggleLibrary: () -> Unit = {}
@@ -183,7 +197,7 @@ class MediaLibrarySessionCallback @Inject constructor(
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future(Dispatchers.IO) {
         LibraryResult.ofItemList(
             when (parentId) {
-                MusicService.ROOT -> listOf(
+                MusicService.ROOT -> if (Unreleased.AUTO_REWORK) carTabs() else listOf(
                     browsableMediaItem(
                         MusicService.SONG,
                         context.getString(R.string.songs),
@@ -214,13 +228,16 @@ class MediaLibrarySessionCallback @Inject constructor(
                     )
                 )
 
-                MusicService.SONG -> database.songsByCreateDateAsc().first().map { it.toMediaItem(parentId) }
+                AutoBrowse.HOME -> forYou()
+                AutoBrowse.LIBRARY -> carLibrary()
+                AutoBrowse.RECENT -> recentSongs().map { it.toMediaItem(parentId) }
+                MusicService.SONG -> librarySongs().map { it.toMediaItem(parentId) }
                 MusicService.ARTIST -> database.artistsInLibraryAsc().first().map { artist ->
                     browsableMediaItem(
                         "${MusicService.ARTIST}/${artist.id}",
                         artist.artist.name,
                         context.resources.getQuantityString(R.plurals.n_song, artist.songCount, artist.songCount),
-                        artist.artist.thumbnailUrl?.toUri(),
+                        cover(AutoArt.ARTIST, artist.id, artist.artist.thumbnailUrl),
                         MediaMetadata.MEDIA_TYPE_ARTIST
                     )
                 }
@@ -230,7 +247,7 @@ class MediaLibrarySessionCallback @Inject constructor(
                         "${MusicService.ALBUM}/${album.id}",
                         album.album.title,
                         album.artists.joinToString { it.name },
-                        album.album.thumbnailUrl?.toUri(),
+                        cover(AutoArt.ALBUM, album.id, album.album.thumbnailUrl),
                         MediaMetadata.MEDIA_TYPE_ALBUM
                     )
                 }
@@ -243,7 +260,7 @@ class MediaLibrarySessionCallback @Inject constructor(
                             "${MusicService.PLAYLIST}/${PlaylistEntity.LIKED_PLAYLIST_ID}",
                             context.getString(R.string.liked_songs),
                             context.resources.getQuantityString(R.plurals.n_song, likedSongCount, likedSongCount),
-                            drawableUri(R.drawable.favorite),
+                            if (Unreleased.AUTO_REWORK && likedSongCount > 0) AutoArt.uri(context, AutoArt.PLAYLIST, PlaylistEntity.LIKED_PLAYLIST_ID) else drawableUri(R.drawable.favorite),
                             MediaMetadata.MEDIA_TYPE_PLAYLIST
                         ),
                         browsableMediaItem(
@@ -254,7 +271,7 @@ class MediaLibrarySessionCallback @Inject constructor(
                                 downloadedSongCount,
                                 downloadedSongCount
                             ),
-                            drawableUri(R.drawable.download),
+                            if (Unreleased.AUTO_REWORK && downloadedSongCount > 0) AutoArt.uri(context, AutoArt.PLAYLIST, PlaylistEntity.DOWNLOADED_PLAYLIST_ID) else drawableUri(R.drawable.download),
                             MediaMetadata.MEDIA_TYPE_PLAYLIST
                         )
                     ) + database.playlistInLibraryAsc().first().map { playlist ->
@@ -266,7 +283,7 @@ class MediaLibrarySessionCallback @Inject constructor(
                                 playlist.songCount,
                                 playlist.songCount
                             ),
-                            drawableUri(R.drawable.queue_music),
+                            if (Unreleased.AUTO_REWORK && playlist.songCount > 0) AutoArt.uri(context, AutoArt.PLAYLIST, playlist.id) else drawableUri(R.drawable.queue_music),
                             MediaMetadata.MEDIA_TYPE_PLAYLIST
                         )
                     }
@@ -284,16 +301,12 @@ class MediaLibrarySessionCallback @Inject constructor(
                             it.toMediaItem(parentId)
                         }
 
-                    parentId.startsWith("${MusicService.PLAYLIST}/") ->
-                        when (val playlistId = parentId.removePrefix("${MusicService.PLAYLIST}/")) {
-                            PlaylistEntity.LIKED_PLAYLIST_ID -> database.likedSongs(SongSortType.CREATE_DATE, true)
-                            PlaylistEntity.DOWNLOADED_PLAYLIST_ID -> database.downloadNoLocalSongs()
-                            else -> database.playlistSongs(playlistId).map { list ->
-                                list.map { it.song }
-                            }
-                        }.first().map {
-                            it.toMediaItem(parentId)
-                        }
+                    parentId.startsWith("${MusicService.PLAYLIST}/") -> {
+                        val playlistId = parentId.removePrefix("${MusicService.PLAYLIST}/")
+                        val songs = playlistSongs(playlistId).map { it.toMediaItem(parentId) }
+                        // In the car a playlist opens on the one thing most often wanted of it.
+                        if (Unreleased.AUTO_REWORK && songs.size > 1) listOf(shuffleRow(playlistId, songs.size)) + songs else songs
+                    }
 
                     else -> emptyList()
                 }
@@ -364,24 +377,30 @@ class MediaLibrarySessionCallback @Inject constructor(
             if (request.requestMetadata.mediaUri != null) return null
             val query = request.requestMetadata.searchQuery?.trim().orEmpty()
             if (query.isEmpty()) return continueCurrentQueue()
-            return startExternalQueue(searchLibrary(query).map { it.toMediaItem() }, 0, C.TIME_UNSET)
+            return startExternalQueue(searchCar(query).map { it.toMediaItem() }, 0, C.TIME_UNSET)
         }
 
         val target = PlayRequest.parse(mediaId) ?: return null
         Log.d(TAG, "Play request: $target")
+        if (target is PlayRequest.Resume) return continueCurrentQueue()
+        if (target is PlayRequest.Shuffle) {
+            val list = when {
+                target.list == AutoBrowse.LIKED -> playlistSongs(PlaylistEntity.LIKED_PLAYLIST_ID)
+                target.list == AutoBrowse.DOWNLOADED -> playlistSongs(PlaylistEntity.DOWNLOADED_PLAYLIST_ID)
+                else -> playlistSongs(target.list.removePrefix(AutoBrowse.PLAYLIST_PREFIX))
+            }
+            return startExternalQueue(list.shuffled().map { it.toMediaItem() }, 0, C.TIME_UNSET)
+        }
         val songs: List<Song> = when (target) {
-            is PlayRequest.Song -> database.songsByCreateDateAsc().first()
+            is PlayRequest.Song -> librarySongs()
+            is PlayRequest.Home -> homeSongs(target.section)
+            is PlayRequest.Recent -> recentSongs()
+            is PlayRequest.Resume, is PlayRequest.Shuffle -> return null
             is PlayRequest.Artist -> database.artistSongsByCreateDateAsc(target.artistId).first()
             is PlayRequest.Album -> database.albumWithOrderedSongs(target.albumId).first()?.songs ?: return null
-            is PlayRequest.Playlist -> when (target.playlistId) {
-                PlaylistEntity.LIKED_PLAYLIST_ID -> database.likedSongs(SongSortType.CREATE_DATE, descending = true)
-                PlaylistEntity.DOWNLOADED_PLAYLIST_ID -> database.downloadNoLocalSongs()
-                else -> database.playlistSongs(target.playlistId).map { list ->
-                    list.map { it.song }
-                }
-            }.first()
+            is PlayRequest.Playlist -> playlistSongs(target.playlistId)
 
-            is PlayRequest.Search -> searchLibrary(target.query)
+            is PlayRequest.Search -> searchCar(target.query)
         }
         // A stale or removed id (the car's own cache, or a replayed history entry) is a request
         // this cannot place, the same as the Album-not-found case above: fail it rather than
@@ -442,6 +461,39 @@ class MediaLibrarySessionCallback @Inject constructor(
         return MediaItemsWithStartPosition(items, startIndex, startPositionMs)
     }
 
+    /**
+     * What a search from the car finds: the library's answer, and since the rework YouTube
+     * Music's own after it. A driver says the name of a song and expects it to play; from the
+     * library alone, a song never played before was "nothing found". What YouTube Music answers
+     * is written into the library's table of songs seen, as anything shown anywhere in the app
+     * is, which is what lets it be played and its cover be served. Its failing, or its taking
+     * too long, leaves the library's answer as it was.
+     */
+    private suspend fun searchCar(query: String): List<Song> {
+        val library = searchLibrary(query)
+        if (!Unreleased.AUTO_REWORK || library.size >= AutoBrowse.MOST || query.trim().length < 3) return library
+        // The car asks again at every letter typed and once more for the list it then shows, and
+        // the tap that plays a result asks a third time: the same question is asked of YouTube
+        // Music once.
+        searchedOnline?.takeIf { it.first == query }?.let { return (library + it.second).distinctBy { song -> song.id } }
+        val found = withTimeoutOrNull(SEARCH_ONLINE_MS) {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrThrow().items
+                        .filterIsInstance<SongItem>()
+                        .take(AutoBrowse.MOST)
+                        .mapNotNull { item ->
+                            val seen = item.toMediaMetadata()
+                            runCatching { database.insert(seen) }
+                            database.song(seen.id).first()
+                        }
+                }.onFailure { Log.w(TAG, "YouTube Music gave the car's search nothing", it) }.getOrDefault(emptyList())
+            }
+        }.orEmpty()
+        if (found.isNotEmpty()) searchedOnline = query to found
+        return (library + found).distinctBy { it.id }
+    }
+
     /** The library search the search results list, so a spoken query plays what a typed one shows. */
     private suspend fun searchLibrary(query: String): List<Song> = combine(
         database.searchSongs(query),
@@ -478,7 +530,7 @@ class MediaLibrarySessionCallback @Inject constructor(
             try {
                 // Playable and not browsable. Marked both, a result could open as a folder in the
                 // car, and a search result has no children, so it opened empty.
-                val items = searchLibrary(query)
+                val items = searchCar(query)
                     .map {
                         it.toMediaItem(
                             path = "${MusicService.SEARCH}/$query",
@@ -507,7 +559,8 @@ class MediaLibrarySessionCallback @Inject constructor(
         title: String,
         subtitle: String?,
         iconUri: Uri?,
-        mediaType: Int = MediaMetadata.MEDIA_TYPE_MUSIC
+        mediaType: Int = MediaMetadata.MEDIA_TYPE_MUSIC,
+        extras: Bundle? = null,
     ) =
         MediaItem.Builder()
             .setMediaId(id)
@@ -520,11 +573,12 @@ class MediaLibrarySessionCallback @Inject constructor(
                     .setIsPlayable(false)
                     .setIsBrowsable(true)
                     .setMediaType(mediaType)
+                    .setExtras(extras)
                     .build()
             )
             .build()
 
-    private fun Song.toMediaItem(path: String, isPlayable: Boolean = true, isBrowsable: Boolean = false) =
+    private fun Song.toMediaItem(path: String, isPlayable: Boolean = true, isBrowsable: Boolean = false, group: String? = null) =
         MediaItem.Builder()
             .setMediaId("$path/$id")
             .setMediaMetadata(
@@ -532,13 +586,170 @@ class MediaLibrarySessionCallback @Inject constructor(
                     .setTitle(song.title)
                     .setSubtitle(artists.joinToString { it.name })
                     .setArtist(artists.joinToString { it.name })
-                    .setArtworkUri(song.thumbnailUrl?.toUri())
+                    .setArtworkUri(cover(AutoArt.SONG, id, song.thumbnailUrl))
                     .setIsPlayable(isPlayable)
                     .setIsBrowsable(isBrowsable)
                     .setMediaType(MEDIA_TYPE_MUSIC)
+                    .setExtras(group?.let { style(group = it) })
                     .build()
             )
             .build()
+
+    // What the car is shown since the rework: see AutoBrowse.
+
+    /**
+     * A cover's address for the car: one of the app's own, which the car can load, where the web
+     * address the library holds is one it cannot (every cover was a grey square for that).
+     */
+    private fun cover(kind: String, id: String, stored: String?): Uri? =
+        if (Unreleased.AUTO_REWORK) AutoArt.uri(context, kind, id) else stored?.toUri()
+
+    /** How the car lays out what a node holds, and the heading an item stands under. */
+    private fun style(playable: Int? = null, browsable: Int? = null, group: String? = null) = Bundle().apply {
+        playable?.let { putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_PLAYABLE, it) }
+        browsable?.let { putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_BROWSABLE, it) }
+        group?.let { putString(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_GROUP_TITLE, it) }
+    }
+
+    /** The four tabs: something to play at once, the playlists, the library, what was played lately. */
+    private fun carTabs(): List<MediaItem> = listOf(
+        browsableMediaItem(
+            AutoBrowse.HOME, context.getString(R.string.auto_for_you), null, drawableUri(R.drawable.auto_home),
+            MediaMetadata.MEDIA_TYPE_FOLDER_MIXED, style(playable = GRID, browsable = GRID),
+        ),
+        browsableMediaItem(
+            MusicService.PLAYLIST, context.getString(R.string.playlists), null, drawableUri(R.drawable.queue_music),
+            MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS, style(playable = LIST, browsable = GRID),
+        ),
+        browsableMediaItem(
+            AutoBrowse.LIBRARY, context.getString(R.string.library), null, drawableUri(R.drawable.auto_library),
+            MediaMetadata.MEDIA_TYPE_FOLDER_MIXED, style(playable = LIST, browsable = LIST),
+        ),
+        browsableMediaItem(
+            AutoBrowse.RECENT, context.getString(R.string.auto_recent), null, drawableUri(R.drawable.auto_recent),
+            MediaMetadata.MEDIA_TYPE_PLAYLIST, style(playable = LIST),
+        ),
+    )
+
+    /** For you: what to carry on with or shuffle, then Home's own rows, each under its name. */
+    private suspend fun forYou(): List<MediaItem> {
+        val items = ArrayList<MediaItem>()
+        val jump = context.getString(R.string.auto_jump_back_in)
+        // What is in the player, or with nothing there the queue that was left off, which is what
+        // carrying on then loads.
+        val playing = withContext(Dispatchers.Main) { service.player.currentMediaItem?.metadata }
+            ?: runCatching { database.getResumptionQueue()?.getCurrentSong() }.getOrNull()
+        if (playing != null) {
+            items += action("${AutoBrowse.RESUME}/queue", context.getString(R.string.auto_carry_on), playing.title, AutoArt.uri(context, AutoArt.SONG, playing.id), jump)
+        }
+        val liked = database.likedSongsCount().first()
+        if (liked > 1) {
+            // A tile's name is cut after a dozen letters or so: the name says which songs, and
+            // the line under it that they come shuffled.
+            items += action(
+                "${AutoBrowse.SHUFFLE}/${AutoBrowse.LIKED}", context.getString(R.string.auto_shuffle_liked),
+                context.getString(R.string.auto_shuffled, context.resources.getQuantityString(R.plurals.n_song, liked, liked)),
+                AutoArt.uri(context, AutoArt.PLAYLIST, PlaylistEntity.LIKED_PLAYLIST_ID), jump,
+            )
+        }
+        val downloaded = downloadUtil.downloads.value.size
+        if (downloaded > 1) {
+            items += action(
+                "${AutoBrowse.SHUFFLE}/${AutoBrowse.DOWNLOADED}", context.getString(R.string.auto_shuffle_downloads),
+                context.getString(R.string.auto_shuffled, context.resources.getQuantityString(R.plurals.n_song, downloaded, downloaded)),
+                AutoArt.uri(context, AutoArt.PLAYLIST, PlaylistEntity.DOWNLOADED_PLAYLIST_ID), jump,
+            )
+        }
+        val names = mapOf(
+            AutoBrowse.QUICK to R.string.quick_picks, AutoBrowse.KEEP to R.string.keep_listening, AutoBrowse.FORGOTTEN to R.string.forgotten_favorites,
+        )
+        for (section in AutoBrowse.SECTIONS) {
+            val heading = context.getString(names.getValue(section))
+            items += homeSongs(section).map { it.toMediaItem("${AutoBrowse.HOME}/$section", group = heading) }
+        }
+        return items
+    }
+
+    /** The library's three ways in: covers for albums and artists, a list for songs. */
+    private fun carLibrary(): List<MediaItem> = listOf(
+        browsableMediaItem(
+            MusicService.ALBUM, context.getString(R.string.albums), null, drawableUri(R.drawable.album),
+            MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS, style(playable = LIST, browsable = GRID),
+        ),
+        browsableMediaItem(
+            MusicService.ARTIST, context.getString(R.string.artists), null, drawableUri(R.drawable.artist),
+            MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS, style(playable = LIST, browsable = GRID),
+        ),
+        browsableMediaItem(
+            MusicService.SONG, context.getString(R.string.songs), null, drawableUri(R.drawable.music_note),
+            MediaMetadata.MEDIA_TYPE_PLAYLIST, style(playable = LIST),
+        ),
+    )
+
+    /** Something that plays at a tap and is not a song: the queue carried on with, a list shuffled. */
+    private fun action(id: String, title: String, subtitle: String?, art: Uri?, group: String? = null) =
+        MediaItem.Builder()
+            .setMediaId(id)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(title)
+                    .setSubtitle(subtitle)
+                    .setArtist(subtitle)
+                    .setArtworkUri(art)
+                    .setIsPlayable(true)
+                    .setIsBrowsable(false)
+                    .setMediaType(MediaMetadata.MEDIA_TYPE_PLAYLIST)
+                    .setExtras(group?.let { style(group = it) })
+                    .build()
+            )
+            .build()
+
+    private fun shuffleRow(playlistId: String, count: Int): MediaItem {
+        val list = when (playlistId) {
+            PlaylistEntity.LIKED_PLAYLIST_ID -> AutoBrowse.LIKED
+            PlaylistEntity.DOWNLOADED_PLAYLIST_ID -> AutoBrowse.DOWNLOADED
+            else -> AutoBrowse.PLAYLIST_PREFIX + playlistId
+        }
+        return action(
+            "${AutoBrowse.SHUFFLE}/$list", context.getString(R.string.shuffle),
+            context.resources.getQuantityString(R.plurals.n_song, count, count), drawableUri(R.drawable.shuffle_on),
+        )
+    }
+
+    /** The songs of a playlist, the liked and the downloaded ones being playlists for this. */
+    private suspend fun playlistSongs(playlistId: String): List<Song> = when (playlistId) {
+        PlaylistEntity.LIKED_PLAYLIST_ID -> database.likedSongs(SongSortType.CREATE_DATE, descending = true)
+        PlaylistEntity.DOWNLOADED_PLAYLIST_ID -> database.downloadNoLocalSongs()
+        else -> database.playlistSongs(playlistId).map { list -> list.map { it.song } }
+    }.first()
+
+    /**
+     * The library's songs as the car lists them and plays on through them: all of them, oldest
+     * first, as it always was; since the rework the newest first, and no more than a driver
+     * would ever scroll through.
+     */
+    private suspend fun librarySongs(): List<Song> {
+        val all = database.songsByCreateDateAsc().first()
+        return if (Unreleased.AUTO_REWORK) all.asReversed().take(AutoBrowse.MOST_SONGS) else all
+    }
+
+    /** One of Home's rows, the same queries Home and the widget use: what is shown is what plays. */
+    private suspend fun homeSongs(section: String): List<Song> = when (section) {
+        AutoBrowse.QUICK -> {
+            val library = database.quickPicks().first()
+            val shown = runCatching { WidgetStore.read(context).list(WidgetList.QUICK_PICKS).map { it.id } }.getOrDefault(emptyList())
+            val byId = library.associateBy { it.id }
+            AutoBrowse.picks(shown, library.map { it.id }).mapNotNull { byId[it] ?: database.song(it).first() }
+        }
+
+        AutoBrowse.KEEP -> database.mostPlayedSongs(System.currentTimeMillis() - 14L * 86_400_000L, limit = AutoBrowse.MOST).first()
+        AutoBrowse.FORGOTTEN -> database.forgottenFavorites().first().take(AutoBrowse.MOST)
+        else -> emptyList()
+    }
+
+    /** What was played lately, newest first, a song once however often it was played. */
+    private suspend fun recentSongs(): List<Song> =
+        database.historyPlays().first().mapNotNull { it.song }.distinctBy { it.id }.take(AutoBrowse.MOST_RECENT)
 
     private fun com.dd3boh.outertune.models.MediaMetadata.toMediaItem(isPlayable: Boolean = true, isBrowsable: Boolean = false) = MediaItem.Builder()
         .setMediaId(id)
