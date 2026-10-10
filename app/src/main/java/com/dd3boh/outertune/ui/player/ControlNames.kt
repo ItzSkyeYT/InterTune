@@ -28,6 +28,16 @@ internal fun Modifier.named(name: String): Modifier = semantics {
     role = Role.Button
 }
 
+/**
+ * The two buttons that jump back and on within the song, shown when a seek step is set. In
+ * Media3's own words for them, the ones its notification buttons carry, so they are translated.
+ */
+@Composable
+internal fun seekBackName(): String = stringResource(androidx.media3.session.R.string.media3_controls_seek_back_description)
+
+@Composable
+internal fun seekForwardName(): String = stringResource(androidx.media3.session.R.string.media3_controls_seek_forward_description)
+
 /** Shuffle is said as it stands, like the picture: on or off. */
 @Composable
 internal fun shuffleName(on: Boolean): String =

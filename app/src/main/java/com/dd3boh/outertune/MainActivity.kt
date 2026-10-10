@@ -1532,10 +1532,13 @@ class MainActivity : ComponentActivity() {
                                 NavigationBar(
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
-                                        .blockFocusWhen(screenCovered)
-                                        .dpadOverlay()
-                                        .dpadTabBar()
-                                        .height(bottomInset + getNavPadding())
+                                        // The slide comes first, so that what follows goes with the
+                                        // bar. The three below mark it for the arrow keys with
+                                        // semantics of their own, and while they stood before the
+                                        // slide that mark stayed over the foot of the window with
+                                        // the bar gone under an open player: the queue's row of
+                                        // buttons, which is exactly there, counted as covered and
+                                        // no screen reader could reach it.
                                         .offset {
                                             if (navigationBarHeight == 0.dp) {
                                                 IntOffset(
@@ -1556,6 +1559,10 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             }
                                         }
+                                        .blockFocusWhen(screenCovered)
+                                        .dpadOverlay()
+                                        .dpadTabBar()
+                                        .height(bottomInset + getNavPadding())
                                         .then(
                                             if (navGlass) {
                                                 Modifier
