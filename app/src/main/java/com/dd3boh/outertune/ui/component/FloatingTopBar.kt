@@ -33,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -140,12 +141,14 @@ fun FloatingTopBar(
                     .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(
-                    modifier = Modifier.backButtonSurface(),
-                    onClick = onBack,
-                    onLongClick = onLongBack,
-                ) {
-                    Icon(BackChevron, contentDescription = stringResource(R.string.back))
+                if (LocalTopBarBack.current) {
+                    IconButton(
+                        modifier = Modifier.backButtonSurface(),
+                        onClick = onBack,
+                        onLongClick = onLongBack,
+                    ) {
+                        Icon(BackChevron, contentDescription = stringResource(R.string.back))
+                    }
                 }
                 Box(
                     modifier = Modifier
@@ -158,6 +161,12 @@ fun FloatingTopBar(
         }
     }
 }
+
+/**
+ * Whether a bar has its way back. False for a screen drawn beside the list it was chosen from
+ * (SettingsTwoPane): the list's own bar has the one way back there, and this one is a title.
+ */
+val LocalTopBarBack = staticCompositionLocalOf { true }
 
 /** The title pill's text: bold, about 18sp, which is what Samsung's measured. */
 val TopBarTitleStyle: TextStyle

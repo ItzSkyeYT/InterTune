@@ -241,4 +241,16 @@ object Unreleased {
      * in Player.kt.
      */
     val GLASS_QUEUE = BuildConfig.DEBUG
+
+    /**
+     * Settings in a wide window, a phone on its side or a tablet, as two panes: the list of
+     * screens stays on the left and the one chosen is open on the right (SettingsTwoPane), where
+     * the list was four cards set two by two that showed three rows. Needs LANDSCAPE, which is
+     * what measures the window.
+     *
+     * A first cut, seen on an emulator. What a screen leads on to still opens over the whole
+     * window. Without it the list is the cards. When it is agreed: set this to true, or delete it
+     * with the one check that reads it, in SettingsScreen.
+     */
+    val SETTINGS_TWO_PANE = BuildConfig.DEBUG
 }
