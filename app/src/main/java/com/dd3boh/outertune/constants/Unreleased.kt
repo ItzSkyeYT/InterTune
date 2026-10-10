@@ -187,9 +187,9 @@ object Unreleased {
      * it gives is in a cipher NewPipeExtractor can no longer undo. So with the switch on that
      * address goes to a solver instead (utils/cipher): yt-dlp's, run in a WebView. Everything
      * round the solver is built and tested with a stand-in for it. The solver's own two files
-     * are not in the tree yet, and until they are the switch does what it did that day.
-     * Delete it with the two checks that read it, in MusicService and DeveloperFrag, and with
-     * utils/cipher if the solver is not kept, once it has served its purpose.
+     * are in assets/solver since 10 Oct 2026, with their licence beside them, and with them the
+     * address plays. Delete it with the two checks that read it, in MusicService and
+     * DeveloperFrag, once it has served its purpose: the fallback below does not need it.
      */
     val WEB_CLIENT_FIRST = BuildConfig.DEBUG
 
@@ -204,7 +204,7 @@ object Unreleased {
      * token made, no WebView opened.
      *
      * Needs the solver's files in the build (assets/solver) and does nothing without them.
-     * To ship: this to true, and the files' place in the tree agreed.
+     * They are in the tree since 10 Oct 2026, so every build has them. To ship: this to true.
      */
     val WEB_FALLBACK = BuildConfig.DEBUG
 
