@@ -1515,5 +1515,37 @@ class BinauralAudioProcessorTest {
         val (left, right) = through(p, FloatArray(3000), FloatArray(3000))
         assertEquals(0.0, energy(left) + energy(right), 0.0)
     }
+
+    @Test
+    fun `with the air moved out the end of a song is not cut off`() {
+        // The split gives back each frame of the recording one frame late, and the sink ends the
+        // stream at every change of song: what the split still held then was lost, 21 thousandths
+        // of a second off the end of every song.
+        val left = hiss(50, 5000)
+        val right = hiss(51, 5000)
+        val p = spread(1f, strength = 0.7f)
+        val heard = through(p, left, right)
+        p.queueEndOfStream()
+        val tail = p.output
+        assertEquals(late * 8, tail.remaining())
+        val tailLeft = FloatArray(late)
+        val tailRight = FloatArray(late)
+        for (n in 0 until late) { tailLeft[n] = tail.float; tailRight[n] = tail.float }
+        assertTrue(p.isEnded)
+        // It is what a recording with that much silence after it gives, sample for sample.
+        val whole = through(spread(1f, strength = 0.7f), left + FloatArray(late), right + FloatArray(late))
+        assertArrayEquals(whole.first, heard.first + tailLeft, 1e-6f)
+        assertArrayEquals(whole.second, heard.second + tailRight, 1e-6f)
+        assertTrue("the end of the song is in it", energy(tailLeft) > 0.0)
+    }
+
+    @Test
+    fun `without the air nothing is added at the end of a song`() {
+        val p = stereo(third = true, share = 0.5f, bass = true)
+        through(p, hiss(52, 3000), hiss(53, 3000))
+        p.queueEndOfStream()
+        assertEquals(0, p.output.remaining())
+        assertTrue(p.isEnded)
+    }
 }
 

@@ -114,12 +114,14 @@ fun Bitmap.extractThemeSource(): Color =
  * [extractThemeColor]'s, or with [CoverAccent] the cover's commonest colour when it has none to take.
  */
 fun Bitmap.extractCoverColor(): Color =
-    if (Unreleased.COVER_ACCENT) Color(CoverAccent.paint(mainColours())) else extractThemeColor()
+    if (Unreleased.COVER_ACCENT) Color(CoverAccent.paint(mainColours(), mainColours(everything = true))) else extractThemeColor()
 
 /** A cover's main colours, and how many of its pixels each stands for. */
-private fun Bitmap.mainColours(): Map<Int, Int> =
+private fun Bitmap.mainColours(everything: Boolean = false): Map<Int, Int> =
     Palette.from(this)
         .maximumColorCount(8)
+        // Palette leaves out what is nearly black or nearly white unless it is told not to.
+        .apply { if (everything) clearFilters() }
         .generate()
         .swatches
         .associate { it.rgb to it.population }

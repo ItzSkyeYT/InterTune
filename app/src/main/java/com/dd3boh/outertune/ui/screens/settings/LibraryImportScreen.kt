@@ -58,6 +58,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.migration.ImportParse
 import com.dd3boh.outertune.migration.ImportRun
 import com.dd3boh.outertune.migration.LibraryImport
+import com.dd3boh.outertune.ui.component.LocalTopBarUp
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.items.YouTubeListItem
@@ -81,6 +82,7 @@ fun LibraryImportScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val session = viewModel.session
+    val paneUp = LocalTopBarUp.current
 
     // Providers disagree about what a CSV is called, so the list is wide, and anything that is
     // not an export gets a plain answer from the parser rather than a greyed out file.
@@ -146,7 +148,9 @@ fun LibraryImportScreen(
                     onCreate = session::create,
                     onDone = {
                         session.reset()
-                        navController.navigateUp()
+                        // Beside the list of settings this page has another under it in the pane,
+                        // and up the navigation from there is out of the settings altogether.
+                        paneUp?.invoke() ?: navController.navigateUp()
                     },
                     onAnother = {
                         session.reset()

@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -282,6 +283,13 @@ fun BottomSheet(
         }
     }
 }
+
+/**
+ * The player's sheet, for a screen under it that has a back of its own to give way with: while
+ * the sheet is open, back is the sheet's (SettingsTwoPane's pages further in). Null where there
+ * is no player sheet.
+ */
+val LocalPlayerSheet = staticCompositionLocalOf<BottomSheetState?> { null }
 
 @Stable
 class BottomSheetState(

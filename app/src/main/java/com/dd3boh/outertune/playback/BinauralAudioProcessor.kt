@@ -226,6 +226,12 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private var mixedBefore = false
     private var directBefore = false
 
+    // What the buffer in hand is processed with: read once a buffer, used by every frame of it.
+    private var frameShare = 1f
+    private var frameDirect = false
+    private var frameMixed = false
+    private var frameAir = false
+
     /**
      * The two ears of the frame just made: where [render], [blend] and [decode] leave their
      * answer. Those three are ordinary functions and not inline ones on purpose. Inlined, each
@@ -921,29 +927,19 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             for (k in airStep.indices) airStep[k] = (airTarget[k] - airEncode[k]) * inv
         }
 
+        frameShare = share
+        frameDirect = direct
+        frameMixed = mixed
+        frameAir = air
         when (format.encoding) {
             C.ENCODING_PCM_16BIT -> repeat(frames) {
-                var l = inputBuffer.short / 32768f
-                var r = inputBuffer.short / 32768f
-                if (air) {
-                    apart.process(l, r)
-                    l = apart.directLeft; r = apart.directRight
-                    airLeft = apart.ambientLeft; airRight = apart.ambientRight
-                }
-                if (mixed) blend(l, r, share, direct) else render(l, r)
+                frame(inputBuffer.short / 32768f, inputBuffer.short / 32768f)
                 out.putShort(toPcm16(ears[0]))
                 out.putShort(toPcm16(ears[1]))
             }
 
             C.ENCODING_PCM_FLOAT -> repeat(frames) {
-                var l = inputBuffer.float
-                var r = inputBuffer.float
-                if (air) {
-                    apart.process(l, r)
-                    l = apart.directLeft; r = apart.directRight
-                    airLeft = apart.ambientLeft; airRight = apart.ambientRight
-                }
-                if (mixed) blend(l, r, share, direct) else render(l, r)
+                frame(inputBuffer.float, inputBuffer.float)
                 out.putFloat(ears[0])
                 out.putFloat(ears[1])
             }
@@ -954,6 +950,50 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         }
 
         inputBuffer.position(inputBuffer.limit())
+        out.flip()
+        framesProcessed += frames.toLong()
+    }
+
+    /**
+     * One frame of a stereo recording, by whatever this buffer's settings say: taken apart first
+     * if the air is moved out, then mixed with the recording or rendered alone. The two ears are
+     * left in [ears].
+     */
+    private fun frame(left: Float, right: Float) {
+        var l = left
+        var r = right
+        if (frameAir) {
+            apart.process(l, r)
+            l = apart.directLeft; r = apart.directRight
+            airLeft = apart.ambientLeft; airRight = apart.ambientRight
+        }
+        if (frameMixed) blend(l, r, frameShare, frameDirect) else render(l, r)
+    }
+
+    /**
+     * The end of a song. With the air moved out, the split still holds a whole frame of the
+     * recording that it has not given back: it comes out now. Without this the last 21
+     * thousandths of a second of every song were lost, since the sink ends the stream and
+     * starts the chain afresh at each change of song.
+     */
+    override fun onQueueEndOfStream() {
+        val format = inputAudioFormat
+        if (!frameAir || format.channelCount != 2) return
+        val float = format.encoding == C.ENCODING_PCM_FLOAT
+        if (!float && format.encoding != C.ENCODING_PCM_16BIT) return
+        // Nothing moves any more: the speakers, the walls and the air stay where the last buffer left them.
+        Arrays.fill(stepLeft, 0f); Arrays.fill(stepRight, 0f)
+        Arrays.fill(roomStep, 0f); Arrays.fill(airStep, 0f)
+        val frames = DirectAmbientSplit.DELAY
+        val out = replaceOutputBuffer(frames * format.bytesPerFrame)
+        repeat(frames) {
+            frame(0f, 0f)
+            if (float) {
+                out.putFloat(ears[0]); out.putFloat(ears[1])
+            } else {
+                out.putShort(toPcm16(ears[0])); out.putShort(toPcm16(ears[1]))
+            }
+        }
         out.flip()
         framesProcessed += frames.toLong()
     }

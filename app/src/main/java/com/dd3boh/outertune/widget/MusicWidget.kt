@@ -57,6 +57,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.widget.WidgetLayout.BUTTON_SPACING_DP
 import com.dd3boh.outertune.widget.WidgetLayout.COVER_GAP_DP
@@ -152,7 +153,9 @@ private fun paintOf(settings: WidgetSettings, snapshot: WidgetSnapshot): Paint {
         else -> ColorProvider(solid.copy(alpha = alpha))
     }
     val themed = settings.background == WidgetBackground.NONE || useSystem
-    val light = solid != null && solid.luminance() > 0.5f
+    // Dark words from where they read better than white ones, which is a luminance of 0.18 and
+    // not a half: on a mid grey, which a cover of greys now gives, white words were at two to one.
+    val light = solid != null && solid.luminance() > (if (Unreleased.COVER_ACCENT) 0.18f else 0.5f)
     val ink = Color(0xFF101114)
     val text = when {
         themed -> GlanceTheme.colors.onSurface
