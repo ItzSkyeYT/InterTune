@@ -83,6 +83,12 @@ fun SettingsScreen(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
+    // A window wide enough for it has the list and the chosen screen side by side.
+    if (Unreleased.SETTINGS_TWO_PANE && LocalLandscape.current.windowWidth >= SettingsTwoPaneMinWidth) {
+        SettingsTwoPane(navController, scrollBehavior)
+        return
+    }
+
     // Sourced from the checker rather than the persisted flag. The flag says "an update existed
     // once"; this says "there is one now, and here it is", which is what the row needs to show.
     val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
