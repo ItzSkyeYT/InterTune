@@ -84,6 +84,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.LocalTopBarBack
 import com.dd3boh.outertune.ui.component.LocalTopBarGlassHost
+import com.dd3boh.outertune.ui.component.LocalTopBarTitle
 import com.dd3boh.outertune.ui.component.LocalTopBarUp
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
@@ -202,10 +203,11 @@ internal fun settingsListWidth(windowWidth: Dp): Dp = (windowWidth * 0.34f).coer
  * Upright the list is the whole screen and each entry leads to a screen of its own.
  *
  * The screen on the right is the very one the entry leads to upright, drawn here with the mini
- * player's room under it and none of its own at the sides, and with its title but no way back:
- * back leaves the settings, as it does from the list. What such a screen leads on to (the pages
- * of Recommendations, About's licences) opens in its place, on the right, with a way back to it:
- * [settingsOpened]. Only what is not a screen of settings (signing in, the tour) takes the window.
+ * player's room under it and none of its own at the sides, and with no bar of its own: the entry
+ * lit in the list is its title, and back leaves the settings, as it does from the list. What
+ * such a screen leads on to (the pages of Recommendations, About's licences) opens in its place,
+ * on the right, with its name, which the list does not have, and a way back: [settingsOpened].
+ * Only what is not a screen of settings (signing in, the tour) takes the window.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -292,17 +294,21 @@ fun SettingsTwoPane(
                 .weight(1f)
                 .fillMaxHeight()
         ) {
+            val showing = open.last()
+            // A screen with another under it goes back to that one. The one from the list has
+            // no way back of its own: the list's bar has that.
+            val over = open.size > 1
             CompositionLocalProvider(
-                // Its sides are this pane's, which the row above has already kept clear.
-                LocalPlayerAwareWindowInsets provides paneInsets(),
-                // A screen from the list has its title and no way back: the list's bar has that.
-                // One further in goes back to the screen that led to it.
-                LocalTopBarBack provides (open.size > 1),
-                LocalTopBarUp provides (if (open.size > 1) up else null),
+                // Its sides are this pane's, which the row above has already kept clear. Above,
+                // room for a bar only where there is one.
+                LocalPlayerAwareWindowInsets provides paneInsets(underTopBar = over),
+                LocalTopBarBack provides over,
+                LocalTopBarUp provides (if (over) up else null),
+                // Named only when the list does not name it: a screen further in.
+                LocalTopBarTitle provides (showing !in listed),
                 // Drawn in place: the screen's one glass bar is the list's, with the way back.
                 LocalTopBarGlassHost provides null,
             ) {
-                val showing = open.last()
                 kept.SaveableStateProvider(showing) { SettingsPane(showing, navController, scrollBehavior, tourRunning) }
             }
         }
