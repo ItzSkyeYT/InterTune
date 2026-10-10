@@ -4,6 +4,7 @@ import com.zionhuang.innertube.models.ResponseContext
 import com.zionhuang.innertube.models.Thumbnails
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
 
 /**
  * PlayerResponse with [com.zionhuang.innertube.models.YouTubeClient.WEB_REMIX] client
@@ -17,6 +18,12 @@ data class PlayerResponse(
     val videoDetails: VideoDetails?,
     @SerialName("playbackTracking")
     val playbackTracking: PlaybackTracking?,
+    /**
+     * The ads the answer schedules, as YouTube sent them. Kept as they came: only the ones before
+     * the song are read, by the app's StartAds, and only for a web client's answer.
+     */
+    val adPlacements: List<JsonObject>? = null,
+    val adSlots: List<JsonObject>? = null,
 ) {
     @Serializable
     data class PlayabilityStatus(

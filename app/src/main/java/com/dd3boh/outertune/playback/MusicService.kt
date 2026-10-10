@@ -112,6 +112,9 @@ import com.dd3boh.outertune.engine.SongTags
 import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
 import com.dd3boh.outertune.constants.AdaptiveQueueMode
 import com.dd3boh.outertune.constants.PlaybackAuthModeKey
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.constants.VisionosRefusedKey
+import com.dd3boh.outertune.constants.WebClientFirstKey
 import com.dd3boh.outertune.constants.PlaybackAuthMode
 import com.dd3boh.outertune.constants.ResumePlaybackOnLaunchKey
 import com.dd3boh.outertune.constants.PlayerVolumeKey
@@ -171,6 +174,7 @@ import com.dd3boh.outertune.utils.codecsOrEmpty
 import com.dd3boh.outertune.utils.contentLengthOrZero
 import com.dd3boh.outertune.utils.SongVersions
 import com.dd3boh.outertune.utils.StreamFamily
+import com.dd3boh.outertune.utils.WebStreamHeaders
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.enumPreference
@@ -1066,6 +1070,18 @@ class MusicService : MediaLibraryService(),
                 } ?: PlaybackAuthMode.WHEN_REFUSED
             }.distinctUntilChanged()
                 .collectLatest(scope) { YTPlayerUtils.authMode = it }
+            // The experiment behind Unreleased.WEB_CLIENT_FIRST, read here for the same reason.
+            if (Unreleased.WEB_CLIENT_FIRST) {
+                dataStore.data.map { it[WebClientFirstKey] ?: false }
+                    .distinctUntilChanged()
+                    .collectLatest(scope) { YTPlayerUtils.askWebClientFirst = it }
+            }
+            // And the switch that takes VISIONOS for refused, behind Unreleased.WEB_FALLBACK.
+            if (Unreleased.WEB_FALLBACK) {
+                dataStore.data.map { it[VisionosRefusedKey] ?: false }
+                    .distinctUntilChanged()
+                    .collectLatest(scope) { YTPlayerUtils.takeVisionosForRefused(it) }
+            }
 
             // The switch has to reach the player already running, not some later one. Without this
             // it sat inert until the process was killed, which on One UI happens often enough, and
@@ -1849,6 +1865,8 @@ class MusicService : MediaLibraryService(),
                                 StreamFamily.Calls(
                                     OkHttpClient.Builder()
                                         .proxy(YouTube.proxy)
+                                        // The experiment's addresses are fetched as they were checked: see WebStreamHeaders.
+                                        .apply { if (Unreleased.WEB_CLIENT_FIRST) addInterceptor(WebStreamHeaders.interceptor) }
                                         .build()
                                 )
                             )

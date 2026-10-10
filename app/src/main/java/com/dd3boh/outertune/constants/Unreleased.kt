@@ -175,4 +175,36 @@ object Unreleased {
      * that reads it, in Explain.kt.
      */
     val EXPLANATION_LINKS = BuildConfig.DEBUG
+
+    /**
+     * "Ask YouTube Music's web client first" in the developer options: an experiment for the day
+     * VISIONOS, the one client that serves whole songs, stops. With the switch on every song is
+     * asked of WEB_REMIX before the chain as it is, with the signature timestamp and a po token
+     * (YTPlayerUtils.TRIAL_CLIENT), and the chain is asked as ever when that gives no stream.
+     *
+     * Off unless somebody switches it on, and never in a release. It is not a feature to agree
+     * on. On 9 Oct 2026 it showed where that road ends today: WEB_REMIX answers, and the address
+     * it gives is in a cipher NewPipeExtractor can no longer undo. So with the switch on that
+     * address goes to a solver instead (utils/cipher): yt-dlp's, run in a WebView. Everything
+     * round the solver is built and tested with a stand-in for it. The solver's own two files
+     * are not in the tree yet, and until they are the switch does what it did that day.
+     * Delete it with the two checks that read it, in MusicService and DeveloperFrag, and with
+     * utils/cipher if the solver is not kept, once it has served its purpose.
+     */
+    val WEB_CLIENT_FIRST = BuildConfig.DEBUG
+
+    /**
+     * YouTube Music's web client as one of the stream chain's own, written after VISIONOS
+     * (YTPlayerUtils.WEB_FALLBACK_CLIENT): the day VISIONOS gives no stream it is asked by
+     * itself, and it is first for the songs after that for as long as it serves.
+     *
+     * It played on a phone on 10 Oct 2026, three songs asked first by the switch above. In the
+     * chain it is asked only once VISIONOS has been refused, also with a new visitorData, so
+     * while VISIONOS serves nothing about a song changes: no player script is fetched, no po
+     * token made, no WebView opened.
+     *
+     * Needs the solver's files in the build (assets/solver) and does nothing without them.
+     * To ship: this to true, and the files' place in the tree agreed.
+     */
+    val WEB_FALLBACK = BuildConfig.DEBUG
 }

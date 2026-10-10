@@ -142,6 +142,7 @@ class App : Application(), SingletonImageLoader.Factory {
         // not of one YouTube was refusing an hour ago. Read here, like the keys above, and not by
         // the player, which runs on every song. See StreamOrder.
         YTPlayerUtils.streamMemory = StreamOrder.decode(dataStore[StreamOrderKey])
+        YTPlayerUtils.warmIfTheWebClientServedLast()
         YTPlayerUtils.onStreamMemoryChanged = { changed ->
             GlobalScope.launch { dataStore.edit { it[StreamOrderKey] = changed } }
         }

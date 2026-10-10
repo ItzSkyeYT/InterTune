@@ -75,4 +75,14 @@ class StreamChainReportTest {
         assertEquals(today + "no longer in the chain: ANDROID (asked without the account)" + "CHANGED", removed.printed)
         assertEquals(today, removed.keep)
     }
+
+    @Test
+    fun `lines that are not the chain's go before the verdict, which stays last`() {
+        val others = listOf("deciphering (NewPipeExtractor): signature timestamp found", "candidate WEB_REMIX (no po token): UNPLAYABLE")
+        val report = StreamChainReport.against(today, today, reached = true)
+        assertEquals(today + others + "SAME", StreamChainReport.withOthers(report.printed, others))
+        // They are not kept, so the next run compares the chain with the chain.
+        assertEquals(today, report.keep)
+        assertEquals(report.printed, StreamChainReport.withOthers(report.printed, emptyList()))
+    }
 }

@@ -381,6 +381,18 @@ val StreamOrderKey = stringPreferencesKey("streamOrder")
  * StandInMemory.encode writes them. See StandIns.
  */
 val StandInsKey = stringPreferencesKey("standIns")
+
+/**
+ * The developer options' "Ask YouTube Music's web client first": an experiment, in debug builds
+ * only. See Unreleased.WEB_CLIENT_FIRST.
+ */
+val WebClientFirstKey = booleanPreferencesKey("webClientFirst")
+
+/**
+ * The developer options' "Take VISIONOS for refused": to see the chain as on the day VISIONOS
+ * stops, in debug builds only. See Unreleased.WEB_FALLBACK.
+ */
+val VisionosRefusedKey = booleanPreferencesKey("visionosTakenForRefused")
 val DataSyncIdKey = stringPreferencesKey("dataSyncId")
 val InnerTubeCookieKey = stringPreferencesKey("innerTubeCookie")
 val AccountNameKey = stringPreferencesKey("accountName")
