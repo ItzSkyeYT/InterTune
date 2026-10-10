@@ -1812,6 +1812,8 @@ fun BottomSheetPlayer(
             navController = navController,
             showHandle = queueLayout.showHandle,
             compact = queueLayout.compactSheet,
+            backdrop = if (liquidGlass && Unreleased.GLASS_QUEUE) playerBackdrop else null,
+            glassIntensity = glassIntensity,
         )
     }
 }

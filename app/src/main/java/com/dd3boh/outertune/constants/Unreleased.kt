@@ -229,4 +229,16 @@ object Unreleased {
      * delete it with the two checks that read it, both in Theme.kt.
      */
     val COVER_ACCENT = BuildConfig.DEBUG
+
+    /**
+     * With Liquid glass on, the controls at the foot of the queue are of glass, as the player's
+     * are: its five buttons in one bar with the lens, and the queue's name frosted, both over
+     * the cover the player draws out of focus (QueueSheet's backdrop). The queue itself stays
+     * one flat colour.
+     *
+     * A first cut to look at, seen on a Pixel 5 and not on One UI. Without it the controls are
+     * as they were. When it is agreed: set this to true, or delete it with the one check that
+     * reads it, in Player.kt.
+     */
+    val GLASS_QUEUE = BuildConfig.DEBUG
 }

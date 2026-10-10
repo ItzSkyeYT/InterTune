@@ -102,6 +102,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
@@ -173,6 +174,12 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import com.dd3boh.outertune.ui.utils.GlassSpec
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -212,6 +219,13 @@ fun QueueSheet(
      * one line. On a keypad phone those two took all the height and left none for the songs.
      */
     compact: Boolean = false,
+    /**
+     * What the player draws behind itself, the artwork and its gradient, for the controls at the
+     * foot of the queue to be of glass over (Liquid glass). The sheet itself stays one colour.
+     * Null for the controls as they were.
+     */
+    backdrop: LayerBackdrop? = null,
+    glassIntensity: Float = 1f,
 ) {
     Log.v("QueueSheet", "Q-1")
     val haptic = LocalHapticFeedback.current
@@ -257,6 +271,8 @@ fun QueueSheet(
             playerState = playerBottomSheetState,
             navController = navController,
             compact = compact,
+            backdrop = backdrop,
+            glassIntensity = glassIntensity,
         )
     }
 }
@@ -302,6 +318,9 @@ fun BoxScope.QueueContent(
     songsOnly: Boolean = false,
     /** Whether to lay the bar at the bottom out for a small window, see [QueueSheet]. */
     compact: Boolean = false,
+    /** For the bar's controls as glass, see [QueueSheet]. */
+    backdrop: LayerBackdrop? = null,
+    glassIntensity: Float = 1f,
 ) {
     Log.v("QueueContent", "QC-1")
     val context = LocalContext.current
@@ -1251,6 +1270,7 @@ fun BoxScope.QueueContent(
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
+                            .frosted(backdrop, glassIntensity, RoundedCornerShape(12.dp), MaterialTheme.colorScheme.onSecondaryContainer)
                             .border(1.dp, MaterialTheme.colorScheme.secondary, RoundedCornerShape(12.dp))
                             .padding(2.dp)
                             .weight(1f)
@@ -1347,6 +1367,7 @@ fun BoxScope.QueueContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = PlayerHorizontalPadding)
+                            .glassBar(backdrop, glassIntensity)
                     ) {
                         Box(modifier = Modifier.weight(1f)) {
                             ResizableIconButton(
@@ -1623,4 +1644,51 @@ fun BoxScope.QueueContent(
             }
         }
     }
+}
+
+/**
+ * The queue's five buttons in one bar of glass, as the player has them: the same lens, over the
+ * same picture. With no [backdrop] the row is as it was.
+ */
+private fun Modifier.glassBar(backdrop: LayerBackdrop?, intensity: Float): Modifier {
+    if (backdrop == null) return this
+    val lens = GlassSpec(backdrop, intensity.coerceIn(0f, 1f)).lensT
+    return this
+        .drawBackdrop(
+            backdrop = backdrop,
+            shape = { RoundedCornerShape(32.dp) },
+            effects = {
+                blur(4f.dp.toPx())
+                lens(
+                    refractionHeight = 24f.dp.toPx() * lens,
+                    refractionAmount = 32f.dp.toPx() * lens,
+                    depthEffect = true,
+                    chromaticAberration = true,
+                )
+            },
+        )
+        .padding(vertical = 8.dp)
+}
+
+/**
+ * A smaller control of the queue's bar, frosted: the blur and no lens, whose rim at this size
+ * reads as an empty outline (PlayerActionSegment says so of the player's own), under a wash of
+ * [content]. With no [backdrop] it is as it was.
+ */
+private fun Modifier.frosted(backdrop: LayerBackdrop?, intensity: Float, shape: Shape, content: Color): Modifier {
+    if (backdrop == null) return this
+    val t = intensity.coerceIn(0f, 1f)
+    return this
+        .clip(shape)
+        .drawBackdrop(
+            backdrop = backdrop,
+            shape = { shape },
+            effects = {
+                vibrancy()
+                blur((16f + (6f - 16f) * t).dp.toPx())
+            },
+            highlight = { null },
+            shadow = { null },
+        )
+        .background(content.copy(alpha = 0.16f))
 }
