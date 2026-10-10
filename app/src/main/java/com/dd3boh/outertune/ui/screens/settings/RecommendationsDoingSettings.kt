@@ -470,7 +470,7 @@ fun RecommendationsDoingSettings(
                 title = stringResource(R.string.engine_developer),
                 explanation = stringResource(R.string.engine_developer_info),
                 description = stringResource(R.string.engine_developer_description),
-                onClick = { navController.navigate("settings/recommendations/developer") },
+                onClick = { navController.toSettings("settings/recommendations/developer") },
             )
         }
         Spacer(Modifier.height(16.dp))

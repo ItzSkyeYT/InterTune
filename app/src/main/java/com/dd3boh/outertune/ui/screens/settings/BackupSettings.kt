@@ -61,7 +61,7 @@ fun BackupSettings(
                     title = { Text(stringResource(R.string.import_library_title)) },
                     description = stringResource(R.string.import_library_entry),
                     icon = { Icon(Icons.Rounded.LibraryAdd, null) },
-                    onClick = { navController.navigate("settings/backup/import") },
+                    onClick = { navController.toSettings("settings/backup/import") },
                 )
             }
         }

@@ -82,10 +82,11 @@ val SETTINGS_TAG = "Settings"
 fun SettingsScreen(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
+    tourRunning: Boolean = false,
 ) {
     // A window wide enough for it has the list and the chosen screen side by side.
     if (Unreleased.SETTINGS_TWO_PANE && LocalLandscape.current.windowWidth >= SettingsTwoPaneMinWidth) {
-        SettingsTwoPane(navController, scrollBehavior)
+        SettingsTwoPane(navController, scrollBehavior, tourRunning)
         return
     }
 

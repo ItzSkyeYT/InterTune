@@ -144,7 +144,7 @@ fun FloatingTopBar(
                 if (LocalTopBarBack.current) {
                     IconButton(
                         modifier = Modifier.backButtonSurface(),
-                        onClick = onBack,
+                        onClick = LocalTopBarUp.current ?: onBack,
                         onLongClick = onLongBack,
                     ) {
                         Icon(BackChevron, contentDescription = stringResource(R.string.back))
@@ -167,6 +167,12 @@ fun FloatingTopBar(
  * (SettingsTwoPane): the list's own bar has the one way back there, and this one is a title.
  */
 val LocalTopBarBack = staticCompositionLocalOf { true }
+
+/**
+ * Where a bar's way back leads when that is not up the navigation: a screen that a screen of
+ * the two panes led on to goes back to that one, in the pane (SettingsTwoPane). Null everywhere else.
+ */
+val LocalTopBarUp = staticCompositionLocalOf<(() -> Unit)?> { null }
 
 /** The title pill's text: bold, about 18sp, which is what Samsung's measured. */
 val TopBarTitleStyle: TextStyle

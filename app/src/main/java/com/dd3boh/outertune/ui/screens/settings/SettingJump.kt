@@ -181,7 +181,8 @@ fun SettingJumpHost(navController: NavController) {
     LaunchedEffect(jump) {
         if (jump == null) return@LaunchedEffect
         // Opened over where the explanation was, so Back returns there, as from any link.
-        if (navController.currentDestination?.route != jump.route) navController.navigate(jump.route)
+        // In the two panes the screen opens on the right, over the one the link was on, and the list stays.
+        if (navController.currentDestination?.route != jump.route) navController.toSettings(jump.route, over = true)
         val there = withTimeoutOrNull(ARRIVE_MS) { snapshotFlow { TourTargets.known(jump.target) }.first { it } } == true
         if (there) {
             delay(SETTLE_MS)
