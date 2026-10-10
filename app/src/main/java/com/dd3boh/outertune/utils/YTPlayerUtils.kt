@@ -350,6 +350,14 @@ object YTPlayerUtils {
     /** What yt-dlp and InnerTubeX ask WEB_REMIX as in October 2026. The app's own WEB_REMIX is of March 2025. */
     private const val TRIAL_CLIENT_VERSION = "1.20260707.12.00"
 
+    /**
+     * [TRIAL_CLIENT] for a listener who is signed in and has set that playback is never asked as
+     * the account ([authMode]): the same client without the account's cookie, its po tokens made
+     * for the visitor. That is also all a listener who is not signed in is to YouTube, so it
+     * shows on a signed-in phone what such a listener gets.
+     */
+    private val TRIAL_CLIENT_AS_VISITOR: YouTubeClient = TRIAL_CLIENT.copy(loginSupported = false)
+
     /** The developer options' switch for [TRIAL_CLIENT], set from the preference by MusicService. */
     @Volatile
     var askWebClientFirst: Boolean = false
@@ -722,7 +730,10 @@ object YTPlayerUtils {
         val playerClients = listOf(MAIN_CLIENT) + streamClients
         // The experiment: see TRIAL_CLIENT. Its client is asked only when there is a player
         // script to ask it with, and the script and the solving share one allowance of time.
-        val trialWanted = TRIAL_CLIENT.takeIf { Unreleased.WEB_CLIENT_FIRST && askWebClientFirst }
+        // Without the account when nothing is to be asked as it: see TRIAL_CLIENT_AS_VISITOR.
+        val trialAsVisitor = isLoggedIn && authMode == PlaybackAuthMode.NEVER
+        val trialWanted = (if (trialAsVisitor) TRIAL_CLIENT_AS_VISITOR else TRIAL_CLIENT)
+            .takeIf { Unreleased.WEB_CLIENT_FIRST && askWebClientFirst }
         var trialLeftMs = trialLimitMs
         suspend fun <T> withinTrialTime(work: suspend () -> T): T? {
             if (trialLeftMs <= 0) return null
@@ -768,11 +779,12 @@ object YTPlayerUtils {
         }
 
         val sessionId =
-            if (isLoggedIn) {
+            if (isLoggedIn && !(trial != null && trialAsVisitor)) {
                 // signed in sessions use dataSyncId as identifier
                 YouTube.dataSyncId
             } else {
-                // signed out sessions use visitorData as identifier
+                // signed out sessions use visitorData as identifier, and so does the experiment's
+                // client when it asks as a visitor: its po tokens are the only ones made
                 YouTube.visitorData
             }
 

@@ -8,6 +8,7 @@ package com.dd3boh.outertune.utils
 
 import android.net.ConnectivityManager
 import com.dd3boh.outertune.constants.AudioQuality
+import com.dd3boh.outertune.constants.PlaybackAuthMode
 import com.dd3boh.outertune.utils.StreamOrder.Memory
 import com.dd3boh.outertune.utils.cipher.ChallengeSolver
 import com.dd3boh.outertune.utils.cipher.PlayerScript
@@ -66,7 +67,9 @@ class ChainWalkTest {
     @Before
     fun fresh() {
         YouTube.cookie = null
+        YouTube.dataSyncId = null
         YouTube.visitorData = visitor
+        YTPlayerUtils.authMode = PlaybackAuthMode.WHEN_REFUSED
         YTPlayerUtils.askWebClientFirst = false
         YTPlayerUtils.forgetWhatTheTrialLearned()
         YTPlayerUtils.streamMemory = Memory()
@@ -77,7 +80,9 @@ class ChainWalkTest {
     @After
     fun leaveNothingBehind() {
         YouTube.cookie = null
+        YouTube.dataSyncId = null
         YouTube.visitorData = null
+        YTPlayerUtils.authMode = PlaybackAuthMode.WHEN_REFUSED
         YTPlayerUtils.askWebClientFirst = false
         YTPlayerUtils.forgetWhatTheTrialLearned()
         YTPlayerUtils.streamMemory = Memory()
@@ -119,6 +124,10 @@ class ChainWalkTest {
 
         /** Every wait the experiment made between two tries of its address. Nothing is waited here. */
         val paused = mutableListOf<Long>()
+
+        /** Whether each client asked could have carried the account, and what the po tokens were made for. */
+        val couldCarryTheAccount = mutableMapOf<String, Boolean>()
+        val tokensMadeFor = mutableListOf<String?>()
         private val turn = mutableMapOf<String, Int>()
 
         override suspend fun player(
@@ -137,6 +146,7 @@ class ChainWalkTest {
             signatureTimestamp?.let { timestamps[name] = it }
             webPlayerPot?.let { playerTokens[name] = it }
             versions[name] = client.clientVersion
+            couldCarryTheAccount[name] = client.loginSupported
             if (asWebPage) askedAsWebPage += name
             val lines = says[name] ?: error("$name was not expected to be asked")
             val at = turn.getOrDefault(name, 0)
@@ -187,7 +197,10 @@ class ChainWalkTest {
 
         override fun signatureTimestamp(videoId: String): Int? = TIMESTAMP
 
-        override fun poTokens(videoId: String, sessionId: String?): PoTokenResult? = PoTokenResult(VIDEO_TOKEN, SESSION_TOKEN)
+        override fun poTokens(videoId: String, sessionId: String?): PoTokenResult? {
+            tokensMadeFor += sessionId
+            return PoTokenResult(VIDEO_TOKEN, SESSION_TOKEN)
+        }
 
         companion object {
             /** What NewPipeExtractor reads, for the account's client. */
@@ -553,6 +566,29 @@ class ChainWalkTest {
         walk(second).getOrThrow()
         assertEquals(listOf(asked(Script.SESSION_TOKEN)), second.checked)
         assertEquals(emptyList<Long>(), second.paused)
+    }
+
+    @Test
+    fun `signed in, the web client is asked as the account, and as a visitor when nothing is to be asked as the account`() {
+        experimentOn()
+        YouTube.cookie = "SAPISID=made-up"
+        YouTube.dataSyncId = "ACCOUNT-DATASYNC-ID"
+        fun script() = Script(mapOf("WEB_REMIX" to listOf(ciphered())), playerScript = playerScript, solver = solving)
+
+        val asAccount = script()
+        walk(asAccount).getOrThrow()
+        assertEquals("WEB_REMIX (account) OK, HEAD 200 with the video's token", YTPlayerUtils.lastStreamTrail)
+        assertEquals(true, asAccount.couldCarryTheAccount["WEB_REMIX"])
+        assertEquals("its tokens are the account's", listOf<String?>("ACCOUNT-DATASYNC-ID"), asAccount.tokensMadeFor)
+
+        YTPlayerUtils.authMode = PlaybackAuthMode.NEVER
+        val asVisitor = script()
+        val data = walk(asVisitor).getOrThrow()
+        assertEquals("WEB_REMIX OK, HEAD 200 with the video's token", YTPlayerUtils.lastStreamTrail)
+        assertEquals("no cookie goes with it", false, asVisitor.couldCarryTheAccount["WEB_REMIX"])
+        assertEquals("its tokens are the visitor's", listOf<String?>(visitor), asVisitor.tokensMadeFor)
+        assertEquals("asked as the page asks all the same", listOf("WEB_REMIX"), asVisitor.askedAsWebPage)
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
     }
 
     @Test
