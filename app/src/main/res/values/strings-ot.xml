@@ -64,6 +64,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_room" translatable="false">Room</string>
     <string name="spatial_room_value" translatable="false">%1$d%% of a small room</string>
     <string name="spatial_room_explain" translatable="false">Adds the first echoes of a small room round the two speakers. It helps the sound sit in front of you. At 0 there is no room.</string>
+    <string name="spatial_ambience" translatable="false">Ambience</string>
+    <string name="spatial_ambience_value" translatable="false">%1$d%% of the way out to your sides</string>
+    <string name="spatial_ambience_explain" translatable="false">Finds the reverb and room sound in a recording and moves it out to your sides. Voices and instruments stay in front. At 0 nothing is moved.</string>
     <string name="spatial_bass" translatable="false">Leave the bass alone</string>
     <string name="spatial_bass_description" translatable="false">Low notes skip the effect and keep their weight.</string>
     <string name="stage_width">Stage width</string>
