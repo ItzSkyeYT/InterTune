@@ -49,7 +49,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.OfflinePin
+import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
@@ -311,22 +316,27 @@ fun ShortSetup(
                             scroll = scroll,
                             centred = true,
                             content = {
-                                Image(
-                                    painter = painterResource(R.drawable.launcher_monochrome),
-                                    contentDescription = null,
-                                    colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary, BlendMode.SrcIn),
-                                    modifier = Modifier
-                                        .size(if (beside) 72.dp else 104.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
-                                        .padding(if (beside) 10.dp else 14.dp)
-                                )
-                                Spacer(Modifier.height(if (beside) 12.dp else 24.dp))
+                                // No logo in a window too short for it and the five lines both: the lines say more.
+                                if (!beside) {
+                                    Image(
+                                        painter = painterResource(R.drawable.launcher_monochrome),
+                                        contentDescription = null,
+                                        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary, BlendMode.SrcIn),
+                                        modifier = Modifier
+                                            .size(104.dp)
+                                            .clip(CircleShape)
+                                            .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
+                                            .padding(14.dp)
+                                    )
+                                    Spacer(Modifier.height(24.dp))
+                                }
                                 SetupHeading(
                                     title = stringResource(R.string.oobe_welcome_message),
                                     body = stringResource(R.string.setup_welcome_body),
                                     large = true,
                                 )
+                                Spacer(Modifier.height(if (beside) 12.dp else 24.dp))
+                                SetupOverview(close = beside)
                             },
                             buttons = {
                                 SetupButton(
@@ -551,6 +561,46 @@ private val ChoicesSaver = Saver<SetupChoices, String>(
     save = { it.positions() },
     restore = { SetupChoices.ofPositions(it) },
 )
+
+/**
+ * What the app does, in five lines under the welcome: somebody who has just installed it is told
+ * before being asked anything. A line each and no more, the way the old wizard's first page
+ * listed what the app is for, in plain words.
+ */
+@Composable
+private fun SetupOverview(close: Boolean) {
+    val lines = listOf(
+        Icons.Rounded.LibraryMusic to R.string.setup_does_youtube_music,
+        Icons.Rounded.SdCard to R.string.setup_does_files,
+        Icons.Rounded.OfflinePin to R.string.setup_does_downloads,
+        Icons.Rounded.AutoAwesome to R.string.setup_does_picks,
+        Icons.Rounded.Block to R.string.setup_does_no_adverts,
+    )
+    Column(
+        // Closer together where the window is short, so that all five are seen without scrolling.
+        verticalArrangement = Arrangement.spacedBy(if (close) 8.dp else 14.dp),
+        modifier = Modifier.widthIn(max = 360.dp),
+    ) {
+        for ((icon, line) in lines) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+                Text(
+                    text = stringResource(line),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+    }
+}
 
 /**
  * One page of setup: what it says, and its own button when it has one.
