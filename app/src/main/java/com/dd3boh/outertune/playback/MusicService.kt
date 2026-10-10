@@ -104,6 +104,8 @@ import com.dd3boh.outertune.constants.HeadTrackingLeadKey
 import com.dd3boh.outertune.constants.HeadTrackingResponse
 import com.dd3boh.outertune.constants.HeadTrackingResponseKey
 import com.dd3boh.outertune.constants.StageWidthKey
+import com.dd3boh.outertune.constants.SpatialBassDirectKey
+import com.dd3boh.outertune.constants.SpatialStrengthKey
 import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
 import com.dd3boh.outertune.constants.PersistentQueueKey
@@ -920,6 +922,14 @@ class MusicService : MediaLibraryService(),
             dataStore.data.map { it[StageWidthKey] ?: BinauralAudioProcessor.DEFAULT_STAGE_WIDTH.toInt() }
                 .distinctUntilChanged()
                 .collectLatest(scope) { binauralProcessor.stageWidthDegrees = it.toFloat() }
+
+            // Both read by the renderer once a buffer, so they are heard as the slider moves.
+            dataStore.data.map { it[SpatialStrengthKey] ?: 100 }
+                .distinctUntilChanged()
+                .collectLatest(scope) { binauralProcessor.strength = if (Unreleased.SPATIAL_TUNING) it / 100f else 1f }
+            dataStore.data.map { it[SpatialBassDirectKey] ?: false }
+                .distinctUntilChanged()
+                .collectLatest(scope) { binauralProcessor.bassDirect = Unreleased.SPATIAL_TUNING && it }
 
             dataStore.data.map {
                 it[HeadTrackingResponseKey]?.let { name ->

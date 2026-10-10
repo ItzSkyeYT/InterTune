@@ -24,6 +24,7 @@ import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -117,6 +118,24 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     @Volatile
     var stageWidthDegrees: Float = DEFAULT_STAGE_WIDTH
 
+    /**
+     * How much of the rendering is heard, from 0 to 1. At 1 it is all there is, as it always was.
+     * Below that the recording as it came is mixed in, held back by the time the rendering
+     * takes, so that the two arrive together. At 0 nothing is left but the recording, that much
+     * late. For two channels in: a surround recording is its own speakers or it is nothing.
+     */
+    @Volatile
+    var strength: Float = 1f
+
+    /**
+     * Leave the low notes as they came. Below [BASS_HZ] a head hardly shadows a sound, so there
+     * is no direction to give a bass, and what the rendering does to it is only take weight off
+     * it and spread one channel's bass over both ears. With this on the lows of the recording go
+     * round the rendering, in time with it, and the rest goes through.
+     */
+    @Volatile
+    var bassDirect: Boolean = false
+
     // The active harmonics, in the order they are stored. Rebuilt when the ambisonic order
     // changes. Only harmonics that are non-zero in the horizontal plane are carried at all: for a
     // source at zero elevation every harmonic with (n - |m|) odd evaluates to zero, which is six
@@ -168,6 +187,23 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
     private var historyIndex = 0
     private val targetLeft = FloatArray(16)
     private val targetRight = FloatArray(16)
+
+    // The recording as it came, for [strength] and [bassDirect]: held back by [delaySamples], the
+    // time a sound takes through the rendering, and split at [BASS_HZ] when the bass is to be
+    // left alone. Three crossover filters of two sections each, for two channels: the lows and
+    // the highs of the recording held back, and the highs of what goes into the rendering.
+    private val dryLeft = FloatArray(RING)
+    private val dryRight = FloatArray(RING)
+    private var dryIndex = 0
+    private var delaySamples = 0
+    private var bassDelaySamples = 0
+    private val ears = FloatArray(2)
+    private val lowPass = FloatArray(5)
+    private val highPass = FloatArray(5)
+    private var crossoverRate = -1
+    private val lowState = FloatArray(8)
+    private val highState = FloatArray(8)
+    private val inputState = FloatArray(8)
 
     // Surround in. A recording in 5.1 or 7.1 is its own loudspeakers: each channel is one more
     // source in the field, standing where its speaker would, and from the harmonics on the
@@ -438,6 +474,28 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             for (a in mono.indices) for (b in correction.indices) out[a + b] += mono[a] * correction[b]
         }
         for (v in effective) energy += v.toDouble() * v
+        // Where a centred sound comes out strongest is when it comes out: what the recording as
+        // it came has to be held back by to arrive with it.
+        var peak = 0
+        for (t in effective.indices) if (abs(effective[t]) > abs(effective[peak])) peak = t
+        delaySamples = peak.coerceAtMost(MASK)
+        // The lows of a sound come through the rendering a little apart from its peak: its filters
+        // do not hold every frequency back alike. Where the recording's own lows meet the rendered
+        // rest, the two have to be in step, or they cancel there and leave a hole. So the lows are
+        // held back by what the rendering takes at that frequency: its phase there as a time,
+        // which is known give or take whole periods, and the one nearest the peak is the true one.
+        val w = 2.0 * PI * BASS_HZ / (if (appliedRate > 0) appliedRate else 48000)
+        var re = 0.0
+        var im = 0.0
+        for (t in effective.indices) {
+            re += effective[t] * cos(w * t)
+            im -= effective[t] * sin(w * t)
+        }
+        val period = 2.0 * PI / w
+        var late = -atan2(im, re) / w
+        while (late - peak > period / 2) late -= period
+        while (peak - late > period / 2) late += period
+        bassDelaySamples = late.roundToInt().coerceIn(0, MASK)
         if (energy <= 0.0) return 1f
         return (1.0 / sqrt(energy)).toFloat()
     }
@@ -693,6 +751,13 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             return
         }
 
+        // All of the rendering and nothing else is the frame as it always was. Anything less, or
+        // the bass left alone, goes through [blend], which is that frame and the recording beside it.
+        val share = strength.coerceIn(0f, 1f)
+        val direct = bassDirect
+        val mixed = share < 1f || direct
+        if (direct) buildCrossover(format.sampleRate)
+
         // Walked across the buffer rather than stepped at the seam. A step here is a step in the
         // gain applied to every harmonic at once, fifty times a second, which is a buzz.
         encodeSpeakers(poseBuffer, targetLeft, targetRight)
@@ -706,13 +771,15 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             C.ENCODING_PCM_16BIT -> repeat(frames) {
                 val l = inputBuffer.short / 32768f
                 val r = inputBuffer.short / 32768f
-                render(l, r, harmonics) { v -> out.putShort(toPcm16(v)) }
+                if (mixed) blend(l, r, share, direct) { v -> out.putShort(toPcm16(v)) }
+                else render(l, r, harmonics) { v -> out.putShort(toPcm16(v)) }
             }
 
             C.ENCODING_PCM_FLOAT -> repeat(frames) {
                 val l = inputBuffer.float
                 val r = inputBuffer.float
-                render(l, r, harmonics) { v -> out.putFloat(v) }
+                if (mixed) blend(l, r, share, direct) { v -> out.putFloat(v) }
+                else render(l, r, harmonics) { v -> out.putFloat(v) }
             }
         }
         for (i in 0 until active) {
@@ -759,6 +826,71 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
             encodeRight[i] += stepRight[i]
         }
         decode(harmonics, put)
+    }
+
+    /**
+     * One frame with the recording beside the rendering. [share] of what is heard is rendered and
+     * the rest is the recording as it came, held back to arrive with it. With [direct] the lows
+     * are the recording's whatever the share, and it is only the highs that are shared out:
+     * the rendering is given the highs alone, so no bass comes through it to be heard twice.
+     */
+    private inline fun blend(rawL: Float, rawR: Float, share: Float, direct: Boolean, put: (Float) -> Unit) {
+        val at = dryIndex
+        dryLeft[at] = rawL
+        dryRight[at] = rawR
+        val then = (at - delaySamples) and MASK
+        val heldL = dryLeft[then]
+        val heldR = dryRight[then]
+        dryIndex = (at + 1) and MASK
+
+        var n = 0
+        if (direct) {
+            render(section(highPass, inputState, 0, rawL), section(highPass, inputState, 4, rawR), harmonics) { v -> ears[n++] = v }
+            val keep = 1f - share
+            val lows = (at - bassDelaySamples) and MASK
+            put(softClip(section(lowPass, lowState, 0, dryLeft[lows]) + share * ears[0] + keep * section(highPass, highState, 0, heldL)))
+            put(softClip(section(lowPass, lowState, 4, dryRight[lows]) + share * ears[1] + keep * section(highPass, highState, 4, heldR)))
+        } else {
+            render(rawL, rawR, harmonics) { v -> ears[n++] = v }
+            put(softClip(share * ears[0] + (1f - share) * heldL))
+            put(softClip(share * ears[1] + (1f - share) * heldR))
+        }
+    }
+
+    /**
+     * The two halves of the crossover at [BASS_HZ] for this rate: a fourth-order Linkwitz-Riley,
+     * which is one second-order Butterworth run twice. Its two halves add up to the whole at
+     * every frequency, turned in phase and no more, which is what lets the lows go one way and
+     * the highs another and meet again.
+     */
+    private fun buildCrossover(rate: Int) {
+        if (rate == crossoverRate) return
+        crossoverRate = rate
+        val w = 2.0 * PI * BASS_HZ / rate
+        val alpha = sin(w) / (2.0 * sqrt(0.5))
+        val c = cos(w)
+        val a0 = 1.0 + alpha
+        lowPass[0] = ((1.0 - c) / 2.0 / a0).toFloat(); lowPass[1] = ((1.0 - c) / a0).toFloat(); lowPass[2] = lowPass[0]
+        highPass[0] = ((1.0 + c) / 2.0 / a0).toFloat(); highPass[1] = (-(1.0 + c) / a0).toFloat(); highPass[2] = highPass[0]
+        for (half in arrayOf(lowPass, highPass)) {
+            half[3] = (-2.0 * c / a0).toFloat()
+            half[4] = ((1.0 - alpha) / a0).toFloat()
+        }
+        Arrays.fill(lowState, 0f); Arrays.fill(highState, 0f); Arrays.fill(inputState, 0f)
+    }
+
+    /** One half of the crossover on one sample: its section twice over, with the four numbers it remembers at [from]. */
+    private fun section(half: FloatArray, state: FloatArray, from: Int, x: Float): Float {
+        var v = x
+        var k = from
+        repeat(2) {
+            val y = half[0] * v + state[k]
+            state[k] = half[1] * v - half[3] * y + state[k + 1]
+            state[k + 1] = half[2] * v - half[4] * y
+            v = y
+            k += 2
+        }
+        return v
     }
 
     /**
@@ -901,6 +1033,12 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
         Arrays.fill(leftHistory, 0f)
         Arrays.fill(rightHistory, 0f)
         Arrays.fill(surroundHistory, 0f)
+        Arrays.fill(dryLeft, 0f)
+        Arrays.fill(dryRight, 0f)
+        Arrays.fill(lowState, 0f)
+        Arrays.fill(highState, 0f)
+        Arrays.fill(inputState, 0f)
+        dryIndex = 0
         historyIndex = 0
         writeIndex = 0
         framesProcessed = 0L
@@ -908,6 +1046,12 @@ class BinauralAudioProcessor : BaseAudioProcessor() {
 
     companion object {
         private const val TAG = "BinauralAudio"
+
+        /**
+         * Below this the bass is the recording's own when it is left alone. A head starts to
+         * shadow a sound somewhere above 200 Hz, so nothing under this had a direction to lose.
+         */
+        const val BASS_HZ = 120.0
 
         /** Power of two so the ring index is a mask rather than a modulo. */
         private const val RING = 1024
