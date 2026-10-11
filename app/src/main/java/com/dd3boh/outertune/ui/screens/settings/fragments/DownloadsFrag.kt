@@ -7,7 +7,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -259,18 +258,15 @@ fun ColumnScope.DownloadsFrag() {
 
     if (downloadMainPathSize == -2L && downloadExtraPathSize == -2L) {
         PreferenceEntry(
-            title = {
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.dl_calculate_size))
-                    ResizableIconButton(
-                        icon = Icons.Outlined.Info,
-                        onClick = { showDlInfoDialog = true },
-                    )
-                }
+            title = { Text(stringResource(R.string.dl_calculate_size)) },
+            // At the row's end, where the row keeps its room before the title gets the rest. It
+            // was in the title's own line, after the words: a title long enough to wrap took the
+            // whole line, and the button was not drawn at all. In German, French and five more.
+            trailingContent = {
+                ResizableIconButton(
+                    icon = Icons.Outlined.Info,
+                    onClick = { showDlInfoDialog = true },
+                )
             },
             onClick = {
                 downloadMainPathSize = -1
