@@ -55,6 +55,8 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,6 +75,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.media3.exoplayer.offline.Download.STATE_COMPLETED
 import androidx.media3.exoplayer.offline.Download.STATE_DOWNLOADING
 import androidx.media3.exoplayer.offline.Download.STATE_QUEUED
@@ -94,6 +97,9 @@ import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.PlayingIndicator
 import com.dd3boh.outertune.ui.component.PlayingIndicatorBox
+import com.dd3boh.outertune.ui.utils.SameTextSize
+import com.dd3boh.outertune.ui.utils.canWrap
+import com.dd3boh.outertune.ui.utils.shrinkToFit
 import com.dd3boh.outertune.utils.LocalArtworkPath
 import com.dd3boh.outertune.utils.albumSongsToPlay
 import com.dd3boh.outertune.utils.getDownloadState
@@ -276,6 +282,17 @@ fun GridItem(
     }
 }
 
+/**
+ * [shrinks] is for a tile whose two texts are the app's own words, as an automatic playlist's
+ * are. They get smaller, down to three quarters of their size, before a word is broken or the
+ * end is cut, and the line under the title may take a third line. In German "Heruntergeladene
+ * Songs" was broken after "Heruntergelad", and in Spanish "Lista de reproducción automática"
+ * ended at "a…". A name (a playlist's, an album's) is cut at its full size, as names are
+ * everywhere else.
+ *
+ * [titleSize] is for such tiles side by side: handed the same one, their titles all take the
+ * size of the one that needs the smallest.
+ */
 @Composable
 fun GridItem(
     modifier: Modifier = Modifier,
@@ -285,29 +302,45 @@ fun GridItem(
     thumbnailContent: @Composable BoxWithConstraintsScope.() -> Unit,
     thumbnailRatio: Float = 1f,
     fillMaxWidth: Boolean = false,
+    shrinks: Boolean = false,
+    titleSize: SameTextSize? = null,
 ) = GridItem(
     modifier = modifier,
     title = {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Start,
-            modifier = Modifier.fillMaxWidth()
-        )
+        val style = MaterialTheme.typography.bodyMedium
+        // A title of one word has nowhere to wrap: still too wide at its smallest, it is cut.
+        val oneWord = remember(title) { !canWrap(title) }
+        val autoSize = when {
+            !shrinks -> null
+            titleSize == null -> style.shrinkToFit(smallest = 10.5.sp)
+            else -> style.shrinkToFit(smallest = 10.5.sp, text = title, row = titleSize)
+        }
+        // Made again for each new autoSize: a Text does not see that one changed (see shrinkToFit).
+        key(autoSize) {
+            Text(
+                text = title,
+                style = style,
+                fontWeight = FontWeight.Bold,
+                autoSize = autoSize,
+                maxLines = if (shrinks && oneWord) 1 else 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     },
     subtitle = {
         Row {
             badges()
         }
 
+        val style = MaterialTheme.typography.bodySmall
         Text(
             text = subtitle,
-            style = MaterialTheme.typography.bodySmall,
+            style = style,
             color = MaterialTheme.colorScheme.secondary,
-            maxLines = 2,
+            autoSize = if (shrinks) style.shrinkToFit(smallest = 9.sp) else null,
+            maxLines = if (shrinks) 3 else 2,
             overflow = TextOverflow.Ellipsis,
         )
     },

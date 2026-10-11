@@ -93,6 +93,7 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.LibraryPlaylistsViewModel
 import com.dd3boh.outertune.ui.utils.LocalLandscape
+import com.dd3boh.outertune.ui.utils.SameTextSize
 import com.dd3boh.outertune.ui.utils.SideBySide
 import com.dd3boh.outertune.ui.utils.itemsInColumns
 import com.dd3boh.outertune.ui.utils.rememberListColumns
@@ -130,6 +131,8 @@ fun LibraryPlaylistsScreen(
     val likedPlaylist = PlaylistEntity(id = "liked", name = stringResource(id = R.string.liked_songs))
     val downloadedPlaylist = PlaylistEntity(id = "downloaded", name = stringResource(id = R.string.downloaded_songs))
     val favouritesPlaylist = PlaylistEntity(id = "favourites", name = stringResource(id = R.string.favorite_artists))
+    // One size for the names on their three tiles, side by side in the grid.
+    val autoPlaylistTitles = remember { SameTextSize() }
     // The three in the order they are listed, and the picture of each, for the list view on its side.
     val autoPlaylists = listOf(likedPlaylist, downloadedPlaylist, favouritesPlaylist)
     val autoPlaylistIcons = mapOf(
@@ -432,6 +435,7 @@ fun LibraryPlaylistsScreen(
                                 playlist = likedPlaylist,
                                 thumbnail = Icons.Rounded.Favorite,
                                 fillMaxWidth = true,
+                                titleSize = autoPlaylistTitles,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
@@ -449,6 +453,7 @@ fun LibraryPlaylistsScreen(
                                 playlist = downloadedPlaylist,
                                 thumbnail = Icons.Rounded.CloudDownload,
                                 fillMaxWidth = true,
+                                titleSize = autoPlaylistTitles,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
@@ -466,6 +471,7 @@ fun LibraryPlaylistsScreen(
                                 playlist = favouritesPlaylist,
                                 thumbnail = Icons.Rounded.Shuffle,
                                 fillMaxWidth = true,
+                                titleSize = autoPlaylistTitles,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
