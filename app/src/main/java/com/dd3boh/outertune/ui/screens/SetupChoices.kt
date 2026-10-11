@@ -26,7 +26,8 @@ import com.dd3boh.outertune.engine.SimilarSources
  * no", and what the catch-up screen reads to ask again (catchUpOwed). Here nothing is written
  * while the questions are answered: Done writes all of them in one edit, and that is the answer.
  * Setup left any other way, by restoring a backup from its first page, writes none of them, and
- * whatever the backup never answered is still asked.
+ * whatever the backup never answered is still asked. The catch-up screen asks it, and its Done
+ * writes the same way (catchUpChoices).
  *
  * The values are the ones the cards write, so an answer means what it has always meant.
  *

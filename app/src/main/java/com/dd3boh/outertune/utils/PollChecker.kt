@@ -176,8 +176,9 @@ class PollChecker @Inject constructor(
     /**
      * Announcements rode on the questions switch until they got their own. Whoever had said yes to
      * questions and was never asked about news keeps getting it: written down at launch, so from
-     * then on the two switches are independent. Someone answering both for the first time is asked
-     * about each, and the catch-up screen decides who that is when it opens.
+     * then on the two switches are independent. Someone who never answered for either is asked
+     * about the two as one, and the catch-up screen decides who that is when it opens
+     * (catchUpQuestions).
      */
     suspend fun adoptNewsChoice() = withContext(Dispatchers.IO) {
         val store = context.dataStore

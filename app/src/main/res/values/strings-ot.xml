@@ -338,6 +338,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="catch_up_title">A few quick questions</string>
     <string name="catch_up_body">These settings need your say-so, and this install has never been asked.</string>
     <string name="catch_up_done">Done</string>
+    <!-- Under the questions of that screen once every one has its answer. %1$s is its button, catch_up_done. -->
+    <string name="catch_up_all_answered">That is all. Tap \"%1$s\" to finish.</string>
     <string name="polls_opt_in_title">Ask you the occasional question?</string>
     <string name="polls_opt_in_body">Now and then InterTune can show a short question at the top of Home, about what to build or change. Answers, and the first time you open one, are counted anonymously. You can turn this off in Settings at any time.</string>
     <string name="polls_opt_in_yes">Yes, ask me</string>

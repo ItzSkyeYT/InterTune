@@ -1132,16 +1132,16 @@ class MainActivity : ComponentActivity() {
                          * Unset genuinely means "never asked" rather than "said no", because every path that
                          * answers writes a value, so this cannot pester anyone who already declined.
                          *
-                         * Latched open rather than driven straight off the gate: answering the last card
-                         * makes the gate false, and a screen that vanishes under the finger that just
-                         * answered it reads as a crash. [OptInCatchUp] carries its own finish button.
+                         * Latched open rather than driven straight off the gate: the gate goes false the
+                         * moment the answers are stored, and the screen is closed by its own Done
+                         * ([OptInCatchUp]) once they are written, not by a preference changing under it.
                          *
                          * Inside the theme on purpose: at the top of setContent it drew in baseline Material
                          * purple, because OuterTuneTheme had not opened yet. Inside the providers for a
-                         * harder reason: [OptInCatchUp] shows the wizard's own cards, and those read
-                         * LocalUpdateChecker and LocalPollChecker, so above this block they throw rather
-                         * than render. The dialog it replaced never noticed, having reached the checker
-                         * through the activity field instead.
+                         * harder reason: [OptInCatchUp] reads LocalUpdateChecker and LocalPollChecker, for
+                         * the checks a yes starts, so above this block it throws rather than renders. The
+                         * dialog it replaced never noticed, having reached the checker through the
+                         * activity field instead.
                          */
                         val updateChoice by rememberNullablePreference(UpdateCheckEnabledKey)
                         val pollChoice by rememberNullablePreference(PollsEnabledKey)
@@ -1398,7 +1398,7 @@ class MainActivity : ComponentActivity() {
                         }
 
                         if (catchUpOpen) {
-                            OptInCatchUp(onDone = {
+                            OptInCatchUp(appScope = coroutineScope, onDone = {
                                 catchUpOpen = false
                                 catchUpDone = true
                                 // The launch ping already ran, before there was an answer to read.
