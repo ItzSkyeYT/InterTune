@@ -173,6 +173,14 @@ android {
         }
     }
 
+    // userdebug is release without minify: to a car it says what release says (src/release).
+    sourceSets {
+        getByName("userdebug") {
+            manifest.srcFile("src/release/AndroidManifest.xml")
+            res.srcDir("src/release/res")
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true

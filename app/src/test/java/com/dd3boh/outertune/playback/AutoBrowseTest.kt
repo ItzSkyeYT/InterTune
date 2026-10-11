@@ -73,6 +73,35 @@ class AutoBrowseTest {
     }
 
     @Test
+    fun `a release with the rework held back says nothing of the car's screens`() {
+        // Switched off is not the same as absent: a release that still asked for the car's
+        // template permission and named template screens it does not serve is something no
+        // car has been seen to cope with. Held back, a release is to the car what it was.
+        val shipped = Regex("val AUTO_REWORK = true\\b").containsMatchIn(File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readText())
+        val release = File("src/release/AndroidManifest.xml")
+        val carFile = File("src/release/res/xml/automotive_app_desc.xml")
+        if (shipped) {
+            assertTrue("the rework ships: src/release must no longer take the car's screens out", !release.exists() && !carFile.exists())
+            return
+        }
+        val taken = release.readText()
+        for (name in listOf(
+            "androidx.car.app.MEDIA_TEMPLATES", "com.dd3boh.outertune.playback.AutoCarService",
+            "com.dd3boh.outertune.playback.AutoSettingsService", "androidx.car.app.minCarApiLevel",
+        )) {
+            val entry = taken.substringAfter("\"$name\"", "").substringBefore("/>")
+            assertTrue("the release manifest does not take out $name", "tools:node=\"remove\"" in entry)
+        }
+        assertTrue("a release still tells the car it has template screens", "template" !in carFile.readText().substringAfter("<automotiveApp>"))
+        assertTrue("media is gone from the release's car file", "<uses name=\"media\"" in carFile.readText())
+        // userdebug is release without minify, and takes the same.
+        val build = File("build.gradle.kts").readText()
+        val userdebug = build.substringAfter("getByName(\"userdebug\")", "").substringBefore("}")
+        assertTrue("userdebug does not take release's manifest", "manifest.srcFile(\"src/release/AndroidManifest.xml\")" in userdebug)
+        assertTrue("userdebug does not take release's resources", "res.srcDir(\"src/release/res\")" in userdebug)
+    }
+
+    @Test
     fun `every drawing the tree names is one the car's screens can draw`() {
         // The tree names its icons by address; the screens look the name up in a list of their own.
         val named = Regex("drawableUri\\(R\\.drawable\\.(\\w+)\\)").findAll(source("MediaLibrarySessionCallback.kt")).map { it.groupValues[1] }.toSet()
