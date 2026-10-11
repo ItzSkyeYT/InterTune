@@ -142,8 +142,8 @@ class SetupQuestionsTest {
         assertEquals(false, prefs[PollsEnabledKey])
         assertEquals(false, prefs[AnnouncementsEnabledKey])
         assertEquals(false, prefs[UsageCountEnabledKey])
-        // Last.fm too. Left unanswered it would be owed, and the catch-up screen, a list of
-        // switches, would open as setup closes: the very thing this page is there to spare.
+        // Last.fm too. Left unanswered it would be owed, and the catch-up screen would open as
+        // setup closes, to put the question that had just been passed over.
         assertEquals(SimilarSource.YOUTUBE.name, prefs[SimilarSourceKey])
         assertFalse(owed(prefs))
         assertFalse(owed(prefs, lastFmAskable = false))

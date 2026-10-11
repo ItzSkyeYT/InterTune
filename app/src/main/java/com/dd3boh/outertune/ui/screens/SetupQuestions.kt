@@ -47,7 +47,11 @@ enum class SetupQuestion {
  * SetupChoices holds two. Nothing is stored while the questions are answered. The tick stores
  * what [choices] makes of them, whenever it is tapped.
  *
- * @param asked the questions this build puts, in order
+ * The catch-up screen (OptInCatchUp) holds the same for an install that was never asked some of
+ * them. It opens on catchUpQuestions and not on [from], and its Done waits for [allAnswered].
+ *
+ * @param asked the questions put, in order. Setup puts every one this build can; the catch-up
+ *   screen leaves one out where it is not to be asked again (catchUpQuestions)
  * @param answers the answers given so far. A question that is not in here has none yet
  * @param open the question in the card. None once every question has its answer and none of them
  *   is being changed: the page then says that is all
@@ -75,12 +79,20 @@ data class SetupQuestions(
         if (question in answers) copy(open = question) else this
 
     /**
+     * Whether every question put has its answer. Setup's tick does not wait for that. The
+     * catch-up screen's Done does: that screen is there to ask, and is left by answering it. A
+     * row tapped to be looked at again still has its answer, so it takes nothing back.
+     */
+    val allAnswered: Boolean get() = asked.all { it in answers }
+
+    /**
      * What the tick stores.
      *
      * A question nobody answered is a no, which is what a switch nobody touched stored: off, and
      * updates by SetupChoices.UPDATES_DEFAULT, which is off too. Last.fm's as well, where it is
-     * put: left unanswered it would be owed (catchUpOwed), and the catch-up screen, a list of
-     * switches, would open as setup closes. A build that cannot ask it stores nothing for it.
+     * put: left unanswered it would be owed (catchUpOwed), and the catch-up screen would open as
+     * setup closes, to put the question that had just been passed over. A build that cannot ask
+     * it stores nothing for it.
      */
     fun choices(): SetupChoices {
         val word = answers[SetupQuestion.WORD] ?: false
@@ -141,8 +153,13 @@ data class SetupQuestions(
          * The reverse of [saved], or null for anything that is not a page of this build's
          * questions: the page then starts from what is stored.
          */
-        fun ofSaved(saved: String, lastFmAskable: Boolean): SetupQuestions? {
-            val asked = asked(lastFmAskable)
+        fun ofSaved(saved: String, lastFmAskable: Boolean): SetupQuestions? = ofSaved(saved, asked(lastFmAskable))
+
+        /**
+         * The same for a page of [asked], which the catch-up screen works out from what is
+         * stored and not from the build alone (catchUpQuestions).
+         */
+        fun ofSaved(saved: String, asked: List<SetupQuestion>): SetupQuestions? {
             if (saved.length != asked.size + 1 || saved.dropLast(1).any { it !in "01-" }) return null
             val answers = asked.zip(saved.toList())
                 .filter { (_, mark) -> mark != '-' }
