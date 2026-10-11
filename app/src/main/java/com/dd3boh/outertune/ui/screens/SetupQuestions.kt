@@ -78,9 +78,9 @@ data class SetupQuestions(
      * What the tick stores.
      *
      * A question nobody answered is a no, which is what a switch nobody touched stored: off, and
-     * updates by SetupChoices.UPDATES_DEFAULT, which is off too. Last.fm is the exception. It is
-     * left as it is stored, so never answered it is still never answered, and the catch-up screen
-     * asks it as setup closes (catchUpOwed).
+     * updates by SetupChoices.UPDATES_DEFAULT, which is off too. Last.fm's as well, where it is
+     * put: left unanswered it would be owed (catchUpOwed), and the catch-up screen, a list of
+     * switches, would open as setup closes. A build that cannot ask it stores nothing for it.
      */
     fun choices(): SetupChoices {
         val word = answers[SetupQuestion.WORD] ?: false
@@ -89,7 +89,7 @@ data class SetupQuestions(
             questions = word,
             news = word,
             count = answers[SetupQuestion.COUNT] ?: false,
-            lastFm = answers[SetupQuestion.LASTFM],
+            lastFm = if (SetupQuestion.LASTFM in asked) answers[SetupQuestion.LASTFM] ?: false else null,
         )
     }
 

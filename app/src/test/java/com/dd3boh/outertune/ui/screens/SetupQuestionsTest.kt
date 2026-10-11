@@ -110,7 +110,7 @@ class SetupQuestionsTest {
             // And to nothing else.
             assertEquals(SetupChoices.UPDATES_DEFAULT, choices.updates)
             assertFalse(choices.count)
-            assertNull(choices.lastFm)
+            assertEquals(false, choices.lastFm)
         }
     }
 
@@ -134,7 +134,7 @@ class SetupQuestionsTest {
     }
 
     @Test
-    fun `the tick with nothing answered is a no to three questions, and Last-fm is still to be asked`() {
+    fun `the tick with nothing answered is a no to every question, and nothing is left to ask`() {
         val prefs = mutablePreferencesOf()
         SetupQuestions.from(prefs, lastFmAskable = true).choices().store(prefs)
         // What a switch nobody touched stored: off.
@@ -142,12 +142,10 @@ class SetupQuestionsTest {
         assertEquals(false, prefs[PollsEnabledKey])
         assertEquals(false, prefs[AnnouncementsEnabledKey])
         assertEquals(false, prefs[UsageCountEnabledKey])
-        // Last.fm is left as it is stored. Never answered, it is still never answered, so the
-        // catch-up screen opens as setup closes and asks it.
-        assertNull(prefs[SimilarSourceKey])
-        assertNull(prefs[SimilarFromLastFmKey])
-        assertTrue(owed(prefs))
-        // A build that cannot ask it owes nothing.
+        // Last.fm too. Left unanswered it would be owed, and the catch-up screen, a list of
+        // switches, would open as setup closes: the very thing this page is there to spare.
+        assertEquals(SimilarSource.YOUTUBE.name, prefs[SimilarSourceKey])
+        assertFalse(owed(prefs))
         assertFalse(owed(prefs, lastFmAskable = false))
     }
 
@@ -159,13 +157,12 @@ class SetupQuestionsTest {
         assertEquals(true, prefs[PollsEnabledKey])
         assertEquals(true, prefs[AnnouncementsEnabledKey])
         assertEquals(false, prefs[UsageCountEnabledKey])
-        assertNull(prefs[SimilarSourceKey])
+        assertEquals(SimilarSource.YOUTUBE.name, prefs[SimilarSourceKey])
 
-        // Every question but Last.fm's answered: it alone is owed.
+        // Every question but Last.fm's answered: that one is a no like the rest, and nothing is owed.
         val last = mutablePreferencesOf()
         fresh.answer(UPDATES, false).answer(WORD, false).answer(COUNT, true).choices().store(last)
-        assertTrue(owed(last))
-        last[SimilarSourceKey] = SimilarSource.YOUTUBE.name
+        assertEquals(SimilarSource.YOUTUBE.name, last[SimilarSourceKey])
         assertFalse(owed(last))
     }
 
