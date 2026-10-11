@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    A release with the rework of what a car is shown held back (Unreleased.AUTO_REWORK) says nothing
+    of the car's template screens: not their permission, not their two services, not the version of
+    them it asks for. To a car it is what it was. When the rework ships, this file goes, with
+    res/xml/automotive_app_desc.xml beside it.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission
+        android:name="androidx.car.app.MEDIA_TEMPLATES"
+        tools:node="remove" />
+
+    <application>
+        <service
+            android:name="com.dd3boh.outertune.playback.AutoCarService"
+            tools:node="remove" />
+        <service
+            android:name="com.dd3boh.outertune.playback.AutoSettingsService"
+            tools:node="remove" />
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            tools:node="remove" />
+    </application>
+
+</manifest>
