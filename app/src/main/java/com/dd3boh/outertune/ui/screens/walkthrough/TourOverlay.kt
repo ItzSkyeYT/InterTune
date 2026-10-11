@@ -584,15 +584,18 @@ private fun TourBubble(
                 Spacer(Modifier.height(14.dp))
             }
             // Not a Row: in French the two buttons of the opening card are wider than the bubble.
-            ButtonsRow(modifier = Modifier.fillMaxWidth()) {
-                if (!isOffer) {
-                    Text(
-                        text = stringResource(R.string.walkthrough_progress, step, steps),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(Modifier.weight(1f))
+            ButtonsRow(
+                modifier = Modifier.fillMaxWidth(),
+                start = {
+                    if (!isOffer) {
+                        Text(
+                            text = stringResource(R.string.walkthrough_progress, step, steps),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+            ) {
                 // Quiet, and gone on the last step, where the primary button already ends the tour.
                 if (!isLast || isOffer) {
                     TextButton(onClick = { state.stop(); onFinish() }) {
