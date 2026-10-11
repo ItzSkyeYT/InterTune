@@ -126,7 +126,7 @@ fun ArtistAlbumsScreen(
             }
         }
 
-        FloatingTopBar(title = artist?.artist?.name.orEmpty(), navController = navController)
+        FloatingTopBar(title = artist?.artist?.name.orEmpty(), titleIsName = true, navController = navController)
 
         SnackbarHost(
             hostState = snackbarHostState,

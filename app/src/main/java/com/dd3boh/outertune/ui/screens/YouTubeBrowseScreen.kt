@@ -154,5 +154,5 @@ fun YouTubeBrowseScreen(
         state = lazyListState,
     )
 
-    FloatingTopBar(title = browseResult?.title.orEmpty(), navController = navController)
+    FloatingTopBar(title = browseResult?.title.orEmpty(), titleIsName = true, navController = navController)
 }
