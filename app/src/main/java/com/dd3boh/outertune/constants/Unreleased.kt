@@ -112,10 +112,10 @@ object Unreleased {
 
     /**
      * A shorter first-run setup (ShortSetup.kt): three pages in place of six. What the app is,
-     * with the way to restore a backup; signing in, or not; and the five questions of the old
-     * exit page as five switches with one Done (SetupChoices). Look and feel, local media and the
-     * downloads folder are not asked about: they stay in Settings, at the defaults the old pages
-     * left them on.
+     * with the way to restore a backup; signing in, or not; and the questions of the old exit
+     * page, one at a time with a yes and a no, and one Done (SetupQuestions). Look and feel,
+     * local media and the downloads folder are not asked about: they stay in Settings, at the
+     * defaults the old pages left them on.
      *
      * With it, access to the music on the device is asked for where somebody has gone that needs
      * it, Folders or the local scanner, or as local media is turned on, and no longer by the
@@ -125,8 +125,8 @@ object Unreleased {
      * Agreed for 0.11.5 on 10 Oct 2026 ("ship the onboarding in 0.11.5"): on in every build, its
      * setup_ strings open to translators and in French. What is left is tidying: the flag with
      * the checks that read it, in AppNavGraph and MediaPermissionAsk, and SetupWizard.kt with the
-     * strings only it uses, which nothing reaches any more. Whether "Tell me about updates"
-     * starts on (SetupChoices.UPDATES_DEFAULT) is as it was built: off.
+     * strings only it uses, which nothing reaches any more. What "Hear about new versions?" is
+     * taken as when nobody answers it (SetupChoices.UPDATES_DEFAULT) is as it was built: a no.
      */
     val SHORT_SETUP = true
 
