@@ -6,14 +6,26 @@
 
 package com.dd3boh.outertune.ui.screens
 
+import android.os.Build
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsEndWidth
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.windowInsetsStartWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -25,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,13 +47,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
@@ -142,75 +160,120 @@ fun OptInCatchUp(
             usePlatformDefaultWidth = false,
             dismissOnBackPress = false,
             dismissOnClickOutside = false,
+            // Laid out over the whole screen, the bars with it. Left to fit inside them, the
+            // window stopped under the status bar and above the navigation bar, and the screen
+            // behind showed through both, dimmed: Home's top row behind the clock, on a page
+            // that is meant to be the only thing there.
+            decorFitsSystemWindows = false,
         )
     ) {
+        val lightPage = MaterialTheme.colorScheme.surface.luminance() > 0.5f
+        BarsReadOn(lightPage)
         Surface(modifier = Modifier.fillMaxSize()) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxSize()
-            ) {
-                // What scrolls, in the room the button leaves. Held by its foot, as setup's page
-                // of questions is and for its reason: it grows by a row with each answer, and
-                // the card with its two answers is the last thing on it.
+            Box(Modifier.fillMaxSize()) {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
-                        .weight(1f)
-                        .widthIn(max = 560.dp)
-                        .fillMaxWidth()
-                        .moreBelow(scroll, MaterialTheme.colorScheme.surface, fromFoot = true)
-                        .verticalScroll(scroll, reverseScrolling = true)
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .fillMaxSize()
+                        // The page's colour runs under the bars. What is on the page keeps clear
+                        // of them, and of a cut-out when the phone is on its side.
+                        .windowInsetsPadding(WindowInsets.safeDrawing)
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Tune,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                    // What scrolls, in the room the button leaves. Held by its foot, as setup's page
+                    // of questions is and for its reason: it grows by a row with each answer, and
+                    // the card with its two answers is the last thing on it.
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .size(80.dp)
-                            .padding(16.dp),
-                    )
-                    Text(
-                        text = stringResource(R.string.catch_up_title),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
-                    )
-                    Text(
-                        text = stringResource(R.string.catch_up_body),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
-                    )
-                    Spacer(Modifier.height(8.dp))
+                            .weight(1f)
+                            .widthIn(max = 560.dp)
+                            .fillMaxWidth()
+                            .moreBelow(scroll, MaterialTheme.colorScheme.surface, fromFoot = true)
+                            .verticalScroll(scroll, reverseScrolling = true)
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Tune,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .size(80.dp)
+                                .padding(16.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.catch_up_title),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.catch_up_body),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                        )
+                        Spacer(Modifier.height(8.dp))
 
-                    SetupQuestionsBody(
-                        questions = questions,
-                        onChange = { questions = it },
-                        // Not while Done is storing the answers.
-                        live = !finishing,
-                        scroll = scroll,
-                        closing = stringResource(R.string.catch_up_all_answered, stringResource(R.string.catch_up_done)),
-                    )
-                }
+                        SetupQuestionsBody(
+                            questions = questions,
+                            onChange = { questions = it },
+                            // Not while Done is storing the answers.
+                            live = !finishing,
+                            scroll = scroll,
+                            closing = stringResource(R.string.catch_up_all_answered, stringResource(R.string.catch_up_done)),
+                        )
+                    }
 
-                // Under what scrolls and not part of it, so it is in view whatever the size of
-                // the screen or of the type.
-                Button(
-                    enabled = questions.allAnswered,
-                    onClick = done,
-                    modifier = Modifier
-                        .widthIn(max = 560.dp)
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp)
-                ) {
-                    Text(stringResource(R.string.catch_up_done))
+                    // Under what scrolls and not part of it, so it is in view whatever the size of
+                    // the screen or of the type.
+                    Button(
+                        enabled = questions.allAnswered,
+                        onClick = done,
+                        modifier = Modifier
+                            .widthIn(max = 560.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp)
+                    ) {
+                        Text(stringResource(R.string.catch_up_done))
+                    }
                 }
+                // Before Android 8 the navigation bar's buttons are white whatever is under them,
+                // and on a light page they would be three shapes nobody can see.
+                if (lightPage && Build.VERSION.SDK_INT < Build.VERSION_CODES.O) NavigationBarShade()
             }
         }
     }
+}
+
+/**
+ * In a dialog laid out over the whole screen: the bars' icons are drawn to be read on its page,
+ * dark on a light page and light on a dark one. A dialog's window starts with light icons
+ * whatever is under them, which on a light page is a clock nobody can see.
+ */
+@Composable
+private fun BarsReadOn(lightPage: Boolean) {
+    val view = LocalView.current
+    val window = (view.parent as? DialogWindowProvider)?.window ?: return
+    SideEffect {
+        WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = lightPage
+            isAppearanceLightNavigationBars = lightPage
+        }
+    }
+}
+
+/** What the system itself lays under a bar whose icons it cannot darken. */
+private val BarShade = Color(0x801B1B1B)
+
+/** That shade under the navigation bar, on whichever edge it stands: the foot, or a side with the phone turned. */
+@Composable
+private fun BoxScope.NavigationBarShade() {
+    val bar = WindowInsets.navigationBars
+    Spacer(Modifier.align(Alignment.BottomCenter).fillMaxWidth().windowInsetsBottomHeight(bar).background(BarShade))
+    Spacer(Modifier.align(Alignment.CenterStart).fillMaxHeight().windowInsetsStartWidth(bar).background(BarShade))
+    Spacer(Modifier.align(Alignment.CenterEnd).fillMaxHeight().windowInsetsEndWidth(bar).background(BarShade))
 }
 
 /**
