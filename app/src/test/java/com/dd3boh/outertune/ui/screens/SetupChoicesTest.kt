@@ -24,11 +24,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The last page of the short setup: five switches and one Done.
+ * What the tick of the short setup's last page writes, and how what is stored is read back.
  *
  * The app tells "never asked" from "said no" by whether an answer is stored at all, and the
- * catch-up screen asks whatever is missing. So Done has to store an answer for every switch that
- * was on the page, the one its switch shows, and nothing for a question that was not put.
+ * catch-up screen asks whatever is missing. So the tick has to store each answer as it is given,
+ * and nothing for a question that was not put. The page itself, one question at a time, is in
+ * SetupQuestionsTest.
  */
 class SetupChoicesTest {
 
@@ -44,7 +45,7 @@ class SetupChoicesTest {
     )
 
     @Test
-    fun `Done stores every switch as it stands, in all thirty-two positions`() {
+    fun `Done stores each of the five as it is given, in all thirty-two ways`() {
         for (updates in positions) for (questions in positions) for (news in positions)
             for (count in positions) for (lastFm in positions) {
                 val prefs = mutablePreferencesOf()
@@ -61,26 +62,14 @@ class SetupChoicesTest {
     }
 
     @Test
-    fun `Done with nothing touched is five answers, not five questions left open`() {
-        val prefs = mutablePreferencesOf()
-        SetupChoices.from(prefs, lastFmAskable = true).store(prefs)
-        assertEquals(SetupChoices.UPDATES_DEFAULT, prefs[UpdateCheckEnabledKey])
-        assertEquals(false, prefs[PollsEnabledKey])
-        assertEquals(false, prefs[AnnouncementsEnabledKey])
-        assertEquals(false, prefs[UsageCountEnabledKey])
-        assertEquals(SimilarSource.YOUTUBE.name, prefs[SimilarSourceKey])
-        assertFalse(owed(prefs))
-    }
-
-    @Test
-    fun `every switch starts off on an install that was never asked, updates by its constant`() {
+    fun `an install that was never asked reads as off for every one, updates by its constant`() {
         val choices = SetupChoices.from(mutablePreferencesOf(), lastFmAskable = true)
         assertEquals(SetupChoices(SetupChoices.UPDATES_DEFAULT, false, false, false, false), choices)
     }
 
     @Test
     fun `a question that is not put is not answered`() {
-        // A build with no Last.fm key shows four switches.
+        // A build with no Last.fm key does not put its question.
         val shown = SetupChoices.from(mutablePreferencesOf(), lastFmAskable = false)
         assertNull(shown.lastFm)
         val prefs = mutablePreferencesOf()
@@ -106,7 +95,7 @@ class SetupChoicesTest {
     }
 
     @Test
-    fun `setup run again shows the answers given before and Done leaves them as they were`() {
+    fun `the answers given before are read as they were, and Done leaves them as they were`() {
         for (source in SimilarSource.entries) {
             val prefs = mutablePreferencesOf(
                 UpdateCheckEnabledKey to true,
@@ -120,7 +109,7 @@ class SetupChoicesTest {
             val choices = SetupChoices.from(prefs, lastFmAskable = true)
             assertEquals(SetupChoices(true, false, true, true, lastFm = source != SimilarSource.YOUTUBE), choices)
 
-            // Last.fm alone must not come back as Both because the switch can only say on.
+            // Last.fm alone must not come back as Both because a yes can only say yes.
             choices.store(prefs)
             assertEquals(before, prefs.asMap())
         }
@@ -136,25 +125,14 @@ class SetupChoicesTest {
     }
 
     @Test
-    fun `the switches come back from a rotation as they stood`() {
-        for (updates in positions) for (questions in positions) for (news in positions)
-            for (count in positions) for (lastFm in listOf(false, true, null)) {
-                val choices = SetupChoices(updates, questions, news, count, lastFm)
-                assertEquals(choices, SetupChoices.ofPositions(choices.positions()))
-            }
-        // Anything else is not a set of switches, and the page starts from what is stored.
-        for (saved in listOf("", "0101", "010101", "0-010", "01x10")) assertNull(saved, SetupChoices.ofPositions(saved))
-    }
-
-    @Test
     fun `a restored or updated install is still asked what it never answered`() {
         // A backup from before the count and the Last.fm question existed, restored from setup's
         // first page: setup is marked done by the backup, and Done was never tapped here.
         val restored = mutablePreferencesOf(UpdateCheckEnabledKey to true, PollsEnabledKey to false, AnnouncementsEnabledKey to false)
         assertTrue(owed(restored))
-        // The page would open on what is stored, with the rest off, and writes nothing by opening.
+        // The page opens on what is stored, with the rest not answered, and writes nothing by opening.
         val before = restored.asMap().toMap()
-        SetupChoices.from(restored, lastFmAskable = true)
+        SetupQuestions.from(restored, lastFmAskable = true)
         assertEquals(before, restored.asMap())
 
         // Each question on its own is enough to be asked.

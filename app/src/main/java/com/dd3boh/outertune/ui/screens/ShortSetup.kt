@@ -11,6 +11,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -24,12 +25,15 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -45,6 +49,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -52,13 +58,16 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.OfflinePin
 import androidx.compose.material.icons.rounded.SdCard
+import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -72,6 +81,7 @@ import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -93,18 +103,30 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.edit
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -118,7 +140,6 @@ import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.applyNewInstallDefaults
 import com.dd3boh.outertune.constants.markFirstSetup
-import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.InstallSource
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.installSource
@@ -151,9 +172,10 @@ private const val SETTLE_MS = 600L
  * minute, and all of it is in Settings.
  *
  * This asks for what has no default. The first page says what the app is and offers the two ways
- * on. The second is signing in, or not. The third is the five questions as five switches, and
- * Done (SetupChoices). Look and feel, local media and the downloads folder are left at what the
- * old pages showed, which is what anybody tapping Next through them got.
+ * on. The second is signing in, or not. The third is the questions of the old exit page, one at
+ * a time with a yes and a no, and Done (SetupQuestions). Look and feel, local media and the
+ * downloads folder are left at what the old pages showed, which is what anybody tapping Next
+ * through them got.
  *
  * Under every page is the row the wizard has under its own: back, a line that says how far
  * along, and on, which is a tick on the last page (SetupNavRow). It is outside the pages, so it
@@ -204,12 +226,13 @@ fun ShortSetup(
     // One PackageManager call for the page, as on the card this line comes from.
     val fromFdroid = remember { context.installSource() == InstallSource.F_DROID }
 
-    // The switches. Read once and waited for, as rememberPreference reads: they have to stand
-    // where they will stay from the page's first frame, or Done could be tapped over a switch
-    // that then moves. Only Done writes them.
-    var choices by rememberSaveable(stateSaver = ChoicesSaver) {
+    // The questions of the last page and the answers given to them. What is stored is read once
+    // and waited for, as rememberPreference reads: the page has to stand as it will stay from
+    // its first frame, or Done could be tapped over a row that then changes. Only Done writes
+    // an answer down.
+    var questions by rememberSaveable(saver = QuestionsSaver) {
         val stored = runBlocking(Dispatchers.IO) { context.dataStore.data.first() }
-        mutableStateOf(SetupChoices.from(stored, lastFmQuestionAskable()))
+        mutableStateOf(SetupQuestions.from(stored, lastFmQuestionAskable()))
     }
 
     // Once only, and the writes are waited for before leaving, for the reasons given at
@@ -219,13 +242,14 @@ fun ShortSetup(
     val finish: () -> Unit = {
         if (!finishing) {
             finishing = true
-            val answers = choices
+            // What a question without an answer by now is taken as: see SetupQuestions.choices.
+            val answers = questions.choices()
             coroutineScope.launch {
                 // The answers first, in an edit of their own, and only then the mark that setup
                 // is done. MainActivity opens the catch-up screen when setup is done and an
                 // answer is missing, and it reads each of them through a collector of its own.
                 // Written in one edit they could reach it a frame apart, setup done before the
-                // answers, and it would ask the five questions that had just been answered.
+                // answers, and it would ask the questions that had just been answered.
                 context.dataStore.edit { answers.store(it) }
                 context.dataStore.edit {
                     applyNewInstallDefaults(it)
@@ -259,6 +283,15 @@ fun ShortSetup(
         settledPage = page
     }
     val settled = settledPage == page
+
+    // The same for a question of the last page. Its two answers stand where the answers of the
+    // one before it stood, so the second tap of a double tap would answer a question that
+    // nobody had read.
+    var settledQuestion by remember { mutableStateOf<SetupQuestion?>(null) }
+    LaunchedEffect(questions.open) {
+        delay(SETTLE_MS)
+        settledQuestion = questions.open
+    }
 
     // Back is a page back, and nothing on the first page: setup is not left by Back.
     val canGoBack = page > PAGE_WELCOME && !finishing
@@ -414,10 +447,28 @@ fun ShortSetup(
                         )
 
                         else -> {
+                            // Not from a page or a card on its way out, and not in a question's
+                            // first moment.
+                            val answer: (SetupQuestion, Boolean) -> Unit = { question, yes ->
+                                if (live && question == questions.open && question == settledQuestion) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                    questions = questions.answer(question, yes)
+                                    // Back to the card, for somebody who had scrolled up to the rows.
+                                    coroutineScope.launch { scroll.animateScrollTo(0) }
+                                }
+                            }
+                            val reopen: (SetupQuestion) -> Unit = { question ->
+                                if (live) {
+                                    questions = questions.reopen(question)
+                                    coroutineScope.launch { scroll.animateScrollTo(0) }
+                                }
+                            }
                             SetupPage(
                                 beside = beside,
                                 scroll = scroll,
                                 centred = false,
+                                // The page grows as it is answered, a row above the card each time.
+                                fromFoot = true,
                                 content = {
                                     Spacer(Modifier.height(if (beside) 0.dp else 16.dp))
                                     SetupHeading(
@@ -425,48 +476,15 @@ fun ShortSetup(
                                         body = stringResource(R.string.setup_choices_body),
                                     )
                                     Spacer(Modifier.height(16.dp))
-                                    // The titles are the ones these switches have in Settings, so
-                                    // each reads as that setting and not as a copy of it.
-                                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-                                        SwitchPreference(
-                                            title = { Text(stringResource(R.string.update_check)) },
-                                            description = stringResource(
-                                                if (fromFdroid) R.string.setup_updates_line_fdroid else R.string.setup_updates_line
-                                            ),
-                                            checked = choices.updates,
-                                            onCheckedChange = { choices = choices.copy(updates = it) },
-                                        )
-                                        SwitchPreference(
-                                            title = { Text(stringResource(R.string.polls_enabled)) },
-                                            description = stringResource(R.string.setup_questions_line),
-                                            checked = choices.questions,
-                                            onCheckedChange = { choices = choices.copy(questions = it) },
-                                        )
-                                        SwitchPreference(
-                                            title = { Text(stringResource(R.string.news_enabled)) },
-                                            description = stringResource(R.string.setup_news_line),
-                                            checked = choices.news,
-                                            onCheckedChange = { choices = choices.copy(news = it) },
-                                        )
-                                        SwitchPreference(
-                                            title = { Text(stringResource(R.string.usage_count_enabled)) },
-                                            description = stringResource(R.string.setup_count_line),
-                                            checked = choices.count,
-                                            onCheckedChange = { choices = choices.copy(count = it) },
-                                        )
-                                        // Not there at all in a build that cannot ask Last.fm.
-                                        choices.lastFm?.let { on ->
-                                            SwitchPreference(
-                                                title = { Text(stringResource(R.string.lastfm_opt_in_enabled)) },
-                                                description = stringResource(R.string.setup_lastfm_line),
-                                                checked = on,
-                                                onCheckedChange = { choices = choices.copy(lastFm = it) },
-                                            )
-                                        }
-                                    }
+                                    SetupQuestionsBody(
+                                        questions = questions,
+                                        fromFdroid = fromFdroid,
+                                        onAnswer = answer,
+                                        onReopen = reopen,
+                                    )
                                 },
-                                // The tick under the page is Done. A switch still under the
-                                // fold when it is tapped stays as it stood.
+                                // The tick under the page is Done, whenever it is tapped, with
+                                // every question answered or none.
                                 buttons = null,
                             )
                         }
@@ -571,10 +589,14 @@ private fun SetupNavButton(
     )
 }
 
-/** The five switches across a rotation: see SetupChoices.positions. */
-private val ChoicesSaver = Saver<SetupChoices, String>(
-    save = { it.positions() },
-    restore = { SetupChoices.ofPositions(it) },
+/**
+ * The last page across a rotation, or a stay in the background: the answers given and the
+ * question in the card (SetupQuestions.saved). Anything else that comes back restores nothing,
+ * and the page starts from what is stored.
+ */
+private val QuestionsSaver = Saver<MutableState<SetupQuestions>, String>(
+    save = { it.value.saved() },
+    restore = { saved -> SetupQuestions.ofSaved(saved, lastFmQuestionAskable())?.let { mutableStateOf(it) } },
 )
 
 /**
@@ -701,12 +723,18 @@ private fun SetupOverview(close: Boolean) {
  *
  * @param centred whether a page shorter than its room stands in the middle of it, as a page of a
  *   few words does, or at the top, as a list does
+ * @param fromFoot whether a page longer than its room is held by its foot, and it is its head
+ *   that goes out of sight. The last page is: it grows as it is answered, and what was just
+ *   put, with its two answers, is the last thing on it. Held by its head, each answer would
+ *   leave the next question under the fold. The scroll then counts from the foot, so 0 is the
+ *   foot whatever the page has grown to
  */
 @Composable
 private fun SetupPage(
     beside: Boolean,
     scroll: ScrollState,
     centred: Boolean,
+    fromFoot: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
     buttons: (@Composable ColumnScope.() -> Unit)?,
 ) {
@@ -722,8 +750,8 @@ private fun SetupPage(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .moreBelow(scroll, MaterialTheme.colorScheme.background)
-                    .verticalScroll(scroll)
+                    .moreBelow(scroll, MaterialTheme.colorScheme.background, fromFoot)
+                    .verticalScroll(scroll, reverseScrolling = fromFoot)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 content = content,
             )
@@ -755,8 +783,8 @@ private fun SetupPage(
                 .weight(1f)
                 .widthIn(max = 560.dp)
                 .fillMaxWidth()
-                .moreBelow(scroll, MaterialTheme.colorScheme.background)
-                .verticalScroll(scroll)
+                .moreBelow(scroll, MaterialTheme.colorScheme.background, fromFoot)
+                .verticalScroll(scroll, reverseScrolling = fromFoot)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             content = content,
         )
@@ -776,14 +804,23 @@ private fun SetupPage(
 /**
  * The foot of what scrolls fading into the [page] while more of it lies below. A list cut exactly
  * between two rows looks whole, and the tick under it is Done whether its end was seen or not.
+ *
+ * A page held by its foot ([fromFoot]) has what it does not show above it, so its head fades the
+ * same way. Its scroll counts from the foot: on is up, and back is down.
  */
-private fun Modifier.moreBelow(scroll: ScrollState, page: Color): Modifier = drawWithContent {
+private fun Modifier.moreBelow(scroll: ScrollState, page: Color, fromFoot: Boolean = false): Modifier = drawWithContent {
     drawContent()
-    if (scroll.canScrollForward) {
-        val fade = 40.dp.toPx()
+    val fade = 40.dp.toPx()
+    if (if (fromFoot) scroll.canScrollBackward else scroll.canScrollForward) {
         drawRect(
             brush = Brush.verticalGradient(listOf(Color.Transparent, page), startY = size.height - fade, endY = size.height),
             topLeft = Offset(0f, size.height - fade),
+            size = Size(size.width, fade),
+        )
+    }
+    if (fromFoot && scroll.canScrollForward) {
+        drawRect(
+            brush = Brush.verticalGradient(listOf(page, Color.Transparent), startY = 0f, endY = fade),
             size = Size(size.width, fade),
         )
     }
@@ -845,4 +882,297 @@ private fun SetupButton(
     } else {
         FilledTonalButton(onClick = onClick, enabled = enabled, modifier = modifier) { label() }
     }
+}
+
+/**
+ * The last page under its heading: a row for each question that has its answer, in the order
+ * they are put, and under the rows the card of the question that is open, or the line that
+ * closes the page when none is.
+ *
+ * Nothing here writes an answer down. [onAnswer] and [onReopen] change what the page holds
+ * (SetupQuestions), and the tick stores it.
+ */
+@Composable
+private fun SetupQuestionsBody(
+    questions: SetupQuestions,
+    fromFdroid: Boolean,
+    onAnswer: (SetupQuestion, Boolean) -> Unit,
+    onReopen: (SetupQuestion) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        for (question in questions.asked) {
+            val answer = questions.answers[question]
+            // A row makes its own room above the card as its answer is given, and pushes the
+            // card down. One given before is there from the first frame.
+            AnimatedVisibility(visible = answer != null) {
+                SetupAnswerRow(
+                    texts = question.texts(fromFdroid),
+                    yes = answer == true,
+                    open = question == questions.open,
+                    onClick = { onReopen(question) },
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+            }
+        }
+    }
+    Spacer(Modifier.height(6.dp))
+
+    AnimatedContent(
+        targetState = questions.open,
+        modifier = Modifier.fillMaxWidth(),
+        transitionSpec = {
+            // One question fades and the next comes in its place, and the room it takes changes
+            // with it and not at a jump. No slide: the row coming in above is already moving
+            // the card, and a second movement across it would be one too many.
+            fadeIn(tween(220, delayMillis = 90, easing = LinearOutSlowInEasing))
+                .togetherWith(fadeOut(tween(90, easing = FastOutLinearInEasing)))
+                .using(SizeTransform(clip = false))
+        },
+        label = "setupQuestion",
+    ) { open ->
+        if (open == null) {
+            Text(
+                text = stringResource(R.string.setup_all_answered),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 20.dp)
+                    // For a screen reader to say as it comes: the button it stood on has gone.
+                    .semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        } else {
+            SetupQuestionCard(
+                texts = open.texts(fromFdroid),
+                onAnswer = { yes -> onAnswer(open, yes) },
+            )
+        }
+    }
+}
+
+/**
+ * What a question shows: its icon, its words in the card with the sentence under them, and the
+ * few words it goes by once it is a row.
+ */
+private data class QuestionTexts(val icon: ImageVector, val question: Int, val line: Int, val short: Int)
+
+/**
+ * The icons are the ones the same questions have on their cards and in Settings. A word from
+ * InterTune, which is news and questions as one, has the icon of news.
+ */
+private fun SetupQuestion.texts(fromFdroid: Boolean) = when (this) {
+    SetupQuestion.UPDATES -> QuestionTexts(
+        icon = Icons.Rounded.Update,
+        question = R.string.setup_updates_question,
+        // A copy from F-Droid is kept up to date without this, and is told so.
+        line = if (fromFdroid) R.string.setup_updates_line_fdroid else R.string.setup_updates_line,
+        short = R.string.setup_updates_short,
+    )
+    SetupQuestion.WORD -> QuestionTexts(
+        icon = Icons.Rounded.Campaign,
+        question = R.string.setup_word_question,
+        line = R.string.setup_word_line,
+        short = R.string.setup_word_short,
+    )
+    SetupQuestion.COUNT -> QuestionTexts(
+        icon = Icons.Rounded.Groups,
+        question = R.string.setup_count_question,
+        line = R.string.setup_count_line,
+        short = R.string.setup_count_short,
+    )
+    SetupQuestion.LASTFM -> QuestionTexts(
+        icon = Icons.Rounded.Hub,
+        question = R.string.setup_lastfm_question,
+        line = R.string.setup_lastfm_line,
+        short = R.string.setup_lastfm_short,
+    )
+}
+
+/**
+ * A question that has its answer, on one line: its icon, a few words for it, and the answer at
+ * the end, which is measured before the words and so shows whatever their length. A tap puts the
+ * question back in the card, which a screen reader says after the words and the answer. [open]
+ * is the row whose question is in the card now.
+ */
+@Composable
+private fun SetupAnswerRow(
+    texts: QuestionTexts,
+    yes: Boolean,
+    open: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    val words = if (open) colors.onSecondaryContainer else colors.onSurface
+    val quiet = if (open) colors.onSecondaryContainer else colors.onSurfaceVariant
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (open) colors.secondaryContainer else colors.surfaceContainerHigh)
+            .clickable(
+                onClickLabel = stringResource(R.string.setup_change_answer),
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+    ) {
+        Icon(
+            imageVector = texts.icon,
+            contentDescription = null,
+            tint = quiet,
+            modifier = Modifier.size(22.dp),
+        )
+        SetupOneLine(
+            text = stringResource(texts.short),
+            style = MaterialTheme.typography.bodyLarge,
+            color = words,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = stringResource(if (yes) R.string.setup_yes else R.string.setup_no),
+            style = MaterialTheme.typography.labelLarge,
+            // Colour for a yes only: a column of answers shows at a glance what was agreed to.
+            color = if (yes) colors.primary else quiet,
+            maxLines = 1,
+        )
+    }
+}
+
+/**
+ * One question: its badge, the question as the card's heading, a sentence on what a yes does,
+ * and the two answers side by side, half of the width each whatever their words.
+ */
+@Composable
+private fun SetupQuestionCard(texts: QuestionTexts, onAnswer: (Boolean) -> Unit) {
+    val question = stringResource(texts.question)
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(22.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            // The badge of the first page's rows, a size up.
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.secondaryContainer),
+            ) {
+                Icon(
+                    imageVector = texts.icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(26.dp),
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = question,
+                style = MaterialTheme.typography.titleLarge.copy(lineHeight = QUESTION_LINE),
+                autoSize = QuestionSize(
+                    headline = MaterialTheme.typography.titleLarge.fontSize,
+                    smallest = MaterialTheme.typography.titleMedium.fontSize,
+                ),
+                modifier = Modifier.semantics { heading() },
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(texts.line),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(18.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                val no = stringResource(R.string.setup_no_thanks)
+                val yes = stringResource(R.string.setup_yes)
+                SetupAnswerButton(
+                    text = no,
+                    spoken = stringResource(R.string.setup_answer_spoken, no, question),
+                    primary = false,
+                    onClick = { onAnswer(false) },
+                    modifier = Modifier.weight(1f),
+                )
+                SetupAnswerButton(
+                    text = yes,
+                    spoken = stringResource(R.string.setup_answer_spoken, yes, question),
+                    primary = true,
+                    onClick = { onAnswer(true) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}
+
+// The room between a question's lines as a share of its size, which is a headline's own share,
+// so that it follows whatever size the question is given.
+private val QUESTION_LINE = 1.27.em
+
+/**
+ * The size of a question in its card: a headline's while that takes two lines at most, and a
+ * step smaller for as long as it would take a third, down to the size of a row's title. There it
+ * takes the lines it needs: smaller before longer, and never cut.
+ */
+private data class QuestionSize(val headline: TextUnit, val smallest: TextUnit) : TextAutoSize {
+    override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit {
+        var size = headline.value
+        while (size > smallest.value && performLayout(constraints, text, size.sp).lineCount > 2) size -= 2f
+        return size.coerceAtLeast(smallest.value).sp
+    }
+}
+
+/**
+ * One of a question's two answers: a yes is the filled one ([primary]) and a no is tonal, as the
+ * pages' own buttons are. Its words stay on one line. [spoken] is what a screen reader says in
+ * their place: the answer and the question it answers.
+ */
+@Composable
+private fun SetupAnswerButton(
+    text: String,
+    spoken: String,
+    primary: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val button = modifier
+        .heightIn(min = 52.dp)
+        .semantics { contentDescription = spoken }
+    // Less of a margin than a button has by itself: half a card is not much room for two words.
+    val margin = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+    val label: @Composable RowScope.() -> Unit = {
+        SetupOneLine(text = text, style = MaterialTheme.typography.labelLarge)
+    }
+    if (primary) {
+        Button(onClick = onClick, modifier = button, contentPadding = margin, content = label)
+    } else {
+        FilledTonalButton(onClick = onClick, modifier = button, contentPadding = margin, content = label)
+    }
+}
+
+/**
+ * One line of [text] that gets smaller before it would be cut. An answer has half a card, and a
+ * row's words share theirs with the answer: neither has a second line to break a word onto.
+ */
+@Composable
+private fun SetupOneLine(
+    text: String,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+) {
+    Text(
+        text = text,
+        style = style,
+        color = color,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = style.fontSize, stepSize = 1.sp),
+        modifier = modifier,
+    )
 }
