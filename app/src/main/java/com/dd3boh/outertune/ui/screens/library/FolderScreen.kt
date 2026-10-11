@@ -38,7 +38,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -102,6 +101,7 @@ import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.ScrollToTopManager
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.SortHeader
+import com.dd3boh.outertune.ui.component.StoragePermissionBanner
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.IconTextButton
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
@@ -421,22 +421,13 @@ fun FolderScreen(
                                 mutableStateOf(context.checkSelfPermission(MEDIA_PERMISSION_LEVEL) != PackageManager.PERMISSION_GRANTED)
                             }
                             if (localLibEnable && showStoragePerm) {
-                                TextButton(
+                                StoragePermissionBanner(
                                     onClick = {
                                         // allow user to hide error when clicked. This also makes the code a lot nicer too.
                                         showStoragePerm = false
                                         (context as MainActivity).permissionLauncher.launch(MEDIA_PERMISSION_LEVEL)
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(MaterialTheme.colorScheme.error)
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.missing_media_permission_warning),
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                }
+                                    }
+                                )
                             }
                         } else {
                             libraryFilterContent()
