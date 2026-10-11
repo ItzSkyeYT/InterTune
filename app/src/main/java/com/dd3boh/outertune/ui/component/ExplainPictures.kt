@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
@@ -42,6 +43,7 @@ import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
+import kotlin.math.max
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.tanh
@@ -52,7 +54,7 @@ import kotlin.math.tanh
  * own colours, so it follows the theme and weighs nothing; it has no words in it, so there is
  * nothing to translate; and it holds still on a phone that has animations turned off.
  */
-enum class ExplainPicture { FADE, HEAD_TRACKING, STAGE_WIDTH }
+enum class ExplainPicture { FADE, HEAD_TRACKING, SOUND_STAGE, PROXIMITY }
 
 /** The bars of sound a song is drawn with. */
 internal const val FADE_BARS = 12
@@ -157,20 +159,6 @@ internal fun headTurn(seconds: Float): Float = TURN_MOST * swing(seconds / TURN_
 /** The head on a phone with animations off: turned, with the music where it was. */
 internal const val STILL_TURN = -28f
 
-/** How long the two speakers take to open out and come back, in seconds. */
-internal const val WIDTH_LOOP = 5.2f
-
-/** The narrowest and the widest the stage width picture shows, in degrees either side. */
-internal const val WIDTH_NARROW = 18f
-internal const val WIDTH_WIDE = 80f
-
-/** How far either side the two speakers stand at [seconds]. It opens narrow. */
-internal fun stageAngle(seconds: Float): Float =
-    (WIDTH_NARROW + WIDTH_WIDE) / 2f + (WIDTH_WIDE - WIDTH_NARROW) / 2f * swing(seconds / WIDTH_LOOP - 0.25f)
-
-/** The speakers on a phone with animations off. */
-internal const val STILL_WIDTH = 45f
-
 /**
  * The measures of the picture with the listener and the two speakers, as shares of its height:
  * how far down the listener's head is, how big it is, how far from it the speakers stand, and
@@ -201,6 +189,94 @@ internal fun stageSpot(either: Float, out: Float = 1f): Pair<Float, Float> {
     return (STAGE_EAR + (right - STAGE_EAR) * share) to (STAGE_HEAD_AT + (down - STAGE_HEAD_AT) * share)
 }
 
+/**
+ * The small room round the listener and the speakers, as shares of the picture's height: how far
+ * to either side of the middle its side walls are, and how far down its front wall and the wall
+ * behind the listener.
+ */
+internal const val ROOM_HALF = 0.92f
+internal const val ROOM_FRONT = 0.07f
+internal const val ROOM_BACK = 0.975f
+
+/**
+ * Where the first echo of a sound at [spot] seems to come from: as far behind the side wall as
+ * the sound is in front of it, which is where a wall sends a sound back from.
+ */
+internal fun echoSpot(spot: Pair<Float, Float>): Pair<Float, Float> = (2 * ROOM_HALF - spot.first) to spot.second
+
+/**
+ * How far to the side of straight ahead the room sound of a recording is, in degrees, with the
+ * speakers [either] degrees to the side and [ambience] of the way out, 0 to 1: with none it is
+ * at its speaker with everything else, and with all of it, it is beside the listener's ear.
+ */
+internal fun ambienceAngle(either: Float, ambience: Float): Float =
+    either + (max(90f, either) - either) * ambience.coerceIn(0f, 1f)
+
+/** The rings of low sound round one cup at any moment, where the low notes stay in the headphones. */
+internal const val THUMPS = 2
+
+/** How long one of them takes to spread and go, in seconds: slow, as low notes are. */
+internal const val THUMP_SECONDS = 1.3f
+
+/** Where ring [number] round a cup is at [seconds]: how far it has spread, 0 to 1, and how strongly it shows. */
+internal fun thump(number: Int, seconds: Float): Pair<Float, Float> {
+    val spread = (seconds / THUMP_SECONDS + number.toFloat() / THUMPS).mod(1f)
+    return spread to 4f * spread * (1f - spread)
+}
+
+/** How long the listener takes to walk away from the phone and come back, in seconds. */
+internal const val WALK_LOOP = 6.4f
+
+/**
+ * How much of the music is left at the far end of the walk: it gets quieter, and it never mutes.
+ * Less than the setting itself takes off, which is only a little: a picture has to show the
+ * change at a glance.
+ */
+internal const val WALK_QUIETEST = 0.28f
+
+/**
+ * How far from the phone the listener is at [seconds], 0 beside it to 1 at the far end of the
+ * walk. It opens beside the phone, and they stand a moment at each end before turning round.
+ */
+internal fun walkAway(seconds: Float): Float = (1f + swing(seconds / WALK_LOOP - 0.25f)) / 2f
+
+/**
+ * Which way the listener faces at [seconds], in degrees from up the picture: to the right on the
+ * way out, to the left on the way back, and turning round while they stand at either end.
+ */
+internal fun walkFacing(seconds: Float): Float = 90f * swing(seconds / WALK_LOOP)
+
+/**
+ * How loud the music is to the listener at [seconds], from [WALK_QUIETEST] to 1: by how far
+ * from the phone they are at that moment, and by nothing else. So it changes while they walk,
+ * step for step, and holds while they stand: a picture where the sound went on changing after
+ * the walking had stopped would say the wrong thing about what changes it.
+ */
+internal fun walkLevel(seconds: Float): Float = 1f - (1f - WALK_QUIETEST) * walkAway(seconds)
+
+/** The moment of the walk shown on a phone with animations off: on the way out, and quieter already. */
+internal const val STILL_WALK = WALK_LOOP * 0.32f
+
+/**
+ * What a listener has set of where the sound sits round their head. Beside those sliders the
+ * picture shows it, and moves as any of them is dragged.
+ *
+ * @param width how far to either side of straight ahead the two speakers stand, in degrees
+ * @param strength how much of the effect there is, 0 to 1: with less, the sound is drawn that
+ *   much of the way back into the headphones
+ * @param room how much of a small room there is round the speakers, 0 to 1: its walls, and the
+ *   first echoes off them
+ * @param ambience how far the room sound of a recording is moved out to the sides, 0 to 1
+ * @param bassAtEars whether the low notes skip the effect and stay in the headphones
+ */
+data class SoundStage(
+    val width: Float,
+    val strength: Float = 1f,
+    val room: Float = 0f,
+    val ambience: Float = 0f,
+    val bassAtEars: Boolean = false,
+)
+
 /** The ripples of sound on their way from one speaker to the listener at any moment. */
 internal const val RIPPLES = 3
 
@@ -218,19 +294,12 @@ internal fun ripple(number: Int, seconds: Float): Pair<Float, Float> {
 }
 
 /**
- * @param either for the pictures with the two speakers: how far to either side they stand, in
- *   degrees, where whoever shows the picture knows it better than what is stored. Beside the
- *   slider that sets it, that is where the slider is while it is being dragged.
- * @param strength beside the sliders, how much of the spatial effect is set, 0 to 1: the sound
- *   is drawn that far out of the headphones towards its speakers
+ * @param stage for the pictures with the two speakers: where the sound sits, where whoever shows
+ *   the picture knows it better than what is stored. Beside the sliders that set it, that is
+ *   where the sliders are while one is being dragged.
  */
 @Composable
-fun ExplainPicturePanel(
-    picture: ExplainPicture,
-    modifier: Modifier = Modifier,
-    either: Float? = null,
-    strength: Float? = null,
-) {
+fun ExplainPicturePanel(picture: ExplainPicture, modifier: Modifier = Modifier, stage: SoundStage? = null) {
     val context = LocalContext.current
     // The system's own setting for how fast things move: 0 is animations off, and the picture
     // then stands still.
@@ -247,28 +316,23 @@ fun ExplainPicturePanel(
             while (true) withFrameNanos { seconds.floatValue = (it - began) / 1e9f / pace }
         }
     }
-    // Where the two speakers stand, in the pictures that have them. Beside its slider the stage
-    // width picture shows the width that is being set. The head tracking picture shows this
-    // listener's own: the music stays where they have put it. Neither jumps there: a tap on the
-    // slider, or a drag that goes degree by degree, is glided to.
+    // Where the two speakers stand, in the pictures that have them: where the sliders are,
+    // beside the sliders, and anywhere else where this listener has set them. The music of the
+    // head tracking picture stays where they have put it. Nothing jumps to where a slider is: a
+    // tap on one, or a drag that goes step by step, is glided to.
     val set = when (picture) {
-        ExplainPicture.FADE -> null
-        ExplainPicture.STAGE_WIDTH -> either
-        ExplainPicture.HEAD_TRACKING -> either ?: rememberPreference(
+        ExplainPicture.FADE, ExplainPicture.PROXIMITY -> null
+        ExplainPicture.SOUND_STAGE, ExplainPicture.HEAD_TRACKING -> stage?.width ?: rememberPreference(
             StageWidthKey,
             defaultValue = BinauralAudioProcessor.DEFAULT_STAGE_WIDTH.toInt(),
         ).value.toFloat()
     }
-    val standing = animateFloatAsState(
-        targetValue = set ?: STILL_WIDTH,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
-        label = "speakers",
-    )
-    val out = animateFloatAsState(
-        targetValue = strength ?: 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
-        label = "strength",
-    )
+    val glide = spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow)
+    val standing = animateFloatAsState(set ?: 0f, glide, label = "speakers")
+    val out = animateFloatAsState(stage?.strength ?: 1f, glide, label = "strength")
+    val walls = animateFloatAsState(stage?.room ?: 0f, glide, label = "room")
+    val aside = animateFloatAsState(stage?.ambience ?: 0f, glide, label = "ambience")
+    val low = animateFloatAsState(if (stage?.bassAtEars == true) 1f else 0f, glide, label = "bass")
     val one = MaterialTheme.colorScheme.primary
     val other = MaterialTheme.colorScheme.tertiary
     val silent = MaterialTheme.colorScheme.outlineVariant
@@ -288,18 +352,23 @@ fun ExplainPicturePanel(
             ExplainPicture.HEAD_TRACKING -> stage(
                 turn = if (moving) headTurn(seconds.floatValue) else STILL_TURN,
                 either = standing.value,
-                out = 1f,
+                out = 1f, room = 0f, ambience = 0f, bass = 0f,
                 seconds = if (moving) seconds.floatValue else 0f,
-                headphones = one, music = other, listener = listener, width = null,
+                headphones = one, music = other, listener = listener, faint = silent, width = false,
             )
-            // The head stays where it is and the two speakers move: to where the slider is,
-            // beside the slider, and open and shut in the explanation, which shows what it does.
-            ExplainPicture.STAGE_WIDTH -> stage(
+            // The head stays where it is, and the sound is where the sliders beside the picture
+            // have it.
+            ExplainPicture.SOUND_STAGE -> stage(
                 turn = 0f,
-                either = if (set != null) standing.value else if (moving) stageAngle(seconds.floatValue) else STILL_WIDTH,
-                out = out.value,
+                either = standing.value,
+                out = out.value, room = walls.value, ambience = aside.value, bass = low.value,
                 seconds = if (moving) seconds.floatValue else 0f,
-                headphones = one, music = other, listener = listener, width = silent,
+                headphones = one, music = other, listener = listener, faint = silent, width = true,
+            )
+            // The phone is where the music is, and the listener walks away from it and back.
+            ExplainPicture.PROXIMITY -> walk(
+                seconds = if (moving) seconds.floatValue else STILL_WALK,
+                headphones = one, music = other, listener = listener,
             )
         }
     }
@@ -351,36 +420,91 @@ private fun DrawScope.fade(seconds: Float?, one: Color, other: Color, silent: Co
  * @param either how far to either side of straight ahead the two speakers stand, in degrees
  * @param out how much of the spatial effect there is, 0 to 1: how far out of the headphones
  *   and towards its speaker each sound is (stageSpot)
+ * @param room how much of a small room there is round them, 0 to 1: its walls, and the first
+ *   echo of each sound off the wall beside it
+ * @param ambience how far the room sound of the recording is moved out to the sides, 0 to 1: a
+ *   second, fainter pair of sounds that leaves the speakers for the listener's sides
+ * @param bass how much the low notes stay in the headphones, 0 to 1: slow rings round the cups
  * @param seconds where the ripples are
- * @param width the colour of a line drawn from one sound round to the other, where the picture
- *   is about how far apart they are; none where it is not
+ * @param width whether a line is drawn from one sound round to the other, where the picture is
+ *   about how far apart they are
  */
 private fun DrawScope.stage(
     turn: Float,
     either: Float,
     out: Float,
+    room: Float,
+    ambience: Float,
+    bass: Float,
     seconds: Float,
     headphones: Color,
     music: Color,
     listener: Color,
-    width: Color?,
+    faint: Color,
+    width: Boolean,
 ) {
-    val centre = Offset(size.width / 2f, size.height * STAGE_HEAD_AT)
-    val skull = size.height * STAGE_HEAD
-    val speaker = size.height * STAGE_SPEAKER
+    val tall = size.height
+    val centre = Offset(size.width / 2f, tall * STAGE_HEAD_AT)
+    val skull = tall * STAGE_HEAD
+    val speaker = tall * STAGE_SPEAKER
     val line = 2.dp.toPx()
 
-    val (right, down) = stageSpot(either, out)
-    val across = right * size.height
-    val ahead = (STAGE_HEAD_AT - down) * size.height
+    val spot = stageSpot(either, out)
+    val across = spot.first * tall
+    val ahead = (STAGE_HEAD_AT - spot.second) * tall
     // How far from the middle of the head the sound is, and how far round from straight ahead.
     val away = hypot(across, ahead)
     val round = Math.toDegrees(atan2(across.toDouble(), ahead.toDouble())).toFloat()
 
-    if (width != null) {
+    // Ripples are parts of circles round a sound, the part that faces the listener, and a narrow
+    // part: wide ones from two speakers that stand close cross into a tangle. They cross from
+    // [from] to [to], measured from where they start, and fade by [shown].
+    fun ripples(source: Offset, from: Float, to: Float, shown: Float, half: Float) {
+        if (shown <= 0f || to <= from) return
+        val facing = Math.toDegrees(atan2((centre.y - source.y).toDouble(), (centre.x - source.x).toDouble())).toFloat()
+        for (number in 0 until RIPPLES) {
+            val (far, strength) = ripple(number, seconds)
+            val reach = from + (to - from) * far
+            drawArc(
+                color = music.copy(alpha = shown * strength),
+                startAngle = facing - half,
+                sweepAngle = 2 * half,
+                useCenter = false,
+                topLeft = Offset(source.x - reach, source.y - reach),
+                size = Size(reach * 2, reach * 2),
+                style = Stroke(width = line, cap = StrokeCap.Round),
+            )
+        }
+    }
+
+    // The room first, behind everything: its walls, and inside them the first echo of each
+    // sound, which comes from as far behind the side wall as the sound is in front of it.
+    if (room > 0f) {
+        val left = centre.x - ROOM_HALF * tall
+        val top = ROOM_FRONT * tall
+        val walls = Size(2 * ROOM_HALF * tall, (ROOM_BACK - ROOM_FRONT) * tall)
+        drawRoundRect(
+            color = faint.copy(alpha = faint.alpha * room),
+            topLeft = Offset(left, top),
+            size = walls,
+            cornerRadius = CornerRadius(tall * 0.1f),
+            style = Stroke(width = line * 0.75f),
+        )
+        val behind = echoSpot(spot)
+        clipRect(left, top, left + walls.width, top + walls.height) {
+            for (side in intArrayOf(-1, 1)) {
+                val source = Offset(centre.x + side * behind.first * tall, behind.second * tall)
+                val wall = (behind.first - ROOM_HALF) * tall
+                val whole = hypot(source.x - centre.x, source.y - centre.y)
+                ripples(source, from = wall, to = whole - skull * 1.35f, shown = 0.45f * room * out, half = 13f)
+            }
+        }
+    }
+
+    if (width) {
         drawArc(
             // Gone by the time the sound is back in the headphones: there is no width left to show.
-            color = width.copy(alpha = width.alpha * out),
+            color = faint.copy(alpha = faint.alpha * out),
             // 0 degrees is to the right here and straight ahead is up the picture, a quarter turn back.
             startAngle = -90f - round,
             sweepAngle = 2 * round,
@@ -391,37 +515,71 @@ private fun DrawScope.stage(
         )
     }
 
-    // Ripples are parts of circles round the sound, the part that faces the listener, and a
-    // narrow part: wide ones from two speakers that stand close cross into a tangle. They have
-    // the way from the sound to the head to cross, and fade as that way gets short.
+    // The sounds have the way from where they are to the head to cross, and their ripples fade
+    // as that way gets short. By the root, so that half the way still shows more than half as
+    // strongly: with the effect at half there is sound out there, and the picture should not
+    // go dead.
     val first = speaker * 1.5f
-    val last = away - skull * 1.35f
-    val furthest = size.height * STAGE_AWAY - skull * 1.35f
-    // By the root, so that half the way still shows more than half as strongly: with the
-    // effect at half there is sound out there, and the picture should not go dead.
-    val room = sqrt(((last - first) / (furthest - first)).coerceIn(0f, 1f))
+    val furthest = tall * STAGE_AWAY - skull * 1.35f
+    fun crossing(distance: Float) = sqrt(((distance - skull * 1.35f - first) / (furthest - first)).coerceIn(0f, 1f))
     for (side in intArrayOf(-1, 1)) {
-        val at = Offset(centre.x + side * across, centre.y - ahead)
-        val facing = Math.toDegrees(atan2((centre.y - at.y).toDouble(), (centre.x - at.x).toDouble())).toFloat()
-        if (room > 0f) for (number in 0 until RIPPLES) {
-            val (far, strength) = ripple(number, seconds)
-            val reach = first + (last - first) * far
-            drawArc(
-                color = music.copy(alpha = 0.75f * strength * room),
-                startAngle = facing - 20f,
-                sweepAngle = 40f,
-                useCenter = false,
-                topLeft = Offset(at.x - reach, at.y - reach),
-                size = Size(reach * 2, reach * 2),
-                style = Stroke(width = line, cap = StrokeCap.Round),
+        ripples(Offset(centre.x + side * across, centre.y - ahead), first, away - skull * 1.35f, 0.75f * crossing(away), half = 20f)
+    }
+
+    // The room sound of the recording, where it has been moved out to the sides: a second pair,
+    // fainter, that leaves the speakers for the listener's ears. Not shown while it is still
+    // at its speaker, where it is part of that sound.
+    val sideways = ambienceAngle(either, ambience)
+    val apart = ((sideways - either) / 8f).coerceIn(0f, 1f)
+    val beside = stageSpot(sideways, out)
+    val besideAcross = beside.first * tall
+    val besideAhead = (STAGE_HEAD_AT - beside.second) * tall
+    if (apart > 0f) for (side in intArrayOf(-1, 1)) {
+        val away2 = hypot(besideAcross, besideAhead)
+        ripples(Offset(centre.x + side * besideAcross, centre.y - besideAhead), first, away2 - skull * 1.35f, 0.4f * apart * crossing(away2), half = 16f)
+    }
+
+    listener(centre, skull, turn, listener, headphones)
+
+    // The low notes, where they stay in the headphones: slow rings spreading from each cup.
+    if (bass > 0f) for (side in intArrayOf(-1, 1)) {
+        val ear = Offset(centre.x + side * STAGE_EAR * tall, centre.y)
+        for (number in 0 until THUMPS) {
+            val (spread, strength) = thump(number, seconds)
+            drawCircle(
+                color = music.copy(alpha = 0.6f * strength * bass),
+                radius = skull * (0.55f + 0.75f * spread),
+                center = ear,
+                style = Stroke(width = line * 1.25f),
             )
         }
     }
 
+    // The sounds last, over the cups when they are in them, and a little smaller there. The
+    // room sound is a ring and not a dot: it is some of the sound, not another speaker.
+    if (apart > 0f) for (side in intArrayOf(-1, 1)) {
+        drawCircle(
+            color = music.copy(alpha = 0.85f * apart),
+            radius = speaker * 0.8f * (0.72f + 0.28f * out),
+            center = Offset(centre.x + side * besideAcross, centre.y - besideAhead),
+            style = Stroke(width = line * 0.9f),
+        )
+    }
+    for (side in intArrayOf(-1, 1)) {
+        drawCircle(
+            color = music,
+            radius = speaker * (0.72f + 0.28f * out),
+            center = Offset(centre.x + side * across, centre.y - ahead),
+        )
+    }
+}
+
+/** A listener seen from above with headphones on, the head [skull] across its half, facing [turn] degrees from up the picture. */
+private fun DrawScope.listener(centre: Offset, skull: Float, turn: Float, head: Color, headphones: Color) {
     rotate(degrees = turn, pivot = centre) {
         // The nose says which way the head faces: a small bump at the front of it.
-        drawCircle(color = listener, radius = skull * 0.27f, center = Offset(centre.x, centre.y - skull * 0.96f))
-        drawCircle(color = listener, radius = skull, center = centre)
+        drawCircle(color = head, radius = skull * 0.27f, center = Offset(centre.x, centre.y - skull * 0.96f))
+        drawCircle(color = head, radius = skull, center = centre)
         // The headphones: a thin band over the head from ear to ear, and a cup at each end of it.
         val band = skull * 0.2f
         val cup = Size(skull * 0.46f, skull * 0.95f)
@@ -440,13 +598,73 @@ private fun DrawScope.stage(
             )
         }
     }
+}
 
-    // The two sounds last, over the cups when they are in them, and a little smaller there.
-    for (side in intArrayOf(-1, 1)) {
-        drawCircle(
-            color = music,
-            radius = speaker * (0.72f + 0.28f * out),
-            center = Offset(centre.x + side * across, centre.y - ahead),
+/** The heights of the few bars of sound over the listener's head, as a share of the tallest. */
+private val HEARD = floatArrayOf(0.65f, 0.9f, 1f, 0.8f, 0.6f)
+
+/**
+ * A phone lying on the left, which is where the music comes from, and a listener seen from
+ * above who walks away from it and back. The ripples from the phone thin out with distance, and
+ * the bars of sound over the listener's head, which are what they hear, shrink as they go and
+ * grow as they return: a little behind them, and never to nothing.
+ */
+private fun DrawScope.walk(seconds: Float, headphones: Color, music: Color, listener: Color) {
+    val tall = size.height
+    val middle = size.width / 2f
+    val ground = tall * 0.7f
+    val skull = tall * STAGE_HEAD
+    val line = 2.dp.toPx()
+    val phone = Offset(middle - tall * 0.88f, ground)
+    val nearest = middle - tall * 0.44f
+    val farthest = middle + tall * 0.8f
+    val head = Offset(nearest + (farthest - nearest) * walkAway(seconds), ground)
+
+    // The music leaving the phone towards where the listener walks, weaker the further it has gone.
+    val reach = farthest - phone.x
+    for (number in 0 until RIPPLES) {
+        val (far, strength) = ripple(number, seconds)
+        val gone = tall * 0.16f + (reach - tall * 0.16f) * far
+        drawArc(
+            color = music.copy(alpha = 0.6f * strength * (1f - 0.85f * far)),
+            startAngle = -14f,
+            sweepAngle = 28f,
+            useCenter = false,
+            topLeft = Offset(phone.x - gone, phone.y - gone),
+            size = Size(gone * 2, gone * 2),
+            style = Stroke(width = line, cap = StrokeCap.Round),
+        )
+    }
+
+    // The phone, lying flat, and on it the dot of a sound, as the speakers of the other picture are.
+    val body = Size(tall * 0.17f, tall * 0.32f)
+    drawRoundRect(
+        color = listener,
+        topLeft = Offset(phone.x - body.width / 2f, phone.y - body.height / 2f),
+        size = body,
+        cornerRadius = CornerRadius(body.width * 0.24f),
+    )
+    drawCircle(color = music, radius = tall * STAGE_SPEAKER * 0.8f, center = phone)
+
+    listener(head, skull, walkFacing(seconds), listener, headphones)
+
+    // What they hear, over their head and going with them: bars that are tall and bright beside
+    // the phone and short and dim far from it. They sway only a little, so that it is the
+    // distance that is seen to change them.
+    val level = walkLevel(seconds)
+    val step = tall * 0.085f
+    val wide = step * 0.6f
+    val tallest = tall * 0.44f
+    val over = ground - skull - tall * 0.27f
+    val bright = 0.5f + 0.5f * (level - WALK_QUIETEST) / (1f - WALK_QUIETEST)
+    for (bar in HEARD.indices) {
+        val alive = 0.82f + 0.18f * fadeSway(0, bar, seconds)
+        val height = max(wide, tallest * HEARD[bar] * alive * level)
+        drawRoundRect(
+            color = music.copy(alpha = bright),
+            topLeft = Offset(head.x + (bar - (HEARD.size - 1) / 2f) * step - wide / 2f, over - height / 2f),
+            size = Size(wide, height),
+            cornerRadius = CornerRadius(wide / 2f),
         )
     }
 }
