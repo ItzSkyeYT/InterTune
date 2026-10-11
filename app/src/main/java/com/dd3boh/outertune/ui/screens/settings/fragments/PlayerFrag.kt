@@ -92,6 +92,7 @@ import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.ExplainButton
 import com.dd3boh.outertune.ui.component.ExplainPicture
+import com.dd3boh.outertune.ui.component.ExplainPicturePanel
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -235,8 +236,21 @@ fun ColumnScope.StageWidthFrag() {
     ExplainedPreference(
         title = stringResource(R.string.stage_width),
         explanation = stringResource(R.string.stage_width_explain),
+        picture = ExplainPicture.STAGE_WIDTH,
         description = stringResource(R.string.stage_width_value, width),
     )
+    val (strength, onStrengthChange) = rememberPreference(SpatialStrengthKey, defaultValue = 100)
+    // The two speakers where the slider puts them, moving as it is dragged, and as far out of
+    // the headphones as Strength, the slider after this one, has the effect. Over the sliders
+    // and not under them, where the hand that drags would be in the way.
+    if (Unreleased.EXPLAIN_PICTURES) {
+        ExplainPicturePanel(
+            picture = ExplainPicture.STAGE_WIDTH,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            either = width.toFloat(),
+            strength = if (Unreleased.SPATIAL_TUNING) strength / 100f else null,
+        )
+    }
     Slider(
         value = width.toFloat(),
         onValueChange = { onWidthChange(it.toInt()) },
@@ -245,7 +259,6 @@ fun ColumnScope.StageWidthFrag() {
     )
 
     if (!Unreleased.SPATIAL_TUNING) return
-    val (strength, onStrengthChange) = rememberPreference(SpatialStrengthKey, defaultValue = 100)
     ExplainedPreference(
         title = stringResource(R.string.spatial_strength),
         explanation = stringResource(R.string.spatial_strength_explain),
@@ -400,6 +413,7 @@ fun ColumnScope.HeadTrackingFrag() {
             title = stringResource(R.string.head_tracking),
             description = stringResource(R.string.head_tracking_none),
             explanation = stringResource(R.string.head_tracking_explain),
+            picture = ExplainPicture.HEAD_TRACKING,
             footer = stringResource(R.string.head_tracking_report_prompt),
             links = reportLinks,
         )
@@ -411,6 +425,7 @@ fun ColumnScope.HeadTrackingFrag() {
         title = stringResource(R.string.head_tracking),
         description = stringResource(R.string.head_tracking_description),
         explanation = stringResource(R.string.head_tracking_explain),
+        picture = ExplainPicture.HEAD_TRACKING,
         footer = stringResource(R.string.head_tracking_report_prompt),
         links = reportLinks,
         checked = enabled,
