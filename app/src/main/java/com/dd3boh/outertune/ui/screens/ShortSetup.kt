@@ -224,8 +224,6 @@ fun ShortSetup(
     val innerTubeCookie by rememberPreference(InnerTubeCookieKey, "")
     val signedIn = remember(innerTubeCookie) { "SAPISID" in parseCookieString(innerTubeCookie) }
     val accountName by rememberPreference(AccountNameKey, "")
-    // One PackageManager call for the page, as on the card this line comes from.
-    val fromFdroid = remember { context.installSource() == InstallSource.F_DROID }
 
     // The questions of the last page and the answers given to them. What is stored is read once
     // and waited for, as rememberPreference reads: the page has to stand as it will stay from
@@ -284,15 +282,6 @@ fun ShortSetup(
         settledPage = page
     }
     val settled = settledPage == page
-
-    // The same for a question of the last page. Its two answers stand where the answers of the
-    // one before it stood, so the second tap of a double tap would answer a question that
-    // nobody had read.
-    var settledQuestion by remember { mutableStateOf<SetupQuestion?>(null) }
-    LaunchedEffect(questions.open) {
-        delay(SETTLE_MS)
-        settledQuestion = questions.open
-    }
 
     // Back is a page back, and nothing on the first page: setup is not left by Back.
     val canGoBack = page > PAGE_WELCOME && !finishing
@@ -448,22 +437,6 @@ fun ShortSetup(
                         )
 
                         else -> {
-                            // Not from a page or a card on its way out, and not in a question's
-                            // first moment.
-                            val answer: (SetupQuestion, Boolean) -> Unit = { question, yes ->
-                                if (live && question == questions.open && question == settledQuestion) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                                    questions = questions.answer(question, yes)
-                                    // Back to the card, for somebody who had scrolled up to the rows.
-                                    coroutineScope.launch { scroll.animateScrollTo(0) }
-                                }
-                            }
-                            val reopen: (SetupQuestion) -> Unit = { question ->
-                                if (live) {
-                                    questions = questions.reopen(question)
-                                    coroutineScope.launch { scroll.animateScrollTo(0) }
-                                }
-                            }
                             SetupPage(
                                 beside = beside,
                                 scroll = scroll,
@@ -479,9 +452,11 @@ fun ShortSetup(
                                     Spacer(Modifier.height(16.dp))
                                     SetupQuestionsBody(
                                         questions = questions,
-                                        fromFdroid = fromFdroid,
-                                        onAnswer = answer,
-                                        onReopen = reopen,
+                                        onChange = { questions = it },
+                                        // Not from a page on its way out, nor in a page's first moment.
+                                        live = live,
+                                        scroll = scroll,
+                                        closing = stringResource(R.string.setup_all_answered),
                                     )
                                 },
                                 // The tick under the page is Done, whenever it is tapped, with
@@ -808,8 +783,10 @@ private fun SetupPage(
  *
  * A page held by its foot ([fromFoot]) has what it does not show above it, so its head fades the
  * same way. Its scroll counts from the foot: on is up, and back is down.
+ *
+ * The catch-up screen (OptInCatchUp) scrolls its questions the same way, over its own colour.
  */
-private fun Modifier.moreBelow(scroll: ScrollState, page: Color, fromFoot: Boolean = false): Modifier = drawWithContent {
+internal fun Modifier.moreBelow(scroll: ScrollState, page: Color, fromFoot: Boolean = false): Modifier = drawWithContent {
     drawContent()
     val fade = 40.dp.toPx()
     if (if (fromFoot) scroll.canScrollBackward else scroll.canScrollForward) {
@@ -894,31 +871,70 @@ private fun SetupButton(
 }
 
 /**
- * The last page under its heading: a row for each question that has its answer, in the order
- * they are put, and under the rows the card of the question that is open, or the line that
- * closes the page when none is.
+ * The questions under a page's heading, one at a time: a row for each question that has its
+ * answer, in the order they are put, and under the rows the card of the question that is open,
+ * or [closing], the line that closes the page, when none is. Setup's last page shows this, and
+ * so does the catch-up screen (OptInCatchUp), which puts the same questions to an install that
+ * was never asked them: one drawing for the two, and one rule for what a tap does.
  *
- * Nothing here writes an answer down. [onAnswer] and [onReopen] change what the page holds
- * (SetupQuestions), and the tick stores it.
+ * Nothing here writes an answer down. A tap changes what the page holds ([onChange], a
+ * SetupQuestions), and whoever shows this stores it: setup's tick, or the other screen's Done.
+ *
+ * @param live whether a tap does anything now: not on a page that is on its way out, and not
+ *   while the answers are being stored
+ * @param scroll the scroll of the page this is on, which is held by its foot (SetupPage), so
+ *   that 0 is the card: an answer or a tap on a row brings the page back to it
  */
 @Composable
-private fun SetupQuestionsBody(
+internal fun SetupQuestionsBody(
     questions: SetupQuestions,
-    fromFdroid: Boolean,
-    onAnswer: (SetupQuestion, Boolean) -> Unit,
-    onReopen: (SetupQuestion) -> Unit,
+    onChange: (SetupQuestions) -> Unit,
+    live: Boolean,
+    scroll: ScrollState,
+    closing: String,
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
+    // One PackageManager call for the page, as on the card this line comes from.
+    val fromFdroid = remember { context.installSource() == InstallSource.F_DROID }
+
+    // A question takes no answer in its first moment, as a page takes no tap in its own (see
+    // SETTLE_MS). Its two answers stand where the answers of the one before it stood, so the
+    // second tap of a double tap would answer a question that nobody had read.
+    var settledQuestion by remember { mutableStateOf<SetupQuestion?>(null) }
+    LaunchedEffect(questions.open) {
+        delay(SETTLE_MS)
+        settledQuestion = questions.open
+    }
+
+    // Not from a page or a card on its way out, and not in a question's first moment.
+    val answer: (SetupQuestion, Boolean) -> Unit = { question, yes ->
+        if (live && question == questions.open && question == settledQuestion) {
+            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+            onChange(questions.answer(question, yes))
+            // Back to the card, for somebody who had scrolled up to the rows.
+            coroutineScope.launch { scroll.animateScrollTo(0) }
+        }
+    }
+    val reopen: (SetupQuestion) -> Unit = { question ->
+        if (live) {
+            onChange(questions.reopen(question))
+            coroutineScope.launch { scroll.animateScrollTo(0) }
+        }
+    }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         for (question in questions.asked) {
-            val answer = questions.answers[question]
+            val given = questions.answers[question]
             // A row makes its own room above the card as its answer is given, and pushes the
             // card down. One given before is there from the first frame.
-            AnimatedVisibility(visible = answer != null) {
+            AnimatedVisibility(visible = given != null) {
                 SetupAnswerRow(
                     texts = question.texts(fromFdroid),
-                    yes = answer == true,
+                    yes = given == true,
                     open = question == questions.open,
-                    onClick = { onReopen(question) },
+                    onClick = { reopen(question) },
                     modifier = Modifier.padding(bottom = 6.dp),
                 )
             }
@@ -941,7 +957,7 @@ private fun SetupQuestionsBody(
     ) { open ->
         if (open == null) {
             Text(
-                text = stringResource(R.string.setup_all_answered),
+                text = closing,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -954,7 +970,7 @@ private fun SetupQuestionsBody(
         } else {
             SetupQuestionCard(
                 texts = open.texts(fromFdroid),
-                onAnswer = { yes -> onAnswer(open, yes) },
+                onAnswer = { yes -> answer(open, yes) },
             )
         }
     }
