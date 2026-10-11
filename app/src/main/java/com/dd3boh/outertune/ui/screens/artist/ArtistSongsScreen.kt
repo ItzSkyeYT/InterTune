@@ -142,10 +142,9 @@ fun ArtistSongsScreen(
                                 ArtistSongSortType.CREATE_DATE -> R.string.sort_by_create_date
                                 ArtistSongSortType.NAME -> R.string.sort_by_name
                             }
-                        }
+                        },
+                        modifier = Modifier.weight(1f)
                     )
-
-                    Spacer(Modifier.weight(1f))
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically
@@ -153,7 +152,8 @@ fun ArtistSongsScreen(
                         Text(
                             text = pluralStringResource(R.plurals.n_song, songs.size, songs.size),
                             style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.secondary
+                            color = MaterialTheme.colorScheme.secondary,
+                            maxLines = 1
                         )
                         Spacer(Modifier.width(4.dp))
                         ActionDropdown(

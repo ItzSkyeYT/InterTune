@@ -378,10 +378,9 @@ fun FolderScreen(
                                         FolderSongSortType.PLAY_COUNT -> R.string.sort_by_play_count
                                         FolderSongSortType.TRACK_NUMBER -> R.string.sort_by_track_number
                                     }
-                                }
+                                },
+                                modifier = Modifier.weight(1f)
                             )
-
-                            Spacer(Modifier.weight(1f))
 
                             Row(
                                 verticalAlignment = Alignment.CenterVertically
@@ -390,6 +389,7 @@ fun FolderScreen(
                                     text = pluralStringResource(R.plurals.n_song, subDirSongCount, subDirSongCount),
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.secondary,
+                                    maxLines = 1,
                                     modifier = Modifier.padding(end = 8.dp)
                                 )
                                 Spacer(Modifier.width(4.dp))
