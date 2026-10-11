@@ -407,6 +407,17 @@ class SetupQuestionsTest {
     }
 
     @Test
+    fun `the page is held by its foot, and the two before it by their heads as they were`() {
+        // Each answer puts a row above the card. Held by its head, a page grown past its room
+        // would leave the next question, with its two answers, under the fold.
+        val last = code.substringAfter("else -> {").substringBefore("SetupNavRow(")
+        assertTrue("fromFoot = true" in last)
+        assertEquals(2, Regex("""\.verticalScroll\(scroll, reverseScrolling = fromFoot\)""").findAll(code).count())
+        val others = code.substringAfter("PAGE_WELCOME -> SetupPage(").substringBefore("else -> {")
+        assertFalse("fromFoot" in others)
+    }
+
+    @Test
     fun `a screen reader is told what a button answers, and that a row changes its answer`() {
         val card = code.substringAfter("private fun SetupQuestionCard(").substringBefore("\n}\n")
         assertTrue("modifier = Modifier.semantics { heading() }" in card)

@@ -453,15 +453,22 @@ fun ShortSetup(
                                 if (live && question == questions.open && question == settledQuestion) {
                                     haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                                     questions = questions.answer(question, yes)
+                                    // Back to the card, for somebody who had scrolled up to the rows.
+                                    coroutineScope.launch { scroll.animateScrollTo(0) }
                                 }
                             }
                             val reopen: (SetupQuestion) -> Unit = { question ->
-                                if (live) questions = questions.reopen(question)
+                                if (live) {
+                                    questions = questions.reopen(question)
+                                    coroutineScope.launch { scroll.animateScrollTo(0) }
+                                }
                             }
                             SetupPage(
                                 beside = beside,
                                 scroll = scroll,
                                 centred = false,
+                                // The page grows as it is answered, a row above the card each time.
+                                fromFoot = true,
                                 content = {
                                     Spacer(Modifier.height(if (beside) 0.dp else 16.dp))
                                     SetupHeading(
@@ -716,12 +723,18 @@ private fun SetupOverview(close: Boolean) {
  *
  * @param centred whether a page shorter than its room stands in the middle of it, as a page of a
  *   few words does, or at the top, as a list does
+ * @param fromFoot whether a page longer than its room is held by its foot, and it is its head
+ *   that goes out of sight. The last page is: it grows as it is answered, and what was just
+ *   put, with its two answers, is the last thing on it. Held by its head, each answer would
+ *   leave the next question under the fold. The scroll then counts from the foot, so 0 is the
+ *   foot whatever the page has grown to
  */
 @Composable
 private fun SetupPage(
     beside: Boolean,
     scroll: ScrollState,
     centred: Boolean,
+    fromFoot: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
     buttons: (@Composable ColumnScope.() -> Unit)?,
 ) {
@@ -737,8 +750,8 @@ private fun SetupPage(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .moreBelow(scroll, MaterialTheme.colorScheme.background)
-                    .verticalScroll(scroll)
+                    .moreBelow(scroll, MaterialTheme.colorScheme.background, fromFoot)
+                    .verticalScroll(scroll, reverseScrolling = fromFoot)
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 content = content,
             )
@@ -770,8 +783,8 @@ private fun SetupPage(
                 .weight(1f)
                 .widthIn(max = 560.dp)
                 .fillMaxWidth()
-                .moreBelow(scroll, MaterialTheme.colorScheme.background)
-                .verticalScroll(scroll)
+                .moreBelow(scroll, MaterialTheme.colorScheme.background, fromFoot)
+                .verticalScroll(scroll, reverseScrolling = fromFoot)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             content = content,
         )
@@ -791,14 +804,23 @@ private fun SetupPage(
 /**
  * The foot of what scrolls fading into the [page] while more of it lies below. A list cut exactly
  * between two rows looks whole, and the tick under it is Done whether its end was seen or not.
+ *
+ * A page held by its foot ([fromFoot]) has what it does not show above it, so its head fades the
+ * same way. Its scroll counts from the foot: on is up, and back is down.
  */
-private fun Modifier.moreBelow(scroll: ScrollState, page: Color): Modifier = drawWithContent {
+private fun Modifier.moreBelow(scroll: ScrollState, page: Color, fromFoot: Boolean = false): Modifier = drawWithContent {
     drawContent()
-    if (scroll.canScrollForward) {
-        val fade = 40.dp.toPx()
+    val fade = 40.dp.toPx()
+    if (if (fromFoot) scroll.canScrollBackward else scroll.canScrollForward) {
         drawRect(
             brush = Brush.verticalGradient(listOf(Color.Transparent, page), startY = size.height - fade, endY = size.height),
             topLeft = Offset(0f, size.height - fade),
+            size = Size(size.width, fade),
+        )
+    }
+    if (fromFoot && scroll.canScrollForward) {
+        drawRect(
+            brush = Brush.verticalGradient(listOf(page, Color.Transparent), startY = 0f, endY = fade),
             size = Size(size.width, fade),
         )
     }
