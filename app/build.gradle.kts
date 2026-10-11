@@ -140,9 +140,13 @@ android {
             isCrunchPngs = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("ot_release")
+            // The app's own screens in a car (AutoCarService, AutoSettingsService) exist only where
+            // Unreleased.AUTO_REWORK is on: a car that finds them draws the app from them, held back or not.
+            manifestPlaceholders["carScreens"] = "false"
         }
         debug {
             applicationIdSuffix = ".debug"
+            manifestPlaceholders["carScreens"] = "true"
         }
 
         // A debug build that installs beside the release and the debug build, for trying a
@@ -333,6 +337,10 @@ dependencies {
     implementation(libs.media3.okhttp)
     implementation(libs.media3.session)
     implementation(libs.media3.workmanager)
+    // The app's own screens in a car: a car draws them from this and nothing else. The second is what
+    // the first hands the session to the car with; it comes with it either way, named here to compile against.
+    implementation(libs.car.app)
+    implementation(libs.media.compat)
 
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)

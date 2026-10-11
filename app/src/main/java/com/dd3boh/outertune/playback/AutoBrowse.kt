@@ -13,11 +13,12 @@ import android.net.Uri
  * What Android Auto is shown since the rework (Unreleased.AUTO_REWORK), by the ids it is handed.
  *
  * A car's screen is for somebody who is driving: a few large things to tap, each of which plays
- * at once, and nothing to read down. So the first tab is "For you", rows of covers: the queue
- * there is to carry on with, the liked songs and the downloads in a new order, then Home's own
- * Quick picks, Keep listening and Forgotten favourites. Playlists are a tab of covers, each
- * opening on a row that shuffles it. The library keeps albums and artists as covers and its
- * songs newest first and no more than a couple of hundred. The last tab is what was played lately.
+ * at once, and nothing to read down. So the first tab is "For you", rows of covers: the liked
+ * songs and the downloads in a new order, then Home's own Quick picks, Keep listening and
+ * Forgotten favourites. Playlists are a tab of covers, each opening on a row that shuffles it.
+ * The library opens on what was played lately, then albums and artists as covers and its songs
+ * newest first and no more than a couple of hundred. Across the top of every tab is what is
+ * playing, a row to tap to get back to the player.
  *
  * The ids: "home/<section>/<song>" for a song of a row of For you, "recent/<song>",
  * "shuffle/liked", "shuffle/downloaded" and "shuffle/playlist/<playlist>" for a list in a new
@@ -30,6 +31,15 @@ object AutoBrowse {
     const val SHUFFLE = "shuffle"
     const val RESUME = "resume"
 
+    /**
+     * The tabs, left to right. Each has what is playing across its top, and the car is told when
+     * that changes: it keeps the tabs it was handed and asks for none of them again by itself.
+     * Told, it draws the tab in front again from its top, which is the price of the row being
+     * right. Three and not four: the car adds a tab of its own, "More", for the settings, and
+     * with four of ours the last one went in there with them.
+     */
+    val TABS = listOf(HOME, MusicService.PLAYLIST, LIBRARY)
+
     const val QUICK = "quick"
     const val KEEP = "keep"
     const val FORGOTTEN = "forgotten"
@@ -39,8 +49,31 @@ object AutoBrowse {
     const val DOWNLOADED = "downloaded"
     const val PLAYLIST_PREFIX = "playlist/"
 
-    /** The songs in one row of covers: what can be taken in at a glance, two rows of the car's grid. */
+    /** The songs one row of Home brings: what plays on after the one that was tapped. */
     const val MOST = 12
+
+    /** How many of them are shown: two rows of the car's large tiles, taken in at a glance. */
+    const val SHOWN = 6
+
+    /** How one thing in a list of the car's is laid out: under which heading, and as a tile or as a row. */
+    data class Laid(val heading: String?, val tile: Boolean)
+
+    /**
+     * A list cut into the sections of a screen: each run of neighbours under one heading and laid
+     * out one way. A heading is said once, so of a row and the tiles after it under the same
+     * heading only the row's section carries it.
+     */
+    fun <T> sections(items: List<T>, laid: (T) -> Laid): List<Pair<Laid, List<T>>> {
+        val out = ArrayList<Pair<Laid, MutableList<T>>>()
+        var before: Laid? = null
+        for (item in items) {
+            val how = laid(item)
+            if (before == how) out.last().second += item
+            else out += Laid(how.heading.takeIf { it != before?.heading || before == null }, how.tile) to mutableListOf(item)
+            before = how
+        }
+        return out
+    }
 
     /** The songs of the library's own list and of Recent: more than that is not read at the wheel. */
     const val MOST_SONGS = 200
