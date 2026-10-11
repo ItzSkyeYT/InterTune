@@ -193,7 +193,6 @@ fun ExplainedPreference(
 fun ExplainedSwitchPreference(
     title: String,
     explanation: String,
-    picture: ExplainPicture? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -201,6 +200,7 @@ fun ExplainedSwitchPreference(
     icon: (@Composable () -> Unit)? = null,
     footer: String? = null,
     links: List<ExplainLink> = emptyList(),
+    picture: ExplainPicture? = null,
     isEnabled: Boolean = true,
 ) = PreferenceEntry(
     modifier = modifier,
