@@ -218,5 +218,17 @@ class CoverAccentTest {
         assertNotEquals(CoverAccent.GREY, CoverAccent.source(oliveAndGold))
         assertEquals(Score.score(oliveAndGold).first(), CoverAccent.paint(oliveAndGold))
     }
+
+    @Test
+    fun `a black cover is painted black even when its black was left out of the colours it was asked for`() {
+        // The colours a theme is taken from leave out what is nearly black: of a black cover with
+        // pale lettering that leaves the grey round the letters, or nothing at all.
+        val lettering = mapOf(0x909090 to 30, 0xb0b0b0 to 12).opaque()
+        val all = mapOf(0x040404 to 940, 0x909090 to 30, 0xb0b0b0 to 12).opaque()
+        assertEquals(0xff040404.toInt(), CoverAccent.paint(lettering, all))
+        assertEquals(0xff040404.toInt(), CoverAccent.paint(emptyMap(), mapOf(0x040404 to 1000).opaque()))
+        // Nothing to go by at all is still grey.
+        assertEquals(CoverAccent.GREY, CoverAccent.paint(emptyMap(), emptyMap()))
+    }
 }
 

@@ -82,6 +82,7 @@ import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.LocalTopBarBack
 import com.dd3boh.outertune.ui.component.LocalTopBarGlassHost
 import com.dd3boh.outertune.ui.component.LocalTopBarTitle
@@ -153,9 +154,11 @@ internal fun settingsFurtherIn(import: Boolean = Unreleased.LIBRARY_IMPORT, engi
 internal fun settingsOpened(open: List<String>, route: String, listed: List<String>, further: List<String>, over: Boolean = false): List<String>? {
     if (route !in listed && route !in further) return null
     val at = open.indexOf(route)
-    if (over) return if (at >= 0) open.subList(0, at + 1) else open + route
+    // take, not subList: what comes out of here is kept across a rotation, and a view onto
+    // another list cannot be put away, which ends the app at the moment it is saved.
+    if (over) return if (at >= 0) open.take(at + 1) else open + route
     if (route in listed) return listOf(route)
-    if (at >= 0) return open.subList(0, at + 1)
+    if (at >= 0) return open.take(at + 1)
     val home = listed.filter { route.startsWith("$it/") }.maxByOrNull { it.length } ?: return null
     return if (open.firstOrNull() == home) open + route else listOf(home, route)
 }
@@ -236,8 +239,14 @@ fun SettingsTwoPane(
         SettingsPanes.attach(ask)
         onDispose { SettingsPanes.detach(ask) }
     }
-    val up = { show(open.dropLast(1)) }
-    BackHandler(enabled = open.size > 1, onBack = up)
+    // Never down to nothing: a second back can arrive before the first has been drawn, while
+    // this still looks like a screen with another under it.
+    val up = { if (open.size > 1) show(open.dropLast(1)) }
+    // Not while the player is open over the settings: back is then the player's, which was
+    // there first and would lose to this one.
+    val player = LocalPlayerSheet.current
+    val playerOpen = player != null && !player.isCollapsed && !player.isDismissed
+    BackHandler(enabled = open.size > 1 && !playerOpen, onBack = up)
     val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
     val updateBadgeLabel = stringResource(R.string.update_available_title)
     val groupTargets = listOf(Tour.SETTINGS_YOU, Tour.SETTINGS_LOOK_AND_SOUND, Tour.SETTINGS_KEPT, Tour.SETTINGS_REST)

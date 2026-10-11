@@ -148,6 +148,12 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
+        <!-- Covers for Android Auto, which loads pictures from a content address and not from the web. Read only. -->
+        <provider
+            android:name=".playback.AutoArtProvider"
+            android:authorities="${applicationId}.autoart"
+            android:exported="true" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.FileProvider"

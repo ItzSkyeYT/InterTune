@@ -943,17 +943,32 @@ class BinauralAudioProcessorTest {
     private fun decibels(a: Double, b: Double) = 20 * kotlin.math.log10(a / b)
 
     @Test
-    fun `nothing of the rendering is the recording as it came, late by the time the rendering takes`() {
-        val (left, right) = impulse(stereo(share = 0f), 0.5f, -0.25f, 512)
-        val at = left.indices.first { left[it] != 0f }
-        assertTrue("held back by $at frames", at in 1..400)
-        for (n in left.indices) {
-            assertEquals("left, frame $n", if (n == at) 0.5f else 0f, left[n], 0f)
-            assertEquals("right, frame $n", if (n == at) -0.25f else 0f, right[n], 0f)
-        }
-        // And that is where the rendering itself is strongest for a sound in the middle.
+    fun `nothing of the rendering is the recording, late by the time the rendering takes`() {
+        val (left, right) = impulse(stereo(share = 0f), 0.5f, -0.25f, 4096)
+        // It arrives where the rendering itself is strongest for a sound in the middle.
         val (rendered, _) = impulse(stereo(), 0.5f, 0.5f, 512)
-        assertEquals(at, rendered.indices.maxByOrNull { abs(rendered[it]) })
+        val at = rendered.indices.maxByOrNull { abs(rendered[it]) }!!
+        assertEquals(at, left.indices.maxByOrNull { abs(left[it]) })
+        assertEquals(at, right.indices.maxByOrNull { abs(right[it]) })
+        assertTrue("nothing before it", (0 until at).all { left[it] == 0f && right[it] == 0f })
+        // All of it is there, in its own channel and the right way up. Its low notes are turned
+        // as the rendering turns them, which moves a little of it into what follows and makes
+        // nothing louder or quieter.
+        assertEquals(0.5f, left[at], 0.03f)
+        assertEquals(-0.25f, right[at], 0.015f)
+        assertEquals(0.25, energy(left), 0.0025)
+        assertEquals(0.0625, energy(right), 0.0007)
+    }
+
+    @Test
+    fun `and no part of the recording is rounded off on the way`() {
+        // The recording mixed in used to pass the rounding the rendering's peaks are given, and a
+        // full scale note came out at nine tenths of itself with none of the rendering there at all.
+        for (hz in listOf(60.0, 1000.0, 6000.0)) {
+            val note = tone(hz, 1f)
+            val (left, _) = through(stereo(third = true, share = 0f), note, note)
+            assertEquals("$hz Hz", 0.0, decibels(settled(left), settled(note)), 0.05)
+        }
     }
 
     @Test
@@ -967,6 +982,34 @@ class BinauralAudioProcessorTest {
                 assertEquals("right, frame $n", 0.5f * all.second[n] + 0.5f * none.second[n], half.second[n], 1e-6f)
             }
         }
+    }
+
+    @Test
+    fun `less than all of it keeps the low notes as loud as they were`() {
+        // The rendering turns its low notes round against where its peak is: half a turn at the
+        // bottom, a quarter by 150 Hz. Mixed with the recording held back by the peak alone, the
+        // two cancelled: at half strength a note of 40 Hz came out thirteen decibels down. A mix
+        // of two things in step is never quieter than the quieter of them, nor louder than the louder.
+        val seen = StringBuilder()
+        var worst = 0.0
+        for (rate in listOf(44100, 48000)) for (third in listOf(false, true)) for (share in listOf(0.9f, 0.75f, 0.5f, 0.25f, 0f)) {
+            for (hz in listOf(30.0, 40.0, 60.0, 100.0, 150.0, 200.0, 300.0, 500.0, 1000.0)) {
+                val note = tone(hz, 0.3f, rate = rate)
+                val all = settled(through(stereo(third = third, rate = rate), note, note).first)
+                val some = settled(through(stereo(third = third, share = share, rate = rate), note, note).first)
+                val under = decibels(some, minOf(all, settled(note)))
+                val over = decibels(some, maxOf(all, settled(note)))
+                val off = if (under < 0) under else if (over > 0) over else 0.0
+                // Down there the two are in step to within a decibel. Higher up a filtered sound
+                // and the plain one can never be quite in step, at any delay: a couple of
+                // decibels at 1 kHz with the first-order filters is what that costs, and it is
+                // what any mix of a processed sound with the dry one costs.
+                val most = if (hz < 400.0) 1.0 else 2.2
+                if (abs(off) > most) seen.append("%d Hz, strength %.2f, %d, third %s: %+.1f dB; ".format(hz.toInt(), share, rate, third, off))
+                worst = maxOf(worst, abs(off) / most)
+            }
+        }
+        assertTrue(seen.toString(), worst <= 1.0)
     }
 
     @Test
@@ -1325,13 +1368,20 @@ class BinauralAudioProcessorTest {
         val right = hiss(11, 12000)
         val p = spread(1f, strength = 0f)
         val (heardLeft, heardRight) = through(p, left, right)
-        // Late by the split's frame and by what the rendering takes, as the recording beside it always is.
-        val plain = impulse(stereo(third = true, share = 0f), 1f, 1f, 512).first
-        val held = plain.indices.first { plain[it] != 0f } + late
-        for (n in held until 12000) {
-            assertEquals("left at $n", left[n - held], heardLeft[n], 1e-6f)
-            assertEquals("right at $n", right[n - held], heardRight[n], 1e-6f)
+        // Late by the split's frame and by what the rendering takes, as the recording beside it
+        // always is, and with its low notes turned, which noise hardly has: so nearly the same
+        // samples, and at that lag and no other.
+        val (rendered, _) = impulse(stereo(third = true), 1f, 1f, 512)
+        val held = rendered.indices.maxByOrNull { abs(rendered[it]) }!! + late
+        fun match(heard: FloatArray, was: FloatArray, lag: Int): Double {
+            var both = 0.0; var a = 0.0; var b = 0.0
+            for (n in held + 8 until 12000 - 8) { both += heard[n + lag].toDouble() * was[n - held]; a += heard[n + lag].toDouble() * heard[n + lag]; b += was[n - held].toDouble() * was[n - held] }
+            return both / sqrt(a * b)
         }
+        assertEquals(0, (-4..4).maxByOrNull { match(heardLeft, left, it) })
+        assertTrue("left ${match(heardLeft, left, 0)}", match(heardLeft, left, 0) > 0.97)
+        assertTrue("right ${match(heardRight, right, 0)}", match(heardRight, right, 0) > 0.97)
+        assertEquals(0.0, decibels(sqrt(energy(heardLeft.drop(held).toFloatArray())), sqrt(energy(left.dropLast(held).toFloatArray()))), 0.1)
     }
 
     @Test
@@ -1453,6 +1503,49 @@ class BinauralAudioProcessorTest {
         p.configure(stereoFloat())
         p.flush()
         sound("stereo again after surround")
+    }
+
+    @Test
+    fun `the recording brought back beside the rendering brings nothing of before with it`() {
+        val p = stereo(third = true, share = 0.5f, bass = true)
+        through(p, hiss(40, 3000), hiss(41, 3000))
+        p.strength = 1f; p.bassDirect = false
+        through(p, FloatArray(2000), FloatArray(2000))
+        p.strength = 0.5f; p.bassDirect = true
+        val (left, right) = through(p, FloatArray(3000), FloatArray(3000))
+        assertEquals(0.0, energy(left) + energy(right), 0.0)
+    }
+
+    @Test
+    fun `with the air moved out the end of a song is not cut off`() {
+        // The split gives back each frame of the recording one frame late, and the sink ends the
+        // stream at every change of song: what the split still held then was lost, 21 thousandths
+        // of a second off the end of every song.
+        val left = hiss(50, 5000)
+        val right = hiss(51, 5000)
+        val p = spread(1f, strength = 0.7f)
+        val heard = through(p, left, right)
+        p.queueEndOfStream()
+        val tail = p.output
+        assertEquals(late * 8, tail.remaining())
+        val tailLeft = FloatArray(late)
+        val tailRight = FloatArray(late)
+        for (n in 0 until late) { tailLeft[n] = tail.float; tailRight[n] = tail.float }
+        assertTrue(p.isEnded)
+        // It is what a recording with that much silence after it gives, sample for sample.
+        val whole = through(spread(1f, strength = 0.7f), left + FloatArray(late), right + FloatArray(late))
+        assertArrayEquals(whole.first, heard.first + tailLeft, 1e-6f)
+        assertArrayEquals(whole.second, heard.second + tailRight, 1e-6f)
+        assertTrue("the end of the song is in it", energy(tailLeft) > 0.0)
+    }
+
+    @Test
+    fun `without the air nothing is added at the end of a song`() {
+        val p = stereo(third = true, share = 0.5f, bass = true)
+        through(p, hiss(52, 3000), hiss(53, 3000))
+        p.queueEndOfStream()
+        assertEquals(0, p.output.remaining())
+        assertTrue(p.isEnded)
     }
 }
 
